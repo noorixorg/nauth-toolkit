@@ -2,7 +2,7 @@
 
 ## Overview
 
-As of version 0.1.0, NAuth Toolkit separates **public** and **internal** APIs to provide a clearer boundary between consumer-facing services and framework adapter implementation details.
+As of version 0.1.0, nauth-toolkit separates **public** and **internal** APIs to provide a clearer boundary between consumer-facing services and framework adapter implementation details.
 
 ## Motivation
 

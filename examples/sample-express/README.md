@@ -1,4 +1,4 @@
-# NAuth Toolkit - Express Example
+# nauth-toolkit - Express Example
 
 Express.js example application demonstrating nauth-toolkit integration.
 

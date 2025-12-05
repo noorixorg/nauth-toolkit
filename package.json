@@ -57,7 +57,7 @@
     "npm": "USE_YARN_INSTEAD",
     "yarn": ">=1.22.0"
   },
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE",
   "keywords": [
     "nestjs",
     "authentication",
@@ -66,5 +66,9 @@
     "passport",
     "oauth",
     "mfa"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "preview"
+  }
 }

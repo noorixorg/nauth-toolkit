@@ -20,6 +20,11 @@ const config: Config = {
   // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: '/',
 
+  customFields: {
+    defaultAuthor: 'Murtaza Nooruddin',
+    metaAuthor: 'Murtaza Nooruddin',
+  },
+
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
   organizationName: 'Noorix Digital Solutions', // Usually your GitHub org/user name.
@@ -146,7 +151,7 @@ const config: Config = {
     footer: {
       style: 'dark',
 
-      copyright: `Copyright © ${new Date().getFullYear()} nauth-toolkit. Evaluation use only. All rights reserved.`,
+      copyright: `Copyright © ${new Date().getFullYear()} nauth-toolkit by Murtaza Nooruddin. Early Access License - transitioning to open source.`,
     },
     prism: {
       theme: prismThemes.nightOwl,

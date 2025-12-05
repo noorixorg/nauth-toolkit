@@ -1,7 +1,7 @@
 /**
  * @nauth-toolkit/nestjs
  *
- * NestJS adapter for NAuth Toolkit.
+ * NestJS adapter for nauth-toolkit.
  * This package provides NestJS-specific integrations while re-exporting
  * all core functionality for seamless backward compatibility.
  */

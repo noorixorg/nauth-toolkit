@@ -44,22 +44,32 @@ import { AuthChallengeResponseDTO, ChallengeResponseRequestDTO, AuthChallenge } 
 
 Challenge response DTO (primarily used in responses).
 
-| Property              | Type                      | Required | Description                                                      |
-| --------------------- | ------------------------- | -------- | ---------------------------------------------------------------- |
-| `challengeName`       | [`AuthChallenge`](./auth-challenge-dto#authchallenge-enum)           | Yes      | Challenge type. Must be: VERIFY_EMAIL, VERIFY_PHONE, MFA_REQUIRED, MFA_SETUP_REQUIRED, FORCE_CHANGE_PASSWORD. |
-| `session`             | `string`                  | Yes      | Challenge session token. UUID v4 format. Trimmed and lowercased. |
-| `challengeParameters` | `Record<string, unknown>` | Yes      | Challenge-specific parameters object.                            |
-| `userSub`             | `string`                  | Yes      | User identifier. UUID v4 format. Trimmed and lowercased.          |
+| Property              | Type                                   | Required | Description                                                                                                   |
+| --------------------- | -------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------- |
+| `challengeName`       | [`AuthChallenge`](#authchallenge-enum) | Yes      | Challenge type. Must be: VERIFY_EMAIL, VERIFY_PHONE, MFA_REQUIRED, MFA_SETUP_REQUIRED, FORCE_CHANGE_PASSWORD. |
+| `session`             | `string`                               | Yes      | Challenge session token. UUID v4 format. Trimmed and lowercased.                                              |
+| `challengeParameters` | `Record<string, unknown>`              | Yes      | Challenge-specific parameters object.                                                                         |
+| `userSub`             | `string`                               | Yes      | User identifier. UUID v4 format. Trimmed and lowercased.                                                      |
 
 ## ChallengeResponseRequestDTO
 
 Legacy challenge completion request DTO (kept for backwards compatibility).
 
-| Property            | Type                      | Required | Description                                                      |
-| ------------------- | ------------------------- | -------- | ---------------------------------------------------------------- |
-| `session`           | `string`                  | Yes      | Challenge session token. UUID v4 format. Trimmed and lowercased. |
-| `challengeName`      | [`AuthChallenge`](./auth-challenge-dto#authchallenge-enum)           | Yes      | Challenge type enum value.                                       |
-| `challengeResponses` | `Record<string, unknown>` | Yes      | Challenge-specific responses object.                            |
+| Property             | Type                                   | Required | Description                                                      |
+| -------------------- | -------------------------------------- | -------- | ---------------------------------------------------------------- |
+| `session`            | `string`                               | Yes      | Challenge session token. UUID v4 format. Trimmed and lowercased. |
+| `challengeName`      | [`AuthChallenge`](#authchallenge-enum) | Yes      | Challenge type enum value.                                       |
+| `challengeResponses` | `Record<string, unknown>`              | Yes      | Challenge-specific responses object.                             |
+
+## AuthChallenge enum {#authchallenge-enum}
+
+Represents the challenge type returned by the auth flow.
+
+- `VERIFY_EMAIL`
+- `VERIFY_PHONE`
+- `MFA_REQUIRED`
+- `MFA_SETUP_REQUIRED`
+- `FORCE_CHANGE_PASSWORD`
 
 ## Example
 

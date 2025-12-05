@@ -536,7 +536,7 @@ session: {
 },
 ```
 
-## Social Login
+## Social Login {#social-authentication}
 
 Configure OAuth providers.
 
@@ -575,7 +575,7 @@ social: {
 },
 ```
 
-## Multi-Factor Authentication (MFA)
+## Multi-Factor Authentication (MFA) {#multi-factor-authentication}
 
 Configure MFA methods and enforcement.
 

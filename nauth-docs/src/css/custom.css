@@ -45,7 +45,9 @@ article .footer {
   --ifm-container-width: 100%;
 
   /* Typography */
-  --ifm-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --ifm-font-family-base:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans',
+    'Helvetica Neue', sans-serif;
   --ifm-heading-font-weight: 700;
 }
 
@@ -64,17 +66,20 @@ article .footer {
   --ifm-navbar-background-color: rgba(15, 23, 42, 0.95);
   --ifm-footer-background-color: #020617;
 
-
-
   /* Links in dark mode */
   --ifm-link-color: #60a5fa;
   --ifm-link-hover-color: #93c5fd;
 }
 
 .container {
-  max-width: 100%;
-  width: 100%;
+  max-width: 1400px !important;
+  width: 100% !important;
   padding: 50px 20px 0 20px;
+}
+
+/* Expand main content column in docs without touching sidebars */
+.theme-doc-markdown {
+  max-width: none;
 }
 
 .menu {
@@ -136,7 +141,6 @@ article {
   border-radius: 16px;
   padding: 2rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-
 }
 
 [data-theme='dark'] article {
@@ -219,7 +223,6 @@ article {
   padding: 1rem;
   border: 1px solid rgba(59, 130, 246, 0.1);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-
 }
 
 [data-theme='dark'] .table-of-contents {

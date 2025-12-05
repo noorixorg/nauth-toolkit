@@ -34,5 +34,5 @@ fastify.addHook('onRequest', nauth.middleware.csrf);
 
 ## Related
 
-- [CsrfHandler](/docs/api/core/handlers/csrf-handler)
+- [CsrfService](/docs/api/core/services/csrf-service)
 

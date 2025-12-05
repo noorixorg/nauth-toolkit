@@ -128,7 +128,7 @@ export class AuthModule {
 
     // Log initialization
     if (nauthLogger.isEnabled()) {
-      nauthLogger.log('Initializing NAuth Toolkit...');
+      nauthLogger.log('Initializing nauth-toolkit...');
       nauthLogger.debug(`Table prefix: ${config.tablePrefix || 'nauth_'}`);
       nauthLogger.debug(`JWT algorithm: ${config.jwt.algorithm || 'HS256'}`);
     }

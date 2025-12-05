@@ -167,6 +167,7 @@ fastify.post('/signup',
           <div className="terminal-dot terminal-dot-green"></div>
         </div>
         <TypewriterCode
+          key={activeTab}
           code={activeTab === 'nestjs' ? nestjsCode : activeTab === 'express' ? expressCode : fastifyCode}
         />
       </div>

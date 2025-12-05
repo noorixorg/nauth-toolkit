@@ -87,6 +87,10 @@ graph LR
 - **Express** (`@nauth-toolkit/core`): Built-in `ExpressAdapter` with middleware
 - **Fastify** (`@nauth-toolkit/core`): Built-in `FastifyAdapter` with hooks
 
+#### Custom Adapters {#custom-adapters}
+
+If you need to integrate with another framework, implement the adapter interfaces to wrap requests/responses and wire middleware or hooks. The core only depends on these interfaces, so you can swap frameworks without touching business logic.
+
 ### Platform Abstraction
 
 Core handlers operate on generic interfaces, not framework-specific objects:

@@ -71,7 +71,7 @@ JWT_SECRET=your-secret-here
 JWT_REFRESH_SECRET=your-refresh-secret-here
 
 # ========================================
-# NAuth Toolkit Configuration
+# nauth-toolkit Configuration
 # ========================================
 # Email Provider
 NAUTH_EMAIL_PROVIDER=console

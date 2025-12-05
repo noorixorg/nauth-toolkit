@@ -1,5 +1,5 @@
 /**
- * Pino Logger Adapter for NAuth Toolkit
+ * Pino Logger Adapter for nauth-toolkit
  *
  * Implements the LoggerService interface to integrate Pino logger with nauth-toolkit.
  * Supports pino-pretty for development-friendly formatted output.

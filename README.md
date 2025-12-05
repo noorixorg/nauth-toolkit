@@ -1,6 +1,8 @@
-# NAuth Toolkit
+# nauth-toolkit
 
 Drop-in authentication services for NestJS and Node backends. Service-first, framework-agnostic, and designed to plug into your own controllers, routes, and deployment model.
+
+> **Early Access:** Free to use in development and production during preview. Transitioning to open source (MIT/Apache 2.0) at v1.0 GA. Core features will remain free forever. See `LICENSE` for full terms.
 
 ## Overview
 
@@ -30,4 +32,4 @@ Then import the services you need, configure storage, and wire into your own con
 
 ## License & Use
 
-Provided for private evaluation and testing. Commercial use requires permission from Noorix/NAuth.
+Early Access License - free to use, transitioning to open source. See `LICENSE` for full terms.

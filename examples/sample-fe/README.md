@@ -1,6 +1,6 @@
-# NAuth Toolkit - Angular Frontend Demo
+# nauth-toolkit - Angular Frontend Demo
 
-This is a sample Angular frontend application that demonstrates the complete functionality of the NAuth Toolkit authentication system.
+This is a sample Angular frontend application that demonstrates the complete functionality of the nauth-toolkit authentication system.
 
 ## Features
 
@@ -35,7 +35,7 @@ This is a sample Angular frontend application that demonstrates the complete fun
 
 - Node.js 18+ and Yarn
 - Angular CLI
-- Running NAuth Toolkit backend (sample-app)
+- Running nauth-toolkit backend (sample-app)
 
 ### Installation
 
@@ -56,7 +56,7 @@ This is a sample Angular frontend application that demonstrates the complete fun
 
 ### Backend Configuration
 
-Make sure your NAuth Toolkit backend is running on `http://localhost:3000` with the following configuration:
+Make sure your nauth-toolkit backend is running on `http://localhost:3000` with the following configuration:
 
 ```typescript
 // In your backend auth.config.ts
@@ -92,7 +92,7 @@ export const authConfig: NAuthConfig = {
 
 ## API Integration
 
-The app demonstrates all major NAuth Toolkit features:
+The app demonstrates all major nauth-toolkit features:
 
 ### Authentication Endpoints
 

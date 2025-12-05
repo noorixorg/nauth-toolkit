@@ -1,6 +1,6 @@
 # @nauth-toolkit/nestjs
 
-NestJS adapter for NAuth Toolkit. This package provides NestJS-specific integrations including modules, guards, interceptors, and decorators for the platform-agnostic `@nauth-toolkit/core`.
+NestJS adapter for nauth-toolkit. This package provides NestJS-specific integrations including modules, guards, interceptors, and decorators for the platform-agnostic `@nauth-toolkit/core`.
 
 ## Installation
 

@@ -1,7 +1,7 @@
 {
   "name": "@nauth-toolkit/nestjs",
   "version": "0.1.0",
-  "description": "NestJS adapter for NAuth Toolkit - Platform-specific integrations",
+  "description": "NestJS adapter for nauth-toolkit - Platform-specific integrations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -11,7 +11,6 @@
     "test:cov": "jest --coverage",
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
     "lint:fix": "eslint \"{src,test}/**/*.ts\" --fix"
-
   },
   "keywords": [
     "nestjs",
@@ -22,8 +21,8 @@
     "mfa",
     "security"
   ],
-  "author": "NAuth Toolkit",
-  "license": "UNLICENSED",
+  "author": "nauth-toolkit",
+  "license": "SEE LICENSE IN LICENSE",
   "peerDependencies": {
     "@nestjs/common": "^9.0.0 || ^10.0.0 || ^11.0.0",
     "@nestjs/core": "^9.0.0 || ^10.0.0 || ^11.0.0",
@@ -50,6 +49,7 @@
     "typescript": "^5.0.0"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "tag": "preview"
   }
 }

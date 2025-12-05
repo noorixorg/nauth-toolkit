@@ -52,7 +52,7 @@ async function main() {
   // ============================================================================
   // NAuth Initialization
   // ============================================================================
-  logger.info('Initializing NAuth Toolkit...');
+  logger.info('Initializing nauth-toolkit...');
 
   const nauth = await NAuth.create({
     config: authConfig,
@@ -60,7 +60,7 @@ async function main() {
     adapter: new FastifyAdapter(),
   });
 
-  logger.info('NAuth Toolkit initialized');
+  logger.info('nauth-toolkit initialized');
 
   // ============================================================================
   // Fastify App Setup

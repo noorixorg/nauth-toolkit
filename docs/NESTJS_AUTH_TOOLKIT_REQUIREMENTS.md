@@ -8,7 +8,7 @@
 
 - **Core:** `@nauth-toolkit/core` (Platform-agnostic)
 - **NestJS Adapter:** `@nauth-toolkit/nestjs` (NestJS-specific integrations)
-- **License:** MIT | **Target:** NestJS 11+, Node 22+, TypeORM 0.3+
+- **License:** Early Access (transitioning to open source) | **Target:** NestJS 11+, Node 22+, TypeORM 0.3+
 
 ### What Is This?
 
