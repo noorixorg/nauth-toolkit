@@ -1,0 +1,63 @@
+<div class="sms-verification">
+  <h3>{{ title }}</h3>
+  <p class="instruction">{{ displayInstruction }}</p>
+
+  @if (errorMessage) {
+    <div class="error-message">{{ errorMessage }}</div>
+  }
+
+  @if (successMessage) {
+    <div class="success-message">{{ successMessage }}</div>
+  }
+
+  <form [formGroup]="verificationForm" (ngSubmit)="onSubmit()">
+    <div class="form-group">
+      <label for="code">Verification Code</label>
+      <input
+        id="code"
+        type="text"
+        formControlName="code"
+        placeholder="000000"
+        maxlength="6"
+        [disabled]="isLoading"
+        class="code-input"
+      />
+      @if (codeControl?.invalid && codeControl?.touched) {
+        <div class="field-error">
+          @if (codeControl?.errors?.['required']) {
+            Verification code is required
+          }
+          @if (codeControl?.errors?.['pattern']) {
+            Code must be 6 digits
+          }
+        </div>
+      }
+    </div>
+
+    <button type="submit" class="btn-primary" [disabled]="isLoading || !verificationForm.valid">
+      {{ isLoading ? 'Verifying...' : 'Verify Code' }}
+    </button>
+  </form>
+
+  <div class="resend-section">
+    <button
+      type="button"
+      class="btn-link"
+      (click)="onResend()"
+      [disabled]="isLoading || resendCooldown > 0"
+    >
+      @if (resendCooldown > 0) {
+        Resend code in {{ resendCooldown }}s
+      } @else {
+        Resend code
+      }
+    </button>
+  </div>
+
+  @if (showBackButton) {
+    <button type="button" class="btn-link back-link" (click)="onGoBack()" [disabled]="isLoading">
+      ← Choose different method
+    </button>
+  }
+</div>
+

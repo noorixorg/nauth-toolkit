@@ -1,0 +1,17 @@
+node_modules
+dist
+build
+coverage
+*.js
+*.mjs
+.*.js
+*.tsbuildinfo
+*.d.ts
+.turbo
+.next
+.nuxt
+.output
+.vercel
+.netlify
+
+tests/

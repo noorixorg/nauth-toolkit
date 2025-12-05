@@ -1,0 +1,53 @@
+{
+  "name": "@nauth-toolkit/mfa-passkey",
+  "version": "0.1.0",
+  "description": "Passkey/WebAuthn MFA provider for nauth-toolkit",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/src/index.js",
+      "require": "./dist/src/index.js",
+      "types": "./dist/src/index.d.ts"
+    },
+    "./nestjs": {
+      "import": "./dist/nestjs/index.js",
+      "require": "./dist/nestjs/index.js",
+      "types": "./dist/nestjs/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\""
+  },
+  "peerDependencies": {
+    "@nauth-toolkit/core": "^0.1.0",
+    "@simplewebauthn/server": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@simplewebauthn/types": "^10.0.0",
+    "@simplewebauthn/server": "^10.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "keywords": [
+    "nestjs",
+    "authentication",
+    "mfa",
+    "passkey",
+    "webauthn",
+    "fido2"
+  ]
+}

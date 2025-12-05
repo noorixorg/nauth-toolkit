@@ -1,0 +1,468 @@
+<div class="dashboard-container">
+  <div class="dashboard-header">
+    <h1>Dashboard</h1>
+    <div class="header-actions">
+      <button (click)="refreshTokens()" [disabled]="isLoading" class="secondary-button">
+        @if (isLoading) {
+          <span class="spinner"></span>
+        }
+        Refresh Tokens
+      </button>
+      <div class="logout-dropdown" #logoutDropdown>
+        <button
+          (click)="toggleLogoutMenu()"
+          [disabled]="isLoading"
+          class="secondary-button logout-button"
+          [class.menu-open]="showLogoutMenu"
+        >
+          Logout
+          <span class="dropdown-arrow">▼</span>
+        </button>
+        @if (showLogoutMenu) {
+          <div class="logout-menu">
+            <button (click)="logout()" [disabled]="isLoading" class="logout-menu-item">
+              Logout
+            </button>
+            <button (click)="logoutForgetMe()" [disabled]="isLoading" class="logout-menu-item">
+              Forget Me
+            </button>
+            <button (click)="globalLogout()" [disabled]="isLoading" class="logout-menu-item danger">
+              Global Logout
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  @if (errorMessage) {
+    <div class="error-message">
+      {{ errorMessage }}
+    </div>
+  }
+
+  @if (successMessage) {
+    <div class="success-message">
+      {{ successMessage }}
+    </div>
+  }
+
+  <div class="dashboard-content">
+    <!-- User Profile Card -->
+    <div class="profile-card">
+      <div class="card-header">
+        <h2>Profile</h2>
+        <button (click)="editProfile()" class="edit-button">Edit</button>
+      </div>
+
+      <div class="profile-info">
+        <div class="profile-avatar">
+          <div class="avatar-circle">
+            {{ (user?.firstName?.[0] || user?.email?.[0] || 'U').toUpperCase() }}
+          </div>
+        </div>
+
+        <div class="profile-details">
+          <h3>{{ getUserDisplayName() }}</h3>
+          <p class="email">{{ user?.email }}</p>
+          @if (user?.phone) {
+            <p class="phone">{{ user!.phone }}</p>
+          }
+          <div class="verification-status">
+            <span [class.verified]="user?.isEmailVerified" class="status-badge">
+              {{ user?.isEmailVerified ? '✓ Email Verified' : '⚠ Email Not Verified' }}
+            </span>
+            @if (user?.phone) {
+              <span [class.verified]="user?.isPhoneVerified" class="status-badge">
+                {{ user?.isPhoneVerified ? '✓ Phone Verified' : '⚠ Phone Not Verified' }}
+              </span>
+            }
+          </div>
+        </div>
+      </div>
+
+      @if (!user?.isEmailVerified) {
+        <div class="verification-prompt">
+          <p>Please verify your email address to access all features.</p>
+          <button (click)="verifyEmail()" class="primary-button">Verify Email</button>
+        </div>
+      }
+    </div>
+
+    <!-- Authentication Methods Card -->
+    <div class="auth-methods-card">
+      <div class="card-header">
+        <h2>Authentication Methods</h2>
+      </div>
+
+      <div class="auth-summary">
+        <p><strong>Active Methods:</strong> {{ getAuthMethodsSummary() }}</p>
+      </div>
+
+      <!-- Password Change Request -->
+      <div class="password-change-section">
+        <div class="section-content">
+          <h3>Password Management</h3>
+          <button (click)="requestPasswordChange()" [disabled]="isLoading" class="warning-button">
+            @if (isLoading) {
+              <span class="spinner"></span>
+            }
+            Force Password Change on Next Login
+          </button>
+          <p class="helper-text">
+            This will require you to change your password the next time you sign in.
+          </p>
+        </div>
+      </div>
+
+      <!-- Social Accounts -->
+      @if (socialAccounts.length > 0) {
+        <div class="social-accounts">
+          <h3>Linked Social Accounts</h3>
+          <div class="social-account-list">
+            @for (provider of socialAccounts; track provider) {
+              <div class="social-account-item">
+                <div class="account-info">
+                  <span class="provider-icon">{{ getProviderIcon(provider) }}</span>
+                  <div class="account-details">
+                    <span class="provider-name">{{ getProviderDisplayName(provider) }}</span>
+                  </div>
+                </div>
+                @if (canUnlinkAccount(provider)) {
+                  <button class="unlink-button" (click)="unlinkAccount(provider)">Unlink</button>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Add Social Account -->
+      <div class="add-social-account">
+        <h3>Add Social Account</h3>
+        <p>Link additional social accounts for easier login.</p>
+        <div class="social-buttons">
+          <button (click)="linkSocialAccount('google')" class="social-button google">
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+              />
+            </svg>
+            Link Google
+          </button>
+
+          <button (click)="linkSocialAccount('apple')" class="social-button apple">
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <path
+                fill="#000000"
+                d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"
+              />
+            </svg>
+            Link Apple
+          </button>
+
+          <button (click)="linkSocialAccount('facebook')" class="social-button facebook">
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <path
+                fill="#1877F2"
+                d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
+              />
+            </svg>
+            Link Facebook
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MFA Status Card -->
+    @if (mfaStatus !== null) {
+      <div class="mfa-status-card">
+        <div class="card-header">
+          <h2>Multi-Factor Authentication</h2>
+          @if (!mfaStatus.enabled) {
+            <button (click)="openMFASetupDialog()" [disabled]="isLoading" class="primary-button">
+              Setup MFA
+            </button>
+          }
+        </div>
+
+        @if (isLoadingMFA) {
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading MFA status...</p>
+          </div>
+        }
+
+        @if (!isLoadingMFA && mfaStatus) {
+          <div>
+            <!-- MFA Status Summary -->
+            <div class="mfa-status-summary">
+              <div
+                class="status-indicator"
+                [class.enabled]="mfaStatus.enabled"
+                [class.required]="mfaStatus.required"
+              >
+                <span class="status-icon">{{ mfaStatus.enabled ? '✓' : '⚠' }}</span>
+                <div class="status-text">
+                  <strong>
+                    {{
+                      mfaStatus.enabled
+                        ? 'MFA Enabled'
+                        : mfaStatus.required
+                          ? 'MFA Required'
+                          : 'MFA Not Enabled'
+                    }}
+                  </strong>
+                  @if (mfaStatus.required && !mfaStatus.enabled) {
+                    <span class="status-subtext"> Setup required for account security </span>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <!-- MFA Methods List -->
+            <div class="mfa-methods-section">
+              <h3>MFA Methods</h3>
+              <div class="mfa-method-list">
+                @for (method of getAvailableMethodsForDisplay(); track method) {
+                  <!-- Show individual passkey devices as separate rows -->
+                  @if (method === 'passkey' && isMethodConfigured('passkey')) {
+                    @for (device of getPasskeyDevices(); track device.id) {
+                      <div class="mfa-method-item configured">
+                        <span class="method-icon">🔑</span>
+                        <span class="method-name">{{ device.name }}</span>
+                        <div class="method-actions">
+                          <div class="method-buttons">
+                            @if (getPreferredMFAMethod() === 'passkey') {
+                              <span class="preferred-badge">Preferred</span>
+                            } @else {
+                              <button
+                                type="button"
+                                class="secondary-button small"
+                                (click)="setPreferredMethod('passkey')"
+                                [disabled]="isLoading"
+                              >
+                                Set Preferred
+                              </button>
+                            }
+                            <button
+                              type="button"
+                              class="icon-button danger"
+                              (click)="removeMFAMethod('passkey')"
+                              [disabled]="isLoading"
+                              title="Remove all passkey devices"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    }
+                    <!-- Add button for passkey -->
+                    <div class="mfa-method-item add-button-row">
+                      <span class="method-icon">🔑</span>
+                      <span class="method-name">Add Passkey</span>
+                      <div class="method-actions">
+                        <button
+                          type="button"
+                          class="secondary-button small"
+                          (click)="openMFASetupDialogForMethod('passkey')"
+                          [disabled]="isLoading"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  } @else {
+                    <!-- Regular method display (SMS, TOTP, or unconfigured passkey) -->
+                    <div class="mfa-method-item" [class.configured]="isMethodConfigured(method)">
+                      <span class="method-icon">{{ getMFAMethodIcon(method) }}</span>
+                      <span class="method-name">{{ getMFAMethodDisplayName(method) }}</span>
+                      <div class="method-actions">
+                        @if (isMethodConfigured(method)) {
+                          <div class="method-buttons">
+                            @if (getPreferredMFAMethod() === method) {
+                              <span class="preferred-badge">Preferred</span>
+                            } @else {
+                              <button
+                                type="button"
+                                class="secondary-button small"
+                                (click)="setPreferredMethod(method)"
+                                [disabled]="isLoading"
+                              >
+                                Set Preferred
+                              </button>
+                            }
+                            <button
+                              type="button"
+                              class="icon-button danger"
+                              (click)="removeMFAMethod(method)"
+                              [disabled]="isLoading"
+                              title="Remove this MFA method"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        } @else {
+                          @if (method === 'sms' || method === 'email' || method === 'totp' || method === 'passkey') {
+                            <button
+                              type="button"
+                              class="secondary-button small"
+                              (click)="openMFASetupDialogForMethod(method)"
+                              [disabled]="isLoading"
+                            >
+                              Add
+                            </button>
+                          }
+                        }
+                      </div>
+                    </div>
+                  }
+                }
+              </div>
+            </div>
+
+            <!-- Backup Codes Status -->
+            @if (mfaStatus.enabled) {
+              <div class="backup-codes-section">
+                <h3>Recovery Options</h3>
+                <div class="backup-status">
+                  <span class="method-icon">{{ getMFAMethodIcon('backup') }}</span>
+                  <span class="method-name">
+                    {{
+                      mfaStatus.hasBackupCodes
+                        ? 'Backup codes available'
+                        : 'No backup codes configured'
+                    }}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  class="secondary-button small"
+                  (click)="generateBackupCodes()"
+                  [disabled]="isLoading"
+                >
+                  {{
+                    mfaStatus.hasBackupCodes ? 'Regenerate Backup Codes' : 'Generate Backup Codes'
+                  }}
+                </button>
+              </div>
+            }
+
+            <!-- Warning if MFA is required but not configured -->
+            @if (isMFARequiredButNotConfigured()) {
+              <div class="mfa-warning">
+                <p>
+                  <strong>⚠️ Action Required:</strong> MFA is required for your account. Please set
+                  up at least one MFA method.
+                </p>
+              </div>
+            }
+
+            <!-- MFA Exemption Section -->
+            <div class="mfa-exemption-section">
+              <h3>MFA Exemption</h3>
+              <div class="exemption-status">
+                @if (mfaStatus.mfaExempt) {
+                  <div class="exemption-active">
+                    <span class="status-icon">✓</span>
+                    <div class="exemption-details">
+                      <p><strong>MFA Exemption Active</strong></p>
+                      @if (mfaStatus.mfaExemptReason) {
+                        <p class="exemption-reason">Reason: {{ mfaStatus.mfaExemptReason }}</p>
+                      }
+                      @if (mfaStatus.mfaExemptGrantedAt) {
+                        <p class="exemption-date">
+                          Granted: {{ mfaStatus.mfaExemptGrantedAt | date: 'short' }}
+                        </p>
+                      }
+                      @if (mfaStatus.mfaExemptGrantedBy) {
+                        <p class="exemption-granted-by">By: {{ mfaStatus.mfaExemptGrantedBy }}</p>
+                      }
+                      <p class="helper-text">
+                        You are exempt from MFA requirements. Other security measures still apply.
+                      </p>
+                    </div>
+                  </div>
+                } @else {
+                  <div class="exemption-inactive">
+                    <span class="status-icon">ℹ</span>
+                    <div class="exemption-details">
+                      <p><strong>MFA Exemption Not Active</strong></p>
+                      <p class="helper-text">
+                        MFA requirements apply normally. You can request an exemption for testing
+                        purposes.
+                      </p>
+                    </div>
+                  </div>
+                }
+              </div>
+              <button
+                type="button"
+                [class.danger-button]="mfaStatus.mfaExempt"
+                [class.warning-button]="!mfaStatus.mfaExempt"
+                [disabled]="isLoading"
+                (click)="toggleMFAExemption()"
+              >
+                @if (isLoading) {
+                  <span class="spinner"></span>
+                }
+                {{ mfaStatus.mfaExempt ? 'Revoke Exemption' : 'Grant Exemption' }}
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- MFA Setup Dialog -->
+    @if (showMFASetupDialog) {
+      <div class="mfa-setup-dialog-overlay" (click)="closeMFASetupDialog()">
+        <div class="mfa-setup-dialog" (click)="$event.stopPropagation()">
+          <div class="dialog-header">
+            <h2>Setup Multi-Factor Authentication</h2>
+            <button type="button" class="close-button" (click)="closeMFASetupDialog()">×</button>
+          </div>
+
+          @if (getUnconfiguredMethods().length === 0 && mfaStatus && !preselectedMFAMethod) {
+            <div class="helper-text">All available MFA methods are already configured.</div>
+            <div class="helper-text">
+              Note: You can still add additional passkey devices by clicking "Add Passkey" in the
+              MFA Methods section.
+            </div>
+          } @else {
+            <app-mfa-setup-content
+              mode="dialog"
+              [allowedMethods]="
+                preselectedMFAMethod ? [preselectedMFAMethod] : getUnconfiguredMethods()
+              "
+              [userPhone]="user?.phone"
+              [preselectedMethod]="preselectedMFAMethod"
+              (completed)="onMFASetupCompleted($event)"
+              (cancelled)="closeMFASetupDialog()"
+            />
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Authentication Events Card -->
+    <div class="audit-events-card">
+      <app-audit-events />
+    </div>
+  </div>
+</div>

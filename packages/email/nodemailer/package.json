@@ -1,0 +1,51 @@
+{
+  "name": "@nauth-toolkit/email-nodemailer",
+  "version": "0.1.0",
+  "description": "Nodemailer email provider for nauth-toolkit",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src/templates/default/**/*.hbs"
+  ],
+  "scripts": {
+    "build": "npm run build-templates && tsc -b && npm run copy-templates",
+    "build-templates": "node src/templates/mjml/build-templates.js",
+    "copy-templates": "cp -r src/templates/default dist/templates/",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "handlebars": "^4.7.8",
+    "nodemailer": "^6.9.7"
+  },
+  "peerDependencies": {
+    "@nauth-toolkit/core": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/handlebars": "^4.1.0",
+    "@types/mjml": "^4.7.4",
+    "@types/node": "^22.0.0",
+    "@types/nodemailer": "^6.4.14",
+    "mjml": "^4.17.1",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "keywords": [
+    "nestjs",
+    "authentication",
+    "email",
+    "nodemailer",
+    "smtp"
+  ]
+}

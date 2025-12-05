@@ -1,0 +1,65 @@
+{
+  "name": "nauth-toolkit",
+  "version": "0.1.0",
+  "description": "Drop-in authentication toolkit for NestJS backends",
+  "private": true,
+  "workspaces": [
+    "packages/core",
+    "packages/nestjs",
+    "packages/database/*",
+    "packages/email/*",
+    "packages/sms/*",
+    "packages/social/*",
+    "packages/mfa/*",
+    "packages/storage/*",
+    "examples/*"
+  ],
+  "packageManager": "yarn@1.22.0",
+  "scripts": {
+    "preinstall": "node -e \"if(!process.env.npm_execpath||process.env.npm_execpath.includes('npm')){console.error('\\n❌ ERROR: This monorepo requires Yarn, not npm!\\nPlease use: yarn install\\n');process.exit(1)}\"",
+    "build": "yarn workspace @nauth-toolkit/core build",
+    "build:all": "yarn clean && yarn build:core && yarn build:deps && yarn build:nestjs && yarn build:providers",
+    "build:core": "yarn workspace @nauth-toolkit/core build",
+    "build:nestjs": "yarn workspace @nauth-toolkit/nestjs build",
+    "build:deps": "yarn workspace @nauth-toolkit/database-typeorm-postgres build && yarn workspace @nauth-toolkit/database-typeorm-mysql build && yarn workspace @nauth-toolkit/email-console build && yarn workspace @nauth-toolkit/email-nodemailer build && yarn workspace @nauth-toolkit/sms-console build && yarn workspace @nauth-toolkit/sms-aws-sns build && yarn workspace @nauth-toolkit/storage-database build && yarn workspace @nauth-toolkit/storage-redis build",
+    "build:providers": "yarn workspace @nauth-toolkit/social-google build && yarn workspace @nauth-toolkit/social-apple build && yarn workspace @nauth-toolkit/social-facebook build && yarn workspace @nauth-toolkit/mfa-totp build && yarn workspace @nauth-toolkit/mfa-sms build && yarn workspace @nauth-toolkit/mfa-email build && yarn workspace @nauth-toolkit/mfa-passkey build",
+    "clean": "find packages -name 'dist' -type d -exec rm -rf {} + 2>/dev/null || true && find packages -name '*.tsbuildinfo' -type f -delete 2>/dev/null || true",
+    "test": "yarn workspace @nauth-toolkit/core test",
+    "test:all": "yarn workspaces run test",
+    "lint": "yarn workspaces run lint",
+    "lint:fix": "yarn workspaces run lint:fix && yarn format",
+    "format": "yarn workspaces run format",
+    "format:check": "yarn workspaces run format:check",
+    "fix": "yarn lint:fix",
+    "kill": "kill -9 $(lsof -t -i :3000) "
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.2",
+    "@typescript-eslint/parser": "^8.46.2",
+    "eslint": "^9.38.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-unused-imports": "^4.3.0",
+    "playwright": "^1.56.1",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": "USE_YARN_INSTEAD",
+    "yarn": ">=1.22.0"
+  },
+  "license": "MIT",
+  "keywords": [
+    "nestjs",
+    "authentication",
+    "auth",
+    "jwt",
+    "passport",
+    "oauth",
+    "mfa"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "label": "Core Package",
+  "position": 1,
+  "link": {
+    "type": "generated-index",
+    "description": "Platform-agnostic core APIs - services, DTOs, interfaces, and utilities"
+  }
+}

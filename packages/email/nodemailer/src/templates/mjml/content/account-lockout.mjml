@@ -1,0 +1,36 @@
+<!-- Account Lockout Email Content -->
+<mj-text>
+  Your account has been temporarily locked for security reasons.
+</mj-text>
+
+<mj-text css-class="text-small alert-box alert-danger" padding="16px 24px">
+  <mj-raw>
+    {{#if reason}}<strong>Reason:</strong> {{reason}}<br/>{{/if}}
+    {{#if durationMinutes}}<strong>Duration:</strong> Your account will be automatically unlocked in {{durationMinutes}} minutes.{{/if}}
+  </mj-raw>
+</mj-text>
+
+<mj-text css-class="heading" padding="24px 24px 8px 24px">
+  What happened?
+</mj-text>
+<mj-text css-class="text-small" padding="0 24px 16px 24px">
+  We detected multiple failed login attempts or suspicious activity on your account. As a security measure, we've temporarily locked your account to protect it.
+</mj-text>
+
+<mj-text css-class="heading" padding="16px 24px 8px 24px">
+  What should I do?
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 16px 24px">
+  <ul>
+    <mj-raw>
+      {{#if durationMinutes}}<li>Wait {{durationMinutes}} minutes for automatic unlock</li>{{/if}}
+    </mj-raw>
+    <li>If this was you, try logging in again after the lockout period</li>
+    <mj-raw>
+      {{#if supportEmail}}<li>If this wasn't you, please contact support immediately at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a></li>{{/if}}
+    </mj-raw>
+    <li>Consider changing your password after unlock</li>
+  </ul>
+</mj-text>
+

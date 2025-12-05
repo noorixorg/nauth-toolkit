@@ -1,0 +1,201 @@
+<div class="verify-container">
+  <div class="verify-card">
+    <div class="verify-header">
+      <h1>
+        {{ isMFAChallenge
+          ? 'Multi-Factor Authentication'
+          : requiresPhoneCollection
+            ? 'Add Phone Number'
+            : 'Verify Your Phone' }}
+      </h1>
+      @if (isMFAChallenge && !requiresPhoneCollection) {
+        @if (showMethodSelector) {
+          <p>Choose an authentication method to continue</p>
+        } @else if (mfaMethod === 'passkey') {
+          <p>Use your passkey to complete authentication</p>
+        } @else if (mfaMethod === 'totp') {
+          <p>
+            Enter the 6-digit code from your authenticator app to complete your login.
+          </p>
+        } @else if (mfaMethod === 'backup') {
+          <p>
+            Enter one of your backup recovery codes to complete your login.
+          </p>
+        } @else {
+          <p>
+            We've sent a 6-digit verification code to <strong>{{ userPhone }}</strong
+            >. Enter the code to complete your login.
+          </p>
+        }
+      }
+      @if (!isMFAChallenge && !requiresPhoneCollection) {
+        <p>
+          We've sent a 6-digit verification code to <strong>{{ userPhone }}</strong
+          >.
+        </p>
+      }
+      @if (requiresPhoneCollection) {
+        <p>Please provide your phone number to complete verification.</p>
+      }
+    </div>
+
+    <!-- Messages -->
+    @if (errorMessage) {
+      <div class="error-message">
+        {{ errorMessage }}
+      </div>
+    }
+
+    @if (successMessage) {
+      <div class="success-message">
+        {{ successMessage }}
+      </div>
+    }
+
+    <!-- MFA Method Selector (when multiple methods available) -->
+    @if (isMFAChallenge && showMethodSelector && !requiresPhoneCollection) {
+      <app-mfa-method-selector
+        [allowedMethods]="availableMethods"
+        [isLoading]="isLoading"
+        [userPhone]="userPhone"
+        (methodSelected)="onMethodSelected($event)"
+      />
+    }
+
+    <!-- Passkey Verification (when passkey is selected) -->
+    @if (isMFAChallenge && mfaMethod === 'passkey' && !showMethodSelector && !requiresPhoneCollection) {
+      <div class="passkey-verification">
+        @if (passkeyVerifying || isLoading) {
+          <div class="passkey-loading">
+            <p>Please use your passkey to authenticate...</p>
+            @if (isLoading) {
+              <div class="spinner"></div>
+            }
+          </div>
+        } @else {
+          <button
+            type="button"
+            class="primary-button"
+            (click)="startPasskeyVerification()"
+            [disabled]="isLoading"
+          >
+            Authenticate with Passkey
+          </button>
+        }
+      </div>
+    }
+
+    <!-- Phone Collection Form (for social users without phone) -->
+    @if (requiresPhoneCollection) {
+      <form [formGroup]="phoneCollectionForm" (ngSubmit)="onCollectPhone()" class="verify-form">
+        <div class="form-group">
+          <label for="phone">Phone Number</label>
+          <input
+            type="tel"
+            id="phone"
+            formControlName="phone"
+            [class.error]="phoneControls['phone'].invalid && phoneControls['phone'].touched"
+            placeholder="+1234567890"
+          />
+          @if (phoneControls['phone'].invalid && phoneControls['phone'].touched) {
+            <div class="field-error">
+              @if (phoneControls['phone'].errors?.['required']) {
+                <span>Phone number is required</span>
+              }
+              @if (phoneControls['phone'].errors?.['pattern']) {
+                <span>Please enter a valid phone in E.164 format (e.g., +1234567890)</span>
+              }
+            </div>
+          }
+        </div>
+
+        <button
+          type="submit"
+          [disabled]="phoneCollectionForm.invalid || isLoading"
+          class="primary-button"
+        >
+          @if (isLoading) {
+            <span class="spinner"></span>
+          }
+          {{ isLoading ? 'Adding Phone...' : 'Add Phone & Send Code' }}
+        </button>
+      </form>
+    }
+
+    <!-- Verification Form (for SMS/TOTP/Backup) -->
+    @if (!requiresPhoneCollection && (!isMFAChallenge || (isMFAChallenge && mfaMethod !== 'passkey' && !showMethodSelector))) {
+      <form [formGroup]="verificationForm" (ngSubmit)="onVerify()" class="verify-form">
+        <div class="form-group">
+          <label for="code">
+            @if (isMFAChallenge && mfaMethod === 'backup') {
+              Backup Recovery Code
+            } @else {
+              Verification Code
+            }
+          </label>
+          <input
+            type="text"
+            id="code"
+            formControlName="code"
+            [class.error]="
+              verificationControls['code'].invalid && verificationControls['code'].touched
+            "
+            [placeholder]="
+              isMFAChallenge && mfaMethod === 'backup'
+                ? 'Enter backup code'
+                : isMFAChallenge && mfaMethod === 'totp'
+                  ? 'Enter 6-digit code from authenticator'
+                  : 'Enter 6-digit code'
+            "
+            [maxlength]="isMFAChallenge && mfaMethod === 'backup' ? 12 : 6"
+            [pattern]="isMFAChallenge && mfaMethod === 'backup' ? '[A-Z0-9]*' : '[0-9]*'"
+            inputmode="numeric"
+          />
+          @if (verificationControls['code'].invalid && verificationControls['code'].touched) {
+            <div class="field-error">
+              @if (verificationControls['code'].errors?.['required']) {
+                <span>Verification code is required</span>
+              }
+              @if (verificationControls['code'].errors?.['pattern']) {
+                <span>Please enter a valid 6-digit code</span>
+              }
+            </div>
+          }
+        </div>
+
+        <button
+          type="submit"
+          [disabled]="verificationForm.invalid || isLoading"
+          class="primary-button"
+          [class.disabled]="verificationForm.invalid || isLoading"
+        >
+          @if (isLoading) {
+            <span class="spinner"></span>
+            <span>Verifying...</span>
+          } @else {
+            <span>{{ isMFAChallenge ? 'Verify Code' : 'Verify Phone' }}</span>
+          }
+        </button>
+      </form>
+    }
+
+    <!-- Resend Section (only for SMS/Email MFA or phone verification, not TOTP or backup) -->
+    @if (!requiresPhoneCollection && (!isMFAChallenge || (isMFAChallenge && (mfaMethod === 'sms' || mfaMethod === 'email')))) {
+      <div class="resend-section">
+        <p>Didn't receive the code?</p>
+        <button
+          (click)="resendCode()"
+          [disabled]="isLoading || resendCooldown > 0 || !userPhone || userPhone === 'your phone'"
+          class="secondary-button"
+        >
+          {{ resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code' }}
+        </button>
+      </div>
+    }
+
+    <!-- Back to Login -->
+    <div class="back-section">
+      <button (click)="router.navigate(['/login'])" class="link-button">← Back to Login</button>
+    </div>
+  </div>
+</div>

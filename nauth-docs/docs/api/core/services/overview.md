@@ -1,0 +1,149 @@
+---
+title: Core Services
+description: Platform-agnostic services for authentication, MFA, social auth, and more
+sidebar_position: 0
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Core Services
+
+Platform-agnostic services that power nauth-toolkit. These services work with any Node.js framework.
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+import { AuthService } from '@nauth-toolkit/nestjs';
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+import { AuthService } from '@nauth-toolkit/core';
+// Access via nauth.authService after NAuth.create()
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+import { AuthService } from '@nauth-toolkit/core';
+// Access via nauth.authService after NAuth.create()
+```
+
+</TabItem>
+</Tabs>
+
+## Authentication Core
+
+| Service                       | Description                                                            |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| [AuthService](./auth-service) | Main authentication orchestration - signup, login, password management |
+
+## Verification Services
+
+| Service                                                  | Description                                           |
+| -------------------------------------------------------- | ----------------------------------------------------- |
+| [EmailVerificationService](./email-verification-service) | Email verification code generation and validation     |
+| [PhoneVerificationService](./phone-verification-service) | Phone/SMS verification code generation and validation |
+
+## Social Authentication
+
+| Service                                    | Description                                                            |
+| ------------------------------------------ | ---------------------------------------------------------------------- |
+| [SocialAuthService](./social-auth-service) | Complete API for OAuth authentication, account linking, and management |
+
+## Multi-Factor Authentication
+
+| Service                     | Description                             |
+| --------------------------- | --------------------------------------- |
+| [MFAService](./mfa-service) | MFA provider registry and orchestration |
+
+## Client Information & Security
+
+| Service                                    | Description                                         |
+| ------------------------------------------ | --------------------------------------------------- |
+| [ClientInfoService](./client-info-service) | Extract IP address, user-agent, and session context |
+
+## Audit & Logging
+
+| Service                                  | Description                                                |
+| ---------------------------------------- | ---------------------------------------------------------- |
+| [AuthAuditService](./auth-audit-service) | Audit trail logging for authentication and security events |
+
+## Usage Pattern
+
+All services are injected and configured automatically by the framework adapter:
+
+<Tabs groupId="platform">
+  <TabItem value="nestjs" label="NestJS" default>
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { AuthService } from '@nauth-toolkit/nestjs';
+
+@Injectable()
+export class MyService {
+  constructor(private readonly authService: AuthService) {}
+
+  async example() {
+    const result = await this.authService.signup({
+      email: 'user@example.com',
+      password: 'SecurePassword123!',
+    });
+  }
+}
+```
+
+  </TabItem>
+  <TabItem value="express" label="Express">
+
+```typescript
+import { NAuth, ExpressAdapter } from '@nauth-toolkit/core';
+
+const nauth = await NAuth.create({
+  config: authConfig,
+  dataSource,
+  adapter: new ExpressAdapter(),
+});
+
+// Access services from nauth instance
+const result = await nauth.authService.signup({
+  email: 'user@example.com',
+  password: 'SecurePassword123!',
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+import { NAuth, FastifyAdapter, withNAuthContext } from '@nauth-toolkit/core';
+
+const nauth = await NAuth.create({
+  config: authConfig,
+  dataSource,
+  adapter: new FastifyAdapter(),
+});
+
+// Access services from nauth instance (wrap handlers with withNAuthContext)
+fastify.post(
+  '/signup',
+  { preHandler: nauth.helpers.public() },
+  withNAuthContext(async (req) => {
+    return nauth.authService.signup(req.body);
+  }),
+);
+```
+
+  </TabItem>
+</Tabs>
+
+## Related Documentation
+
+- [Configuration](/docs/concepts/configuration) - Configure services
+- [DTOs](/docs/api/core/dto/overview) - Data transfer objects
+- [Challenge System](/docs/concepts/challenge-system) - Understanding challenge flows

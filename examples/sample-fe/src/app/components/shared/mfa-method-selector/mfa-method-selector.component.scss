@@ -1,0 +1,57 @@
+.mfa-method-selector {
+  padding: 0; // No padding - let parent control spacing
+  box-sizing: border-box;
+  width: 100%;
+
+  h3 {
+    margin: 0 0 1.5rem 0;
+    color: #333;
+    font-size: 1.25rem;
+  }
+}
+
+.method-options {
+  display: grid;
+  gap: 1rem;
+}
+
+.method-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover:not(:disabled) {
+    border-color: #667eea;
+    background: #f8f9ff;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .method-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .method-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+  }
+
+  .method-description {
+    font-size: 0.9rem;
+    color: #666;
+    text-align: center;
+  }
+}
+

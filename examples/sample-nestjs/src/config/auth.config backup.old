@@ -1,0 +1,363 @@
+import { Logger } from '@nestjs/common';
+import { NAuthModuleConfig, MFAMethod, createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
+import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
+import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
+
+/**
+ * Authentication Configuration
+ * Complete configuration example for nauth-toolkit with all available options.
+ * Key Principles: Consumer apps choose env var names, all values passed explicitly, strongly typed
+ */
+export const authConfig: NAuthModuleConfig = {
+  // ============================================================================
+  // Database Configuration
+  // ============================================================================
+  tablePrefix: 'nauth_', // Table prefix for all nauth-toolkit tables (default: 'nauth_')
+
+  // ============================================================================
+  // Storage Adapter Configuration
+  // ============================================================================
+  // Transient state storage for rate limits, locks, and token reuse tracking.
+  // Options: Memory (dev/single-server), Database (multi-server), Redis (production).
+  storageAdapter: createRedisStorageAdapter(process.env.REDIS_URL || 'redis://localhost:6379'), // Storage adapter (default: DatabaseStorageAdapter if entities available)
+  // Alternative: Redis adapter (for high-performance multi-server deployments)
+  // import { createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
+  // storageAdapter: createRedisStorageAdapter(process.env.REDIS_URL),
+  // Alternative: Redis Cluster adapter (for high-availability production deployments)
+  // import { createRedisClusterAdapter } from '@nauth-toolkit/nestjs';
+  // storageAdapter: createRedisClusterAdapter([
+  //   { url: process.env.REDIS_NODE_1 || 'redis://redis-node-1:6379' },
+  //   { url: process.env.REDIS_NODE_2 || 'redis://redis-node-2:6379' },
+  //   { url: process.env.REDIS_NODE_3 || 'redis://redis-node-3:6379' },
+  // ]),
+  // Alternative: Let system auto-detect (uses DatabaseStorageAdapter if entities available)
+  // storageAdapter: undefined,
+
+  // ============================================================================
+  // JWT Configuration (REQUIRED)
+  // ============================================================================
+  jwt: {
+    algorithm: 'HS256', // JWT signing algorithm: HS256=symmetric, RS256=asymmetric (default: 'HS256')
+    issuer: 'com.noorix.nauth', // Token issuer (identifies who issued the token, e.g., 'api.myapp.com')
+    audience: ['web', 'mobile'], // Token audience (identifies intended recipients, e.g., 'myapp-api' or ['web', 'mobile'])
+    accessToken: {
+      secret: process.env.JWT_SECRET, // Secret key for signing (HS256) or private key (RS256). Min 32 chars for HS256
+      expiresIn: '5m', // Expiration time (default: '15m', e.g., '1h', 900 seconds)
+    },
+    refreshToken: {
+      secret: process.env.JWT_REFRESH_SECRET as string, // Secret key (must differ from access token secret, min 32 chars)
+      expiresIn: '7d', // Expiration time, typically days or weeks (default: '7d', e.g., '30d')
+      rotation: true, // Generate new refresh token on each use (default: true)
+      reuseDetection: true, // Detect if refresh token is reused - security breach detection (default: true)
+    },
+  },
+
+  // ============================================================================
+  // Password Policy Configuration (OPTIONAL)
+  // ============================================================================
+  password: {
+    minLength: 8, // Minimum password length (default: 8)
+    maxLength: 128, // Maximum password length (default: 128)
+    requireUppercase: true, // Require uppercase letters (default: true)
+    requireLowercase: true, // Require lowercase letters (default: true)
+    requireNumbers: true, // Require numbers (default: true)
+    requireSpecialChars: true, // Require special characters (default: true)
+    specialChars: '!@#$%^&*()_+-=[]{}|;:,.<>?', // Allowed special characters (default: '!@#$%^&*()_+-=[]{}|;:,.<>?')
+    preventCommon: true, // Block common passwords (e.g., password, 123456) (default: true)
+    preventUserInfo: true, // Prevent username/email from appearing in password (default: true)
+    historyCount: 5, // Number of previous passwords to prevent reuse (default: 5)
+    expiryDays: 0, // Password expiry in days (0 = never expires, default: 0)
+  },
+
+  // ============================================================================
+  // Signup & Login Configuration (OPTIONAL)
+  // ============================================================================
+  signup: {
+    enabled: true, // Enable user signups (if false, returns 403) (default: true)
+    verificationMethod: 'none', // Verification requirement: 'none', 'email', 'phone', 'both' (default: 'email'). NOTE: Requires emailProvider (if email/both) and smsProvider (if phone/both)
+    allowDuplicatePhones: false, // Allow duplicate phone numbers (verification becomes user-specific) (default: false)
+  },
+  login: {
+    identifierType: undefined, // Login identifier type: 'email', 'username', 'phone', 'email_or_username' (default: undefined - all types accepted)
+    // identifierType: 'email', // Only email
+    // identifierType: 'email_or_username', // Email or username (no phone)
+  },
+
+  // ============================================================================
+  // Email Provider Configuration (OPTIONAL)
+  // ============================================================================
+  // Sends verification emails, password resets, etc.
+  // Options: ConsoleEmailProvider (dev), NodemailerEmailProvider (production SMTP)
+  emailProvider: new ConsoleEmailProvider(),
+  // import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+  // emailProvider: new NodemailerEmailProvider({
+  //   transport: { host: process.env.SMTP_HOST, port: 587, secure: false, auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } },
+  //   defaults: { from: process.env.EMAIL_FROM }
+  // }),
+
+  // ============================================================================
+  // SMS Provider Configuration (OPTIONAL)
+  // ============================================================================
+  // Sends phone verification codes.
+  // Options: ConsoleSMSProvider (dev), AWSSNSProvider (production)
+  smsProvider: new ConsoleSMSProvider(),
+  // import { AWSSNSProvider } from '@nauth-toolkit/sms-aws-sns';
+  // smsProvider: new AWSSNSProvider({ region: 'us-east-1', accessKeyId: process.env.AWS_ACCESS_KEY_ID, secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY }),
+
+  // ============================================================================
+  // Email Verification Settings (OPTIONAL)
+  // ============================================================================
+  // Controls verification behavior (code expiry, rate limits). Email provider controls delivery.
+  email: {
+    templates: {
+      appName: process.env.TEMPLATE_APP_NAME || 'My Application', // Application name for email templates (e.g., 'My Application')
+      companyName: process.env.TEMPLATE_COMPANY_NAME || 'My Company Inc.', // Company name for email templates (e.g., 'My Company Inc.')
+      supportEmail: process.env.TEMPLATE_SUPPORT_EMAIL || 'support@example.com', // Support email displayed in templates (e.g., 'support@example.com')
+    },
+    verification: {
+      enabled: true, // Enable email verification endpoints (default: true)
+      expiresIn: 3600, // Code expiry in seconds (default: 3600)
+      resendDelay: 60, // Delay between resend requests in seconds - prevents abuse (default: 60)
+      rateLimitMax: 3, // Maximum codes per time window - prevents abuse (default: 3)
+      rateLimitWindow: 3600, // Rate limit time window in seconds (default: 60, e.g., rateLimitMax: 5, rateLimitWindow: 3600 = 5 per hour)
+    },
+  },
+
+  // ============================================================================
+  // Phone Verification Settings (OPTIONAL)
+  // ============================================================================
+  // Controls verification behavior (code length, expiry, attempts). SMS provider controls delivery.
+  phone: {
+    verification: {
+      enabled: true, // Enable phone verification endpoints (default: false)
+      codeLength: 6, // OTP code length (default: 6)
+      expiresIn: 300, // Code expiry in seconds (default: 300)
+      maxAttempts: 3, // Maximum verification attempts per code (default: 3)
+      resendDelay: 10, // Delay between resend requests in seconds - prevents abuse (default: 60)
+      rateLimitMax: 3, // Maximum codes per time window - prevents SMS abuse (default: 3)
+      rateLimitWindow: 60, // Rate limit time window in seconds (default: 3600)
+    },
+  },
+
+  // ============================================================================
+  // Account Lockout Configuration (OPTIONAL)
+  // ============================================================================
+  lockout: {
+    enabled: true, // Enable IP-based lockout - prevents attackers from locking out users by guessing credentials (default: true)
+    maxAttempts: 5, // Maximum failed attempts per IP before lockout (default: 5)
+    duration: 900, // Lockout duration in seconds (default: 900)
+    resetOnSuccess: true, // Reset counter on successful login (default: true)
+  },
+
+  // ============================================================================
+  // Session Management Configuration (OPTIONAL)
+  // ============================================================================
+  session: {
+    maxConcurrent: 5, // Maximum concurrent sessions per user (default: 5)
+    disallowMultipleSessions: false, // Single session mode (new login logs out all other sessions) (default: false)
+  },
+
+  // ============================================================================
+  // Security Configuration (OPTIONAL)
+  // ============================================================================
+  security: {
+    csrf: {
+      // CSRF protection is REQUIRED for cookie-based token delivery to prevent Cross-Site Request Forgery attacks.
+      // CSRF Guard is automatically registered when tokenDelivery.method === 'cookies' or 'hybrid'.
+      // CSRF token is automatically set as cookie on login/refresh when using cookie-based delivery.
+      // Frontend must read CSRF token from cookie and send it in header for state-changing requests.
+      cookieName: 'nauth_csrf_token', // CSRF cookie name (default: 'nauth_csrf_token' with prefix 'nauth_')
+      headerName: 'x-csrf-token', // CSRF header name to check (default: 'x-csrf-token')
+      tokenLength: 32, // Token length in bytes (default: 32)
+      excludedPaths: process.env.NAUTH_TEST_MODE === 'true' ? ['/test'] : [], // Paths to exclude from CSRF checks (e.g., ['/webhook', '/public-api']). In test mode, exclude /test endpoints
+      cookieOptions: {
+        // httpOnly is always false (hardcoded) - CSRF token must be readable by JavaScript
+        secure: true, // Secure cookies (HTTPS only, set false for localhost dev) (default: true)
+        sameSite: 'strict', // SameSite: 'strict' (most secure), 'lax' (flexible), 'none' (cross-site, needs secure=true) (default: 'strict')
+        domain: '.angular.dev1.noorix.com', // Share cookies across subdomains (e.g., angular.dev1.noorix.com and api.angular.dev1.noorix.com)
+      },
+    },
+  },
+
+  // ============================================================================
+  // Token Delivery Configuration (OPTIONAL)
+  // ============================================================================
+  // How JWT tokens are delivered: JSON body, httpOnly cookies, or hybrid (origin-based)
+  tokenDelivery: {
+    method: 'hybrid', // Token delivery method: 'json' (JSON response only), 'cookies' (HTTP-only cookies only), 'hybrid' (cookies for web origins, JSON for native) (default: 'json')
+    cookieNamePrefix: 'nauth_', // Cookie name prefix for all nauth-toolkit cookies (default: 'nauth_')
+    hybridPolicy: {
+      // Hybrid policy (webOrigins get cookies, nativeOrigins get JSON). Only used when method is 'hybrid'
+      webOrigins: ['http://localhost:4200', 'http://192.168.50.39:4200', 'https://angular.dev1.noorix.com'], // Web origins receiving cookies (e.g., ['http://localhost:4200', 'https://app.example.com'])
+      nativeOrigins: ['capacitor://localhost', 'https://localhost', 'http://localhost'], // Native origins receiving JSON tokens (e.g., ['capacitor://localhost', 'https://localhost'])
+    },
+    cookieOptions: {
+      // Cookie options (used for 'cookies' or 'hybrid' methods). Fixed: httpOnly=true, names='nauth_access_token'/'nauth_refresh_token'
+      secure: true, // Secure cookies (HTTPS only, set false for localhost dev) (default: true)
+      sameSite: 'strict', // SameSite: 'strict' (most secure), 'lax' (flexible), 'none' (cross-site, needs secure=true) (default: 'strict')
+      path: '/', // Cookie path (default: '/')
+      domain: '.angular.dev1.noorix.com', // Share cookies across subdomains (e.g., angular.dev1.noorix.com and api.angular.dev1.noorix.com)
+    },
+  },
+
+  // ============================================================================
+  // Logger Configuration (OPTIONAL)
+  // ============================================================================
+  logger: {
+    instance: new Logger('NAuth'), // Logger instance (NestJS LoggerService compatible, undefined = silent, e.g., new Logger('NAuth'))
+    enablePiiRedaction: true, // Enable PII redaction (emails, IPs, tokens, phone numbers). WARNING: Only disable for development debugging (default: true)
+    logLevel: 'debug', // Minimum log level (default: undefined - all levels, e.g., 'debug', 'log', 'warn', 'error')
+  },
+
+  // ============================================================================
+  // Social Login Configuration (OPTIONAL)
+  // ============================================================================
+  // OAuth providers: Register app with provider (client ID/secret, callback URL)
+  // Google: https://console.developers.google.com/
+  // Apple: https://developer.apple.com/account/
+  // Facebook: https://developers.facebook.com/
+  social: {
+    google: {
+      enabled: true, // Enable Google OAuth (default: false)
+      clientId: process.env.GOOGLE_IOS_CLIENT_ID
+        ? [process.env.GOOGLE_CLIENT_ID!, process.env.GOOGLE_IOS_CLIENT_ID]
+        : process.env.GOOGLE_CLIENT_ID, // Client ID (string or array for multi-platform: web, iOS, Android, e.g., '12345.apps.googleusercontent.com' or ['12345-web.apps.googleusercontent.com', '12345-ios.apps.googleusercontent.com'])
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET, // Client secret (required if enabled)
+      callbackUrl: 'https://api.angular.dev1.noorix.com/auth/social/google/callback', // Callback URL (must match provider registration, e.g., 'https://myapp.com/auth/google/callback')
+      scopes: ['openid', 'email', 'profile'], // OAuth scopes (default: ['openid', 'email', 'profile'])
+      autoLink: true, // Auto-link to existing users by verified email (default: true)
+      allowSignup: true, // Allow new user creation (default: true)
+    },
+    apple: {
+      enabled: true, // Enable Apple Sign-In (default: false)
+      clientId: process.env.APPLE_CLIENT_ID || 'com.noorix.nauth', // Apple Services ID (e.g., 'com.myapp.services')
+      clientSecret: process.env.APPLE_CLIENT_SECRET, // Client secret JWT (not needed for native iOS, required for web)
+      callbackUrl: 'http://localhost:3000/auth/social/apple/callback', // Callback URL (must match provider registration)
+      scopes: ['name', 'email'], // OAuth scopes (default: ['name', 'email'])
+      autoLink: true, // Auto-link to existing users by verified email (default: true)
+      allowSignup: true, // Allow new user creation (default: true)
+    },
+    facebook: {
+      enabled: true, // Enable Facebook OAuth (default: false)
+      clientId: process.env.FACEBOOK_CLIENT_ID, // Facebook App ID
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET, // Facebook App Secret
+      callbackUrl: 'http://localhost:3000/auth/social/facebook/callback', // Callback URL (must match provider registration, e.g., 'https://myapp.com/auth/facebook/callback')
+      scopes: ['email', 'public_profile'], // OAuth scopes (default: ['email', 'public_profile'])
+      autoLink: true, // Auto-link to existing users by verified email (default: true)
+      allowSignup: true, // Allow new user creation (default: true)
+    },
+  },
+
+  // ============================================================================
+  // MFA Configuration (OPTIONAL)
+  // ============================================================================
+  mfa: {
+    enabled: false, // Enable MFA system (default: false) - Set to false for testing, true for production
+    enforcement: 'OPTIONAL', // Enforcement policy: 'OPTIONAL' (available but not required), 'REQUIRED' (always required), 'ADAPTIVE' (risk-based) (default: 'OPTIONAL')
+    gracePeriod: 7, // Grace period in days before REQUIRED enforcement (0 = immediate) (default: 7)
+    requireForSocialLogin: false, // Require MFA for social login (false = skip, social providers already secure; true = defense-in-depth). Note: MFA setup requirement still applies (default: false)
+    rememberDevices: 'user_opt_in', // Trusted device behavior: 'never' (no trusted device feature - most secure), 'always' (auto-trust after login), 'user_opt_in' (user must opt-in via API) (default: 'never')
+    rememberDeviceDays: 2, // Days to remember trusted devices (only relevant if rememberDevices is not 'never') (default: 30)
+    bypassMFAForTrustedDevices: true, // Bypass MFA verification for trusted devices (only applies when rememberDevices is not 'never' and device is marked as trusted). Note: Does NOT apply to ADAPTIVE enforcement mode (default: false)
+    allowedMethods: [MFAMethod.TOTP, MFAMethod.SMS, MFAMethod.PASSKEY], // Allowed MFA methods: TOTP (authenticator app), SMS (codes), PASSKEY (WebAuthn/biometric) (default: [MFAMethod.TOTP, MFAMethod.SMS, MFAMethod.PASSKEY])
+    issuer: 'Nauth App', // Issuer name for TOTP QR codes (displayed in authenticator apps) (default: 'nauth-toolkit')
+    totp: {
+      window: 1, // Validation time window (steps before/after current time, higher = more lenient) (default: 1)
+      stepSeconds: 30, // Time step in seconds (default: 30)
+      digits: 6, // Code digits (default: 6)
+      algorithm: 'sha1', // Hash algorithm (sha1 most compatible) (default: 'sha1')
+    },
+    passkey: {
+      rpName: 'NAuth App', // Relying Party name (displayed during passkey creation, e.g., 'MyApp')
+      rpId: 'angular.dev1.noorix.com', // Relying Party ID (domain without protocol/port, must match the domain where the frontend is hosted, e.g., 'myapp.com')
+      origin: ['http://localhost:4200', 'http://localhost:3000', 'https://angular.dev1.noorix.com'], // Expected origin (string or array, must include protocol, must include exact origin where WebAuthn operations are performed, e.g., 'https://myapp.com' or ['http://localhost:4200', 'https://angular.dev1.noorix.com'])
+      timeout: 60000, // Operation timeout in milliseconds (default: 60000)
+      userVerification: 'preferred', // User verification: 'required', 'preferred', 'discouraged' (default: 'preferred')
+      authenticatorAttachment: undefined, // Authenticator type: 'platform' (built-in), 'cross-platform' (USB keys), undefined (both) (default: undefined)
+    },
+    backup: {
+      enabled: true, // Enable backup codes (default: true)
+      codeCount: 10, // Number of codes to generate (default: 10)
+      codeLength: 8, // Code length in characters (default: 8)
+    },
+    adaptive: {
+      // Adaptive MFA Configuration: Configures risk-based authentication that evaluates login context (device, IP, location) against user history to determine MFA requirements.
+      // Risk levels are evaluated in order: low → medium → high. Each level can have different actions (allow, require_mfa, block_signin).
+      triggers: ['new_device', 'new_ip', 'new_country', 'impossible_travel', 'suspicious_activity'], // Risk factors that trigger MFA requirement: 'new_device' (first login from unknown device), 'new_ip' (login from new IP), 'new_country' (login from different country), 'impossible_travel' (geographic distance/time anomaly), 'suspicious_activity' (unusual behavior patterns) (default: ['new_device', 'new_ip', 'new_country'])
+      riskLevels: {
+        // Risk level thresholds and actions: Defines score ranges and what action to take at each level. Scores are evaluated in order: low → medium → high.
+        // Example: Score 0-20: low → allow sign-in (no MFA), Score 21-50: medium → require MFA, Score 51-100: high → require MFA or block sign-in
+        low: {
+          maxScore: 20, // Maximum risk score for low level (default: 20). Low risk: Trusted device, known location, no suspicious activity
+          action: 'allow', // Action: allow sign-in without MFA
+          notifyUser: false, // Don't notify user for low-risk logins
+        },
+        medium: {
+          maxScore: 50, // Maximum risk score for medium level (default: 50). Medium risk: New device, new location, or some suspicious factors
+          action: 'require_mfa', // Action: require MFA verification
+          notifyUser: true, // Notify user of risk event
+        },
+        high: {
+          maxScore: 100, // Maximum risk score for high level (default: 100). High risk: Impossible travel, multiple suspicious factors
+          action: 'require_mfa', // Action: require MFA or block sign-in. Use 'block_signin' for maximum security, 'require_mfa' for more lenient
+          notifyUser: true, // Notify user of high-risk event
+        },
+      },
+      blockedSignIn: {
+        // Blocked sign-in behavior: Configuration for when high-risk sign-ins are blocked. Only used if high risk level action is 'block_signin'.
+        // blockDuration: 60, // Duration (in minutes) to block user before allowing retry. If not set, block is permanent until manual review (default: undefined)
+        // message: 'Sign-in blocked due to suspicious activity. Please contact support.', // Custom message to show user when blocked (default: 'Sign-in blocked due to suspicious activity. Please contact support.')
+      },
+      // riskWeights: {}, // Custom risk factor weights (overrides defaults). Default weights: new_device: 20, new_ip: 15, new_country: 25, impossible_travel: 40, suspicious_activity: 30
+      maxTravelSpeed: 500, // Maximum realistic travel speed in km/h for impossible travel detection. Used to determine if geographic distance between two locations is impossible given the time elapsed. Lower values = more sensitive (triggers more often), Higher values = less sensitive (only flags very fast travel). Default: 900 (commercial airliner speed). Example: 500 = More sensitive - flags travel faster than high-speed train, 900 = Default - flags travel faster than commercial airliner, 1000 = Less sensitive - only flags very fast travel
+      suspiciousActivityWindow: 1, // Time window (hours) to check for suspicious activity. How far back to look for suspicious audit events (failed logins, token reuse, etc.) when evaluating risk. (default: 1 hour, e.g., 0.5 = Check last 30 minutes, 1 = Check last 1 hour, 2 = Check last 2 hours)
+      // riskThreshold: 50, // Risk score threshold (0-100) to require MFA. @deprecated Use riskLevels instead for more granular control (default: 50)
+    },
+  },
+
+  // ============================================================================
+  // Geolocation Configuration (OPTIONAL)
+  // ============================================================================
+  // MaxMind GeoIP2 integration for IP geolocation (country/city lookup).
+  // Install: yarn add @maxmind/geoip2-node
+  // Get credentials: https://www.maxmind.com/en/accounts/current/license-key
+  // Two modes: (1) Auto-download - toolkit manages databases, or (2) External - you manage via geoipupdate/cron
+  // Locking: Memory storage = single-process, Redis/Database = distributed lock across servers
+  geoLocation: {
+    maxMind: {
+      dbPath: '/tmp/nauth_maxmind', // Directory for .mmdb database files (default: os.tmpdir() + '/nauth_maxmind', e.g., '/app/data/maxmind')
+      // skipDownloads: true, // Skip downloads, load existing files only (for external management via geoipupdate/cron) (default: false)
+      licenseKey: process.env.MAXMIND_LICENSE_KEY, // MaxMind license key (required unless skipDownloads is true, e.g., process.env.MAXMIND_LICENSE_KEY)
+      accountId: process.env.MAXMIND_ACCOUNT_ID ? parseInt(process.env.MAXMIND_ACCOUNT_ID, 10) : undefined, // MaxMind account ID (required unless skipDownloads is true, e.g., parseInt(process.env.MAXMIND_ACCOUNT_ID || '0'))
+      autoDownloadOnStartup: false, // recommended to keep false in development mode to prevent repeated download on app restart
+      // Auto-download databases on startup if missing. WARNING: Only enable with Redis/Database storage (prevents concurrent downloads in multi-server setups) (default: false)
+      // editions: ['GeoLite2-City', 'GeoLite2-Country'], // Database editions to download (default: ['GeoLite2-City', 'GeoLite2-Country'])
+    },
+  },
+
+  // ============================================================================
+  // Audit Logging Configuration (OPTIONAL)
+  // ============================================================================
+  // Controls whether authentication and security events are logged to the audit trail.
+  // When disabled, audit logs are not recorded, reducing storage costs and minor performance overhead.
+  // WARNING: Highly recommended for production systems. Disabling audit logs reduces security observability.
+  auditLogs: {
+    enabled: true, // Enable audit logging (default: true)
+  },
+
+  // ============================================================================
+  // Lifecycle Hooks (OPTIONAL)
+  // ============================================================================
+  // Execute custom async code at auth flow checkpoints. Return false from 'before' hooks to prevent action.
+  hooks: {
+    // beforeSignup: async (data) => { /* Custom validation, external API calls */ },
+    // afterSignup: async (user, metadata) => { /* Send welcome email, create profile */ },
+    // beforeLogin: async (identifier) => { /* Custom validation, IP checks */ },
+    // afterLogin: async (user, session) => { /* Track login, send notification */ },
+    // afterLoginFailed: async (identifier, reason) => { /* Track failed attempts, alert security */ },
+    // beforePasswordChange: async (userId, oldPassword) => { /* Additional validation */ },
+    // afterPasswordChange: async (userId) => { /* Notify user, revoke sessions */ },
+    // beforeAccountLock: async (userId, reason) => { /* Custom logic before locking */ },
+    // afterAccountLock: async (userId, reason) => { /* Send notification, alert security */ },
+  },
+};

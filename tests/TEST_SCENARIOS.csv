@@ -1,0 +1,58 @@
+"Test ID","Test File","Config Name","Token Delivery","Verification Method","MFA Enforcement","MFA Grace Period","Test Scenario","Test Steps","Expected Result","Status","Notes"
+"SU-001","signup/email-only.spec.ts","email-only-cookies","cookies","none","OPTIONAL","7","Signup with email only (no verification)","1. POST /auth/signup with email and password","201 Created. Tokens returned in Set-Cookie headers.","","",""
+"SU-002","signup/email-only.spec.ts","email-only-json","json","none","OPTIONAL","7","Signup with email only (no verification)","1. POST /auth/signup/mobile with email and password","201 Created. Tokens returned in JSON body (accessToken, refreshToken).","","",""
+"SU-003","signup/email-only.spec.ts","email-only-verify-email-cookies","cookies","email","OPTIONAL","7","Signup with email only (email verification required)","1. POST /auth/signup with email and password","201 Created. AuthChallenge: VERIFY_EMAIL. Email sent with code.","","",""
+"SU-004","signup/email-only.spec.ts","email-only-verify-email-json","json","email","OPTIONAL","7","Signup with email only (email verification required)","1. POST /auth/signup/mobile with email and password","201 Created. AuthChallenge: VERIFY_EMAIL. Email sent with code.","","",""
+"SU-005","signup/email-only.spec.ts","email-only-verify-email-cookies","cookies","email","OPTIONAL","7","Complete email verification (cookies mode)","1. Get email code from /test/email/latest
+2. POST /auth/verify-email/verify with email and code
+3. POST /auth/challenges/complete with VERIFY_EMAIL challenge","200 OK. Tokens returned in Set-Cookie headers. User isEmailVerified=true.","","",""
+"SU-006","signup/email-only.spec.ts","email-only-verify-email-json","json","email","OPTIONAL","7","Complete email verification (JSON mode)","1. Get email code from /test/email/latest
+2. POST /auth/verify-email/verify with email and code
+3. POST /auth/challenges/complete with VERIFY_EMAIL challenge","200 OK. Tokens returned in JSON body. User isEmailVerified=true.","","",""
+"SU-007","signup/email-phone.spec.ts","email-phone-cookies","cookies","both","OPTIONAL","7","Signup with email + phone (both verifications required)","1. POST /auth/signup with email, phone, and password","201 Created. AuthChallenge: VERIFY_EMAIL (first challenge). Email sent with code.","","",""
+"SU-008","signup/email-phone.spec.ts","email-phone-json","json","both","OPTIONAL","7","Signup with email + phone (both verifications required)","1. POST /auth/signup/mobile with email, phone, and password","201 Created. AuthChallenge: VERIFY_EMAIL (first challenge). Email sent with code.","","",""
+"SU-009","signup/email-phone.spec.ts","email-phone-cookies","cookies","both","OPTIONAL","7","Complete email verification (first challenge)","1. Get email code from /test/email/latest
+2. POST /auth/verify-email/verify with email and code
+3. POST /auth/challenges/complete with VERIFY_EMAIL challenge","200 OK. AuthChallenge: VERIFY_PHONE (next challenge). SMS sent with code.","","",""
+"SU-010","signup/email-phone.spec.ts","email-phone-json","json","both","OPTIONAL","7","Complete email verification (first challenge)","1. Get email code from /test/email/latest
+2. POST /auth/verify-email/verify with email and code
+3. POST /auth/challenges/complete with VERIFY_EMAIL challenge","200 OK. AuthChallenge: VERIFY_PHONE (next challenge). SMS sent with code.","","",""
+"SU-011","signup/email-phone.spec.ts","email-phone-cookies","cookies","both","OPTIONAL","7","Complete phone verification (final challenge)","1. Get SMS code from /test/sms/latest
+2. POST /auth/verify-phone/verify with phone and code
+3. POST /auth/challenges/complete with VERIFY_PHONE challenge","200 OK. Tokens returned in Set-Cookie headers. All verifications complete.","","",""
+"SU-012","signup/email-phone.spec.ts","email-phone-json","json","both","OPTIONAL","7","Complete phone verification (final challenge)","1. Get SMS code from /test/sms/latest
+2. POST /auth/verify-phone/verify with phone and code
+3. POST /auth/challenges/complete with VERIFY_PHONE challenge","200 OK. Tokens returned in JSON body. All verifications complete.","","",""
+"SU-013","signup/email-phone.spec.ts","email-phone-mfa-required-cookies","cookies","both","REQUIRED","0","Signup with MFA required (no grace period)","1. Complete email and phone verification
+2. POST /auth/challenges/complete with VERIFY_PHONE challenge","200 OK. AuthChallenge: MFA_SETUP_REQUIRED (no tokens yet).","","",""
+"SU-014","signup/email-phone.spec.ts","email-phone-mfa-required-json","json","both","REQUIRED","0","Signup with MFA required (no grace period)","1. Complete email and phone verification
+2. POST /auth/challenges/complete with VERIFY_PHONE challenge","200 OK. AuthChallenge: MFA_SETUP_REQUIRED (no tokens yet).","","",""
+"LC-001","auth-lifecycle/complete-lifecycle.spec.ts","email-only-cookies","cookies","none","OPTIONAL","7","Complete authentication lifecycle (cookies mode)","1. Signup → 2. Login → 3. Refresh Token → 4. Change IP and Login → 5. Logout","All steps succeed. Tokens managed via cookies. Logout clears cookies.","","",""
+"LC-002","auth-lifecycle/complete-lifecycle.spec.ts","email-only-json","json","none","OPTIONAL","7","Complete authentication lifecycle (JSON mode)","1. Signup → 2. Login → 3. Refresh Token → 4. Change IP and Login → 5. Logout","All steps succeed. Tokens managed via Authorization header. Logout invalidates tokens.","","",""
+"LC-003","auth-lifecycle/complete-lifecycle.spec.ts","email-only-cookies","cookies","none","OPTIONAL","7","Signup (no verification)","1. POST /auth/signup with email and password","201 Created. Tokens in Set-Cookie headers (nauth_access_token, nauth_refresh_token).","","",""
+"LC-004","auth-lifecycle/complete-lifecycle.spec.ts","email-only-json","json","none","OPTIONAL","7","Signup (no verification)","1. POST /auth/signup/mobile with email and password","201 Created. Tokens in JSON body (accessToken, refreshToken).","","",""
+"LC-005","auth-lifecycle/complete-lifecycle.spec.ts","email-only-cookies","cookies","none","OPTIONAL","7","Login after signup","1. POST /auth/login with email and password","200 OK. Tokens in Set-Cookie headers.","","",""
+"LC-006","auth-lifecycle/complete-lifecycle.spec.ts","email-only-json","json","none","OPTIONAL","7","Login after signup","1. POST /auth/login/mobile with email and password","200 OK. Tokens in JSON body.","","",""
+"LC-007","auth-lifecycle/complete-lifecycle.spec.ts","email-only-cookies","cookies","none","OPTIONAL","7","Refresh access token","1. POST /auth/refresh with refresh token in cookie","200 OK. New access token in Set-Cookie header.","","",""
+"LC-008","auth-lifecycle/complete-lifecycle.spec.ts","email-only-json","json","none","OPTIONAL","7","Refresh access token","1. POST /auth/refresh/mobile with refreshToken in body","200 OK. New access token in JSON body.","","",""
+"LC-009","auth-lifecycle/complete-lifecycle.spec.ts","email-only-cookies","cookies","none","OPTIONAL","7","Change IP and login again (adaptive MFA testing)","1. Set IP to 203.0.113.1
+2. POST /auth/login with email and password","200 OK. Login succeeds (adaptive MFA may trigger challenge if configured).","","",""
+"LC-010","auth-lifecycle/complete-lifecycle.spec.ts","email-only-json","json","none","OPTIONAL","7","Change IP and login again (adaptive MFA testing)","1. Set IP to 203.0.113.1
+2. POST /auth/login/mobile with email and password","200 OK. Login succeeds (adaptive MFA may trigger challenge if configured).","","",""
+"LC-011","auth-lifecycle/complete-lifecycle.spec.ts","email-only-cookies","cookies","none","OPTIONAL","7","Logout clears cookies","1. POST /auth/logout with access token in cookie","200 OK. Set-Cookie headers expire cookies (maxAge=0 or expires in past).","","",""
+"LC-012","auth-lifecycle/complete-lifecycle.spec.ts","email-only-json","json","none","OPTIONAL","7","Logout invalidates tokens","1. POST /auth/logout with Authorization: Bearer <token>","200 OK. Tokens invalidated server-side.","","",""
+"CC-001","current-config.spec.ts","*","*","*","*","*","Signup flow (matches current auth.config.ts)","1. Signup with email (and phone if configured)
+2. Complete email verification (if required)
+3. Complete phone verification (if required)","Flow matches current config. Challenges and tokens handled correctly.","","",""
+"CC-002","current-config.spec.ts","*","*","*","*","*","Login lifecycle (matches current auth.config.ts)","1. Login → 2. Refresh Token → 3. Logout","Flow matches current config. Tokens delivered in correct mode.","","",""
+"CC-003","current-config.spec.ts","*","*","*","*","*","Signup step","1. POST /auth/signup (or /mobile) with email and optional phone","201 Created. Challenge returned if verification required, tokens if not.","","",""
+"CC-004","current-config.spec.ts","*","*","*","*","*","Complete email verification (if required)","1. Get email code from /test/email/latest
+2. POST /auth/verify-email/verify
+3. POST /auth/challenges/complete","200 OK. Next challenge or tokens returned.","","",""
+"CC-005","current-config.spec.ts","*","*","*","*","*","Complete phone verification (if required)","1. Get SMS code from /test/sms/latest
+2. POST /auth/verify-phone/verify
+3. POST /auth/challenges/complete","200 OK. Next challenge (MFA_SETUP_REQUIRED if MFA required) or tokens returned.","","",""
+"CC-006","current-config.spec.ts","*","*","*","*","*","Login","1. POST /auth/login (or /mobile) with email and password","200 OK. Tokens returned (or challenge if verifications incomplete).","","",""
+"CC-007","current-config.spec.ts","*","*","*","*","*","Refresh token","1. POST /auth/refresh (or /mobile) with refresh token","200 OK. New access token returned.","","",""
+"CC-008","current-config.spec.ts","*","*","*","*","*","Logout","1. POST /auth/logout with access token","200 OK. Tokens/cookies cleared.","","",""
+

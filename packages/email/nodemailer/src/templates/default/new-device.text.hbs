@@ -1,0 +1,23 @@
+New Device Login
+
+{{#if fullName}}Hi {{fullName}},{{/if}}
+{{#if firstName}}Hi {{firstName}},{{/if}}
+{{#if lastName}}Hi {{lastName}},{{/if}}
+{{#if userName}}Hi {{userName}},{{/if}}
+
+We detected a login to your account from a new device.
+
+{{#if deviceName}}Device: {{deviceName}}{{/if}}
+{{#if deviceType}}Type: {{deviceType}}{{/if}}
+{{#if ipAddress}}IP Address: {{ipAddress}}{{/if}}
+{{#if location}}Location: {{location}}{{/if}}
+{{#if timestamp}}Time: {{timestamp}}{{/if}}
+
+Was this you?
+If you recognize this login, no action is needed.
+
+Not you?
+If you don't recognize this activity, secure your account immediately:
+- Change your password
+- Review your recent account activity
+- {{#if supportEmail}}Contact support at {{supportEmail}}{{/if}}

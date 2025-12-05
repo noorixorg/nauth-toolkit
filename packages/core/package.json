@@ -1,0 +1,70 @@
+{
+  "name": "@nauth-toolkit/core",
+  "version": "0.1.0",
+  "description": "Core authentication toolkit for NestJS",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./internal": {
+      "types": "./dist/internal.d.ts",
+      "require": "./dist/internal.js",
+      "default": "./dist/internal.js"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "internal": ["dist/internal.d.ts"]
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "argon2": "^0.40.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.0",
+    "jose": "^6.0.0",
+    "zod": "^3.23.8"
+  },
+  "peerDependencies": {
+    "@maxmind/geoip2-node": "^4.0.0 || ^5.0.0 || ^6.0.0",
+    "typeorm": "^0.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@maxmind/geoip2-node": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "jest": "^29.7.0",
+    "reflect-metadata": "^0.2.2",
+    "ts-jest": "^29.2.0",
+    "typeorm": "^0.3.27",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "keywords": [
+    "nestjs",
+    "authentication",
+    "jwt",
+    "typeorm"
+  ]
+}

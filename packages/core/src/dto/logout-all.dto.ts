@@ -1,0 +1,46 @@
+/**
+ * Logout All DTO
+ *
+ * Request DTO for logging out a user from all sessions (global logout).
+ *
+ * Security:
+ * - User sub validated (UUID)
+ * - Prevents unauthorized logout attempts
+ *
+ * @example
+ * ```typescript
+ * const result = await authService.logoutAll({
+ *   sub: 'user-uuid'
+ * });
+ * ```
+ */
+
+import { IsUUID } from 'class-validator';
+import { Transform } from 'class-transformer';
+
+/**
+ * Request DTO for logout all sessions
+ */
+export class LogoutAllDTO {
+  /**
+   * User's unique identifier (UUID v4)
+   *
+   * Validation:
+   * - Must be a valid UUID v4 format
+   * - Matches DB constraint: char(36) or uuid
+   *
+   * Sanitization:
+   * - Trimmed
+   * - Lowercased for consistency
+   *
+   * @example "a21b654c-2746-4168-acee-c175083a65cd"
+   */
+  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.trim().toLowerCase();
+    }
+    return value;
+  })
+  sub!: string;
+}

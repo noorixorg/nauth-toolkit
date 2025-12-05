@@ -1,0 +1,28 @@
+<div class="mfa-setup-container">
+  <div class="mfa-setup-card">
+    <h2>Multi-Factor Authentication Setup</h2>
+    <p class="subtitle">To secure your account, please set up multi-factor authentication.</p>
+
+    @if (challengeSession) {
+      <app-mfa-setup-content
+        mode="page"
+        [challengeSession]="challengeSession"
+        (completed)="onSetupCompleted($event)"
+      />
+    }
+
+    @if (setupCompleted) {
+      <div class="completion-step">
+        <div class="success-icon">✓</div>
+        <h3>MFA Setup Complete!</h3>
+        <p class="completion-message">
+          Your account is now protected with multi-factor authentication. You can now access your
+          dashboard.
+        </p>
+        <button type="button" class="btn-primary" (click)="router.navigate(['/dashboard'])">
+          Continue to Dashboard
+        </button>
+      </div>
+    }
+  </div>
+</div>

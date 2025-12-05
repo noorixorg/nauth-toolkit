@@ -1,0 +1,41 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+	ignorecase = true
+	precomposeunicode = true
+[remote "origin"]
+	url = https://github.com/noorix1/nauth-toolkit.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+	vscode-merge-base = origin/main
+	vscode-merge-base = origin/main
+[branch "feat/transient-storage-adapters"]
+	vscode-merge-base = origin/main
+	remote = origin
+	merge = refs/heads/feat/transient-storage-adapters
+[branch "agnostic-refactor"]
+	vscode-merge-base = origin/main
+	remote = origin
+	merge = refs/heads/agnostic-refactor
+[branch "feat/adaptive-mfa"]
+	vscode-merge-base = origin/main
+	remote = origin
+	merge = refs/heads/feat/adaptive-mfa
+[branch "feat/csrf"]
+	vscode-merge-base = origin/main
+	remote = origin
+	merge = refs/heads/feat/csrf
+[branch "email-mfa"]
+	vscode-merge-base = origin/main
+	remote = origin
+	merge = refs/heads/email-mfa
+[branch "feat/express-adaptor"]
+	vscode-merge-base = origin/main
+	remote = origin
+	merge = refs/heads/feat/express-adaptor
+[branch "feat/changepassword"]
+	vscode-merge-base = origin/main

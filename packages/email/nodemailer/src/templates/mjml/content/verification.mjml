@@ -1,0 +1,37 @@
+<!-- Verification Email Content -->
+<mj-text> You were sent this email because you requested a verification code to access your account. </mj-text>
+
+<mj-raw>
+  {{#if code}}
+</mj-raw>
+<mj-text font-size="14px" color="#6b7280" align="center" padding="16px 24px 8px 24px">
+  Your Verification Code:
+</mj-text>
+<mj-text css-class="code-block" align="center" padding="20px 24px">
+  {{ code }}
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+
+<mj-raw>
+  {{#if link}}
+</mj-raw>
+<mj-button href="{{link}}"> Verify Email Address </mj-button>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+
+<mj-raw>
+  {{#if expiryMinutes}}
+</mj-raw>
+<mj-text font-size="14px" color="#6b7280" padding="24px 24px 16px 24px">
+  This code expires in {{ expiryMinutes }} minutes.
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+
+<mj-text font-size="14px" color="#6b7280" padding="0 24px 24px 24px">
+  If you didn't request this verification, please ignore this email.
+</mj-text>

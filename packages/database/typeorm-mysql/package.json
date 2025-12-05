@@ -1,0 +1,42 @@
+{
+  "name": "@nauth-toolkit/database-typeorm-mysql",
+  "version": "0.1.0",
+  "description": "MySQL TypeORM adapter for nauth-toolkit",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "test": "jest --passWithNoTests",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\""
+  },
+  "peerDependencies": {
+    "@nauth-toolkit/core": "^0.1.0",
+    "typeorm": "^0.3.20",
+    "mysql2": "^2.3.0 || ^3.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^22.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "keywords": [
+    "nestjs",
+    "authentication",
+    "typeorm",
+    "mysql",
+    "database"
+  ]
+}

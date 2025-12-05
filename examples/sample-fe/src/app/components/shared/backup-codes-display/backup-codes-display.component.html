@@ -1,0 +1,18 @@
+<div class="backup-codes-display">
+  <h3>Save Your Backup Codes</h3>
+  <div class="warning-box">
+    <p>
+      <strong>Important:</strong> Save these backup codes in a safe place. You can use them to sign in if you
+      lose access to your authenticator app. Each code can only be used once.
+    </p>
+  </div>
+
+  <div class="backup-codes-list">
+    @for (code of backupCodes; track code) {
+      <div class="backup-code-item">{{ code }}</div>
+    }
+  </div>
+
+  <button type="button" class="btn-primary" (click)="onAcknowledged()">I've Saved These Codes</button>
+</div>
+

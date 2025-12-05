@@ -1,0 +1,73 @@
+<div class="verify-container">
+  <div class="verify-card">
+    <div class="verify-header">
+      <h1>Verify Your Email</h1>
+      <p>We've sent a 6-digit verification code to <strong>{{ userEmail }}</strong>.</p>
+    </div>
+
+    <!-- Messages -->
+    <div *ngIf="errorMessage" class="error-message">
+      {{ errorMessage }}
+    </div>
+
+    <div *ngIf="successMessage" class="success-message">
+      {{ successMessage }}
+    </div>
+
+    <!-- Verification Form -->
+    <form [formGroup]="verificationForm" (ngSubmit)="onVerify()" class="verify-form">
+      <div class="form-group">
+        <label for="code">Verification Code</label>
+        <input
+          type="text"
+          id="code"
+          formControlName="code"
+          [class.error]="
+            verificationControls['code'].invalid && verificationControls['code'].touched
+          "
+          placeholder="Enter 6-digit code"
+          maxlength="6"
+          pattern="[0-9]*"
+          inputmode="numeric"
+        />
+        <div
+          *ngIf="verificationControls['code'].invalid && verificationControls['code'].touched"
+          class="field-error"
+        >
+          <span *ngIf="verificationControls['code'].errors?.['required']"
+            >Verification code is required</span
+          >
+          <span *ngIf="verificationControls['code'].errors?.['pattern']"
+            >Please enter a valid 6-digit code</span
+          >
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        [disabled]="verificationForm.invalid || isLoading"
+        class="primary-button"
+      >
+        <span *ngIf="isLoading" class="spinner"></span>
+        {{ isLoading ? 'Verifying...' : 'Verify Email' }}
+      </button>
+    </form>
+
+    <!-- Resend Section -->
+    <div class="resend-section">
+      <p>Didn't receive the code?</p>
+      <button
+        (click)="resendCode()"
+        [disabled]="isLoading || resendCooldown > 0"
+        class="secondary-button"
+      >
+        {{ resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code' }}
+      </button>
+    </div>
+
+    <!-- Back to Login -->
+    <div class="back-section">
+      <button (click)="router.navigate(['/login'])" class="link-button">← Back to Login</button>
+    </div>
+  </div>
+</div>

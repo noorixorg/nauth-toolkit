@@ -1,0 +1,74 @@
+services:
+  # PostgreSQL (primary test DB) - internal only
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: nauth_test
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U test']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis (for storage adapter) - internal only
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # MailHog (email testing)
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - '8025:8025' # Web UI
+      - '1025:1025' # SMTP
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8025']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # NestJS sample app (runs on host port 3300)
+  sample-app:
+    build:
+      context: .
+      dockerfile: examples/sample-app/Dockerfile
+      target: runtime
+    env_file:
+      - examples/sample-app/.env # Load OAuth credentials and other config from .env
+    environment:
+      # Test-specific overrides (these override .env values for test infrastructure)
+      NODE_ENV: development
+      NAUTH_TEST_MODE: 'true'
+      # Database (Docker service names)
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      DB_USERNAME: test
+      DB_PASSWORD: test
+      DB_DATABASE: nauth_test
+      # Redis (Docker service name)
+      REDIS_URL: redis://redis:6379
+      # MailHog (Docker service name)
+      SMTP_HOST: mailhog
+      SMTP_PORT: '1025'
+      # Docker Compose paths for restart endpoint
+      DOCKER_COMPOSE_FILE: docker-compose.yml
+      DOCKER_COMPOSE_PATH: /workspace
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailhog:
+        condition: service_healthy
+    ports:
+      - '3300:3000'
+    # Mount Docker socket for restart endpoint (test mode only - security risk in production!)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped

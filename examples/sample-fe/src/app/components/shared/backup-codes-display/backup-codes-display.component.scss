@@ -1,0 +1,81 @@
+.backup-codes-display {
+  padding: 0; // No padding - let parent control spacing
+  box-sizing: border-box;
+  width: 100%;
+
+  h3 {
+    margin: 0 0 1rem 0;
+    color: #333;
+    font-size: 1.25rem;
+  }
+}
+
+.warning-box {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+
+  p {
+    margin: 0;
+    color: #856404;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+}
+
+.backup-codes-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 2px solid #e0e0e0;
+
+  .backup-code-item {
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+    padding: 0.5rem;
+    background: white;
+    border-radius: 4px;
+    text-align: center;
+    border: 1px solid #ddd;
+  }
+}
+
+.btn-primary {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.75rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  box-sizing: border-box;
+
+  &:hover:not(:disabled) {
+    background: #5568d3;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .backup-codes-list {
+    grid-template-columns: 1fr;
+  }
+}
+

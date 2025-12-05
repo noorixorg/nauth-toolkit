@@ -1,0 +1,9 @@
+{
+  "label": "Fastify Adapter",
+  "position": 4,
+  "link": {
+    "type": "doc",
+    "id": "api/fastify/overview"
+  }
+}
+

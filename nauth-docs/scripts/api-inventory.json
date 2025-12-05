@@ -1,0 +1,70 @@
+{
+  "core": {
+    "services": [],
+    "dtos": [],
+    "interfaces": [],
+    "enums": [
+      "AuthErrorCode",
+      "AuthAuditEventType"
+    ],
+    "utilities": [],
+    "guards": [],
+    "decorators": [],
+    "middleware": [],
+    "interceptors": [],
+    "filters": [],
+    "modules": []
+  },
+  "nestjs": {
+    "services": [
+      "CsrfService"
+    ],
+    "dtos": [],
+    "interfaces": [
+      "IS_PUBLIC_KEY"
+    ],
+    "enums": [
+      "CurrentUser",
+      "ClientInfo",
+      "TokenDelivery",
+      "RouteDelivery",
+      "NestJsLoggerAdapter"
+    ],
+    "utilities": [],
+    "guards": [
+      "AuthGuard",
+      "CsrfGuard"
+    ],
+    "decorators": [],
+    "middleware": [],
+    "interceptors": [
+      "ClientInfoInterceptor",
+      "CookieTokenInterceptor"
+    ],
+    "filters": [
+      "NAuthHttpExceptionFilter"
+    ],
+    "modules": [
+      "AuthModule"
+    ]
+  },
+  "express": {
+    "services": [],
+    "dtos": [
+      "validateDTO"
+    ],
+    "interfaces": [],
+    "enums": [
+      "ValidateDTOOptions"
+    ],
+    "utilities": [],
+    "guards": [],
+    "decorators": [],
+    "middleware": [
+      "validateDTOMiddleware"
+    ],
+    "interceptors": [],
+    "filters": [],
+    "modules": []
+  }
+}

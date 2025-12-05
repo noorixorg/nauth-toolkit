@@ -1,0 +1,60 @@
+<div class="passkey-setup">
+  <h3>Set Up Passkey</h3>
+  <p class="instruction">
+    Passkeys use your device's biometric authentication (Face ID, Touch ID, Windows Hello, or a security key) for secure
+    login.
+  </p>
+
+  @if (!isWebAuthnSupported) {
+    <div class="error-message">
+      Passkeys are not supported in this browser. Please use a modern browser that supports WebAuthn.
+    </div>
+  }
+
+  @if (errorMessage) {
+    <div class="error-message">{{ errorMessage }}</div>
+  }
+
+  @if (setupOptions && isWebAuthnSupported) {
+    <div class="passkey-info">
+      <p>
+        Click the button below to create a passkey. You'll be prompted to use your device's biometric authentication or
+        security key.
+      </p>
+      <p class="info-note">
+        <strong>Note:</strong> You can register multiple passkeys (e.g., one on your phone, one on your laptop, one on a
+        hardware key) for convenience.
+      </p>
+    </div>
+
+    <!-- Device Name Form -->
+    <form [formGroup]="passkeySetupForm" (ngSubmit)="startPasskeyRegistration()">
+      <div class="form-group">
+        <label for="deviceName">Device Name (Optional)</label>
+        <input
+          id="deviceName"
+          type="text"
+          formControlName="deviceName"
+          placeholder="e.g., iPhone 15 Pro, YubiKey 5C"
+          [disabled]="isLoading || isCreatingCredential"
+        />
+        <small class="field-hint">Give your passkey a name to identify it later</small>
+      </div>
+
+      <button
+        type="submit"
+        class="btn-primary"
+        [disabled]="isLoading || isCreatingCredential || !passkeySetupForm.valid"
+      >
+        {{ isCreatingCredential ? 'Creating Passkey...' : isLoading ? 'Setting Up...' : 'Create Passkey' }}
+      </button>
+    </form>
+  }
+
+  @if (showBackButton) {
+    <button type="button" class="btn-link back-link" (click)="onGoBack()" [disabled]="isLoading || isCreatingCredential">
+      ← Choose different method
+    </button>
+  }
+</div>
+

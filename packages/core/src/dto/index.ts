@@ -1,0 +1,56 @@
+// Core Auth DTOs
+export * from './signup.dto';
+export * from './login.dto';
+export * from './change-password.dto';
+export * from './change-password-request.dto';
+export * from './change-password-response.dto';
+export * from './user-response.dto';
+export * from './user-update.dto';
+export * from './update-user-attributes-request.dto';
+export * from './verify-email.dto';
+export * from './verify-phone.dto';
+export * from './verify-phone-by-sub.dto';
+export * from './reset-password.dto';
+export * from './refresh-token.dto';
+export * from './auth-response.dto';
+export * from './auth-challenge.dto';
+export * from './challenge-response.dto';
+export * from './respond-challenge.dto';
+export * from './get-setup-data.dto';
+export * from './get-setup-data-response.dto';
+export * from './get-challenge-data.dto';
+export * from './get-challenge-data-response.dto';
+export * from './get-available-methods.dto';
+export * from './get-mfa-status.dto';
+export * from './get-user-devices.dto';
+export * from './has-provider.dto';
+export * from './list-providers-response.dto';
+export * from './remove-devices.dto';
+export * from './set-mfa-exemption.dto';
+export * from './set-preferred-method.dto';
+export * from './setup-mfa.dto';
+export * from './verify-mfa-code.dto';
+export * from './get-client-info.dto';
+export * from './get-ip-address-response.dto';
+export * from './get-user-agent-response.dto';
+export * from './get-device-token-response.dto';
+export * from './get-session-id-response.dto';
+export * from './resend-code.dto';
+export * from './resend-code-response.dto';
+export * from './get-user-by-email.dto';
+export * from './get-user-by-id.dto';
+export * from './get-user-response.dto';
+export * from './logout.dto';
+export * from './logout-response.dto';
+export * from './logout-all.dto';
+export * from './logout-all-response.dto';
+export * from './set-must-change-password.dto';
+export * from './set-must-change-password-response.dto';
+// Note: trust-device.dto.ts removed - trustDevice() no longer takes parameters
+export * from './trust-device-response.dto';
+
+export * from './social-auth.dto';
+
+// Note: Social and MFA DTOs moved to their respective packages
+// - social-login.dto → @nauth-toolkit/social-*
+// - mfa.dto → @nauth-toolkit/mfa-*

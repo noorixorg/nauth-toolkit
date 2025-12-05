@@ -1,0 +1,240 @@
+<div class="audit-events-container">
+  <div class="card-header">
+    <h2>Authentication Events</h2>
+    <div class="header-actions">
+      <button class="filter-toggle-btn" (click)="toggleFilters()" type="button">
+        {{ showFilters ? 'Hide' : 'Show' }} Filters
+      </button>
+      @if (isLoadingAudit) {
+        <span class="spinner small"></span>
+      }
+    </div>
+  </div>
+
+  @if (auditError) {
+    <div class="error-message">{{ auditError }}</div>
+  }
+
+  <!-- Filters Panel -->
+  @if (showFilters) {
+    <div class="filters-panel">
+      <div class="filters-row">
+        <div class="filter-group">
+          <label class="filter-label">Event Types</label>
+          <div class="event-types-controls">
+            <button type="button" class="filter-action-btn" (click)="selectAllEventTypes()">
+              Select All
+            </button>
+            <button type="button" class="filter-action-btn" (click)="deselectAllEventTypes()">
+              Deselect All
+            </button>
+          </div>
+          <div class="event-types-grid">
+            @for (eventType of availableEventTypes; track eventType) {
+              <label class="event-type-checkbox">
+                <input
+                  type="checkbox"
+                  [checked]="isEventTypeSelected(eventType)"
+                  (change)="toggleEventType(eventType)"
+                />
+                <span>{{ formatEventType(eventType) }}</span>
+              </label>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="filters-row">
+        <div class="filter-group">
+          <label class="filter-label" for="eventStatus">Event Status</label>
+          <select id="eventStatus" [(ngModel)]="selectedEventStatus" class="filter-input">
+            <option value="">All Statuses</option>
+            <option value="SUCCESS">Success</option>
+            <option value="FAILURE">Failure</option>
+            <option value="INFO">Info</option>
+            <option value="SUSPICIOUS">Suspicious</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label" for="startDate">Start Date</label>
+          <input
+            type="date"
+            id="startDate"
+            [(ngModel)]="startDate"
+            class="filter-input"
+            [max]="endDate"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label" for="endDate">End Date</label>
+          <input
+            type="date"
+            id="endDate"
+            [(ngModel)]="endDate"
+            class="filter-input"
+            [min]="startDate"
+          />
+        </div>
+      </div>
+
+      <div class="filters-actions">
+        <button type="button" class="btn-primary" (click)="applyFilters()">Apply Filters</button>
+        <button type="button" class="btn-secondary" (click)="resetFilters()">Reset</button>
+      </div>
+    </div>
+  }
+
+  @if (!isLoadingAudit && auditHistory) {
+    <div class="audit-table-container">
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th>Event Type</th>
+            <th>Status</th>
+            <th>Date & Time</th>
+            <th>IP Address</th>
+            <th>Location</th>
+            <th>Device</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (auditHistory.data.length === 0) {
+            <tr>
+              <td colspan="6" class="no-data">No audit events found</td>
+            </tr>
+          } @else {
+            @for (event of auditHistory.data; track getEventProperty(event, 'id')) {
+              <tr
+                [class.has-metadata]="hasMetadata(event)"
+                [class.active]="previewEvent === event"
+                (click)="togglePreview(event, $event)"
+              >
+                <td class="event-type">
+                  <span class="event-type-label">{{ getEnhancedEventTypeLabel(event) }}</span>
+                  @if (hasMetadata(event)) {
+                    <span class="metadata-indicator" title="Click or hover to view details"
+                      >ℹ</span
+                    >
+                  }
+                </td>
+                <td>
+                  <span class="status-badge" [class]="getStatusClass(event)">
+                    {{ getEventProperty(event, 'eventStatus') || '-' }}
+                  </span>
+                </td>
+                <td class="date-cell">{{ formatDate(getEventProperty(event, 'createdAt')) }}</td>
+                <td class="ip-cell">{{ getEventProperty(event, 'ipAddress') || '-' }}</td>
+                <td class="location-cell">
+                  {{ getLocation(event) }}
+                </td>
+                <td class="device-cell">
+                  {{ getDevice(event) }}
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+
+      @if (auditHistory && auditHistory.total > 0) {
+        <div class="pagination">
+          <button
+            (click)="goToPage(auditHistory.page - 1)"
+            [disabled]="auditHistory.page <= 1 || isLoadingAudit"
+            class="pagination-button"
+          >
+            Previous
+          </button>
+          <span class="pagination-info">
+            Page {{ auditHistory.page }} of {{ auditHistory.totalPages }} ({{ auditHistory.total }}
+            total)
+          </span>
+          <button
+            (click)="goToPage(auditHistory.page + 1)"
+            [disabled]="auditHistory.page >= auditHistory.totalPages || isLoadingAudit"
+            class="pagination-button"
+          >
+            Next
+          </button>
+        </div>
+      }
+    </div>
+  } @else if (!auditError) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading audit history...</p>
+    </div>
+  }
+
+  <!-- Metadata Preview Side Panel -->
+  @if (previewEvent) {
+    <div class="preview-backdrop" (click)="hidePreview()"></div>
+    <div class="preview-panel" [class.open]="previewEvent !== null">
+      <div class="preview-header">
+        <h3>Event Details</h3>
+        <button class="close-button" (click)="hidePreview()" aria-label="Close preview">×</button>
+      </div>
+      <div class="preview-content">
+        <div class="preview-section">
+          <h4 class="section-title">Summary</h4>
+          <div class="preview-field">
+            <span class="field-label">Event Type:</span>
+            <span class="field-value">{{
+              formatEventType(getEventProperty(previewEvent, 'eventType'))
+            }}</span>
+          </div>
+          <div class="preview-field">
+            <span class="field-label">Status:</span>
+            <span class="field-value status-badge" [class]="getStatusClass(previewEvent)">{{
+              getEventProperty(previewEvent, 'eventStatus') || '-'
+            }}</span>
+          </div>
+          <div class="preview-field">
+            <span class="field-label">Date & Time:</span>
+            <span class="field-value">{{
+              formatDate(getEventProperty(previewEvent, 'createdAt'))
+            }}</span>
+          </div>
+        </div>
+
+        @if (getPreviewFields(previewEvent).length > 0) {
+          <div class="preview-section">
+            <h4 class="section-title">Additional Details</h4>
+            @for (field of getPreviewFields(previewEvent); track field.label) {
+              <div class="preview-field">
+                <span class="field-label">{{ field.label }}:</span>
+                <span
+                  class="field-value"
+                  [class.metadata-json]="
+                    field.label === 'Metadata' ||
+                    field.label === 'Additional Metadata' ||
+                    field.label === 'Field Changes' ||
+                    isJson(field.value)
+                  "
+                  [class.boolean-value]="field.value === 'Yes' || field.value === 'No'"
+                >
+                  @if (
+                    field.label === 'Metadata' ||
+                    field.label === 'Additional Metadata' ||
+                    field.label === 'Field Changes' ||
+                    isJson(field.value)
+                  ) {
+                    <pre>{{ formatMetadataValue(field.label, field.value) }}</pre>
+                  } @else if (field.value === 'Yes') {
+                    <span class="value-yes">{{ field.value }}</span>
+                  } @else if (field.value === 'No') {
+                    <span class="value-no">{{ field.value }}</span>
+                  } @else {
+                    {{ field.value }}
+                  }
+                </span>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>

@@ -1,0 +1,97 @@
+import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
+import * as dotenv from 'dotenv';
+import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+
+// Load environment variables BEFORE importing AppModule
+dotenv.config();
+
+import { AppModule } from './app.module';
+import { NAuthHttpExceptionFilter } from '@nauth-toolkit/nestjs';
+
+/**
+ * Bootstrap the NestJS application with Fastify
+ *
+ * ✅ **PLATFORM-AGNOSTIC PROOF OF CONCEPT:**
+ * This demonstrates that nauth-toolkit's core and NestJS adapter
+ * work seamlessly with ANY NestJS HTTP adapter (Express, Fastify, etc.)
+ *
+ * The only changes required:
+ * 1. Import FastifyAdapter and NestFastifyApplication
+ * 2. Pass FastifyAdapter to NestFactory.create()
+ * 3. Replace Express middleware with Fastify plugins
+ *
+ * NO CHANGES needed to auth services, guards, interceptors, or decorators!
+ * Everything is platform-agnostic via NestJS's ArgumentsHost abstraction.
+ */
+async function bootstrap() {
+  // Create NestJS application with Fastify adapter
+  // Enable Fastify request logging
+  const fastifyAdapter = new FastifyAdapter({
+    logger: {
+      level: process.env.LOG_LEVEL || 'info',
+      // Fastify will log all incoming requests automatically
+      // Format: { level, time, msg, reqId, req: { method, url, ... }, res: { statusCode, ... } }
+    },
+  });
+
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, fastifyAdapter, {
+    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+  });
+
+  // app.set('trust proxy', true);
+
+  // Register Fastify cookie plugin for cookie-based token delivery
+  // (replaces Express cookie-parser middleware)
+  await app.register(require('@fastify/cookie'));
+
+  // ============================================================================
+  // Fix DELETE endpoint body parsing
+  // ============================================================================
+  // Use Fastify's preParsing hook to handle DELETE requests with empty bodies
+  // This is the official Fastify way to handle this scenario
+  const fastifyInstance = app.getHttpAdapter().getInstance();
+  fastifyInstance.addHook('preParsing', (request, reply, payload, done) => {
+    // Remove Content-Type header for DELETE requests with empty bodies
+    // This prevents Fastify from expecting a JSON body when none is provided
+    if (
+      request.method === 'DELETE' &&
+      request.headers['content-type'] === 'application/json' &&
+      (!request.headers['content-length'] || request.headers['content-length'] === '0')
+    ) {
+      delete request.headers['content-type'];
+    }
+    done();
+  });
+
+  // Enable global validation pipe for DTO validation (CRITICAL for nauth-toolkit)
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
+
+  // Enable nauth-toolkit exception filter (PLATFORM-AGNOSTIC - works with Fastify!)
+  // Uses ArgumentsHost abstraction - not Express-specific
+  app.useGlobalFilters(new NAuthHttpExceptionFilter());
+  app.enableCors({
+    origin: [
+      'http://localhost:4200',
+      'http://192.168.50.39:4200',
+      'capacitor://localhost',
+      'ionic://localhost',
+      'https://angular.dev1.noorix.com',
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id', 'x-csrf-token'],
+  });
+  const port = process.env.PORT || 3000;
+
+  // Listen on all network interfaces so Android app can access it
+  await app.listen(port, '0.0.0.0');
+}
+
+bootstrap();

@@ -1,0 +1,477 @@
+---
+sidebar_position: 2
+title: Quick Start
+description: Get started with nauth-toolkit in your Node.js application
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Quick Start
+
+Install nauth-toolkit and add authentication to your Node.js application in minutes.
+
+## Installation
+
+<Tabs groupId="framework">
+<TabItem value="nestjs" label="NestJS" default>
+
+```bash npm2yarn
+npm install @nauth-toolkit/core @nauth-toolkit/nestjs @nauth-toolkit/database-typeorm-postgres
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```bash npm2yarn
+npm install @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```bash npm2yarn
+npm install @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres @fastify/cookie
+```
+
+</TabItem>
+</Tabs>
+
+## Basic Setup
+
+<Tabs groupId="framework">
+<TabItem value="nestjs" label="NestJS" default>
+
+```typescript title="app.module.ts"
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from '@nauth-toolkit/nestjs';
+import { getNAuthEntities } from '@nauth-toolkit/database-typeorm-postgres';
+import { authConfig } from './config/auth.config';
+
+@Module({
+  imports: [
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT || '5432'),
+      username: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_DATABASE,
+      entities: getNAuthEntities(),
+      synchronize: process.env.NODE_ENV === 'development',
+    }),
+    AuthModule.forRoot(authConfig),
+  ],
+})
+export class AppModule {}
+```
+
+```typescript title="auth.controller.ts"
+import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
+import { AuthService, SignupDTO, LoginDTO, AuthGuard, CurrentUser, Public, IUser } from '@nauth-toolkit/nestjs';
+
+@Controller('auth')
+export class AuthController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @Post('signup')
+  async signup(@Body() dto: SignupDTO) {
+    return this.authService.signup(dto);
+  }
+
+  @Public()
+  @Post('login')
+  async login(@Body() dto: LoginDTO) {
+    return this.authService.login(dto);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('me')
+  async getCurrentUser(@CurrentUser() user: IUser) {
+    return user;
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript title="index.ts"
+import express from 'express';
+import cookieParser from 'cookie-parser';
+import { DataSource } from 'typeorm';
+import { NAuth, ExpressAdapter } from '@nauth-toolkit/core';
+import { getNAuthEntities } from '@nauth-toolkit/database-typeorm-postgres';
+import { authConfig } from './config/auth.config';
+
+async function bootstrap() {
+  // Initialize database
+  const dataSource = new DataSource({
+    type: 'postgres',
+    host: process.env.DB_HOST,
+    port: parseInt(process.env.DB_PORT || '5432'),
+    username: process.env.DB_USERNAME,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DATABASE,
+    entities: getNAuthEntities(),
+    synchronize: process.env.NODE_ENV === 'development',
+  });
+  await dataSource.initialize();
+
+  // Create NAuth instance
+  const nauth = await NAuth.create({
+    config: authConfig,
+    dataSource,
+    adapter: new ExpressAdapter(),
+  });
+
+  const app = express();
+  app.use(express.json());
+  app.use(cookieParser());
+
+  // Mount middleware (order matters)
+  app.use(nauth.middleware.clientInfo); // FIRST - initializes context
+  app.use(nauth.middleware.csrf);
+  app.use(nauth.middleware.auth);
+  app.use(nauth.middleware.tokenDelivery);
+
+  // Routes
+  app.post('/auth/signup', nauth.helpers.public(), async (req, res, next) => {
+    try {
+      const result = await nauth.authService.signup(req.body);
+      res.status(201).json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post('/auth/login', nauth.helpers.public(), async (req, res, next) => {
+    try {
+      const result = await nauth.authService.login(req.body);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/auth/me', nauth.helpers.requireAuth(), (req, res) => {
+    const user = nauth.helpers.getCurrentUser();
+    res.json(user);
+  });
+
+  app.listen(3000, () => console.log('Server running on :3000'));
+}
+
+bootstrap();
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript title="index.ts"
+import Fastify from 'fastify';
+import cookie from '@fastify/cookie';
+import { DataSource } from 'typeorm';
+import { NAuth, FastifyAdapter, withNAuthContext } from '@nauth-toolkit/core';
+import { getNAuthEntities } from '@nauth-toolkit/database-typeorm-postgres';
+import { authConfig } from './config/auth.config';
+
+async function bootstrap() {
+  // Initialize database
+  const dataSource = new DataSource({
+    type: 'postgres',
+    host: process.env.DB_HOST,
+    port: parseInt(process.env.DB_PORT || '5432'),
+    username: process.env.DB_USERNAME,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DATABASE,
+    entities: getNAuthEntities(),
+    synchronize: process.env.NODE_ENV === 'development',
+  });
+  await dataSource.initialize();
+
+  // Create NAuth instance
+  const nauth = await NAuth.create({
+    config: authConfig,
+    dataSource,
+    adapter: new FastifyAdapter(),
+  });
+
+  const fastify = Fastify();
+  await fastify.register(cookie);
+
+  // Register hooks (order matters)
+  fastify.addHook('onRequest', nauth.middleware.clientInfo as any); // FIRST
+  fastify.addHook('onRequest', nauth.middleware.csrf as any);
+  fastify.addHook('onRequest', nauth.middleware.auth as any);
+  fastify.addHook('onSend', nauth.middleware.tokenDelivery as any);
+
+  // Routes - wrap handlers with withNAuthContext
+  fastify.post(
+    '/auth/signup',
+    { preHandler: nauth.helpers.public() as any },
+    withNAuthContext(async (req) => {
+      const result = await nauth.authService.signup(req.body as any);
+      return result;
+    }),
+  );
+
+  fastify.post(
+    '/auth/login',
+    { preHandler: nauth.helpers.public() as any },
+    withNAuthContext(async (req) => {
+      return nauth.authService.login(req.body as any);
+    }),
+  );
+
+  fastify.get(
+    '/auth/me',
+    { preHandler: nauth.helpers.requireAuth() as any },
+    withNAuthContext(async () => {
+      return nauth.helpers.getCurrentUser();
+    }),
+  );
+
+  await fastify.listen({ port: 3000 });
+  console.log('Server running on :3000');
+}
+
+bootstrap();
+```
+
+</TabItem>
+</Tabs>
+
+## Configuration
+
+<Tabs>
+<TabItem value="basic" label="Basic Config">
+
+```typescript title="config/auth.config.ts"
+import { NAuthConfig } from '@nauth-toolkit/core';
+import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+
+export const authConfig: NAuthConfig = {
+  jwt: {
+    algorithm: 'HS256',
+    accessToken: {
+      secret: process.env.JWT_SECRET!,
+      expiresIn: '15m',
+    },
+    refreshToken: {
+      secret: process.env.JWT_REFRESH_SECRET!,
+      expiresIn: '7d',
+    },
+  },
+
+  password: {
+    minLength: 8,
+    requireUppercase: true,
+    requireNumbers: true,
+    requireSpecialChars: true,
+  },
+
+  emailProvider: new NodemailerEmailProvider({
+    transport: {
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    },
+    defaults: { from: 'noreply@myapp.com' },
+  }),
+
+  signup: {
+    enabled: true,
+    verificationMethod: 'email',
+  },
+};
+```
+
+</TabItem>
+<TabItem value="advanced" label="Advanced Config">
+
+```typescript title="config/auth.config.ts"
+import { NAuthConfig, MFAMethod, createRedisStorageAdapter } from '@nauth-toolkit/core';
+import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+
+export const authConfig: NAuthConfig = {
+  tablePrefix: 'nauth_',
+
+  // Redis for production (rate limits, locks, token reuse detection)
+  storageAdapter: createRedisStorageAdapter(process.env.REDIS_URL!),
+
+  jwt: {
+    algorithm: 'HS256',
+    issuer: 'com.myapp',
+    audience: ['web', 'mobile'],
+    accessToken: {
+      secret: process.env.JWT_SECRET!,
+      expiresIn: '15m',
+    },
+    refreshToken: {
+      secret: process.env.JWT_REFRESH_SECRET!,
+      expiresIn: '7d',
+      rotation: true,
+      reuseDetection: true,
+    },
+  },
+
+  password: {
+    minLength: 8,
+    requireUppercase: true,
+    requireNumbers: true,
+    requireSpecialChars: true,
+    preventCommon: true,
+    historyCount: 5,
+  },
+
+  emailProvider: new NodemailerEmailProvider({ /* ... */ }),
+
+  signup: { enabled: true, verificationMethod: 'email' },
+  lockout: { enabled: true, maxAttempts: 5, duration: 900 },
+  session: { maxConcurrent: 5 },
+
+  // Token delivery (cookies for web, JSON for mobile)
+  tokenDelivery: {
+    method: 'hybrid',
+    cookieOptions: { secure: true, sameSite: 'strict' },
+  },
+
+  // MFA with adaptive security
+  mfa: {
+    enabled: true,
+    enforcement: 'ADAPTIVE',
+    allowedMethods: [MFAMethod.TOTP, MFAMethod.PASSKEY],
+    adaptive: {
+      triggers: ['new_device', 'new_ip', 'impossible_travel'],
+      riskLevels: {
+        low: { maxScore: 20, action: 'allow' },
+        medium: { maxScore: 50, action: 'require_mfa' },
+        high: { maxScore: 100, action: 'require_mfa' },
+      },
+    },
+  },
+
+  // Lifecycle hooks
+  hooks: {
+    afterSignup: async (user) => {
+      console.log('New user:', user.email);
+    },
+  },
+
+  auditLogs: { enabled: true },
+};
+```
+
+</TabItem>
+</Tabs>
+
+## Adding Features
+
+### Social Login
+
+```bash npm2yarn
+npm install @nauth-toolkit/social-google
+```
+
+<Tabs groupId="framework">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+import { GoogleSocialAuthModule } from '@nauth-toolkit/social-google/nestjs';
+
+@Module({
+  imports: [
+    AuthModule.forRoot(authConfig),
+    GoogleSocialAuthModule,
+  ],
+})
+export class AppModule {}
+```
+
+</TabItem>
+<TabItem value="express" label="Express / Fastify">
+
+Social providers auto-register when configured:
+
+```typescript title="auth.config.ts"
+export const authConfig: NAuthConfig = {
+  // ...
+  social: {
+    google: {
+      enabled: true,
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      callbackUrl: 'https://api.myapp.com/auth/social/google/callback',
+    },
+  },
+};
+```
+
+</TabItem>
+</Tabs>
+
+### MFA (TOTP)
+
+```bash npm2yarn
+npm install @nauth-toolkit/mfa-totp
+```
+
+<Tabs groupId="framework">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+import { TOTPMFAModule } from '@nauth-toolkit/mfa-totp/nestjs';
+
+@Module({
+  imports: [
+    AuthModule.forRoot(authConfig),
+    TOTPMFAModule,
+  ],
+})
+export class AppModule {}
+```
+
+</TabItem>
+<TabItem value="express" label="Express / Fastify">
+
+MFA providers auto-register when configured:
+
+```typescript title="auth.config.ts"
+export const authConfig: NAuthConfig = {
+  // ...
+  mfa: {
+    enabled: true,
+    enforcement: 'OPTIONAL',
+    allowedMethods: [MFAMethod.TOTP],
+    issuer: 'My App',
+    totp: { digits: 6, stepSeconds: 30 },
+  },
+};
+```
+
+</TabItem>
+</Tabs>
+
+## Key Differences by Framework
+
+| Aspect | NestJS | Express | Fastify |
+|--------|--------|---------|---------|
+| **Bootstrap** | `AuthModule.forRoot()` | `NAuth.create()` | `NAuth.create()` |
+| **Adapter** | Automatic | `ExpressAdapter` | `FastifyAdapter` |
+| **Route protection** | `@UseGuards(AuthGuard)` | `nauth.helpers.requireAuth()` | `preHandler` + `withNAuthContext` |
+| **Public routes** | `@Public()` decorator | `nauth.helpers.public()` | `nauth.helpers.public()` |
+| **Get current user** | `@CurrentUser()` decorator | `nauth.helpers.getCurrentUser()` | `nauth.helpers.getCurrentUser()` |
+| **Context propagation** | Automatic | Automatic | Requires `withNAuthContext` wrapper |
+
+## Next Steps
+
+- [Architecture](/docs/concepts/architecture) - Understand the design
+- [Configuration](/docs/concepts/configuration) - Full config reference
+- [Challenge System](/docs/concepts/challenge-system) - Multi-step auth flows
+- [API Reference](/docs/api/overview) - Complete service documentation

@@ -1,0 +1,121 @@
+---
+title: GitHub Repository
+description: nauth-toolkit GitHub Repository Coming Soon
+---
+
+import Layout from '@theme/Layout';
+import Link from '@docusaurus/Link';
+
+<Layout title="GitHub Repository" description="nauth-toolkit GitHub Repository Coming Soon">
+  <style>{`
+    .github-wrapper {
+      min-height: calc(100vh - 60px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .github-content {
+      max-width: 600px;
+      text-align: center;
+    }
+
+    .github-title {
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      color: var(--ifm-heading-color);
+      line-height: 1.2;
+    }
+
+    .github-description {
+      font-size: 1.125rem;
+      line-height: 1.7;
+      color: var(--ifm-color-emphasis-700);
+      margin-bottom: 3rem;
+    }
+
+    .github-note {
+      font-size: 0.95rem;
+      color: var(--ifm-color-emphasis-600);
+      margin-bottom: 3rem;
+      padding: 1.5rem;
+      background: var(--ifm-color-emphasis-100);
+      border-radius: 8px;
+    }
+
+    .github-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .github-button {
+      display: inline-block;
+      padding: 0.75rem 2rem;
+      border-radius: 6px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .github-button-primary {
+      background: var(--ifm-color-primary);
+      color: #fff;
+    }
+
+    .github-button-primary:hover {
+      background: var(--ifm-color-primary-dark);
+      color: #fff;
+      text-decoration: none;
+      transform: translateY(-1px);
+    }
+
+    .github-button-secondary {
+      background: transparent;
+      color: var(--ifm-color-emphasis-700);
+      border: 1px solid var(--ifm-color-emphasis-300);
+    }
+
+    .github-button-secondary:hover {
+      background: var(--ifm-color-emphasis-100);
+      color: var(--ifm-color-emphasis-900);
+      text-decoration: none;
+      border-color: var(--ifm-color-emphasis-400);
+    }
+
+    [data-theme='dark'] .github-note {
+      background: var(--ifm-color-emphasis-200);
+      color: var(--ifm-color-emphasis-400);
+    }
+  `}</style>
+
+  <div className="github-wrapper">
+    <div className="github-content">
+      <h1 className="github-title">Coming Soon</h1>
+      <p className="github-description">
+        The GitHub repository is currently being prepared for public release.
+      </p>
+
+      <div className="github-note">
+        The nauth-toolkit is available on npm. Install and start using it today.
+      </div>
+
+      <div className="github-actions">
+        <Link className="github-button github-button-primary" to="/">
+          Back to Home
+        </Link>
+        <a
+          className="github-button github-button-secondary"
+          href="https://www.npmjs.com/package/@nauth-toolkit/core"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          View on npm
+        </a>
+      </div>
+    </div>
+  </div>
+</Layout>

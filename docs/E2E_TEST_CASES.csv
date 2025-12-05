@@ -1,0 +1,194 @@
+"Test Case ID","Section","Scenario","Pre-conditions / User State","Steps to Reproduce","Expected Result","Configuration Dependencies","Config Group","Status","Notes","Security Focus"
+"0001","1. Core Auth - Signup","Successful signup with email verification","User does not exist.","1. POST /auth/signup/mobile with new email and password.","201 Created. AuthChallenge: VERIFY_EMAIL. Email sent with code.","signup.verificationMethod: 'email'; mfa.enabled: false","PRODUCTION_STANDARD","","Most common production config [Priority: CRITICAL]","Functional"
+"0002","1. Core Auth - Signup","Complete email verification and get tokens","User signed up, has VERIFY_EMAIL challenge.","1. Extract code from MailHog.
+2. POST /auth/verify-email/verify with email and code.","200 OK. Tokens returned (accessToken, refreshToken). User isEmailVerified=true.","signup.verificationMethod: 'email'","PRODUCTION_STANDARD","","Complete signup flow [Priority: CRITICAL]","Functional"
+"0003","1. Core Auth - Login","Successful login (verified user, no MFA)","User exists, email verified, no MFA.","1. POST /auth/login/mobile with correct credentials.","200 OK. Tokens returned.","mfa.enabled: false","PRODUCTION_STANDARD","","Basic login flow [Priority: CRITICAL]","Functional"
+"0004","1. Core Auth - Login","Login with unverified email triggers challenge","User exists, email NOT verified.","1. POST /auth/login/mobile with correct credentials.","200 OK. AuthChallenge: VERIFY_EMAIL.","signup.verificationMethod: 'email'","PRODUCTION_STANDARD","","Challenge system working [Priority: CRITICAL]","Functional"
+"0005","1. Core Auth - Validation","Signup with existing email","User with email exists.","1. POST /auth/signup/mobile with same email.","409 Conflict. Email already exists.","","PRODUCTION_STANDARD","","Duplicate prevention [Priority: HIGH]","Data Integrity"
+"0006","1. Core Auth - Validation","Signup with weak password","Password policy configured.","1. POST /auth/signup/mobile with password=""test"".","400 Bad Request. Validation errors listed.","password.minLength: 8; password.requireUppercase: true","PRODUCTION_STANDARD","","Password policy enforcement [Priority: HIGH]","Password Security"
+"0007","2. MFA - TOTP","Setup TOTP MFA successfully","User logged in, MFA not enabled.","1. POST /auth/mfa/totp/setup.
+2. Receive QR code.
+3. POST /auth/mfa/totp/verify-setup with 6-digit code.","200 OK. MFA device created. User mfaEnabled=true.","mfa.enabled: true; mfa.allowedMethods: ['totp']","MFA_ENABLED","","TOTP MFA setup flow [Priority: CRITICAL]","MFA"
+"0008","2. MFA - TOTP","Login with TOTP MFA (untrusted device)","User has TOTP device, logging from untrusted device.","1. POST /auth/login/mobile.
+2. Receive MFA_REQUIRED challenge.
+3. POST /auth/mfa/verify with 6-digit code.","200 OK. Tokens returned after MFA verification.","mfa.enabled: true; mfa.enforcement: 'OPTIONAL'","MFA_ENABLED","","TOTP MFA verification [Priority: CRITICAL]","MFA"
+"0009","2. MFA - TOTP","TOTP - invalid code rejected","MFA_REQUIRED challenge pending.","1. Submit incorrect 6-digit code 3 times.","401 Unauthorized. Attempts incremented. Max attempts enforced.","mfa.enabled: true","MFA_ENABLED","","Brute force protection [Priority: HIGH]","Brute Force"
+"0010","2. MFA - SMS","Setup SMS MFA successfully","User logged in, MFA not enabled.","1. POST /auth/mfa/sms/setup.
+2. Receive phone number.
+3. POST /auth/mfa/sms/verify-setup with SMS code.","200 OK. MFA device created. User mfaEnabled=true.","mfa.enabled: true; mfa.allowedMethods: ['sms']","MFA_ENABLED","","SMS MFA setup flow [Priority: CRITICAL]","MFA"
+"0011","2. MFA - SMS","Login with SMS MFA (untrusted device)","User has SMS device, logging from untrusted device.","1. POST /auth/login/mobile.
+2. Receive MFA_REQUIRED challenge.
+3. POST /auth/mfa/verify with SMS code.","200 OK. Tokens returned after MFA verification.","mfa.enabled: true; mfa.enforcement: 'OPTIONAL'","MFA_ENABLED","","SMS MFA verification [Priority: CRITICAL]","MFA"
+"0012","2. MFA - SMS","SMS - invalid code rejected","MFA_REQUIRED challenge pending.","1. Submit incorrect SMS code 3 times.","401 Unauthorized. Attempts incremented. Max attempts enforced.","mfa.enabled: true","MFA_ENABLED","","Brute force protection [Priority: HIGH]","Brute Force"
+"0013","2. MFA - Passkey","Setup Passkey MFA successfully","User logged in, MFA not enabled.","1. POST /auth/mfa/passkey/setup.
+2. Receive WebAuthn options.
+3. POST /auth/mfa/passkey/verify-setup with credential.","200 OK. MFA device created. User mfaEnabled=true.","mfa.enabled: true; mfa.allowedMethods: ['passkey']","MFA_ENABLED","","Passkey MFA setup flow [Priority: CRITICAL]","MFA"
+"0014","2. MFA - Passkey","Login with Passkey MFA (untrusted device)","User has Passkey device, logging from untrusted device.","1. POST /auth/login/mobile.
+2. Receive MFA_REQUIRED challenge.
+3. POST /auth/mfa/verify with credential.","200 OK. Tokens returned after MFA verification.","mfa.enabled: true; mfa.enforcement: 'OPTIONAL'","MFA_ENABLED","","Passkey MFA verification [Priority: CRITICAL]","MFA"
+"0015","2. MFA - Passkey","Passkey - invalid code rejected","MFA_REQUIRED challenge pending.","1. Submit incorrect credential 3 times.","401 Unauthorized. Attempts incremented. Max attempts enforced.","mfa.enabled: true","MFA_ENABLED","","Brute force protection [Priority: HIGH]","Brute Force"
+"0016","2. MFA - Backup Codes","Generate and use backup codes","User has MFA enabled.","1. POST /auth/mfa/backup/generate.
+2. Get 10 codes.
+3. Login and use backup code during MFA challenge.","Backup code works once. Reuse rejected with 401.","mfa.backup.enabled: true","MFA_ENABLED","","Recovery mechanism [Priority: HIGH]","MFA Recovery"
+"0017","3. Device Trust - Cookies Mode","Trust device returns httpOnly cookie","User logged in (cookies mode), rememberDevices=user_opt_in.","1. POST /auth/trust-device.
+2. Inspect Set-Cookie headers.","Set-Cookie: nauth_device_id=...; httpOnly; secure; maxAge=2d","mfa.rememberDevices: 'user_opt_in'; tokenDelivery.method: 'cookies'","DEVICE_TRUST_COOKIES","","Device trust in cookies mode [Priority: CRITICAL]","Device Security"
+"0018","3. Device Trust - Cookies Mode","Login with trusted device cookie bypasses MFA","Device trusted (cookie exists), MFA enabled.","1. POST /auth/login with nauth_device_id cookie.","200 OK. Tokens returned without MFA challenge.","mfa.bypassMFAForTrustedDevices: true; tokenDelivery.method: 'cookies'","DEVICE_TRUST_COOKIES","","Device trust bypass working [Priority: CRITICAL]","MFA Bypass"
+"0019","3. Device Trust - Cookies Mode","Logout with forgetMe clears device cookie","Logged in with trusted device.","1. POST /auth/logout with forgetMe=true.
+2. Inspect Set-Cookie.","Set-Cookie: nauth_device_id=; expires=Thu, 01 Jan 1970","tokenDelivery.method: 'cookies'","DEVICE_TRUST_COOKIES","","Device untrust on logout [Priority: HIGH]","Privacy"
+"0020","3. Device Trust - JSON Mode","Trust device returns deviceToken in JSON","User logged in (JSON mode), rememberDevices=user_opt_in.","1. POST /auth/trust-device.","200 OK. Response: { deviceToken: ""uuid-v4"" }","mfa.rememberDevices: 'user_opt_in'; tokenDelivery.method: 'json'","DEVICE_TRUST_JSON","","Device trust in JSON mode [Priority: CRITICAL]","Device Security"
+"0021","3. Device Trust - JSON Mode","Login with X-Device-Token header bypasses MFA","Device trusted (has deviceToken), MFA enabled.","1. POST /auth/login/mobile with X-Device-Token header.","200 OK. Tokens returned without MFA challenge.","mfa.bypassMFAForTrustedDevices: true; tokenDelivery.method: 'json'","DEVICE_TRUST_JSON","","Device token in header [Priority: CRITICAL]","MFA Bypass"
+"0022","4. CSRF - Cookies Mode","Password change without CSRF token","Cookies mode. User logged in.","1. POST /auth/password/change without x-csrf-token header.","403 Forbidden. CSRF token required.","tokenDelivery.method: 'cookies'; security.csrf.enabled: true","CSRF_PROTECTION","","CSRF protection on Password change [Priority: CRITICAL]","CSRF"
+"0023","4. CSRF - Cookies Mode","Password change with valid CSRF token","Cookies mode. User logged in with CSRF cookie.","1. POST /auth/password/change with x-csrf-token header matching cookie.","200 OK. Request succeeds.","tokenDelivery.method: 'cookies'; security.csrf.enabled: true","CSRF_PROTECTION","","CSRF validation working [Priority: HIGH]","CSRF"
+"0024","4. CSRF - Cookies Mode","Profile update without CSRF token","Cookies mode. User logged in.","1. PATCH /users/me without x-csrf-token header.","403 Forbidden. CSRF token required.","tokenDelivery.method: 'cookies'; security.csrf.enabled: true","CSRF_PROTECTION","","CSRF protection on Profile update [Priority: CRITICAL]","CSRF"
+"0025","4. CSRF - Cookies Mode","Profile update with valid CSRF token","Cookies mode. User logged in with CSRF cookie.","1. PATCH /users/me with x-csrf-token header matching cookie.","200 OK. Request succeeds.","tokenDelivery.method: 'cookies'; security.csrf.enabled: true","CSRF_PROTECTION","","CSRF validation working [Priority: HIGH]","CSRF"
+"0026","4. CSRF - Cookies Mode","MFA setup without CSRF token","Cookies mode. User logged in.","1. POST /auth/mfa/totp/setup without x-csrf-token header.","403 Forbidden. CSRF token required.","tokenDelivery.method: 'cookies'; security.csrf.enabled: true","CSRF_PROTECTION","","CSRF protection on MFA setup [Priority: CRITICAL]","CSRF"
+"0027","4. CSRF - Cookies Mode","MFA setup with valid CSRF token","Cookies mode. User logged in with CSRF cookie.","1. POST /auth/mfa/totp/setup with x-csrf-token header matching cookie.","200 OK. Request succeeds.","tokenDelivery.method: 'cookies'; security.csrf.enabled: true","CSRF_PROTECTION","","CSRF validation working [Priority: HIGH]","CSRF"
+"0028","4. CSRF - Cookies Mode","Global logout without CSRF token","Cookies mode. User logged in.","1. POST /auth/logout-all without x-csrf-token header.","403 Forbidden. CSRF token required.","tokenDelivery.method: 'cookies'; security.csrf.enabled: true","CSRF_PROTECTION","","CSRF protection on Global logout [Priority: CRITICAL]","CSRF"
+"0029","4. CSRF - Cookies Mode","Global logout with valid CSRF token","Cookies mode. User logged in with CSRF cookie.","1. POST /auth/logout-all with x-csrf-token header matching cookie.","200 OK. Request succeeds.","tokenDelivery.method: 'cookies'; security.csrf.enabled: true","CSRF_PROTECTION","","CSRF validation working [Priority: HIGH]","CSRF"
+"0030","4. CSRF - Cookies Mode","Social link without CSRF token","Cookies mode. User logged in.","1. POST /auth/social/link without x-csrf-token header.","403 Forbidden. CSRF token required.","tokenDelivery.method: 'cookies'; security.csrf.enabled: true","CSRF_PROTECTION","","CSRF protection on Social link [Priority: CRITICAL]","CSRF"
+"0031","4. CSRF - Cookies Mode","Social link with valid CSRF token","Cookies mode. User logged in with CSRF cookie.","1. POST /auth/social/link with x-csrf-token header matching cookie.","200 OK. Request succeeds.","tokenDelivery.method: 'cookies'; security.csrf.enabled: true","CSRF_PROTECTION","","CSRF validation working [Priority: HIGH]","CSRF"
+"0032","4. CSRF - Cookies Mode","GET requests work without CSRF (safe methods)","Cookies mode. User logged in.","1. GET /auth/mfa/status without CSRF token.","200 OK. Safe methods exempt from CSRF.","tokenDelivery.method: 'cookies'","CSRF_PROTECTION","","CSRF safe methods exception [Priority: HIGH]","CSRF"
+"0033","5. Token Security - Mode Strictness","Cookies mode rejects Bearer token","tokenDelivery.method=cookies configured.","1. Send Bearer token in Authorization header.
+2. Try to access protected endpoint.","401 Unauthorized. Bearer not allowed in cookies mode.","tokenDelivery.method: 'cookies'","TOKEN_SECURITY","","Prevent token leakage [Priority: CRITICAL]","Token Security"
+"0034","5. Token Security - Mode Strictness","JSON mode rejects cookie tokens","tokenDelivery.method=json configured.","1. Send token in cookie.
+2. Try to access protected endpoint.","401 Unauthorized. Cookies not allowed in JSON mode.","tokenDelivery.method: 'json'","DEFAULT","","Prevent cookie injection [Priority: CRITICAL]","Token Security"
+"0035","5. Token Security - Hybrid Mode","Hybrid: Web origin → cookies","Hybrid mode configured.","1. POST /auth/login with Origin: http://localhost:4200.","Tokens in Set-Cookie. Body does NOT contain tokens.","tokenDelivery.method: 'hybrid'; hybridPolicy.webOrigins: ['http://localhost:4200']; hybridPolicy.nativeOrigins: ['capacitor://localhost']","HYBRID_MODE","","Origin resolution for web [Priority: CRITICAL]","Token Delivery"
+"0036","5. Token Security - Hybrid Mode","Hybrid: Native origin → JSON","Hybrid mode configured.","1. POST /auth/login with Origin: capacitor://localhost.","Tokens in body. No Set-Cookie headers.","tokenDelivery.method: 'hybrid'; hybridPolicy.webOrigins: ['http://localhost:4200']; hybridPolicy.nativeOrigins: ['capacitor://localhost']","HYBRID_MODE","","Origin resolution for native [Priority: CRITICAL]","Token Delivery"
+"0037","5. Token Security - Hybrid Mode","Hybrid: Unknown origin (security default) → cookies","Hybrid mode configured.","1. POST /auth/login with Origin: https://evil.com.","Tokens in Set-Cookie. Body does NOT contain tokens.","tokenDelivery.method: 'hybrid'; hybridPolicy.webOrigins: ['http://localhost:4200']; hybridPolicy.nativeOrigins: ['capacitor://localhost']","HYBRID_MODE","","Origin resolution for unknown [Priority: CRITICAL]","Token Delivery"
+"0038","6. Challenge Flows - Sequential","FORCE_CHANGE_PASSWORD → VERIFY_EMAIL → tokens","User has mustChangePassword=true, email unverified.","1. Login → FORCE_CHANGE_PASSWORD.
+2. Complete with new password.
+3. Get VERIFY_EMAIL.
+4. Verify email.
+5. Get tokens.","All challenges in priority order. Final: tokens.","signup.verificationMethod: 'email'","CHALLENGE_PRIORITY","","State machine priority: 1→2→success [Priority: CRITICAL]","State Machine"
+"0039","6. Challenge Flows - Sequential","Email → Phone → MFA Setup → MFA Verify → tokens","New user, verificationMethod=both, MFA REQUIRED with gracePeriod=0.","1. Signup → VERIFY_EMAIL.
+2. Verify → VERIFY_PHONE.
+3. Verify → MFA_SETUP_REQUIRED.
+4. Setup MFA → MFA_REQUIRED (auto-skip).
+5. Get tokens.","All 4 challenges in sequence. MFA_REQUIRED skipped after setup (no 3rd dialog bug).","signup.verificationMethod: 'both'; mfa.enforcement: 'REQUIRED'; mfa.gracePeriod: 0","FULL_FLOW","","Complete challenge sequence, tests skipMFAVerification logic [Priority: CRITICAL]","Integration"
+"0040","6. Challenge Flows - Phone Collection","Social user → phone collection → phone verification","Social signup (no phone), verificationMethod=phone.","1. Social login → VERIFY_PHONE with requiresPhoneCollection=true.
+2. POST /auth/complete-challenge with phone number.
+3. Get same VERIFY_PHONE challenge (code sent).
+4. Submit code.
+5. Get tokens.","Phone collection flow works. Sequential: collect → verify.","signup.verificationMethod: 'phone'; social.google.enabled: true","SOCIAL_PHONE","","Phone collection for social users [Priority: HIGH]","Social Auth"
+"0041","7. Adaptive MFA - Risk Levels","low risk (score 0-20) → allow","MFA enabled, enforcement=ADAPTIVE, trusted device.","1. Login with triggers causing low risk.","SUCCESS without MFA","mfa.enforcement: 'ADAPTIVE'; mfa.adaptive.riskLevels.low.action: 'allow'","ADAPTIVE_MFA","","Risk level: low [Priority: CRITICAL]","Adaptive MFA"
+"0042","7. Adaptive MFA - Risk Levels","medium risk (score 21-50) → require_mfa","MFA enabled, enforcement=ADAPTIVE, trusted device.","1. Login with triggers causing medium risk.","MFA_REQUIRED challenge","mfa.enforcement: 'ADAPTIVE'; mfa.adaptive.riskLevels.medium.action: 'require_mfa'","ADAPTIVE_MFA","","Risk level: medium [Priority: CRITICAL]","Adaptive MFA"
+"0043","7. Adaptive MFA - Risk Levels","high risk (score 51-100) → require_mfa","MFA enabled, enforcement=ADAPTIVE, trusted device.","1. Login with triggers causing high risk.","MFA_REQUIRED challenge","mfa.enforcement: 'ADAPTIVE'; mfa.adaptive.riskLevels.high.action: 'require_mfa'","ADAPTIVE_MFA","","Risk level: high [Priority: CRITICAL]","Adaptive MFA"
+"0044","7. Adaptive MFA - Risk Levels","critical risk (score >100) → block_signin","MFA enabled, enforcement=ADAPTIVE, trusted device.","1. Login with triggers causing critical risk.","BLOCKED with blockedUntil","mfa.enforcement: 'ADAPTIVE'; mfa.adaptive.riskLevels.critical.action: 'block_signin'","ADAPTIVE_MFA","","Risk level: critical [Priority: CRITICAL]","Adaptive MFA"
+"0045","7. Adaptive MFA - Device Trust","Untrusted device ALWAYS requires MFA (regardless of risk)","MFA enabled, ADAPTIVE mode, low risk.","1. Login from new device with low risk score.","MFA_REQUIRED. Untrusted devices always need MFA.","mfa.enforcement: 'ADAPTIVE'","ADAPTIVE_MFA","","Untrusted devices never bypass MFA [Priority: CRITICAL]","Security"
+"0046","7. Adaptive MFA - Grace Period","Grace period + very high risk → BLOCKED (overrides grace)","MFA not setup, grace period active, very high risk.","1. Login with impossible travel.","BLOCKED despite grace period. Security overrides convenience.","mfa.enforcement: 'ADAPTIVE'; mfa.gracePeriod: 7; adaptive.riskLevels.high.action: 'block_signin'","ADAPTIVE_MFA","","Risk can block even during grace [Priority: CRITICAL]","Security"
+"0047","8. Security - User Enumeration","Constant-time login (timing attack prevention)","Users exist.","1. Time login with valid email (wrong password).
+2. Time login with invalid email.
+3. Compare response times.","Response times consistent (~200-300ms). Both use Argon2 hashing.","","SECURITY_CRITICAL","","DUMMY_ARGON2_HASH prevents timing attacks [Priority: CRITICAL]","User Enumeration"
+"0048","8. Security - Race Conditions","Parallel token refresh (distributed lock)","User has valid refresh token.","1. Send 2 parallel POST /auth/refresh/mobile requests.
+2. Both use same refresh token.","One succeeds, one waits/fails. Lock acquired on session. No double-issue.","jwt.refreshToken.rotation: true","SECURITY_CRITICAL","","Distributed lock prevents race [Priority: CRITICAL]","Race Condition"
+"0049","8. Security - Token Reuse","Token reuse: cookie race vs attack detection","Refresh token rotated.","1. Use old refresh token (same session).
+2. Use old refresh token (different session).","1: Returns current tokens (cookie race). 2: 401 + session revoked (attack).","jwt.refreshToken.reuseDetection: true","SECURITY_CRITICAL","","Smart reuse detection: race vs attack [Priority: CRITICAL]","Token Theft"
+"0050","8. Security - TOCTOU","TOCTOU protection (optimistic locking)","User logged in.","1. Request A starts validating session.
+2. Request B revokes session mid-validation.
+3. Request A completes.","Request A rejected. Version mismatch detected.","","SECURITY_CRITICAL","","Optimistic locking in AuthGuard [Priority: CRITICAL]","TOCTOU"
+"0051","8. Security - Session Attacks","Session fixation prevention","Attacker creates session.","1. Attacker gets session ID.
+2. Victim logs in.
+3. Attacker tries to use same session.","New session created on login. Old session invalid.","","SECURITY_CRITICAL","","Session regeneration on auth [Priority: CRITICAL]","Session Fixation"
+"0052","8. Security - XSS","httpOnly cookies prevent XSS theft","Cookies mode. User logged in.","1. Inject <script>document.cookie</script>.
+2. Try to access auth cookies via JS.","Cookies have httpOnly=true. JS cannot read. XSS cannot steal tokens.","tokenDelivery.method: 'cookies'","COOKIE_SECURITY","","httpOnly attribute protection [Priority: CRITICAL]","XSS"
+"0053","8. Security - JWT Attacks","JWT algorithm confusion (RS256→HS256)","System uses RS256.","1. Decode JWT.
+2. Change alg to HS256.
+3. Sign with public key as HMAC.
+4. Use manipulated token.","401 Unauthorized. Algorithm strictly validated. Attack blocked.","jwt.algorithm: 'RS256'","JWT_SECURITY","","Algorithm confusion prevention [Priority: CRITICAL]","JWT Attack"
+"0054","8. Security - JWT Attacks","JWT none algorithm attack","User logged in.","1. Decode JWT.
+2. Change alg to 'none'.
+3. Remove signature.
+4. Use unsigned token.","401 Unauthorized. 'none' algorithm rejected.","","SECURITY_CRITICAL","","None algorithm blocked [Priority: CRITICAL]","JWT Attack"
+"0055","8. Security - MFA Bypass","TOTP code reuse within time window","TOTP MFA enabled.","1. Use valid code.
+2. Immediately reuse same code.
+3. Try code from 30s ago.","Code rejected on reuse. Previous codes blacklisted.","mfa.totp.window: 1","MFA_ENABLED","","One-time use enforcement [Priority: CRITICAL]","Code Reuse"
+"0056","8. Security - MFA Bypass","Device trust token manipulation","Trusted device exists.","1. Copy deviceToken to new device.
+2. Spoof headers.
+3. Try to bypass MFA.","Device fingerprint mismatch detected. MFA required.","mfa.rememberDevices: 'always'","DEVICE_TRUST_SECURITY","","Multi-factor device fingerprinting [Priority: HIGH]","Device Spoofing"
+"0057","8. Security - Injection","SQL injection in all input fields","None.","1. POST /auth/signup with email=""admin'--"".
+2. Try: ""' OR '1'='1"", ""admin'; DROP TABLE users;--"".
+3. Test all string fields.","400 Bad Request. Input validation rejects. Parameterized queries prevent SQL execution.","","SECURITY_CRITICAL","","SQL injection protection [Priority: CRITICAL]","SQL Injection"
+"0058","8. Security - Injection","XSS in profile fields","User exists.","1. PATCH /users/me with firstName=""<script>alert('XSS')</script>"".
+2. GET /users/me.
+3. Check if script executes.","Input sanitized. No script execution. Content-Type headers prevent interpretation.","","SECURITY_CRITICAL","","XSS prevention [Priority: CRITICAL]","XSS"
+"0059","8. Security - Rate Limiting","Account lockout after N failed login attempts","lockout.enabled=true, maxAttempts=5.","1. Make 5 failed login attempts.
+2. Try 6th attempt.","1-5: 401. 6th: 429 Too Many Requests. IP locked for duration.","lockout.enabled: true; lockout.maxAttempts: 5","RATE_LIMITING","","IP-based lockout (prevents account lockout by attacker) [Priority: CRITICAL]","Brute Force"
+"0060","9. Social - google","google: New user signup (autoLink=true)","User does not exist.","1. Complete google OAuth.
+2. POST /auth/social/google/callback with code.","User created with isEmailVerified=true. Tokens returned.","social.google.enabled: true; social.google.allowSignup: true","SOCIAL_AUTH","","google signup flow [Priority: HIGH]","Social Auth"
+"0061","9. Social - google","google: Auto-link to existing verified email","User exists with verified email matching OAuth email.","1. Complete google OAuth with matching email.","Social account linked. User logged in. No duplicate created.","social.google.autoLink: true","SOCIAL_AUTH","","Auto-linking working [Priority: HIGH]","Data Integrity"
+"0062","9. Social - google","google: Login requires MFA (requireForSocialLogin=true)","User has google linked, MFA enabled.","1. Complete google OAuth.","MFA_REQUIRED challenge. Social login not exempt.","mfa.requireForSocialLogin: true; mfa.enabled: true","SOCIAL_MFA","","MFA enforcement for social [Priority: HIGH]","MFA"
+"0063","9. Social - apple","apple: New user signup (autoLink=true)","User does not exist.","1. Complete apple OAuth.
+2. POST /auth/social/apple/callback with code.","User created with isEmailVerified=true. Tokens returned.","social.apple.enabled: true; social.apple.allowSignup: true","SOCIAL_AUTH","","apple signup flow [Priority: HIGH]","Social Auth"
+"0064","9. Social - apple","apple: Auto-link to existing verified email","User exists with verified email matching OAuth email.","1. Complete apple OAuth with matching email.","Social account linked. User logged in. No duplicate created.","social.apple.autoLink: true","SOCIAL_AUTH","","Auto-linking working [Priority: HIGH]","Data Integrity"
+"0065","9. Social - apple","apple: Login requires MFA (requireForSocialLogin=true)","User has apple linked, MFA enabled.","1. Complete apple OAuth.","MFA_REQUIRED challenge. Social login not exempt.","mfa.requireForSocialLogin: true; mfa.enabled: true","SOCIAL_MFA","","MFA enforcement for social [Priority: HIGH]","MFA"
+"0066","9. Social - facebook","facebook: New user signup (autoLink=true)","User does not exist.","1. Complete facebook OAuth.
+2. POST /auth/social/facebook/callback with code.","User created with isEmailVerified=true. Tokens returned.","social.facebook.enabled: true; social.facebook.allowSignup: true","SOCIAL_AUTH","","facebook signup flow [Priority: HIGH]","Social Auth"
+"0067","9. Social - facebook","facebook: Auto-link to existing verified email","User exists with verified email matching OAuth email.","1. Complete facebook OAuth with matching email.","Social account linked. User logged in. No duplicate created.","social.facebook.autoLink: true","SOCIAL_AUTH","","Auto-linking working [Priority: HIGH]","Data Integrity"
+"0068","9. Social - facebook","facebook: Login requires MFA (requireForSocialLogin=true)","User has facebook linked, MFA enabled.","1. Complete facebook OAuth.","MFA_REQUIRED challenge. Social login not exempt.","mfa.requireForSocialLogin: true; mfa.enabled: true","SOCIAL_MFA","","MFA enforcement for social [Priority: HIGH]","MFA"
+"0069","10. Edge Cases - MFA","Phone change deactivates old SMS MFA devices","User has SMS MFA with phone +1111.","1. PATCH /users/me with phone=+2222.
+2. Check MFA devices.
+3. Try to login.","Old SMS device deactivated. If no other devices, mfaEnabled=false.","mfa.enabled: true","MFA_EDGE_CASES","","SMS device cleanup on phone change (auth.service.ts:1973-2028) [Priority: HIGH]","Data Consistency"
+"0070","10. Edge Cases - Grace Period","Grace period expiry at exact boundary","User created 7 days ago, gracePeriod=7.","1. Login at day 6.99.
+2. Login at day 7.01.","1: SUCCESS with gracePeriodEndsAt. 2: MFA_SETUP_REQUIRED.","mfa.enforcement: 'REQUIRED'; mfa.gracePeriod: 7","GRACE_PERIOD","","Grace period calculation from user.createdAt [Priority: HIGH]","Edge Case"
+"0071","10. Edge Cases - Concurrency","Parallel session creation (max concurrent limit)","maxConcurrent=5, user has 5 sessions.","1. Create 2 new sessions simultaneously.","Oldest sessions revoked to maintain limit. FIFO order.","session.maxConcurrent: 5","SESSION_LIMITS","","Concurrent session enforcement [Priority: HIGH]","Resource Management"
+"0072","10. Edge Cases - Sessions","Single session mode revokes all others","disallowMultipleSessions=true, user has 3 sessions.","1. Login from new device.","All 3 old sessions revoked. Only new session active.","session.disallowMultipleSessions: true","SESSION_SINGLE","","Forced single session [Priority: HIGH]","Session Management"
+"0073","10. Edge Cases - Audit","Fire-and-forget vs blocking audit","Audit configured.","1. Login with fireAndForget=true.
+2. Login with fireAndForget=false.
+3. Compare response times.","1: Non-blocking, faster. 2: Blocks until audit written, slower but guaranteed.","auditLogs.fireAndForget: true","AUDIT_PERFORMANCE","","Performance vs reliability trade-off [Priority: MEDIUM]","Performance"
+"0074","11. Input Validation","signup - invalid email: invalid","None.","1. POST /auth/signup with email='invalid'.","400 Bad Request. Validation error.","","VALIDATION","","email validation [Priority: HIGH]","Input Validation"
+"0075","11. Input Validation","signup - invalid email: @example.com","None.","1. POST /auth/signup with email='@example.com'.","400 Bad Request. Validation error.","","VALIDATION","","email validation [Priority: HIGH]","Input Validation"
+"0076","11. Input Validation","signup - invalid password: short","None.","1. POST /auth/signup with password='short'.","400 Bad Request. Validation error.","","VALIDATION","","password validation [Priority: HIGH]","Input Validation"
+"0077","11. Input Validation","signup - invalid password: ","None.","1. POST /auth/signup with password=''.","400 Bad Request. Validation error.","","VALIDATION","","password validation [Priority: HIGH]","Input Validation"
+"0078","11. Input Validation","signup - invalid phone: 1234567890","None.","1. POST /auth/signup with phone='1234567890'.","400 Bad Request. Validation error.","","VALIDATION","","phone validation [Priority: MEDIUM]","Input Validation"
+"0079","11. Input Validation","signup - invalid phone: (123) 456-7890","None.","1. POST /auth/signup with phone='(123) 456-7890'.","400 Bad Request. Validation error.","","VALIDATION","","phone validation [Priority: MEDIUM]","Input Validation"
+"0080","11. Input Validation","verify-email/verify - invalid code: 12345","None.","1. POST /auth/verify-email/verify with code='12345'.","400 Bad Request. Validation error.","","VALIDATION","","code validation [Priority: HIGH]","Input Validation"
+"0081","11. Input Validation","verify-email/verify - invalid code: 12345A","None.","1. POST /auth/verify-email/verify with code='12345A'.","400 Bad Request. Validation error.","","VALIDATION","","code validation [Priority: HIGH]","Input Validation"
+"0082","12. Security - Advanced","NoSQL/JSON injection in metadata","User exists.","1. PATCH /users/me with metadata: {""$ne"": null}, {""__proto__"": {""isAdmin"": true}}.
+2. Try prototype pollution.","400 Bad Request. Input sanitized. No injection.","","SECURITY_CRITICAL","","NoSQL injection + prototype pollution [Priority: CRITICAL]","NoSQL Injection"
+"0083","12. Security - Advanced","Command injection in phone/fields","None.","1. Signup with phone=""+1; cat /etc/passwd"", ""$(whoami)"", ""`id`"".","400 Bad Request. E.164 validation rejects. No commands executed.","","SECURITY_CRITICAL","","Command injection prevention [Priority: CRITICAL]","Command Injection"
+"0084","12. Security - Advanced","JWT kid header injection","RS256 configured.","1. Modify kid to ""../../etc/passwd"".
+2. Try SQL injection in kid.
+3. Point to attacker key.","401 Unauthorized. Kid validated. Path traversal prevented.","jwt.algorithm: 'RS256'","JWT_SECURITY","","JWT kid injection (CVE pattern) [Priority: CRITICAL]","JWT Attack"
+"0085","12. Security - Advanced","JWT expiry manipulation","User logged in.","1. Decode JWT.
+2. Change 'exp' to future.
+3. Use manipulated token.","401 Unauthorized. Expiry validated server-side.","","SECURITY_CRITICAL","","Server-side expiry validation [Priority: HIGH]","JWT Attack"
+"0086","12. Security - Advanced","Session token reuse after logout","User logged in.","1. Save tokens.
+2. POST /auth/logout.
+3. Use saved tokens.","401 Unauthorized. Session revoked. Tokens blacklisted.","","SECURITY_CRITICAL","","Logout invalidates tokens [Priority: CRITICAL]","Session Security"
+"0087","12. Security - Advanced","Verification code brute force","Email verification pending.","1. Try 000000-999999 rapidly.
+2. Exploit race conditions.","Rate limiting blocks after 3 attempts. Session invalidated.","email.verification.maxAttempts: 3","RATE_LIMITING","","6-digit code brute force prevention [Priority: CRITICAL]","Brute Force"
+"0088","12. Security - Advanced","Timing attack on password comparison","User exists.","1. Measure response times for passwords of different lengths.
+2. Character-by-character timing analysis.","Constant-time comparison. No timing differences. No info leakage.","","SECURITY_CRITICAL","","Argon2 verify is constant-time [Priority: CRITICAL]","Timing Attack"
+"0089","12. Security - Advanced","Password reset token prediction","User exists.","1. Request multiple resets.
+2. Analyze tokens for patterns.
+3. Try to predict.","Cryptographically secure random. No patterns. Prediction infeasible.","","SECURITY_CRITICAL","","Secure token generation [Priority: HIGH]","Token Prediction"
+"0090","12. Security - Advanced","Rate limit bypass via header manipulation","Rate limits configured.","1. Hit rate limit.
+2. Change X-Forwarded-For.
+3. Use proxy chains.","Rate limiting by user + IP. Header spoofing ineffective.","lockout.enabled: true","RATE_LIMITING","","Distributed rate limiting [Priority: HIGH]","Rate Limit Bypass"
+"0091","12. Security - Advanced","IDOR - Access other users data","Multiple users exist.","1. Get your sub.
+2. Try to access other users by incrementing.
+3. Try session IDs.","UUIDs prevent enumeration. Ownership validated. Access denied.","","SECURITY_CRITICAL","","IDOR prevention via UUIDs [Priority: CRITICAL]","IDOR"
+"0092","12. Security - Advanced","Challenge sequence manipulation","Multiple challenges pending.","1. Skip challenges.
+2. Complete out of order.
+3. Reuse challenge tokens.","Sequence enforced. Cannot skip. Tokens single-use.","","SECURITY_CRITICAL","","Challenge integrity [Priority: CRITICAL]","Flow Manipulation"
+"0093","13. Sessions - Lifecycle","Token refresh with rotation","Valid refresh token.","1. POST /auth/refresh/mobile.
+2. Get new tokens.
+3. Try old refresh token.","New tokens issued. Old refresh invalid. Rotation working.","jwt.refreshToken.rotation: true","SESSION_ROTATION","","Token rotation [Priority: HIGH]","Token Lifecycle"
+"0094","13. Sessions - Limits","Max concurrent sessions enforced","User has 5 sessions (maxConcurrent=5).","1. Login from 6th device.","Oldest session revoked. Total stays at 5.","session.maxConcurrent: 5","SESSION_LIMITS","","Concurrent session limits [Priority: HIGH]","Resource Management"
+"0095","13. Sessions - Revocation","Global signout revokes all sessions","User has multiple sessions.","1. POST /auth/logout-all.
+2. Try all old tokens.","All sessions revoked. All tokens invalid.","","SESSION_MANAGEMENT","","Global logout [Priority: HIGH]","Session Management"
+"0096","14. Password - Management","Password history prevents reuse","User with password history.","1. Change password to new1.
+2. Change to new2.
+3. Try to change back to new1.","400 Bad Request. Cannot reuse recent password.","password.historyCount: 5","PASSWORD_POLICY","","Password history enforcement [Priority: HIGH]","Password Security"
+"0097","14. Account - Management","Email change resets verification (retainVerification=false)","User with verified email.","1. PATCH /users/me with new email.","200 OK. isEmailVerified=false. Next login triggers VERIFY_EMAIL.","signup.verificationMethod: 'email'","ACCOUNT_MGMT","","Email change security [Priority: HIGH]","Account Security"
+"0098","14. Account - MFA Exemption","MFA exemption bypasses all MFA checks","User has mfaExempt=true.","1. Login from untrusted device with MFA REQUIRED.","SUCCESS. MFA bypassed. Audit shows mfaBypassReason=mfa_exempt.","mfa.enforcement: 'REQUIRED'","MFA_EXEMPTION","","Admin exemption feature [Priority: HIGH]","MFA Bypass"
+"0099","15. Audit - Events","LOGIN_SUCCESS event captured","auditLogs.enabled=true.","1. successful login.
+2. Query audit logs.","Event recorded with: ipCountry, trustedDevice, mfaBypassed","auditLogs.enabled: true","AUDIT_TRAIL","","LOGIN_SUCCESS logging [Priority: HIGH]","Audit Trail"
+"0100","15. Audit - Events","LOGIN_BLOCKED event captured","auditLogs.enabled=true.","1. blocked login.
+2. Query audit logs.","Event recorded with: reason (ip_locked, account_inactive)","auditLogs.enabled: true","AUDIT_TRAIL","","LOGIN_BLOCKED logging [Priority: HIGH]","Audit Trail"
+"0101","15. Audit - Events","TOKEN_REUSE_DETECTED event captured","auditLogs.enabled=true.","1. refresh token reuse.
+2. Query audit logs.","Event recorded with: sessionId, tokenFamily","auditLogs.enabled: true","AUDIT_TRAIL","","TOKEN_REUSE_DETECTED logging [Priority: HIGH]","Audit Trail"
+"0102","15. Audit - Events","DEVICE_TRUSTED event captured","auditLogs.enabled=true.","1. trust device.
+2. Query audit logs.","Event recorded with: deviceId, rememberDeviceDays","auditLogs.enabled: true","AUDIT_TRAIL","","DEVICE_TRUSTED logging [Priority: HIGH]","Audit Trail"
+"0103","15. Audit - Events","PASSWORD_CHANGED event captured","auditLogs.enabled=true.","1. password change.
+2. Query audit logs.","Event recorded with: method (forced vs voluntary)","auditLogs.enabled: true","AUDIT_TRAIL","","PASSWORD_CHANGED logging [Priority: HIGH]","Audit Trail"

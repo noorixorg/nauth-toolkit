@@ -1,0 +1,425 @@
+/**
+ * Service Initialization Helper
+ *
+ * Initializes all NAuth services in correct dependency order.
+ * Matches NestJS AuthModule service initialization.
+ */
+
+import { Repository } from 'typeorm';
+// Public API imports
+import {
+  NAuthConfig,
+  NAuthLogger,
+  StorageAdapter,
+  ClientInfoService,
+  RateLimitStorageService,
+  AccountLockoutStorageService,
+  EmailVerificationService,
+  PhoneVerificationService,
+  MFAService,
+  AuthService,
+  SocialAuthService,
+  NAuthException,
+  AuthErrorCode,
+} from '../../index';
+// Internal API imports (for framework adapter use only)
+import {
+  PasswordService,
+  JwtService,
+  SessionService,
+  AuthAuditService, // Internal version with recordEvent()
+  ChallengeService,
+  TrustedDeviceService,
+  AuthFlowContextBuilder,
+  AuthFlowStateMachineService,
+  AuthChallengeHelperService,
+  SocialProviderRegistry,
+  GeoLocationService,
+  RiskDetectionService,
+  RiskScoringService,
+  AdaptiveMFADecisionService,
+} from '../../internal';
+import {
+  BaseUser,
+  BaseSession,
+  BaseLoginAttempt,
+  BaseVerificationToken,
+  BaseSocialAccount,
+  BaseChallengeSession,
+  BaseMFADevice,
+  BaseAuthAudit,
+  BaseTrustedDevice,
+} from '../../entities';
+
+/**
+ * Service container returned by initServices()
+ */
+export interface NAuthServices {
+  // Core services (always available)
+  passwordService: PasswordService;
+  jwtService: JwtService;
+  clientInfoService: ClientInfoService;
+  rateLimitStorageService: RateLimitStorageService;
+  accountLockoutStorageService: AccountLockoutStorageService;
+  sessionService: SessionService;
+  challengeService: ChallengeService;
+  emailVerificationService: EmailVerificationService;
+  authFlowContextBuilder: AuthFlowContextBuilder;
+  authFlowStateMachine: AuthFlowStateMachineService;
+  authChallengeHelperService: AuthChallengeHelperService;
+  authService: AuthService;
+  socialProviderRegistry: SocialProviderRegistry;
+  socialAuthService: SocialAuthService;
+
+  // Conditional services
+  auditService?: AuthAuditService;
+  phoneVerificationService?: PhoneVerificationService;
+  trustedDeviceService?: TrustedDeviceService;
+  mfaService?: MFAService;
+  geoLocationService?: GeoLocationService;
+  riskDetectionService?: RiskDetectionService;
+  riskScoringService?: RiskScoringService;
+  adaptiveMFADecisionService?: AdaptiveMFADecisionService;
+  csrfService?: unknown; // CsrfService (created in createNAuth)
+}
+
+/**
+ * Initialize all services in correct dependency order
+ *
+ * Service initialization order matches NestJS AuthModule:
+ * 1. PasswordService, JwtService (no dependencies)
+ * 2. ClientInfoService (no dependencies)
+ * 3. AuthAuditService (if enabled)
+ * 4. RateLimitStorageService, AccountLockoutStorageService
+ * 5. SessionService
+ * 6. ChallengeService
+ * 7. EmailVerificationService
+ * 8. PhoneVerificationService (if SMS configured)
+ * 9. TrustedDeviceService (if rememberDevices enabled)
+ * 10. AuthFlowContextBuilder, AuthFlowStateMachine
+ * 11. AuthChallengeHelperService
+ * 12. MFAService (if enabled)
+ * 13. AuthService
+ * 14. SocialAuthService
+ * 15. GeoLocationService (if MaxMind configured)
+ * 16. Risk services (if adaptive MFA configured)
+ *
+ * @param config - NAuth configuration
+ * @param repositories - Repository container
+ * @param storageAdapter - Initialized storage adapter
+ * @param logger - Logger instance
+ * @param emailProvider - Email provider instance
+ * @param smsProvider - SMS provider instance (optional)
+ * @returns Service container with all initialized services
+ */
+export function initServices(
+  config: NAuthConfig,
+  repositories: {
+    userRepository: Repository<BaseUser>;
+    sessionRepository: Repository<BaseSession>;
+    loginAttemptRepository: Repository<BaseLoginAttempt>;
+    verificationTokenRepository: Repository<BaseVerificationToken>;
+    socialAccountRepository: Repository<BaseSocialAccount>;
+    challengeSessionRepository: Repository<BaseChallengeSession>;
+    mfaDeviceRepository: Repository<BaseMFADevice>;
+    authAuditRepository: Repository<BaseAuthAudit>;
+    trustedDeviceRepository: Repository<BaseTrustedDevice> | null;
+  },
+  storageAdapter: StorageAdapter,
+  logger: NAuthLogger,
+  emailProvider: unknown,
+  smsProvider?: unknown,
+): NAuthServices {
+  // ============================================================================
+  // 1. Core Services (No Dependencies)
+  // ============================================================================
+
+  const passwordService = new PasswordService(config.password);
+  const jwtService = new JwtService(config.jwt);
+  const clientInfoService = new ClientInfoService();
+
+  // ============================================================================
+  // 2. Audit Service (Conditional)
+  // ============================================================================
+
+  const auditService =
+    config.auditLogs?.enabled !== false
+      ? new AuthAuditService(repositories.authAuditRepository, repositories.userRepository, logger, clientInfoService)
+      : undefined;
+
+  // ============================================================================
+  // 3. Storage Services
+  // ============================================================================
+
+  const rateLimitStorageService = new RateLimitStorageService(storageAdapter);
+  const accountLockoutStorageService = new AccountLockoutStorageService(storageAdapter);
+
+  // ============================================================================
+  // 4. Session Service
+  // ============================================================================
+
+  const sessionService = new SessionService(
+    repositories.sessionRepository,
+    storageAdapter,
+    clientInfoService,
+    config,
+    logger,
+    auditService,
+  );
+
+  // ============================================================================
+  // 5. Challenge Service
+  // ============================================================================
+
+  const challengeService = new ChallengeService(
+    repositories.challengeSessionRepository,
+    clientInfoService,
+    logger,
+    auditService,
+  );
+
+  // ============================================================================
+  // 6. Email Provider and Verification Service
+  // ============================================================================
+
+  if (!emailProvider) {
+    throw new NAuthException(
+      AuthErrorCode.VALIDATION_FAILED,
+      'emailProvider is required. Install and configure an email package:\n' +
+        '  yarn add @nauth-toolkit/email-console (for dev)\n' +
+        '  yarn add @nauth-toolkit/email-nodemailer (for production)',
+    );
+  }
+
+  // Validate email provider has required method
+  if (typeof (emailProvider as any).sendVerificationEmail !== 'function') {
+    throw new NAuthException(
+      AuthErrorCode.VALIDATION_FAILED,
+      'emailProvider must implement sendVerificationEmail method',
+    );
+  }
+
+  // Inject logger into email provider if it supports it
+  if (emailProvider && typeof (emailProvider as any).setLogger === 'function') {
+    (emailProvider as any).setLogger(logger);
+  }
+
+  // Inject global variables from email config if provider supports it
+  if (emailProvider && typeof (emailProvider as any).setGlobalVariables === 'function' && config.email) {
+    const globalVars: Record<string, any> = {};
+    // Extract top-level branding fields
+    if (config.email.appName) globalVars.appName = config.email.appName;
+    if (config.email.companyName) globalVars.companyName = config.email.companyName;
+    if (config.email.logoUrl) globalVars.logoUrl = config.email.logoUrl;
+    if (config.email.supportEmail) globalVars.supportEmail = config.email.supportEmail;
+    if (config.email.dashboardUrl) globalVars.dashboardUrl = config.email.dashboardUrl;
+    if (config.email.brandColor) globalVars.brandColor = config.email.brandColor;
+    if (config.email.footerDisclaimer) globalVars.footerDisclaimer = config.email.footerDisclaimer;
+    // Merge with templates.globalVariables (templates.globalVariables takes precedence)
+    const mergedVars = {
+      ...globalVars,
+      ...(config.email.templates?.globalVariables || {}),
+    };
+    (emailProvider as any).setGlobalVariables(mergedVars);
+  }
+
+  const emailVerificationService = new EmailVerificationService(
+    repositories.verificationTokenRepository,
+    repositories.userRepository,
+    emailProvider as any,
+    storageAdapter,
+    config,
+    clientInfoService,
+    logger,
+    auditService,
+  );
+
+  // ============================================================================
+  // 7. SMS Provider and Phone Verification Service (Conditional)
+  // ============================================================================
+
+  let phoneVerificationService: PhoneVerificationService | undefined;
+
+  if (smsProvider) {
+    // Inject logger into SMS provider if it supports it
+    if (smsProvider && typeof (smsProvider as any).setLogger === 'function') {
+      (smsProvider as any).setLogger(logger);
+    }
+
+    phoneVerificationService = new PhoneVerificationService(
+      repositories.verificationTokenRepository,
+      repositories.userRepository,
+      smsProvider as any,
+      storageAdapter,
+      config,
+      clientInfoService,
+      logger,
+      auditService,
+    );
+  }
+
+  // ============================================================================
+  // 8. Trusted Device Service (Conditional)
+  // ============================================================================
+
+  const trustedDeviceService = repositories.trustedDeviceRepository
+    ? new TrustedDeviceService(config, logger, repositories.trustedDeviceRepository)
+    : undefined;
+
+  // ============================================================================
+  // 9. Auth Flow Services
+  // ============================================================================
+
+  const authFlowContextBuilder = new AuthFlowContextBuilder(
+    trustedDeviceService,
+    undefined, // adaptiveMFADecisionService - will be set later
+    clientInfoService,
+    logger,
+  );
+
+  const authFlowStateMachine = new AuthFlowStateMachineService(authFlowContextBuilder, logger);
+
+  const authChallengeHelperService = new AuthChallengeHelperService(
+    challengeService,
+    jwtService,
+    sessionService,
+    repositories.mfaDeviceRepository,
+    logger,
+    authFlowStateMachine,
+    authFlowContextBuilder,
+    clientInfoService,
+    emailVerificationService,
+    phoneVerificationService,
+  );
+
+  // ============================================================================
+  // 10. MFA Service (Conditional)
+  // ============================================================================
+
+  const mfaService = new MFAService(
+    repositories.mfaDeviceRepository,
+    repositories.userRepository,
+    challengeService,
+    config,
+    logger,
+    auditService,
+    clientInfoService,
+  );
+
+  // ============================================================================
+  // 11. Auth Service
+  // ============================================================================
+
+  const authService = new AuthService(
+    repositories.userRepository,
+    repositories.loginAttemptRepository,
+    passwordService,
+    jwtService,
+    sessionService,
+    challengeService,
+    authChallengeHelperService,
+    emailVerificationService,
+    clientInfoService,
+    accountLockoutStorageService,
+    config,
+    logger,
+    auditService,
+    phoneVerificationService,
+    mfaService,
+    repositories.mfaDeviceRepository,
+    trustedDeviceService,
+  );
+
+  // ============================================================================
+  // 12. Social Auth Services
+  // ============================================================================
+
+  const socialProviderRegistry = new SocialProviderRegistry();
+
+  const socialAuthService = new SocialAuthService(
+    socialProviderRegistry,
+    repositories.userRepository,
+    repositories.socialAccountRepository,
+    authService,
+    logger,
+    auditService,
+  );
+
+  // ============================================================================
+  // 13. GeoLocation Service (Conditional)
+  // ============================================================================
+
+  let geoLocationService: GeoLocationService | undefined;
+
+  if (config.geoLocation?.maxMind) {
+    try {
+      // Try to load MaxMind module (optional peer dependency)
+      const maxMindModule = require('@maxmind/geoip2-node');
+      geoLocationService = new GeoLocationService(config, storageAdapter, maxMindModule, logger);
+    } catch {
+      // MaxMind module not installed - service remains undefined
+      logger?.warn?.('MaxMind GeoIP2 module not installed. Geolocation features will be disabled.');
+    }
+  }
+
+  // ============================================================================
+  // 14. Risk Detection and Adaptive MFA Services (Conditional)
+  // ============================================================================
+
+  let riskDetectionService: RiskDetectionService | undefined;
+  let riskScoringService: RiskScoringService | undefined;
+  let adaptiveMFADecisionService: AdaptiveMFADecisionService | undefined;
+
+  // Always create risk services (needed for adaptive MFA)
+  riskDetectionService = new RiskDetectionService(
+    repositories.sessionRepository,
+    repositories.authAuditRepository,
+    config,
+    logger,
+    trustedDeviceService,
+  );
+
+  riskScoringService = new RiskScoringService(config, logger);
+
+  adaptiveMFADecisionService = new AdaptiveMFADecisionService(
+    riskDetectionService,
+    riskScoringService,
+    storageAdapter,
+    clientInfoService,
+    config,
+    logger,
+    auditService,
+  );
+
+  // Now inject adaptiveMFADecisionService into authFlowContextBuilder
+  (authFlowContextBuilder as any).adaptiveMFADecisionService = adaptiveMFADecisionService;
+
+  // ============================================================================
+  // Return Service Container
+  // ============================================================================
+
+  return {
+    passwordService,
+    jwtService,
+    clientInfoService,
+    rateLimitStorageService,
+    accountLockoutStorageService,
+    sessionService,
+    challengeService,
+    emailVerificationService,
+    authFlowContextBuilder,
+    authFlowStateMachine,
+    authChallengeHelperService,
+    authService,
+    socialProviderRegistry,
+    socialAuthService,
+    auditService,
+    phoneVerificationService,
+    trustedDeviceService,
+    mfaService,
+    geoLocationService,
+    riskDetectionService,
+    riskScoringService,
+    adaptiveMFADecisionService,
+  };
+}
