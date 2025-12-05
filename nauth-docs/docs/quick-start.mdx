@@ -174,7 +174,7 @@ bootstrap();
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import { DataSource } from 'typeorm';
-import { NAuth, FastifyAdapter, withNAuthContext } from '@nauth-toolkit/core';
+import { NAuth, FastifyAdapter } from '@nauth-toolkit/core';
 import { getNAuthEntities } from '@nauth-toolkit/database-typeorm-postgres';
 import { authConfig } from './config/auth.config';
 
@@ -208,20 +208,19 @@ async function bootstrap() {
   fastify.addHook('onRequest', nauth.middleware.auth as any);
   fastify.addHook('onSend', nauth.middleware.tokenDelivery as any);
 
-  // Routes - wrap handlers with withNAuthContext
+  // Routes - Fastify handlers must be wrapped for context propagation
   fastify.post(
     '/auth/signup',
     { preHandler: nauth.helpers.public() as any },
-    withNAuthContext(async (req) => {
-      const result = await nauth.authService.signup(req.body as any);
-      return result;
+    nauth.adapter.wrapRouteHandler(async (req) => {
+      return nauth.authService.signup(req.body as any);
     }),
   );
 
   fastify.post(
     '/auth/login',
     { preHandler: nauth.helpers.public() as any },
-    withNAuthContext(async (req) => {
+    nauth.adapter.wrapRouteHandler(async (req) => {
       return nauth.authService.login(req.body as any);
     }),
   );
@@ -229,9 +228,7 @@ async function bootstrap() {
   fastify.get(
     '/auth/me',
     { preHandler: nauth.helpers.requireAuth() as any },
-    withNAuthContext(async () => {
-      return nauth.helpers.getCurrentUser();
-    }),
+    nauth.adapter.wrapRouteHandler(async () => nauth.helpers.getCurrentUser()),
   );
 
   await fastify.listen({ port: 3000 });
@@ -464,10 +461,10 @@ export const authConfig: NAuthConfig = {
 |--------|--------|---------|---------|
 | **Bootstrap** | `AuthModule.forRoot()` | `NAuth.create()` | `NAuth.create()` |
 | **Adapter** | Automatic | `ExpressAdapter` | `FastifyAdapter` |
-| **Route protection** | `@UseGuards(AuthGuard)` | `nauth.helpers.requireAuth()` | `preHandler` + `withNAuthContext` |
+| **Route protection** | `@UseGuards(AuthGuard)` | `nauth.helpers.requireAuth()` | `preHandler` + `nauth.helpers.requireAuth()` |
 | **Public routes** | `@Public()` decorator | `nauth.helpers.public()` | `nauth.helpers.public()` |
 | **Get current user** | `@CurrentUser()` decorator | `nauth.helpers.getCurrentUser()` | `nauth.helpers.getCurrentUser()` |
-| **Context propagation** | Automatic | Automatic | Requires `withNAuthContext` wrapper |
+| **Context propagation** | Automatic | Automatic | Use `adapter.wrapRouteHandler` on route handlers |
 
 ## Next Steps
 
