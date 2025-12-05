@@ -31,7 +31,7 @@
     "format": "yarn workspaces run format",
     "format:check": "yarn workspaces run format:check",
     "fix": "yarn lint:fix",
-    "prepare": "husky install",
+    "prepare": "husky",
     "lint:commit": "commitlint --from=HEAD~1 --to=HEAD",
     "kill": "kill -9 $(lsof -t -i :3000) "
   },
