@@ -275,9 +275,9 @@ See [IMPLEMENTATION_REQUIREMENTS.md](./docs/IMPLEMENTATION_REQUIREMENTS.md) for 
 
 ---
 
-## 📝 License
+## 📝 License & Use
 
-MIT License - see LICENSE file for details
+This software is provided only for private evaluation and testing. It may not be copied, modified, distributed, or sublicensed without express written permission. Contact Noorix/NAuth for commercial terms.
 
 ---
 
@@ -292,9 +292,9 @@ MIT License - see LICENSE file for details
 
 ## 📬 Support
 
-- **Issues**: GitHub Issues (once repository is public)
 - **Documentation**: See `/docs` folder
 - **Architecture Questions**: See [ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- **Package**: https://www.npmjs.com/package/@nauth-toolkit/core
 
 ---
 

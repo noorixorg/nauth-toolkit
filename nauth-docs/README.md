@@ -278,16 +278,15 @@ CMD ["yarn", "serve", "--host", "0.0.0.0"]
 - Test all code examples before committing
 - Follow the existing structure and style
 
-## License
+## License & Use
 
-MIT
+This documentation and accompanying packages are provided only for private evaluation and testing. They may not be copied, modified, distributed, or sublicensed without express written permission. Contact Noorix/NAuth for commercial terms.
 
 ## Links
 
-- **Main Repository**: https://github.com/nauth-toolkit/nauth-toolkit
 - **npm Package**: https://www.npmjs.com/package/@nauth-toolkit/core
 - **Live Documentation**: https://nauth-toolkit.dev (coming soon)
-- **GitHub Discussions**: https://github.com/nauth-toolkit/nauth-toolkit/discussions
+- **Source**: Public repository coming soon; contact Noorix/NAuth for access
 
 ---
 

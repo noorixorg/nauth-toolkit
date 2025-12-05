@@ -193,7 +193,7 @@ export default function Home() {
           <div className={`nav-right ${mobileMenuOpen ? 'mobile-open' : ''}`}>
             <Link to="/docs/intro" onClick={() => setMobileMenuOpen(false)}>DOCS</Link>
             <Link to="/docs/api/overview" onClick={() => setMobileMenuOpen(false)}>API REFERENCE</Link>
-            <Link to="/github" onClick={() => setMobileMenuOpen(false)}>GITHUB</Link>
+            <Link to="/github" onClick={() => setMobileMenuOpen(false)}>SOURCE (COMING SOON)</Link>
             <a href="https://www.npmjs.com/package/@nauth-toolkit/core" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)}>
               NPM
             </a>
@@ -211,9 +211,9 @@ export default function Home() {
               <Link className="btn btn-primary" to="/docs/intro">
                 Get Started
               </Link>
-              <Link className="btn btn-secondary" to="/github">
-                View on GitHub
-              </Link>
+              <a className="btn btn-secondary" href="https://www.npmjs.com/package/@nauth-toolkit/core" target="_blank" rel="noopener noreferrer">
+                View on npm
+              </a>
             </div>
           </div>
           <div className="hero-right">

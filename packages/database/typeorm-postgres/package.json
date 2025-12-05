@@ -31,7 +31,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "license": "MIT",
+  "license": "UNLICENSED",
   "keywords": [
     "nestjs",
     "authentication",

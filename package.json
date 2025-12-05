@@ -31,9 +31,13 @@
     "format": "yarn workspaces run format",
     "format:check": "yarn workspaces run format:check",
     "fix": "yarn lint:fix",
+    "prepare": "husky install",
+    "lint:commit": "commitlint --from=HEAD~1 --to=HEAD",
     "kill": "kill -9 $(lsof -t -i :3000) "
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
     "@playwright/test": "^1.56.1",
     "@types/node": "^22.0.0",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
@@ -42,6 +46,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-unused-imports": "^4.3.0",
+    "husky": "^9.1.7",
     "playwright": "^1.56.1",
     "prettier": "^3.6.2",
     "tsx": "^4.20.6",
@@ -52,7 +57,7 @@
     "npm": "USE_YARN_INSTEAD",
     "yarn": ">=1.22.0"
   },
-  "license": "MIT",
+  "license": "UNLICENSED",
   "keywords": [
     "nestjs",
     "authentication",

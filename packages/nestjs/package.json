@@ -23,7 +23,7 @@
     "security"
   ],
   "author": "NAuth Toolkit",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "peerDependencies": {
     "@nestjs/common": "^9.0.0 || ^10.0.0 || ^11.0.0",
     "@nestjs/core": "^9.0.0 || ^10.0.0 || ^11.0.0",

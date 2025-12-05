@@ -578,7 +578,8 @@ Before going live:
 
 **Support:**
 - AWS Support: https://console.aws.amazon.com/support/
-- GitHub Issues: https://github.com/your-repo/nauth-toolkit/issues
+- Package: https://www.npmjs.com/package/@nauth-toolkit/core
+- Source: Public repository coming soon; contact Noorix/NAuth for access
 
 ---
 

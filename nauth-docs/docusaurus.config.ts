@@ -50,7 +50,7 @@ const config: Config = {
           ignorePatterns: ['/tags/**'],
           filename: 'sitemap.xml',
           createSitemapItems: async (params) => {
-            const {defaultCreateSitemapItems, ...rest} = params;
+            const { defaultCreateSitemapItems, ...rest } = params;
             const items = await defaultCreateSitemapItems(rest);
             return items.filter((item) => !item.url.includes('/page/'));
           },
@@ -63,7 +63,6 @@ const config: Config = {
           // Remove this to remove the "edit this page" links.
           showLastUpdateTime: true,
           showLastUpdateAuthor: true,
-
         },
 
         theme: {
@@ -73,17 +72,18 @@ const config: Config = {
     ],
   ],
 
-  themes: ['@docusaurus/theme-mermaid',
+  themes: [
+    '@docusaurus/theme-mermaid',
     [
-      require.resolve("@easyops-cn/docusaurus-search-local"),
+      require.resolve('@easyops-cn/docusaurus-search-local'),
       /** @type {import("@easyops-cn/docusaurus-search-local").PluginOptions} */
-      ({
+      {
         // ... Your options.
         // `hashed` is recommended as long-term-cache of index file is possible.
         hashed: true,
 
         // For Docs using Chinese, it is recomended to set:
-        language: ["en"],
+        language: ['en'],
 
         // Customize the keyboard shortcut to focus search bar (default is "mod+k"):
         // searchBarShortcutKeymap: "s", // Use 'S' key
@@ -91,7 +91,7 @@ const config: Config = {
 
         // If you're using `noIndex: true`, set `forceIgnoreNoIndex` to enable local index:
         // forceIgnoreNoIndex: true,
-      }),
+      },
     ],
   ],
 
@@ -146,7 +146,7 @@ const config: Config = {
     footer: {
       style: 'dark',
 
-      copyright: `Copyright © ${new Date().getFullYear()} nauth-toolkit. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} nauth-toolkit. Evaluation use only. All rights reserved.`,
     },
     prism: {
       theme: prismThemes.nightOwl,

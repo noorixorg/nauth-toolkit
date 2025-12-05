@@ -430,5 +430,5 @@ See [Configuration](/docs/concepts/configuration) for config options.
 
 **Need Help?**
 
-- [GitHub Discussions](https://github.com/noorix/nauth-toolkit/discussions) - Ask questions
-- [GitHub Issues](https://github.com/noorix/nauth-toolkit/issues) - Report bugs
+- npm package: https://www.npmjs.com/package/@nauth-toolkit/core
+- Source: Public repository coming soon; contact Noorix/NAuth for access
