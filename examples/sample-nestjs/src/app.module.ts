@@ -21,7 +21,7 @@ import { TestModule } from './test/test.module';
 const entities = [...getNAuthEntities(), ...getNAuthTransientStorageEntities()];
 
 const imports = [
-  // TypeORM configuration for PostgreSQL
+  // TypeORM configuration for MySQL
   TypeOrmModule.forRoot({
     type: 'mysql',
     host: process.env.DB_HOST,
@@ -32,6 +32,7 @@ const imports = [
     entities,
     synchronize: process.env.NODE_ENV === 'development', // Auto-sync schema in development only
     logging: process.env.DB_LOGGING === 'true',
+    timezone: 'Z', // Force UTC timezone for all dates
   }),
 
   // Custom Auth Module (imports AuthModule internally)

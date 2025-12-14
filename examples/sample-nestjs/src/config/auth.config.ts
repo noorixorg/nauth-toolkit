@@ -85,7 +85,7 @@ export const authConfig: NAuthModuleConfig = {
       triggers: ['new_device', 'new_ip', 'new_country', 'impossible_travel'],
       riskLevels: {
         low: { maxScore: 20, action: 'allow', notifyUser: false },
-        medium: { maxScore: 70, action: 'require_mfa', notifyUser: true },
+        medium: { maxScore: 50, action: 'require_mfa', notifyUser: true },
         high: { maxScore: 100, action: 'block_signin', notifyUser: true },
       },
     },
