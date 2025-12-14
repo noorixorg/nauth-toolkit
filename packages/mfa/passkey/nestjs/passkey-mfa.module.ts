@@ -2,11 +2,10 @@ import { Module, OnModuleInit } from '@nestjs/common';
 import { PasskeyMFAProviderService } from '../src/passkey-mfa-provider.service';
 import { PasskeyService } from '../src/passkey.service';
 // Public API imports
-import { MFAService, NAuthConfig, NAuthLogger } from '@nauth-toolkit/core';
+import { MFAService, NAuthConfig, NAuthLogger, ClientInfoService, BaseMFADevice, BaseUser } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
-import { PasswordService } from '@nauth-toolkit/core/internal';
+import { PasswordService, AuthAuditService as InternalAuthAuditService } from '@nauth-toolkit/core/internal';
 import { Repository } from 'typeorm';
-import { BaseMFADevice, BaseUser } from '@nauth-toolkit/core';
 
 /**
  * Passkey MFA Module (NestJS Adapter)
@@ -71,8 +70,8 @@ import { BaseMFADevice, BaseUser } from '@nauth-toolkit/core';
         { token: PasswordService, optional: true },
         PasskeyService,
         { token: 'ChallengeService', optional: true },
-        { token: 'AuthAuditService', optional: true },
-        { token: 'ClientInfoService', optional: true },
+        { token: InternalAuthAuditService, optional: true },
+        { token: ClientInfoService, optional: true },
       ],
     },
   ],

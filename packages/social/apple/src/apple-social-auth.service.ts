@@ -20,6 +20,7 @@ import {
   SessionService,
   AuthChallengeHelperService,
   AuthAuditService, // Internal version with recordEvent()
+  TrustedDeviceService,
 } from '@nauth-toolkit/core/internal';
 import { Repository } from 'typeorm';
 import { AppleOAuthClient } from './apple-oauth.client';
@@ -77,6 +78,8 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
     phoneVerificationService?: PhoneVerificationService,
     // Audit service (optional - only available when auditLogs.enabled is true)
     auditService?: AuthAuditService,
+    // Trusted device service (optional - only available when rememberDevices is enabled)
+    trustedDeviceService?: TrustedDeviceService,
     // Apple-specific token verifier (optional, fallback to TOKEN_VERIFIER)
     tokenVerifier?: ITokenVerifierService,
   ) {
@@ -93,6 +96,7 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
       userRepository,
       phoneVerificationService,
       auditService,
+      trustedDeviceService,
     );
 
     // Initialize Apple OAuth client

@@ -52,7 +52,7 @@ export class EmailVerificationService {
    * @returns Response DTO with verification token ID
    */
   async sendVerificationEmail(dto: SendVerificationEmailDTO): Promise<SendVerificationEmailResponseDTO> {
-    const { sub, baseUrl, skipAlreadyVerifiedCheck = false } = dto;
+    const { sub, baseUrl, skipAlreadyVerifiedCheck = false, challengeSessionId } = dto;
     // Get rate limit configuration from config (moved to signup.emailVerification)
     const rateLimitMax = this.config.signup?.emailVerification?.rateLimitMax || 3;
     const rateLimitWindow = this.config.signup?.emailVerification?.rateLimitWindow || 3600; // 1 hour in seconds
@@ -157,6 +157,7 @@ export class EmailVerificationService {
 
     const verificationToken = this.verificationTokenRepo.create({
       userId: user.id, // Use internal id for foreign key
+      challengeSessionId: challengeSessionId ?? null, // Link to challenge session if provided
       type: 'email',
       token: tokenHash,
       code,
@@ -208,7 +209,7 @@ export class EmailVerificationService {
    * @returns Response DTO with success message
    */
   async verifyEmailWithCode(dto: VerifyEmailWithCodeDTO): Promise<VerifyEmailResponseDTO> {
-    const { email, code } = dto;
+    const { email, code, challengeSessionId } = dto;
     // ============================================================================
     // Security: Rate limit configuration
     // IP-based rate limiting applies only to INVALID attempts to prevent brute force
@@ -225,13 +226,18 @@ export class EmailVerificationService {
     }
 
     // Find active verification token
+    // If challengeSessionId is provided, ensure token belongs to that specific session
+    // This prevents old tokens from being used with new challenge sessions
+    const whereClause = {
+      userId: user.id,
+      type: 'email' as const,
+      code,
+      usedAt: IsNull(),
+      ...(challengeSessionId !== undefined && { challengeSessionId }), // Include if provided
+    };
+
     const verificationToken = (await this.verificationTokenRepo.findOne({
-      where: {
-        userId: user.id,
-        type: 'email',
-        code,
-        usedAt: IsNull(),
-      },
+      where: whereClause,
     })) as IVerificationToken | null;
 
     // ============================================================================
@@ -501,7 +507,8 @@ export class EmailVerificationService {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
 
-    // Check resend delay (60 seconds) - use internal id for query
+    // Check resend delay - use config value (default 60 seconds)
+    const resendDelay = this.config.signup?.emailVerification?.resendDelay ?? 60;
     const lastToken = (await this.verificationTokenRepo.findOne({
       where: { userId: user.id, type: 'email' },
       order: { createdAt: 'DESC' },
@@ -509,21 +516,26 @@ export class EmailVerificationService {
 
     if (lastToken) {
       const secondsSinceLastSend = (Date.now() - lastToken.createdAt.getTime()) / 1000;
-      if (secondsSinceLastSend < 60) {
-        const waitSeconds = Math.ceil(60 - secondsSinceLastSend);
+      if (secondsSinceLastSend < resendDelay) {
+        const waitSeconds = Math.ceil(resendDelay - secondsSinceLastSend);
         throw new NAuthException(
           AuthErrorCode.RATE_LIMIT_RESEND,
           `Please wait ${waitSeconds} seconds before requesting another code`,
           {
             retryAfter: waitSeconds,
-            resendDelay: 60,
+            resendDelay,
           },
         );
       }
     }
 
     // Send new verification email - use sub (external identifier)
-    const dto = Object.assign(new SendVerificationEmailDTO(), { sub, baseUrl });
+    // Preserve challengeSessionId from the last token to ensure verification succeeds
+    const dto = Object.assign(new SendVerificationEmailDTO(), {
+      sub,
+      baseUrl,
+      challengeSessionId: lastToken?.challengeSessionId ?? undefined,
+    });
     return this.sendVerificationEmail(dto);
   }
 

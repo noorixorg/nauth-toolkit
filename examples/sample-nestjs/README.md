@@ -184,7 +184,7 @@ export class AppModule {}
   - `POST /auth/signup`
   - `POST /auth/login`
   - `POST /auth/refresh`
-  - `POST /auth/logout`
+  - `GET /auth/logout`
   - `POST /auth/password/reset`
   - `GET /auth/me` (get current user)
 - ✅ Add guards (`@UseGuards(AuthGuard)`)
@@ -338,7 +338,7 @@ Body: { refreshToken: "..." }
 Response: { accessToken, refreshToken }
 
 # Logout
-POST /auth/logout
+GET /auth/logout
 Headers: { Authorization: "Bearer <accessToken>" }
 Response: { success: true }
 

@@ -176,6 +176,7 @@ export function initServices(
     clientInfoService,
     logger,
     auditService,
+    config, // Pass config for maxAttempts
   );
 
   // ============================================================================
@@ -366,12 +367,8 @@ export function initServices(
   // 14. Risk Detection and Adaptive MFA Services (Conditional)
   // ============================================================================
 
-  let riskDetectionService: RiskDetectionService | undefined;
-  let riskScoringService: RiskScoringService | undefined;
-  let adaptiveMFADecisionService: AdaptiveMFADecisionService | undefined;
-
   // Always create risk services (needed for adaptive MFA)
-  riskDetectionService = new RiskDetectionService(
+  const riskDetectionService = new RiskDetectionService(
     repositories.sessionRepository,
     repositories.authAuditRepository,
     config,
@@ -379,9 +376,9 @@ export function initServices(
     trustedDeviceService,
   );
 
-  riskScoringService = new RiskScoringService(config, logger);
+  const riskScoringService = new RiskScoringService(config, logger);
 
-  adaptiveMFADecisionService = new AdaptiveMFADecisionService(
+  const adaptiveMFADecisionService = new AdaptiveMFADecisionService(
     riskDetectionService,
     riskScoringService,
     storageAdapter,

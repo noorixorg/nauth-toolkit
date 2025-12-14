@@ -22,6 +22,14 @@ export class BaseVerificationToken {
   userId!: number;
 
   /**
+   * Challenge session ID (foreign key to challenge sessions table)
+   * Links verification token to specific challenge session for security.
+   * Prevents old tokens from being used with new challenge sessions.
+   * NULL for password reset tokens (not tied to challenges)
+   */
+  challengeSessionId?: number | null;
+
+  /**
    * Token type
    * - 'email': Email verification
    * - 'phone': Phone verification

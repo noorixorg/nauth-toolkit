@@ -86,7 +86,8 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
   );
 
   // Logout
-  fastify.post(
+  // Uses GET request to avoid CSRF token issues
+  fastify.get(
     '/logout',
     {
       preHandler: nauth.helpers.requireAuth({ csrf: false }), // Explicitly disable CSRF for logout (session destruction)
@@ -95,8 +96,9 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
       const user = nauth.helpers.getCurrentUser();
       // Session ID is automatically extracted from JWT token context by the library
       const dto = new LogoutDTO();
-      if ((req.body as any)?.forgetMe !== undefined) {
-        dto.forgetMe = (req.body as any).forgetMe;
+      const forgetMe = (req.query as any)?.forgetMe;
+      if (forgetMe === 'true' || forgetMe === '1') {
+        dto.forgetMe = true;
       }
       // Optional: validate user sub matches authenticated user
       // requireAuth guarantees user exists, so use non-null assertion like Express
@@ -244,7 +246,15 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
   // Session Management
   // ============================================================================
 
-  // Logout All
+  /**
+   * POST /auth/logout/all
+   *
+   * Global signout (revoke all sessions)
+   * Requires authentication - user must be logged in.
+   * Optionally revokes all trusted devices if forgetDevices flag is set in request body.
+   *
+   * @body { forgetDevices?: boolean } - Optional flag to also revoke all trusted devices
+   */
   fastify.post(
     '/logout/all',
     {
@@ -254,10 +264,17 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
       const user = nauth.helpers.getCurrentUser();
       const dto = new LogoutAllDTO();
       dto.sub = user!.sub;
+      if ((req.body as { forgetDevices?: boolean })?.forgetDevices !== undefined) {
+        dto.forgetDevices = (req.body as { forgetDevices?: boolean }).forgetDevices;
+      }
       const result = await authService.logoutAll(dto);
 
+      const message = dto.forgetDevices
+        ? `All sessions and trusted devices revoked successfully (${result.revokedCount} session(s))`
+        : `All sessions revoked successfully (${result.revokedCount} session(s))`;
+
       return {
-        message: `All sessions revoked successfully (${result.revokedCount} session(s))`,
+        message,
         revokedCount: result.revokedCount,
       };
     }),
@@ -755,6 +772,30 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
         limit: history.limit,
         totalPages: history.totalPages,
       };
+    }),
+  );
+
+  // Trust Device (User Opt-In)
+  fastify.post(
+    '/trust-device',
+    {
+      preHandler: nauth.helpers.requireAuth(),
+    },
+    handler(async (req, reply) => {
+      const result = await authService.trustDevice();
+      return result;
+    }),
+  );
+
+  // Check if Device is Trusted
+  fastify.get(
+    '/is-trusted-device',
+    {
+      preHandler: nauth.helpers.requireAuth(),
+    },
+    handler(async (req, reply) => {
+      const result = await authService.isTrustedDevice();
+      return result;
     }),
   );
 }

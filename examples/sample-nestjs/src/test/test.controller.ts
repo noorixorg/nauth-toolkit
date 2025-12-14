@@ -1,7 +1,17 @@
-import { Controller, Post, Get, Query, HttpCode, HttpStatus, Logger, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Query,
+  HttpCode,
+  HttpStatus,
+  Logger,
+  BadRequestException,
+  UseGuards,
+} from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, IsNull } from 'typeorm';
-import { Public } from '@nauth-toolkit/nestjs';
+import { Public, AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
 import { TestService } from './test.service';
 
 /**
@@ -58,31 +68,47 @@ export class TestController {
   }
 
   /**
-   * Get latest SMS code for a phone number
+   * Get latest verification code for a challenge session
    *
-   * GET /test/sms/latest?phone=+1234567890
+   * GET /test/code/latest?sessionId=99f45d2b-3834-46d6-8a89-b90c349a9a94
    *
    * Retrieves the latest verification code from nauth_verification_tokens
-   * by finding the user by phone, then the token by userId.
-   * Follows the same pattern as PhoneVerificationService.verifyPhoneWithCode()
+   * by finding the challenge session by sessionToken, then the token by challengeSessionId.
+   * This ensures we always get the correct code for the specific challenge session.
+   *
+   * Returns null if code is not found (instead of empty string) to distinguish
+   * between "no code" and "code exists but is empty".
    */
   @Public()
-  @Get('sms/latest')
-  async getLatestSMS(@Query('phone') phone: string): Promise<{ code: string }> {
+  @Get('code/latest')
+  async getLatestCode(
+    @Query('sessionId') sessionId: string,
+    @Query('method') method?: string,
+  ): Promise<{ code: string | null }> {
     if (process.env.NAUTH_TEST_MODE !== 'true') {
       throw new BadRequestException('Test mode is not enabled');
     }
 
-    if (!phone) {
-      throw new BadRequestException('Phone number is required');
+    if (!sessionId || sessionId === 'undefined' || sessionId.trim() === '') {
+      this.logger?.warn?.(`Invalid sessionId provided: ${JSON.stringify(sessionId)}`);
+      throw new BadRequestException('Invalid sessionId provided');
+    }
+
+    // Validate sessionId is a UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(sessionId)) {
+      this.logger?.warn?.(`SessionId is not a valid UUID: ${sessionId}`);
+      throw new BadRequestException('SessionId is not a valid UUID');
     }
 
     // Get repositories using table names (database-agnostic approach)
-    const userMetadata = this.dataSource.entityMetadatas.find((m) => m.tableName === 'nauth_users');
-    if (!userMetadata) {
-      throw new BadRequestException('User entity not found');
+    const challengeSessionMetadata = this.dataSource.entityMetadatas.find(
+      (m) => m.tableName === 'nauth_challenge_sessions',
+    );
+    if (!challengeSessionMetadata) {
+      throw new BadRequestException('ChallengeSession entity not found');
     }
-    const userRepo = this.dataSource.getRepository(userMetadata.target);
+    const challengeSessionRepo = this.dataSource.getRepository(challengeSessionMetadata.target);
 
     const verificationTokenMetadata = this.dataSource.entityMetadatas.find(
       (m) => m.tableName === 'nauth_verification_tokens',
@@ -92,64 +118,173 @@ export class TestController {
     }
     const verificationTokenRepo = this.dataSource.getRepository(verificationTokenMetadata.target);
 
-    // Step 1: Find user by phone (same as PhoneVerificationService)
-    const user = await userRepo.findOne({ where: { phone } as any });
-    if (!user) {
-      this.logger?.warn?.(`User not found for phone: ${phone}`);
-      return { code: '' };
-    }
-
-    const userId = (user as any).id;
-
-    // Step 2: Find latest unused verification token (same pattern as verification service)
-    // Order by createdAt DESC to get the most recent token first
-    const tokens = await verificationTokenRepo.find({
-      where: {
-        userId, // User's internal ID
-        type: 'phone', // Phone verification tokens only
-        usedAt: IsNull(), // Only unused tokens
-      } as any,
-      order: { createdAt: 'DESC' } as any,
+    // Step 1: Find challenge session by sessionToken
+    const challengeSession = await challengeSessionRepo.findOne({
+      where: { sessionToken: sessionId } as any,
     });
 
-    // Step 3: Find token with actual code (code might be null for link-based verification)
-    const verificationToken = (tokens as any[]).find((t) => t.code !== null && t.code !== '');
-
-    if (!verificationToken) {
-      this.logger?.warn?.(`No verification token with code found for user: ${userId}, phone: ${phone}, type: phone`);
-      return { code: '' };
+    if (!challengeSession) {
+      this.logger?.warn?.(`Challenge session not found for sessionToken: ${sessionId}`);
+      throw new BadRequestException(`Challenge session not found for sessionToken: ${sessionId}`);
     }
 
+    const challengeSessionId = (challengeSession as any).id;
+    const challengeName = (challengeSession as any).challengeName;
+    const challengeSessionUserId = (challengeSession as any).userId;
+
+    this.logger?.debug?.(
+      `Found challenge session: id=${challengeSessionId}, challengeName=${challengeName}, userId=${challengeSessionUserId}, sessionToken=${sessionId}`,
+    );
+
+    // Step 2: Determine token type based on challenge name
+    let tokenType: 'email' | 'phone' | null = null;
+    if (challengeName === 'VERIFY_EMAIL') {
+      tokenType = 'email';
+    } else if (challengeName === 'VERIFY_PHONE') {
+      tokenType = 'phone';
+    } else if (challengeName === 'MFA_REQUIRED') {
+      // For MFA_REQUIRED, method can come from:
+      // 1. Query param (when user switches from passkey to SMS/email)
+      // 2. Challenge parameters (preferredMethod or method)
+      // 3. Metadata (stored in database)
+      const params = (challengeSession as any).challengeParameters || {};
+      const metadata = (challengeSession as any).metadata || {};
+      const mfaMethod =
+        method || params['preferredMethod'] || params['method'] || metadata['method'] || metadata['preferredMethod'];
+
+      // Normalize method name (database might store 'SMS' but we need 'sms')
+      const normalizedMethod = mfaMethod ? String(mfaMethod).toLowerCase() : null;
+
+      if (normalizedMethod === 'sms') {
+        tokenType = 'phone';
+      } else if (normalizedMethod === 'email') {
+        tokenType = 'email';
+      }
+
+      this.logger?.debug?.(
+        `MFA_REQUIRED challenge: method=${mfaMethod}, normalizedMethod=${normalizedMethod}, tokenType=${tokenType}`,
+      );
+    } else if (challengeName === 'MFA_SETUP_REQUIRED') {
+      // For MFA_SETUP_REQUIRED, method comes from query param (set by frontend)
+      // or from challenge session metadata if available
+      const params = (challengeSession as any).challengeParameters || {};
+      const metadata = (challengeSession as any).metadata || {};
+      const mfaMethod = method || params['method'] || metadata['method'];
+
+      // Normalize method name
+      const normalizedMethod = mfaMethod ? String(mfaMethod).toLowerCase() : null;
+
+      if (normalizedMethod === 'sms') {
+        tokenType = 'phone';
+      } else if (normalizedMethod === 'email') {
+        tokenType = 'email';
+      }
+
+      this.logger?.debug?.(
+        `MFA_SETUP_REQUIRED challenge: method=${mfaMethod}, normalizedMethod=${normalizedMethod}, tokenType=${tokenType}`,
+      );
+    }
+
+    if (!tokenType) {
+      this.logger?.warn?.(`Challenge type ${challengeName} does not use verification codes`);
+      throw new BadRequestException(`Challenge type ${challengeName} does not use verification codes`);
+    }
+
+    // Step 3: Find verification token by challengeSessionId and type
+    // First try with challengeSessionId (preferred method)
+    let tokens: any[] = [];
+    if (challengeSessionId) {
+      tokens = await verificationTokenRepo.find({
+        where: {
+          challengeSessionId,
+          type: tokenType,
+          usedAt: IsNull(), // Only unused tokens
+        } as any,
+        order: { createdAt: 'DESC' } as any,
+      });
+
+      this.logger?.debug?.(
+        `Found ${tokens.length} verification tokens for challengeSessionId: ${challengeSessionId}, type: ${tokenType}`,
+      );
+    }
+
+    // Step 4: Find token with actual code (code might be null for link-based verification)
+    let verificationToken = tokens.find((t) => t.code !== null && t.code !== '' && String(t.code).trim() !== '');
+
+    // If no token found with challengeSessionId, try finding by userId (fallback)
+    // This handles cases where challengeSessionId might not be set or tokens were created before linking
+    if (!verificationToken) {
+      this.logger?.warn?.(
+        `No verification token with code found for challengeSessionId: ${challengeSessionId}, type: ${tokenType}. Trying fallback by userId: ${challengeSessionUserId}`,
+      );
+
+      // Fallback: Find by userId and type (for backward compatibility and timing issues)
+      const fallbackTokens = await verificationTokenRepo.find({
+        where: {
+          userId: challengeSessionUserId,
+          type: tokenType,
+          usedAt: IsNull(),
+        } as any,
+        order: { createdAt: 'DESC' } as any,
+      });
+
+      this.logger?.debug?.(
+        `Found ${fallbackTokens.length} fallback tokens for userId: ${challengeSessionUserId}, type: ${tokenType}`,
+      );
+
+      verificationToken = fallbackTokens.find((t) => t.code !== null && t.code !== '' && String(t.code).trim() !== '');
+      if (verificationToken) {
+        this.logger?.debug?.(
+          `Found verification token via fallback: id=${verificationToken.id}, createdAt=${verificationToken.createdAt}, challengeSessionId=${verificationToken.challengeSessionId}, code=***`,
+        );
+        return { code: verificationToken.code };
+      }
+
+      this.logger?.warn?.(
+        `No verification token found even with fallback for userId: ${challengeSessionUserId}, type: ${tokenType}`,
+      );
+      // Return null to indicate code not found (not an error, just not available yet)
+      return { code: null };
+    }
+
+    this.logger?.debug?.(
+      `Found verification token: id=${verificationToken.id}, createdAt=${verificationToken.createdAt}, code=***`,
+    );
     return { code: verificationToken.code };
   }
 
   /**
-   * Get latest email code for an email address
+   * Get latest verification code for authenticated user
    *
-   * GET /test/email/latest?email=user@example.com
+   * GET /test/code/latest/authenticated?method=email
    *
-   * Retrieves the latest verification code from nauth_verification_tokens
-   * by finding the user by email, then the token by userId.
-   * Follows the same pattern as EmailVerificationService.verifyEmailWithCode()
+   * Retrieves the latest verification code for the currently authenticated user.
+   * Uses req.user from authentication context - much safer than relying on userId fallback.
+   * Only works for authenticated flows (dashboard MFA setup).
+   *
+   * Query params:
+   *   - method: MFA method ('sms' or 'email') - required
+   *
+   * Returns null if code is not found.
    */
-  @Public()
-  @Get('email/latest')
-  async getLatestEmail(@Query('email') email: string): Promise<{ code: string }> {
+  @UseGuards(AuthGuard)
+  @Get('code/latest/authenticated')
+  async getLatestCodeForAuthenticatedUser(
+    @CurrentUser() user: IUser,
+    @Query('method') method: string,
+  ): Promise<{ code: string | null }> {
     if (process.env.NAUTH_TEST_MODE !== 'true') {
       throw new BadRequestException('Test mode is not enabled');
     }
 
-    if (!email) {
-      throw new BadRequestException('Email address is required');
+    if (!method || (method !== 'sms' && method !== 'email')) {
+      throw new BadRequestException('Method must be "sms" or "email"');
     }
 
-    // Get repositories using table names (database-agnostic approach)
-    const userMetadata = this.dataSource.entityMetadatas.find((m) => m.tableName === 'nauth_users');
-    if (!userMetadata) {
-      throw new BadRequestException('User entity not found');
-    }
-    const userRepo = this.dataSource.getRepository(userMetadata.target);
+    // Normalize method to token type
+    const tokenType = method === 'sms' ? 'phone' : 'email';
 
+    // Get repository using table name (database-agnostic approach)
     const verificationTokenMetadata = this.dataSource.entityMetadatas.find(
       (m) => m.tableName === 'nauth_verification_tokens',
     );
@@ -158,38 +293,35 @@ export class TestController {
     }
     const verificationTokenRepo = this.dataSource.getRepository(verificationTokenMetadata.target);
 
-    // Step 1: Find user by email (normalized to lowercase, same as EmailVerificationService)
-    const normalizedEmail = email.toLowerCase().trim();
-    const user = await userRepo.findOne({ where: { email: normalizedEmail } as any });
-    if (!user) {
-      this.logger?.warn?.(`User not found for email: ${email} (normalized: ${normalizedEmail})`);
-      return { code: '' };
+    // Get user ID from authenticated user
+    const userId = (user as any).id || (user as any).sub;
+    if (!userId) {
+      this.logger?.warn?.('User ID not found in authenticated user object');
+      throw new BadRequestException('User ID not found');
     }
 
-    const userId = (user as any).id;
-    this.logger?.debug?.(`Found user: id=${userId}, email=${(user as any).email}, sub=${(user as any).sub}`);
+    this.logger?.debug?.(
+      `Getting latest code for authenticated user: userId=${userId}, method=${method}, tokenType=${tokenType}`,
+    );
 
-    // Step 2: Find latest unused verification token for this user (same pattern as verification service)
-    // Order by createdAt DESC to get the most recent token first
+    // Find latest unused verification token for this user and type
     const tokens = await verificationTokenRepo.find({
       where: {
-        userId, // User's internal ID
-        type: 'email', // Email verification tokens only
+        userId,
+        type: tokenType,
         usedAt: IsNull(), // Only unused tokens
       } as any,
       order: { createdAt: 'DESC' } as any,
     });
 
-    this.logger?.debug?.(`Found ${tokens.length} unused email verification tokens for user ${userId}`);
+    this.logger?.debug?.(`Found ${tokens.length} verification tokens for userId: ${userId}, type: ${tokenType}`);
 
-    // Step 3: Find token with actual code (code might be null for link-based verification)
-    const verificationToken = (tokens as any[]).find((t) => t.code !== null && t.code !== '');
+    // Find token with actual code (code might be null for link-based verification)
+    const verificationToken = tokens.find((t) => t.code !== null && t.code !== '' && String(t.code).trim() !== '');
 
     if (!verificationToken) {
-      this.logger?.warn?.(
-        `No verification token with code found for user: ${userId}, email: ${email}, type: email. Tokens found: ${tokens.length}, codes: ${tokens.map((t) => (t.code ? '***' : 'null')).join(', ')}`,
-      );
-      return { code: '' };
+      this.logger?.warn?.(`No verification token with code found for userId: ${userId}, type: ${tokenType}`);
+      return { code: null };
     }
 
     this.logger?.debug?.(

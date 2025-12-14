@@ -87,6 +87,18 @@ export class BaseSession {
   ipCity?: string | null;
 
   /**
+   * Latitude from IP geolocation (optional)
+   * Used for impossible travel detection
+   */
+  ipLatitude?: number | null;
+
+  /**
+   * Longitude from IP geolocation (optional)
+   * Used for impossible travel detection
+   */
+  ipLongitude?: number | null;
+
+  /**
    * ISP from IP geolocation (optional)
    */
   ipIsp?: string | null;

@@ -88,7 +88,7 @@ export class AuthResponseDTO {
    * Only returned when rememberDevices is not 'never' and device is trusted.
    *
    * Delivery by mode:
-   * - **cookies mode**: Token set as `nauth_device_id` httpOnly cookie (not in response body)
+   * - **cookies mode**: Token set as `nauth_device_token` httpOnly cookie (not in response body)
    * - **json/hybrid mode**: Token returned in response body for mobile apps
    *
    * Mobile apps should:
@@ -128,12 +128,18 @@ export class AuthResponseDTO {
     /**
      * User's first name (optional)
      */
-    firstName?: string;
+    firstName?: string | null;
 
     /**
      * User's last name (optional)
      */
-    lastName?: string;
+    lastName?: string | null;
+
+    /**
+     * User's phone number (optional)
+     * E.164 format
+     */
+    phone?: string;
 
     /**
      * Email verification status

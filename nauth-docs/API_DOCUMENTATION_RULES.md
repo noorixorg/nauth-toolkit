@@ -371,15 +371,15 @@ sidebar_position: N
 
 **Installation Instructions:**
 
-Use `npm` language for package installation - the npm2yarn plugin auto-generates tabs:
+Use `bash npm2yarn` as the language identifier for package installation - the npm2yarn plugin auto-generates tabs:
 
 ```markdown
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/core
 ​```
 ```
 
-This renders as npm/yarn/pnpm tabs. NEVER use `bash` or `yarn add` directly.
+This renders as npm/yarn/pnpm tabs. NEVER use `bash` alone, `npm`, or `yarn add` directly.
 
 **Links:**
 
@@ -428,27 +428,27 @@ Content
 
 **DTOs:**
 
-- ❌ Response examples
-- ❌ Usage code
-- ❌ Multiple request variations
-- ❌ Validation rule sections (put in table)
-- ❌ Business logic
+- Response examples
+- Usage code
+- Multiple request variations
+- Validation rule sections (put in table)
+- Business logic
 
 **Services:**
 
-- ❌ Constructor details
-- ❌ Private methods
-- ❌ Implementation details
-- ❌ Configuration blocks
-- ❌ Full exception examples per method
-- ❌ Verbose "Throws" explanations
-- ❌ Multiple examples per method
+- Constructor details
+- Private methods
+- Implementation details
+- Configuration blocks
+- Full exception examples per method
+- Verbose "Throws" explanations
+- Multiple examples per method
 
 **Both:**
 
-- ❌ Excessive prose
-- ❌ "See Also" section with guides (one link in error section is enough)
-- ❌ Separate platform sections (use tabs with groupId="platform")
+- Excessive prose
+- "See Also" section with guides (one link in error section is enough)
+- Separate platform sections (use tabs with groupId="platform")
 
 ---
 

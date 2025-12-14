@@ -210,7 +210,7 @@ export class PasswordService {
       // Use a more robust approach to check for special characters
       const hasSpecialChar = this.config.specialChars.split('').some((char) => password.includes(char));
       if (!hasSpecialChar) {
-        errors.push(`Password must contain at least one special character (${this.config.specialChars})`);
+        errors.push(`Password must contain at least one special character ${this.config.specialChars}`);
       }
     }
 

@@ -11,9 +11,7 @@ import {
   MFAMethod,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
-import {
-  BaseMFAProviderService,
-} from '@nauth-toolkit/core/internal';
+import { BaseMFAProviderService } from '@nauth-toolkit/core/internal';
 import { TOTPService } from './totp.service';
 import { SetupTOTPResponseDTO, VerifyTOTPSetupDTO } from './dto/mfa.dto';
 
@@ -102,10 +100,15 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
    * Validates the TOTP code and stores the device if valid.
    * Enables MFA for user if this is their first device.
    *
+   * **Race Condition Safety:**
+   * Device creation uses transaction with pessimistic locking to prevent duplicates.
+   * If device already exists (e.g., from concurrent request), returns existing device.
+   * Database unique constraint (userId, type) provides final safety net.
+   *
    * @param user - User completing TOTP setup
    * @param verificationData - Verification data (must be VerifyTOTPSetupDTO)
    * @param deviceName - Optional device name override
-   * @returns Created MFA device ID
+   * @returns MFA device ID (created or existing)
    * @throws {NAuthException} If code is invalid
    *
    * @example
@@ -138,7 +141,12 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
     const userId = userEntity.id as number;
     const userMfaEnabled = (userEntity.mfaEnabled as boolean) || false;
 
-    // Create MFA device
+    // ============================================================================
+    // Create MFA device (transaction-safe with duplicate prevention)
+    // ============================================================================
+    // createDevice() uses pessimistic locking to prevent race conditions
+    // If device already exists, returns existing device instead of creating duplicate
+    // Database unique constraint (userId, type) provides additional safety
     const device = await this.createDevice(userId, {
       name: deviceName || dto.deviceName || 'Authenticator App',
       secret: dto.secret, // TODO: Encrypt at rest in production

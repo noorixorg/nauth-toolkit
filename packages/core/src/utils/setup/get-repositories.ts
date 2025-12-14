@@ -90,6 +90,7 @@ export function getRepositories(dataSource: DataSource): {
  * @returns Repository or null if not found and not required
  * @throws {NAuthException} If required entity not found
  */
+/* eslint-disable no-redeclare */
 function getRepository<T extends ObjectLiteral>(
   dataSource: DataSource,
   entityName: string,
@@ -136,3 +137,4 @@ function getRepository<T extends ObjectLiteral>(
 
   return null;
 }
+/* eslint-enable no-redeclare */

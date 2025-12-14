@@ -77,6 +77,12 @@ export class Session extends BaseSession {
   @Column({ type: 'varchar', length: 100, nullable: true })
   declare ipCity?: string | null;
 
+  @Column({ type: 'decimal', precision: 10, scale: 6, nullable: true })
+  declare ipLatitude?: number | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 6, nullable: true })
+  declare ipLongitude?: number | null;
+
   @Column({ type: 'varchar', length: 255, nullable: true })
   declare ipIsp?: string | null;
 

@@ -36,7 +36,7 @@ export class GetClientInfoResponseDTO implements ClientInfo {
   /**
    * Device token for trusted device feature
    *
-   * Extracted from cookie (nauth_device_id) or header (X-Device-Token).
+   * Extracted from cookie (nauth_device_token) or header (X-Device-Token).
    * Optional - only present if device token exists.
    */
   deviceToken?: string;
@@ -62,6 +62,18 @@ export class GetClientInfoResponseDTO implements ClientInfo {
   ipCity?: string;
 
   /**
+   * Optional IP latitude (from geolocation, if available)
+   * Used for impossible travel detection
+   */
+  ipLatitude?: number;
+
+  /**
+   * Optional IP longitude (from geolocation, if available)
+   * Used for impossible travel detection
+   */
+  ipLongitude?: number;
+
+  /**
    * Platform extracted from user agent
    *
    * Examples: "iOS", "Android", "Windows", "macOS"
@@ -81,4 +93,12 @@ export class GetClientInfoResponseDTO implements ClientInfo {
    * Extracted from JWT token payload after authentication.
    */
   sessionId?: number;
+
+  /**
+   * Current user ID (if available from authenticated request)
+   *
+   * Extracted from JWT token payload (sub claim) after authentication.
+   * Used to identify who performed an action (e.g., for audit trails).
+   */
+  userId?: number;
 }

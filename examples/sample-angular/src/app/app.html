@@ -1,0 +1,64 @@
+@if (showBanner()) {
+  <div class="demo-banner" role="alert" aria-live="polite">
+    <i class="pi pi-info-circle demo-banner-icon" aria-hidden="true"></i>
+    <div class="demo-banner-content">
+      <p class="demo-banner-title">Demo Application</p>
+      <p class="demo-banner-text">
+        Email & SMS are simulated. Click the <i class="pi pi-sparkles"></i> icon to auto-fill form
+        data. Verification codes appear as popovers.
+      </p>
+      <p class="demo-banner-text pt-2">TOTP and Passkeys are fully functional (not simulated).</p>
+      <p class="demo-banner-text pt-2 text-red-700! font-medium">
+        Accounts are purged every 48 hours.
+      </p>
+    </div>
+    <button
+      type="button"
+      (click)="dismissBanner()"
+      class="demo-banner-close"
+      aria-label="Dismiss banner"
+    >
+      <i class="pi pi-times" aria-hidden="true"></i>
+    </button>
+  </div>
+}
+
+<router-outlet name="primary" />
+
+<p-toast
+  key="email"
+  #toast
+  position="bottom-center"
+  [baseZIndex]="10000"
+  [preventDuplicates]="false"
+>
+  <ng-template let-message pTemplate="message">
+    @if (message.data?.code) {
+      <app-verification-code-toast [message]="message" />
+    } @else {
+      <div class="flex align-items-center gap-2">
+        <i [class]="message.icon" class="text-lg"></i>
+        <div class="flex flex-column gap-1">
+          <div class="font-semibold text-sm">{{ message.summary }}</div>
+          <div class="text-sm">{{ message.detail }}</div>
+        </div>
+      </div>
+    }
+  </ng-template>
+</p-toast>
+
+<p-toast key="sms" #toast position="bottom-center" [baseZIndex]="10000" [preventDuplicates]="false">
+  <ng-template let-message pTemplate="message">
+    @if (message.data?.code) {
+      <app-verification-code-toast [message]="message" />
+    } @else {
+      <div class="flex align-items-center gap-2">
+        <i [class]="message.icon" class="text-lg"></i>
+        <div class="flex flex-column gap-1">
+          <div class="font-semibold text-sm">{{ message.summary }}</div>
+          <div class="text-sm">{{ message.detail }}</div>
+        </div>
+      </div>
+    }
+  </ng-template>
+</p-toast>

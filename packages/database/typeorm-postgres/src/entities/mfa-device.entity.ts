@@ -7,6 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
+  Unique,
 } from 'typeorm';
 import { BaseMFADevice, MFADeviceMethod } from '@nauth-toolkit/core';
 import { User } from './user.entity';
@@ -16,11 +17,16 @@ import { User } from './user.entity';
  *
  * Extends BaseMFADevice from core and adds PostgreSQL-specific TypeORM decorators.
  * All field definitions and business logic are in the base class.
+ *
+ * **Database Integrity:**
+ * - Unique constraint on (userId, type) prevents duplicate MFA devices per method
+ * - This prevents race conditions where multiple devices of same type could be created
  */
 @Entity('nauth_mfa_devices')
 @Index(['userId'])
 @Index(['type'])
 @Index(['isActive'])
+@Unique('uq_mfa_device_user_type', ['userId', 'type'])
 export class MFADevice extends BaseMFADevice {
   @PrimaryGeneratedColumn()
   declare id: number;

@@ -527,7 +527,7 @@ describe('AdaptiveMFADecisionService', () => {
       expect(mockAuditService.recordEvent).toHaveBeenCalled();
       const auditCall = mockAuditService.recordEvent.mock.calls[0][0];
       expect(auditCall.userId).toBe(1);
-      expect(auditCall.eventType).toBe(AuthAuditEventType.LOGIN_ATTEMPT);
+      expect(auditCall.eventType).toBe(AuthAuditEventType.ADAPTIVE_MFA_RISK_ASSESSED);
       expect(auditCall.riskFactors).toEqual([RiskFactor.NEW_COUNTRY]);
       expect(auditCall.riskFactor).toBe(35);
       expect(auditCall.adaptiveMfaTriggered).toBe(true);

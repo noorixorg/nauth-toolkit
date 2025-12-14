@@ -1,0 +1,7 @@
+# Ignore Angular source files - Playwright should only compile test files
+../src/**
+../node_modules/**
+../dist/**
+../out-tsc/**
+
+

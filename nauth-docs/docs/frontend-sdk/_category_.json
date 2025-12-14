@@ -1,0 +1,10 @@
+{
+  "label": "Frontend SDK",
+  "position": 3,
+  "collapsed": true,
+  "className": "sidebar-icon-frontend-sdk",
+  "link": {
+    "type": "doc",
+    "id": "frontend-sdk/overview"
+  }
+}

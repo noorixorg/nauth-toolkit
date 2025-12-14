@@ -284,6 +284,51 @@ export class TrustedDeviceService {
   }
 
   /**
+   * Revoke all trusted devices for a user
+   *
+   * Removes all trusted devices for the user.
+   * Used when user performs global logout with forgetDevices flag.
+   *
+   * @param userId - Internal user ID
+   * @returns Object containing count and device information before deletion
+   */
+  async revokeAllTrustedDevices(userId: number): Promise<{
+    revokedCount: number;
+    devices: Array<{
+      id: number | string;
+      deviceName: string | null;
+      lastUsedAt: Date | null;
+      trustedUntil: Date | null;
+    }>;
+  }> {
+    if (!this.trustedDeviceRepository) {
+      return { revokedCount: 0, devices: [] };
+    }
+
+    // Get devices before deletion for audit logging
+    const devices = await this.trustedDeviceRepository.find({
+      where: { userId },
+      order: { lastUsedAt: 'DESC' },
+    });
+
+    // Extract device information (without sensitive token hash)
+    // Note: ipAddress, browser, platform, deviceType are automatically captured by audit service via client info
+    // Only include unique identifiers and historical timestamps
+    const deviceInfo = devices.map((d) => ({
+      id: d.id,
+      deviceName: d.deviceName ?? null, // User-given name (may differ from current device name)
+      lastUsedAt: d.lastUsedAt ?? null, // Historical timestamp
+      trustedUntil: d.trustedUntil ?? null, // Expiry date
+    }));
+
+    // Delete all devices
+    const result = await this.trustedDeviceRepository.delete({ userId });
+    const deletedCount = typeof result.affected === 'number' ? result.affected : 0;
+    this.logger?.debug?.(`Revoked ${deletedCount} trusted device(s) for user ${userId}`);
+    return { revokedCount: deletedCount, devices: deviceInfo };
+  }
+
+  /**
    * Hash device token (SHA-256)
    *
    * @private

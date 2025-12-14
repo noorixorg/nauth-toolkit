@@ -361,6 +361,7 @@ export const adaptiveMFAConfigSchema = z.object({
     })
     .optional(),
   maxTravelSpeed: z.number().optional(),
+  countryChangeThreshold: z.number().optional(),
   suspiciousActivityWindow: z.number().optional(),
 });
 
@@ -401,6 +402,14 @@ export const tokenDeliveryConfigSchema = z.object({
       nativeOrigins: z.array(z.string()).optional(),
     })
     .optional(),
+});
+
+// ============================================================================
+// Challenge Configuration Schema
+// ============================================================================
+
+export const challengeConfigSchema = z.object({
+  maxAttempts: z.number().int().positive().optional(),
 });
 
 // ============================================================================
@@ -460,6 +469,7 @@ export const authConfigSchema = z
     mfa: mfaConfigSchema.optional(),
     logger: z.any().optional(), // LoggerService or NAuthLoggerConfig - runtime instance
     tokenDelivery: tokenDeliveryConfigSchema.optional(),
+    challenge: challengeConfigSchema.optional(),
     geoLocation: geoLocationConfigSchema.optional(),
   })
   .superRefine((data, ctx) => {

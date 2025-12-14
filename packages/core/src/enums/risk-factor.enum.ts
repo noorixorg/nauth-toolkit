@@ -68,6 +68,13 @@ export enum RiskFactor {
    */
   SUSPICIOUS_ACTIVITY = 'suspicious_activity',
 
+  /**
+   * Incomplete location data (missing city/coordinates)
+   * Weight: 20 points (default)
+   * Added when location detection is impaired, reducing confidence in risk assessment
+   */
+  INCOMPLETE_LOCATION_DATA = 'incomplete_location_data',
+
   // ============================================================================
   // Security Event Risk Factors
   // ============================================================================

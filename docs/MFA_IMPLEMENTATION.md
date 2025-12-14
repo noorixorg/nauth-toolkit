@@ -39,6 +39,7 @@ The `nauth-toolkit` now supports comprehensive Multi-Factor Authentication (MFA)
 **Multiple Passkey Support:** Users can enroll multiple passkey devices (e.g., iPhone Face ID, Android fingerprint, browser-based passkey, hardware security key). Each device is registered separately with a user-friendly name for identification. During MFA verification, users can use any of their registered passkey devices.
 
 **Cross-Device Authentication:** Passkeys created on one device can be used to authenticate on other devices through several mechanisms:
+
 - **Ecosystem Sync:** Passkeys stored in iCloud Keychain (iOS/macOS) or Google Password Manager (Android) are automatically synced across devices in the same ecosystem
 - **Cross-Device Authentication:** Modern browsers support FIDO2 cross-device authentication via QR codes and Bluetooth/NFC, allowing users to authenticate on desktop using a passkey stored on their phone
 - **Hybrid Transport:** The WebAuthn API supports "hybrid" transport, which enables cross-device authentication flows natively
@@ -195,8 +196,17 @@ The central registry provides:
     issuer: 'MyApp',
     allowedMethods: ['totp', 'sms', 'email', 'passkey'],
     requireMultiple: false,
-    rememberDevice: true,
+
+    // Remember-device / trusted device configuration
+    // - 'never'       → no remember-device feature
+    // - 'always'      → auto-trust device after successful login + MFA
+    // - 'user_opt_in' → user must explicitly opt-in via /trust-device
+    rememberDevices: 'always', // 'always' | 'user_opt_in' | 'never'
     rememberDeviceDays: 30,
+
+    // When true, trusted devices can skip MFA when enforcement is OPTIONAL or REQUIRED.
+    // This flag does NOT short-circuit ADAPTIVE mode, which uses risk-based logic.
+    bypassMFAForTrustedDevices: true,
 
     // TOTP Configuration
     totp: {
@@ -253,16 +263,22 @@ The central registry provides:
 
 #### OPTIONAL
 
-- MFA is available but not required
-- Users can enable/disable at will
-- Recommended for consumer applications
+- MFA is available but not required at signup.
+- Users can enable/disable MFA at will.
+- **Once a user enables MFA (`mfaEnabled = true`):**
+  - MFA is required on every login.
+  - **Exception:** If the device is trusted (via rememberDevices) **and** `bypassMFAForTrustedDevices: true`, MFA can be skipped on that device.
+- Recommended for consumer applications where MFA is encouraged but not enforced.
 
 #### REQUIRED
 
-- MFA is mandatory for all users
-- Grace period allows delayed enrollment
-- Users must set up MFA before grace period expires
-- Suitable for enterprise applications
+- MFA is mandatory for all users.
+- Grace period allows delayed enrollment.
+- Users must set up MFA before grace period expires (and typically at first login/signup).
+- On subsequent logins:
+  - MFA is required on every login by default.
+  - **Exception:** If the device is trusted (via `rememberDevices: 'always'` or `user_opt_in` + `/trust-device`) **and** `bypassMFAForTrustedDevices: true`, MFA can be skipped on that device.
+- Suitable for enterprise / high-assurance applications.
 
 #### ADAPTIVE ✅ **IMPLEMENTED**
 
@@ -277,6 +293,7 @@ The central registry provides:
 - **Actions**: Allow (low risk), Require MFA (medium/high risk), Block Sign-in (high risk, configurable)
 - **Lifecycle Hooks**: `onAdaptiveMFATriggered`, `onSignInBlocked` for notifications
 - **Integration**: Automatic when `enforcement: 'ADAPTIVE'` is set
+- **Trusted devices:** Device trust is used as a risk signal (e.g. reduces `new_device` risk), but `bypassMFAForTrustedDevices` does **not** force an unconditional bypass in ADAPTIVE mode. MFA can still be required on trusted devices when risk is medium/high.
 
 ## Authentication Flow
 
@@ -539,6 +556,7 @@ DELETE /mfa/devices/:id
 **Note**: Cannot delete the last active MFA device. Must disable MFA first or add another device.
 
 **Example Response with Multiple Passkeys:**
+
 ```json
 {
   "devices": [
@@ -772,27 +790,32 @@ The adaptive MFA system consists of three core services:
 ### Risk Factors
 
 **New Device (`new_device`)**
+
 - Weight: 20 points (default)
 - Detected when device has never been used by this user before
 - Checks against historical sessions
 
 **New IP Address (`new_ip`)**
+
 - Weight: 15 points (default)
 - Detected when IP address has never been seen before
 - **Note:** Automatically excluded if `new_country` or `impossible_travel` is detected (prevents double-counting)
 
 **New Country (`new_country`)**
+
 - Weight: 25 points (default)
 - Detected when login from a country never seen before
 - Requires `ipCountry` in client info
 
 **Impossible Travel (`impossible_travel`)**
+
 - Weight: 40 points (default)
 - Detected when travel speed between locations exceeds `maxTravelSpeed` (default: 900 km/h)
 - Requires city-level geolocation (`ipCity` and `ipCountry`)
 - Uses Haversine formula for distance calculation
 
 **Suspicious Activity (`suspicious_activity`)**
+
 - Weight: 30 points (default)
 - Detected when:
   - 3+ failed login attempts in last hour, OR
@@ -822,11 +845,13 @@ Weights are aligned with NIST 800-63B recommendations:
 ### Lifecycle Hooks
 
 **`onAdaptiveMFATriggered`**
+
 - Called when risk is detected and user should be notified
 - Receives rich payload with risk details, user info, client context
 - Can return `false` to override decision and allow sign-in
 
 **`onSignInBlocked`**
+
 - Called when sign-in is blocked due to high risk
 - Receives same payload plus blocking details (duration, expiration, message)
 - Use for sending security alerts, logging to SIEM, etc.
@@ -834,6 +859,7 @@ Weights are aligned with NIST 800-63B recommendations:
 ### Integration with Audit Trail
 
 All adaptive MFA decisions are automatically recorded in the audit trail with:
+
 - `riskFactor`: Risk score (0-100)
 - `riskFactors`: Array of detected risk factor strings
 - `adaptiveMfaTriggered`: Boolean indicating if MFA was triggered
@@ -842,6 +868,7 @@ All adaptive MFA decisions are automatically recorded in the audit trail with:
 ### Double-Counting Prevention
 
 The system prevents double-counting of risk factors:
+
 - If `new_country` is detected, `new_ip` is NOT checked (IP is source of country data)
 - If `impossible_travel` is detected (city change), `new_ip` is NOT checked
 - This ensures accurate risk scoring without inflating scores
@@ -863,6 +890,7 @@ The system prevents double-counting of risk factors:
 ### Platform-Agnostic Design
 
 All three services (`RiskDetectionService`, `RiskScoringService`, `AdaptiveMFADecisionService`) are:
+
 - Pure TypeScript with zero framework dependencies
 - Can be used with any Node.js framework
 - Automatically injected in NestJS via `AuthModule`
@@ -914,6 +942,7 @@ All three services (`RiskDetectionService`, `RiskScoringService`, `AdaptiveMFADe
 ```
 
 **Design Decision:**
+
 - Current: Passkeys are MFA devices only (requires password first)
 - Future: Passkeys can be either MFA devices or primary auth credentials
 - Both modes can coexist (user can have passkeys for MFA and passwordless login)

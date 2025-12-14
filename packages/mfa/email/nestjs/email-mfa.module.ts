@@ -1,9 +1,9 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { EmailMFAProviderService } from '../src/email-mfa-provider.service';
 // Public API imports
-import { MFAService, NAuthConfig, NAuthLogger, EmailVerificationService } from '@nauth-toolkit/core';
+import { MFAService, NAuthConfig, NAuthLogger, EmailVerificationService, ClientInfoService } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
-import { PasswordService } from '@nauth-toolkit/core/internal';
+import { PasswordService, AuthAuditService as InternalAuthAuditService } from '@nauth-toolkit/core/internal';
 import { Repository } from 'typeorm';
 import { BaseMFADevice, BaseUser } from '@nauth-toolkit/core';
 
@@ -63,8 +63,8 @@ import { BaseMFADevice, BaseUser } from '@nauth-toolkit/core';
         { token: PasswordService, optional: true },
         { token: EmailVerificationService, optional: true },
         { token: 'ChallengeService', optional: true },
-        { token: 'AuthAuditService', optional: true },
-        { token: 'ClientInfoService', optional: true },
+        { token: InternalAuthAuditService, optional: true },
+        { token: ClientInfoService, optional: true },
       ],
     },
   ],
@@ -86,4 +86,3 @@ export class EmailMFAModule implements OnModuleInit {
     this.mfaService.registerProvider(this.emailMFAProvider);
   }
 }
-

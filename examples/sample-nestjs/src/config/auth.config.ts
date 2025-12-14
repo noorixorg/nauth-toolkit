@@ -20,10 +20,10 @@ export const authConfig: NAuthModuleConfig = {
     algorithm: 'HS256',
     issuer: 'com.noorix.nauth',
     audience: ['web', 'mobile'],
-    accessToken: { secret: process.env.JWT_SECRET, expiresIn: '5m' },
+    accessToken: { secret: process.env.JWT_SECRET, expiresIn: '15m' },
     refreshToken: {
       secret: process.env.JWT_REFRESH_SECRET as string,
-      expiresIn: '7d',
+      expiresIn: '1d',
       rotation: true,
       reuseDetection: true,
     },
@@ -37,14 +37,14 @@ export const authConfig: NAuthModuleConfig = {
 
   signup: {
     enabled: true,
-    verificationMethod: 'both',
-    allowDuplicatePhones: false,
+    verificationMethod: 'none',
+    allowDuplicatePhones: true,
     emailVerification: {
       expiresIn: 3600,
       resendDelay: 0,
       rateLimitMax: 30000,
       rateLimitWindow: 3000,
-      // Verification attempt limits (for testing - increase these values)
+      // Verification attempt liits (for testing - increase these values)
       maxAttemptsPerIP: 20000, // Max attempts per IP per window (default: 20)
       attemptWindow: 300, // Time window in seconds (default: 3600 = 1 hour)
     },
@@ -62,14 +62,14 @@ export const authConfig: NAuthModuleConfig = {
   },
   mfa: {
     enabled: true,
-    enforcement: 'REQUIRED',
+    enforcement: 'ADAPTIVE',
     gracePeriod: 0,
-    requireForSocialLogin: false,
+    requireForSocialLogin: true,
     allowedMethods: [MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.TOTP, MFAMethod.PASSKEY],
     issuer: 'Nauth App',
     totp: {
       window: 1,
-      stepSeconds: 30,
+      stepSeconds: 30, // Standard 30 seconds (compatible with Google Authenticator, Authy, etc.)
       digits: 6,
       algorithm: 'sha1',
     },
@@ -85,15 +85,25 @@ export const authConfig: NAuthModuleConfig = {
       triggers: ['new_device', 'new_ip', 'new_country', 'impossible_travel'],
       riskLevels: {
         low: { maxScore: 20, action: 'allow', notifyUser: false },
-        medium: { maxScore: 50, action: 'require_mfa', notifyUser: true },
-        high: { maxScore: 100, action: 'require_mfa', notifyUser: true },
+        medium: { maxScore: 70, action: 'require_mfa', notifyUser: true },
+        high: { maxScore: 100, action: 'block_signin', notifyUser: true },
       },
     },
     rememberDevices: 'user_opt_in',
-    rememberDeviceDays: 2,
-    bypassMFAForTrustedDevices: true,
+    rememberDeviceDays: 30,
+    bypassMFAForTrustedDevices: true, // does not apply to Adaptptive MFA
   },
 
+  password: {
+    minLength: 8,
+    requireUppercase: true,
+    requireNumbers: true,
+    requireSpecialChars: true,
+    preventCommon: true,
+    historyCount: 5,
+    expiryDays: 0,
+    specialChars: '$#!@',
+  },
   tokenDelivery: {
     method: 'cookies',
     cookieOptions: {
@@ -115,7 +125,7 @@ export const authConfig: NAuthModuleConfig = {
     maxMind: {
       licenseKey: process.env.MAXMIND_LICENSE_KEY,
       accountId: parseInt(process.env.MAXMIND_ACCOUNT_ID || '0', 10),
-      autoDownloadOnStartup: false,
+      autoDownloadOnStartup: process.env.NODE_ENV === 'production' ? true : false,
       editions: ['GeoLite2-City', 'GeoLite2-Country'],
     },
   },
@@ -183,8 +193,12 @@ export const authConfig: NAuthModuleConfig = {
 
   lockout: { enabled: false, maxAttempts: 5, duration: 900, resetOnSuccess: true },
   session: {
-    maxConcurrent: 5,
+    maxConcurrent: 2,
     disallowMultipleSessions: false,
+    maxLifetime: '30d',
   },
-  auditLogs: { enabled: true },
-};
+  challenge: {
+    maxAttempts: 3, // Default: 3 attempts (4th failure causes error)
+  },
+  auditLogs: { enabled: true, fireAndForget: true },
+} satisfies NAuthModuleConfig;

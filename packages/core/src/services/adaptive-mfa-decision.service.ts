@@ -216,21 +216,43 @@ export class AdaptiveMFADecisionService {
     }
 
     // Record in audit trail (non-blocking)
-    // This logs the login attempt with risk assessment, before final outcome
+    // This logs the risk assessment result
+    // Determine event status based on risk level and action:
+    // - block_signin: SUSPICIOUS (security violation)
+    // - require_mfa with high/medium risk or suspicious factors: SUSPICIOUS
+    // - require_mfa with low risk: INFO (normal security measure)
+    // - allow: INFO (no risk detected)
+    const hasSuspiciousFactors =
+      riskFactors.includes(RiskFactor.SUSPICIOUS_ACTIVITY) ||
+      riskFactors.includes(RiskFactor.IMPOSSIBLE_TRAVEL) ||
+      level === 'high';
+    const eventStatus =
+      action === 'block_signin'
+        ? 'SUSPICIOUS'
+        : action === 'require_mfa' && hasSuspiciousFactors
+          ? 'SUSPICIOUS'
+          : 'INFO';
+
     this.auditService
       ?.recordEvent({
         userId: user.id,
-        eventType: AuthAuditEventType.LOGIN_ATTEMPT,
-        eventStatus: action === 'block_signin' ? 'FAILURE' : 'INFO',
+        eventType: AuthAuditEventType.ADAPTIVE_MFA_RISK_ASSESSED,
+        eventStatus,
         riskFactor: riskScore,
         riskFactors,
         adaptiveMfaTriggered: action !== 'allow',
-        description: `Login attempt - Adaptive MFA: ${action} (score: ${riskScore}, level: ${level})`,
+        description: `Adaptive MFA risk assessment: ${action} (score: ${riskScore}, level: ${level})`,
         authMethod,
+        metadata: {
+          riskScore,
+          riskLevel: level,
+          action,
+          riskFactors,
+        },
         // Client info automatically included from context
       })
       .catch((err) => {
-        this.logger?.warn?.(`Failed to record adaptive MFA audit: ${err.message}`);
+        this.logger?.warn?.(`Failed to record ADAPTIVE_MFA_RISK_ASSESSED audit: ${err.message}`);
       });
 
     return {

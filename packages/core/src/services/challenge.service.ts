@@ -9,6 +9,7 @@ import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { ClientInfoService } from './client-info.service';
+import { NAuthConfig } from '../interfaces/config.interface';
 
 /**
  * Challenge Session Service
@@ -55,6 +56,7 @@ export class ChallengeService {
     private readonly clientInfoService: ClientInfoService,
     private readonly logger: NAuthLogger,
     private readonly auditService?: AuthAuditService, // Optional - audit trail service (enabled via config.auditLogs.enabled)
+    private readonly config?: NAuthConfig, // Optional - config for maxAttempts
   ) {}
 
   /**
@@ -124,16 +126,58 @@ export class ChallengeService {
 
     if (existingSession) {
       const session = existingSession as unknown as IChallengeSession;
-      // Check if session is still valid (not expired)
-      if (session.expiresAt > new Date()) {
+      // Get current maxAttempts from config
+      const currentMaxAttempts = this.config?.challenge?.maxAttempts ?? this.DEFAULT_MAX_ATTEMPTS;
+
+      // Check if session is still valid (not expired and not max attempts exceeded)
+      const isExpired = session.expiresAt <= new Date();
+      const isMaxAttemptsExceeded = session.attempts >= session.maxAttempts;
+
+      if (!isExpired && !isMaxAttemptsExceeded) {
+        // Update maxAttempts to match current config if different
+        // This ensures sessions created with old config values are updated
+        if (session.maxAttempts !== currentMaxAttempts) {
+          session.maxAttempts = currentMaxAttempts;
+          await this.challengeSessionRepository.save(session);
+          this.logger?.debug?.(
+            `Updated maxAttempts for existing session: user=${user.sub}, old=${session.maxAttempts}, new=${currentMaxAttempts}`,
+          );
+        }
         this.logger?.debug?.(
           `Reusing existing challenge session: user=${user.sub}, challenge=${challengeName}, session=${session.sessionToken}`,
         );
+
+        // ============================================================================
+        // Audit: Record challenge reuse for complete audit trail
+        // ============================================================================
+        try {
+          await this.auditService?.recordEvent({
+            userId: user.id,
+            eventType: AuthAuditEventType.CHALLENGE_CREATED,
+            eventStatus: 'INFO',
+            challengeSessionId: session.id,
+            metadata: {
+              challengeName,
+              sessionToken: session.sessionToken,
+              reused: true, // Indicate this was an existing session
+            },
+          });
+        } catch (auditError) {
+          // Non-blocking: Log but continue
+          const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+          this.logger?.error?.(`Failed to record CHALLENGE_CREATED (reused) audit event: ${errorMessage}`, {
+            error: auditError,
+            userId: user.id,
+            challengeName,
+          });
+        }
+
         return session;
       }
-      // If expired, delete it and create a new one
+      // If expired or max attempts exceeded, delete it and create a new one
+      const reason = isExpired ? 'expired' : 'max attempts exceeded';
       this.logger?.debug?.(
-        `Existing challenge session expired, creating new one: user=${user.sub}, challenge=${challengeName}`,
+        `Existing challenge session ${reason}, creating new one: user=${user.sub}, challenge=${challengeName}`,
       );
       await this.challengeSessionRepository.delete({ id: session.id });
     }
@@ -150,6 +194,9 @@ export class ChallengeService {
     const sessionToken = randomUUID();
     const expiresAt = new Date(Date.now() + this.DEFAULT_EXPIRATION_MINUTES * 60 * 1000);
 
+    // Get maxAttempts from config or use default
+    const maxAttempts = this.config?.challenge?.maxAttempts ?? this.DEFAULT_MAX_ATTEMPTS;
+
     const challengeSession = this.challengeSessionRepository.create({
       userId: user.id,
       challengeName,
@@ -159,12 +206,15 @@ export class ChallengeService {
       // Client info automatically extracted from ClientInfoService (transparent access)
       ipAddress: clientInfo.ipAddress || null,
       userAgent: clientInfo.userAgent || null,
-      maxAttempts: this.DEFAULT_MAX_ATTEMPTS,
+      attempts: 0, // Explicitly initialize attempts to 0
+      maxAttempts,
     });
 
     await this.challengeSessionRepository.save(challengeSession);
 
-    this.logger?.log?.(`Challenge session created: user=${user.sub}, challenge=${challengeName}`);
+    this.logger?.log?.(
+      `Challenge session created: user=${user.sub}, challenge=${challengeName}, maxAttempts=${maxAttempts}`,
+    );
 
     // ============================================================================
     // Audit: Record challenge creation
@@ -294,12 +344,13 @@ export class ChallengeService {
     }
 
     // Check max attempts (skip if requesting new code, but enforce for verification attempts)
-    if (!skipMaxAttemptsCheck && challengeSession.attempts >= challengeSession.maxAttempts) {
-      this.logger?.warn?.(`Max attempts exceeded for challenge session: user=${challengeSession.user?.sub}`);
-      throw new NAuthException(
-        AuthErrorCode.CHALLENGE_MAX_ATTEMPTS,
-        'Maximum challenge attempts exceeded. Please request a new challenge.',
+    // Ensure attempts is initialized (should be 0, but handle edge cases)
+    const currentAttempts = challengeSession.attempts ?? 0;
+    if (!skipMaxAttemptsCheck && currentAttempts >= challengeSession.maxAttempts) {
+      this.logger?.warn?.(
+        `Max attempts exceeded for challenge session: user=${challengeSession.user?.sub}, attempts=${currentAttempts}/${challengeSession.maxAttempts}`,
       );
+      throw new NAuthException(AuthErrorCode.CHALLENGE_MAX_ATTEMPTS, 'Maximum challenge attempts exceeded');
     }
 
     // Verify challenge type if specified
@@ -326,47 +377,69 @@ export class ChallengeService {
    * ```
    */
   async incrementAttempts(session: IChallengeSession): Promise<IChallengeSession> {
-    (session as IChallengeSession).attempts += 1;
-    await this.challengeSessionRepository.save(session);
+    // ============================================================================
+    // CRITICAL: Atomic Increment to Prevent Race Conditions
+    // ============================================================================
+    // Use TypeORM's increment() for atomic UPDATE attempts = attempts + 1
+    // This is concurrency-safe even under high load:
+    // - Database executes: UPDATE challenge_session SET attempts = attempts + 1 WHERE id = ?
+    // - No read-modify-write race condition
+    // - Single database round-trip (better performance than SELECT + UPDATE)
+    // - Works across all databases (MySQL, PostgreSQL, SQLite)
+    await this.challengeSessionRepository.increment({ id: session.id }, 'attempts', 1);
+
+    // Reload session to get updated attempts count and user for audit logging
+    const freshSession = await this.challengeSessionRepository.findOne({
+      where: { id: session.id },
+      relations: ['user'],
+    });
+
+    if (!freshSession) {
+      this.logger?.warn?.(`Session not found after increment: id=${session.id}`);
+      throw new NAuthException(AuthErrorCode.CHALLENGE_INVALID, 'Challenge session not found');
+    }
+
+    const freshChallengeSession = freshSession as unknown as IChallengeSession;
+
+    this.logger?.debug?.(
+      `Challenge attempt incremented: session=${freshChallengeSession.sessionToken}, attempts=${freshChallengeSession.attempts}/${freshChallengeSession.maxAttempts}`,
+    );
 
     // ============================================================================
     // Audit: Record challenge attempt failure if max attempts exceeded
     // ============================================================================
-    if (session.attempts >= session.maxAttempts) {
+    if (freshChallengeSession.attempts >= freshChallengeSession.maxAttempts) {
       try {
-        const user = session.user;
+        const user = freshChallengeSession.user;
         if (user) {
           await this.auditService?.recordEvent({
             userId: user.id,
             eventType: AuthAuditEventType.CHALLENGE_ATTEMPT_FAILED,
             eventStatus: 'FAILURE',
-            challengeSessionId: session.id,
-            // Override IP/userAgent with session values if available
-            ipAddress: session.ipAddress || undefined,
-            userAgent: session.userAgent || undefined,
+            challengeSessionId: freshChallengeSession.id,
             reason: 'max_attempts_exceeded',
-            // Client info automatically included from context
-            description: `Challenge attempt failed - maximum attempts (${session.maxAttempts}) exceeded`,
+            // Client info (ipAddress, userAgent, etc.) automatically included from context
+            description: `Challenge attempt failed - maximum attempts (${freshChallengeSession.maxAttempts}) exceeded`,
             metadata: {
-              challengeName: session.challengeName,
-              attempts: session.attempts,
-              maxAttempts: session.maxAttempts,
+              challengeName: freshChallengeSession.challengeName,
+              attempts: freshChallengeSession.attempts,
+              maxAttempts: freshChallengeSession.maxAttempts,
             },
           });
         }
       } catch (auditError) {
         // Non-blocking: Log but continue
         const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-        const sessionUser = session.user;
+        const sessionUser = freshChallengeSession.user;
         this.logger?.error?.(`Failed to record CHALLENGE_ATTEMPT_FAILED audit event: ${errorMessage}`, {
           error: auditError,
           userId: sessionUser?.id,
-          challengeName: session.challengeName,
+          challengeName: freshChallengeSession.challengeName,
         });
       }
     }
 
-    return session;
+    return freshChallengeSession;
   }
 
   /**
@@ -414,7 +487,11 @@ export class ChallengeService {
       };
 
       // For MFA challenges, include the MFA method used
-      if (session.challengeName === AuthChallenge.MFA_REQUIRED && session.metadata?.mfaMethod) {
+      if (
+        (session.challengeName === AuthChallenge.MFA_REQUIRED ||
+          session.challengeName === AuthChallenge.MFA_SETUP_REQUIRED) &&
+        session.metadata?.mfaMethod
+      ) {
         auditMetadata.mfaMethod = session.metadata.mfaMethod;
       }
 
@@ -423,9 +500,7 @@ export class ChallengeService {
         eventType: AuthAuditEventType.CHALLENGE_COMPLETED,
         eventStatus: 'SUCCESS',
         challengeSessionId: session.id,
-        // Override IP/userAgent with session values if available
-        ipAddress: session.ipAddress || undefined,
-        userAgent: session.userAgent || undefined,
+        // Client info (ipAddress, userAgent, etc.) automatically included from context
         metadata: auditMetadata,
       });
     } catch (auditError) {

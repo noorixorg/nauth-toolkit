@@ -4,6 +4,7 @@ import { BaseUser } from '../entities';
 import { IUser } from '../interfaces/entities.interface';
 import { AuthService } from './auth.service';
 import { SocialAuthService } from './social-auth.service';
+import { TrustedDeviceService } from './trusted-device.service';
 import { JwtService } from './jwt.service';
 import { SessionService } from './session.service';
 import { AuthChallengeHelperService } from './auth-challenge-helper.service';
@@ -13,7 +14,7 @@ import { InternalAuthAuditService as AuthAuditService } from './auth-audit.servi
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
-import { AuthResponseDTO, UserResponseDto } from '../dto';
+import { AuthResponseDTO } from '../dto';
 import { OAuthUserProfile } from '../interfaces/oauth.interface';
 import { ISocialAuthProviderService } from '../interfaces/social-auth-provider.interface';
 import { NAuthException } from '../exceptions/nauth.exception';
@@ -76,6 +77,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     // Phone verification service (optional - only available when SMS provider is configured)
     protected readonly phoneVerificationService?: PhoneVerificationService,
     protected readonly auditService?: AuthAuditService, // Optional - audit trail service (enabled via config.auditLogs.enabled)
+    protected readonly trustedDeviceService?: TrustedDeviceService, // Optional - only available when rememberDevices is not 'never'
   ) {}
 
   /**
@@ -260,6 +262,31 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
         await this.auditService?.recordEvent({
           userId: user.id,
           eventType: AuthAuditEventType.SOCIAL_ACCOUNT_LINKED,
+          eventStatus: 'INFO',
+          authMethod: this.providerName,
+          // Client info automatically included from context
+          metadata: {
+            provider: this.providerName,
+            providerEmail: profile.email || null,
+          },
+        });
+      } catch (auditError) {
+        // Non-blocking: Log but continue
+        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to record SOCIAL_ACCOUNT_LINKED audit event: ${errorMessage}`, {
+          error: auditError,
+          userId: user.id,
+          provider: this.providerName,
+        });
+      }
+
+      // ============================================================================
+      // Audit: Record social account link
+      // ============================================================================
+      try {
+        await this.auditService?.recordEvent({
+          userId: user.id,
+          eventType: AuthAuditEventType.SOCIAL_ACCOUNT_LINKED,
           eventStatus: 'SUCCESS',
           authMethod: this.providerName.toLowerCase(),
           // Client info automatically included from context
@@ -434,91 +461,25 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
   /**
    * Create authentication response with tokens and user info
    */
-  protected async createAuthResponse(user: IUser, deviceType: 'web' | 'mobile'): Promise<AuthResponseDTO> {
-    // Generate JWT tokens
-    const tokenFamily = crypto.randomBytes(32).toString('hex');
-    const accessTokenHash = this.jwtService.hashToken('placeholder-access');
-    const refreshTokenHash = this.jwtService.hashToken('placeholder-refresh');
-
-    // Calculate expiration from config (defaults to 30 days)
-    const expiresAt = this.sessionService.getSessionExpirationDate();
-
-    // Single Session Mode: Revoke other sessions if enabled
-    if (this.config.session?.disallowMultipleSessions) {
-      this.logger?.debug?.(`Single session mode enabled - revoking other sessions for user: ${user.sub}`);
-      const revokedCount = await this.sessionService.revokeAllUserSessions(
-        user.id,
-        `Login from new ${this.providerName} ${deviceType} session`,
-      );
-      if (revokedCount > 0) {
-        this.logger?.log?.(`Revoked ${revokedCount} other active session(s) for user: ${user.sub}`);
-      }
-    }
-
+  protected async createAuthResponse(user: IUser, _deviceType: 'web' | 'mobile'): Promise<AuthResponseDTO> {
     // Get actual client info from context (IP, userAgent, etc.)
     const clientInfo = this.clientInfoService.get();
 
-    // Generate deviceId for session (server-generated, not from clientInfo)
-    // deviceId was removed from ClientInfo interface for security
-    const deviceId = crypto.randomUUID();
-
-    // Client info (ipAddress, ipCountry, ipCity, userAgent) automatically extracted from ClientInfoService
-    const session = await this.sessionService.createSession({
-      userId: user.id,
-      accessTokenHash,
-      refreshTokenHash,
-      tokenFamily,
-      deviceId,
-      deviceType, // Use provided deviceType or let parser detect from userAgent
-      expiresAt,
-      authMethod: this.providerName.toLowerCase(), // 'google', 'facebook', 'github', etc.
-    });
-
-    // Generate JWT tokens
-    const jwtTokens = await this.jwtService.generateTokenPair({
-      userId: user.sub,
-      email: user.email,
-      sessionId: session.id.toString(),
-      tokenFamily,
-    });
-
-    // Update session with actual token hashes
-    await this.sessionService.updateTokens(
-      session.id,
-      this.jwtService.hashToken(jwtTokens.accessToken),
-      this.jwtService.hashToken(jwtTokens.refreshToken),
-    );
-
-    // Decode tokens to get expiration timestamps
-    const accessDecoded = this.jwtService.decodeToken(jwtTokens.accessToken);
-    const refreshDecoded = this.jwtService.decodeToken(jwtTokens.refreshToken);
-
-    this.logger?.log?.(`Social ${this.providerName} authentication successful for user: ${user.sub}`);
-
     // ============================================================================
-    // Audit: Record social login
+    // Audit: Record login attempt for social authentication
     // ============================================================================
     try {
-      // Use device info from session (already parsed from user agent if not provided)
       await this.auditService?.recordEvent({
         userId: user.id,
-        eventType: AuthAuditEventType.SOCIAL_LOGIN,
-        eventStatus: 'SUCCESS',
-        sessionId: session.id,
-        // Override deviceId only if provided (from social auth context)
-        deviceId: deviceId || undefined,
-        authMethod: this.providerName.toLowerCase(), // 'google', 'facebook', etc.
-        // Override userAgent if mobile device type
-        userAgent: deviceType === 'mobile' ? 'native-mobile-app' : undefined,
-        // Client info (deviceName, deviceType, etc.) automatically included from context
-        metadata: {
-          provider: this.providerName.toLowerCase(),
-        },
+        eventType: AuthAuditEventType.LOGIN_ATTEMPT,
+        eventStatus: 'INFO',
+        authMethod: this.providerName.toLowerCase(),
+        description: `${this.providerName} OAuth token validated`,
       });
     } catch (auditError) {
       // Non-blocking: Log but continue
       const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-      this.logger?.error?.(`Failed to record SOCIAL_LOGIN audit event: ${errorMessage}`, {
+      this.logger?.error?.(`Failed to record LOGIN_ATTEMPT audit event for social login: ${errorMessage}`, {
         error: auditError,
         userId: user.id,
         provider: this.providerName,
@@ -526,16 +487,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     }
 
     // ============================================================================
-    // Verification Code Sending: Now handled by challenge system (sequential flow)
-    // ============================================================================
-    // Codes are sent when challenges are created (in AuthChallengeHelperService.createChallengeResponse)
-    //
-    // IMPORTANT: Social auth users have pre-verified emails (isEmailVerified = true from OAuth provider)
-    // So they will skip email verification and only need phone verification if required.
-    // Phone codes will be sent automatically when VERIFY_PHONE challenge is created.
-
-    // ============================================================================
-    // Check for Required Challenges
+    // Check for Required Challenges BEFORE creating session
     // ============================================================================
     const response = await this.challengeHelper.determineAuthResponse({
       user,
@@ -548,25 +500,82 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
 
     if (response.challengeName) {
       this.logger?.log?.(`Challenge required for social auth user ${user.sub}: ${response.challengeName}`);
+      // Record SOCIAL_LOGIN event even when challenge is required
+      try {
+        await this.auditService?.recordEvent({
+          userId: user.id,
+          eventType: AuthAuditEventType.SOCIAL_LOGIN,
+          eventStatus: 'INFO',
+          authMethod: this.providerName.toLowerCase(),
+          metadata: {
+            provider: this.providerName.toLowerCase(),
+            challengeRequired: response.challengeName,
+          },
+        });
+      } catch (auditError) {
+        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to record SOCIAL_LOGIN audit event (challenge): ${errorMessage}`, {
+          error: auditError,
+          userId: user.id,
+          provider: this.providerName,
+        });
+      }
       return response;
     }
 
-    // No challenges - return full auth response with tokens
-    const userDto = UserResponseDto.fromEntity(user);
-    return {
-      accessToken: jwtTokens.accessToken,
-      refreshToken: jwtTokens.refreshToken,
-      accessTokenExpiresAt: accessDecoded?.exp || Math.floor(Date.now() / 1000) + jwtTokens.expiresIn,
-      refreshTokenExpiresAt: refreshDecoded?.exp || Math.floor(Date.now() / 1000) + 86400,
-      user: {
-        sub: userDto.sub,
-        email: userDto.email,
-        firstName: userDto.firstName || undefined,
-        lastName: userDto.lastName || undefined,
-        isEmailVerified: userDto.isEmailVerified,
-        socialProviders: userDto.socialProviders || undefined,
-        hasPasswordHash: userDto.hasPasswordHash,
-      },
-    };
+    // ============================================================================
+    // No challenges - determineAuthResponse already created session and tokens
+    // Just record SOCIAL_LOGIN audit event and return the response
+    // ============================================================================
+    // ============================================================================
+    // No challenges - determineAuthResponse already created session and tokens
+    // Just record SOCIAL_LOGIN audit event and return the response
+    // ============================================================================
+
+    // Check trusted device status (for audit metadata)
+    let isTrustedDevice = false;
+    if (
+      this.config.mfa?.rememberDevices &&
+      this.config.mfa?.rememberDevices !== 'never' &&
+      this.trustedDeviceService &&
+      clientInfo.deviceToken
+    ) {
+      try {
+        isTrustedDevice = await this.trustedDeviceService.isDeviceTrusted(clientInfo.deviceToken, user.id);
+      } catch (error) {
+        // Non-blocking: Log but continue
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger?.warn?.(`Failed to check trusted device for social login: ${errorMessage}`, {
+          error,
+          userId: user.id,
+          provider: this.providerName,
+        });
+      }
+    }
+
+    // Record SOCIAL_LOGIN audit event
+    try {
+      await this.auditService?.recordEvent({
+        userId: user.id,
+        eventType: AuthAuditEventType.SOCIAL_LOGIN,
+        eventStatus: 'SUCCESS',
+        authMethod: this.providerName.toLowerCase(),
+        metadata: {
+          provider: this.providerName.toLowerCase(),
+          trustedDevice: isTrustedDevice,
+        },
+      });
+    } catch (auditError) {
+      // Non-blocking: Log but continue
+      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to record SOCIAL_LOGIN audit event: ${errorMessage}`, {
+        error: auditError,
+        userId: user.id,
+        provider: this.providerName,
+      });
+    }
+
+    // Return the response with session and tokens already created by determineAuthResponse
+    return response;
   }
 }

@@ -11,6 +11,7 @@ import {
   resolveDeliveryForRequest,
   getAccessTokenCookieName,
   getRefreshTokenCookieName,
+  getDeviceTokenCookieName,
 } from '@nauth-toolkit/core';
 import { JwtService } from '@nauth-toolkit/core/internal';
 import { TOKEN_DELIVERY_KEY, RouteDelivery } from '../decorators/token-delivery.decorator';
@@ -204,9 +205,8 @@ export class CookieTokenInterceptor implements NestInterceptor {
         if ('deviceToken' in data && data.deviceToken && effective === 'cookies') {
           const rememberDeviceDays = this.config.mfa?.rememberDeviceDays || 30;
           const deviceTokenMaxAgeMs = rememberDeviceDays * 24 * 60 * 60 * 1000; // Convert days to milliseconds
-          // Use hardcoded name to match original working implementation
-          // TODO: Make configurable via cookieNamePrefix after verifying it works
-          setCookie('nauth_device_id', data.deviceToken, {
+          const deviceTokenCookieName = getDeviceTokenCookieName(this.config);
+          setCookie(deviceTokenCookieName, data.deviceToken, {
             ...cookieOptions,
             maxAge: deviceTokenMaxAgeMs,
           });
@@ -227,14 +227,16 @@ export class CookieTokenInterceptor implements NestInterceptor {
           });
         }
 
-        // Strip tokens and deviceToken only when effective is cookies (strict web path)
+        // Strip tokens, deviceToken, and expiration fields only when effective is cookies (strict web path)
+        // Expiration is managed by cookie maxAge, so these fields are not needed
         if (effective === 'cookies') {
           if (hasDeviceTokenOnly) {
             // For trust-device endpoint, return empty object (deviceToken set as cookie)
             return {};
           }
           const authData = data as AuthResponseDTO;
-          const { accessToken, refreshToken, deviceToken, ...sanitized } = authData;
+          const { accessToken, refreshToken, deviceToken, accessTokenExpiresAt, refreshTokenExpiresAt, ...sanitized } =
+            authData;
           return sanitized;
         }
         return data;

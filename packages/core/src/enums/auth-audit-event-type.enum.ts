@@ -82,6 +82,14 @@ export enum AuthAuditEventType {
    */
   SESSION_REVOKED = 'SESSION_REVOKED',
 
+  /**
+   * Global signout performed (all sessions revoked)
+   *
+   * This event is recorded once when a user performs global signout.
+   * Individual SESSION_REVOKED events are also recorded for each revoked session.
+   */
+  GLOBAL_SIGNOUT = 'GLOBAL_SIGNOUT',
+
   // ============================================================================
   // Password Events
   // ============================================================================

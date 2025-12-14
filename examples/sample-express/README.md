@@ -16,7 +16,7 @@ Express.js example application demonstrating nauth-toolkit integration.
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 22+
 - PostgreSQL database
 - Redis server (for session storage)
 - SMTP server (for email)
@@ -36,11 +36,13 @@ cp .env.example .env
 ## Database Setup
 
 1. Create PostgreSQL database:
+
 ```sql
 CREATE DATABASE nauth_db;
 ```
 
 2. Run the application (it will auto-sync tables in development):
+
 ```bash
 yarn start:dev
 ```
@@ -81,7 +83,7 @@ yarn start
 ### Protected Endpoints
 
 - `GET /auth/profile` - Get current user
-- `POST /auth/logout` - Logout
+- `GET /auth/logout` - Logout
 - `POST /auth/password/change` - Change password
 
 ### Social Auth Endpoints
@@ -95,6 +97,7 @@ yarn start
 This example demonstrates how to use nauth-toolkit with pure Express:
 
 1. **No Decorators** - Use middleware helpers instead:
+
    ```typescript
    // Mark route as public
    router.post('/signup', nauth.helpers.public(), handler);
@@ -107,13 +110,15 @@ This example demonstrates how to use nauth-toolkit with pure Express:
    ```
 
 2. **Manual Service Initialization** - Use `createNAuth()` factory:
+
    ```typescript
    const nauth = await createNAuth(authConfig, dataSource);
    ```
 
 3. **Explicit Middleware** - Apply middleware in correct order:
+
    ```typescript
-   app.use(nauth.middleware.clientInfo);  // MUST BE FIRST
+   app.use(nauth.middleware.clientInfo); // MUST BE FIRST
    app.use(nauth.middleware.csrf);
    app.use(nauth.middleware.auth);
    app.use(nauth.middleware.tokenDelivery);
@@ -143,6 +148,3 @@ src/
 - [NAuth Core Documentation](../../docs/ARCHITECTURE.md)
 - [Express Adapter Documentation](../../packages/express/README.md)
 - [Configuration Reference](../../docs/NESTJS_AUTH_TOOLKIT_REQUIREMENTS.md)
-
-
-

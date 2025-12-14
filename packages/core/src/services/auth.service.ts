@@ -47,6 +47,7 @@ import { ResendCodeResponseDTO } from '../dto/resend-code-response.dto';
 import { SetMustChangePasswordDTO } from '../dto/set-must-change-password.dto';
 import { SetMustChangePasswordResponseDTO } from '../dto/set-must-change-password-response.dto';
 import { TrustDeviceResponseDTO } from '../dto/trust-device-response.dto';
+import { IsTrustedDeviceResponseDTO } from '../dto/is-trusted-device-response.dto';
 import { VerifyEmailWithCodeDTO, ResendVerificationEmailDTO } from '../dto/verify-email.dto';
 import { SendVerificationSMSDTO, ResendVerificationSMSDTO } from '../dto/verify-phone.dto';
 import { VerifyPhoneWithCodeBySubDTO } from '../dto/verify-phone-by-sub.dto';
@@ -360,7 +361,13 @@ export class AuthService {
                 reason: 'ip_locked',
                 description: 'Login blocked - IP address locked due to too many failed attempts',
               })
-              .catch(() => undefined);
+              .catch((err) => {
+                const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+                this.logger?.error?.(`Failed to record LOGIN_BLOCKED audit event (fire-and-forget): ${errorMessage}`, {
+                  error: err,
+                  identifier: dto.identifier,
+                });
+              });
           } else {
             try {
               await this.auditService?.recordEvent({
@@ -437,7 +444,14 @@ export class AuthService {
               reason: 'invalid_credentials',
               description: 'Invalid password or user not found',
             })
-            .catch(() => undefined);
+            .catch((err) => {
+              const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+              this.logger?.error?.(`Failed to record LOGIN_FAILED audit event (fire-and-forget): ${errorMessage}`, {
+                error: err,
+                userId: user.id,
+                userSub: user.sub,
+              });
+            });
         } else {
           try {
             await this.auditService?.recordEvent({
@@ -513,6 +527,28 @@ export class AuthService {
     }
 
     // ============================================================================
+    // Audit: Record login attempt for successful password verification
+    // ============================================================================
+    // Record LOGIN_ATTEMPT for all successful password verifications
+    // IMPORTANT: Always await this to ensure correct chronological order before risk assessment
+    try {
+      await this.auditService?.recordEvent({
+        userId: user.id,
+        eventType: AuthAuditEventType.LOGIN_ATTEMPT,
+        eventStatus: 'INFO',
+        authMethod: 'password',
+        description: 'Password verification successful',
+      });
+    } catch (auditError) {
+      // Non-blocking: Log but continue even if audit fails
+      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to record LOGIN_ATTEMPT audit event: ${errorMessage}`, {
+        error: auditError,
+        userId: user.id,
+      });
+    }
+
+    // ============================================================================
     // Challenge System: Determine authentication response using state machine
     // ============================================================================
     // All challenge determination is now handled by state machine in determineAuthResponse
@@ -544,6 +580,101 @@ export class AuthService {
         reasonMap[response.challengeName] || 'challenge_required',
         user.id,
       );
+
+      return response;
+    }
+
+    // If response already has tokens (session was created by challenge helper), return it
+    // This prevents duplicate session creation
+    if (response.accessToken && response.refreshToken) {
+      this.logger?.debug?.(
+        `Login successful - session already created by challenge helper for ${dto.identifier} (sub: ${user.sub})`,
+      );
+
+      // Record successful login attempt
+      await this.recordLoginAttempt(dto.identifier, true, undefined, user.id);
+      this.logger?.log?.(`Login successful for: ${dto.identifier} (sub: ${user.sub}) from ${clientInfo.ipAddress}`);
+
+      // Update user last login info
+      await this.userRepository.update(user.id, {
+        lastLoginAt: new Date(),
+        lastLoginIp: clientInfo.ipAddress,
+        failedLoginAttempts: 0,
+      });
+
+      // Reset IP-based failed attempts on successful login
+      if (this.config.lockout?.enabled && this.config.lockout.resetOnSuccess) {
+        const ipAddress = clientInfo.ipAddress;
+        if (ipAddress) {
+          this.logger?.debug?.(`Resetting failed login attempts for IP: ${ipAddress}`);
+          await this.accountLockoutStorage.resetFailedAttempts(ipAddress);
+        }
+      }
+
+      // Extract session ID and device info from token to record audit event
+      let sessionId: number | undefined;
+      let deviceId: string | undefined;
+      try {
+        const tokenPayload = this.jwtService.decodeToken(response.accessToken);
+        if (tokenPayload?.sessionId) {
+          sessionId = parseInt(String(tokenPayload.sessionId), 10);
+        }
+        // Get deviceId from session if available
+        if (sessionId) {
+          const session = await this.sessionService.findById(sessionId);
+          if (session && session.deviceId) {
+            deviceId = session.deviceId;
+          }
+        }
+      } catch (error) {
+        // Non-blocking: Continue without sessionId/deviceId
+        this.logger?.debug?.('Failed to extract sessionId/deviceId from token for audit');
+      }
+
+      // Determine trusted device and MFA bypass status from response
+      const isTrustedDevice = response.trusted || false;
+      const mfaBypassed = false; // Challenge helper handles MFA, so if we get here, MFA was not bypassed
+      const mfaBypassReason: 'trusted_device' | 'mfa_exempt' | null = null;
+
+      // Record successful login audit event
+      if (fireAndForget) {
+        this.auditService
+          ?.recordEvent({
+            userId: user.id,
+            eventType: AuthAuditEventType.LOGIN_SUCCESS,
+            eventStatus: 'SUCCESS',
+            sessionId: sessionId || undefined,
+            deviceId: deviceId || undefined,
+            authMethod: 'password',
+            metadata: { trustedDevice: isTrustedDevice, mfaBypassed, mfaBypassReason },
+          })
+          .catch((err) => {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            this.logger?.error?.(`Failed to record LOGIN_SUCCESS audit event (fire-and-forget): ${errorMessage}`, {
+              error: err,
+              userId: user.id,
+              userSub: user.sub,
+            });
+          });
+      } else {
+        try {
+          await this.auditService?.recordEvent({
+            userId: user.id,
+            eventType: AuthAuditEventType.LOGIN_SUCCESS,
+            eventStatus: 'SUCCESS',
+            sessionId: sessionId || undefined,
+            deviceId: deviceId || undefined,
+            authMethod: 'password',
+            metadata: { trustedDevice: isTrustedDevice, mfaBypassed, mfaBypassReason },
+          });
+        } catch (auditError) {
+          const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+          this.logger?.error?.(`Failed to record LOGIN_SUCCESS audit event: ${errorMessage}`, {
+            error: auditError,
+            userId: user.id,
+          });
+        }
+      }
 
       return response;
     }
@@ -728,7 +859,14 @@ export class AuthService {
           authMethod: 'password',
           metadata: { trustedDevice: isTrustedDevice, mfaBypassed, mfaBypassReason },
         })
-        .catch(() => undefined);
+        .catch((err) => {
+          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+          this.logger?.error?.(`Failed to record LOGIN_SUCCESS audit event (fire-and-forget): ${errorMessage}`, {
+            error: err,
+            userId: user.id,
+            userSub: user.sub,
+          });
+        });
     } else {
       try {
         await this.auditService?.recordEvent({
@@ -805,15 +943,17 @@ export class AuthService {
     // which checks route-level @TokenDelivery decorator and global config
     // to decide whether to set as cookie and/or strip from body
     const userDto = UserResponseDto.fromEntity(user);
-    return {
+    const authResponse: AuthResponseDTO = {
       user: {
         sub: userDto.sub,
         email: userDto.email,
-        firstName: userDto.firstName || undefined,
-        lastName: userDto.lastName || undefined,
+        firstName: userDto.firstName,
+        lastName: userDto.lastName,
+        phone: userDto.phone ?? undefined,
         isEmailVerified: userDto.isEmailVerified,
-        socialProviders: userDto.socialProviders || undefined,
-        hasPasswordHash: userDto.hasPasswordHash,
+        isPhoneVerified: userDto.isPhoneVerified ?? undefined,
+        socialProviders:
+          userDto.socialProviders && userDto.socialProviders.length > 0 ? userDto.socialProviders : undefined,
       },
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -823,6 +963,7 @@ export class AuthService {
       // Include deviceToken - CookieTokenInterceptor will handle cookie/stripping based on @TokenDelivery decorator
       deviceToken,
     };
+    return authResponse;
   }
 
   /**
@@ -849,8 +990,11 @@ export class AuthService {
   async respondToChallenge(dto: RespondChallengeDTO): Promise<AuthResponseDTO> {
     const responseData = dto as ChallengeResponseData;
     const { session, type } = responseData;
+    const requestTrace = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
 
-    this.logger?.log?.(`Challenge response received: type=${type}`);
+    this.logger?.log?.(
+      `[${requestTrace}] Challenge response received: type=${type}, session=${session?.substring(0, 8)}...`,
+    );
 
     // Validate session and get challenge type
     const challengeSession = await this.challengeService.validateSession(session);
@@ -996,8 +1140,12 @@ export class AuthService {
 
     this.logger?.log?.(`Verifying email for user: ${user.sub}`);
 
-    // Verify email with code
-    const verifyDto = Object.assign(new VerifyEmailWithCodeDTO(), { email: user.email, code });
+    // Verify email with code, ensuring it belongs to this specific challenge session
+    const verifyDto = Object.assign(new VerifyEmailWithCodeDTO(), {
+      email: user.email,
+      code,
+      challengeSessionId: challengeSession.id, // Link verification to this specific session
+    });
     const result = await this.emailVerificationService.verifyEmailWithCode(verifyDto);
     const isVerified = result.message === 'Email verified successfully. Please log in to continue.';
 
@@ -1081,7 +1229,10 @@ export class AuthService {
       if (this.phoneVerificationService) {
         this.logger?.log?.(`Sending verification SMS to newly added phone: ${phone}`);
         try {
-          const smsDto = Object.assign(new SendVerificationSMSDTO(), { sub: user.sub });
+          const smsDto = Object.assign(new SendVerificationSMSDTO(), {
+            sub: user.sub,
+            challengeSessionId: challengeSession.id, // Link SMS code to this challenge session
+          });
           await this.phoneVerificationService.sendVerificationSMS(smsDto);
           this.logger?.log?.(`Verification SMS sent successfully to: ${phone}`);
         } catch (error: unknown) {
@@ -1102,12 +1253,14 @@ export class AuthService {
       const authProvider = challengeSession.metadata?.authProvider as string | undefined;
 
       // Return same challenge with updated phone in parameters
+      // Skip auto-send since SMS was already sent above during phone collection
       const challengeResponse = await this.challengeHelper.createChallengeResponse(
         { ...user, phone },
         AuthChallenge.VERIFY_PHONE,
         this.config,
         authMethod as 'password' | 'social',
         authProvider,
+        true, // skipAutoSend = true (SMS already sent during phone collection)
       );
 
       // Include SMS error in challenge parameters if SMS failed
@@ -1131,8 +1284,12 @@ export class AuthService {
         );
       }
 
-      // Verify phone with code
-      const verifyDto = Object.assign(new VerifyPhoneWithCodeBySubDTO(), { sub: user.sub, code });
+      // Verify phone with code, ensuring it belongs to this specific challenge session
+      const verifyDto = Object.assign(new VerifyPhoneWithCodeBySubDTO(), {
+        sub: user.sub,
+        code,
+        challengeSessionId: challengeSession.id, // Link verification to this specific session
+      });
       const result = await this.phoneVerificationService!.verifyPhoneWithCodeBySub(verifyDto);
       const isVerified = result.message === 'Phone verified successfully. Please log in to continue.';
 
@@ -1173,6 +1330,55 @@ export class AuthService {
         this.logger?.log?.(`Additional challenge required: ${response.challengeName}`);
       } else {
         this.logger?.log?.(`Phone verified, auth completed for: ${user.email}`);
+
+        // ============================================================================
+        // Audit: Record successful login after phone verification
+        // ============================================================================
+        const fireAndForget = this.config.auditLogs?.fireAndForget !== false;
+        if (fireAndForget) {
+          this.auditService
+            ?.recordEvent({
+              userId: user.id,
+              eventType: AuthAuditEventType.LOGIN_SUCCESS,
+              eventStatus: 'SUCCESS',
+              authMethod: isSocialLogin ? authProvider || 'social' : 'password',
+              metadata: {
+                completedAfterPhoneVerification: true,
+              },
+            })
+            .catch((err) => {
+              const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+              this.logger?.error?.(
+                `Failed to record LOGIN_SUCCESS audit event after phone verification (fire-and-forget): ${errorMessage}`,
+                {
+                  error: err,
+                  userId: user.id,
+                  userSub: user.sub,
+                },
+              );
+            });
+        } else {
+          try {
+            await this.auditService?.recordEvent({
+              userId: user.id,
+              eventType: AuthAuditEventType.LOGIN_SUCCESS,
+              eventStatus: 'SUCCESS',
+              authMethod: isSocialLogin ? authProvider || 'social' : 'password',
+              metadata: {
+                completedAfterPhoneVerification: true,
+              },
+            });
+          } catch (auditError) {
+            const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+            this.logger?.error?.(
+              `Failed to record LOGIN_SUCCESS audit event after phone verification: ${errorMessage}`,
+              {
+                error: auditError,
+                userId: user.id,
+              },
+            );
+          }
+        }
       }
 
       return response;
@@ -1251,7 +1457,17 @@ export class AuthService {
             authMethod: method,
             metadata: { mfaMethod: method },
           })
-          .catch(() => undefined);
+          .catch((err) => {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            this.logger?.error?.(
+              `Failed to record MFA_VERIFICATION_FAILED audit event (fire-and-forget): ${errorMessage}`,
+              {
+                error: err,
+                userId: user.id,
+                userSub: user.sub,
+              },
+            );
+          });
       } else {
         try {
           await this.auditService?.recordEvent({
@@ -1290,7 +1506,17 @@ export class AuthService {
           authMethod: method,
           metadata: { mfaMethod: method },
         })
-        .catch(() => undefined);
+        .catch((err) => {
+          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+          this.logger?.error?.(
+            `Failed to record MFA_VERIFICATION_SUCCESS audit event (fire-and-forget): ${errorMessage}`,
+            {
+              error: err,
+              userId: user.id,
+              userSub: user.sub,
+            },
+          );
+        });
     } else {
       try {
         await this.auditService?.recordEvent({
@@ -1323,20 +1549,132 @@ export class AuthService {
     const authProvider = challengeSession.metadata?.authProvider as string | undefined;
     const isSocialLogin = authMethod === 'social';
 
+    // ============================================================================
+    // Trusted Device Token Management (Remember Device Feature)
+    // ============================================================================
+    // NOTE:
+    // - We only create / update trusted device tokens AFTER MFA has been successfully
+    //   verified to avoid trusting devices that haven't completed full auth.
+    // - For 'always' mode, this mirrors the behavior in the primary login flow.
+    let deviceToken = clientInfo.deviceToken as string | undefined;
+    let isTrustedDevice = false;
+
+    if (this.trustedDeviceService && this.config.mfa?.rememberDevices && this.config.mfa.rememberDevices !== 'never') {
+      const rememberMode = this.config.mfa.rememberDevices;
+
+      // If a device token is already present, check if it's trusted
+      if (deviceToken) {
+        try {
+          isTrustedDevice = await this.trustedDeviceService.isDeviceTrusted(deviceToken, user.id);
+          if (isTrustedDevice) {
+            this.logger?.debug?.(
+              `MFA flow: existing trusted device token detected for user ${user.sub} (token reused)`,
+            );
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          this.logger?.warn?.(
+            `MFA flow: failed to validate existing trusted device token for user ${user.sub}: ${errorMessage}`,
+            { error },
+          );
+        }
+      }
+
+      // Auto-trust mode: create device token automatically if not already trusted
+      if (rememberMode === 'always' && !isTrustedDevice) {
+        try {
+          deviceToken = await this.trustedDeviceService.createTrustedDevice(
+            user.id,
+            clientInfo.deviceName,
+            clientInfo.deviceType,
+            clientInfo.ipAddress,
+            clientInfo.userAgent,
+            clientInfo.platform,
+            clientInfo.browser,
+          );
+          isTrustedDevice = true;
+          this.logger?.debug?.(
+            `MFA flow: auto-created trusted device token for user ${user.sub} (rememberDevices='always')`,
+          );
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          this.logger?.warn?.(`MFA flow: failed to create trusted device token for user ${user.sub}: ${errorMessage}`, {
+            error,
+          });
+        }
+      }
+    }
+
     // Check for next challenges (MFA is usually the last challenge)
     const response = await this.challengeHelper.determineAuthResponse({
       user,
       config: this.config,
-      deviceToken: clientInfo.deviceToken,
+      deviceToken,
       isSocialLogin,
       skipMFAVerification: true, // Already verified
       authProvider,
     });
 
+    // Propagate trusted device metadata into response so that:
+    // - CookieTokenInterceptor can set the nauth_device_token cookie (cookies mode)
+    // - Mobile clients in JSON mode can store the device token securely
+    if (isTrustedDevice) {
+      response.trusted = response.trusted ?? true;
+    }
+    if (deviceToken && !response.deviceToken) {
+      response.deviceToken = deviceToken;
+    }
+
     if (response.challengeName) {
       this.logger?.log?.(`Additional challenge required: ${response.challengeName}`);
     } else {
       this.logger?.log?.(`MFA verified, auth completed for: ${user.email}`);
+
+      // ============================================================================
+      // Audit: Record successful login after MFA completion
+      // ============================================================================
+      const fireAndForget = this.config.auditLogs?.fireAndForget !== false;
+      if (fireAndForget) {
+        this.auditService
+          ?.recordEvent({
+            userId: user.id,
+            eventType: AuthAuditEventType.LOGIN_SUCCESS,
+            eventStatus: 'SUCCESS',
+            authMethod: isSocialLogin ? authProvider || 'social' : 'password',
+            metadata: {
+              completedAfterMFA: true,
+            },
+          })
+          .catch((err) => {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            this.logger?.error?.(
+              `Failed to record LOGIN_SUCCESS audit event after MFA (fire-and-forget): ${errorMessage}`,
+              {
+                error: err,
+                userId: user.id,
+                userSub: user.sub,
+              },
+            );
+          });
+      } else {
+        try {
+          await this.auditService?.recordEvent({
+            userId: user.id,
+            eventType: AuthAuditEventType.LOGIN_SUCCESS,
+            eventStatus: 'SUCCESS',
+            authMethod: isSocialLogin ? authProvider || 'social' : 'password',
+            metadata: {
+              completedAfterMFA: true,
+            },
+          });
+        } catch (auditError) {
+          const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+          this.logger?.error?.(`Failed to record LOGIN_SUCCESS audit event after MFA: ${errorMessage}`, {
+            error: auditError,
+            userId: user.id,
+          });
+        }
+      }
     }
 
     return response;
@@ -1365,18 +1703,33 @@ export class AuthService {
       });
     }
 
+    // Check password history
+    if (this.config.password?.historyCount) {
+      const historyToCheck = user.passwordHistory || [];
+      const allPreviousPasswords = user.passwordHash ? [user.passwordHash, ...historyToCheck] : historyToCheck;
+
+      const isReused = await this.passwordService.isPasswordInHistory(newPassword, allPreviousPasswords);
+
+      if (isReused) {
+        throw new NAuthException(
+          AuthErrorCode.PASSWORD_REUSED,
+          'You have used this password recently. Please choose a different password.',
+        );
+      }
+    }
+
     // Hash new password
     const newHash = await this.passwordService.hashPassword(newPassword);
 
-    // Update user password and clear mustChangePassword flag
-    await this.userRepository.update(
-      { sub: user.sub },
-      {
-        passwordHash: newHash,
-        passwordChangedAt: new Date(),
-        mustChangePassword: false,
-      },
-    );
+    // Update password history
+    const newHistory = this.passwordService.addToHistory(user.passwordHistory || [], user.passwordHash);
+
+    // Update user password and clear mustChangePassword flag - use save() for array fields
+    user.passwordHash = newHash;
+    user.passwordChangedAt = new Date();
+    user.passwordHistory = newHistory;
+    user.mustChangePassword = false;
+    await this.userRepository.save(user);
 
     this.logger?.log?.(`Password changed successfully for user: ${user.sub}`);
 
@@ -1414,6 +1767,52 @@ export class AuthService {
       this.logger?.log?.(`Additional challenge required: ${response.challengeName}`);
     } else {
       this.logger?.log?.(`Password changed, auth completed for: ${user.email}`);
+
+      // ============================================================================
+      // Audit: Record successful login after password change
+      // ============================================================================
+      const fireAndForget = this.config.auditLogs?.fireAndForget !== false;
+      if (fireAndForget) {
+        this.auditService
+          ?.recordEvent({
+            userId: user.id,
+            eventType: AuthAuditEventType.LOGIN_SUCCESS,
+            eventStatus: 'SUCCESS',
+            authMethod: isSocialLogin ? authProvider || 'social' : 'password',
+            metadata: {
+              completedAfterPasswordChange: true,
+            },
+          })
+          .catch((err) => {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            this.logger?.error?.(
+              `Failed to record LOGIN_SUCCESS audit event after password change (fire-and-forget): ${errorMessage}`,
+              {
+                error: err,
+                userId: user.id,
+                userSub: user.sub,
+              },
+            );
+          });
+      } else {
+        try {
+          await this.auditService?.recordEvent({
+            userId: user.id,
+            eventType: AuthAuditEventType.LOGIN_SUCCESS,
+            eventStatus: 'SUCCESS',
+            authMethod: isSocialLogin ? authProvider || 'social' : 'password',
+            metadata: {
+              completedAfterPasswordChange: true,
+            },
+          });
+        } catch (auditError) {
+          const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+          this.logger?.error?.(`Failed to record LOGIN_SUCCESS audit event after password change: ${errorMessage}`, {
+            error: auditError,
+            userId: user.id,
+          });
+        }
+      }
     }
 
     return response;
@@ -1431,7 +1830,8 @@ export class AuthService {
     const method = data.method;
     const setupData = data.setupData;
 
-    this.logger?.log?.(`MFA setup attempt: method=${method}, user=${user.sub}`);
+    const requestTrace = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    this.logger?.log?.(`[${requestTrace}] MFA setup attempt: method=${method}, user=${user.sub}`);
 
     // Check if MFAService is available
     if (!this.mfaService) {
@@ -1456,6 +1856,11 @@ export class AuthService {
       // Re-throw the error
       throw error;
     }
+
+    // Store MFA method in challenge session metadata for CHALLENGE_COMPLETED audit event
+    await this.challengeService.updateMetadata(challengeSession.sessionToken, {
+      mfaMethod: method,
+    });
 
     // Consume challenge session
     await this.challengeService.validateAndConsumeSession(
@@ -1486,6 +1891,52 @@ export class AuthService {
       this.logger?.log?.(`Additional challenge required: ${response.challengeName}`);
     } else {
       this.logger?.log?.(`MFA setup completed, auth completed for: ${user.email}`);
+
+      // ============================================================================
+      // Audit: Record successful login after MFA setup
+      // ============================================================================
+      const fireAndForget = this.config.auditLogs?.fireAndForget !== false;
+      if (fireAndForget) {
+        this.auditService
+          ?.recordEvent({
+            userId: user.id,
+            eventType: AuthAuditEventType.LOGIN_SUCCESS,
+            eventStatus: 'SUCCESS',
+            authMethod: 'password',
+            metadata: {
+              completedAfterMFASetup: true,
+            },
+          })
+          .catch((err) => {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            this.logger?.error?.(
+              `Failed to record LOGIN_SUCCESS audit event after MFA setup (fire-and-forget): ${errorMessage}`,
+              {
+                error: err,
+                userId: user.id,
+                userSub: user.sub,
+              },
+            );
+          });
+      } else {
+        try {
+          await this.auditService?.recordEvent({
+            userId: user.id,
+            eventType: AuthAuditEventType.LOGIN_SUCCESS,
+            eventStatus: 'SUCCESS',
+            authMethod: 'password',
+            metadata: {
+              completedAfterMFASetup: true,
+            },
+          });
+        } catch (auditError) {
+          const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+          this.logger?.error?.(`Failed to record LOGIN_SUCCESS audit event after MFA setup: ${errorMessage}`, {
+            error: auditError,
+            userId: user.id,
+          });
+        }
+      }
     }
 
     return response;
@@ -1575,6 +2026,33 @@ export class AuthService {
 
         // SMS and Email MFA support resending codes
         if (method === 'sms' || method === 'email') {
+          // For SMS, use phone verification service directly to pass challengeSessionId
+          if (method === 'sms' && this.phoneVerificationService) {
+            const smsDto = Object.assign(new SendVerificationSMSDTO(), {
+              sub: user.sub,
+              skipAlreadyVerifiedCheck: true,
+              challengeSessionId: challengeSession.id, // Link resend code to this challenge session
+            });
+            await this.phoneVerificationService.sendVerificationSMS(smsDto);
+            this.logger?.debug?.(`SMS MFA code resent: user=${user.sub}`);
+            // Get masked phone from user or device
+            const maskedPhone = user.phone ? this.maskPhone(user.phone) : '***-***-****';
+            return { destination: maskedPhone };
+          }
+
+          // For Email, use email verification service directly to pass challengeSessionId
+          if (method === 'email' && this.emailVerificationService) {
+            const emailDto = Object.assign(new ResendVerificationEmailDTO(), {
+              sub: user.sub,
+              challengeSessionId: challengeSession.id, // Link resend code to this challenge session
+            });
+            await this.emailVerificationService.resendVerificationEmail(emailDto);
+            this.logger?.debug?.(`Email MFA code resent: user=${user.sub}`);
+            const maskedEmail = user.email ? this.maskEmail(user.email) : 'u***r@example.com';
+            return { destination: maskedEmail };
+          }
+
+          // Fallback to provider if services not available (shouldn't happen)
           if (!this.mfaService) {
             throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'MFA service is not available');
           }
@@ -1740,6 +2218,68 @@ export class AuthService {
     }
 
     return { deviceToken };
+  }
+
+  /**
+   * Check if the current device is trusted
+   *
+   * Returns whether the device associated with the current authenticated session
+   * is trusted. Works for both cookies mode (reads from httpOnly cookie) and
+   * JSON mode (reads from X-Device-Token header).
+   *
+   * This endpoint validates the device token on the server side and checks:
+   * - Device token exists and is valid
+   * - Device token matches a trusted device record in the database
+   * - Trust has not expired
+   *
+   * @returns Object containing the trusted status
+   * @throws {NAuthException} If the session is not found or user is not authenticated
+   *
+   * @example
+   * ```typescript
+   * const result = await authService.isTrustedDevice();
+   * // { trusted: true }
+   * ```
+   */
+  async isTrustedDevice(): Promise<IsTrustedDeviceResponseDTO> {
+    if (!this.trustedDeviceService) {
+      // If trusted device service is not available, device is not trusted
+      return { trusted: false };
+    }
+
+    // Get sessionId from context (automatically extracted from JWT token)
+    const clientInfo = this.clientInfoService.get();
+    const sessionId = clientInfo.sessionId;
+
+    if (!sessionId) {
+      throw new NAuthException(
+        AuthErrorCode.SESSION_NOT_FOUND,
+        'Session ID not found in request context. Ensure the request is authenticated.',
+      );
+    }
+
+    // Get session to extract user
+    const session = await this.sessionService.findById(sessionId);
+    if (!session || session.isRevoked) {
+      throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found or revoked');
+    }
+
+    // Get user
+    const user = await this.userRepository.findOne({ where: { id: session.userId } });
+    if (!user) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    // Check if device is trusted
+    const userId = typeof user.id === 'number' ? user.id : parseInt(String(user.id), 10);
+    const deviceToken = clientInfo.deviceToken;
+
+    if (!deviceToken) {
+      return { trusted: false };
+    }
+
+    const isTrusted = await this.trustedDeviceService.isDeviceTrusted(deviceToken, userId);
+    return { trusted: isTrusted };
   }
 
   /**
@@ -2171,10 +2711,18 @@ export class AuthService {
     response.clearCookie(`${prefix}_access_token`, cookieOptions);
     response.clearCookie(`${prefix}_refresh_token`, cookieOptions);
 
+    // Clear CSRF token cookie (httpOnly: false, so it can be cleared)
+    // Use the same cookie options but with httpOnly: false to match how it was set
+    const csrfCookieOptions = {
+      ...cookieOptions,
+      httpOnly: false, // CSRF token cookie is not httpOnly
+    };
+    const csrfCookieName = this.config.security?.csrf?.cookieName || `${prefix}_csrf_token`;
+    response.clearCookie(csrfCookieName, csrfCookieOptions);
+
     // Clear device token if forgetting device
     if (forgetDevice) {
       response.clearCookie(`${prefix}_device_token`, cookieOptions);
-      response.clearCookie(`${prefix}_device_id`, cookieOptions); // Legacy name
     }
   }
 
@@ -2193,13 +2741,115 @@ export class AuthService {
     // Use internal id for session queries
     const revokedCount = await this.sessionService.revokeAllUserSessions(user.id, 'Global signout');
 
+    // Revoke all trusted devices if forgetDevices flag is set
+    let revokedDevicesCount = 0;
+    let revokedDevices: Array<{
+      id: number | string;
+      deviceName: string | null;
+      lastUsedAt: Date | null;
+      trustedUntil: Date | null;
+    }> = [];
+    if (
+      dto.forgetDevices &&
+      this.config.mfa?.rememberDevices &&
+      this.config.mfa?.rememberDevices !== 'never' &&
+      this.trustedDeviceService
+    ) {
+      try {
+        const deviceRevocationResult = await this.trustedDeviceService.revokeAllTrustedDevices(user.id);
+        revokedDevicesCount = deviceRevocationResult.revokedCount;
+        revokedDevices = deviceRevocationResult.devices;
+        this.logger?.log?.(
+          `Revoked ${revokedDevicesCount} trusted device(s) for user ${user.sub} (forgetDevices=true)`,
+        );
+
+        // Record audit event for device revocation
+        if (revokedDevicesCount > 0 && this.auditService) {
+          try {
+            const userId = typeof user.id === 'number' ? user.id : parseInt(String(user.id), 10);
+            await this.auditService.recordEvent({
+              userId,
+              eventType: AuthAuditEventType.DEVICE_UNTRUSTED,
+              eventStatus: 'SUCCESS',
+              description: `Global signout: All trusted devices revoked (${revokedDevicesCount} device(s))`,
+              metadata: {
+                reason: 'global_logout_forget_devices',
+                revokedDevicesCount,
+                devices: revokedDevices.map((d) => ({
+                  id: d.id,
+                  deviceName: d.deviceName,
+                  lastUsedAt: d.lastUsedAt?.toISOString() || null,
+                  trustedUntil: d.trustedUntil?.toISOString() || null,
+                })),
+              },
+            });
+          } catch (auditError) {
+            // Non-blocking: Log but continue
+            const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+            this.logger?.error?.(`Failed to record DEVICE_UNTRUSTED audit event: ${errorMessage}`, {
+              error: auditError,
+              userId: user.id,
+            });
+          }
+        }
+      } catch (error) {
+        // Non-blocking: Log but continue
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger?.debug?.(`Failed to revoke trusted devices on global logout: ${errorMessage}`, { error });
+      }
+    }
+
+    // ============================================================================
+    // Audit: Record GLOBAL_SIGNOUT event (individual SESSION_REVOKED events recorded in SessionService)
+    // ============================================================================
+    if (this.auditService && revokedCount > 0) {
+      try {
+        const userId = typeof user.id === 'number' ? user.id : parseInt(String(user.id), 10);
+        const description =
+          dto.forgetDevices && revokedDevicesCount > 0
+            ? `Global signout: ${revokedCount} session(s) revoked, ${revokedDevicesCount} trusted device(s) forgotten`
+            : `Global signout: ${revokedCount} session(s) revoked`;
+
+        await this.auditService.recordEvent({
+          userId,
+          eventType: AuthAuditEventType.GLOBAL_SIGNOUT,
+          eventStatus: 'INFO',
+          reason: 'Global signout',
+          description,
+          metadata: {
+            revokedCount,
+            forgetDevices: dto.forgetDevices ?? false,
+            ...(dto.forgetDevices && revokedDevicesCount > 0
+              ? {
+                  revokedDevicesCount,
+                  devices: revokedDevices.map((d) => ({
+                    id: d.id,
+                    deviceName: d.deviceName,
+                    lastUsedAt: d.lastUsedAt?.toISOString() || null,
+                    trustedUntil: d.trustedUntil?.toISOString() || null,
+                  })),
+                }
+              : {}),
+          },
+        });
+      } catch (auditError) {
+        // Non-blocking: Log but continue (individual SESSION_REVOKED events already recorded in SessionService)
+        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to record GLOBAL_SIGNOUT audit event: ${errorMessage}`, {
+          error: auditError,
+          userId: user.id,
+        });
+      }
+    }
+
     // ============================================================================
     // Automatically Clear Auth Cookies (if using cookie-based token delivery)
     // ============================================================================
     const response = this.clientInfoService.getResponse();
     if (response && this.config.tokenDelivery?.method !== 'json') {
-      // Clear all auth cookies including device token (since all sessions are revoked)
-      this.clearAuthCookies(response, true);
+      // Clear auth cookies
+      // If forgetDevices is true, also clear device token cookie
+      this.clearAuthCookies(response, dto.forgetDevices ?? false);
       this.logger?.debug?.('Auth cookies cleared automatically on global logout');
     }
 
@@ -2266,11 +2916,18 @@ export class AuthService {
     }
 
     // Check password history
-    if (this.config.password?.historyCount && user.passwordHistory) {
-      const isReused = await this.passwordService.isPasswordInHistory(dto.newPassword, user.passwordHistory);
+    if (this.config.password?.historyCount) {
+      // Include current password hash in the check to prevent immediate reuse
+      const historyToCheck = user.passwordHistory || [];
+      const allPreviousPasswords = user.passwordHash ? [user.passwordHash, ...historyToCheck] : historyToCheck;
+
+      const isReused = await this.passwordService.isPasswordInHistory(dto.newPassword, allPreviousPasswords);
 
       if (isReused) {
-        throw new NAuthException(AuthErrorCode.PASSWORD_REUSED, 'Cannot reuse recent passwords');
+        throw new NAuthException(
+          AuthErrorCode.PASSWORD_REUSED,
+          'You have used this password recently. Please choose a different password.',
+        );
       }
     }
 
@@ -2280,12 +2937,11 @@ export class AuthService {
     // Update password history
     const newHistory = this.passwordService.addToHistory(user.passwordHistory || [], user.passwordHash);
 
-    // Update user - use internal id for update query
-    await this.userRepository.update(user.id, {
-      passwordHash: newHash,
-      passwordChangedAt: new Date(),
-      passwordHistory: newHistory,
-    });
+    // Update user - use save() instead of update() to ensure TypeORM properly serializes simple-array fields
+    user.passwordHash = newHash;
+    user.passwordChangedAt = new Date();
+    user.passwordHistory = newHistory;
+    await this.userRepository.save(user);
 
     // Execute afterPasswordChange hook (use sub for external API)
     if (this.config.hooks?.afterPasswordChange) {
@@ -2354,6 +3010,7 @@ export class AuthService {
       updateFields.username = dto.username;
     }
     if (dto.email !== undefined) {
+      const oldEmail = user.email;
       updateFields.email = dto.email;
       // Reset email verification if email changed (unless retainVerification is true)
       if (dto.email !== user.email) {
@@ -2362,6 +3019,93 @@ export class AuthService {
         } else {
           // Explicitly retain current verification status
           updateFields.isEmailVerified = user.isEmailVerified;
+        }
+
+        // ============================================================================
+        // MFA Device Management: Handle Email MFA devices when email changes
+        // ============================================================================
+        // When email address changes, Email MFA devices become invalid.
+        // We deactivate them and check if user has any other active MFA devices.
+        // If Email was the only MFA method, user will need to set up MFA again.
+        // This happens automatically via challenge system at next login.
+        if (oldEmail && this.mfaDeviceRepository) {
+          try {
+            // Find all Email MFA devices (email field may be null in legacy devices)
+            const emailDevices = (await this.mfaDeviceRepository.find({
+              where: {
+                userId: user.id,
+                type: MFAMethod.EMAIL,
+                isActive: true,
+              },
+            } as Record<string, unknown>)) as unknown as Array<Record<string, unknown>>;
+
+            if (emailDevices.length > 0) {
+              this.logger?.log?.(
+                `Deleting ${emailDevices.length} Email MFA device(s) for user ${user.sub} due to email address change (old: ${oldEmail}, new: ${dto.email})`,
+              );
+
+              // Delete all Email devices (can't be reactivated with old email)
+              for (const device of emailDevices) {
+                const deviceId = (device as Record<string, unknown>).id as number;
+                await this.mfaDeviceRepository.delete(deviceId);
+              }
+
+              // Record audit event for removed Email MFA devices
+              if (this.auditService) {
+                try {
+                  await this.auditService.recordEvent({
+                    userId: user.id,
+                    eventType: AuthAuditEventType.MFA_DEVICE_REMOVED,
+                    eventStatus: 'INFO',
+                    reason: 'email_changed',
+                    description: `Email MFA device(s) removed due to email address change (${oldEmail} → ${dto.email})`,
+                    metadata: {
+                      method: MFAMethod.EMAIL,
+                      deletedCount: emailDevices.length,
+                      oldEmail,
+                      newEmail: dto.email,
+                      reason: 'email_address_changed_requires_reverification',
+                    },
+                  });
+                } catch (auditError) {
+                  const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+                  this.logger?.error?.(
+                    `Failed to record MFA_DEVICE_REMOVED audit event for email change: ${errorMessage}`,
+                    { error: auditError, userId: user.id },
+                  );
+                }
+              }
+
+              // Check if user has any other active MFA devices
+              const allActiveDevices = (await this.mfaDeviceRepository.find({
+                where: {
+                  userId: user.id,
+                  isActive: true,
+                },
+              } as Record<string, unknown>)) as unknown as Array<Record<string, unknown>>;
+
+              // If no active devices remain and user had MFA enabled, disable MFA
+              if (allActiveDevices.length === 0 && user.mfaEnabled) {
+                updateFields.mfaEnabled = false;
+                updateFields.mfaMethods = [];
+                updateFields.preferredMfaMethod = null;
+                this.logger?.log?.(
+                  `MFA disabled for user ${user.sub} - no active MFA devices remaining after email change`,
+                );
+              } else {
+                this.logger?.log?.(
+                  `User ${user.sub} still has ${allActiveDevices.length} active MFA device(s) - MFA remains enabled`,
+                );
+              }
+            }
+          } catch (error: unknown) {
+            // Log error but don't fail the email update
+            // This handles cases where MFA module is not imported (mfaDeviceRepository might not be available)
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            this.logger?.warn?.(
+              `Failed to handle MFA device deactivation during email change for user ${user.sub}: ${errorMessage}`,
+            );
+          }
         }
       }
     }
@@ -2380,37 +3124,57 @@ export class AuthService {
         // ============================================================================
         // MFA Device Management: Handle SMS MFA devices when phone changes
         // ============================================================================
-        // When phone number changes, SMS MFA devices with the old phone become invalid.
-        // We deactivate them and check if user has any other active MFA devices.
+        // When phone number changes, SMS MFA devices become invalid.
+        // We delete them and check if user has any other active MFA devices.
         // If SMS was the only MFA method, user will need to set up MFA again.
         // This happens automatically via challenge system at next login.
         if (oldPhone && this.mfaDeviceRepository) {
           try {
-            // Find all SMS MFA devices with the old phone number
+            // Find all SMS MFA devices (SMS MFA is tied to user.phone, not device phoneNumber)
             const smsDevices = (await this.mfaDeviceRepository.find({
               where: {
                 userId: user.id,
                 type: MFAMethod.SMS,
-                phoneNumber: oldPhone,
                 isActive: true,
               },
             } as Record<string, unknown>)) as unknown as Array<Record<string, unknown>>;
 
             if (smsDevices.length > 0) {
               this.logger?.log?.(
-                `Deactivating ${smsDevices.length} SMS MFA device(s) for user ${user.sub} due to phone number change (old: ${oldPhone}, new: ${dto.phone})`,
+                `Deleting ${smsDevices.length} SMS MFA device(s) for user ${user.sub} due to phone number change (old: ${oldPhone}, new: ${dto.phone})`,
               );
 
-              // Deactivate all SMS devices with old phone number
-              await this.mfaDeviceRepository.update(
-                {
-                  userId: user.id,
-                  type: MFAMethod.SMS,
-                  phoneNumber: oldPhone,
-                  isActive: true,
-                },
-                { isActive: false },
-              );
+              // Delete all SMS devices (can't be reactivated with old phone number)
+              for (const device of smsDevices) {
+                const deviceId = (device as Record<string, unknown>).id as number;
+                await this.mfaDeviceRepository.delete(deviceId);
+              }
+
+              // Record audit event for removed SMS MFA devices
+              if (this.auditService) {
+                try {
+                  await this.auditService.recordEvent({
+                    userId: user.id,
+                    eventType: AuthAuditEventType.MFA_DEVICE_REMOVED,
+                    eventStatus: 'INFO',
+                    reason: 'phone_changed',
+                    description: `SMS MFA device(s) removed due to phone number change (${oldPhone} → ${dto.phone})`,
+                    metadata: {
+                      method: MFAMethod.SMS,
+                      deletedCount: smsDevices.length,
+                      oldPhone,
+                      newPhone: dto.phone,
+                      reason: 'phone_number_changed_requires_reverification',
+                    },
+                  });
+                } catch (auditError) {
+                  const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+                  this.logger?.error?.(
+                    `Failed to record MFA_DEVICE_REMOVED audit event for phone change: ${errorMessage}`,
+                    { error: auditError, userId: user.id },
+                  );
+                }
+              }
 
               // Check if user has any other active MFA devices
               const allActiveDevices = (await this.mfaDeviceRepository.find({
@@ -2423,6 +3187,8 @@ export class AuthService {
               // If no active devices remain and user had MFA enabled, disable MFA
               if (allActiveDevices.length === 0 && user.mfaEnabled) {
                 updateFields.mfaEnabled = false;
+                updateFields.mfaMethods = [];
+                updateFields.preferredMfaMethod = null;
                 this.logger?.log?.(
                   `MFA disabled for user ${user.sub} - no active MFA devices remaining after phone change`,
                 );
@@ -2793,6 +3559,8 @@ export class AuthService {
       'user.id',
       'user.sub',
       'user.email',
+      'user.firstName',
+      'user.lastName',
       'user.username',
       'user.phone',
       'user.passwordHash',

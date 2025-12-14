@@ -215,9 +215,7 @@ describe('HandlebarsTemplateEngine', () => {
 
   describe('error handling', () => {
     it('should throw error when template not found', async () => {
-      await expect(
-        engine.render('nonexistent', {}),
-      ).rejects.toThrow(/Template "nonexistent" not found/);
+      await expect(engine.render('nonexistent', {})).rejects.toThrow(/Template "nonexistent" not found/);
     });
 
     it('should throw error when source has neither content nor filePath', async () => {
@@ -248,5 +246,3 @@ describe('HandlebarsTemplateEngine', () => {
     });
   });
 });
-
-

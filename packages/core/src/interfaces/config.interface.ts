@@ -333,6 +333,21 @@ export interface NAuthConfig {
   tokenDelivery?: TokenDeliveryConfig;
 
   /**
+   * Challenge configuration
+   *
+   * Controls challenge session behavior for authentication challenges
+   * (email verification, phone verification, MFA challenges, etc.)
+   *
+   * @example
+   * ```typescript
+   * challenge: {
+   *   maxAttempts: 3 // Default: 3 attempts (4th failure causes error)
+   * }
+   * ```
+   */
+  challenge?: ChallengeConfig;
+
+  /**
    * Geolocation configuration
    *
    * Configures IP geolocation using MaxMind GeoIP2 database files.
@@ -1649,12 +1664,14 @@ export interface AdaptiveMFAConfig {
    * - new_country: 25
    * - impossible_travel: 40
    * - suspicious_activity: 30
+   * - incomplete_location_data: 20
    *
    * @example
    * ```typescript
    * riskWeights: {
    *   new_device: 25,
-   *   new_country: 30
+   *   new_country: 30,
+   *   incomplete_location_data: 25
    * }
    * ```
    */
@@ -1728,6 +1745,22 @@ export interface AdaptiveMFAConfig {
    * @default 900 (commercial airliner speed)
    */
   maxTravelSpeed?: number;
+
+  /**
+   * Minimum time (hours) required between country changes when city data is missing
+   *
+   * Conservative threshold for detecting suspicious country changes when
+   * MaxMind doesn't provide city-level data. If countries differ and either
+   * city is unknown, flag as suspicious if time < threshold.
+   *
+   * @default 2 (2 hours minimum between country changes)
+   *
+   * @example
+   * ```typescript
+   * countryChangeThreshold: 3 // Require 3 hours minimum between country changes
+   * ```
+   */
+  countryChangeThreshold?: number;
 
   /**
    * Time window (hours) to check for suspicious activity
@@ -1962,6 +1995,31 @@ export interface TokenDeliveryConfig {
     webOrigins?: string[];
     nativeOrigins?: string[];
   };
+}
+
+/**
+ * Challenge Configuration
+ *
+ * Controls challenge session behavior for authentication challenges
+ * (email verification, phone verification, MFA challenges, etc.)
+ */
+export interface ChallengeConfig {
+  /**
+   * Maximum allowed attempts per challenge session
+   *
+   * Users get this many attempts before the challenge session is invalidated.
+   * The (maxAttempts + 1)th failure will cause "Maximum challenge attempts exceeded" error.
+   *
+   * @default 3
+   *
+   * @example
+   * ```typescript
+   * challenge: {
+   *   maxAttempts: 3 // User gets 3 attempts, 4th failure causes error
+   * }
+   * ```
+   */
+  maxAttempts?: number;
 }
 
 /**

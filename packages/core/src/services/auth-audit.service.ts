@@ -31,19 +31,14 @@ export interface CreateAuthAuditEventDTO {
   riskFactor?: number | null;
   riskFactors?: RiskFactor[] | null;
   adaptiveMfaTriggered?: boolean | null;
-  ipAddress?: string | null;
-  ipCountry?: string | null;
-  ipCity?: string | null;
-  userAgent?: string | null;
-  platform?: string | null;
-  browser?: string | null;
-  deviceId?: string | null;
-  deviceName?: string | null;
-  deviceType?: string | null;
+  // Note: ipAddress, ipCountry, ipCity, userAgent, platform, browser, deviceId, deviceName, deviceType
+  // are automatically captured from ClientInfoService and cannot be overridden
+  // Use metadata for event-specific data only
+  deviceId?: string | null; // Special case: can override for newly created device tokens
   sessionId?: number | null;
   challengeSessionId?: number | null;
   authMethod?: string | null;
-  performedBy?: string | null;
+  performedBy?: string | null; // Auto-populated from session context if not provided (userId of authenticated user)
   reason?: string | null;
   description?: string | null;
   metadata?: Record<string, unknown> | null;
@@ -354,7 +349,17 @@ export class InternalAuthAuditService extends AuthAuditService {
    * - userAgent, platform, browser (from user agent parsing)
    * - deviceId, deviceName, deviceType (from request context)
    *
-   * Explicitly provided fields in `data` will override auto-extracted values.
+   * Note: These fields cannot be overridden via the DTO - they are always captured from the request context.
+   * Only deviceId can be explicitly set for special cases (e.g., newly created device tokens).
+   * Do not include ipAddress, ipCountry, ipCity, userAgent, platform, browser, deviceName, or deviceType
+   * in the DTO - they will be automatically captured and attempts to include them will cause TypeScript errors.
+   *
+   * **Automatic performedBy Population:**
+   * The `performedBy` field is automatically populated from the authenticated user's context:
+   * - If userId is available from ClientInfoService (extracted from JWT token by interceptors/handlers), it is used as `performedBy`
+   * - This captures who performed the action (e.g., admin performing action on another user)
+   * - If no userId is found in client info, `performedBy` defaults to the event's `userId` (user performing action on themselves)
+   * - Explicit `performedBy` in DTO overrides automatic population
    *
    * @internal
    * This method is only available in InternalAuthAuditService and should not
@@ -383,7 +388,7 @@ export class InternalAuthAuditService extends AuthAuditService {
    *   userId: user.id,
    *   eventType: AuthAuditEventType.LOGIN_SUCCESS,
    *   eventStatus: 'SUCCESS',
-   *   ipAddress: 'custom-ip', // Overrides auto-extracted IP
+   *   // ipAddress, userAgent, etc. automatically captured from request context
    * });
    * ```
    */
@@ -407,11 +412,14 @@ export class InternalAuthAuditService extends AuthAuditService {
 
       // ============================================================================
       // Auto-extract client info from context (when available)
+      // Note: These fields are automatically captured and cannot be overridden by callers
       // ============================================================================
       let clientInfo: {
         ipAddress?: string | null;
         ipCountry?: string | null;
         ipCity?: string | null;
+        ipLatitude?: number | null;
+        ipLongitude?: number | null;
         userAgent?: string | null;
         platform?: string | null;
         browser?: string | null;
@@ -424,18 +432,37 @@ export class InternalAuthAuditService extends AuthAuditService {
       if (this.clientInfoService) {
         try {
           const clientInfoFromContext = this.clientInfoService.get();
-          // Only populate if not explicitly provided (allows override)
+          
+          // Debug logging
+          if (!clientInfoFromContext.ipLatitude || !clientInfoFromContext.ipLongitude) {
+            this.logger?.warn?.(
+              `[AuthAuditService] Creating audit WITHOUT coordinates from context: ` +
+              `IP=${clientInfoFromContext.ipAddress}, country=${clientInfoFromContext.ipCountry}, ` +
+              `city=${clientInfoFromContext.ipCity}, lat=${clientInfoFromContext.ipLatitude}, ` +
+              `lon=${clientInfoFromContext.ipLongitude}`,
+            );
+          } else {
+            this.logger?.debug?.(
+              `[AuthAuditService] Creating audit WITH coordinates from context: ` +
+              `IP=${clientInfoFromContext.ipAddress}, ${clientInfoFromContext.ipCity}, ` +
+              `${clientInfoFromContext.ipCountry} (${clientInfoFromContext.ipLatitude}, ${clientInfoFromContext.ipLongitude})`,
+            );
+          }
+          
+          // Automatically capture from context (no override allowed)
           clientInfo = {
-            ipAddress: clientInfoFromContext.ipAddress || undefined,
-            ipCountry: clientInfoFromContext.ipCountry || undefined,
-            ipCity: clientInfoFromContext.ipCity || undefined,
-            userAgent: clientInfoFromContext.userAgent || undefined,
-            platform: clientInfoFromContext.platform || undefined,
-            browser: clientInfoFromContext.browser || undefined,
-            deviceId: clientInfoFromContext.deviceToken || undefined,
-            deviceName: clientInfoFromContext.deviceName || undefined,
-            deviceType: clientInfoFromContext.deviceType || undefined,
-            sessionId: clientInfoFromContext.sessionId || undefined,
+            ipAddress: clientInfoFromContext.ipAddress || null,
+            ipCountry: clientInfoFromContext.ipCountry || null,
+            ipCity: clientInfoFromContext.ipCity || null,
+            ipLatitude: clientInfoFromContext.ipLatitude || null,
+            ipLongitude: clientInfoFromContext.ipLongitude || null,
+            userAgent: clientInfoFromContext.userAgent || null,
+            platform: clientInfoFromContext.platform || null,
+            browser: clientInfoFromContext.browser || null,
+            deviceId: clientInfoFromContext.deviceToken || null,
+            deviceName: clientInfoFromContext.deviceName || null,
+            deviceType: clientInfoFromContext.deviceType || null,
+            sessionId: clientInfoFromContext.sessionId || null,
           };
         } catch (error) {
           // Non-blocking: If client info extraction fails, continue without it
@@ -447,20 +474,49 @@ export class InternalAuthAuditService extends AuthAuditService {
       }
 
       // ============================================================================
-      // Merge: Explicitly provided fields override auto-extracted ones
+      // Use auto-extracted client info (deviceId can be overridden for special cases)
       // ============================================================================
       const mergedData = {
-        ipAddress: data.ipAddress ?? clientInfo.ipAddress ?? null,
-        ipCountry: data.ipCountry ?? clientInfo.ipCountry ?? null,
-        ipCity: data.ipCity ?? clientInfo.ipCity ?? null,
-        userAgent: data.userAgent ?? clientInfo.userAgent ?? null,
-        platform: data.platform ?? clientInfo.platform ?? null,
-        browser: data.browser ?? clientInfo.browser ?? null,
-        deviceId: data.deviceId ?? clientInfo.deviceId ?? null,
-        deviceName: data.deviceName ?? clientInfo.deviceName ?? null,
-        deviceType: data.deviceType ?? clientInfo.deviceType ?? null,
+        ipAddress: clientInfo.ipAddress ?? null,
+        ipCountry: clientInfo.ipCountry ?? null,
+        ipCity: clientInfo.ipCity ?? null,
+        ipLatitude: clientInfo.ipLatitude ?? null,
+        ipLongitude: clientInfo.ipLongitude ?? null,
+        userAgent: clientInfo.userAgent ?? null,
+        platform: clientInfo.platform ?? null,
+        browser: clientInfo.browser ?? null,
+        deviceId: data.deviceId ?? clientInfo.deviceId ?? null, // Allow override for newly created device tokens
+        deviceName: clientInfo.deviceName ?? null,
+        deviceType: clientInfo.deviceType ?? null,
         sessionId: data.sessionId ?? clientInfo.sessionId ?? null,
       };
+
+      // ============================================================================
+      // Auto-populate performedBy from client info context (if available)
+      // ============================================================================
+      let performedBy: string | null = data.performedBy ?? null;
+      if (!performedBy && this.clientInfoService) {
+        try {
+          // Get userId from client info (extracted from JWT token by interceptors/handlers)
+          const clientInfo = this.clientInfoService.get();
+          if (clientInfo?.userId) {
+            // Use the userId from client info as performedBy
+            // This captures who performed the action (could be admin performing action on another user)
+            performedBy = String(clientInfo.userId);
+          }
+        } catch (error) {
+          // Non-blocking: If client info extraction fails, continue without performedBy
+          this.logger?.debug?.(
+            `Failed to get userId from client info for performedBy: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          );
+        }
+      }
+
+      // If still no performedBy and we have userId, use it as fallback
+      // (most actions are performed by the user themselves)
+      if (!performedBy && userId) {
+        performedBy = String(userId);
+      }
 
       // Create audit record
       const auditRecord = this.auditRepository.create({
@@ -473,6 +529,8 @@ export class InternalAuthAuditService extends AuthAuditService {
         ipAddress: mergedData.ipAddress,
         ipCountry: mergedData.ipCountry,
         ipCity: mergedData.ipCity,
+        ipLatitude: mergedData.ipLatitude,
+        ipLongitude: mergedData.ipLongitude,
         userAgent: mergedData.userAgent,
         platform: mergedData.platform,
         browser: mergedData.browser,
@@ -482,7 +540,7 @@ export class InternalAuthAuditService extends AuthAuditService {
         sessionId: mergedData.sessionId,
         challengeSessionId: data.challengeSessionId ?? null,
         authMethod: data.authMethod ?? null,
-        performedBy: data.performedBy ?? null,
+        performedBy,
         reason: data.reason ?? null,
         description: data.description ?? null,
         metadata: data.metadata ?? null,

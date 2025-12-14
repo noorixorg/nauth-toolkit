@@ -20,6 +20,7 @@ import {
   SessionService,
   AuthChallengeHelperService,
   AuthAuditService, // Internal version with recordEvent()
+  TrustedDeviceService,
 } from '@nauth-toolkit/core/internal';
 import { Repository } from 'typeorm';
 import { FacebookOAuthClient } from './facebook-oauth.client';
@@ -77,6 +78,8 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
     phoneVerificationService?: PhoneVerificationService,
     // Audit service (optional - only available when auditLogs.enabled is true)
     auditService?: AuthAuditService,
+    // Trusted device service (optional - only available when rememberDevices is enabled)
+    trustedDeviceService?: TrustedDeviceService,
     // Facebook-specific token verifier (optional, fallback to default)
     tokenVerifier?: ITokenVerifierService,
   ) {
@@ -93,6 +96,7 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
       userRepository,
       phoneVerificationService,
       auditService,
+      trustedDeviceService,
     );
 
     // Initialize Facebook OAuth client

@@ -588,7 +588,7 @@ describe('RiskDetectionService', () => {
         ipCountry: 'US',
         ipCity: 'New York',
         lastActivityAt: new Date(Date.now() - 15 * 60 * 1000), // 15 minutes ago
-        createdAt: new Date(),
+        createdAt: new Date(Date.now() - 15 * 60 * 1000), // 15 minutes ago (login time)
       } as ISession;
 
       const clientInfoDifferentCity: ClientInfo = {
@@ -617,7 +617,7 @@ describe('RiskDetectionService', () => {
         ipCountry: 'US',
         ipCity: 'New York',
         lastActivityAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-        createdAt: new Date(),
+        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago (login time)
       } as ISession;
 
       // Same city and country (distance = 0)
@@ -645,7 +645,7 @@ describe('RiskDetectionService', () => {
         ipCountry: 'US',
         ipCity: 'New York',
         lastActivityAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-        createdAt: new Date(),
+        createdAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago (login time)
       } as ISession;
 
       // Different country (distance = 2000 km)
@@ -653,12 +653,17 @@ describe('RiskDetectionService', () => {
         ...mockClientInfo,
         ipCountry: 'GB',
         ipCity: 'London',
+        ipLatitude: 51.5074,
+        ipLongitude: -0.1278,
       };
 
       mockSessionRepository.findOne
         .mockResolvedValueOnce({ id: 1 } as any) // Device exists
-        .mockResolvedValueOnce({ id: 1 } as any) // Country exists (but different)
-        .mockResolvedValueOnce(lastSession as any); // Previous session with different country
+        .mockResolvedValueOnce(null) // Country doesn't exist (new country)
+        .mockResolvedValueOnce({ id: 1 } as any) // hasAnyCountryData check
+        .mockResolvedValueOnce(lastSession as any) // Previous session for impossible_travel
+        .mockResolvedValueOnce({ id: 1 } as any); // hasUserLoggedInBefore for INCOMPLETE_LOCATION_DATA
+      mockAuditRepository.findOne.mockResolvedValueOnce(null); // No previous audit login
 
       // Distance: 2000 km, Time: 30 minutes = 0.5 hours
       // Speed: 2000 / 0.5 = 4000 km/h > 900 km/h -> impossible travel
@@ -674,7 +679,7 @@ describe('RiskDetectionService', () => {
         ipCountry: 'US',
         ipCity: 'New York',
         lastActivityAt: new Date(Date.now() - 20 * 60 * 1000), // 20 minutes ago
-        createdAt: new Date(),
+        createdAt: new Date(Date.now() - 20 * 60 * 1000), // 20 minutes ago (login time)
       } as ISession;
 
       const clientInfoDifferentCity: ClientInfo = {
@@ -742,6 +747,167 @@ describe('RiskDetectionService', () => {
       expect(mockLogger.warn).toHaveBeenCalled();
       // Should assume not impossible travel on error
     });
+
+    it('should detect impossible_travel using Haversine formula when coordinates are available', async () => {
+      // Singapore to London: ~10,850 km in 10 minutes = impossible
+      const lastSession = {
+        id: 1,
+        userId: 1,
+        ipCountry: 'SG',
+        ipCity: 'Singapore',
+        ipLatitude: 1.3521,
+        ipLongitude: 103.8198,
+        createdAt: new Date(Date.now() - 10 * 60 * 1000), // 10 minutes ago
+      } as any;
+
+      const clientInfoWithCoordinates: ClientInfo = {
+        ...mockClientInfo,
+        ipCountry: 'GB',
+        ipCity: 'London',
+        ipLatitude: 51.5074,
+        ipLongitude: -0.1278,
+      };
+
+      mockSessionRepository.findOne
+        .mockResolvedValueOnce({ id: 1 } as any) // Device exists
+        .mockResolvedValueOnce({ id: 1 } as any) // Country exists
+        .mockResolvedValueOnce(lastSession); // Coordinates included
+
+      const factors = await service.detectRiskFactors(mockUser, clientInfoWithCoordinates);
+
+      // Distance: ~10,850 km (Haversine), Time: 10 minutes = 0.167 hours
+      // Speed: ~65,000 km/h >> 900 km/h -> impossible travel
+      expect(factors).toContain(RiskFactor.IMPOSSIBLE_TRAVEL);
+    });
+
+    it('should detect impossible_travel when country changes with missing city data (conservative)', async () => {
+      // Country changed but no city data - should flag if < 2 hours
+      const lastSession = {
+        id: 1,
+        userId: 1,
+        ipCountry: 'SG',
+        ipCity: null, // Missing city
+        createdAt: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+      } as ISession;
+
+      const clientInfoMissingCity: ClientInfo = {
+        ...mockClientInfo,
+        ipCountry: 'NO', // Different country
+        ipCity: undefined, // Missing city
+      };
+
+      mockSessionRepository.findOne
+        .mockResolvedValueOnce({ id: 1 } as any) // Device exists
+        .mockResolvedValueOnce({ id: 1 } as any) // Country exists
+        .mockResolvedValueOnce(lastSession as any);
+
+      const factors = await service.detectRiskFactors(mockUser, clientInfoMissingCity);
+
+      // Country changed in < 2 hours without city data -> flag as impossible
+      expect(factors).toContain(RiskFactor.IMPOSSIBLE_TRAVEL);
+    });
+
+    it('should NOT detect impossible_travel when country changes with missing city data but enough time passed', async () => {
+      // Country changed but no city data - should NOT flag if > 2 hours
+      const lastSession = {
+        id: 1,
+        userId: 1,
+        ipCountry: 'SG',
+        ipCity: null,
+        createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000), // 3 hours ago
+      } as ISession;
+
+      const clientInfoMissingCity: ClientInfo = {
+        ...mockClientInfo,
+        ipCountry: 'NO',
+        ipCity: undefined,
+      };
+
+      mockSessionRepository.findOne
+        .mockResolvedValueOnce({ id: 1 } as any) // Device exists
+        .mockResolvedValueOnce({ id: 1 } as any) // Country exists
+        .mockResolvedValueOnce(lastSession as any);
+
+      const factors = await service.detectRiskFactors(mockUser, clientInfoMissingCity);
+
+      // Country changed but > 2 hours passed -> acceptable
+      expect(factors).not.toContain(RiskFactor.IMPOSSIBLE_TRAVEL);
+    });
+  });
+
+  // ============================================================================
+  // detectRiskFactors() - INCOMPLETE_LOCATION_DATA
+  // ============================================================================
+
+  describe('detectRiskFactors() - incomplete_location_data', () => {
+    it('should detect incomplete_location_data when city is missing', async () => {
+      const clientInfoMissingCity: ClientInfo = {
+        ...mockClientInfo,
+        ipCountry: 'US',
+        ipCity: undefined,
+      };
+
+      mockSessionRepository.findOne
+        .mockResolvedValueOnce({ id: 1 } as any) // Device exists
+        .mockResolvedValueOnce({ id: 1 } as any) // Country exists
+        .mockResolvedValueOnce({ id: 1 } as any); // hasUserLoggedInBefore
+
+      const factors = await service.detectRiskFactors(mockUser, clientInfoMissingCity);
+
+      expect(factors).toContain(RiskFactor.INCOMPLETE_LOCATION_DATA);
+    });
+
+    it('should detect incomplete_location_data when coordinates are missing', async () => {
+      const clientInfoMissingCoordinates: ClientInfo = {
+        ...mockClientInfo,
+        ipCountry: 'US',
+        ipCity: 'New York',
+        ipLatitude: undefined,
+        ipLongitude: undefined,
+      };
+
+      mockSessionRepository.findOne
+        .mockResolvedValueOnce({ id: 1 } as any) // Device exists
+        .mockResolvedValueOnce({ id: 1 } as any) // Country exists
+        .mockResolvedValueOnce({ id: 1 } as any); // hasUserLoggedInBefore
+
+      const factors = await service.detectRiskFactors(mockUser, clientInfoMissingCoordinates);
+
+      expect(factors).toContain(RiskFactor.INCOMPLETE_LOCATION_DATA);
+    });
+
+    it('should NOT detect incomplete_location_data when all location data is present', async () => {
+      const clientInfoComplete: ClientInfo = {
+        ...mockClientInfo,
+        ipCountry: 'US',
+        ipCity: 'New York',
+        ipLatitude: 40.7128,
+        ipLongitude: -74.006,
+      };
+
+      mockSessionRepository.findOne
+        .mockResolvedValueOnce({ id: 1 } as any) // Device exists
+        .mockResolvedValueOnce({ id: 1 } as any); // Country exists
+
+      const factors = await service.detectRiskFactors(mockUser, clientInfoComplete);
+
+      expect(factors).not.toContain(RiskFactor.INCOMPLETE_LOCATION_DATA);
+    });
+
+    it('should NOT detect incomplete_location_data when country is missing', async () => {
+      const clientInfoNoCountry: ClientInfo = {
+        ...mockClientInfo,
+        ipCountry: undefined,
+        ipCity: undefined,
+      };
+
+      mockSessionRepository.findOne.mockResolvedValueOnce({ id: 1 } as any); // Device exists
+
+      const factors = await service.detectRiskFactors(mockUser, clientInfoNoCountry);
+
+      // Should not add incomplete_location_data when there's no country at all
+      expect(factors).not.toContain(RiskFactor.INCOMPLETE_LOCATION_DATA);
+    });
   });
 
   // ============================================================================
@@ -750,16 +916,25 @@ describe('RiskDetectionService', () => {
 
   describe('detectRiskFactors() - suspicious_activity', () => {
     it('should detect suspicious_activity when recent suspicious events found', async () => {
+      // Ensure complete location data to avoid INCOMPLETE_LOCATION_DATA
+      const clientInfoComplete: ClientInfo = {
+        ...mockClientInfo,
+        ipCountry: 'US',
+        ipCity: 'New York',
+        ipLatitude: 40.7128,
+        ipLongitude: -74.006,
+      };
+
       mockSessionRepository.findOne
         .mockResolvedValueOnce({ id: 1 } as any) // Device exists
         .mockResolvedValueOnce({ id: 1 } as any) // Country exists
-        .mockResolvedValueOnce(null) // No previous session
+        .mockResolvedValueOnce(null) // No previous session for impossible_travel
         .mockResolvedValueOnce({ id: 1 } as any); // IP exists (no new_ip)
       // suspicious_activity check: findOne for suspicious events
       mockAuditRepository.findOne.mockResolvedValueOnce({ id: 1 } as any); // Suspicious events found
       mockAuditRepository.find.mockResolvedValueOnce([]); // Failed logins (not needed if suspicious found)
 
-      const factors = await service.detectRiskFactors(mockUser, mockClientInfo);
+      const factors = await service.detectRiskFactors(mockUser, clientInfoComplete);
 
       expect(factors).toContain(RiskFactor.SUSPICIOUS_ACTIVITY);
     });

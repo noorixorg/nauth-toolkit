@@ -63,7 +63,7 @@ export class PhoneVerificationService {
    * @throws {NAuthException} RATE_LIMIT_SMS | NOT_FOUND | PHONE_REQUIRED | ALREADY_VERIFIED | RATE_LIMIT_RESEND
    */
   async sendVerificationSMS(dto: SendVerificationSMSDTO): Promise<SendVerificationSMSResponseDTO> {
-    const { sub, skipAlreadyVerifiedCheck = true } = dto;
+    const { sub, skipAlreadyVerifiedCheck = true, challengeSessionId } = dto;
     const rateLimitKey = `phone-verification:${sub}`;
 
     // Get rate limit configuration from config (moved to signup.phoneVerification)
@@ -165,6 +165,7 @@ export class PhoneVerificationService {
 
     const verificationToken = this.verificationTokenRepo.create({
       userId: user.id,
+      challengeSessionId: challengeSessionId ?? null, // Link to challenge session if provided
       type: 'phone',
       token: tokenHash,
       code,
@@ -220,10 +221,18 @@ export class PhoneVerificationService {
    * @throws {NAuthException} VERIFICATION_CODE_INVALID | VERIFICATION_CODE_EXPIRED | VERIFICATION_TOO_MANY_ATTEMPTS
    */
   async verifyPhoneWithCode(dto: VerifyPhoneWithCodeDTO): Promise<VerifyPhoneResponseDTO> {
-    const { phone, code } = dto;
+    const { phone, code, challengeSessionId } = dto;
     // Find all unused tokens matching the code and type
+    // If challengeSessionId is provided, ensure token belongs to specific session
+    const whereClause = {
+      type: 'phone' as const,
+      code,
+      usedAt: IsNull(),
+      ...(challengeSessionId !== undefined && { challengeSessionId }), // Include if provided
+    };
+
     const candidateTokens = (await this.verificationTokenRepo.find({
-      where: { type: 'phone', code, usedAt: IsNull() },
+      where: whereClause,
       order: { createdAt: 'DESC' },
     })) as unknown as IVerificationToken[];
 
@@ -392,7 +401,7 @@ export class PhoneVerificationService {
    * @returns Response DTO with success message
    */
   async verifyPhoneWithCodeBySub(dto: VerifyPhoneWithCodeBySubDTO): Promise<VerifyPhoneResponseDTO> {
-    const { sub, code } = dto;
+    const { sub, code, challengeSessionId } = dto;
     // Load user to get current phone verification status
     // This ensures we have the latest state from the database
     const user = (await this.userRepo.findOne({ where: { sub } })) as IUser | null;
@@ -423,8 +432,17 @@ export class PhoneVerificationService {
     this.logger?.log?.(
       `Looking for verification token: sub=${sub}, code=${codeString}, codeType=${typeof code}, userId=${user.id}`,
     );
+    // If challengeSessionId is provided, ensure token belongs to specific session
+    const whereClause = {
+      userId: user.id,
+      type: 'phone' as const,
+      code: codeString,
+      usedAt: IsNull(),
+      ...(challengeSessionId !== undefined && { challengeSessionId }), // Include if provided
+    };
+
     const verificationToken = (await this.verificationTokenRepo.findOne({
-      where: { userId: user.id, type: 'phone', code: codeString, usedAt: IsNull() },
+      where: whereClause,
       order: { createdAt: 'DESC' },
     })) as IVerificationToken | null;
 
@@ -668,7 +686,11 @@ export class PhoneVerificationService {
     }
 
     this.logger?.debug?.(`Resending SMS verification code: sub=${sub}`);
-    const sendDto = Object.assign(new SendVerificationSMSDTO(), { sub });
+    // Preserve challengeSessionId from the last token to ensure verification succeeds
+    const sendDto = Object.assign(new SendVerificationSMSDTO(), {
+      sub,
+      challengeSessionId: lastToken?.challengeSessionId ?? undefined,
+    });
     const result = await this.sendVerificationSMS(sendDto);
     return { tokenId: result.tokenId };
   }

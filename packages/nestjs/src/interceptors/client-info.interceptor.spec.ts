@@ -25,7 +25,7 @@ describe('ClientInfoInterceptor', () => {
         'x-device-token': 'device-token-123',
       },
       cookies: {
-        nauth_device_id: 'cookie-device-token-456',
+        nauth_device_token: 'cookie-device-token-456',
       },
       body: {
         deviceName: 'iPhone 12',

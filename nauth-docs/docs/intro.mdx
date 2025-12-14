@@ -16,7 +16,7 @@ The inspiration was to free developers from commercial SaaS services (AWS Cognit
 Core dependencies are minimal: Argon2 for hashing, jose for JWT, Zod for validation. Optional features use lightweight packages: SimpleWebAuthn for passkeys, MaxMind GeoIP2 for geolocation.
 
 :::warning Under Active Development
-nauth-toolkit is under active development. Version 0.1.0 implements core features including email/password authentication, social login, and MFA. **API may change. Not recommended for production yet.** Public source will be shared later; current evaluation builds are available on npm: https://www.npmjs.com/package/@nauth-toolkit/core.
+nauth-toolkit is under active development. Version 0.1.0 implements core features including email/password authentication, social login, and MFA. **API may change. Not recommended for production yet.** Public source will be shared later; current evaluation builds are available on npm: https://www.npmjs.com/package/@nauth-toolkit.
 :::
 
 Ready to start? Check out [Quick Start](/docs/quick-start) to configure nauth-toolkit.
@@ -176,11 +176,7 @@ Ready to start? Check out [Quick Start](/docs/quick-start) to configure nauth-to
   description="Memory (dev), Database (single-server), Redis with cluster (production)"
 />
 
-<FeatureCard
-  icon="fa-duotone fa-light fa-server"
-  heading="Databases"
-  description="PostgreSQL and MySQL via TypeORM"
-/>
+<FeatureCard icon="fa-duotone fa-light fa-server" heading="Databases" description="PostgreSQL and MySQL via TypeORM" />
 
 <FeatureCard
   icon="fa-duotone fa-light fa-envelope"
@@ -198,12 +194,12 @@ Ready to start? Check out [Quick Start](/docs/quick-start) to configure nauth-to
 
 ## Framework Support
 
-| Framework | Status | Package |
-|-----------|--------|---------|
-| **NestJS** | Full adapter | `@nauth-toolkit/nestjs` |
-| **Express** | Built-in adapter | `@nauth-toolkit/core` |
-| **Fastify** | Built-in adapter | `@nauth-toolkit/core` |
-| **Koa/Hapi** | Create custom adapter | `@nauth-toolkit/core` |
+| Framework    | Status                | Package                 |
+| ------------ | --------------------- | ----------------------- |
+| **NestJS**   | Full adapter          | `@nauth-toolkit/nestjs` |
+| **Express**  | Built-in adapter      | `@nauth-toolkit/core`   |
+| **Fastify**  | Built-in adapter      | `@nauth-toolkit/core`   |
+| **Koa/Hapi** | Create custom adapter | `@nauth-toolkit/core`   |
 
 All frameworks use the same core services. Adapters handle framework-specific integration (middleware/hooks, request/response wrapping, context management).
 
@@ -212,12 +208,14 @@ All frameworks use the same core services. Adapters handle framework-specific in
 ### vs SaaS Authentication Providers
 
 **What you gain:**
+
 - Complete control over code and data
 - No vendor lock-in or usage-based pricing
 - Customize flows without limitations
 - Data in your database, your infrastructure
 
 **What you trade:**
+
 - You manage infrastructure and security audits
 - No managed compliance certifications (HIPAA, SOC2)
 - Limited to Node.js ecosystem
@@ -225,12 +223,14 @@ All frameworks use the same core services. Adapters handle framework-specific in
 ### When to Choose nauth-toolkit
 
 **Good fit:**
+
 - Need full control over auth logic
 - Want predictable infrastructure costs
 - Require deep customization
 - Building on Node.js (NestJS, Express, Fastify)
 
 **Consider SaaS:**
+
 - Need OAuth/OIDC provider for third-party apps
 - Require managed compliance certifications
 - Want zero infrastructure responsibility
@@ -239,6 +239,7 @@ All frameworks use the same core services. Adapters handle framework-specific in
 ## What's Not Included (Yet)
 
 **Roadmap:**
+
 - OAuth 2.0 provider (can consume, not provide)
 - SAML 2.0 for enterprise SSO
 - Additional social providers (GitHub, Discord, LinkedIn)

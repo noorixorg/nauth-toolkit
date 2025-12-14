@@ -885,7 +885,11 @@ describe('SessionService', () => {
 
   describe('revokeAllUserSessions', () => {
     it('should revoke all user sessions (global signout)', async () => {
-      const sessions = [mockSession, { ...mockSession, id: 456 }];
+      const sessions = [
+        { ...mockSession, id: 123 },
+        { ...mockSession, id: 456 },
+        { ...mockSession, id: 789 },
+      ];
       mockSessionRepository.find.mockResolvedValue(sessions as any);
       mockSessionRepository.update.mockResolvedValue({ affected: 3 } as any);
       mockAuditService.recordEvent.mockResolvedValue(null);
@@ -905,14 +909,21 @@ describe('SessionService', () => {
         },
       );
       expect(count).toBe(3);
-      expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
-        (expect as any).objectContaining({
-          userId: 123,
-          eventType: AuthAuditEventType.SESSION_REVOKED,
-          reason: 'Global signout',
-          description: 'All user sessions revoked (3 session(s))',
-        }),
-      );
+      // For global signout, should record individual SESSION_REVOKED event for each session
+      expect(mockAuditService.recordEvent).toHaveBeenCalledTimes(3);
+      // Should record individual SESSION_REVOKED event for each session
+      expect(mockAuditService.recordEvent).toHaveBeenCalledTimes(3);
+      sessions.forEach((session) => {
+        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+          (expect as any).objectContaining({
+            userId: 123,
+            eventType: AuthAuditEventType.SESSION_REVOKED,
+            reason: 'Global signout',
+            description: 'Session revoked by global signout',
+            sessionId: session.id,
+          }),
+        );
+      });
     });
 
     it('should return 0 if no sessions to revoke', async () => {
@@ -932,9 +943,13 @@ describe('SessionService', () => {
 
       await service.revokeAllUserSessions(123);
 
+      // When reason is not "Global signout", should record one summary event
+      expect(mockAuditService.recordEvent).toHaveBeenCalledTimes(1);
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({
+          eventType: AuthAuditEventType.SESSION_REVOKED,
           reason: 'Global signout',
+          description: 'All user sessions revoked (1 session(s))',
         }),
       );
     });
@@ -942,7 +957,7 @@ describe('SessionService', () => {
     it('should handle audit logging errors gracefully', async () => {
       mockSessionRepository.find.mockResolvedValue([mockSession] as any);
       mockSessionRepository.update.mockResolvedValue({ affected: 1 } as any);
-      mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
+      (mockAuditService.recordEvent as jest.Mock).mockRejectedValue(new Error('Audit error'));
 
       const count = await service.revokeAllUserSessions(123);
 
@@ -950,17 +965,19 @@ describe('SessionService', () => {
       expect(mockLogger.error).toHaveBeenCalled();
     });
 
-    it('should include session IDs in audit metadata', async () => {
+    it('should include session IDs in audit metadata (non-global signout)', async () => {
       const sessions = [
         { ...mockSession, id: 1 },
         { ...mockSession, id: 2 },
       ];
       mockSessionRepository.find.mockResolvedValue(sessions as any);
       mockSessionRepository.update.mockResolvedValue({ affected: 2 } as any);
-      mockAuditService.recordEvent.mockResolvedValue(null);
+      (mockAuditService.recordEvent as jest.Mock).mockResolvedValue(null);
 
-      await service.revokeAllUserSessions(123);
+      await service.revokeAllUserSessions(123, 'Login from new session');
 
+      // For non-global signout, should record one summary event
+      expect(mockAuditService.recordEvent).toHaveBeenCalledTimes(1);
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({
           metadata: {

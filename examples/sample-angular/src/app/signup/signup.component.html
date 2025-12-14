@@ -1,0 +1,276 @@
+<div class="auth-container">
+  <div class="auth-wrapper">
+    <div class="auth-header">
+      <img src="/img/nauth_square_logoonly.png" alt="nauth-toolkit Logo" class="auth-logo" />
+      <h1 class="auth-title">NAUTH Demo</h1>
+      <div class="flex items-center gap-2 justify-center">
+        <p class="auth-subtitle">Create your account</p>
+        <button
+          type="button"
+          (click)="populateRandomData()"
+          [disabled]="loading()"
+          pTooltip="Simulate random signup data, email and phone does not need to be real"
+          tooltipPosition="right"
+          aria-label="Fill form with random data"
+          class="bg-transparent border-none p-2 rounded-full cursor-pointer text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <i class="pi pi-sparkles animate-pulse"></i>
+        </button>
+      </div>
+    </div>
+
+    <form [formGroup]="signupForm" (ngSubmit)="onSubmit()" class="auth-form">
+      <!-- First Name Field -->
+      <div class="form-field">
+        <label for="firstName" class="form-label">
+          First Name <span class="form-required">*</span>
+        </label>
+        <input
+          id="firstName"
+          type="text"
+          pInputText
+          formControlName="firstName"
+          placeholder="Enter your first name"
+          maxlength="100"
+          [pAutoFocus]="true"
+          [class.p-invalid]="
+            signupForm.get('firstName')?.invalid && signupForm.get('firstName')?.touched
+          "
+          class="w-full"
+        />
+        @if (signupForm.get('firstName')?.invalid && signupForm.get('firstName')?.touched) {
+          <small class="p-error">
+            @if (signupForm.get('firstName')?.errors?.['required']) {
+              First name is required
+            } @else if (signupForm.get('firstName')?.errors?.['minlength']) {
+              First name must be at least 1 character
+            } @else if (signupForm.get('firstName')?.errors?.['maxlength']) {
+              First name must not exceed 100 characters
+            } @else if (signupForm.get('firstName')?.errors?.['pattern']) {
+              First name can only contain letters, spaces, hyphens, and apostrophes
+            }
+          </small>
+        }
+      </div>
+
+      <!-- Last Name Field -->
+      <div class="form-field">
+        <label for="lastName" class="form-label">
+          Last Name <span class="form-required">*</span>
+        </label>
+        <input
+          id="lastName"
+          type="text"
+          pInputText
+          formControlName="lastName"
+          placeholder="Enter your last name"
+          maxlength="100"
+          [class.p-invalid]="
+            signupForm.get('lastName')?.invalid && signupForm.get('lastName')?.touched
+          "
+          class="w-full"
+        />
+        @if (signupForm.get('lastName')?.invalid && signupForm.get('lastName')?.touched) {
+          <small class="p-error">
+            @if (signupForm.get('lastName')?.errors?.['required']) {
+              Last name is required
+            } @else if (signupForm.get('lastName')?.errors?.['minlength']) {
+              Last name must be at least 1 character
+            } @else if (signupForm.get('lastName')?.errors?.['maxlength']) {
+              Last name must not exceed 100 characters
+            } @else if (signupForm.get('lastName')?.errors?.['pattern']) {
+              Last name can only contain letters, spaces, hyphens, and apostrophes
+            }
+          </small>
+        }
+      </div>
+
+      <!-- Email Field -->
+      <div class="form-field">
+        <label for="email" class="form-label"> Email <span class="form-required">*</span> </label>
+        <input
+          id="email"
+          type="email"
+          pInputText
+          formControlName="email"
+          placeholder="Enter your email"
+          maxlength="255"
+          [class.p-invalid]="signupForm.get('email')?.invalid && signupForm.get('email')?.touched"
+          class="w-full"
+        />
+        @if (signupForm.get('email')?.invalid && signupForm.get('email')?.touched) {
+          <small class="p-error">
+            @if (signupForm.get('email')?.errors?.['required']) {
+              Email is required
+            } @else if (signupForm.get('email')?.errors?.['email']) {
+              Please enter a valid email address
+            } @else if (signupForm.get('email')?.errors?.['maxlength']) {
+              Email must not exceed 255 characters
+            }
+          </small>
+        }
+      </div>
+
+      <!-- Phone Field -->
+      <div class="form-field">
+        <label for="phone" class="form-label"> Phone <span class="form-required">*</span> </label>
+        <p-inputmask
+          id="phone"
+          formControlName="phone"
+          mask="+99999999999999"
+          slotChar=""
+          placeholder="+14155552671"
+          [unmask]="false"
+          [autoClear]="false"
+          [class.p-invalid]="signupForm.get('phone')?.invalid && signupForm.get('phone')?.touched"
+          styleClass="w-full"
+          inputStyleClass="w-full"
+        />
+        @if (signupForm.get('phone')?.invalid && signupForm.get('phone')?.touched) {
+          <small class="p-error">
+            @if (signupForm.get('phone')?.errors?.['required']) {
+              Phone number is required
+            } @else if (signupForm.get('phone')?.errors?.['phoneFormat']) {
+              {{ signupForm.get('phone')?.errors?.['phoneFormat']?.['message'] }}
+            } @else if (signupForm.get('phone')?.errors?.['maxlength']) {
+              Phone must not exceed 20 characters
+            }
+          </small>
+        }
+        <small class="text-secondary-500 text-xs mt-1"
+          >Format: +[country code][number] (e.g., +14155552671)</small
+        >
+      </div>
+
+      <!-- Password Field -->
+      <div class="form-field">
+        <label for="password" class="form-label">
+          Password <span class="form-required">*</span>
+        </label>
+        <p-password
+          id="password"
+          formControlName="password"
+          placeholder="Enter your password"
+          [toggleMask]="true"
+          [feedback]="true"
+          [class.p-invalid]="
+            signupForm.get('password')?.invalid && signupForm.get('password')?.touched
+          "
+          styleClass="w-full"
+          inputStyleClass="w-full"
+        />
+        @if (signupForm.get('password')?.invalid && signupForm.get('password')?.touched) {
+          <small class="p-error">
+            @if (signupForm.get('password')?.errors?.['required']) {
+              Password is required
+            } @else if (signupForm.get('password')?.errors?.['minlength']) {
+              Password must be at least 8 characters
+            } @else if (signupForm.get('password')?.errors?.['maxlength']) {
+              Password must not exceed 128 characters
+            }
+          </small>
+        }
+      </div>
+
+      <!-- Confirm Password Field -->
+      <div class="form-field">
+        <label for="confirmPassword" class="form-label">
+          Confirm Password <span class="form-required">*</span>
+        </label>
+        <p-password
+          id="confirmPassword"
+          formControlName="confirmPassword"
+          placeholder="Confirm your password"
+          [toggleMask]="true"
+          [feedback]="false"
+          [class.p-invalid]="
+            signupForm.get('confirmPassword')?.invalid && signupForm.get('confirmPassword')?.touched
+          "
+          styleClass="w-full"
+          inputStyleClass="w-full"
+        />
+        @if (
+          signupForm.get('confirmPassword')?.invalid && signupForm.get('confirmPassword')?.touched
+        ) {
+          <small class="p-error">
+            @if (signupForm.get('confirmPassword')?.errors?.['required']) {
+              Please confirm your password
+            } @else if (signupForm.get('confirmPassword')?.errors?.['passwordMismatch']) {
+              Passwords do not match
+            }
+          </small>
+        }
+      </div>
+
+      <!-- Submit Button -->
+      <p-button
+        type="submit"
+        label="{{ loading() ? 'Creating account...' : 'Create account' }}"
+        [disabled]="signupForm.invalid || loading()"
+        [loading]="loading()"
+        styleClass="w-full"
+        icon="pi pi-user-plus"
+      />
+
+      <!-- Error Message -->
+      @if (error(); as errorMessage) {
+        <div class="error-message-container-compact">
+          <p-message
+            severity="error"
+            [text]="errorMessage"
+            [closable]="true"
+            (onClose)="error.set(null)"
+            styleClass="w-full"
+          />
+        </div>
+      }
+
+      <!-- Divider -->
+      <p-divider>
+        <span class="divider-text">or</span>
+      </p-divider>
+
+      <!-- Social Signup Buttons -->
+      <div class="social-login-container">
+        <p-button
+          label="Sign up with Google"
+          icon="pi pi-google"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="loading()"
+          (onClick)="onSocialSignup('google')"
+          styleClass="w-full social-button"
+          iconPos="left"
+        />
+        <p-button
+          label="Sign up with Apple"
+          icon="pi pi-apple"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="loading()"
+          (onClick)="onSocialSignup('apple')"
+          styleClass="w-full social-button"
+          iconPos="left"
+        />
+        <p-button
+          label="Sign up with Facebook"
+          icon="pi pi-facebook"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="loading()"
+          (onClick)="onSocialSignup('facebook')"
+          styleClass="w-full social-button"
+          iconPos="left"
+        />
+      </div>
+
+      <!-- Login Link -->
+      <div class="auth-footer">
+        <p class="auth-footer-text">
+          Already have an account?
+          <a (click)="navigateToLogin()" class="auth-link">Sign in</a>
+        </p>
+      </div>
+    </form>
+  </div>
+</div>

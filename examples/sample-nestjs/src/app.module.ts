@@ -5,7 +5,7 @@ import { AppService } from './app.service';
 import { TestService } from './test.service';
 import { CustomAuthModule } from './auth/auth.module';
 // Import helper function to get entities (prevents direct entity access)
-import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
+import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-mysql';
 import { TestModule } from './test/test.module';
 
 /**
@@ -23,17 +23,15 @@ const entities = [...getNAuthEntities(), ...getNAuthTransientStorageEntities()];
 const imports = [
   // TypeORM configuration for PostgreSQL
   TypeOrmModule.forRoot({
-    type: 'postgres',
+    type: 'mysql',
     host: process.env.DB_HOST,
-    port: parseInt(process.env.DB_PORT || '5432', 10),
-    username: process.env.DB_USERNAME,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_DATABASE,
+    port: parseInt(process.env.DB_PORT!, 10),
+    username: process.env.DB_USERNAME as string,
+    password: process.env.DB_PASSWORD as string,
+    database: process.env.DB_DATABASE as string,
     entities,
     synchronize: process.env.NODE_ENV === 'development', // Auto-sync schema in development only
-    logging: process.env.DB_LOGGING === 'true', // Control logging via env var
-    retryAttempts: 2, // Reasonable retry attempts
-    retryDelay: 1000, // 1 second between retries
+    logging: process.env.DB_LOGGING === 'true',
   }),
 
   // Custom Auth Module (imports AuthModule internally)

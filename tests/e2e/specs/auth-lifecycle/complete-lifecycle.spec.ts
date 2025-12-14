@@ -92,10 +92,19 @@ for (const config of configs) {
           if (authConfig.verificationMethod === 'both') {
             expect(result.data?.challengeName).toBeTruthy();
             expect(result.data?.challengeName).toBe('VERIFY_EMAIL');
+            // Store challenge session for next step
+            flowState.challengeSession = result.data?.session;
+            flowState.challengeName = result.data?.challengeName;
           } else if (authConfig.shouldVerifyEmail()) {
             expect(result.data?.challengeName).toBe('VERIFY_EMAIL');
+            // Store challenge session for next step
+            flowState.challengeSession = result.data?.session;
+            flowState.challengeName = result.data?.challengeName;
           } else if (authConfig.shouldVerifyPhone()) {
             expect(result.data?.challengeName).toBe('VERIFY_PHONE');
+            // Store challenge session for next step
+            flowState.challengeSession = result.data?.session;
+            flowState.challengeName = result.data?.challengeName;
           } else {
             // No verification required - check if MFA setup is required
             // For ADAPTIVE/REQUIRED MFA with gracePeriod=0, signup should return MFA_SETUP_REQUIRED
@@ -138,7 +147,7 @@ for (const config of configs) {
             {
               type: 'testSteps',
               description:
-                'Get email code from /test/email/latest → POST /auth/verify-email/verify → POST /auth/challenges/complete',
+                'Test resend code (after 60s delay) → Get email code from /test/email/latest → POST /auth/verify-email/verify → POST /auth/challenges/complete',
             },
             {
               type: 'skipCondition',
@@ -149,8 +158,23 @@ for (const config of configs) {
         async ({ flows, flowState, authConfig, mail, cookies }) => {
           test.skip(!authConfig.shouldVerifyEmail(), 'Email verification not required');
 
-          const code = await mail.latestCode(flowState.userEmail);
+          // Ensure challenge session is set from signup
+          expect(flowState.challengeSession).toBeTruthy();
+          expect(flowState.challengeSession).not.toBe('undefined');
+          const challengeSession = flowState.challengeSession!;
+
+          // Test resend code functionality (resendDelay is 0 in config, so no wait needed)
+          const resendResult = await flows.resendCode();
+          expect(resendResult.success).toBe(true);
+          expect(resendResult.data?.destination).toBeTruthy();
+
+          // Wait a moment for the new code to be sent
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          // Get the new code using the same challenge session (resend doesn't create a new session)
+          const code = await mail.latestCode(challengeSession);
           expect(code).toBeTruthy();
+          expect(code).not.toBe('');
 
           const result = await flows.completeChallenge('VERIFY_EMAIL', code);
 
@@ -199,7 +223,23 @@ for (const config of configs) {
         async ({ flows, flowState, authConfig, sms, cookies }) => {
           test.skip(!authConfig.shouldVerifyPhone(), 'Phone verification not required');
 
-          const code = await sms.latestCode(flowState.userPhone!);
+          // Ensure challenge session is set
+          expect(flowState.challengeSession).toBeTruthy();
+          expect(flowState.challengeSession).not.toBe('undefined');
+
+          // Store the challenge session before resend (resend doesn't change the session)
+          const challengeSession = flowState.challengeSession!;
+
+          // Test resend code functionality (resendDelay is 0 in config, so no wait needed)
+          const resendResult = await flows.resendCode();
+          expect(resendResult.success).toBe(true);
+          expect(resendResult.data?.destination).toBeTruthy();
+
+          // Wait a moment for the new code to be sent
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          // Get the new code using the same challenge session (resend doesn't create a new session)
+          const code = await sms.latestCode(challengeSession);
           expect(code).toBeTruthy();
 
           const result = await flows.completeChallenge('VERIFY_PHONE', code);
@@ -343,8 +383,8 @@ for (const config of configs) {
             }
           } else {
             // SMS setup
-          // Check if setup was auto-completed (phone already verified)
-          if (setupResult.autoCompleted) {
+            // Check if setup was auto-completed (phone already verified)
+            if (setupResult.autoCompleted) {
               // Phone was already verified - setup is complete, just respond to challenge
               const result = await api.post(`${baseURL}${endpoints.respondChallenge}`, {
                 data: {
@@ -370,7 +410,7 @@ for (const config of configs) {
               await new Promise((resolve) => setTimeout(resolve, 500));
 
               // Get the new SMS code for MFA setup
-              const code = await sms.latestCode(flowState.userPhone!);
+              const code = await sms.latestCode(flowState.challengeSession!);
               expect(code).toBeTruthy();
 
               const result = await flows.completeMFASetupChallenge(code);
@@ -417,14 +457,18 @@ for (const config of configs) {
 
           // If MFA is required, login will return MFA_REQUIRED challenge
           if (authConfig.shouldRequireMFA() && result.data?.challengeName === 'MFA_REQUIRED') {
+            // Store challenge session from login response
+            flowState.challengeSession = result.data?.session;
+            expect(flowState.challengeSession).toBeTruthy();
+
             // SMS code is now sent automatically when MFA_REQUIRED challenge is created
             // (if SMS is the user's preferred MFA method)
 
             // Wait for SMS to be sent
             await new Promise((resolve) => setTimeout(resolve, 1000));
 
-            // Get the MFA code (should be from the device registration)
-            const mfaCode = await sms.latestCode(flowState.userPhone!);
+            // Get the MFA code using the challenge session ID
+            const mfaCode = await sms.latestCode(flowState.challengeSession!);
             expect(mfaCode).toBeTruthy();
 
             const mfaResult = await flows.verifyMFA(mfaCode);
@@ -464,7 +508,42 @@ for (const config of configs) {
           }
 
           if (authConfig.expectCookies()) {
-            const parsedCookies = cookies.parseFromResponse(result.response!);
+            // Ensure response is available
+            if (!result.response) {
+              throw new Error('Login response is null - cannot check for cookies');
+            }
+
+            // Debug: Log all headers to see what's in the response
+            const headersArray = result.response.headersArray();
+            const setCookieHeaders = headersArray.filter((h) => h.name.toLowerCase() === 'set-cookie');
+
+            // Log response status and headers for debugging
+            console.log('Login response status:', result.response.status());
+            console.log('Set-Cookie headers found:', setCookieHeaders.length);
+            if (setCookieHeaders.length === 0) {
+              // Log all headers to help debug
+              console.log(
+                'All response headers:',
+                headersArray.map((h) => `${h.name}: ${h.value}`),
+              );
+            } else {
+              setCookieHeaders.forEach((h) => console.log('Set-Cookie:', h.value));
+            }
+
+            const parsedCookies = cookies.parseFromResponse(result.response);
+            console.log('Parsed cookies keys:', Object.keys(parsedCookies));
+            console.log('Parsed cookies:', parsedCookies);
+
+            if (Object.keys(parsedCookies).length === 0) {
+              // If no cookies parsed, check if response body has tokens (fallback for debugging)
+              try {
+                const body = await result.response.json();
+                console.log('Response body (for debugging):', JSON.stringify(body, null, 2));
+              } catch (e) {
+                console.log('Could not parse response body as JSON');
+              }
+            }
+
             expect(parsedCookies).toHaveProperty('nauth_access_token');
             expect(parsedCookies).toHaveProperty('nauth_refresh_token');
           }
@@ -568,7 +647,7 @@ for (const config of configs) {
             },
             {
               type: 'testSteps',
-              description: 'POST /auth/logout with access token. Expect tokens/cookies cleared (expired or maxAge=0).',
+              description: 'GET /auth/logout with access token. Expect tokens/cookies cleared (expired or maxAge=0).',
             },
           ],
         },

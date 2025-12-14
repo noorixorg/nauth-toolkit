@@ -69,6 +69,7 @@ export class AuthHandler {
 
       // Validate session
       const sessionId = validation.payload!.sessionId;
+      const userId = validation.payload!.sub; // Extract userId from token sub claim
       const session = await this.sessionService.findByIdLight(sessionId);
 
       if (!session) {
@@ -128,8 +129,9 @@ export class AuthHandler {
 
       this.logger?.debug?.(`User ${user.sub} authenticated successfully`);
 
-      // Update CLIENT_INFO with sessionId
+      // Update CLIENT_INFO with sessionId and userId
       this.updateClientInfoSessionId(sessionId);
+      this.updateClientInfoUserId(userId);
 
       await next();
     } catch (error) {
@@ -198,6 +200,21 @@ export class AuthHandler {
 
       if (!isNaN(sessionIdNumber) && sessionIdNumber > 0) {
         clientInfo.sessionId = sessionIdNumber;
+        ContextStorage.set('CLIENT_INFO', clientInfo);
+      }
+    }
+  }
+
+  /**
+   * Update CLIENT_INFO with user ID from token
+   */
+  private updateClientInfoUserId(userId: string | number): void {
+    const clientInfo = ContextStorage.get<IClientInfo>('CLIENT_INFO');
+    if (clientInfo) {
+      const userIdNumber = typeof userId === 'number' ? userId : parseInt(String(userId), 10);
+
+      if (!isNaN(userIdNumber) && userIdNumber > 0) {
+        clientInfo.userId = userIdNumber;
         ContextStorage.set('CLIENT_INFO', clientInfo);
       }
     }

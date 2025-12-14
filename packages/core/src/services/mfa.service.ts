@@ -310,9 +310,10 @@ export class MFAService {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
 
+    // Only fetch active devices (inactive devices are soft-deleted)
     const devices = await this.mfaDeviceRepository.find({
-      where: { userId: userEntity.id },
-      order: { isPrimary: 'DESC', createdAt: 'DESC' },
+      where: { userId: userEntity.id, isActive: true },
+      order: { createdAt: 'DESC' },
     } as Record<string, unknown>);
 
     return {
@@ -464,7 +465,7 @@ export class MFAService {
     const activeDevices = devicesResult.devices.filter((d) => d.isActive);
 
     // Get devices of the method type to remove
-    const devicesToRemove = activeDevices.filter((d) => d.type === normalizedMethod);
+    const devicesToRemove = activeDevices.filter((d) => d.type.toLowerCase() === normalizedMethod);
 
     if (devicesToRemove.length === 0) {
       throw new NAuthException(
@@ -649,7 +650,8 @@ export class MFAService {
 
     // Verify user has this method configured
     const devicesResult = await this.getUserDevices({ sub: dto.userSub });
-    const preferredDevice = devicesResult.devices.find((d) => d.type === normalizedMethod && d.isActive);
+    // Normalize device types for comparison (database might store in different case)
+    const preferredDevice = devicesResult.devices.find((d) => d.type.toLowerCase() === normalizedMethod && d.isActive);
 
     if (!preferredDevice) {
       throw new NAuthException(
@@ -867,8 +869,14 @@ export class MFAService {
     }
 
     // Get provider and call setup
+    // Pass challenge session ID in setupData so provider can link verification tokens
+    const setupDataWithSession = {
+      ...(dto.setupData || {}),
+      challengeSessionId: challengeSession.id,
+    };
+    this.logger?.debug?.(`Passing challengeSessionId=${challengeSession.id} to ${dto.method} provider for MFA setup`);
     const provider = this.getProvider(dto.method);
-    const result = await provider.setup(user, dto.setupData);
+    const result = await provider.setup(user, setupDataWithSession);
 
     this.logger?.debug?.(`MFA setup data generated: method=${dto.method}, user=${user.sub}`);
 

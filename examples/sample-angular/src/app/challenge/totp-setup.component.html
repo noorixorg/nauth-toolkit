@@ -1,0 +1,113 @@
+<div class="auth-form">
+  @if (setupData() && totpQrCode()) {
+    <!-- TOTP Setup Form -->
+    <form [formGroup]="totpForm" (ngSubmit)="completeSetup()" class="space-y-4">
+      <div class="mb-4">
+        <p class="text-sm text-secondary-600 mb-4">
+          Scan this QR code with your authenticator app (Google Authenticator, Authy, Microsoft
+          Authenticator, etc.)
+        </p>
+
+        <!-- QR Code Display -->
+        <div class="qr-code-container">
+          <img [src]="totpQrCode()" alt="TOTP QR Code" class="qr-code-image" />
+        </div>
+
+        <!-- Manual Entry Key -->
+        @if (totpManualKey()) {
+          <div class="manual-key-container">
+            <p class="text-xs text-secondary-500 mb-2">Can't scan? Enter this code manually:</p>
+            <div class="manual-key-display">
+              <code class="manual-key-text">{{ totpManualKey() }}</code>
+              <button
+                type="button"
+                (click)="copyToClipboard(totpManualKey()!)"
+                class="copy-button"
+                [title]="copied() ? 'Copied!' : 'Copy to clipboard'"
+                [attr.aria-label]="copied() ? 'Copied!' : 'Copy to clipboard'"
+              >
+                <i [class]="copied() ? 'pi pi-check' : 'pi pi-copy'"></i>
+              </button>
+            </div>
+          </div>
+        }
+
+        <div class="mt-4">
+          <p class="text-sm text-secondary-600">
+            After scanning, enter the 6-digit code from your authenticator app to complete setup.
+          </p>
+        </div>
+      </div>
+
+      <!-- OTP Input -->
+      <div class="form-field">
+        <label for="code" class="form-label">
+          Verification Code <span class="form-required">*</span>
+        </label>
+        <div class="flex justify-center">
+          <p-inputOtp
+            #otpInput
+            id="code"
+            formControlName="code"
+            [length]="6"
+            [integerOnly]="true"
+            size="large"
+            styleClass="mx-auto"
+            [class.p-invalid]="totpForm.get('code')?.invalid && totpForm.get('code')?.touched"
+          />
+        </div>
+        @if (totpForm.get('code')?.invalid && totpForm.get('code')?.touched) {
+          <small class="p-error">
+            @if (totpForm.get('code')?.errors?.['required']) {
+              Verification code is required
+            } @else if (totpForm.get('code')?.errors?.['minlength']) {
+              Code must be 6 digits
+            }
+          </small>
+        }
+      </div>
+
+      <p-button
+        type="submit"
+        label="{{ loading() ? 'Setting up...' : 'Complete Setup' }}"
+        [disabled]="totpForm.invalid || loading()"
+        [loading]="loading()"
+        styleClass="w-full"
+        icon="pi pi-check"
+      />
+    </form>
+  } @else {
+    <div class="text-center py-4">
+      @if (loading()) {
+        <p class="text-secondary-600">Preparing TOTP setup...</p>
+      } @else {
+        <p class="text-secondary-600">Loading setup data...</p>
+      }
+    </div>
+  }
+
+  <!-- Error Message -->
+  @if (error(); as errorMessage) {
+    <div class="error-message-container-compact">
+      <p-message
+        severity="error"
+        [text]="errorMessage"
+        [closable]="true"
+        styleClass="w-full"
+        (onClose)="error.set(null)"
+      />
+    </div>
+  }
+
+  <!-- Back Navigation (only show when not embedded) -->
+  @if (!isEmbedded()) {
+    <div class="flex justify-center mt-6">
+      <p-button
+        [label]="isAuthenticatedFlow() ? 'Back to Dashboard' : 'Back to Method Selection'"
+        icon="pi pi-arrow-left"
+        styleClass="p-button-text p-button-sm"
+        (onClick)="goBack()"
+      />
+    </div>
+  }
+</div>

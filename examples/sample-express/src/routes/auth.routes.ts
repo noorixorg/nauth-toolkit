@@ -129,13 +129,13 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
   /**
    * User logout
    *
+   * Uses GET request to avoid CSRF token issues.
    * Invalidates the current session and clears auth cookies.
    * Cookies are automatically cleared by AuthService.logout()
    *
-   * POST /auth/logout
-   * Body: { forgetMe?: boolean }
+   * GET /auth/logout?forgetMe=true
    */
-  router.post(
+  router.get(
     '/logout',
     nauth.helpers.requireAuth({ csrf: false }),
     async (req: Request, res: Response, next: NextFunction) => {
@@ -143,8 +143,9 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
         const user = nauth.helpers.getCurrentUser();
         // Session ID is automatically extracted from JWT token context by the library
         const dto = new LogoutDTO();
-        if (req.body?.forgetMe !== undefined) {
-          dto.forgetMe = req.body.forgetMe;
+        const forgetMe = req.query.forgetMe;
+        if (forgetMe === 'true' || forgetMe === '1') {
+          dto.forgetMe = true;
         }
         // Optional: validate user sub matches authenticated user
         dto.sub = user!.sub;
@@ -165,15 +166,31 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
    *
    * POST /auth/logout/all
    */
+  /**
+   * POST /auth/logout/all
+   *
+   * Global signout (revoke all sessions)
+   * Requires authentication - user must be logged in.
+   * Optionally revokes all trusted devices if forgetDevices flag is set in request body.
+   *
+   * @body { forgetDevices?: boolean } - Optional flag to also revoke all trusted devices
+   */
   router.post('/logout/all', nauth.helpers.requireAuth(), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = nauth.helpers.getCurrentUser();
       const dto = new LogoutAllDTO();
       dto.sub = user!.sub;
+      if (req.body?.forgetDevices !== undefined) {
+        dto.forgetDevices = req.body.forgetDevices;
+      }
       const result = await nauth.authService.logoutAll(dto);
 
+      const message = dto.forgetDevices
+        ? `All sessions and trusted devices revoked successfully (${result.revokedCount} session(s))`
+        : `All sessions revoked successfully (${result.revokedCount} session(s))`;
+
       res.json({
-        message: `All sessions revoked successfully (${result.revokedCount} session(s))`,
+        message,
         revokedCount: result.revokedCount,
       });
     } catch (error) {
@@ -198,6 +215,28 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
       next(error);
     }
   });
+
+  /**
+   * Check if current device is trusted
+   *
+   * Returns whether the device associated with the current authenticated session
+   * is trusted. Works for both cookies mode (reads from httpOnly cookie) and
+   * JSON mode (reads from X-Device-Token header).
+   *
+   * GET /auth/is-trusted-device
+   */
+  router.get(
+    '/is-trusted-device',
+    nauth.helpers.requireAuth(),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const result = await nauth.authService.isTrustedDevice();
+        res.json(result);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 
   // ============================================================================
   // HELPER ENDPOINTS (3 endpoints)

@@ -14,6 +14,7 @@ import { RiskFactor } from '../enums/risk-factor.enum';
  * - new_country: 25 points (higher - significant geographic change)
  * - impossible_travel: 40 points (critical - strong indicator of account compromise)
  * - suspicious_activity: 30 points (high - recent security events)
+ * - incomplete_location_data: 20 points (medium-high - reduced confidence in risk assessment)
  *
  * **Note:** `new_ip` is automatically excluded when `new_country` or `impossible_travel`
  * is detected to prevent double-counting (IP is the source of location data).
@@ -48,6 +49,7 @@ export class RiskScoringService {
    * - `new_country`: 25 points (higher - significant geographic change)
    * - `impossible_travel`: 40 points (critical - strong indicator of account compromise)
    * - `suspicious_activity`: 30 points (high - recent security events)
+   * - `incomplete_location_data`: 20 points (medium-high - reduced confidence in risk assessment)
    *
    * **Note:** `new_device` weight is set to 25 to ensure it always triggers medium risk
    * (21-50 range) and requires MFA, which is important for first-time logins.
@@ -58,6 +60,7 @@ export class RiskScoringService {
     new_country: 25,
     impossible_travel: 40,
     suspicious_activity: 30,
+    incomplete_location_data: 20,
   };
 
   constructor(

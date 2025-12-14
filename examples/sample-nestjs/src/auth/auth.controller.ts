@@ -2,6 +2,8 @@ import {
   Controller,
   Post,
   Get,
+  Put,
+  Delete,
   Body,
   UseGuards,
   HttpCode,
@@ -30,7 +32,6 @@ import {
   MFAService,
   AuthAuditService,
   SocialAuthService,
-  MFADeviceMethod,
   LogoutDTO,
   RefreshTokenDTO,
   LogoutAllDTO,
@@ -168,8 +169,18 @@ export class CustomAuthController {
   @Post('respond-challenge')
   @HttpCode(HttpStatus.OK)
   async respondToChallenge(@Body() dto: RespondChallengeDTO): Promise<AuthResponseDTO> {
-    this.logger.log(`Challenge response: type=${dto.type}`);
-    return await this.authService.respondToChallenge(dto);
+    const requestId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    this.logger.log(`[${requestId}] Challenge response: type=${dto.type}, session=${dto.session?.substring(0, 8)}...`);
+    try {
+      const result = await this.authService.respondToChallenge(dto);
+      this.logger.log(`[${requestId}] Challenge response completed successfully`);
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `[${requestId}] Challenge response failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -210,38 +221,29 @@ export class CustomAuthController {
   }
 
   /**
-   * User logout
+   * Logout user and revoke session
    *
-   * Invalidates the current session and clears auth cookies.
+   * Uses GET request to avoid CSRF token issues.
+   * Cookies are automatically cleared by AuthService.logout()
+   * No need to manually call clearAuthCookies!
    *
    * @param user - Current user (from JWT)
-   * @param req - Request object (contains session ID in JWT)
-   * @param res - Response object (for clearing cookies)
-   * @param body - Optional forget device flag
+   * @param forgetMe - If true, also untrust the device (require MFA on next login)
    * @returns Success message
    *
    * @example
    * ```typescript
-   * POST /auth/logout
-   * { "forgetMe": true }
+   * GET /auth/logout?forgetMe=true
    * ```
    */
-  /**
-   * Logout user and revoke session
-   *
-   * Cookies are automatically cleared by AuthService.logout()
-   * No need to manually call clearAuthCookies!
-   *
-   * @param forgetMe - If true, also untrust the device (require MFA on next login)
-   */
   @UseGuards(AuthGuard)
-  @Post('logout')
+  @Get('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@CurrentUser() user: IUser, @Body() body?: { forgetMe?: boolean }): Promise<{ message: string }> {
+  async logout(@CurrentUser() user: IUser, @Query('forgetMe') forgetMe?: string): Promise<{ message: string }> {
     // Session ID is automatically extracted from JWT token context by the library
     const dto = new LogoutDTO();
-    if (body?.forgetMe !== undefined) {
-      dto.forgetMe = body.forgetMe;
+    if (forgetMe === 'true' || forgetMe === '1') {
+      dto.forgetMe = true;
     }
     // Optional: validate user sub matches authenticated user
     dto.sub = user.sub;
@@ -263,17 +265,37 @@ export class CustomAuthController {
    * @returns Success message with number of sessions revoked
    */
   @UseGuards(AuthGuard)
+  /**
+   * Global signout (revoke all sessions)
+   *
+   * Requires authentication - user must be logged in.
+   * Optionally revokes all trusted devices if forgetDevices flag is set.
+   *
+   * @param user - Current user (from JWT)
+   * @param body - Optional request body with forgetDevices flag
+   * @returns Number of sessions revoked
+   */
+  @UseGuards(AuthGuard)
   @Post('logout/all')
   @HttpCode(HttpStatus.OK)
-  async logoutAll(@CurrentUser() user: IUser): Promise<{ message: string; revokedCount: number }> {
+  async logoutAll(
+    @CurrentUser() user: IUser,
+    @Body() body?: { forgetDevices?: boolean },
+  ): Promise<{ message: string; revokedCount: number }> {
     // ✅ Automatically clears cookies via ClientInfoService context
     const dto = new LogoutAllDTO();
     dto.sub = user.sub;
+    if (body?.forgetDevices !== undefined) {
+      dto.forgetDevices = body.forgetDevices;
+    }
     const result = await this.authService.logoutAll(dto);
+    const message = body?.forgetDevices
+      ? `All sessions and trusted devices revoked successfully (${result.revokedCount} session(s))`
+      : `All sessions revoked successfully (${result.revokedCount} session(s))`;
     this.logger.log(`Global signout: ${user.email} (${result.revokedCount} session(s) revoked)`);
 
     return {
-      message: `All sessions revoked successfully (${result.revokedCount} session(s))`,
+      message,
       revokedCount: result.revokedCount,
     };
   }
@@ -295,6 +317,24 @@ export class CustomAuthController {
     // Session ID is automatically extracted from JWT token context by the library
     const result = await this.authService.trustDevice();
     this.logger.log(`Device trusted for user: ${user.email}`);
+    return result;
+  }
+
+  /**
+   * Check if current device is trusted
+   *
+   * Returns whether the device associated with the current authenticated session
+   * is trusted. Works for both cookies mode (reads from httpOnly cookie) and
+   * JSON mode (reads from X-Device-Token header).
+   *
+   * @param user - Current user (from JWT)
+   * @returns Trusted device status
+   */
+  @UseGuards(AuthGuard)
+  @Get('is-trusted-device')
+  @HttpCode(HttpStatus.OK)
+  async isTrustedDevice(): Promise<{ trusted: boolean }> {
+    const result = await this.authService.isTrustedDevice();
     return result;
   }
 
@@ -415,6 +455,19 @@ export class CustomAuthController {
   @Get('profile')
   async getProfile(@CurrentUser() user: IUser): Promise<IUser> {
     return user;
+  }
+
+  /**
+   * Update current user profile
+   */
+  @UseGuards(AuthGuard)
+  @Put('profile')
+  async updateProfile(@CurrentUser() user: IUser, @Body() body: any) {
+    const dto = {
+      sub: user.sub,
+      ...body,
+    };
+    return await this.authService.updateUserAttributes(dto);
   }
 
   /**
@@ -577,6 +630,45 @@ export class CustomAuthController {
       methodType: body.method,
     });
     return { message: 'Preferred MFA method updated successfully' };
+  }
+
+  /**
+   * Remove MFA devices by method type
+   *
+   * Removes all active MFA devices of the specified method type for the current user.
+   * Automatically disables MFA if this was the last device.
+   *
+   * @param user - Current user (from JWT)
+   * @param method - MFA method type to remove (totp, sms, email, passkey)
+   * @returns Response with deletedCount and mfaDisabled status
+   *
+   * @example
+   * ```typescript
+   * DELETE /auth/mfa/method/totp
+   * // Returns: { deletedCount: 1, mfaDisabled: false, message: "MFA method removed successfully" }
+   * ```
+   */
+  @UseGuards(AuthGuard)
+  @Delete('mfa/method/:method')
+  @HttpCode(HttpStatus.OK)
+  async removeMFAMethod(
+    @CurrentUser() user: IUser,
+    @Param('method') method: string,
+  ): Promise<{ message: string; deletedCount: number; mfaDisabled: boolean }> {
+    if (!this.mfaService) {
+      throw new BadRequestException('MFA service is not available');
+    }
+
+    const result = await this.mfaService.removeDevices({
+      userSub: user.sub,
+      methodType: method,
+    });
+
+    return {
+      message: 'MFA method removed successfully',
+      deletedCount: result.deletedCount,
+      mfaDisabled: result.mfaDisabled,
+    };
   }
 
   /**

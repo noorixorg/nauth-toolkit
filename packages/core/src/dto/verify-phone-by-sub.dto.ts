@@ -1,4 +1,4 @@
-import { IsUUID, IsNumberString, Length } from 'class-validator';
+import { IsUUID, IsNumberString, Length, IsOptional, IsInt, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 /**
@@ -61,4 +61,18 @@ export class VerifyPhoneWithCodeBySubDTO {
     return value;
   })
   code!: string;
+
+  /**
+   * Challenge session ID (internal use)
+   * Optional - used internally to link verification to specific challenge session.
+   * Provides security by ensuring codes are only valid for the session they were created for.
+   *
+   * Validation:
+   * - Must be a positive integer if provided
+   * - Optional (for backward compatibility and direct verification flows)
+   */
+  @IsOptional()
+  @IsInt({ message: 'challengeSessionId must be an integer' })
+  @Min(1, { message: 'challengeSessionId must be a positive integer' })
+  challengeSessionId?: number;
 }

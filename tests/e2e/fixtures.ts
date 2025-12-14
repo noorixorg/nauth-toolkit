@@ -67,6 +67,7 @@ type Flows = {
     challengeName: string,
     code: string,
   ) => Promise<FlowResult<{ challengeName?: string; session?: string }>>;
+  resendCode: () => Promise<FlowResult<{ destination?: string }>>;
   refreshToken: () => Promise<FlowResult<void>>;
   logout: () => Promise<FlowResult<void>>;
   setupMFA: (method: 'TOTP' | 'SMS') => Promise<FlowResult<{ secret?: string }>>;
@@ -82,6 +83,7 @@ type EndpointConfig = {
   verifyEmail: string;
   verifyPhone: string;
   challenge: string;
+  respondChallenge: string;
   completeChallenge: string;
   mfa: {
     setup: string;
@@ -847,6 +849,70 @@ export const test = base.extend<TestFixtures>({
       },
 
       /**
+       * Resend verification code
+       * Returns result - test should use expect() to validate
+       */
+      resendCode: async (): Promise<FlowResult<{ destination?: string }>> => {
+        const endpoint = `${baseURL}/auth/challenge/resend`;
+
+        if (!flowState.challengeSession) {
+          return {
+            success: false,
+            error: 'No active challenge session',
+          };
+        }
+
+        let response = await api.post(endpoint, {
+          data: {
+            session: flowState.challengeSession,
+          },
+        });
+
+        let success = response.status() === 200;
+        let body: any = {};
+        try {
+          body = await response.json();
+        } catch {
+          // Response might not be JSON
+        }
+
+        // Handle rate limit errors by waiting and retrying once
+        if (!success && body.code === 'RATE_LIMIT_RESEND' && body.details?.retryAfter) {
+          const waitMs = (body.details.retryAfter + 0.1) * 1000; // Add 100ms buffer
+          console.log(`Resend rate limited, waiting ${waitMs}ms before retry...`);
+          await new Promise((resolve) => setTimeout(resolve, waitMs));
+
+          // Retry once
+          response = await api.post(endpoint, {
+            data: {
+              session: flowState.challengeSession,
+            },
+          });
+
+          success = response.status() === 200;
+          try {
+            body = await response.json();
+          } catch {
+            // Response might not be JSON
+          }
+        }
+
+        if (!success) {
+          console.error(`Resend code failed: status=${response.status()}, body=`, JSON.stringify(body, null, 2));
+          console.error(`Resend request was: session=${flowState.challengeSession}`);
+        } else {
+          console.log(`Resend code succeeded: destination=${body.destination}`);
+        }
+
+        return {
+          success,
+          response,
+          data: body,
+          error: success ? undefined : `HTTP ${response.status()}`,
+        };
+      },
+
+      /**
        * Logout
        * Returns result - test should use expect() to validate
        */
@@ -854,7 +920,8 @@ export const test = base.extend<TestFixtures>({
         const endpoint = `${baseURL}/auth/logout`;
 
         // Tokens/cookies are automatically sent by api fixture
-        const response = await api.post(endpoint);
+        // Logout is now a GET request
+        const response = await api.get(endpoint);
 
         const success = response.status() === 200;
         if (!success) {
@@ -1067,7 +1134,7 @@ export const test = base.extend<TestFixtures>({
   // ============================================================================
   mail: async ({ baseURL }, use) => {
     await use({
-      latestCode: async (email: string) => {
+      latestCode: async (sessionId: string) => {
         // Retry logic: Email codes are sent asynchronously, so we need to poll
         const maxRetries = 10; // Increased retries
         const retryDelay = 500; // 500ms between retries
@@ -1078,7 +1145,7 @@ export const test = base.extend<TestFixtures>({
 
         for (let attempt = 0; attempt < maxRetries; attempt++) {
           try {
-            const url = `${baseURL}/test/email/latest?email=${encodeURIComponent(email)}`;
+            const url = `${baseURL}/test/code/latest?sessionId=${encodeURIComponent(sessionId)}`;
             const r = await fetch(url);
             if (r.ok) {
               const j = (await r.json()) as { code?: string };
@@ -1098,7 +1165,7 @@ export const test = base.extend<TestFixtures>({
 
         return ''; // Return empty if code not found after all retries
       },
-      latestLink: async (_email: string) => {
+      latestLink: async (_sessionId: string) => {
         // Link extraction not available via test endpoint - would need to parse email body
         // For now, return empty string as links are typically not needed for E2E tests
         return '';
@@ -1111,16 +1178,17 @@ export const test = base.extend<TestFixtures>({
   // ============================================================================
   sms: async ({ baseURL }, use) => {
     await use({
-      latestCode: async (phone: string) => {
+      latestCode: async (sessionId: string) => {
         // Retry logic: SMS codes are sent asynchronously, so we need to poll
-        const maxRetries = 5;
+        const maxRetries = 10; // Increased retries
         const retryDelay = 500; // 500ms between retries
         // Initial delay: wait for email/sms to fire and forget trigger to complete
         // SMS sending involves database writes which may take longer
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Increased delay to account for async SMS sending in challenge creation
+        await new Promise((resolve) => setTimeout(resolve, 2000));
         for (let attempt = 0; attempt < maxRetries; attempt++) {
           try {
-            const r = await fetch(`${baseURL}/test/sms/latest?phone=${encodeURIComponent(phone)}`);
+            const r = await fetch(`${baseURL}/test/code/latest?sessionId=${encodeURIComponent(sessionId)}`);
             if (r.ok) {
               const j = (await r.json()) as { code?: string };
               if (j.code) {

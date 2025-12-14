@@ -29,12 +29,10 @@ if (DEFERRED_VERIFICATION_ENABLED) {
     const { shouldSkip, tagSuffix } = processTestConfig(config);
 
     if (shouldSkip) {
-      test.describe.skip(
-        `Deferred Verification - Email Only: ${config.name} [SKIPPED - doesn't match current config]`,
-        () => {
-          test('Skipped - config does not match current auth.config.ts', () => {});
-        },
-      );
+      test.describe
+        .skip(`Deferred Verification - Email Only: ${config.name} [SKIPPED - doesn't match current config]`, () => {
+        test('Skipped - config does not match current auth.config.ts', () => {});
+      });
       continue;
     }
 
@@ -181,7 +179,7 @@ if (DEFERRED_VERIFICATION_ENABLED) {
             ],
           },
           async ({ flows, flowState, authConfig, mail, cookies }) => {
-            const code = await mail.latestCode(flowState.userEmail);
+            const code = await mail.latestCode(flowState.challengeSession!);
             expect(code).toBeTruthy();
 
             const result = await flows.completeChallenge('VERIFY_EMAIL', code);
@@ -222,12 +220,10 @@ if (DEFERRED_VERIFICATION_ENABLED) {
     const { shouldSkip, tagSuffix } = processTestConfig(config);
 
     if (shouldSkip) {
-      test.describe.skip(
-        `Deferred Verification - Phone Only: ${config.name} [SKIPPED - doesn't match current config]`,
-        () => {
-          test('Skipped - config does not match current auth.config.ts', () => {});
-        },
-      );
+      test.describe
+        .skip(`Deferred Verification - Phone Only: ${config.name} [SKIPPED - doesn't match current config]`, () => {
+        test('Skipped - config does not match current auth.config.ts', () => {});
+      });
       continue;
     }
 
@@ -346,6 +342,10 @@ if (DEFERRED_VERIFICATION_ENABLED) {
             expect(result.data?.challengeName).toBe('VERIFY_PHONE');
             expect(result.data?.session).toBeTruthy();
 
+            // Store challenge session for next step
+            flowState.challengeSession = result.data?.session;
+            flowState.challengeName = result.data?.challengeName;
+
             // Should NOT have tokens yet
             if (authConfig.expectJsonTokens()) {
               const body = await result.response!.json();
@@ -375,7 +375,11 @@ if (DEFERRED_VERIFICATION_ENABLED) {
             ],
           },
           async ({ flows, flowState, authConfig, sms, cookies }) => {
-            const code = await sms.latestCode(flowState.userPhone!);
+            // Ensure challenge session is set
+            expect(flowState.challengeSession).toBeTruthy();
+            expect(flowState.challengeSession).not.toBe('undefined');
+
+            const code = await sms.latestCode(flowState.challengeSession!);
             expect(code).toBeTruthy();
 
             const result = await flows.completeChallenge('VERIFY_PHONE', code);
@@ -384,14 +388,23 @@ if (DEFERRED_VERIFICATION_ENABLED) {
             expect(result.response?.status()).toBe(200);
 
             // Should have tokens now (verification complete)
-            if (authConfig.expectCookies()) {
-              const parsedCookies = cookies.parseFromResponse(result.response!);
-              expect(parsedCookies).toHaveProperty('nauth_access_token');
-              expect(parsedCookies).toHaveProperty('nauth_refresh_token');
-            } else if (authConfig.expectJsonTokens()) {
+            // Unless MFA setup required (when mfaGracePeriod === 0)
+            if (authConfig.shouldRequireMFA() && authConfig.mfaGracePeriod === 0) {
               const body = await result.response!.json();
-              expect(body).toHaveProperty('accessToken');
-              expect(body).toHaveProperty('refreshToken');
+              expect(body.challengeName).toBe('MFA_SETUP_REQUIRED');
+              expect(body.session).toBeDefined();
+              // Store the MFA setup challenge session for next step (if needed)
+              flowState.challengeSession = body.session;
+            } else {
+              if (authConfig.expectCookies()) {
+                const parsedCookies = cookies.parseFromResponse(result.response!);
+                expect(parsedCookies).toHaveProperty('nauth_access_token');
+                expect(parsedCookies).toHaveProperty('nauth_refresh_token');
+              } else if (authConfig.expectJsonTokens()) {
+                const body = await result.response!.json();
+                expect(body).toHaveProperty('accessToken');
+                expect(body).toHaveProperty('refreshToken');
+              }
             }
           },
         );
@@ -407,12 +420,10 @@ if (DEFERRED_VERIFICATION_ENABLED) {
     const { shouldSkip, tagSuffix } = processTestConfig(config);
 
     if (shouldSkip) {
-      test.describe.skip(
-        `Deferred Verification - Both (3a: Skip Email): ${config.name} [SKIPPED - doesn't match current config]`,
-        () => {
-          test('Skipped - config does not match current auth.config.ts', () => {});
-        },
-      );
+      test.describe
+        .skip(`Deferred Verification - Both (3a: Skip Email): ${config.name} [SKIPPED - doesn't match current config]`, () => {
+        test('Skipped - config does not match current auth.config.ts', () => {});
+      });
       continue;
     }
 
@@ -547,7 +558,7 @@ if (DEFERRED_VERIFICATION_ENABLED) {
             ],
           },
           async ({ flows, flowState, authConfig, mail }) => {
-            const code = await mail.latestCode(flowState.userEmail);
+            const code = await mail.latestCode(flowState.challengeSession!);
             expect(code).toBeTruthy();
 
             const result = await flows.completeChallenge('VERIFY_EMAIL', code);
@@ -618,7 +629,11 @@ if (DEFERRED_VERIFICATION_ENABLED) {
             ],
           },
           async ({ flows, flowState, authConfig, sms, cookies }) => {
-            const code = await sms.latestCode(flowState.userPhone!);
+            // Ensure challenge session is set
+            expect(flowState.challengeSession).toBeTruthy();
+            expect(flowState.challengeSession).not.toBe('undefined');
+
+            const code = await sms.latestCode(flowState.challengeSession!);
             expect(code).toBeTruthy();
 
             const result = await flows.completeChallenge('VERIFY_PHONE', code);
@@ -656,12 +671,10 @@ if (DEFERRED_VERIFICATION_ENABLED) {
     const { shouldSkip: shouldSkip3b, tagSuffix: tagSuffix3b } = processTestConfig(config);
 
     if (shouldSkip3b) {
-      test.describe.skip(
-        `Deferred Verification - Both (3b: Skip Phone): ${config.name} [SKIPPED - doesn't match current config]`,
-        () => {
-          test('Skipped - config does not match current auth.config.ts', () => {});
-        },
-      );
+      test.describe
+        .skip(`Deferred Verification - Both (3b: Skip Phone): ${config.name} [SKIPPED - doesn't match current config]`, () => {
+        test('Skipped - config does not match current auth.config.ts', () => {});
+      });
       continue;
     }
 
@@ -749,7 +762,7 @@ if (DEFERRED_VERIFICATION_ENABLED) {
             ],
           },
           async ({ flows, flowState, authConfig, mail }) => {
-            const code = await mail.latestCode(flowState.userEmail);
+            const code = await mail.latestCode(flowState.challengeSession!);
             expect(code).toBeTruthy();
 
             const result = await flows.completeChallenge('VERIFY_EMAIL', code);
@@ -860,7 +873,11 @@ if (DEFERRED_VERIFICATION_ENABLED) {
             ],
           },
           async ({ flows, flowState, authConfig, sms, cookies }) => {
-            const code = await sms.latestCode(flowState.userPhone!);
+            // Ensure challenge session is set
+            expect(flowState.challengeSession).toBeTruthy();
+            expect(flowState.challengeSession).not.toBe('undefined');
+
+            const code = await sms.latestCode(flowState.challengeSession!);
             expect(code).toBeTruthy();
 
             const result = await flows.completeChallenge('VERIFY_PHONE', code);
@@ -945,7 +962,7 @@ if (DEFERRED_VERIFICATION_ENABLED) {
                   type: 'MFA_SETUP_REQUIRED',
                   session: flowState.challengeSession,
                   method: 'sms',
-                  setupData: {},  // Empty since auto-completed
+                  setupData: {}, // Empty since auto-completed
                 },
               });
               expect(result.status()).toBe(200);
@@ -964,7 +981,7 @@ if (DEFERRED_VERIFICATION_ENABLED) {
               await new Promise((resolve) => setTimeout(resolve, 500));
 
               // Get the new SMS code for MFA setup
-              const code = await sms.latestCode(flowState.userPhone!);
+              const code = await sms.latestCode(flowState.challengeSession!);
               expect(code).toBeTruthy();
 
               const result = await flows.completeMFASetupChallenge(code);
@@ -1017,7 +1034,7 @@ if (DEFERRED_VERIFICATION_ENABLED) {
               await new Promise((resolve) => setTimeout(resolve, 1000));
 
               // Complete MFA verification
-              const mfaCode = await sms.latestCode(flowState.userPhone!);
+              const mfaCode = await sms.latestCode(flowState.challengeSession!);
               expect(mfaCode).toBeTruthy();
 
               const mfaResult = await flows.verifyMFA(mfaCode);

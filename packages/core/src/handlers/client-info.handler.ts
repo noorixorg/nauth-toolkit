@@ -9,7 +9,7 @@
  * Context initialization is handled by the adapter, not this handler.
  */
 
-import { ContextStorage, ClientInfoService, IClientInfo, NAuthLogger } from '../index';
+import { ContextStorage, ClientInfoService, IClientInfo, NAuthLogger, getDeviceTokenCookieName } from '../index';
 import { GeoLocationService } from '../internal';
 import { NAuthRequest, NAuthResponse } from '../platform/interfaces';
 
@@ -53,7 +53,9 @@ export class ClientInfoHandler {
     const parsedUA = this.clientInfoService.parseUserAgent(userAgent);
 
     // Extract device token from cookie or header
-    const deviceToken = req.cookies['nauth_device_id'] || req.getHeader('x-device-token');
+    // Use default cookie name (nauth_device_token) if config not available
+    const deviceTokenCookieName = getDeviceTokenCookieName();
+    const deviceToken = req.cookies[deviceTokenCookieName] || req.getHeader('x-device-token');
 
     // Build client info object
     const clientInfo: IClientInfo = {
@@ -65,8 +67,11 @@ export class ClientInfoHandler {
       platform: parsedUA.platform || undefined,
       browser: parsedUA.browser || undefined,
       sessionId: undefined, // Set later by AuthHandler
+      userId: undefined, // Set later by AuthHandler
       ipCountry: undefined,
       ipCity: undefined,
+      ipLatitude: undefined,
+      ipLongitude: undefined,
     };
 
     // Populate geolocation if service available
@@ -75,8 +80,14 @@ export class ClientInfoHandler {
         const geo = await this.geoLocationService.getIpGeolocation(clientInfo.ipAddress);
         clientInfo.ipCountry = geo.country;
         clientInfo.ipCity = geo.city;
-      } catch {
-        // Silently fail - geolocation is optional
+        clientInfo.ipLatitude = geo.latitude;
+        clientInfo.ipLongitude = geo.longitude;
+      } catch (error) {
+        // Log error instead of silently failing
+        this.logger?.error?.(
+          `Geolocation lookup failed for IP ${clientInfo.ipAddress}:`,
+          error instanceof Error ? error.message : 'Unknown error',
+        );
       }
     }
 

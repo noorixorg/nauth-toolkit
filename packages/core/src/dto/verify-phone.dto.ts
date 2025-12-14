@@ -8,6 +8,8 @@ import {
   IsUUID,
   IsOptional,
   IsBoolean,
+  IsInt,
+  Min,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -86,6 +88,20 @@ export class VerifyPhoneWithCodeDTO {
     return value;
   })
   code!: string;
+
+  /**
+   * Challenge session ID (internal use)
+   * Optional - used internally to link verification to specific challenge session.
+   * Provides security by ensuring codes are only valid for the session they were created for.
+   *
+   * Validation:
+   * - Must be a positive integer if provided
+   * - Optional (for backward compatibility and direct verification flows)
+   */
+  @IsOptional()
+  @IsInt({ message: 'challengeSessionId must be an integer' })
+  @Min(1, { message: 'challengeSessionId must be a positive integer' })
+  challengeSessionId?: number;
 }
 
 /**
@@ -125,6 +141,20 @@ export class SendVerificationSMSDTO {
   @IsOptional()
   @IsBoolean({ message: 'skipAlreadyVerifiedCheck must be a boolean' })
   skipAlreadyVerifiedCheck?: boolean;
+
+  /**
+   * Challenge session ID to link this verification token to
+   * Optional - for linking verification tokens to specific challenge sessions.
+   * Provides security by preventing old tokens from being used with new sessions.
+   *
+   * Validation:
+   * - Must be a positive integer
+   * - Optional (for backward compatibility and non-challenge flows)
+   */
+  @IsOptional()
+  @IsInt({ message: 'challengeSessionId must be an integer' })
+  @Min(1, { message: 'challengeSessionId must be a positive integer' })
+  challengeSessionId?: number;
 }
 
 /**

@@ -190,7 +190,7 @@ async logout(dto: LogoutDTO): Promise<LogoutResponseDTO>
 
 **Parameters**
 
-- `dto` - [`LogoutDTO`](../dto/logout-dto)
+- `dto` - [`LogoutDTO`](../dto/logout-dto) - Contains `sub` (user identifier) and optional `forgetMe` flag
 
 **Returns**
 
@@ -202,12 +202,23 @@ async logout(dto: LogoutDTO): Promise<LogoutResponseDTO>
 | ------------------- | ------------------------- | ------------------------ |
 | `SESSION_NOT_FOUND` | Session not found/revoked | `{ sessionId?: string }` |
 
+:::warning Authentication Required
+This method requires the user to be authenticated. The endpoint is protected and cannot be called publicly. The `sub` field is automatically extracted from the authenticated user's JWT token by framework adapters.
+:::
+
 **Example**
 
 ```typescript
+// Normal logout (device remains trusted)
 await authService.logout({
   sub: 'a21b654c-2746-4168-acee-c175083a65cd',
   forgetMe: false,
+});
+
+// Logout and forget device (device untrusted, MFA required on next login)
+await authService.logout({
+  sub: 'a21b654c-2746-4168-acee-c175083a65cd',
+  forgetMe: true,
 });
 ```
 
@@ -215,7 +226,7 @@ await authService.logout({
 
 ### logoutAll()
 
-Logout user from all sessions.
+Logout user from all sessions across all devices.
 
 ```typescript
 async logoutAll(dto: LogoutAllDTO): Promise<LogoutAllResponseDTO>
@@ -223,7 +234,7 @@ async logoutAll(dto: LogoutAllDTO): Promise<LogoutAllResponseDTO>
 
 **Parameters**
 
-- `dto` - [`LogoutAllDTO`](../dto/logout-all-dto)
+- `dto` - [`LogoutAllDTO`](../dto/logout-all-dto) - Contains `sub` (user identifier) and optional `forgetDevices` flag
 
 **Returns**
 
@@ -235,11 +246,23 @@ async logoutAll(dto: LogoutAllDTO): Promise<LogoutAllResponseDTO>
 | ----------- | -------------- | --------------------- |
 | `NOT_FOUND` | User not found | `{ userId?: string }` |
 
+:::warning Authentication Required
+This method requires the user to be authenticated. The endpoint is protected and cannot be called publicly. The `sub` field is automatically extracted from the authenticated user's JWT token by framework adapters.
+:::
+
 **Example**
 
 ```typescript
+// Revoke all sessions but keep devices trusted
 const result = await authService.logoutAll({
   sub: 'a21b654c-2746-4168-acee-c175083a65cd',
+  forgetDevices: false,
+});
+
+// Revoke all sessions AND all trusted devices
+const result2 = await authService.logoutAll({
+  sub: 'a21b654c-2746-4168-acee-c175083a65cd',
+  forgetDevices: true,
 });
 ```
 
@@ -497,6 +520,23 @@ const updatedUser = await authService.updateUserAttributes({
   lastName: 'Doe',
 });
 ```
+
+:::warning MFA Device Deletion
+When updating `email` or `phone`, associated MFA devices are **automatically deleted** (cannot be reactivated):
+
+- **Email change**: All Email MFA devices are permanently deleted (requires re-setup)
+- **Phone change**: All SMS MFA devices with the old number are permanently deleted (requires re-setup)
+
+If the deleted device(s) were the only MFA method(s), MFA is **disabled** for the user. They will need to set up MFA again at next login if MFA is required.
+
+**Audit events** are logged for all device deletions with reason `email_changed` or `phone_changed`.
+:::
+
+**Best Practices**
+
+- Set `retainVerification: true` only when transferring between trusted systems
+- Notify users when their MFA devices are removed due to profile changes
+- Guide users through MFA setup after email/phone changes if MFA is required
 
 ---
 

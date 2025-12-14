@@ -16,7 +16,8 @@ import {
   SessionService,
   AuthChallengeHelperService,
   SocialProviderRegistry,
-  AuthAuditService, // Internal version with recordEvent()
+  AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent()
+  TrustedDeviceService,
 } from '@nauth-toolkit/core/internal';
 import { TokenVerifierService as FacebookTokenVerifierService } from '../src/token-verifier.service';
 
@@ -79,7 +80,8 @@ import { TokenVerifierService as FacebookTokenVerifierService } from '../src/tok
         stateStore: Map<string, { timestamp: number; provider: string }>,
         userRepository: any,
         phoneVerificationService?: PhoneVerificationService,
-        auditService?: AuthAuditService, // Optional - only available when auditLogs.enabled is true
+        auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
+        trustedDeviceService?: TrustedDeviceService, // Optional - only available when rememberDevices is enabled
         tokenVerifier?: ITokenVerifierService,
       ) => {
         return new FacebookSocialAuthService(
@@ -95,6 +97,7 @@ import { TokenVerifierService as FacebookTokenVerifierService } from '../src/tok
           userRepository,
           phoneVerificationService,
           auditService,
+          trustedDeviceService,
           tokenVerifier,
         );
       },
@@ -110,7 +113,8 @@ import { TokenVerifierService as FacebookTokenVerifierService } from '../src/tok
         'SOCIAL_AUTH_STATE_STORE',
         'UserRepository',
         { token: PhoneVerificationService, optional: true },
-        { token: AuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
+        { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
+        { token: TrustedDeviceService, optional: true }, // Optional - only available when rememberDevices is enabled
         { token: 'FACEBOOK_TOKEN_VERIFIER', optional: true },
       ],
     },

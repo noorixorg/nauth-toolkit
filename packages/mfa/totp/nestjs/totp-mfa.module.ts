@@ -2,15 +2,10 @@ import { Module, OnModuleInit } from '@nestjs/common';
 import { TOTPMFAProviderService } from '../src/totp-mfa-provider.service';
 import { TOTPService } from '../src/totp.service';
 // Public API imports
-import {
-  MFAService,
-  NAuthConfig,
-  NAuthLogger,
-} from '@nauth-toolkit/core';
+import { MFAService, NAuthConfig, NAuthLogger } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
-import {
-  PasswordService,
-} from '@nauth-toolkit/core/internal';
+import { PasswordService, AuthAuditService as InternalAuthAuditService } from '@nauth-toolkit/core/internal';
+import { ClientInfoService } from '@nauth-toolkit/core';
 import { Repository } from 'typeorm';
 import { BaseMFADevice, BaseUser } from '@nauth-toolkit/core';
 
@@ -75,8 +70,8 @@ import { BaseMFADevice, BaseUser } from '@nauth-toolkit/core';
         { token: PasswordService, optional: true },
         TOTPService,
         { token: 'ChallengeService', optional: true },
-        { token: 'AuthAuditService', optional: true },
-        { token: 'ClientInfoService', optional: true },
+        { token: InternalAuthAuditService, optional: true },
+        { token: ClientInfoService, optional: true },
       ],
     },
   ],
@@ -98,4 +93,3 @@ export class TOTPMFAModule implements OnModuleInit {
     this.mfaService.registerProvider(this.totpMFAProvider);
   }
 }
-

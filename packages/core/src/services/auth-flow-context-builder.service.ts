@@ -184,6 +184,15 @@ export class AuthFlowContextBuilder {
   /**
    * Check if phone collection is needed
    *
+   * Phone collection is the step where we ask users to provide their phone number.
+   * This should NOT be triggered if:
+   * - User already has a verified phone (e.g., from prior signup or account linking)
+   * - Phone verification is not required by config
+   *
+   * **Bug Fix (2025-12-08):**
+   * Previously didn't check `isPhoneVerified`, causing social login users with
+   * verified phones to be asked for phone collection again after account linking.
+   *
    * @param user - User to check
    * @param config - Auth configuration
    * @param _authMethod - Authentication method (unused, kept for API consistency)
@@ -194,6 +203,17 @@ export class AuthFlowContextBuilder {
 
     // Phone collection not needed if verification is disabled or email-only
     if (verificationMethod === 'none' || verificationMethod === 'email') {
+      return false;
+    }
+
+    // ============================================================================
+    // Skip phone collection if phone is already verified
+    // ============================================================================
+    // This handles cases like:
+    // - User signs up with password + phone verification, then later links social account
+    // - Account linking where existing account has verified phone
+    // - Any scenario where phone is already verified (we trust it)
+    if (user.isPhoneVerified) {
       return false;
     }
 
@@ -447,14 +467,21 @@ export class AuthFlowContextBuilder {
         return { required: true };
       }
 
-      // For ADAPTIVE, untrusted devices always require MFA
-      if (!isDeviceTrusted) {
-        return { required: true };
-      }
-
-      // Evaluate adaptive MFA for trusted devices
+      // Always evaluate adaptive MFA for complete risk assessment (trusted or untrusted)
       try {
         const decision = await this.adaptiveMFADecisionService.evaluateAdaptiveMFA(user, authMethod || 'password');
+
+        // For untrusted devices, always require MFA regardless of risk score
+        // (new devices are inherently riskier and should verify)
+        if (!isDeviceTrusted) {
+          return {
+            required: true,
+            riskScore: decision.riskScore,
+            riskLevel: decision.riskLevel,
+          };
+        }
+
+        // For trusted devices, use risk-based decision
         return {
           required: decision.action === 'require_mfa',
           riskScore: decision.riskScore,

@@ -108,6 +108,16 @@ export class BaseAuthAudit {
   ipCity?: string | null;
 
   /**
+   * Latitude from IP geolocation (optional, for impossible travel detection)
+   */
+  ipLatitude?: number | null;
+
+  /**
+   * Longitude from IP geolocation (optional, for impossible travel detection)
+   */
+  ipLongitude?: number | null;
+
+  /**
    * User agent string
    */
   userAgent?: string | null;

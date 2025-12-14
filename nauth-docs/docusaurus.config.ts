@@ -140,6 +140,12 @@ const config: Config = {
           position: 'left',
           label: 'API Reference',
         },
+        {
+          type: 'docSidebar',
+          sidebarId: 'frontendSdkSidebar',
+          position: 'left',
+          label: 'Frontend SDK',
+        },
 
         {
           href: 'https://www.npmjs.com/package/@nauth-toolkit/core',

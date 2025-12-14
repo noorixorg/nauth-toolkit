@@ -34,14 +34,7 @@ export default [
     languageOptions: {
       parser: tsparser,
       parserOptions: {
-        project: [
-          './packages/*/tsconfig.lint.json',
-          './packages/**/tsconfig.lint.json',
-          './packages/**/tsconfig.json',
-          './examples/*/tsconfig.json',
-          './examples/*/tsconfig.app.json',
-          './examples/*/tsconfig.spec.json',
-        ],
+        projectService: true,
         tsconfigRootDir: import.meta.dirname,
         sourceType: 'module',
         ecmaVersion: 2022,
@@ -136,10 +129,18 @@ export default [
   // Override for test files
   {
     files: ['**/*.spec.ts', '**/*.test.ts'],
+    languageOptions: {
+      parserOptions: {
+        projectService: true, // Use projectService for test files too
+      },
+    },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off', // Allow 'any' in tests
       'no-console': 'off', // Allow console in tests
       'unused-imports/no-unused-vars': 'off', // Don't warn in tests
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
     },
   },
 

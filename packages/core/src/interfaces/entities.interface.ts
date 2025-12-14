@@ -112,6 +112,7 @@ export interface ILoginAttempt {
 export interface IVerificationToken {
   id: number;
   userId: number;
+  challengeSessionId?: number | null;
   type: 'email' | 'phone' | 'password_reset';
   token: string;
   code: string | null;
@@ -160,10 +161,8 @@ export interface IChallengeSession {
   attempts: number;
   maxAttempts: number;
   expiresAt: Date;
-  isConsumed: boolean;
-  isCompleted?: boolean; // Optional for compatibility
-  consumedAt: Date | null;
-  completedAt?: Date | null; // Optional for compatibility
+  isCompleted?: boolean;
+  completedAt?: Date | null;
   ipAddress: string | null;
   userAgent: string | null;
   createdAt: Date;

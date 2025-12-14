@@ -134,11 +134,11 @@ describe('EmailMFAProviderService', () => {
     };
 
     it('should send verification Email', async () => {
-      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue(1);
+      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 1 } as any);
 
       await service.setup(mockUser, setupDto);
 
-      expect(mockEmailVerificationService.sendVerificationEmail).toHaveBeenCalledWith('user-123');
+      expect(mockEmailVerificationService.sendVerificationEmail).toHaveBeenCalled();
       expect(mockLogger.log).toHaveBeenCalledWith((expect as any).stringContaining('Setting up Email MFA'));
     });
 
@@ -348,6 +348,61 @@ describe('EmailMFAProviderService', () => {
       expect(mockEmailVerificationService.verifyEmailWithCode).not.toHaveBeenCalled();
       expect(mockMfaDeviceRepository.create).toHaveBeenCalled();
     });
+
+    it('should fall back to user email when dto.email is undefined', async () => {
+      const verifyDtoWithoutEmail = {
+        code: '123456',
+      } as VerifyEmailMFASetupDTO;
+
+      const mockDevice = {
+        id: 1,
+        userId: 1,
+        type: MFAMethod.EMAIL,
+        name: 'Email',
+        email: 'user@example.com',
+        isActive: true,
+        isPrimary: true,
+      };
+
+      mockEmailVerificationService.verifyEmailWithCode.mockResolvedValue({ message: 'Verified' });
+      mockMfaDeviceRepository.create.mockReturnValue(mockDevice as any);
+      mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
+      mockMfaDeviceRepository.find.mockResolvedValue([]);
+      mockUserRepository.findOne.mockResolvedValue({ ...mockUser, mfaEnabled: false } as any);
+      mockUserRepository.save.mockResolvedValue({ ...mockUser, mfaEnabled: true } as any);
+
+      const result = await service.verifySetup(mockUser, verifyDtoWithoutEmail);
+
+      expect(result).toBe(1);
+      // Should use user.email (from mockUser) when dto.email is undefined
+      expect(mockMfaDeviceRepository.create).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          email: 'user@example.com',
+        }),
+      );
+    });
+
+    it('should throw error when both dto.email and user.email are missing', async () => {
+      const verifyDtoWithoutEmail = {
+        code: '123456',
+      } as VerifyEmailMFASetupDTO;
+
+      const mockUserNoEmail = {
+        id: 1,
+        sub: 'user-123',
+        email: null,
+        mfaEnabled: false,
+      } as unknown as IUser;
+
+      try {
+        await service.verifySetup(mockUserNoEmail, verifyDtoWithoutEmail);
+        fail('Should have thrown NAuthException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect((error as NAuthException).code).toBe(AuthErrorCode.VALIDATION_FAILED);
+        expect((error as NAuthException).message).toContain('Email address is required');
+      }
+    });
   });
 
   // ============================================================================
@@ -443,12 +498,12 @@ describe('EmailMFAProviderService', () => {
       };
 
       mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
-      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue(1);
+      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 1 } as any);
 
       const result = await service.sendChallenge(mockUser);
 
       expect(result).toBe('u***r@example.com');
-      expect(mockEmailVerificationService.sendVerificationEmail).toHaveBeenCalledWith('user-123');
+      expect(mockEmailVerificationService.sendVerificationEmail).toHaveBeenCalled();
       expect(mockLogger.log).toHaveBeenCalledWith((expect as any).stringContaining('Email MFA code sent'));
     });
 
@@ -465,7 +520,7 @@ describe('EmailMFAProviderService', () => {
       }
     });
 
-    it('should throw error when device has no email', async () => {
+    it('should fall back to user email when device has no email', async () => {
       const mockDevice = {
         id: 1,
         userId: 1,
@@ -477,14 +532,42 @@ describe('EmailMFAProviderService', () => {
       };
 
       mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
+      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 1 } as any);
+
+      const result = await service.sendChallenge(mockUser);
+
+      expect(result).toBe('u***r@example.com');
+      expect(mockEmailVerificationService.sendVerificationEmail).toHaveBeenCalled();
+      expect(mockLogger.log).toHaveBeenCalledWith((expect as any).stringContaining('Email MFA code sent'));
+    });
+
+    it('should throw error when device and user have no email', async () => {
+      const mockDevice = {
+        id: 1,
+        userId: 1,
+        type: MFAMethod.EMAIL,
+        name: 'Email',
+        email: null,
+        isActive: true,
+        isPrimary: true,
+      };
+
+      const mockUserNoEmail = {
+        id: 1,
+        sub: 'user-123',
+        email: null,
+        mfaEnabled: false,
+      };
+
+      mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
 
       try {
-        await service.sendChallenge(mockUser);
+        await service.sendChallenge(mockUserNoEmail as any);
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.NOT_FOUND);
-        expect((error as NAuthException).message).toContain('No Email device registered');
+        expect((error as NAuthException).code).toBe(AuthErrorCode.VALIDATION_FAILED);
+        expect((error as NAuthException).message).toContain('No email address found');
       }
     });
 

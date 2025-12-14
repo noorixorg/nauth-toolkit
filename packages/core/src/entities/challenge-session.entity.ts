@@ -55,18 +55,6 @@ export class BaseChallengeSession {
   expiresAt!: Date;
 
   /**
-   * Whether this challenge has been consumed/used
-   * Consumed sessions cannot be reused
-   */
-  isConsumed!: boolean;
-
-  /**
-   * When the challenge was consumed
-   * NULL if not yet consumed
-   */
-  consumedAt?: Date | null;
-
-  /**
    * Whether this challenge has been completed successfully
    * Completed challenges cannot be attempted again
    */

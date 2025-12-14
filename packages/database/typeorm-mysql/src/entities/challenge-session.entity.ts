@@ -30,16 +30,8 @@ export class ChallengeSession extends BaseChallengeSession {
   declare expiresAt: Date;
 
   @Column({ type: 'tinyint', width: 1, default: 0 })
-  declare isConsumed: boolean;
-
-  @Column({ type: 'timestamp', precision: 6, nullable: true })
-  declare consumedAt?: Date;
-
-  // Legacy field for backwards compatibility
-  @Column({ type: 'tinyint', width: 1, default: 0 })
   declare isCompleted: boolean;
 
-  // Legacy field for backwards compatibility
   @Column({ type: 'timestamp', precision: 6, nullable: true })
   declare completedAt?: Date;
 

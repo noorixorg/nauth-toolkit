@@ -1,0 +1,153 @@
+import { Component, OnInit, signal } from '@angular/core';
+import { Router } from '@angular/router';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { AuthService, AuthResponse, SocialProvider } from '@nauth-toolkit/client/angular';
+import { NAuthClientError } from '@nauth-toolkit/client';
+import { InputTextModule } from 'primeng/inputtext';
+import { AutoFocusModule } from 'primeng/autofocus';
+import { PasswordModule } from 'primeng/password';
+import { ButtonModule } from 'primeng/button';
+import { MessageModule } from 'primeng/message';
+import { DividerModule } from 'primeng/divider';
+import { CommonModule } from '@angular/common';
+import { ChallengeOrchestratorService } from '../services/challenge-orchestrator.service';
+import { SimulatedVerificationCodeService } from '../services/simulated-verification-code.service';
+import { handleAuthError } from '../utils/error-handler.util';
+
+/**
+ * Login component
+ *
+ * Handles user authentication with email/password.
+ * Uses PrimeNG components for UI and AuthService for authentication.
+ *
+ * @example
+ * ```typescript
+ * // Route configuration
+ * { path: 'login', component: LoginComponent }
+ * ```
+ */
+@Component({
+  selector: 'app-login',
+  standalone: true,
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    InputTextModule,
+    AutoFocusModule,
+    PasswordModule,
+    ButtonModule,
+    MessageModule,
+    DividerModule,
+  ],
+  templateUrl: './login.component.html',
+  styleUrl: './login.component.css',
+})
+export class LoginComponent implements OnInit {
+  /**
+   * Login form group
+   */
+  loginForm: FormGroup;
+
+  /**
+   * Loading state signal
+   */
+  loading = signal(false);
+
+  /**
+   * Error message signal
+   */
+  error = signal<string | null>(null);
+
+  /**
+   * @param fb - Form builder for reactive forms
+   * @param auth - Auth service for authentication
+   * @param router - Router for navigation
+   * @param orchestrator - Challenge orchestrator service
+   */
+  constructor(
+    private readonly fb: FormBuilder,
+    private readonly auth: AuthService,
+    private readonly router: Router,
+    private readonly orchestrator: ChallengeOrchestratorService,
+    private readonly verificationCodeService: SimulatedVerificationCodeService,
+  ) {
+    this.loginForm = this.fb.group({
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required, Validators.minLength(6)]],
+    });
+  }
+
+  ngOnInit(): void {
+    this.auth.authEvents$.subscribe((_event) => {
+      // Handle auth events if needed
+    });
+  }
+
+  /**
+   * Handle form submission
+   *
+   * Authenticates user and navigates to dashboard on success.
+   * Handles challenge responses (MFA, email verification, etc.).
+   */
+  onSubmit(): void {
+    if (this.loginForm.invalid) {
+      // Mark all fields as touched to show validation errors
+      Object.keys(this.loginForm.controls).forEach((key) => {
+        this.loginForm.get(key)?.markAsTouched();
+      });
+      return;
+    }
+
+    this.loading.set(true);
+    this.error.set(null);
+
+    const { email, password } = this.loginForm.value;
+
+    this.auth.login(email, password).subscribe({
+      next: async (response: AuthResponse) => {
+        this.loading.set(false);
+        // Universal handler for login, challenges, and redirects
+        await this.orchestrator.handleAuthResponse(response);
+      },
+      error: (err: unknown) => {
+        this.loading.set(false);
+        this.handleError(err);
+      },
+    });
+  }
+
+  /**
+   * Handle social login
+   *
+   * Initiates OAuth flow for the specified provider.
+   *
+   * @param provider - Social provider (google, apple, facebook)
+   */
+  onSocialLogin(provider: SocialProvider): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.auth.loginWithSocial(provider).catch((err: unknown) => {
+      this.loading.set(false);
+      this.handleError(err);
+    });
+  }
+
+  /**
+   * Navigate to signup page
+   */
+  navigateToSignup(): void {
+    this.router.navigate(['/signup']);
+  }
+
+  /**
+   * Handle and format errors for display
+   *
+   * Uses the error message directly from the framework.
+   *
+   * @param err - Error object (can be NAuthClientError or generic Error)
+   */
+  private handleError(err: unknown): void {
+    handleAuthError(err, this.error);
+  }
+}

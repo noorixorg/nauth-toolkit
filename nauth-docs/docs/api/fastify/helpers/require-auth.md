@@ -35,8 +35,8 @@ fastify.get('/profile', {
   }),
 });
 
-// Skip CSRF validation
-fastify.post('/logout', {
+// Skip CSRF validation (logout uses GET to avoid CSRF issues)
+fastify.get('/logout', {
   preHandler: nauth.helpers.requireAuth({ csrf: false }),
   handler: logoutHandler,
 });

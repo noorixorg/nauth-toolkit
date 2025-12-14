@@ -111,20 +111,113 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
   /**
    * Create MFA device for user
    *
+   * Creates a new MFA device with proper duplicate prevention and transaction safety.
+   * Uses database-level unique constraint (userId, type) to prevent race conditions.
+   *
+   * **Race Condition Prevention:**
+   * - Checks for existing device before creation
+   * - Wraps in transaction with pessimistic write lock on user row
+   * - Database unique constraint provides final safety net
+   *
+   * **Transaction Flow:**
+   * 1. Lock user row (prevents concurrent MFA setup)
+   * 2. Check for existing device of this type
+   * 3. Create device if none exists
+   * 4. Update user MFA flags
+   * 5. Commit transaction
+   *
    * @param userId - Internal user ID
    * @param deviceData - Device data to create
-   * @returns Created device
+   * @returns Created device (or existing device if already present)
    * @protected
+   *
+   * @example
+   * ```typescript
+   * const device = await this.createDevice(user.id, {
+   *   name: 'SMS Phone',
+   *   phoneNumber: '+1234567890',
+   *   isActive: true,
+   *   isPrimary: !user.mfaEnabled,
+   * });
+   * ```
    */
   protected async createDevice(userId: number, deviceData: Partial<IMFADevice>): Promise<IMFADevice> {
-    const device = this.mfaDeviceRepository.create({
-      userId,
-      type: this.methodName,
-      ...deviceData,
-    } as Record<string, unknown>);
+    // ============================================================================
+    // Transaction-Safe Device Creation with Race Condition Prevention
+    // ============================================================================
+    // Use TypeORM transaction manager to ensure atomicity across all database adapters
+    // Pessimistic write lock prevents concurrent MFA device creation for same user
+    const device = await this.userRepository.manager.transaction(async (transactionalEntityManager) => {
+      // Step 1: Lock user row to prevent concurrent MFA setup
+      // This works across MySQL and PostgreSQL (TypeORM translates to FOR UPDATE)
+      await transactionalEntityManager
+        .createQueryBuilder()
+        .select('user.id')
+        .from(this.userRepository.target, 'user')
+        .where('user.id = :userId', { userId })
+        .setLock('pessimistic_write')
+        .getOne();
 
-    const saved = await this.mfaDeviceRepository.save(device);
-    return saved as unknown as IMFADevice;
+      // Step 2: Check for existing device of this type (within transaction)
+      // This prevents duplicates even if called concurrently
+      const existingDevice = await transactionalEntityManager
+        .getRepository(this.mfaDeviceRepository.target)
+        .createQueryBuilder('device')
+        .where('device.userId = :userId', { userId })
+        .andWhere('device.type = :type', { type: this.methodName })
+        .getOne();
+
+      if (existingDevice) {
+        this.logger?.log?.(
+          `MFA device of type '${this.methodName}' already exists for user ${userId}, returning existing device`,
+        );
+        return existingDevice as unknown as IMFADevice;
+      }
+
+      // Step 3: Create new device (no duplicate exists)
+      const newDevice = transactionalEntityManager.getRepository(this.mfaDeviceRepository.target).create({
+        userId,
+        type: this.methodName,
+        ...deviceData,
+      } as Record<string, unknown>);
+
+      // Step 4: Save device (unique constraint provides final safety net)
+      const saved = await transactionalEntityManager.getRepository(this.mfaDeviceRepository.target).save(newDevice);
+
+      this.logger?.log?.(`Created new MFA device: type='${this.methodName}', userId=${userId}, deviceId=${saved.id}`);
+
+      return saved as unknown as IMFADevice;
+    });
+
+    // ============================================================================
+    // Audit: Record MFA device added
+    // ============================================================================
+    if (this.auditService && this.clientInfoService) {
+      try {
+        await this.auditService.recordEvent({
+          userId,
+          eventType: AuthAuditEventType.MFA_DEVICE_ADDED,
+          eventStatus: 'SUCCESS',
+          metadata: {
+            // Client info automatically included from context
+            mfaMethod: this.methodName,
+            deviceId: device.id,
+            deviceName: device.name,
+            isPrimary: device.isPrimary,
+          },
+        });
+      } catch (auditError) {
+        // Non-blocking: Log but continue
+        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to record MFA_DEVICE_ADDED audit event: ${errorMessage}`, {
+          error: auditError,
+          userId,
+          methodName: this.methodName,
+        });
+      }
+    }
+
+    return device;
   }
 
   /**

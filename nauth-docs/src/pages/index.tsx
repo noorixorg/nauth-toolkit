@@ -194,6 +194,7 @@ export default function Home() {
           <div className={`nav-right ${mobileMenuOpen ? 'mobile-open' : ''}`}>
             <Link to="/docs/intro" onClick={() => setMobileMenuOpen(false)}>DOCS</Link>
             <Link to="/docs/api/overview" onClick={() => setMobileMenuOpen(false)}>API REFERENCE</Link>
+            <Link to="/docs/frontend-sdk/overview" onClick={() => setMobileMenuOpen(false)}>FRONTEND SDK</Link>
             <Link to="/github" onClick={() => setMobileMenuOpen(false)}>SOURCE (COMING SOON)</Link>
             <a href="https://www.npmjs.com/package/@nauth-toolkit/core" target="_blank" rel="noopener noreferrer" onClick={() => setMobileMenuOpen(false)}>
               NPM

@@ -39,11 +39,11 @@ export function getRefreshTokenCookieName(config?: NAuthConfig): string {
 /**
  * Get the device token cookie name
  * @param config - NAuth configuration
- * @returns Device token cookie name (default: 'nauth_device_id')
+ * @returns Device token cookie name (default: 'nauth_device_token')
  */
 export function getDeviceTokenCookieName(config?: NAuthConfig): string {
   const prefix = getCookieNamePrefix(config);
-  return `${prefix}device_id`;
+  return `${prefix}device_token`;
 }
 
 /**

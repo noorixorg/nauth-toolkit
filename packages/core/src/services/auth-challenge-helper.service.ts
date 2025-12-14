@@ -88,6 +88,7 @@ export class AuthChallengeHelperService {
     config: NAuthConfig,
     authMethod: 'password' | 'social' = 'password',
     authProvider?: string,
+    skipAutoSend?: boolean,
   ): Promise<AuthResponseDTO> {
     // Client info (ipAddress, userAgent) automatically extracted from ClientInfoService
     // Note: ClientInfoService is used transparently by ChallengeService and AuditService
@@ -120,7 +121,11 @@ export class AuthChallengeHelperService {
     if (challengeName === AuthChallenge.VERIFY_EMAIL && this.emailVerificationService) {
       this.logger?.log?.(`📧 Sending verification email to: ${user.email}`);
       // Fire and forget - don't block challenge response
-      const emailDto = Object.assign(new SendVerificationEmailDTO(), { sub: user.sub, baseUrl: undefined });
+      const emailDto = Object.assign(new SendVerificationEmailDTO(), {
+        sub: user.sub,
+        baseUrl: undefined,
+        challengeSessionId: challengeSession.id, // Link verification token to this challenge session
+      });
       this.emailVerificationService
         .sendVerificationEmail(emailDto)
         .then(() => {
@@ -132,10 +137,14 @@ export class AuthChallengeHelperService {
         });
     }
 
-    if (challengeName === AuthChallenge.VERIFY_PHONE && this.phoneVerificationService && user.phone) {
+    // Skip auto-send if SMS was already sent (e.g., during phone collection)
+    if (!skipAutoSend && challengeName === AuthChallenge.VERIFY_PHONE && this.phoneVerificationService && user.phone) {
       this.logger?.log?.(`Sending verification SMS to: ${user.phone}`);
       // Fire and forget - don't block challenge response
-      const smsDto = Object.assign(new SendVerificationSMSDTO(), { sub: user.sub });
+      const smsDto = Object.assign(new SendVerificationSMSDTO(), {
+        sub: user.sub,
+        challengeSessionId: challengeSession.id, // Link verification token to this challenge session
+      });
       this.phoneVerificationService
         .sendVerificationSMS(smsDto)
         .then(() => {
@@ -427,6 +436,7 @@ export class AuthChallengeHelperService {
       const smsDto = Object.assign(new SendVerificationSMSDTO(), {
         sub: user.sub,
         skipAlreadyVerifiedCheck: true,
+        challengeSessionId: challengeSession.id, // Link MFA SMS code to this challenge session
       });
       this.phoneVerificationService
         .sendVerificationSMS(smsDto)
@@ -471,6 +481,7 @@ export class AuthChallengeHelperService {
         sub: user.sub,
         baseUrl: undefined,
         skipAlreadyVerifiedCheck: true,
+        challengeSessionId: challengeSession.id, // Link MFA email code to this challenge session
       });
       this.emailVerificationService
         .sendVerificationEmail(emailDto)
@@ -621,14 +632,23 @@ export class AuthChallengeHelperService {
       accessTokenExpiresAt: accessTokenValidation.payload?.exp || 0,
       refreshTokenExpiresAt: refreshTokenValidation.payload?.exp || 0,
       trusted: isTrusted,
+      // Expose deviceToken so that:
+      // - In cookies mode, CookieTokenInterceptor can set the httpOnly nauth_device_token cookie
+      // - In JSON mode, mobile clients can store it securely and send via header
+      // NOTE: finalDeviceToken is a logical device identifier derived from:
+      // - clientInfo.deviceToken (existing trusted device), OR
+      // - deviceToken parameter passed from AuthService / state machine
+      deviceToken: finalDeviceToken,
       user: {
         sub: user.sub,
         email: user.email,
-        firstName: user.firstName || undefined,
-        lastName: user.lastName || undefined,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phone ?? undefined,
         isEmailVerified: user.isEmailVerified,
-        isPhoneVerified: user.isPhoneVerified,
-        socialProviders: user.socialProviders || undefined,
+        isPhoneVerified: user.isPhoneVerified ?? undefined,
+        socialProviders: user.socialProviders ?? undefined,
+        hasPasswordHash: !!user.passwordHash,
       },
       userSub: user.sub,
     };

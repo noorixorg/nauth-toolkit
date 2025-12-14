@@ -1,11 +1,13 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Optional } from '@nestjs/common';
-import { Observable, from } from 'rxjs';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Optional, Inject } from '@nestjs/common';
+import { Observable, from, of } from 'rxjs';
 import { switchMap, catchError } from 'rxjs/operators';
 import {
   ContextStorage,
   IClientInfo,
   extractClientIp,
   ClientInfoService,
+  NAuthConfig,
+  getDeviceTokenCookieName,
 } from '@nauth-toolkit/core';
 import { GeoLocationService } from '@nauth-toolkit/core/internal';
 
@@ -45,6 +47,9 @@ export class ClientInfoInterceptor implements NestInterceptor {
 
   constructor(
     @Optional()
+    @Inject('NAUTH_CONFIG')
+    private readonly config?: NAuthConfig,
+    @Optional()
     private readonly geoLocationService?: GeoLocationService,
   ) {}
 
@@ -82,19 +87,20 @@ export class ClientInfoInterceptor implements NestInterceptor {
 
     // Extract device token from cookie (web) or header (mobile)
     // Security: Never accept device token from request body (prevent client manipulation)
-    // Use hardcoded name to match original working implementation
-    // TODO: Make configurable via cookieNamePrefix after verifying it works
-    const deviceTokenCookie = request.cookies?.['nauth_device_id'];
+    const deviceTokenCookieName = this.config ? getDeviceTokenCookieName(this.config) : 'nauth_device_token';
+    const deviceTokenCookie = request.cookies?.[deviceTokenCookieName];
     const deviceTokenHeader = headers['x-device-token'] || headers['X-Device-Token'];
     const deviceToken =
       (typeof deviceTokenCookie === 'string' ? deviceTokenCookie : undefined) ||
       (typeof deviceTokenHeader === 'string' ? deviceTokenHeader : undefined) ||
       (deviceTokenHeader ? String(deviceTokenHeader) : undefined);
 
-    // Extract sessionId from token (set by AuthGuard after validation)
-    // sessionId is a string in JWT payload, convert to number for database
+    // Extract sessionId and userId from token (set by AuthGuard after validation)
+    // sessionId and sub (userId) are strings in JWT payload, convert to number for database
     const sessionIdFromToken: string | undefined = request?.token?.sessionId;
     const sessionIdNumber: number | undefined = sessionIdFromToken ? parseInt(sessionIdFromToken, 10) : undefined;
+    const userIdFromToken: string | undefined = request?.token?.sub;
+    const userIdNumber: number | undefined = userIdFromToken ? parseInt(userIdFromToken, 10) : undefined;
 
     const clientInfo: IClientInfo = {
       //ipAddress: extractClientIp(request),
@@ -128,9 +134,13 @@ export class ClientInfoInterceptor implements NestInterceptor {
       browser: parsedUA.browser || undefined,
       // Session ID from authenticated request (set by AuthGuard after token validation)
       sessionId: sessionIdNumber && !isNaN(sessionIdNumber) ? sessionIdNumber : undefined,
+      // User ID from authenticated request (set by AuthGuard after token validation)
+      userId: userIdNumber && !isNaN(userIdNumber) ? userIdNumber : undefined,
       // Geolocation populated below if GeoLocationService is available
       ipCountry: undefined,
       ipCity: undefined,
+      ipLatitude: undefined,
+      ipLongitude: undefined,
     };
 
     // ============================================================================
@@ -138,11 +148,21 @@ export class ClientInfoInterceptor implements NestInterceptor {
     // ============================================================================
     if (this.geoLocationService && clientInfo.ipAddress) {
       // Use RxJS operators to await geolocation lookup
+      // CRITICAL: Use catchError BEFORE switchMap to only catch geolocation errors,
+      // not errors from the controller (which would cause duplicate execution)
       return from(this.geoLocationService.getIpGeolocation(clientInfo.ipAddress)).pipe(
+        catchError(() => {
+          // Non-blocking: Silently fail - geolocation remains undefined
+          // Errors are already logged by GeoLocationService
+          // Return empty geo data to continue the request
+          return of({ country: undefined, city: undefined, latitude: undefined, longitude: undefined });
+        }),
         switchMap((geo) => {
-          // Update clientInfo with geolocation
+          // Update clientInfo with geolocation (or undefined if lookup failed)
           clientInfo.ipCountry = geo.country;
           clientInfo.ipCity = geo.city;
+          clientInfo.ipLatitude = geo.latitude;
+          clientInfo.ipLongitude = geo.longitude;
 
           // Store in async local storage for transparent access
           ContextStorage.set('CLIENT_INFO', clientInfo);
@@ -155,24 +175,6 @@ export class ClientInfoInterceptor implements NestInterceptor {
 
           // Expose current session id for observability/debugging (set by AuthGuard after validation)
           // This is safe metadata; tokens are never exposed. If unavailable, header is omitted.
-          const sessionId: string | undefined = request?.token?.sessionId;
-          if (sessionId && typeof response.setHeader === 'function') {
-            response.setHeader('X-Session-Id', sessionId);
-          }
-
-          return next.handle();
-        }),
-        catchError(() => {
-          // Non-blocking: Silently fail - geolocation remains undefined
-          // Errors are already logged by GeoLocationService
-          // Store in async local storage without geolocation
-          ContextStorage.set('CLIENT_INFO', clientInfo);
-
-          // Store response object for services to access (e.g., for clearing cookies)
-          ContextStorage.set('HTTP_RESPONSE', response);
-
-          request.clientInfo = clientInfo;
-
           const sessionId: string | undefined = request?.token?.sessionId;
           if (sessionId && typeof response.setHeader === 'function') {
             response.setHeader('X-Session-Id', sessionId);

@@ -1,4 +1,4 @@
-import { Repository, IsNull, Not, MoreThan } from 'typeorm';
+import { Repository, IsNull, Not, MoreThan, LessThan } from 'typeorm';
 import { IUser, ISession } from '../interfaces/entities.interface';
 import { BaseSession, BaseAuthAudit } from '../entities';
 import { ClientInfo } from '../interfaces/client-info.interface';
@@ -38,7 +38,9 @@ export class RiskDetectionService {
     private readonly auditRepository: Repository<BaseAuthAudit>,
     private readonly config: NAuthConfig,
     private readonly logger: NAuthLogger,
-    private readonly trustedDeviceService?: any, // TrustedDeviceService - optional, only available when rememberDevices is enabled
+    private readonly trustedDeviceService?: {
+      isDeviceTrusted: (deviceToken: string, userId: number) => Promise<boolean>;
+    }, // TrustedDeviceService - optional, only available when rememberDevices is enabled
   ) {}
 
   /**
@@ -77,20 +79,39 @@ export class RiskDetectionService {
         RiskFactor.NEW_COUNTRY,
       ];
 
+      this.logger?.debug?.(
+        `Risk detection started for user ${user.sub}: enabled_triggers=[${enabledTriggers.join(', ')}], has_device_token=${!!clientInfo.deviceToken}, ip=${clientInfo.ipAddress}, location=${clientInfo.ipCity}, ${clientInfo.ipCountry}`,
+      );
+
       // ============================================================================
       // Device Risk Detection
       // ============================================================================
       // Check new_device
-      // Note: Skip check if deviceToken is missing - we can't reliably identify
-      // the device without a token (first login, incognito mode, cleared cookies, etc.)
-      // Flagging as new_device without a token would create false positives for
-      // legitimate first-time logins
-      if (enabledTriggers.includes(RiskFactor.NEW_DEVICE) && clientInfo.deviceToken) {
-        // Device has a token - check if it's been seen before
-        // This is the most reliable method (cookie-based or header-based token)
-        const isNew = await this.isNewDevice(user.id, clientInfo.deviceToken);
-        if (isNew) {
-          factors.push(RiskFactor.NEW_DEVICE);
+      if (enabledTriggers.includes(RiskFactor.NEW_DEVICE)) {
+        if (clientInfo.deviceToken) {
+          // Device has a token - check if it's been seen before
+          // This is the most reliable method (cookie-based or header-based token)
+          const isNew = await this.isNewDevice(user.id, clientInfo.deviceToken);
+          if (isNew) {
+            factors.push(RiskFactor.NEW_DEVICE);
+            this.logger?.debug?.(
+              `New device detected: user=${user.sub}, deviceToken=${clientInfo.deviceToken.substring(0, 8)}...`,
+            );
+          }
+        } else {
+          // No deviceToken (incognito mode, cleared cookies, first login, etc.)
+          // Check if user has logged in before - if yes, missing token is suspicious
+          // This prevents false positives for legitimate first-time logins
+          const hasPreviousSessions = await this.hasUserLoggedInBefore(user.id);
+          if (hasPreviousSessions) {
+            // User has logged in before but no deviceToken - treat as new/unknown device
+            // This covers incognito mode, cleared cookies, and other scenarios where
+            // device identification is not available
+            factors.push(RiskFactor.NEW_DEVICE);
+            this.logger?.debug?.(
+              `Missing deviceToken for user ${user.sub} with previous sessions - treating as new_device`,
+            );
+          }
         }
       }
 
@@ -105,18 +126,46 @@ export class RiskDetectionService {
         if (isNew) {
           factors.push(RiskFactor.NEW_COUNTRY);
           newCountryDetected = true;
+          this.logger?.debug?.(`New country detected for user ${user.sub}: ${clientInfo.ipCountry}`);
         }
       }
 
-      // Check impossible_travel (requires city-level geolocation)
+      // Check impossible_travel (now works with country-only data too)
       // This also indicates location change (city/country), so skip new_ip if detected
       let impossibleTravelDetected = false;
-      if (enabledTriggers.includes(RiskFactor.IMPOSSIBLE_TRAVEL) && clientInfo.ipCountry && clientInfo.ipCity) {
+      if (enabledTriggers.includes(RiskFactor.IMPOSSIBLE_TRAVEL) && clientInfo.ipCountry) {
         const isImpossible = await this.detectImpossibleTravel(user.id, clientInfo);
         if (isImpossible) {
           factors.push(RiskFactor.IMPOSSIBLE_TRAVEL);
           impossibleTravelDetected = true;
+          this.logger?.debug?.(
+            `Impossible travel detected for user ${user.sub}: ${clientInfo.ipCity ?? 'unknown'}, ${clientInfo.ipCountry}`,
+          );
         }
+      }
+
+      // ============================================================================
+      // Location Data Completeness Check
+      // ============================================================================
+      // Add risk factor if location data is incomplete (missing city or coordinates) when country exists
+      // AND user has previous logins (only relevant for returning users)
+      // This reduces confidence in risk assessment and warrants extra caution
+      // Only check if location-related triggers are enabled
+      const locationTriggersEnabled =
+        enabledTriggers.includes(RiskFactor.NEW_COUNTRY) ||
+        enabledTriggers.includes(RiskFactor.IMPOSSIBLE_TRAVEL);
+      if (
+        locationTriggersEnabled &&
+        clientInfo.ipCountry &&
+        (!clientInfo.ipCity || !clientInfo.ipLatitude || !clientInfo.ipLongitude) &&
+        (await this.hasUserLoggedInBefore(user.id))
+      ) {
+        factors.push(RiskFactor.INCOMPLETE_LOCATION_DATA);
+        this.logger?.warn?.(
+          `Incomplete location data for user ${user.sub}: country=${clientInfo.ipCountry}, ` +
+            `city=${clientInfo.ipCity ?? 'missing'}, coordinates=${clientInfo.ipLatitude && clientInfo.ipLongitude ? 'available' : 'missing'}. ` +
+            `Adding INCOMPLETE_LOCATION_DATA risk factor (+20 points) for reduced confidence in risk assessment.`,
+        );
       }
 
       // ============================================================================
@@ -131,9 +180,14 @@ export class RiskDetectionService {
         !newCountryDetected &&
         !impossibleTravelDetected
       ) {
-        const isNew = await this.isNewIp(user.id, clientInfo.ipAddress);
+        // Normalize IP address (remove port if present, e.g., "192.168.1.1:8080" -> "192.168.1.1")
+        const normalizedIp = this.normalizeIpAddress(clientInfo.ipAddress);
+        const isNew = await this.isNewIp(user.id, normalizedIp);
         if (isNew) {
           factors.push(RiskFactor.NEW_IP);
+          this.logger?.debug?.(
+            `New IP detected for user ${user.sub}: ${normalizedIp} (original: ${clientInfo.ipAddress})`,
+          );
         }
       }
 
@@ -145,7 +199,17 @@ export class RiskDetectionService {
         const isSuspicious = await this.detectSuspiciousActivity(user.id);
         if (isSuspicious) {
           factors.push(RiskFactor.SUSPICIOUS_ACTIVITY);
+          this.logger?.debug?.(`Suspicious activity detected for user ${user.sub}`);
         }
+      }
+
+      // ============================================================================
+      // Summary
+      // ============================================================================
+      if (factors.length > 0) {
+        this.logger?.debug?.(
+          `Risk detection complete for user ${user.sub}: ${factors.length} factor(s) detected [${factors.join(', ')}]`,
+        );
       }
     } catch (error) {
       // Non-blocking: Log error but don't throw
@@ -208,32 +272,112 @@ export class RiskDetectionService {
   }
 
   /**
+   * Check if user has logged in before (has any previous sessions)
+   *
+   * Used to determine if missing deviceToken should be treated as suspicious.
+   * If user has never logged in before, missing token is expected (first login).
+   * If user has logged in before, missing token is suspicious (incognito, cleared cookies, etc.).
+   *
+   * @param userId - Internal user ID (integer)
+   * @returns True if user has at least one previous session
+   * @private
+   */
+  private async hasUserLoggedInBefore(userId: number): Promise<boolean> {
+    try {
+      // Check if any session exists for this user (short-circuit existence check)
+      const exists = await this.sessionRepository.findOne({
+        select: ['id'],
+        where: { userId },
+      });
+
+      return !!exists;
+    } catch (error) {
+      // Non-blocking: Log and assume user has logged in before (safer default)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.warn?.(`Failed to check user login history: ${errorMessage}`, { error, userId });
+      return true; // Assume user has logged in before on error (safer for security)
+    }
+  }
+
+  /**
+   * Normalize IP address for consistent comparison
+   *
+   * Removes port numbers and normalizes IPv6 addresses.
+   * This ensures IPs like "192.168.1.1:8080" and "192.168.1.1" are treated as the same.
+   *
+   * @param ipAddress - IP address to normalize
+   * @returns Normalized IP address
+   * @private
+   */
+  private normalizeIpAddress(ipAddress: string): string {
+    // Remove port if present (e.g., "192.168.1.1:8080" -> "192.168.1.1")
+    // Handle both IPv4 and IPv6 formats
+    if (ipAddress.includes(':')) {
+      // Could be IPv6 or IPv4 with port
+      if (ipAddress.startsWith('[')) {
+        // IPv6 with port: "[::1]:8080" -> "::1"
+        const match = ipAddress.match(/^\[(.+)\]:\d+$/);
+        if (match) {
+          return match[1];
+        }
+      } else {
+        // IPv4 with port: "192.168.1.1:8080" -> "192.168.1.1"
+        const parts = ipAddress.split(':');
+        if (parts.length === 2 && /^\d+$/.test(parts[1])) {
+          // Second part is a port number
+          return parts[0];
+        }
+        // Otherwise it's likely IPv6 without brackets, return as-is
+      }
+    }
+    return ipAddress;
+  }
+
+  /**
    * Check if IP address has been seen before
    *
    * Queries sessions table first (faster), then audit table for older data.
+   * Uses normalized IP addresses for consistent comparison.
    *
    * @param userId - Internal user ID (integer)
-   * @param ipAddress - IP address to check
+   * @param ipAddress - IP address to check (should already be normalized)
    * @returns True if IP is new (never seen before)
    * @private
    */
   private async isNewIp(userId: number, ipAddress: string): Promise<boolean> {
     try {
+      // Normalize IP address before checking (in case it wasn't normalized upstream)
+      const normalizedIp = this.normalizeIpAddress(ipAddress);
+
       // Check sessions first (faster, more recent data) - existence only
-      const seenInSessions = await this.sessionRepository.findOne({
-        select: ['id'],
-        where: { userId, ipAddress },
-      });
+      // Note: We check both normalized and original IP to handle cases where
+      // old records might have stored IPs with ports
+      const seenInSessions =
+        (await this.sessionRepository.findOne({
+          select: ['id'],
+          where: { userId, ipAddress: normalizedIp },
+        })) ||
+        (normalizedIp !== ipAddress &&
+          (await this.sessionRepository.findOne({
+            select: ['id'],
+            where: { userId, ipAddress },
+          })));
 
       if (seenInSessions) {
         return false; // IP seen in sessions
       }
 
       // Check audit trail for older data (only if not found in sessions)
-      const seenInAudit = await this.auditRepository.findOne({
-        select: ['id'],
-        where: { userId, ipAddress },
-      });
+      const seenInAudit =
+        (await this.auditRepository.findOne({
+          select: ['id'],
+          where: { userId, ipAddress: normalizedIp },
+        })) ||
+        (normalizedIp !== ipAddress &&
+          (await this.auditRepository.findOne({
+            select: ['id'],
+            where: { userId, ipAddress },
+          })));
 
       return !seenInAudit;
     } catch (error) {
@@ -306,15 +450,16 @@ export class RiskDetectionService {
    * location is impossible given time elapsed.
    *
    * **Algorithm:**
-   * 1. Get last session location (ipCountry, ipCity) and lastActivityAt
-   * 2. Calculate distance between cities (Haversine formula)
+   * 1. Get last login location (ipCountry, ipCity, coordinates) and createdAt
+   * 2. Calculate distance using coordinates (Haversine) or heuristics (fallback)
    * 3. Calculate max possible speed (distance / time)
    * 4. If speed > threshold (default 900 km/h), flag as impossible
    *
    * **Edge Cases Handled:**
    * - No previous location data → false (benefit of doubt)
-   * - Same country/city → false (not travel)
-   * - Missing city data → false (can't determine without city)
+   * - Same location → false (not travel)
+   * - Missing city but country changed → true (suspicious, different country in short time)
+   * - Missing coordinates → use heuristic distance estimates
    *
    * @param userId - Internal user ID (integer)
    * @param currentInfo - Current client info with location
@@ -322,58 +467,266 @@ export class RiskDetectionService {
    * @private
    */
   private async detectImpossibleTravel(userId: number, currentInfo: ClientInfo): Promise<boolean> {
-    if (!currentInfo.ipCountry || !currentInfo.ipCity) {
-      return false; // Can't determine without location
+    // Require at least country data to perform any checks
+    if (!currentInfo.ipCountry) {
+      this.logger?.debug?.(`Skipping impossible_travel check for user ${userId}: no country data available`);
+      return false;
     }
 
     try {
-      // Get last known location from most recent session with location data
+      // ============================================================================
+      // Find last known location from most recent login
+      // ============================================================================
+      // CRITICAL: We need the location from the PREVIOUS login, not token refreshes
+      // Check BOTH sessions and audit trail to ensure we get the most recent location:
+      // - Sessions: might be cleaned up or expired
+      // - Audit: permanent record of all logins
+      // Use the more recent of the two
+
+      // ============================================================================
+      // Find previous login location (exclude current login to avoid race conditions)
+      // ============================================================================
+      // SIMPLIFIED LOGIC: Just get the most recent login from EITHER sessions OR audits
+      // The current login hasn't been committed yet (we're in risk detection before session creation)
+      // So the "most recent" we find IS the previous login
+      
+      // Check sessions (use createdAt for login-to-login comparison, not lastActivityAt)
       const lastSession = (await this.sessionRepository.findOne({
         where: {
           userId,
           ipCountry: Not(IsNull()),
-          ipCity: Not(IsNull()),
         },
         order: {
-          lastActivityAt: 'DESC',
+          createdAt: 'DESC', // Most recent first
         },
       })) as ISession | null;
 
-      if (!lastSession) {
+      // Check audit trail for most recent login with location data
+      const lastAuditLogin = (await this.auditRepository.findOne({
+        where: {
+          userId,
+          eventType: AuthAuditEventType.LOGIN_SUCCESS,
+          ipCountry: Not(IsNull()),
+        },
+        order: {
+          createdAt: 'DESC',
+        },
+      })) as (BaseAuthAudit & { ipCountry: string; ipCity: string | null; ipLatitude: number | null; ipLongitude: number | null; createdAt: Date }) | null;
+
+      // Debug: Show all recent sessions for this user
+      if (lastSession) {
+        const allRecentSessions = (await this.sessionRepository.find({
+          where: { userId },
+          order: { createdAt: 'DESC' },
+          take: 5,
+          select: ['id', 'ipCity', 'ipCountry', 'createdAt', 'ipAddress'],
+        })) as Array<{
+          id: number;
+          ipCity: string | null;
+          ipCountry: string | null;
+          createdAt: Date;
+          ipAddress: string | null;
+        }>;
+
+        this.logger?.debug?.(
+          `Last 5 sessions for user ${userId}: ${JSON.stringify(
+            allRecentSessions.map((s) => ({
+              id: s.id,
+              location: `${s.ipCity}, ${s.ipCountry}`,
+              ip: s.ipAddress,
+              created: s.createdAt.toISOString(),
+              ageMinutes: ((Date.now() - s.createdAt.getTime()) / (1000 * 60)).toFixed(1),
+            })),
+          )}`,
+        );
+      }
+
+      // Debug: Show all recent audit logins for this user
+      if (lastAuditLogin) {
+        const allRecentAudits = (await this.auditRepository.find({
+          where: { userId, eventType: AuthAuditEventType.LOGIN_SUCCESS },
+          order: { createdAt: 'DESC' },
+          take: 5,
+          select: ['id', 'ipCity', 'ipCountry', 'createdAt', 'ipAddress'],
+        })) as Array<{
+          id: number;
+          ipCity: string | null;
+          ipCountry: string | null;
+          createdAt: Date;
+          ipAddress: string | null;
+        }>;
+
+        this.logger?.debug?.(
+          `Last 5 LOGIN_SUCCESS audits for user ${userId}: ${JSON.stringify(
+            allRecentAudits.map((a) => ({
+              id: a.id,
+              location: `${a.ipCity}, ${a.ipCountry}`,
+              ip: a.ipAddress,
+              created: a.createdAt.toISOString(),
+              ageMinutes: ((Date.now() - a.createdAt.getTime()) / (1000 * 60)).toFixed(1),
+            })),
+          )}`,
+        );
+      }
+
+      // Determine which record is more recent and extract location data with coordinates
+      let lastLocation: { 
+        country: string; 
+        city: string | null; 
+        latitude: number | null; 
+        longitude: number | null; 
+        time: Date; 
+        source: 'session' | 'audit' 
+      } | null = null;
+
+      if (lastSession && lastAuditLogin) {
+        // Both exist - use the more recent one as the previous login
+        const sessionTime = lastSession.createdAt;
+        const auditTime = lastAuditLogin.createdAt;
+
+        if (sessionTime > auditTime) {
+          lastLocation = {
+            country: lastSession.ipCountry!,
+            city: lastSession.ipCity ?? null,
+            latitude: (lastSession as any).ipLatitude ?? null,
+            longitude: (lastSession as any).ipLongitude ?? null,
+            time: sessionTime,
+            source: 'session',
+          };
+        } else {
+          lastLocation = {
+            country: lastAuditLogin.ipCountry!,
+            city: lastAuditLogin.ipCity ?? null,
+            latitude: lastAuditLogin.ipLatitude ?? null,
+            longitude: lastAuditLogin.ipLongitude ?? null,
+            time: auditTime,
+            source: 'audit',
+          };
+        }
+      } else if (lastSession) {
+        lastLocation = {
+          country: lastSession.ipCountry!,
+          city: lastSession.ipCity ?? null,
+          latitude: (lastSession as any).ipLatitude ?? null,
+          longitude: (lastSession as any).ipLongitude ?? null,
+          time: lastSession.createdAt,
+          source: 'session',
+        };
+      } else if (lastAuditLogin) {
+        lastLocation = {
+          country: lastAuditLogin.ipCountry!,
+          city: lastAuditLogin.ipCity ?? null,
+          latitude: lastAuditLogin.ipLatitude ?? null,
+          longitude: lastAuditLogin.ipLongitude ?? null,
+          time: lastAuditLogin.createdAt,
+          source: 'audit',
+        };
+      }
+
+      if (!lastLocation) {
+        this.logger?.debug?.(`No previous location data found for user ${userId} (no sessions or audit records)`);
         return false; // No previous location data (benefit of doubt)
       }
 
-      const lastLocation = {
-        country: lastSession.ipCountry!,
-        city: lastSession.ipCity!,
-        time: lastSession.lastActivityAt || lastSession.createdAt,
-      };
+      // Debug logging to help diagnose issues
+      const hasCoordinates = !!(
+        lastLocation.latitude && 
+        lastLocation.longitude && 
+        currentInfo.ipLatitude && 
+        currentInfo.ipLongitude
+      );
+      
+      this.logger?.debug?.(
+        `Impossible travel check: user=${userId}, source=${lastLocation.source}, ` +
+        `last=[${lastLocation.city ?? 'unknown'}, ${lastLocation.country} @ ${lastLocation.time.toISOString()}], ` +
+        `current=[${currentInfo.ipCity ?? 'unknown'}, ${currentInfo.ipCountry}], ` +
+        `coordinates=${hasCoordinates ? 'available' : 'missing'}`,
+      );
 
-      // Same location → not travel
-      if (lastLocation.country === currentInfo.ipCountry && lastLocation.city === currentInfo.ipCity) {
+      // Same location → not travel (only if we have city data to compare)
+      if (lastLocation.city && currentInfo.ipCity && 
+          lastLocation.country === currentInfo.ipCountry && 
+          lastLocation.city === currentInfo.ipCity) {
+        this.logger?.debug?.(
+          `Same location detected - no travel: user=${userId}, location=[${currentInfo.ipCity}, ${currentInfo.ipCountry}]`,
+        );
         return false;
       }
 
       // Calculate time difference (hours)
-      const hoursSinceLastSeen = (Date.now() - lastLocation.time.getTime()) / (1000 * 60 * 60);
+      // Risk detection runs BEFORE session creation, so we compare current time to previous login
+      // All times are in UTC (database stores timestamps in UTC)
+      const now = new Date();
+      const hoursSinceLastSeen = (now.getTime() - lastLocation.time.getTime()) / (1000 * 60 * 60);
 
-      // If time difference is very small (< 1 hour), be more lenient
-      if (hoursSinceLastSeen < 1) {
-        // Only flag if time is less than 30 minutes
-        if (hoursSinceLastSeen < 0.5) {
-          return true; // Impossible to travel between cities in < 30 minutes
+      this.logger?.debug?.(
+        `Time since last location: ${hoursSinceLastSeen.toFixed(2)} hours (${(hoursSinceLastSeen * 60).toFixed(1)} minutes). ` +
+        `Previous login: ${lastLocation.time.toISOString()} (UTC), Current: ${now.toISOString()} (UTC)`,
+      );
+
+      // ============================================================================
+      // SPECIAL CASE: Country change with missing city data
+      // ============================================================================
+      // If city data is missing for either location but countries differ, 
+      // apply conservative threshold for country-level changes
+      if (lastLocation.country !== currentInfo.ipCountry) {
+        if (!lastLocation.city || !currentInfo.ipCity) {
+          // Missing city data - use conservative threshold for country changes
+          // If country changed in < threshold hours, flag as suspicious (can't verify exact locations)
+          const countryChangeThresholdHours = this.config.mfa?.adaptive?.countryChangeThreshold || 2;
+          
+          if (hoursSinceLastSeen < countryChangeThresholdHours) {
+            this.logger?.warn?.(
+              `Impossible travel detected (country change without city data): ` +
+              `${lastLocation.country} → ${currentInfo.ipCountry} in ${(hoursSinceLastSeen * 60).toFixed(1)} minutes ` +
+              `(threshold: ${countryChangeThresholdHours}h). Missing city: last=${!lastLocation.city}, current=${!currentInfo.ipCity}. ` +
+              `Conservative detection applied due to incomplete location data.`,
+            );
+            return true;
+          }
+          
+          this.logger?.debug?.(
+            `Country change acceptable: ${lastLocation.country} → ${currentInfo.ipCountry} ` +
+            `in ${hoursSinceLastSeen.toFixed(2)}h (> ${countryChangeThresholdHours}h threshold). ` +
+            `City data missing but time allows travel.`,
+          );
+          return false;
         }
       }
 
-      // Get city coordinates and calculate distance
-      // For now, we'll use a simplified check: different country = possible travel
-      // Full implementation would require geocoding service or coordinate database
-      const distance = await this.calculateDistance(
-        lastLocation.city,
-        lastLocation.country,
-        currentInfo.ipCity!,
-        currentInfo.ipCountry,
-      );
+      // ============================================================================
+      // NORMAL CASE: Calculate distance using coordinates or heuristics
+      // ============================================================================
+      let distance: number;
+      let distanceMethod: 'haversine' | 'heuristic' = 'heuristic';
+
+      // Try to use actual coordinates for precise distance calculation
+      if (hasCoordinates) {
+        distance = this.calculateHaversineDistance(
+          lastLocation.latitude!,
+          lastLocation.longitude!,
+          currentInfo.ipLatitude!,
+          currentInfo.ipLongitude!,
+        );
+        distanceMethod = 'haversine';
+        
+        this.logger?.debug?.(
+          `Using Haversine formula with coordinates: distance=${distance.toFixed(0)}km ` +
+          `(${lastLocation.latitude},${lastLocation.longitude} → ${currentInfo.ipLatitude},${currentInfo.ipLongitude})`,
+        );
+      } else {
+        // Fallback to heuristic distance estimation
+        distance = await this.calculateDistance(
+          lastLocation.city,
+          lastLocation.country,
+          currentInfo.ipCity ?? null,
+          currentInfo.ipCountry,
+        );
+        
+        this.logger?.debug?.(
+          `Using heuristic distance estimation (coordinates unavailable): distance=${distance}km`,
+        );
+      }
 
       if (distance === 0) {
         return false; // Same location (shouldn't happen, but safety check)
@@ -383,7 +736,28 @@ export class RiskDetectionService {
       const maxTravelSpeed = this.config.mfa?.adaptive?.maxTravelSpeed || 900;
       const requiredSpeed = distance / hoursSinceLastSeen;
 
-      return requiredSpeed > maxTravelSpeed;
+      this.logger?.debug?.(
+        `Travel speed calculation (${distanceMethod}): distance=${distance.toFixed(0)}km, ` +
+        `time=${hoursSinceLastSeen.toFixed(2)}h, required_speed=${requiredSpeed.toFixed(0)}km/h, ` +
+        `max_allowed=${maxTravelSpeed}km/h`,
+      );
+
+      const isImpossible = requiredSpeed > maxTravelSpeed;
+      if (isImpossible) {
+        this.logger?.warn?.(
+          `Impossible travel detected: ${requiredSpeed.toFixed(0)}km/h > ${maxTravelSpeed}km/h ` +
+          `(${lastLocation.city ?? lastLocation.country}, ${lastLocation.country} → ` +
+          `${currentInfo.ipCity ?? currentInfo.ipCountry}, ${currentInfo.ipCountry})`,
+        );
+      } else {
+        this.logger?.debug?.(
+          `Travel is possible: ${requiredSpeed.toFixed(0)}km/h <= ${maxTravelSpeed}km/h ` +
+          `(${lastLocation.city ?? lastLocation.country}, ${lastLocation.country} → ` +
+          `${currentInfo.ipCity ?? currentInfo.ipCountry}, ${currentInfo.ipCountry})`,
+        );
+      }
+
+      return isImpossible;
     } catch (error) {
       // Non-blocking: Log and assume not impossible travel (safer default)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -393,42 +767,185 @@ export class RiskDetectionService {
   }
 
   /**
-   * Calculate distance between two cities
+   * Calculate distance between two points using Haversine formula
    *
-   * Simplified implementation - returns 0 for same city/country,
-   * or estimated distance for different locations.
+   * Accurate distance calculation using geographic coordinates (latitude/longitude).
+   * This is the preferred method when coordinates are available.
    *
-   * **Note:** Full implementation would require:
-   * - Geocoding service (Google Maps, OpenCage, etc.)
-   * - Coordinate database (MaxMind City DB with coordinates)
-   * - Haversine formula for accurate distance calculation
+   * **Haversine Formula:**
+   * - Accounts for Earth's spherical shape
+   * - Returns great-circle distance in kilometers
+   * - Accuracy: ~0.5% for most distances
    *
-   * For now, returns a conservative estimate:
+   * @param lat1 - Latitude of first point (degrees)
+   * @param lon1 - Longitude of first point (degrees)
+   * @param lat2 - Latitude of second point (degrees)
+   * @param lon2 - Longitude of second point (degrees)
+   * @returns Distance in kilometers (accurate)
+   * @private
+   */
+  private calculateHaversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = this.toRadians(lat2 - lat1);
+    const dLon = this.toRadians(lon2 - lon1);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+
+    return distance;
+  }
+
+  /**
+   * Convert degrees to radians
+   *
+   * @param degrees - Angle in degrees
+   * @returns Angle in radians
+   * @private
+   */
+  private toRadians(degrees: number): number {
+    return degrees * (Math.PI / 180);
+  }
+
+  /**
+   * Calculate distance between two cities (heuristic fallback)
+   *
+   * Heuristic-based implementation for estimating travel distance when
+   * precise coordinates are not available. Uses continent and regional
+   * groupings for realistic estimates.
+   *
+   * **Fallback approach:**
    * - Same city: 0 km
-   * - Same country, different city: 500 km (average)
-   * - Different country: 2000 km (conservative estimate)
+   * - Same country, different city: 500 km (average domestic travel)
+   * - Different country, same continent: 1,500 km (regional travel)
+   * - Different continent (intercontinental): 8,000 km (long-haul flight)
+   * - Missing city data: use country-level comparison
    *
-   * @param city1 - First city name
-   * @param country1 - First country code
-   * @param city2 - Second city name
-   * @param country2 - Second country code
+   * @param city1 - First city name (nullable)
+   * @param country1 - First country code (ISO 2-letter)
+   * @param city2 - Second city name (nullable)
+   * @param country2 - Second country code (ISO 2-letter)
    * @returns Distance in kilometers (estimated)
    * @private
    */
-  private async calculateDistance(city1: string, country1: string, city2: string, country2: string): Promise<number> {
-    // Same city → 0 km
-    if (city1 === city2 && country1 === country2) {
+  private async calculateDistance(
+    city1: string | null,
+    country1: string,
+    city2: string | null,
+    country2: string,
+  ): Promise<number> {
+    // Same city and country → 0 km (only if both cities are known)
+    if (city1 && city2 && city1 === city2 && country1 === country2) {
       return 0;
     }
 
-    // Same country, different city → estimate 500 km (average)
+    // Same country → estimate 500 km (average domestic travel)
     if (country1 === country2) {
       return 500;
     }
 
-    // Different country → estimate 2000 km (conservative)
-    // This is a simplified approach - full implementation would use coordinates
-    return 2000;
+    // Different country - determine if same continent or intercontinental
+    const continent1 = this.getContinent(country1);
+    const continent2 = this.getContinent(country2);
+
+    if (continent1 === continent2 && continent1 !== 'unknown') {
+      // Same continent, different country → estimate 1,500 km (regional travel)
+      // Examples: Paris-Berlin (880km), London-Rome (1,400km), Sydney-Auckland (2,160km)
+      return 1500;
+    }
+
+    // Different continent → estimate 8,000 km (intercontinental long-haul)
+    // Examples: NYC-London (5,570km), Tokyo-Sydney (7,800km), Auckland-Karachi (9,700km)
+    // Using 8,000km as realistic average for transcontinental flights
+    return 8000;
+  }
+
+  /**
+   * Get continent for a country code
+   *
+   * Maps ISO 2-letter country codes to continents for distance estimation.
+   * This is used to differentiate between regional and intercontinental travel.
+   *
+   * @param countryCode - ISO 2-letter country code
+   * @returns Continent name
+   * @private
+   */
+  private getContinent(countryCode: string): string {
+    const continentMap: Record<string, string> = {
+      // North America
+      US: 'north_america',
+      CA: 'north_america',
+      MX: 'north_america',
+      // Europe
+      GB: 'europe',
+      FR: 'europe',
+      DE: 'europe',
+      IT: 'europe',
+      ES: 'europe',
+      NL: 'europe',
+      BE: 'europe',
+      CH: 'europe',
+      AT: 'europe',
+      PT: 'europe',
+      SE: 'europe',
+      NO: 'europe',
+      DK: 'europe',
+      FI: 'europe',
+      PL: 'europe',
+      CZ: 'europe',
+      GR: 'europe',
+      IE: 'europe',
+      RO: 'europe',
+      HU: 'europe',
+      BG: 'europe',
+      SK: 'europe',
+      HR: 'europe',
+      SI: 'europe',
+      LT: 'europe',
+      LV: 'europe',
+      EE: 'europe',
+      // Asia
+      CN: 'asia',
+      JP: 'asia',
+      IN: 'asia',
+      KR: 'asia',
+      TH: 'asia',
+      VN: 'asia',
+      PH: 'asia',
+      MY: 'asia',
+      SG: 'asia',
+      ID: 'asia',
+      PK: 'asia',
+      BD: 'asia',
+      TR: 'asia',
+      SA: 'asia',
+      AE: 'asia',
+      IL: 'asia',
+      HK: 'asia',
+      TW: 'asia',
+      // Oceania
+      AU: 'oceania',
+      NZ: 'oceania',
+      // South America
+      BR: 'south_america',
+      AR: 'south_america',
+      CL: 'south_america',
+      CO: 'south_america',
+      PE: 'south_america',
+      VE: 'south_america',
+      // Africa
+      ZA: 'africa',
+      EG: 'africa',
+      NG: 'africa',
+      KE: 'africa',
+      MA: 'africa',
+      ET: 'africa',
+    };
+
+    return continentMap[countryCode.toUpperCase()] || 'unknown';
   }
 
   /**

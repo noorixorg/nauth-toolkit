@@ -102,6 +102,7 @@ describe('EmailVerificationService', () => {
   const mockVerificationToken: IVerificationToken = {
     id: 456,
     userId: 123,
+    challengeSessionId: null,
     type: 'email',
     token: 'hashed-token-abc123',
     code: '123456',
@@ -490,7 +491,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      const result = await service.verifyEmailWithCode('test@example.com', '123456');
+      const result = await service.verifyEmailWithCode({
+        email: 'test@example.com',
+        code: '123456',
+        challengeSessionId: 1,
+      });
 
       expect(result.message).toBe('Email verified successfully. Please log in to continue.');
       expect(mockUserRepository.update).toHaveBeenCalledWith(123, {
@@ -500,11 +505,30 @@ describe('EmailVerificationService', () => {
       expect(mockAuditService.recordEvent).toHaveBeenCalled();
     });
 
+    it('should throw NAuthException if challengeSessionId is missing', async () => {
+      try {
+        await service.verifyEmailWithCode({
+          email: 'test@example.com',
+          code: '123456',
+          challengeSessionId: undefined as any,
+        });
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.VALIDATION_FAILED);
+        expect(error.message).toContain('Challenge session ID is required');
+      }
+    });
+
     it('should throw NAuthException if user not found', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.verifyEmailWithCode('nonexistent@example.com', '123456');
+        await service.verifyEmailWithCode({
+          email: 'nonexistent@example.com',
+          code: '123456',
+          challengeSessionId: 1,
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -519,7 +543,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.verifyEmailWithCode('test@example.com', 'wrong-code');
+        await service.verifyEmailWithCode({
+          email: 'test@example.com',
+          code: 'wrong-code',
+          challengeSessionId: 1,
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -539,7 +567,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(expiredToken as any);
 
       try {
-        await service.verifyEmailWithCode('test@example.com', '123456');
+        await service.verifyEmailWithCode({
+          email: 'test@example.com',
+          code: '123456',
+          challengeSessionId: 1,
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -560,7 +592,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(exhaustedToken as any);
 
       try {
-        await service.verifyEmailWithCode('test@example.com', '123456');
+        await service.verifyEmailWithCode({
+          email: 'test@example.com',
+          code: '123456',
+          challengeSessionId: 1,
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -581,7 +617,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.save.mockResolvedValue(tokenWithWrongCode as any);
 
       try {
-        await service.verifyEmailWithCode('test@example.com', '123456');
+        await service.verifyEmailWithCode({
+          email: 'test@example.com',
+          code: '123456',
+          challengeSessionId: 1,
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_INVALID);
@@ -610,7 +650,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.save.mockResolvedValue(tokenWithWrongCode as any);
 
       try {
-        await service.verifyEmailWithCode('test@example.com', '123456'); // Wrong code
+        await service.verifyEmailWithCode({
+          email: 'test@example.com',
+          code: '123456',
+          challengeSessionId: 1,
+        }); // Wrong code
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -629,7 +673,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.save.mockResolvedValue(tokenWithWrongCode as any);
 
       try {
-        await service.verifyEmailWithCode('test@example.com', '123456'); // Wrong code
+        await service.verifyEmailWithCode({
+          email: 'test@example.com',
+          code: '123456',
+          challengeSessionId: 1,
+        }); // Wrong code
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -651,7 +699,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.save.mockResolvedValue(tokenWithWrongCode as any);
 
       try {
-        await service.verifyEmailWithCode('test@example.com', '123456'); // Wrong code
+        await service.verifyEmailWithCode({
+          email: 'test@example.com',
+          code: '123456',
+          challengeSessionId: 1,
+        }); // Wrong code
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -669,7 +721,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
       mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-      const result = await service.verifyEmailWithCode('test@example.com', '123456');
+      const result = await service.verifyEmailWithCode({
+        email: 'test@example.com',
+        code: '123456',
+        challengeSessionId: 1,
+      });
 
       expect(mockLogger.error).toHaveBeenCalled();
       expect(result.message).toBeDefined(); // Should still verify
@@ -686,7 +742,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(tokenWithMethod as any);
 
       try {
-        await service.verifyEmailWithCode('test@example.com', '123456');
+        await service.verifyEmailWithCode({
+          email: 'test@example.com',
+          code: '123456',
+          challengeSessionId: 1,
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_EXPIRED);
@@ -706,7 +766,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(tokenWithoutMethod as any);
 
       try {
-        await service.verifyEmailWithCode('test@example.com', '123456');
+        await service.verifyEmailWithCode({
+          email: 'test@example.com',
+          code: '123456',
+          challengeSessionId: 1,
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_EXPIRED);
@@ -724,7 +788,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(tokenWithMethod as any);
 
       try {
-        await service.verifyEmailWithCode('test@example.com', '123456');
+        await service.verifyEmailWithCode({
+          email: 'test@example.com',
+          code: '123456',
+          challengeSessionId: 1,
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_TOO_MANY_ATTEMPTS);
@@ -744,7 +812,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(tokenWithoutMethod as any);
 
       try {
-        await service.verifyEmailWithCode('test@example.com', '123456');
+        await service.verifyEmailWithCode({
+          email: 'test@example.com',
+          code: '123456',
+          challengeSessionId: 1,
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_TOO_MANY_ATTEMPTS);

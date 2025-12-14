@@ -16,7 +16,8 @@ import {
   SessionService,
   AuthChallengeHelperService,
   SocialProviderRegistry,
-  AuthAuditService, // Internal version with recordEvent()
+  AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent()
+  TrustedDeviceService,
 } from '@nauth-toolkit/core/internal';
 import { TokenVerifierService as GoogleTokenVerifierService } from '../src/token-verifier.service';
 
@@ -80,7 +81,8 @@ import { TokenVerifierService as GoogleTokenVerifierService } from '../src/token
         stateStore: Map<string, { timestamp: number; provider: string }>,
         userRepository: any,
         phoneVerificationService?: PhoneVerificationService,
-        auditService?: AuthAuditService, // Optional - only available when auditLogs.enabled is true
+        auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
+        trustedDeviceService?: TrustedDeviceService, // Optional - only available when rememberDevices is enabled
         tokenVerifier?: ITokenVerifierService,
       ): GoogleSocialAuthService => {
         // Service can be created even when disabled - it handles gracefully
@@ -98,6 +100,7 @@ import { TokenVerifierService as GoogleTokenVerifierService } from '../src/token
           userRepository,
           phoneVerificationService,
           auditService,
+          trustedDeviceService,
           tokenVerifier,
         );
       },
@@ -113,7 +116,8 @@ import { TokenVerifierService as GoogleTokenVerifierService } from '../src/token
         'SOCIAL_AUTH_STATE_STORE',
         'UserRepository',
         { token: PhoneVerificationService, optional: true },
-        { token: AuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
+        { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
+        { token: TrustedDeviceService, optional: true }, // Optional - only available when rememberDevices is enabled
         { token: 'GOOGLE_TOKEN_VERIFIER', optional: true },
       ],
     },

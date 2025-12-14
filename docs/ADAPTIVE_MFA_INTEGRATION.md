@@ -191,7 +191,7 @@ To enable adaptive MFA:
 {
   mfa: {
     enabled: true,
-    enforcement: 'ADAPTIVE', // 👈 Enable adaptive MFA
+    enforcement: 'ADAPTIVE', // Enable adaptive MFA
     adaptive: {
       triggers: ['new_device', 'new_ip', 'new_country', 'impossible_travel', 'suspicious_activity'],
       riskLevels: {
@@ -199,10 +199,66 @@ To enable adaptive MFA:
         medium: { maxScore: 50, action: 'require_mfa', notifyUser: true },
         high: { maxScore: 100, action: 'require_mfa', notifyUser: true },
       },
+      maxTravelSpeed: 900, // km/h (default: 900)
+      countryChangeThreshold: 2, // hours (default: 2)
+      suspiciousActivityWindow: 1, // hours (default: 1)
+      riskWeights: {
+        new_device: 25,
+        new_ip: 15,
+        new_country: 25,
+        impossible_travel: 40,
+        suspicious_activity: 30,
+        incomplete_location_data: 20,
+      },
     },
   },
 }
 ```
+
+### MFA Configuration Options
+
+| Setting | Values | Description | Default |
+|---------|--------|-------------|---------|
+| **`enforcement`** | `'OPTIONAL'` \| `'REQUIRED'` \| `'ADAPTIVE'` | MFA enforcement mode | `'OPTIONAL'` |
+| **`methods`** | `['totp', 'sms', 'email', 'passkey']` | Enabled MFA methods | `['totp']` |
+| **`requireForSensitiveActions`** | `boolean` | Require MFA for password changes, etc. | `false` |
+
+### Adaptive MFA Configuration
+
+| Setting | Type | Description | Default |
+|---------|------|-------------|---------|
+| **`triggers`** | `string[]` | Risk factors to detect: `'new_device'`, `'new_ip'`, `'new_country'`, `'impossible_travel'`, `'suspicious_activity'` | `['new_device', 'new_ip', 'new_country']` |
+| **`maxTravelSpeed`** | `number` | Maximum realistic travel speed in km/h for impossible travel detection | `900` |
+| **`countryChangeThreshold`** | `number` | Minimum hours required between country changes when city data missing | `2` |
+| **`suspiciousActivityWindow`** | `number` | Hours to look back for suspicious activity | `1` |
+| **`riskWeights`** | `object` | Custom weights for risk factors (0-100) | See below |
+
+### Risk Factor Weights
+
+| Risk Factor | Default Weight | Description |
+|-------------|----------------|-------------|
+| `new_device` | `25` | First login from unknown device |
+| `new_ip` | `15` | Login from new IP address (skipped if `new_country` detected) |
+| `new_country` | `25` | Login from different country |
+| `impossible_travel` | `40` | Geographic distance/time anomaly detected |
+| `suspicious_activity` | `30` | Recent failed attempts or security events |
+| `incomplete_location_data` | `20` | Missing city or coordinates (reduced confidence) |
+
+### Risk Levels Configuration
+
+| Level | Default Max Score | Default Action | Description |
+|-------|-------------------|----------------|-------------|
+| **Low** | `20` | `'allow'` | Low risk - allow signin without MFA |
+| **Medium** | `50` | `'require_mfa'` | Medium risk - require MFA verification |
+| **High** | `100` | `'require_mfa'` | High risk - require MFA (or `'block_signin'`) |
+
+### MFA Enforcement Modes
+
+| Mode | Behavior | Use Case |
+|------|----------|----------|
+| **`OPTIONAL`** | MFA never required unless explicitly enabled by user | Low-security apps, consumer apps |
+| **`REQUIRED`** | MFA always required for all users | High-security apps, enterprise |
+| **`ADAPTIVE`** | MFA required based on risk factors (dynamic) | Enterprise-grade security with UX balance |
 
 ## Service Dependencies
 

@@ -139,8 +139,20 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
     }
 
     // Send SMS verification code (phone not verified, so code is required)
+    // Link verification token to challenge session if provided in setupData
     const sendDto = new SendVerificationSMSDTO();
     sendDto.sub = user.sub;
+    const setupDataWithSession = setupData as (SetupSMSMFADTO & { challengeSessionId?: number }) | undefined;
+    if (setupDataWithSession?.challengeSessionId) {
+      sendDto.challengeSessionId = setupDataWithSession.challengeSessionId;
+      this.logger?.debug?.(
+        `Linking SMS verification token to challenge session: challengeSessionId=${setupDataWithSession.challengeSessionId}`,
+      );
+    } else {
+      this.logger?.warn?.(
+        `No challengeSessionId provided in setupData for SMS MFA setup. Token will not be linked to challenge session.`,
+      );
+    }
     await this.phoneVerificationService.sendVerificationSMS(sendDto);
 
     const maskedPhone = this.maskPhone(phoneNumber);
@@ -156,10 +168,15 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
    * Validates the SMS code and stores the device if valid.
    * Enables MFA for user if this is their first device.
    *
+   * **Race Condition Safety:**
+   * Device creation uses transaction with pessimistic locking to prevent duplicates.
+   * If device already exists (e.g., from concurrent request), returns existing device.
+   * Database unique constraint (userId, type) provides final safety net.
+   *
    * @param user - User completing SMS MFA setup
    * @param verificationData - Verification data (must be VerifySMSMFASetupDTO)
    * @param deviceName - Optional device name override
-   * @returns Created MFA device ID
+   * @returns MFA device ID (created or existing)
    * @throws {NAuthException} If code is invalid
    *
    * @example
@@ -221,7 +238,12 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
       );
     }
 
-    // Create MFA device
+    // ============================================================================
+    // Create MFA device (transaction-safe with duplicate prevention)
+    // ============================================================================
+    // createDevice() uses pessimistic locking to prevent race conditions
+    // If device already exists, returns existing device instead of creating duplicate
+    // Database unique constraint (userId, type) provides additional safety
     const device = await this.createDevice(userId, {
       name: deviceName || 'SMS Phone',
       phoneNumber: dto.phoneNumber,
@@ -344,8 +366,19 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
 
     // Find active SMS device
     const device = await this.findDevice(userId);
-    if (!device || !device.phoneNumber) {
+    if (!device) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'No SMS device registered', { deviceType: 'sms' });
+    }
+
+    // Get phone number from device or fall back to user phone
+    // Fallback handles legacy devices where phoneNumber field might be null
+    const phoneNumber = device.phoneNumber || (userEntity.phone as string | undefined);
+    if (!phoneNumber) {
+      throw new NAuthException(
+        AuthErrorCode.VALIDATION_FAILED,
+        'No phone number found for SMS MFA. Please update your profile or re-setup SMS MFA.',
+        { deviceType: 'sms' },
+      );
     }
 
     // Check if phone verification service is available
@@ -365,6 +398,6 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
 
     this.logger?.log?.(`SMS MFA code sent for user: ${user.sub}`);
 
-    return this.maskPhone(device.phoneNumber);
+    return this.maskPhone(phoneNumber);
   }
 }

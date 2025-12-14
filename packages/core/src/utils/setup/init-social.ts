@@ -13,11 +13,17 @@ import {
   ClientInfoService,
   AuthAuditService,
   PhoneVerificationService,
+  BaseUser,
 } from '../../index';
 // Internal API imports (for framework adapter use only)
-import { JwtService, SessionService, AuthChallengeHelperService, SocialProviderRegistry } from '../../internal';
+import {
+  JwtService,
+  SessionService,
+  AuthChallengeHelperService,
+  SocialProviderRegistry,
+  TrustedDeviceService,
+} from '../../internal';
 import { Repository } from 'typeorm';
-import { BaseUser } from '../../index';
 
 export interface NAuthSocialProviders {
   googleAuth?: any;
@@ -44,6 +50,7 @@ export interface NAuthSocialProviders {
  * @param socialAuthStateStore - Shared state store for OAuth CSRF protection
  * @param phoneVerificationService - Phone verification service (optional)
  * @param auditService - Audit logging service (optional)
+ * @param trustedDeviceService - Trusted device service (optional)
  * @returns Object containing initialized social providers
  */
 export async function initSocialAuth(
@@ -60,6 +67,7 @@ export async function initSocialAuth(
   userRepository: Repository<BaseUser>,
   phoneVerificationService?: PhoneVerificationService,
   auditService?: AuthAuditService,
+  trustedDeviceService?: TrustedDeviceService,
 ): Promise<NAuthSocialProviders> {
   const providers: NAuthSocialProviders = {};
 
@@ -87,6 +95,7 @@ export async function initSocialAuth(
         userRepository,
         phoneVerificationService,
         auditService,
+        trustedDeviceService,
         tokenVerifier,
       );
 
@@ -124,6 +133,7 @@ export async function initSocialAuth(
         userRepository,
         phoneVerificationService,
         auditService,
+        trustedDeviceService,
         tokenVerifier,
       );
 
@@ -161,6 +171,7 @@ export async function initSocialAuth(
         userRepository,
         phoneVerificationService,
         auditService,
+        trustedDeviceService,
         tokenVerifier,
       );
 

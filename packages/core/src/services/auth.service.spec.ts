@@ -2441,7 +2441,7 @@ describe('AuthService', () => {
       mockPasswordService.isPasswordInHistory.mockResolvedValue(false);
       mockPasswordService.hashPassword.mockResolvedValue('new-hashed-password');
       mockPasswordService.addToHistory.mockReturnValue([]);
-      mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
+      mockUserRepository.save.mockResolvedValue(mockUser as any);
     });
 
     describe('Successful password change', () => {
@@ -2457,17 +2457,17 @@ describe('AuthService', () => {
           username: mockUser.username || undefined,
         });
         expect(mockPasswordService.hashPassword).toHaveBeenCalledWith(changePasswordDto.newPassword);
-        expect(mockUserRepository.update).toHaveBeenCalled();
+        expect(mockUserRepository.save).toHaveBeenCalled();
       });
 
       it('should update password hash in database', async () => {
         await service.changePassword(mockUser.sub, changePasswordDto);
 
-        expect(mockUserRepository.update).toHaveBeenCalledWith(
-          mockUser.id,
+        expect(mockUserRepository.save).toHaveBeenCalledWith(
           (expect as any).objectContaining({
             passwordHash: 'new-hashed-password',
             passwordChangedAt: (expect as any).any(Date),
+            passwordHistory: (expect as any).any(Array),
           }),
         );
       });
@@ -2866,6 +2866,221 @@ describe('AuthService', () => {
             userId: mockUser.id,
             eventType: AuthAuditEventType.PROFILE_UPDATED,
             eventStatus: 'INFO',
+          }),
+        );
+      });
+    });
+
+    describe('MFA device management', () => {
+      it('should delete Email MFA devices when email changes', async () => {
+        const userWithEmail = { ...mockUser, email: 'old@example.com' };
+        const emailDevice = {
+          id: 1,
+          userId: mockUser.id,
+          type: MFAMethod.EMAIL,
+          isActive: true,
+        };
+
+        mockUserRepository.findOne.mockReset();
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithEmail as any) // Initial lookup
+          .mockResolvedValueOnce(null) // Email uniqueness check
+          .mockResolvedValueOnce({ ...userWithEmail, email: 'new@example.com' } as any); // Final fetch
+
+        mockMfaDeviceRepository.find
+          .mockResolvedValueOnce([emailDevice] as any) // Find Email devices
+          .mockResolvedValueOnce([emailDevice] as any); // Check remaining devices
+
+        mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
+
+        await service.updateUserAttributes(mockUser.sub, {
+          email: 'new@example.com',
+        });
+
+        expect(mockMfaDeviceRepository.delete).toHaveBeenCalledWith(1);
+      });
+
+      it('should record audit event when Email MFA devices are deleted', async () => {
+        const userWithEmail = { ...mockUser, email: 'old@example.com' };
+        const emailDevice = {
+          id: 1,
+          userId: mockUser.id,
+          type: MFAMethod.EMAIL,
+          isActive: true,
+        };
+
+        mockUserRepository.findOne.mockReset();
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithEmail as any)
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce({ ...userWithEmail, email: 'new@example.com' } as any);
+
+        mockMfaDeviceRepository.find
+          .mockResolvedValueOnce([emailDevice] as any)
+          .mockResolvedValueOnce([emailDevice] as any);
+
+        mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
+
+        await service.updateUserAttributes(mockUser.sub, {
+          email: 'new@example.com',
+        });
+
+        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+          (expect as any).objectContaining({
+            userId: mockUser.id,
+            eventType: AuthAuditEventType.MFA_DEVICE_REMOVED,
+            eventStatus: 'INFO',
+            reason: 'email_changed',
+            metadata: (expect as any).objectContaining({
+              method: MFAMethod.EMAIL,
+              deletedCount: 1,
+              oldEmail: 'old@example.com',
+              newEmail: 'new@example.com',
+            }),
+          }),
+        );
+      });
+
+      it('should delete SMS MFA devices when phone changes', async () => {
+        const userWithPhone = { ...mockUser, phone: '+1234567890' };
+        const smsDevice = {
+          id: 1,
+          userId: mockUser.id,
+          type: MFAMethod.SMS,
+          phoneNumber: '+1234567890',
+          isActive: true,
+        };
+
+        mockUserRepository.findOne.mockReset();
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithPhone as any) // Initial lookup
+          .mockResolvedValueOnce(null) // Phone uniqueness check
+          .mockResolvedValueOnce({ ...userWithPhone, phone: '+1987654321' } as any); // Final fetch
+
+        mockMfaDeviceRepository.find
+          .mockResolvedValueOnce([smsDevice] as any) // Find SMS devices
+          .mockResolvedValueOnce([smsDevice] as any); // Check remaining devices
+
+        mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
+
+        await service.updateUserAttributes(mockUser.sub, {
+          phone: '+1987654321',
+        });
+
+        expect(mockMfaDeviceRepository.delete).toHaveBeenCalledWith(1);
+      });
+
+      it('should record audit event when SMS MFA devices are deleted', async () => {
+        const userWithPhone = { ...mockUser, phone: '+1234567890' };
+        const smsDevice = {
+          id: 1,
+          userId: mockUser.id,
+          type: MFAMethod.SMS,
+          phoneNumber: '+1234567890',
+          isActive: true,
+        };
+
+        mockUserRepository.findOne.mockReset();
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithPhone as any)
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce({ ...userWithPhone, phone: '+1987654321' } as any);
+
+        mockMfaDeviceRepository.find
+          .mockResolvedValueOnce([smsDevice] as any)
+          .mockResolvedValueOnce([smsDevice] as any);
+
+        mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
+
+        await service.updateUserAttributes(mockUser.sub, {
+          phone: '+1987654321',
+        });
+
+        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+          (expect as any).objectContaining({
+            userId: mockUser.id,
+            eventType: AuthAuditEventType.MFA_DEVICE_REMOVED,
+            eventStatus: 'INFO',
+            reason: 'phone_changed',
+            metadata: (expect as any).objectContaining({
+              method: MFAMethod.SMS,
+              deletedCount: 1,
+              oldPhone: '+1234567890',
+              newPhone: '+1987654321',
+            }),
+          }),
+        );
+      });
+
+      it('should disable MFA when all devices are removed after email change', async () => {
+        const userWithMfa = { ...mockUser, email: 'old@example.com', mfaEnabled: true };
+        const emailDevice = {
+          id: 1,
+          userId: mockUser.id,
+          type: MFAMethod.EMAIL,
+          isActive: true,
+        };
+
+        mockUserRepository.findOne.mockReset();
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithMfa as any)
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce({ ...userWithMfa, email: 'new@example.com', mfaEnabled: false } as any);
+
+        mockMfaDeviceRepository.find
+          .mockResolvedValueOnce([emailDevice] as any) // Find Email devices
+          .mockResolvedValueOnce([] as any); // No remaining devices
+
+        mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
+
+        await service.updateUserAttributes(mockUser.sub, {
+          email: 'new@example.com',
+        });
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            email: 'new@example.com',
+            mfaEnabled: false,
+            mfaMethods: [],
+            preferredMfaMethod: null,
+          }),
+        );
+      });
+
+      it('should disable MFA when all devices are removed after phone change', async () => {
+        const userWithMfa = { ...mockUser, phone: '+1234567890', mfaEnabled: true };
+        const smsDevice = {
+          id: 1,
+          userId: mockUser.id,
+          type: MFAMethod.SMS,
+          phoneNumber: '+1234567890',
+          isActive: true,
+        };
+
+        mockUserRepository.findOne.mockReset();
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithMfa as any)
+          .mockResolvedValueOnce(null)
+          .mockResolvedValueOnce({ ...userWithMfa, phone: '+1987654321', mfaEnabled: false } as any);
+
+        mockMfaDeviceRepository.find
+          .mockResolvedValueOnce([smsDevice] as any) // Find SMS devices
+          .mockResolvedValueOnce([] as any); // No remaining devices
+
+        mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
+
+        await service.updateUserAttributes(mockUser.sub, {
+          phone: '+1987654321',
+        });
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            phone: '+1987654321',
+            mfaEnabled: false,
+            mfaMethods: [],
+            preferredMfaMethod: null,
           }),
         );
       });

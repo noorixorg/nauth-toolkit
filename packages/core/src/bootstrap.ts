@@ -83,8 +83,7 @@ export interface NAuthOptions {
  * @typeParam THelper - Type for route helpers (framework-specific)
  */
 export interface NAuthInstance<TMiddleware = unknown, THelper = unknown>
-  extends Omit<NAuthServices, 'challengeService' | 'authChallengeHelperService'>,
-    NAuthSocialProviders {
+  extends Omit<NAuthServices, 'challengeService' | 'authChallengeHelperService'>, NAuthSocialProviders {
   /** Framework-specific middleware/hooks */
   middleware: {
     /** Client info extraction (MUST BE FIRST) */
@@ -226,6 +225,7 @@ export class NAuth {
       repos.userRepository,
       services.phoneVerificationService,
       services.auditService,
+      services.trustedDeviceService,
     );
 
     // ========================================================================

@@ -14,9 +14,7 @@ import {
   VerifyEmailWithCodeDTO,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
-import {
-  BaseMFAProviderService,
-} from '@nauth-toolkit/core/internal';
+import { BaseMFAProviderService } from '@nauth-toolkit/core/internal';
 import { SetupEmailMFADTO, VerifyEmailMFASetupDTO } from './dto/mfa.dto';
 
 /**
@@ -140,8 +138,13 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
     }
 
     // Send Email verification code (email not verified, so code is required)
+    // Link verification token to challenge session if provided in setupData
     const sendDto = new SendVerificationEmailDTO();
     sendDto.sub = user.sub;
+    const setupDataWithSession = setupData as (SetupEmailMFADTO & { challengeSessionId?: number }) | undefined;
+    if (setupDataWithSession?.challengeSessionId) {
+      sendDto.challengeSessionId = setupDataWithSession.challengeSessionId;
+    }
     await this.emailVerificationService.sendVerificationEmail(sendDto);
 
     const maskedEmail = this.maskEmail(email);
@@ -157,10 +160,15 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
    * Validates the Email code and stores the device if valid.
    * Enables MFA for user if this is their first device.
    *
+   * **Race Condition Safety:**
+   * Device creation uses transaction with pessimistic locking to prevent duplicates.
+   * If device already exists (e.g., from concurrent request), returns existing device.
+   * Database unique constraint (userId, type) provides final safety net.
+   *
    * @param user - User completing Email MFA setup
    * @param verificationData - Verification data (must be VerifyEmailMFASetupDTO)
    * @param deviceName - Optional device name override
-   * @returns Created MFA device ID
+   * @returns MFA device ID (created or existing)
    * @throws {NAuthException} If code is invalid
    *
    * @example
@@ -179,6 +187,17 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
     const userId = userEntity.id as number;
     const userMfaEnabled = (userEntity.mfaEnabled as boolean) || false;
     const isEmailVerified = (userEntity.isEmailVerified as boolean) || false;
+
+    // Get email address from dto or fall back to user object
+    // This ensures email is always stored in the device, even if dto.email is undefined
+    const email = dto.email || (userEntity.email as string | undefined);
+
+    if (!email) {
+      throw new NAuthException(
+        AuthErrorCode.VALIDATION_FAILED,
+        'Email address is required for Email MFA setup. Please provide an email address.',
+      );
+    }
 
     // ============================================================================
     // Special case: If email is already verified, skip code verification
@@ -222,10 +241,15 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
       );
     }
 
-    // Create MFA device
+    // ============================================================================
+    // Create MFA device (transaction-safe with duplicate prevention)
+    // ============================================================================
+    // createDevice() uses pessimistic locking to prevent race conditions
+    // If device already exists, returns existing device instead of creating duplicate
+    // Database unique constraint (userId, type) provides additional safety
     const device = await this.createDevice(userId, {
       name: deviceName || 'Email',
-      email: dto.email,
+      email, // Use resolved email (dto.email or user.email)
       isActive: true,
       isPrimary: !userMfaEnabled, // First device becomes primary
     });
@@ -345,8 +369,19 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
 
     // Find active Email device
     const device = await this.findDevice(userId);
-    if (!device || !device.email) {
+    if (!device) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'No Email device registered', { deviceType: 'email' });
+    }
+
+    // Get email address from device or fall back to user email
+    // Fallback handles legacy devices where email field might be null
+    const emailAddress = device.email || user.email;
+    if (!emailAddress) {
+      throw new NAuthException(
+        AuthErrorCode.VALIDATION_FAILED,
+        'No email address found for Email MFA. Please update your profile or re-setup Email MFA.',
+        { deviceType: 'email' },
+      );
     }
 
     // Check if email verification service is available
@@ -367,6 +402,6 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
 
     this.logger?.log?.(`Email MFA code sent for user: ${user.sub}`);
 
-    return this.maskEmail(device.email);
+    return this.maskEmail(emailAddress);
   }
 }

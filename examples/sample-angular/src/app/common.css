@@ -1,0 +1,257 @@
+/**
+ * Common reusable styles for authentication forms
+ * Uses Tailwind @apply directive for reusable utility classes
+ */
+
+/* ============================================================================
+   Form Container
+   ============================================================================ */
+
+.auth-container {
+  @apply flex items-center justify-center min-h-screen min-h-dvh p-0 md:p-4;
+}
+
+.auth-wrapper {
+  @apply w-full min-h-screen min-h-dvh md:min-h-0 md:max-w-md bg-white md:rounded-2xl md:shadow-lg overflow-hidden flex flex-col justify-center;
+}
+
+/* ============================================================================
+   Header Section
+   ============================================================================ */
+
+.auth-header {
+  @apply text-center py-8 px-6 pb-4;
+}
+
+.auth-logo {
+  @apply w-20 h-20 mx-auto mb-6 block object-contain;
+}
+
+.challenge-icon-container {
+  @apply flex items-center justify-center mb-6;
+}
+
+.challenge-icon {
+  @apply text-5xl transition-all duration-300;
+}
+
+.auth-title {
+  @apply text-2xl font-bold text-primary-900 m-0 mb-2;
+}
+
+.auth-subtitle {
+  @apply text-sm text-secondary-500 m-0;
+}
+
+/* ============================================================================
+   Challenge Components Container & Card
+   ============================================================================ */
+
+.challenge-container {
+  @apply min-h-screen p-0 md:p-6 flex items-start md:items-center justify-start md:justify-center;
+}
+
+.challenge-card {
+  @apply w-full h-full md:h-auto md:max-w-md bg-white md:rounded-2xl md:shadow-lg md:border md:border-secondary-200 overflow-hidden;
+}
+
+/* ============================================================================
+   Challenge Header (with border)
+   ============================================================================ */
+
+.challenge-header {
+  @apply px-6 py-4 border-b-2 border-primary-600 bg-white;
+}
+
+.challenge-header-content {
+  @apply flex items-center gap-3;
+}
+
+.challenge-header-icon {
+  @apply text-xl text-primary-600;
+}
+
+.challenge-header-title {
+  @apply text-xl font-semibold text-secondary-900 m-0;
+}
+
+/* ============================================================================
+   Challenge Content
+   ============================================================================ */
+
+.challenge-content {
+  @apply p-6;
+}
+
+/* ============================================================================
+   Form Elements
+   ============================================================================ */
+
+.auth-form {
+  @apply flex flex-col gap-5 px-6 pb-8;
+}
+
+.form-field {
+  @apply flex flex-col gap-2;
+}
+
+.form-label {
+  @apply text-sm font-semibold text-secondary-700;
+}
+
+.form-label-section {
+  @apply text-sm font-semibold text-secondary-700 mb-2 block;
+}
+
+.form-required {
+  @apply text-error-500;
+}
+
+/* ============================================================================
+   Social Login
+   ============================================================================ */
+
+.social-login-container {
+  @apply flex flex-col gap-3;
+}
+
+.social-button {
+  @apply justify-start;
+}
+
+.divider-text {
+  @apply bg-white px-4 text-secondary-400;
+}
+
+/* ============================================================================
+   Footer Links
+   ============================================================================ */
+
+.auth-footer {
+  @apply text-center px-6 pb-6 pt-2;
+}
+
+.auth-footer-text {
+  @apply text-sm text-secondary-500 m-0;
+}
+
+.auth-link {
+  @apply text-primary-600 font-semibold cursor-pointer no-underline hover:text-primary-700 hover:underline;
+}
+
+/* ============================================================================
+   Demo Banner
+   ============================================================================ */
+
+.demo-banner {
+  @apply relative p-3 md:p-4 bg-gradient-to-r from-warning-50 to-warning-100/50 flex items-start gap-3 shadow-sm flex-shrink-0;
+  @apply border-b border-warning-200 md:border md:border-warning-200 md:rounded-lg;
+  @apply max-w-lg mt-5 mx-auto;
+}
+
+.demo-banner-icon {
+  @apply text-warning-600 flex-shrink-0 mt-0.5 text-lg;
+}
+
+.demo-banner-content {
+  @apply flex-1 pr-8;
+}
+
+.demo-banner-title {
+  @apply text-sm font-semibold text-warning-900 m-0 mb-1.5;
+}
+
+.demo-banner-text {
+  @apply text-xs text-warning-800 m-0 leading-relaxed;
+}
+
+.demo-banner-close {
+  @apply absolute top-3 right-3 p-1.5 rounded-md text-warning-600 hover:bg-warning-200 hover:text-warning-900 focus:outline-none focus:ring-2 focus:ring-warning-500 focus:ring-offset-2 transition-colors;
+}
+
+.demo-banner-close i {
+  @apply text-sm;
+}
+
+/* ============================================================================
+   TOTP Setup Styles
+   ============================================================================ */
+
+.qr-code-container {
+  @apply flex justify-center items-center p-4 bg-white border-2 border-secondary-200 rounded-lg my-4;
+}
+
+.qr-code-image {
+  @apply max-w-full h-auto w-64 h-64;
+}
+
+.manual-key-container {
+  @apply mt-4 p-4 bg-secondary-50 rounded-lg border border-secondary-200;
+}
+
+.manual-key-display {
+  @apply flex items-center justify-between gap-2 p-3 bg-white border border-secondary-200 rounded-md;
+}
+
+.manual-key-text {
+  @apply font-mono text-sm font-semibold text-secondary-900 tracking-wide flex-1 text-center;
+}
+
+.copy-button {
+  @apply flex items-center justify-center p-2 bg-transparent rounded-md cursor-pointer text-secondary-500 transition-all duration-200;
+  @apply hover:bg-secondary-100 hover:border-secondary-300 hover:text-secondary-900;
+  @apply active:scale-95 active:bg-secondary-200 active:ring-2 active:ring-secondary-300 active:ring-offset-1;
+}
+
+.copy-button i.pi-check {
+  @apply text-success-600;
+}
+
+/* ============================================================================
+   Dashboard Components
+   ============================================================================ */
+
+.dashboard-card {
+  @apply h-full shadow-md rounded-lg;
+}
+
+.dashboard-card-header {
+  @apply px-6 py-4 rounded-t-lg border-b-2 border-primary-600;
+  background-color: white;
+}
+
+.dashboard-card-header-content {
+  @apply flex items-center justify-between min-h-[40px];
+}
+
+.dashboard-card-header-title {
+  @apply flex items-center gap-3;
+}
+
+.dashboard-card-header-icon {
+  @apply text-xl;
+}
+
+.dashboard-card-header-text {
+  @apply text-xl font-semibold;
+}
+
+/* ============================================================================
+   Focus Styles (consolidated from component CSS files)
+   ============================================================================ */
+
+button:focus-visible {
+  @apply outline-2 outline-primary-500 outline-offset-2;
+}
+
+/* ============================================================================
+   Error Message Display (standardized pattern)
+   ============================================================================ */
+
+.error-message-container {
+  @apply mb-6;
+}
+
+.error-message-container-compact {
+  @apply mt-4;
+}

@@ -35,7 +35,7 @@ For complete MFA configuration options, see the [Configuration guide](/docs/conc
 - Recovery options via backup codes
 
 :::tip Adaptive MFA
-nauth-toolkit can automatically require MFA for risky logins (new device, new location, unusual login time) while skipping it for trusted scenarios. This balances security and user experience.
+nauth-toolkit can automatically require MFA for risky logins (new device, new location, impossible travel) while skipping it for trusted scenarios. Uses enterprise-grade algorithms including Haversine formula for global-scale travel detection.
 :::
 
 ## How It Works
@@ -76,6 +76,24 @@ const config = {
     issuer: 'YourAppName',
     enforcement: 'OPTIONAL', // 'OPTIONAL' | 'REQUIRED' | 'ADAPTIVE'
 
+    // Adaptive MFA (when enforcement: 'ADAPTIVE')
+    adaptive: {
+      triggers: ['new_device', 'new_country', 'impossible_travel'],
+      maxTravelSpeed: 900, // km/h
+      countryChangeThreshold: 2, // hours
+      riskWeights: {
+        new_device: 25,
+        new_country: 25,
+        impossible_travel: 40,
+        incomplete_location_data: 20,
+      },
+      riskLevels: {
+        low: { maxScore: 20, action: 'allow' },
+        medium: { maxScore: 50, action: 'require_mfa' },
+        high: { maxScore: 100, action: 'require_mfa' },
+      },
+    },
+
     // TOTP Configuration
     totp: {
       window: 1, // Allow 1 step before/after for clock skew
@@ -106,6 +124,46 @@ const config = {
   },
 };
 ```
+
+### MFA Configuration Reference
+
+| Setting | Type | Description | Default |
+|---------|------|-------------|---------|
+| `enabled` | `boolean` | Enable MFA feature | `false` |
+| `issuer` | `string` | App name shown in authenticator apps | `'nauth-toolkit'` |
+| `enforcement` | `'OPTIONAL'` \| `'REQUIRED'` \| `'ADAPTIVE'` | When to require MFA | `'OPTIONAL'` |
+| `methods` | `Array<'totp' \| 'sms' \| 'email' \| 'passkey'>` | Enabled MFA methods | `['totp']` |
+
+### Enforcement Modes
+
+| Mode | Behavior | Best For |
+|------|----------|----------|
+| **`OPTIONAL`** | Users can enable MFA, never required | Consumer apps, low security |
+| **`REQUIRED`** | MFA required for all users always | Enterprise, high security |
+| **`ADAPTIVE`** | MFA required based on risk (smart) | Modern enterprise apps |
+
+### Adaptive MFA Configuration
+
+When `enforcement: 'ADAPTIVE'`, configure risk detection:
+
+| Setting | Type | Description | Default |
+|---------|------|-------------|---------|
+| `triggers` | `string[]` | Risk factors: `new_device`, `new_ip`, `new_country`, `impossible_travel`, `suspicious_activity` | `['new_device', 'new_ip', 'new_country']` |
+| `maxTravelSpeed` | `number` | Max km/h for impossible travel detection | `900` |
+| `countryChangeThreshold` | `number` | Min hours between country changes (when city unknown) | `2` |
+| `suspiciousActivityWindow` | `number` | Hours to check for suspicious activity | `1` |
+| `riskWeights` | `object` | Points per risk factor | See below |
+
+### Risk Factor Weights
+
+| Factor | Default | Description |
+|--------|---------|-------------|
+| `new_device` | `25` | Unknown device (first login) |
+| `new_ip` | `15` | New IP address |
+| `new_country` | `25` | Different country |
+| `impossible_travel` | `40` | Impossible geographic distance/time |
+| `suspicious_activity` | `30` | Recent failed logins or security events |
+| `incomplete_location_data` | `20` | Missing city/coordinates |
 
 **Step 2: Add MFA setup endpoints**
 
@@ -354,22 +412,44 @@ MFA is only required when the login is deemed risky (e.g., new device, new locat
 
 ## Remember Device
 
-Users can mark devices as "trusted" to skip MFA for a period.
+Users can mark devices as **trusted** so that MFA can be skipped on those devices according to your enforcement policy.
 
 ```typescript
 {
   mfa: {
-    rememberDevice: true,
+    // How devices become trusted:
+    // - 'never'      → no remember-device feature
+    // - 'always'     → auto-trust device after successful login + MFA
+    // - 'user_opt_in' → user must explicitly opt-in via /trust-device endpoint
+    rememberDevices: 'always', // 'always' | 'user_opt_in' | 'never'
+
+    // How long to remember trusted devices (in days)
     rememberDeviceDays: 30,
+
+    // Whether trusted devices can skip MFA when enforcement is OPTIONAL or REQUIRED
+    // NOTE: This flag is ignored for ADAPTIVE enforcement, which uses risk-based logic.
+    bypassMFAForTrustedDevices: true,
   }
 }
 ```
 
+**Behavior by enforcement mode:**
+
+- **OPTIONAL**
+  - Signup: MFA setup is optional.
+  - After user enables MFA: MFA is required on every login **unless** the device is trusted **and** `bypassMFAForTrustedDevices: true`.
+- **REQUIRED**
+  - Signup: User is required to set up MFA (after any email/phone verification).
+  - Subsequent logins: MFA is required on every login **unless** the device is trusted **and** `bypassMFAForTrustedDevices: true`.
+- **ADAPTIVE**
+  - Trusted devices are fed into the risk engine (e.g. reduce `new_device` risk), but `bypassMFAForTrustedDevices` **does not** short‑circuit risk decisions.
+  - MFA may still be required on trusted devices when risk is medium/high.
+
 **Security:**
 
-- Device tokens are cryptographically signed
+- Device tokens are cryptographically strong UUIDs
 - Stored as secure HTTP-only cookies (web) or in secure storage (mobile)
-- Automatically expire after the configured period
+- Automatically expire after the configured period (`rememberDeviceDays`)
 - Can be revoked at any time from user settings
 
 ## Managing MFA Devices
@@ -399,6 +479,55 @@ mfaService.regenerateBackupCodes(userId);
 - Last used date
 - Created date
 - Primary indicator
+
+## Profile Changes and MFA
+
+When users update their email or phone number, associated MFA devices are **automatically deleted** (permanently removed) for security reasons:
+
+| Profile Change | MFA Impact                                  | User Action Required                          |
+| -------------- | ------------------------------------------- | --------------------------------------------- |
+| Email updated  | All Email MFA devices are deleted           | User must re-setup Email MFA with new address |
+| Phone updated  | All SMS MFA devices with old number deleted | User must re-setup SMS MFA with new number    |
+
+:::warning Automatic MFA Deletion
+Devices are **permanently deleted** (not just deactivated) since they cannot be reactivated with the old contact information. If the deleted device(s) were the only MFA method(s) configured, **MFA is automatically disabled** for the user's account. They will need to set up MFA again if your application requires it.
+:::
+
+**Implementation guidance:**
+
+```typescript
+// When user updates their profile
+const updatedUser = await authService.updateUserAttributes({
+  sub: user.sub,
+  email: 'newemail@example.com', // This will DELETE Email MFA devices
+});
+
+// Notify user about MFA impact
+if (updatedUser.email !== oldEmail && userHadEmailMfa) {
+  notifyUser({
+    type: 'warning',
+    message:
+      'Your Email MFA device has been permanently removed due to email change. Please set up Email MFA again in your security settings.',
+  });
+}
+```
+
+**Audit trail:**
+
+All MFA device deletions are logged with event type `MFA_DEVICE_REMOVED` and include:
+
+- Reason: `email_changed` or `phone_changed`
+- Old and new email/phone values
+- Number of devices deleted
+- Whether MFA was disabled
+
+**Best practices:**
+
+1. **Notify users immediately** when their MFA devices are removed
+2. **Guide them to security settings** to re-setup MFA
+3. **Send email/SMS notifications** about the security change
+4. **Prompt for MFA setup** at next login if MFA is required
+5. **Consider grace periods** for re-enrollment before enforcing MFA
 
 ## Error Handling
 

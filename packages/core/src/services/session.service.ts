@@ -229,6 +229,21 @@ export class SessionService {
       deviceId = crypto.randomUUID();
     }
 
+    // Debug: Log what we're about to save
+    if (!clientInfo.ipLatitude || !clientInfo.ipLongitude) {
+      this.logger?.warn?.(
+        `[SessionService] Creating session WITHOUT coordinates: ` +
+        `IP=${clientInfo.ipAddress}, country=${clientInfo.ipCountry}, city=${clientInfo.ipCity}, ` +
+        `lat=${clientInfo.ipLatitude}, lon=${clientInfo.ipLongitude}`,
+      );
+    } else {
+      this.logger?.debug?.(
+        `[SessionService] Creating session WITH coordinates: ` +
+        `IP=${clientInfo.ipAddress}, ${clientInfo.ipCity}, ${clientInfo.ipCountry} ` +
+        `(${clientInfo.ipLatitude}, ${clientInfo.ipLongitude})`,
+      );
+    }
+
     const session = this.sessionRepository.create({
       userId: data.userId,
       accessTokenHash: data.accessTokenHash,
@@ -241,6 +256,8 @@ export class SessionService {
       ipAddress: clientInfo.ipAddress || null,
       ipCountry: clientInfo.ipCountry || null,
       ipCity: clientInfo.ipCity || null,
+      ipLatitude: clientInfo.ipLatitude || null,
+      ipLongitude: clientInfo.ipLongitude || null,
       userAgent: clientInfo.userAgent || null,
       platform,
       browser,
@@ -250,7 +267,37 @@ export class SessionService {
       lastActivityAt: new Date(),
     });
 
-    return (await this.sessionRepository.save(session)) as unknown as ISession;
+    const savedSession = (await this.sessionRepository.save(session)) as unknown as ISession;
+
+    // ============================================================================
+    // Audit: Record session creation
+    // ============================================================================
+    try {
+      await this.auditService?.recordEvent({
+        userId: data.userId,
+        eventType: AuthAuditEventType.SESSION_CREATED,
+        eventStatus: 'INFO',
+        sessionId: savedSession.id,
+        authMethod: data.authMethod || null,
+        // Client info automatically included from context
+        metadata: {
+          deviceId: savedSession.deviceId,
+          deviceName: savedSession.deviceName,
+          deviceType: savedSession.deviceType,
+          isRemembered: savedSession.isRemembered,
+        },
+      });
+    } catch (auditError) {
+      // Non-blocking: Log but continue
+      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to record SESSION_CREATED audit event: ${errorMessage}`, {
+        error: auditError,
+        userId: data.userId,
+        sessionId: savedSession.id,
+      });
+    }
+
+    return savedSession;
   }
 
   /**
@@ -383,20 +430,37 @@ export class SessionService {
         deviceId,
         deviceName,
         deviceType,
-        // Client info automatically extracted from ClientInfoService (transparent access)
-        ipAddress: clientInfo.ipAddress || null,
-        ipCountry: clientInfo.ipCountry || null,
-        ipCity: clientInfo.ipCity || null,
-        userAgent: clientInfo.userAgent || null,
-        platform,
-        browser,
-        authMethod: data.authMethod || null,
-        expiresAt: data.expiresAt,
-        isRemembered: data.isRemembered || false,
-        lastActivityAt: new Date(),
-      });
+      // Client info automatically extracted from ClientInfoService (transparent access)
+      ipAddress: clientInfo.ipAddress || null,
+      ipCountry: clientInfo.ipCountry || null,
+      ipCity: clientInfo.ipCity || null,
+      ipLatitude: clientInfo.ipLatitude || null,
+      ipLongitude: clientInfo.ipLongitude || null,
+      userAgent: clientInfo.userAgent || null,
+      platform,
+      browser,
+      authMethod: data.authMethod || null,
+      expiresAt: data.expiresAt,
+      isRemembered: data.isRemembered || false,
+      lastActivityAt: new Date(),
+    });
 
-      const saved = await trx.save(sessionEntity);
+    // Debug: Log what we're about to save in atomic transaction
+    if (!clientInfo.ipLatitude || !clientInfo.ipLongitude) {
+      this.logger?.warn?.(
+        `[SessionService.createSessionAtomic] Creating session WITHOUT coordinates: ` +
+        `IP=${clientInfo.ipAddress}, country=${clientInfo.ipCountry}, city=${clientInfo.ipCity}, ` +
+        `lat=${clientInfo.ipLatitude}, lon=${clientInfo.ipLongitude}`,
+      );
+    } else {
+      this.logger?.debug?.(
+        `[SessionService.createSessionAtomic] Creating session WITH coordinates: ` +
+        `IP=${clientInfo.ipAddress}, ${clientInfo.ipCity}, ${clientInfo.ipCountry} ` +
+        `(${clientInfo.ipLatitude}, ${clientInfo.ipLongitude})`,
+      );
+    }
+
+    const saved = await trx.save(sessionEntity);
       const savedId = saved.id as number;
 
       const { accessTokenHash, refreshTokenHash, extra } = await generateHashes(savedId);
@@ -419,6 +483,34 @@ export class SessionService {
 
       return { session: sessionLight, extra } as { session: ISession; extra?: T };
     });
+
+    // ============================================================================
+    // Audit: Record session creation
+    // ============================================================================
+    try {
+      await this.auditService?.recordEvent({
+        userId: data.userId,
+        eventType: AuthAuditEventType.SESSION_CREATED,
+        eventStatus: 'INFO',
+        sessionId: result.session.id,
+        authMethod: data.authMethod || null,
+        // Client info automatically included from context
+        metadata: {
+          deviceId: result.session.deviceId,
+          deviceName: result.session.deviceName,
+          deviceType: result.session.deviceType,
+          isRemembered: result.session.isRemembered,
+        },
+      });
+    } catch (auditError) {
+      // Non-blocking: Log but continue
+      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to record SESSION_CREATED audit event: ${errorMessage}`, {
+        error: auditError,
+        userId: data.userId,
+        sessionId: result.session.id,
+      });
+    }
 
     return result;
   }
@@ -491,23 +583,57 @@ export class SessionService {
     const revokedCount = result.affected || 0;
 
     // ============================================================================
-    // Audit: Record session revocations (one event per session)
+    // Audit: Record session revocations (one event per session for global signout)
     // ============================================================================
     if (revokedCount > 0) {
       try {
-        // Log one audit event summarizing all revoked sessions
-        await this.auditService?.recordEvent({
-          userId,
-          eventType: AuthAuditEventType.SESSION_REVOKED,
-          eventStatus: 'INFO',
-          reason: reason || 'Global signout',
-          description: `All user sessions revoked (${revokedCount} session(s))`,
-          // Client info automatically included from context
-          metadata: {
-            revokedCount,
-            sessionIds: sessions.map((s) => s.id),
-          },
-        });
+        const isGlobalSignout = reason === 'Global signout';
+
+        if (isGlobalSignout) {
+          // For global signout, record individual SESSION_REVOKED event for each session
+          // AuthService.logoutAll() will record a GLOBAL_SIGNOUT event separately
+          for (const session of sessions) {
+            try {
+              await this.auditService?.recordEvent({
+                userId,
+                eventType: AuthAuditEventType.SESSION_REVOKED,
+                eventStatus: 'INFO',
+                reason: 'Global signout',
+                description: `Session revoked by global signout`,
+                sessionId: session.id,
+                // Client info automatically included from context
+                metadata: {
+                  revokedBy: 'global_signout',
+                },
+              });
+            } catch (sessionAuditError) {
+              // Non-blocking: Log but continue with other sessions
+              const errorMessage = sessionAuditError instanceof Error ? sessionAuditError.message : 'Unknown error';
+              this.logger?.error?.(
+                `Failed to record SESSION_REVOKED audit event for session ${session.id}: ${errorMessage}`,
+                {
+                  error: sessionAuditError,
+                  userId,
+                  sessionId: session.id,
+                },
+              );
+            }
+          }
+        } else {
+          // For other reasons (e.g., "Login from new session"), record one summary event
+          await this.auditService?.recordEvent({
+            userId,
+            eventType: AuthAuditEventType.SESSION_REVOKED,
+            eventStatus: 'INFO',
+            reason: reason || 'Session revocation',
+            description: `All user sessions revoked (${revokedCount} session(s))`,
+            // Client info automatically included from context
+            metadata: {
+              revokedCount,
+              sessionIds: sessions.map((s) => s.id),
+            },
+          });
+        }
       } catch (auditError) {
         // Non-blocking: Log but continue
         const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';

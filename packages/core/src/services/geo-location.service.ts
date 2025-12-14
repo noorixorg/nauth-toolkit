@@ -157,15 +157,20 @@ export class GeoLocationService {
    * Get geolocation information for an IP address
    *
    * @param ip - IP address to lookup
-   * @returns Geolocation info with country and city (if available)
+   * @returns Geolocation info with country, city, and coordinates (if available)
    *
    * @example
    * ```typescript
    * const geo = await geoLocationService.getIpGeolocation('8.8.8.8');
-   * // { country: 'US', city: 'Mountain View' }
+   * // { country: 'US', city: 'Mountain View', latitude: 37.386, longitude: -122.0838 }
    * ```
    */
-  async getIpGeolocation(ip: string): Promise<{ country?: string; city?: string }> {
+  async getIpGeolocation(ip: string): Promise<{ 
+    country?: string; 
+    city?: string; 
+    latitude?: number; 
+    longitude?: number 
+  }> {
     // ============================================================================
     // Check if Service is Available
     // ============================================================================
@@ -192,16 +197,30 @@ export class GeoLocationService {
     if (this.cityReader) {
       try {
         const result = this.cityReader.city(ip);
-        return {
+        const geoData = {
           country: result.country?.isoCode,
           city: result.city?.names?.en,
+          latitude: result.location?.latitude,
+          longitude: result.location?.longitude,
         };
+        
+        // Warn if coordinates are missing (useful for production debugging)
+        if (!geoData.latitude || !geoData.longitude) {
+          this.logger?.warn?.(
+            `MaxMind city lookup for IP ${ip} returned city/country but NO coordinates: ` +
+            `city=${geoData.city}, country=${geoData.country}`,
+          );
+        }
+        
+        return geoData;
       } catch (error) {
-        // Non-fatal: Log and try country database
-        this.logger?.debug?.(
-          `City lookup failed for IP ${ip}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        );
+        // Non-fatal: Try country database (error logged at warn level if needed)
       }
+    } else {
+      this.logger?.warn?.(
+        `MaxMind cityReader is not initialized for IP ${ip}. ` +
+        `Only country database available (no coordinates).`,
+      );
     }
 
     // ============================================================================
@@ -214,10 +233,7 @@ export class GeoLocationService {
           country: result.country?.isoCode,
         };
       } catch (error) {
-        // Non-fatal: Return empty result
-        this.logger?.debug?.(
-          `Country lookup failed for IP ${ip}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        );
+        // Non-fatal: Return empty result (error handled gracefully)
       }
     }
 

@@ -12,9 +12,7 @@ import {
   MFAMethod,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
-import {
-  BaseMFAProviderService,
-} from '@nauth-toolkit/core/internal';
+import { BaseMFAProviderService } from '@nauth-toolkit/core/internal';
 import { PasskeyService } from './passkey.service';
 import { SetupPasskeyResponseDTO, VerifyPasskeySetupDTO, GetPasskeyChallengeResponseDTO } from './dto/mfa.dto';
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/types';
@@ -119,10 +117,15 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
    *
    * Validates the WebAuthn credential and stores the device if valid.
    *
+   * **Race Condition Safety:**
+   * Device creation uses transaction with pessimistic locking to prevent duplicates.
+   * If device already exists (e.g., from concurrent request), returns existing device.
+   * Database unique constraint (userId, type) provides final safety net.
+   *
    * @param user - User completing Passkey setup
    * @param verificationData - Verification data (must be { credential: VerifyPasskeySetupDTO, expectedChallenge: string })
    * @param deviceName - Optional device name override
-   * @returns Created MFA device ID
+   * @returns MFA device ID (created or existing)
    * @throws {NAuthException} If verification fails
    *
    * @example
@@ -210,7 +213,12 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
     const userId = userEntity.id as number;
     const userMfaEnabled = (userEntity.mfaEnabled as boolean) || false;
 
-    // Create MFA device
+    // ============================================================================
+    // Create MFA device (transaction-safe with duplicate prevention)
+    // ============================================================================
+    // createDevice() uses pessimistic locking to prevent race conditions
+    // If device already exists, returns existing device instead of creating duplicate
+    // Database unique constraint (userId, type) provides additional safety
     const device = await this.createDevice(userId, {
       name: deviceName || dto.deviceName || 'Passkey Device',
       credentialId: verified.credentialId,

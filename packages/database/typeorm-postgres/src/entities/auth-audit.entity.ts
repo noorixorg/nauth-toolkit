@@ -65,6 +65,12 @@ export class AuthAudit extends BaseAuthAudit {
   @Column({ type: 'varchar', length: 100, nullable: true })
   declare ipCity?: string | null;
 
+  @Column({ type: 'decimal', precision: 10, scale: 6, nullable: true })
+  declare ipLatitude?: number | null;
+
+  @Column({ type: 'decimal', precision: 10, scale: 6, nullable: true })
+  declare ipLongitude?: number | null;
+
   @Column({ type: 'text', nullable: true })
   declare userAgent?: string | null;
 

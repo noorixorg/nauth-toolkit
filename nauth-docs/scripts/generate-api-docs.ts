@@ -119,10 +119,10 @@ function extractExports(filePath: string): ExportedMember[] {
   }
 
   function isPrivateOrProtected(node: ts.ClassElement): boolean {
+    const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
     return (
-      node.modifiers?.some(
-        (m) => m.kind === ts.SyntaxKind.PrivateKeyword || m.kind === ts.SyntaxKind.ProtectedKeyword,
-      ) ?? false
+      modifiers?.some((m) => m.kind === ts.SyntaxKind.PrivateKeyword || m.kind === ts.SyntaxKind.ProtectedKeyword) ??
+      false
     );
   }
 
@@ -380,5 +380,3 @@ async function main() {
 }
 
 main().catch(console.error);
-
-

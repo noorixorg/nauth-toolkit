@@ -7,6 +7,10 @@ dist/
 build/
 *.tsbuildinfo
 
+# Compiled JavaScript files in source directories (should only be in dist/)
+packages/*/src/**/*.js
+packages/*/src/**/*.js.map
+
 # Environment
 .env
 .env.local

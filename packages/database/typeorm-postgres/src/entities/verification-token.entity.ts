@@ -22,6 +22,9 @@ export class VerificationToken extends BaseVerificationToken {
   @JoinColumn({ name: 'userId' })
   user!: User;
 
+  @Column({ type: 'int', nullable: true })
+  declare challengeSessionId?: number | null;
+
   @Column({ type: 'varchar', length: 20 })
   declare type: 'email' | 'phone' | 'password_reset';
 

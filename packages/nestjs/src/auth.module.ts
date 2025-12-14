@@ -816,31 +816,15 @@ export class AuthModule {
         ClientInfoService,
         // Conditionally provide AuthAuditService based on config.auditLogs.enabled
         // Default to enabled if not specified (backward compatibility)
-        // We provide InternalAuthAuditService (with recordEvent) but expose it as AuthAuditService
-        // so both internal services and controllers can use it
+        //
+        // Architecture:
+        // - Create ONE instance of InternalAuthAuditService
+        // - Export as InternalAuthAuditService for internal packages (social auth, MFA providers)
+        // - Alias as AuthAuditService for consumer apps (public API with fetch methods only)
+        // This ensures a single instance handles both recording and fetching
         ...(config.auditLogs?.enabled !== false
           ? [
-              {
-                provide: AuthAuditService,
-                useFactory: (
-                  auditRepository: Repository<BaseAuthAudit>,
-                  userRepository: Repository<BaseUser>,
-                  logger: NAuthLogger,
-                  clientInfoService: ClientInfoService,
-                ): AuthAuditService => {
-                  // Return InternalAuthAuditService but typed as AuthAuditService for DI
-                  // This allows controllers to inject AuthAuditService while internal services
-                  // can still access recordEvent() through the actual instance
-                  return new InternalAuthAuditService(
-                    auditRepository,
-                    userRepository,
-                    logger,
-                    clientInfoService,
-                  ) as AuthAuditService;
-                },
-                inject: ['AuthAuditRepository', 'UserRepository', 'NAUTH_LOGGER', ClientInfoService],
-              },
-              // Also provide InternalAuthAuditService for internal service dependencies
+              // Primary instance: InternalAuthAuditService (has recordEvent + fetch methods)
               {
                 provide: InternalAuthAuditService,
                 useFactory: (
@@ -853,6 +837,13 @@ export class AuthModule {
                 },
                 inject: ['AuthAuditRepository', 'UserRepository', 'NAUTH_LOGGER', ClientInfoService],
               },
+              // Alias: AuthAuditService points to the same InternalAuthAuditService instance
+              // Consumer apps inject AuthAuditService but get the full instance
+              // TypeScript types prevent them from calling recordEvent() (not in public interface)
+              {
+                provide: AuthAuditService,
+                useExisting: InternalAuthAuditService,
+              },
             ]
           : []),
         {
@@ -864,7 +855,7 @@ export class AuthModule {
             logger: NAuthLogger,
             trustedDeviceService?: TrustedDeviceService | null, // TrustedDeviceService - optional
           ) => {
-            return new RiskDetectionService(sessionRepository, auditRepository, config, logger, trustedDeviceService);
+            return new RiskDetectionService(sessionRepository, auditRepository, config, logger, trustedDeviceService ?? undefined);
           },
           inject: [
             'SessionRepository',
@@ -1114,7 +1105,12 @@ export class AuthModule {
         AuthChallengeHelperService, // Needed by social auth providers
         SocialProviderRegistry, // Needed by social auth provider modules for auto-registration
         ClientInfoService,
-        ...(config.auditLogs?.enabled !== false ? [AuthAuditService] : []), // Only export if enabled (defaults to enabled for backward compatibility)
+        // Audit Services (conditional - only if enabled)
+        // Single instance, exported under two tokens:
+        //   - AuthAuditService (public API) - For consumer apps to fetch audit logs (TypeScript prevents recordEvent)
+        //   - InternalAuthAuditService - For INTERNAL toolkit packages ONLY (social auth, MFA providers)
+        // Consumer apps should inject AuthAuditService, internal packages inject InternalAuthAuditService
+        ...(config.auditLogs?.enabled !== false ? [AuthAuditService, InternalAuthAuditService] : []),
         AuthGuard,
         ...(config.tokenDelivery?.method === 'cookies' || config.tokenDelivery?.method === 'hybrid'
           ? [CsrfGuard, CsrfService]

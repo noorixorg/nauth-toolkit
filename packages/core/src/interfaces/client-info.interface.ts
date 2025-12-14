@@ -20,7 +20,7 @@ export interface ClientInfo {
    * Device token for trusted device feature
    *
    * Extracted from:
-   * - Cookie: `nauth_device_id` (web - httpOnly cookie)
+   * - Cookie: `nauth_device_token` (web - httpOnly cookie)
    * - Header: `X-Device-Token` (mobile - from secure storage)
    *
    * This token is server-generated and stored securely by clients.
@@ -49,6 +49,18 @@ export interface ClientInfo {
   ipCity?: string;
 
   /**
+   * Optional IP latitude (from geolocation, if available)
+   * Used for impossible travel detection
+   */
+  ipLatitude?: number;
+
+  /**
+   * Optional IP longitude (from geolocation, if available)
+   * Used for impossible travel detection
+   */
+  ipLongitude?: number;
+
+  /**
    * Platform extracted from user agent (e.g., "iOS", "Android", "Windows", "macOS")
    */
   platform?: string;
@@ -63,4 +75,11 @@ export interface ClientInfo {
    * Extracted from JWT token payload after authentication
    */
   sessionId?: number;
+
+  /**
+   * Current user ID (if available from authenticated request)
+   * Extracted from JWT token payload (sub claim) after authentication
+   * Used to identify who performed an action (e.g., for audit trails)
+   */
+  userId?: number;
 }

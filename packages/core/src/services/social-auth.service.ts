@@ -425,9 +425,12 @@ export class SocialAuthService {
     const providers = socialAccounts?.map((account) => account.provider) || [];
     const hasSocialAuth = socialAccounts && socialAccounts.length > 0;
 
-    await this.userRepository.update(userId, {
-      hasSocialAuth,
-      socialProviders: providers.length > 0 ? providers : null,
-    });
+    // Use save() instead of update() to ensure TypeORM properly serializes simple-array fields
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (user) {
+      user.hasSocialAuth = hasSocialAuth;
+      user.socialProviders = providers.length > 0 ? providers : null;
+      await this.userRepository.save(user);
+    }
   }
 }

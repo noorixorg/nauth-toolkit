@@ -64,6 +64,7 @@ import { AuthResponseDTO } from '@nauth-toolkit/core';
 | `email`              | `string`            | Email address.                                                   |
 | `firstName`          | `string`            | First name (optional).                                            |
 | `lastName`           | `string`            | Last name (optional).                                            |
+| `phone`              | `string`            | Phone number in E.164 format (optional).                        |
 | `isEmailVerified`    | `boolean`           | Email verification status.                                        |
 | `isPhoneVerified`    | `boolean`           | Phone verification status (optional).                            |
 | `socialProviders`    | `string[]`          | Linked social providers (optional).                              |
@@ -84,7 +85,13 @@ import { AuthResponseDTO } from '@nauth-toolkit/core';
   "user": {
     "sub": "b32c765d-3857-5279-bdff-d286194b76de",
     "email": "user@example.com",
-    "isEmailVerified": true
+    "firstName": "John",
+    "lastName": "Doe",
+    "phone": "+14155551234",
+    "isEmailVerified": true,
+    "isPhoneVerified": true,
+    "socialProviders": ["google"],
+    "hasPasswordHash": true
   }
 }
 ```

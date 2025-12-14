@@ -1,0 +1,149 @@
+@if (isEmbedded()) {
+  <!-- Embedded mode: Just show content (wrapped by parent mfa-setup component) -->
+  <div class="space-y-4">
+    @if (description()) {
+      <p class="text-sm text-secondary-600 m-0 pb-5">{{ description() }}</p>
+    }
+
+    @if (
+      (isSetupFlow() && setupData() && registrationOptions()) ||
+      (!isSetupFlow() && challengeData() && authenticationOptions())
+    ) {
+      <!-- Passkey Setup/Verification Form -->
+      <p-button
+        type="button"
+        label="{{
+          loading() ? (isSetupFlow() ? 'Registering...' : 'Verifying...') : buttonLabel()
+        }}"
+        [disabled]="loading()"
+        [loading]="loading()"
+        (onClick)="handlePasskey()"
+        styleClass="w-full"
+        icon="pi pi-fingerprint"
+      />
+    } @else {
+      <div class="text-center py-4">
+        @if (loading()) {
+          <p class="text-secondary-600">
+            {{ isSetupFlow() ? 'Preparing passkey setup...' : 'Preparing passkey verification...' }}
+          </p>
+        } @else {
+          <p class="text-secondary-600">Loading data...</p>
+        }
+      </div>
+    }
+
+    <!-- Error Message -->
+    @if (error(); as errorMessage) {
+      <div class="error-message-container-compact">
+        <p-message
+          severity="error"
+          [text]="errorMessage"
+          [closable]="true"
+          (onClose)="error.set(null)"
+          styleClass="w-full"
+        />
+      </div>
+    }
+  </div>
+} @else {
+  <!-- Standalone mode: Full page with card wrapper (when on own route) -->
+  <div class="challenge-container">
+    <div class="challenge-card">
+      <div class="challenge-header">
+        <div class="challenge-header-content">
+          <i class="pi pi-key challenge-header-icon"></i>
+          <h2 class="challenge-header-title">
+            @if (isSetupFlow()) {
+              Set Up Passkey
+            } @else {
+              Verify Passkey
+            }
+          </h2>
+        </div>
+      </div>
+
+      <div class="challenge-content">
+        <div class="space-y-4">
+          @if (description()) {
+            <p class="text-sm text-secondary-600 m-0 pb-5">{{ description() }}</p>
+          }
+
+          @if (
+            (isSetupFlow() && setupData() && registrationOptions()) ||
+            (!isSetupFlow() && challengeData() && authenticationOptions())
+          ) {
+            <!-- Passkey Setup/Verification Form -->
+            <p-button
+              type="button"
+              label="{{
+                loading() ? (isSetupFlow() ? 'Registering...' : 'Verifying...') : buttonLabel()
+              }}"
+              [disabled]="loading()"
+              [loading]="loading()"
+              (onClick)="handlePasskey()"
+              styleClass="w-full"
+              icon="pi pi-fingerprint"
+            />
+          } @else {
+            <div class="text-center py-4">
+              @if (loading()) {
+                <p class="text-secondary-600">
+                  {{
+                    isSetupFlow()
+                      ? 'Preparing passkey setup...'
+                      : 'Preparing passkey verification...'
+                  }}
+                </p>
+              } @else {
+                <p class="text-secondary-600">Loading data...</p>
+              }
+            </div>
+          }
+
+          <!-- Error Message -->
+          @if (error(); as errorMessage) {
+            <div class="error-message-container-compact">
+              <p-message
+                severity="error"
+                [text]="errorMessage"
+                [closable]="true"
+                (onClose)="error.set(null)"
+                styleClass="w-full"
+              />
+            </div>
+          }
+
+          <!-- Use Another Method Link (for MFA_REQUIRED verification failures) -->
+          @if (!isSetupFlow() && !isAuthenticatedFlow() && error()) {
+            <div class="flex justify-center mt-4">
+              <a (click)="navigateToSelector()" class="auth-link"
+                >Use another verification method</a
+              >
+            </div>
+          }
+
+          <!-- Back Navigation (for standalone mode) -->
+          <div class="flex justify-center mt-6">
+            @if (isAuthenticatedFlow()) {
+              <p-button
+                label="Back to Dashboard"
+                icon="pi pi-arrow-left"
+                styleClass="p-button-text p-button-sm"
+                (onClick)="goBack()"
+              />
+            } @else {
+              <!-- Standalone mode during login: go to selector, not parent component -->
+              <p-button
+                label="Back to Method Selection"
+                icon="pi pi-arrow-left"
+                styleClass="p-button-text p-button-sm"
+                (onClick)="navigateToSelector()"
+              />
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+}

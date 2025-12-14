@@ -96,10 +96,24 @@ const nauth = await NAuth.create({
 
 ## Setup Flow
 
+### During Authentication Challenge (`MFA_SETUP_REQUIRED`)
+
+1. Frontend calls `getSetupData(session, 'totp')` via SDK
+2. Backend returns: `{ secret, qrCode, manualEntryKey, issuer, accountName }`
+3. Frontend displays QR code to user
+4. User scans QR code with authenticator app (Google Authenticator, Authy, etc.)
+5. User enters 6-digit code from authenticator app
+6. Frontend calls `respondToChallenge()` with both `secret` and `code` in `setupData`
+7. Backend verifies code and creates MFA device
+
+**Note:** The SDK validates that both `secret` and `code` are present before sending the request.
+
+### For Authenticated Users (MFA Management)
+
 1. Call `mfaService.setupDevice(userId, 'totp')`
 2. Returns QR code data URL and secret
 3. User scans QR in authenticator app
-4. User submits code to verify setup
+4. User submits code to verify setup via `mfaService.verifyMfaSetup()`
 
 ## Related
 

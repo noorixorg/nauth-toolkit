@@ -32,10 +32,13 @@ export class TokenDeliveryHandler {
       if (deliveryMode === 'cookies') {
         this.setTokenCookies(res, body);
 
-        // Remove tokens from body
+        // Remove tokens and expiration fields from body
+        // Expiration is managed by cookie maxAge, so these fields are not needed
         const sanitizedBody = { ...body };
         delete sanitizedBody.accessToken;
         delete sanitizedBody.refreshToken;
+        delete sanitizedBody.accessTokenExpiresAt;
+        delete sanitizedBody.refreshTokenExpiresAt;
 
         this.logger?.debug?.('Tokens delivered via cookies');
         return sanitizedBody;

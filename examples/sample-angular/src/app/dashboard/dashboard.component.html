@@ -1,0 +1,39 @@
+<p-toast />
+<div class="min-h-screen p-4 md:p-6">
+  <div class="max-w-7xl mx-auto">
+    <!-- Header with Logo and Logout -->
+    <div class="flex justify-between items-center mb-8">
+      <div class="flex items-center gap-4">
+        <img src="/img/nauth_square_logoonly.png" alt="nauth-toolkit" class="w-12 h-12" />
+        <h1 class="text-2xl md:text-3xl font-bold text-primary-900">Dashboard</h1>
+      </div>
+      <p-splitButton
+        [label]="isLoggingOut() ? 'Signing Out...' : 'Sign Out'"
+        [icon]="isLoggingOut() ? 'pi pi-spin pi-spinner' : 'pi pi-sign-out'"
+        severity="primary"
+        size="small"
+        [disabled]="isLoggingOut()"
+        (onClick)="onLogout()"
+        [model]="logoutMenuItems()"
+      />
+    </div>
+
+    <!-- Dashboard Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+      <!-- Profile Component -->
+      <div>
+        <app-profile />
+      </div>
+
+      <!-- MFA Component -->
+      <div>
+        <app-mfa />
+      </div>
+
+      <!-- Audit Trail Component -->
+      <div class="lg:col-span-2">
+        <app-audit />
+      </div>
+    </div>
+  </div>
+</div>
