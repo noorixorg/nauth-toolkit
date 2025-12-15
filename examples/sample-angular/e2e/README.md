@@ -1,45 +1,61 @@
-# E2E Tests
+# E2E Test Runner
 
 ## Quick Start
 
-1. **Update backend config** in `examples/sample-nestjs/src/config/auth.config.ts`:
+### Run a specific scenario with UI and slow motion (EASIEST):
 
-   ```typescript
-   signup: { verificationMethod: 'none' | 'email' | 'phone' | 'both' }
-   mfa: { enabled: true | false, enforcement: 'OPTIONAL' | 'REQUIRED' }
-   ```
+```bash
+# From project root - this is all you need!
+yarn e2e:scenario signup-both-verification --ui --headed
+```
 
-2. **Run tests** with matching env vars:
-   ```bash
-   VERIFICATION_METHOD=none MFA_ENABLED=true MFA_ENFORCEMENT=REQUIRED yarn e2e
-   ```
+### Available Options:
 
-Tests automatically filter to match your config.
+- `--headed` - Run in headed mode (visible browser)
+- `--ui` - Run with Playwright UI (interactive test runner)
+- `--slowmo=1000` - Set slow motion delay in milliseconds (default: 1000)
+- `--grep="pattern"` - Use grep pattern instead of scenario ID
 
-## Commands
+### Examples:
 
-- `yarn e2e` - Run all matching tests (headless)
-- `yarn e2e:watch` - UI mode with slow motion (for debugging)
-- `yarn e2e:slow` - Headed browser with slow motion
+```bash
+# Easiest: Run with UI and slow motion (watch the test visually)
+yarn e2e:scenario signup-both-verification --ui --headed
 
-## All Configs
+# Custom slow motion (faster)
+yarn e2e:scenario signup-both-verification --ui --headed --slowmo=500
 
-| Config | verificationMethod | mfaEnabled | mfaEnforcement | Command                                                                         |
-| ------ | ------------------ | ---------- | -------------- | ------------------------------------------------------------------------------- |
-| 1      | `none`             | `false`    | `OPTIONAL`     | `VERIFICATION_METHOD=none MFA_ENABLED=false MFA_ENFORCEMENT=OPTIONAL yarn e2e`  |
-| 2      | `email`            | `false`    | `OPTIONAL`     | `VERIFICATION_METHOD=email MFA_ENABLED=false MFA_ENFORCEMENT=OPTIONAL yarn e2e` |
-| 3      | `phone`            | `false`    | `OPTIONAL`     | `VERIFICATION_METHOD=phone MFA_ENABLED=false MFA_ENFORCEMENT=OPTIONAL yarn e2e` |
-| 4      | `both`             | `false`    | `OPTIONAL`     | `VERIFICATION_METHOD=both MFA_ENABLED=false MFA_ENFORCEMENT=OPTIONAL yarn e2e`  |
-| 5      | `none`             | `true`     | `OPTIONAL`     | `VERIFICATION_METHOD=none MFA_ENABLED=true MFA_ENFORCEMENT=OPTIONAL yarn e2e`   |
-| 6      | `none`             | `true`     | `REQUIRED`     | `VERIFICATION_METHOD=none MFA_ENABLED=true MFA_ENFORCEMENT=REQUIRED yarn e2e`   |
-| 7      | `email`            | `true`     | `REQUIRED`     | `VERIFICATION_METHOD=email MFA_ENABLED=true MFA_ENFORCEMENT=REQUIRED yarn e2e`  |
-| 8      | `phone`            | `true`     | `REQUIRED`     | `VERIFICATION_METHOD=phone MFA_ENABLED=true MFA_ENFORCEMENT=REQUIRED yarn e2e`  |
-| 9      | `both`             | `true`     | `REQUIRED`     | `VERIFICATION_METHOD=both MFA_ENABLED=true MFA_ENFORCEMENT=REQUIRED yarn e2e`   |
+# Headed mode without UI (just see browser)
+yarn e2e:scenario signup-both-verification --headed
 
-## How It Works
+# Run with grep pattern (multiple scenarios)
+yarn e2e:scenario --grep="signup.*verification" --ui --headed
 
-1. Update `auth.config.ts` → wait 2-3s for restart
-2. Set matching env vars → run command
-3. All matching scenarios run automatically
+# From e2e directory directly
+cd e2e
+node run-scenario.js signup-both-verification --ui --headed
+```
 
-No need to switch configs repeatedly. Update once, run once.
+### Available Scenarios:
+
+- `signup-basic`
+- `signup-email-verification`
+- `signup-phone-verification`
+- `signup-both-verification` ⭐
+- `signup-mfa-required-sms`
+- `signup-mfa-required-totp`
+- `signup-mfa-optional-totp`
+- `login-basic`
+- `login-mfa-required-totp`
+
+### Shortcuts (without scenario config):
+
+```bash
+# Quick UI mode with grep
+yarn e2e:ui --grep "signup-both-verification"
+
+# Quick headed mode with grep
+yarn e2e:headed --grep "signup-both-verification"
+```
+
+**Note:** The `e2e:scenario` command automatically sets the correct environment variables for each scenario. Use `--grep` if you want to run without automatic config.

@@ -9,6 +9,11 @@ export default defineConfig([
     clean: true,
     outDir: 'dist',
     target: 'es2020',
+    outExtension({ format }) {
+      return {
+        js: format === 'cjs' ? '.cjs' : '.mjs',
+      };
+    },
   },
   {
     entry: ['src/angular/index.ts'],
@@ -27,6 +32,11 @@ export default defineConfig([
       'rxjs',
       'rxjs/operators',
     ],
+    outExtension({ format }) {
+      return {
+        js: format === 'cjs' ? '.cjs' : '.mjs',
+      };
+    },
     esbuildOptions(options) {
       options.keepNames = true;
     },

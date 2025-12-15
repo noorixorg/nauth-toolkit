@@ -37,7 +37,7 @@ export const authConfig: NAuthModuleConfig = {
 
   signup: {
     enabled: true,
-    verificationMethod: 'none',
+    verificationMethod: 'both',
     allowDuplicatePhones: true,
     emailVerification: {
       expiresIn: 3600,
@@ -62,7 +62,7 @@ export const authConfig: NAuthModuleConfig = {
   },
   mfa: {
     enabled: true,
-    enforcement: 'ADAPTIVE',
+    enforcement: 'OPTIONAL',
     gracePeriod: 0,
     requireForSocialLogin: true,
     allowedMethods: [MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.TOTP, MFAMethod.PASSKEY],
