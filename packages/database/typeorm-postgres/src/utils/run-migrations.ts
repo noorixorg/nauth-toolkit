@@ -57,30 +57,18 @@ function instantiateMigrations(constructors: MigrationConstructor[]): MigrationI
 }
 
 /**
- * Automatically run nauth-toolkit migrations
+ * Automatically run nauth-toolkit migrations (PostgreSQL)
  *
  * Called internally during NAuth initialization.
  * Idempotent - safe to run on every startup.
  * TypeORM tracks which migrations have been executed in the migrations table.
  *
- * **Multi-Server Safe:**
- * - Uses database-level locking via TypeORM's migrations table
- * - When multiple containers start simultaneously, only one executes migrations
- * - Others wait for the lock, then see migrations are already applied
- * - MySQL InnoDB uses row-level locks with transaction isolation
- *
  * @param dataSource - TypeORM DataSource instance
  * @param logger - Optional logger for migration output
+ * @param options - Optional execution options
  * @returns Number of migrations executed (0 if already up-to-date or executed by another instance)
  *
  * @internal Called automatically by the library
- *
- * @example
- * ```typescript
- * import { runNAuthMigrations } from '@nauth-toolkit/database-typeorm-mysql';
- *
- * await runNAuthMigrations(dataSource, logger);
- * ```
  */
 export async function runNAuthMigrations(
   dataSource: DataSource,
@@ -100,38 +88,32 @@ export async function runNAuthMigrations(
       mutableOptions.migrationsTableName = options.migrationsTableName;
     }
 
-    // ========================================================================
+    // ============================================================================
     // Inject NAuth migrations into DataSource
-    // ========================================================================
-    // Migrations configured at options-level (class references / paths)
+    // ============================================================================
     const existingOptionMigrations = (dataSource.options.migrations as unknown[]) || [];
-    // Runtime migration instances already built by TypeORM during initialize()
     const existingRuntimeMigrations = getRuntimeMigrations(dataSource);
-
-    // Instantiate NAuth migrations - TypeORM expects *instances* in connection.migrations
-    const nauthMigrationInstances = instantiateMigrations(migrations);
 
     if (migrations.length === 0) {
       logger?.warn(
-        '[nauth-toolkit] No migrations registered in @nauth-toolkit/database-typeorm-mysql. ' +
+        '[nauth-toolkit] No migrations registered in @nauth-toolkit/database-typeorm-postgres. ' +
           'Generate and add an Initial migration to src/migrations/index.ts.',
       );
       return 0;
     }
 
+    const nauthMigrationInstances = instantiateMigrations(migrations);
+
     logger?.log(
       `[nauth-toolkit] Injecting ${migrations.length} NAuth migration(s) into DataSource (existing runtime: ${existingRuntimeMigrations.length})`,
     );
 
-    // Keep options.migrations in sync with class references (for tooling / future rebuilds)
     mutableOptions.migrations = [...existingOptionMigrations, ...migrations];
-
-    // Update live DataSource.migrations with instances used by MigrationExecutor
     setRuntimeMigrations(dataSource, [...existingRuntimeMigrations, ...nauthMigrationInstances]);
 
-    // ========================================================================
+    // ============================================================================
     // Check for pending migrations
-    // ========================================================================
+    // ============================================================================
     logger?.log('[nauth-toolkit] Checking for pending migrations...');
     const hasPending = await dataSource.showMigrations();
 
@@ -140,38 +122,23 @@ export async function runNAuthMigrations(
       return 0;
     }
 
-    // ========================================================================
-    // Run migrations with transaction lock
-    // Multi-server safe: TypeORM uses database-level locking via migrations table
-    // If multiple containers start simultaneously, only one will execute migrations
-    // Others will wait and then see the migrations are already applied
-    // ========================================================================
+    // ============================================================================
+    // Run migrations
+    // ============================================================================
     logger?.log('[nauth-toolkit] Running database migrations...');
-
-    const executed = await dataSource.runMigrations({
-      transaction: 'all', // All-or-nothing: entire migration batch succeeds or fails together
-    });
+    const executed = await dataSource.runMigrations({ transaction: 'all' });
 
     if (executed.length > 0) {
       logger?.log(`[nauth-toolkit] Executed ${executed.length} migration(s):`);
-      executed.forEach((migration) => {
-        logger?.log(`  ✓ ${migration.name}`);
-      });
+      executed.forEach((migration) => logger?.log(`  ✓ ${migration.name}`));
     } else {
-      // This can happen if another container executed migrations between
-      // showMigrations() and runMigrations() calls (race condition window)
       logger?.log('[nauth-toolkit] No migrations executed (already applied by another instance)');
     }
 
     return executed.length;
   } catch (error) {
-    // ========================================================================
-    // Error handling for concurrent execution scenarios
-    // ========================================================================
     const message = error instanceof Error ? error.message : String(error);
 
-    // Check if error is due to concurrent migration execution (already applied)
-    // This can happen in rare race conditions during simultaneous container startup
     if (
       message.includes('already exists') ||
       message.includes('duplicate key') ||

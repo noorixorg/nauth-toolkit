@@ -17,6 +17,8 @@ import {
   BaseStorageLock,
   NAuthConfig,
   LoggerService,
+  EmailProvider,
+  SMSProvider,
   NAuthException,
   AuthErrorCode,
   StorageAdapter,
@@ -50,6 +52,8 @@ import {
   SocialProviderRegistry,
   AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent() for instantiation
 } from '@nauth-toolkit/core/internal';
+
+import { NAuthMigrationsBootstrapService } from './services/migrations-bootstrap.service';
 
 // MaxMind module type (for type safety in factory)
 // Matches the type definition in geo-location.service.ts
@@ -200,6 +204,10 @@ export class AuthModule {
           useValue: nauthLogger,
         },
 
+        // Run database migrations automatically during NestJS bootstrap
+        // Keeps consumer apps migration-free while ensuring schema compatibility.
+        NAuthMigrationsBootstrapService,
+
         // Storage adapter - use config or default to DatabaseStorageAdapter if repositories available
         // WARNING: PRODUCTION REQUIREMENT - MemoryStorageAdapter is NOT safe for production
         // - Data lost on server restart
@@ -258,7 +266,7 @@ export class AuthModule {
                 // Lazy import to avoid bundling if not used
                 const { DatabaseStorageAdapter } = await import('@nauth-toolkit/storage-database');
                 const adapter = new DatabaseStorageAdapter(null, null, logger);
-                adapter.setRepositories(rateLimitRepo as any, storageLockRepo as any);
+                adapter.setRepositories(rateLimitRepo, storageLockRepo);
                 await adapter.initialize();
                 logger?.warn?.(
                   'WARNING: Storage adapter not provided. Using DatabaseStorageAdapter as default. ' +
@@ -855,7 +863,13 @@ export class AuthModule {
             logger: NAuthLogger,
             trustedDeviceService?: TrustedDeviceService | null, // TrustedDeviceService - optional
           ) => {
-            return new RiskDetectionService(sessionRepository, auditRepository, config, logger, trustedDeviceService ?? undefined);
+            return new RiskDetectionService(
+              sessionRepository,
+              auditRepository,
+              config,
+              logger,
+              trustedDeviceService ?? undefined,
+            );
           },
           inject: [
             'SessionRepository',
@@ -973,7 +987,7 @@ export class AuthModule {
             }
             // Inject global variables from email config if provider supports it
             if (provider && typeof provider.setGlobalVariables === 'function' && config.email) {
-              const globalVars: Record<string, any> = {};
+              const globalVars: Record<string, unknown> = {};
               // Extract top-level branding fields
               if (config.email.appName) globalVars.appName = config.email.appName;
               if (config.email.companyName) globalVars.companyName = config.email.companyName;
@@ -1007,7 +1021,7 @@ export class AuthModule {
             return new EmailVerificationService(
               verificationTokenRepo,
               userRepo,
-              emailProvider as any,
+              emailProvider as EmailProvider,
               storageAdapter,
               nauthConfig,
               clientInfoService,
@@ -1055,7 +1069,7 @@ export class AuthModule {
                   return new PhoneVerificationService(
                     verificationTokenRepo,
                     userRepo,
-                    smsProvider as any,
+                    smsProvider as SMSProvider,
                     storageAdapter,
                     nauthConfig,
                     clientInfoService,

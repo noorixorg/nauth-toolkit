@@ -176,3 +176,14 @@ export { SocialProviderRegistry } from './services/social-provider-registry.serv
  * @internal
  */
 export { InternalAuthAuditService as AuthAuditService } from './services/auth-audit.service';
+
+// ============================================================================
+// Bootstrap Helpers (Internal)
+// ============================================================================
+
+/**
+ * Run pending database migrations on application startup.
+ *
+ * @internal Used by framework adapters (NestJS) to keep consumer apps migration-free.
+ */
+export { runNAuthMigrationsOnStartup } from './utils/setup/run-nauth-migrations';

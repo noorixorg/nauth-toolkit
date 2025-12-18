@@ -49,6 +49,7 @@ import { initStorage } from './utils/setup/init-storage';
 import { initServices, NAuthServices } from './utils/setup/init-services';
 import { registerMFAProviders } from './utils/setup/register-mfa';
 import { initSocialAuth, NAuthSocialProviders } from './utils/setup/init-social';
+import { runNAuthMigrationsOnStartup } from './utils/setup/run-nauth-migrations';
 import { AuthFlowContextBuilder, AuthFlowStateMachineService } from './internal';
 import { ClientInfo } from './interfaces/client-info.interface';
 import { IUser } from './interfaces/entities.interface';
@@ -158,6 +159,11 @@ export class NAuth {
 
     const logger = new NAuthLogger(config.logger);
     logger.log(`Initializing NAuth with ${adapter.name}...`);
+
+    // ========================================================================
+    // 0. Run database migrations (adapter-owned, auto-run, no consumer burden)
+    // ========================================================================
+    await runNAuthMigrationsOnStartup(config, dataSource, logger);
 
     // ========================================================================
     // 1. Initialize Repositories & Storage

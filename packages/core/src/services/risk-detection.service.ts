@@ -1,4 +1,4 @@
-import { Repository, IsNull, Not, MoreThan, LessThan } from 'typeorm';
+import { Repository, IsNull, Not, MoreThan } from 'typeorm';
 import { IUser, ISession } from '../interfaces/entities.interface';
 import { BaseSession, BaseAuthAudit } from '../entities';
 import { ClientInfo } from '../interfaces/client-info.interface';
@@ -152,8 +152,7 @@ export class RiskDetectionService {
       // This reduces confidence in risk assessment and warrants extra caution
       // Only check if location-related triggers are enabled
       const locationTriggersEnabled =
-        enabledTriggers.includes(RiskFactor.NEW_COUNTRY) ||
-        enabledTriggers.includes(RiskFactor.IMPOSSIBLE_TRAVEL);
+        enabledTriggers.includes(RiskFactor.NEW_COUNTRY) || enabledTriggers.includes(RiskFactor.IMPOSSIBLE_TRAVEL);
       if (
         locationTriggersEnabled &&
         clientInfo.ipCountry &&
@@ -489,7 +488,7 @@ export class RiskDetectionService {
       // SIMPLIFIED LOGIC: Just get the most recent login from EITHER sessions OR audits
       // The current login hasn't been committed yet (we're in risk detection before session creation)
       // So the "most recent" we find IS the previous login
-      
+
       // Check sessions (use createdAt for login-to-login comparison, not lastActivityAt)
       const lastSession = (await this.sessionRepository.findOne({
         where: {
@@ -511,10 +510,28 @@ export class RiskDetectionService {
         order: {
           createdAt: 'DESC',
         },
-      })) as (BaseAuthAudit & { ipCountry: string; ipCity: string | null; ipLatitude: number | null; ipLongitude: number | null; createdAt: Date }) | null;
+      })) as
+        | (BaseAuthAudit & {
+            ipCountry: string;
+            ipCity: string | null;
+            ipLatitude: number | null;
+            ipLongitude: number | null;
+            createdAt: Date;
+          })
+        | null;
 
-      // Debug: Show all recent sessions for this user
-      if (lastSession) {
+      // ============================================================================
+      // Debug Dumps (optional)
+      // ============================================================================
+      // WHY: These queries are expensive and should only run when a real NAuthLogger
+      // instance is wired (consumer provided a logger). Unit tests frequently use
+      // plain object mocks that do NOT implement `isEnabled()`.
+      const loggerEnabled =
+        typeof (this.logger as unknown as { isEnabled?: () => boolean }).isEnabled === 'function'
+          ? (this.logger as unknown as { isEnabled: () => boolean }).isEnabled()
+          : false;
+
+      if (loggerEnabled && lastSession) {
         const allRecentSessions = (await this.sessionRepository.find({
           where: { userId },
           order: { createdAt: 'DESC' },
@@ -541,8 +558,7 @@ export class RiskDetectionService {
         );
       }
 
-      // Debug: Show all recent audit logins for this user
-      if (lastAuditLogin) {
+      if (loggerEnabled && lastAuditLogin) {
         const allRecentAudits = (await this.auditRepository.find({
           where: { userId, eventType: AuthAuditEventType.LOGIN_SUCCESS },
           order: { createdAt: 'DESC' },
@@ -570,13 +586,13 @@ export class RiskDetectionService {
       }
 
       // Determine which record is more recent and extract location data with coordinates
-      let lastLocation: { 
-        country: string; 
-        city: string | null; 
-        latitude: number | null; 
-        longitude: number | null; 
-        time: Date; 
-        source: 'session' | 'audit' 
+      let lastLocation: {
+        country: string;
+        city: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        time: Date;
+        source: 'session' | 'audit';
       } | null = null;
 
       if (lastSession && lastAuditLogin) {
@@ -630,23 +646,26 @@ export class RiskDetectionService {
 
       // Debug logging to help diagnose issues
       const hasCoordinates = !!(
-        lastLocation.latitude && 
-        lastLocation.longitude && 
-        currentInfo.ipLatitude && 
+        lastLocation.latitude &&
+        lastLocation.longitude &&
+        currentInfo.ipLatitude &&
         currentInfo.ipLongitude
       );
-      
+
       this.logger?.debug?.(
         `Impossible travel check: user=${userId}, source=${lastLocation.source}, ` +
-        `last=[${lastLocation.city ?? 'unknown'}, ${lastLocation.country} @ ${lastLocation.time.toISOString()}], ` +
-        `current=[${currentInfo.ipCity ?? 'unknown'}, ${currentInfo.ipCountry}], ` +
-        `coordinates=${hasCoordinates ? 'available' : 'missing'}`,
+          `last=[${lastLocation.city ?? 'unknown'}, ${lastLocation.country} @ ${lastLocation.time.toISOString()}], ` +
+          `current=[${currentInfo.ipCity ?? 'unknown'}, ${currentInfo.ipCountry}], ` +
+          `coordinates=${hasCoordinates ? 'available' : 'missing'}`,
       );
 
       // Same location → not travel (only if we have city data to compare)
-      if (lastLocation.city && currentInfo.ipCity && 
-          lastLocation.country === currentInfo.ipCountry && 
-          lastLocation.city === currentInfo.ipCity) {
+      if (
+        lastLocation.city &&
+        currentInfo.ipCity &&
+        lastLocation.country === currentInfo.ipCountry &&
+        lastLocation.city === currentInfo.ipCity
+      ) {
         this.logger?.debug?.(
           `Same location detected - no travel: user=${userId}, location=[${currentInfo.ipCity}, ${currentInfo.ipCountry}]`,
         );
@@ -661,34 +680,34 @@ export class RiskDetectionService {
 
       this.logger?.debug?.(
         `Time since last location: ${hoursSinceLastSeen.toFixed(2)} hours (${(hoursSinceLastSeen * 60).toFixed(1)} minutes). ` +
-        `Previous login: ${lastLocation.time.toISOString()} (UTC), Current: ${now.toISOString()} (UTC)`,
+          `Previous login: ${lastLocation.time.toISOString()} (UTC), Current: ${now.toISOString()} (UTC)`,
       );
 
       // ============================================================================
       // SPECIAL CASE: Country change with missing city data
       // ============================================================================
-      // If city data is missing for either location but countries differ, 
+      // If city data is missing for either location but countries differ,
       // apply conservative threshold for country-level changes
       if (lastLocation.country !== currentInfo.ipCountry) {
         if (!lastLocation.city || !currentInfo.ipCity) {
           // Missing city data - use conservative threshold for country changes
           // If country changed in < threshold hours, flag as suspicious (can't verify exact locations)
           const countryChangeThresholdHours = this.config.mfa?.adaptive?.countryChangeThreshold || 2;
-          
+
           if (hoursSinceLastSeen < countryChangeThresholdHours) {
             this.logger?.warn?.(
               `Impossible travel detected (country change without city data): ` +
-              `${lastLocation.country} → ${currentInfo.ipCountry} in ${(hoursSinceLastSeen * 60).toFixed(1)} minutes ` +
-              `(threshold: ${countryChangeThresholdHours}h). Missing city: last=${!lastLocation.city}, current=${!currentInfo.ipCity}. ` +
-              `Conservative detection applied due to incomplete location data.`,
+                `${lastLocation.country} → ${currentInfo.ipCountry} in ${(hoursSinceLastSeen * 60).toFixed(1)} minutes ` +
+                `(threshold: ${countryChangeThresholdHours}h). Missing city: last=${!lastLocation.city}, current=${!currentInfo.ipCity}. ` +
+                `Conservative detection applied due to incomplete location data.`,
             );
             return true;
           }
-          
+
           this.logger?.debug?.(
             `Country change acceptable: ${lastLocation.country} → ${currentInfo.ipCountry} ` +
-            `in ${hoursSinceLastSeen.toFixed(2)}h (> ${countryChangeThresholdHours}h threshold). ` +
-            `City data missing but time allows travel.`,
+              `in ${hoursSinceLastSeen.toFixed(2)}h (> ${countryChangeThresholdHours}h threshold). ` +
+              `City data missing but time allows travel.`,
           );
           return false;
         }
@@ -709,10 +728,10 @@ export class RiskDetectionService {
           currentInfo.ipLongitude!,
         );
         distanceMethod = 'haversine';
-        
+
         this.logger?.debug?.(
           `Using Haversine formula with coordinates: distance=${distance.toFixed(0)}km ` +
-          `(${lastLocation.latitude},${lastLocation.longitude} → ${currentInfo.ipLatitude},${currentInfo.ipLongitude})`,
+            `(${lastLocation.latitude},${lastLocation.longitude} → ${currentInfo.ipLatitude},${currentInfo.ipLongitude})`,
         );
       } else {
         // Fallback to heuristic distance estimation
@@ -722,10 +741,8 @@ export class RiskDetectionService {
           currentInfo.ipCity ?? null,
           currentInfo.ipCountry,
         );
-        
-        this.logger?.debug?.(
-          `Using heuristic distance estimation (coordinates unavailable): distance=${distance}km`,
-        );
+
+        this.logger?.debug?.(`Using heuristic distance estimation (coordinates unavailable): distance=${distance}km`);
       }
 
       if (distance === 0) {
@@ -738,22 +755,22 @@ export class RiskDetectionService {
 
       this.logger?.debug?.(
         `Travel speed calculation (${distanceMethod}): distance=${distance.toFixed(0)}km, ` +
-        `time=${hoursSinceLastSeen.toFixed(2)}h, required_speed=${requiredSpeed.toFixed(0)}km/h, ` +
-        `max_allowed=${maxTravelSpeed}km/h`,
+          `time=${hoursSinceLastSeen.toFixed(2)}h, required_speed=${requiredSpeed.toFixed(0)}km/h, ` +
+          `max_allowed=${maxTravelSpeed}km/h`,
       );
 
       const isImpossible = requiredSpeed > maxTravelSpeed;
       if (isImpossible) {
         this.logger?.warn?.(
           `Impossible travel detected: ${requiredSpeed.toFixed(0)}km/h > ${maxTravelSpeed}km/h ` +
-          `(${lastLocation.city ?? lastLocation.country}, ${lastLocation.country} → ` +
-          `${currentInfo.ipCity ?? currentInfo.ipCountry}, ${currentInfo.ipCountry})`,
+            `(${lastLocation.city ?? lastLocation.country}, ${lastLocation.country} → ` +
+            `${currentInfo.ipCity ?? currentInfo.ipCountry}, ${currentInfo.ipCountry})`,
         );
       } else {
         this.logger?.debug?.(
           `Travel is possible: ${requiredSpeed.toFixed(0)}km/h <= ${maxTravelSpeed}km/h ` +
-          `(${lastLocation.city ?? lastLocation.country}, ${lastLocation.country} → ` +
-          `${currentInfo.ipCity ?? currentInfo.ipCountry}, ${currentInfo.ipCountry})`,
+            `(${lastLocation.city ?? lastLocation.country}, ${lastLocation.country} → ` +
+            `${currentInfo.ipCity ?? currentInfo.ipCountry}, ${currentInfo.ipCountry})`,
         );
       }
 
