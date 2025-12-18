@@ -13,7 +13,7 @@ yarn e2e:scenario signup-both-verification --ui --headed
 
 - `--headed` - Run in headed mode (visible browser)
 - `--ui` - Run with Playwright UI (interactive test runner)
-- `--slowmo=1000` - Set slow motion delay in milliseconds (default: 1000)
+- `--slow-mo=1000` - Set slow motion delay in milliseconds (supports both `--slow-mo=` and `--slowmo=`)
 - `--grep="pattern"` - Use grep pattern instead of scenario ID
 
 ### Examples:
@@ -22,8 +22,11 @@ yarn e2e:scenario signup-both-verification --ui --headed
 # Easiest: Run with UI and slow motion (watch the test visually)
 yarn e2e:scenario signup-both-verification --ui --headed
 
-# Custom slow motion (faster)
-yarn e2e:scenario signup-both-verification --ui --headed --slowmo=500
+# Custom slow motion (slower - better for seeing mouse movements)
+yarn e2e:scenario signup-both-verification --headed --slow-mo=3000
+
+# Even slower for detailed observation
+yarn e2e:scenario signup-both-verification --headed --slow-mo=5000
 
 # Headed mode without UI (just see browser)
 yarn e2e:scenario signup-both-verification --headed

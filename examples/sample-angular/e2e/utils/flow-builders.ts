@@ -78,10 +78,15 @@ export class FlowBuilder {
       if (overlayVisible) {
         console.log(`[FlowBuilder] Vite error overlay detected, attempting to dismiss...`);
         // Try to close the overlay by clicking the close button or pressing Escape
-        const closeButton = errorOverlay.locator('button[aria-label="close"], button:has-text("×"), button:has-text("Close")');
+        const closeButton = errorOverlay.locator(
+          'button[aria-label="close"], button:has-text("×"), button:has-text("Close")',
+        );
         const hasCloseButton = await closeButton.count().catch(() => 0);
         if (hasCloseButton > 0) {
-          await closeButton.first().click({ timeout: 2000 }).catch(() => {});
+          await closeButton
+            .first()
+            .click({ timeout: 2000 })
+            .catch(() => {});
         } else {
           // Try pressing Escape key
           await this.page.keyboard.press('Escape');
@@ -93,14 +98,13 @@ export class FlowBuilder {
       await this.page.locator('p-button[type="submit"] button').click();
 
       console.log(`[FlowBuilder] Signup form submitted`);
-      
+
       // Wait for navigation to verification page or dashboard
       // Use a longer timeout to allow for backend processing
       try {
-        await this.page.waitForURL(
-          /\/auth\/challenge\/(verify-email|verify-phone)|dashboard/,
-          { timeout: 15000 }
-        );
+        await this.page.waitForURL(/\/auth\/challenge\/(verify-email|verify-phone)|dashboard/, {
+          timeout: 15000,
+        });
         console.log(`[FlowBuilder] Navigation successful to: ${this.page.url()}`);
       } catch (error) {
         // Check if we're still on signup page and look for actual error messages
@@ -115,7 +119,7 @@ export class FlowBuilder {
             '.text-red-500',
             '.error-message',
           ];
-          
+
           let actualError = null;
           for (const selector of errorSelectors) {
             const errorElement = this.page.locator(selector).first();
@@ -127,12 +131,12 @@ export class FlowBuilder {
               }
             }
           }
-          
+
           if (actualError && !actualError.includes('Demo Application')) {
             console.error(`[FlowBuilder] Error on signup page: ${actualError}`);
             throw new Error(`Signup failed: ${actualError}`);
           }
-          
+
           // If no actual error found, wait a bit more and check URL again
           await this.page.waitForTimeout(2000);
           const finalUrl = this.page.url();
@@ -140,9 +144,11 @@ export class FlowBuilder {
             console.log(`[FlowBuilder] Navigation completed to: ${finalUrl}`);
             return this;
           }
-          
+
           // Still on signup page - this might be a timeout issue
-          console.error(`[FlowBuilder] Still on signup page after submission. Current URL: ${finalUrl}`);
+          console.error(
+            `[FlowBuilder] Still on signup page after submission. Current URL: ${finalUrl}`,
+          );
           throw new Error('Signup form submission did not navigate to expected page');
         }
         // If we navigated successfully, don't throw
@@ -350,7 +356,7 @@ export class FlowBuilder {
    */
   async expectEmailVerification(): Promise<this> {
     console.log(`[FlowBuilder] Expecting email verification screen`);
-    
+
     // Log current URL for debugging
     const currentUrl = this.page.url();
     console.log(`[FlowBuilder] Current URL: ${currentUrl}`);
