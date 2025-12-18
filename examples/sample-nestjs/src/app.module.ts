@@ -30,7 +30,7 @@ const imports = [
     password: process.env.DB_PASSWORD as string,
     database: process.env.DB_DATABASE as string,
     entities,
-    synchronize: process.env.NODE_ENV === 'development', // Auto-sync schema in development only
+    synchronize: false, // migrations will be run automatically
     logging: process.env.DB_LOGGING === 'true',
     timezone: 'Z', // Force UTC timezone for all dates
   }),

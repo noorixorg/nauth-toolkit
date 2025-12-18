@@ -1,11 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseLoginAttempt } from '@nauth-toolkit/core';
+import { User } from './user.entity';
 
 /**
  * TypeORM PostgreSQL Login Attempt Entity
  *
  * Extends BaseLoginAttempt from core and adds PostgreSQL-specific TypeORM decorators.
  * All field definitions and business logic are in the base class.
+ *
+ * @remarks
+ * Login attempts preserve audit trail even after user deletion (onDelete: 'SET NULL').
+ * This allows tracking of security events and failed login attempts for deleted accounts.
  */
 @Entity('nauth_login_attempts')
 @Index(['email', 'createdAt'])
@@ -19,6 +24,10 @@ export class LoginAttempt extends BaseLoginAttempt {
 
   @Column({ type: 'int', nullable: true })
   declare userId?: number | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'userId' })
+  user?: User | null;
 
   @Column({ type: 'varchar', length: 45, nullable: true })
   declare ipAddress?: string | null;

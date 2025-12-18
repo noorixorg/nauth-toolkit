@@ -45,6 +45,7 @@ import {
   MFAChallengeMethod,
   GetSetupDataDTO,
   GetSetupDataResponseDTO,
+  TokenDelivery,
 } from '@nauth-toolkit/nestjs';
 
 /**
@@ -129,6 +130,15 @@ export class CustomAuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDTO): Promise<AuthResponseDTO> {
+    this.logger.log(`Login attempt: ${dto.identifier}`);
+    return await this.authService.login(dto);
+  }
+
+  @Public()
+  @TokenDelivery('json')
+  @Post('login/mobile')
+  @HttpCode(HttpStatus.OK)
+  async loginMobile(@Body() dto: LoginDTO): Promise<AuthResponseDTO> {
     this.logger.log(`Login attempt: ${dto.identifier}`);
     return await this.authService.login(dto);
   }

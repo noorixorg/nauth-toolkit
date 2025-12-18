@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, Index } from 'typeorm';
 import { BaseChallengeSession } from '@nauth-toolkit/core';
 import { User } from './user.entity';
 
@@ -9,6 +9,10 @@ import { User } from './user.entity';
  * All field definitions and business logic are in the base class.
  */
 @Entity('nauth_challenge_sessions')
+@Index(['userId'])
+@Index(['expiresAt'])
+@Index(['challengeName'])
+@Index(['userId', 'isCompleted'])
 export class ChallengeSession extends BaseChallengeSession {
   @PrimaryGeneratedColumn()
   declare id: number;

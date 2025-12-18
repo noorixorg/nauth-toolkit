@@ -95,6 +95,7 @@ export class AuthGuard implements CanActivate {
     // Load user by sub (external identifier from JWT payload)
     // Include all non-sensitive fields needed by endpoints (profile, MFA status, etc.)
     // Excludes: passwordHash, passwordHistory, totpSecret, backupCodes (sensitive)
+    //  TODO: SHIT Work. NEEDS TO BE FIXED.
     const user = await this.userRepository.findOne({
       select: [
         'id',

@@ -61,7 +61,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   mfa: {
-    enabled: true,
+    enabled: false,
     enforcement: 'OPTIONAL',
     gracePeriod: 0,
     requireForSocialLogin: true,
@@ -105,7 +105,7 @@ export const authConfig: NAuthModuleConfig = {
     specialChars: '$#!@',
   },
   tokenDelivery: {
-    method: 'cookies',
+    method: 'json',
     cookieOptions: {
       secure: true,
       sameSite: 'strict',
