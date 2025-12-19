@@ -76,6 +76,7 @@ import { CookieTokenInterceptor } from './interceptors/cookie-token.interceptor'
 import { AuthGuard } from './guards/auth.guard';
 import { CsrfGuard } from './guards/csrf.guard';
 import { CsrfService } from './services/csrf.service';
+import { nauthMigrationsBootstrapProvider } from './services/migrations-bootstrap.service';
 
 /**
  * Extended NAuth Configuration (includes optional entities)
@@ -146,6 +147,9 @@ export class AuthModule {
         ...(entities.length > 0 ? [TypeOrmModule.forFeature(entities)] : []),
       ],
       providers: [
+        // Auto-run nauth-toolkit migrations on startup (no consumer burden)
+        nauthMigrationsBootstrapProvider,
+
         // Global interceptor for automatic client info extraction
         {
           provide: APP_INTERCEPTOR,
