@@ -58,5 +58,3 @@ export const nauthMigrationsBootstrapProvider: Provider = {
   },
   inject: ['NAUTH_CONFIG', 'NAUTH_LOGGER', DataSource],
 };
-
-

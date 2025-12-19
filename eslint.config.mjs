@@ -19,6 +19,7 @@ export default [
       '**/*.tsbuildinfo',
       '**/capacitor.config.ts', // Capacitor config doesn't need strict linting
       'tests/**', // E2E tests excluded from linting
+      '**/*.spec.ts', // Spec files excluded from tsconfig
       'packages/email/console/src/templates/html-template.engine.spec.ts', // Test file excluded from tsconfig
       'packages/email/nodemailer/src/templates/html-template.engine.spec.ts', // Test file excluded from tsconfig
       'packages/social/google/src/token-verifier.service.spec.ts', // Test file excluded from tsconfig

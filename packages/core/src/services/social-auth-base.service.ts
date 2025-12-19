@@ -89,7 +89,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
    * @returns Provider configuration from NAuthConfig
    * @protected
    */
-  protected getProviderConfig(): any {
+  protected getProviderConfig(): Record<string, unknown> | null {
     const socialConfig = this.config.social;
     if (!socialConfig) return null;
 
@@ -135,7 +135,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
   protected abstract verifyNativeToken(
     idToken: string,
     accessToken?: string,
-    profileData?: any,
+    profileData?: Record<string, unknown>,
   ): Promise<OAuthUserProfile>;
 
   /**
@@ -183,7 +183,11 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
   /**
    * Verify social authentication token from native mobile apps
    */
-  async verifyToken(idToken: string, accessToken?: string, profileData?: any): Promise<AuthResponseDTO> {
+  async verifyToken(
+    idToken: string,
+    accessToken?: string,
+    profileData?: Record<string, unknown>,
+  ): Promise<AuthResponseDTO> {
     const providerConfig = this.getProviderConfig();
     if (!providerConfig || !providerConfig.enabled) {
       throw new NAuthException(
@@ -368,7 +372,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
   /**
    * Find existing user or create new one
    */
-  protected async findOrCreateUser(profile: OAuthUserProfile, providerConfig: any): Promise<IUser> {
+  protected async findOrCreateUser(profile: OAuthUserProfile, providerConfig: Record<string, unknown>): Promise<IUser> {
     // First, try to find user by social account
     const socialAccount = await this.socialAuthService.findSocialAccountByProvider(this.providerName, profile.id);
 

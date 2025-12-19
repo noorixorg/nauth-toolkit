@@ -432,23 +432,23 @@ export class InternalAuthAuditService extends AuthAuditService {
       if (this.clientInfoService) {
         try {
           const clientInfoFromContext = this.clientInfoService.get();
-          
+
           // Debug logging
           if (!clientInfoFromContext.ipLatitude || !clientInfoFromContext.ipLongitude) {
             this.logger?.warn?.(
               `[AuthAuditService] Creating audit WITHOUT coordinates from context: ` +
-              `IP=${clientInfoFromContext.ipAddress}, country=${clientInfoFromContext.ipCountry}, ` +
-              `city=${clientInfoFromContext.ipCity}, lat=${clientInfoFromContext.ipLatitude}, ` +
-              `lon=${clientInfoFromContext.ipLongitude}`,
+                `IP=${clientInfoFromContext.ipAddress}, country=${clientInfoFromContext.ipCountry}, ` +
+                `city=${clientInfoFromContext.ipCity}, lat=${clientInfoFromContext.ipLatitude}, ` +
+                `lon=${clientInfoFromContext.ipLongitude}`,
             );
           } else {
             this.logger?.debug?.(
               `[AuthAuditService] Creating audit WITH coordinates from context: ` +
-              `IP=${clientInfoFromContext.ipAddress}, ${clientInfoFromContext.ipCity}, ` +
-              `${clientInfoFromContext.ipCountry} (${clientInfoFromContext.ipLatitude}, ${clientInfoFromContext.ipLongitude})`,
+                `IP=${clientInfoFromContext.ipAddress}, ${clientInfoFromContext.ipCity}, ` +
+                `${clientInfoFromContext.ipCountry} (${clientInfoFromContext.ipLatitude}, ${clientInfoFromContext.ipLongitude})`,
             );
           }
-          
+
           // Automatically capture from context (no override allowed)
           clientInfo = {
             ipAddress: clientInfoFromContext.ipAddress || null,

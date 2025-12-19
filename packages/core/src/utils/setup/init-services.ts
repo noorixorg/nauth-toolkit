@@ -193,7 +193,7 @@ export function initServices(
   }
 
   // Validate email provider has required method
-  if (typeof (emailProvider as any).sendVerificationEmail !== 'function') {
+  if (typeof (emailProvider as Record<string, unknown>).sendVerificationEmail !== 'function') {
     throw new NAuthException(
       AuthErrorCode.VALIDATION_FAILED,
       'emailProvider must implement sendVerificationEmail method',
@@ -201,13 +201,17 @@ export function initServices(
   }
 
   // Inject logger into email provider if it supports it
-  if (emailProvider && typeof (emailProvider as any).setLogger === 'function') {
-    (emailProvider as any).setLogger(logger);
+  if (emailProvider && typeof (emailProvider as Record<string, unknown>).setLogger === 'function') {
+    (emailProvider as Record<string, unknown>).setLogger(logger);
   }
 
   // Inject global variables from email config if provider supports it
-  if (emailProvider && typeof (emailProvider as any).setGlobalVariables === 'function' && config.email) {
-    const globalVars: Record<string, any> = {};
+  if (
+    emailProvider &&
+    typeof (emailProvider as Record<string, unknown>).setGlobalVariables === 'function' &&
+    config.email
+  ) {
+    const globalVars: Record<string, unknown> = {};
     // Extract top-level branding fields
     if (config.email.appName) globalVars.appName = config.email.appName;
     if (config.email.companyName) globalVars.companyName = config.email.companyName;
@@ -221,13 +225,13 @@ export function initServices(
       ...globalVars,
       ...(config.email.templates?.globalVariables || {}),
     };
-    (emailProvider as any).setGlobalVariables(mergedVars);
+    (emailProvider as Record<string, unknown>).setGlobalVariables(mergedVars);
   }
 
   const emailVerificationService = new EmailVerificationService(
     repositories.verificationTokenRepository,
     repositories.userRepository,
-    emailProvider as any,
+    emailProvider as unknown,
     storageAdapter,
     config,
     clientInfoService,
@@ -243,14 +247,14 @@ export function initServices(
 
   if (smsProvider) {
     // Inject logger into SMS provider if it supports it
-    if (smsProvider && typeof (smsProvider as any).setLogger === 'function') {
-      (smsProvider as any).setLogger(logger);
+    if (smsProvider && typeof (smsProvider as Record<string, unknown>).setLogger === 'function') {
+      (smsProvider as Record<string, unknown>).setLogger(logger);
     }
 
     phoneVerificationService = new PhoneVerificationService(
       repositories.verificationTokenRepository,
       repositories.userRepository,
-      smsProvider as any,
+      smsProvider as unknown,
       storageAdapter,
       config,
       clientInfoService,
@@ -389,7 +393,7 @@ export function initServices(
   );
 
   // Now inject adaptiveMFADecisionService into authFlowContextBuilder
-  (authFlowContextBuilder as any).adaptiveMFADecisionService = adaptiveMFADecisionService;
+  (authFlowContextBuilder as Record<string, unknown>).adaptiveMFADecisionService = adaptiveMFADecisionService;
 
   // ============================================================================
   // Return Service Container

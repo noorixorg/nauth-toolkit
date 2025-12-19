@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
 import { IUser, ISession } from '../interfaces/entities.interface';
-import { BaseUser, BaseLoginAttempt, BaseMFADevice } from '../entities';
+import { BaseUser, BaseLoginAttempt, BaseMFADevice, BaseChallengeSession } from '../entities';
 import { PasswordService } from './password.service';
 import { JwtService } from './jwt.service';
 import { SessionService } from './session.service';
@@ -626,7 +626,7 @@ export class AuthService {
             deviceId = session.deviceId;
           }
         }
-      } catch (error) {
+      } catch (_error) {
         // Non-blocking: Continue without sessionId/deviceId
         this.logger?.debug?.('Failed to extract sessionId/deviceId from token for audit');
       }
@@ -1132,7 +1132,10 @@ export class AuthService {
   /**
    * Handle VERIFY_EMAIL challenge
    */
-  private async handleVerifyEmail(challengeSession: any, code: string): Promise<AuthResponseDTO> {
+  private async handleVerifyEmail(
+    challengeSession: BaseChallengeSession & { user?: BaseUser },
+    code: string,
+  ): Promise<AuthResponseDTO> {
     const user = challengeSession.user;
     if (!user) {
       throw new NAuthException(AuthErrorCode.CHALLENGE_INVALID, 'User not found in challenge session');
@@ -1195,7 +1198,7 @@ export class AuthService {
    * Handle VERIFY_PHONE challenge
    */
   private async handleVerifyPhone(
-    challengeSession: any,
+    challengeSession: BaseChallengeSession & { user?: BaseUser },
     data: VerifyPhoneResponse | CollectPhoneResponse,
   ): Promise<AuthResponseDTO> {
     const user = challengeSession.user;
@@ -1389,7 +1392,7 @@ export class AuthService {
    * Handle MFA_REQUIRED challenge
    */
   private async handleMFAVerification(
-    challengeSession: any,
+    challengeSession: BaseChallengeSession & { user?: BaseUser },
     data: VerifyMFACodeResponse | VerifyMFAPasskeyResponse,
   ): Promise<AuthResponseDTO> {
     const user = challengeSession.user;
@@ -1683,7 +1686,10 @@ export class AuthService {
   /**
    * Handle FORCE_CHANGE_PASSWORD challenge
    */
-  private async handleForceChangePassword(challengeSession: any, newPassword: string): Promise<AuthResponseDTO> {
+  private async handleForceChangePassword(
+    challengeSession: BaseChallengeSession & { user?: BaseUser },
+    newPassword: string,
+  ): Promise<AuthResponseDTO> {
     const user = challengeSession.user;
     if (!user) {
       throw new NAuthException(AuthErrorCode.CHALLENGE_INVALID, 'User not found in challenge session');
@@ -1821,7 +1827,10 @@ export class AuthService {
   /**
    * Handle MFA_SETUP_REQUIRED challenge
    */
-  private async handleMFASetup(challengeSession: any, data: MFASetupResponse): Promise<AuthResponseDTO> {
+  private async handleMFASetup(
+    challengeSession: BaseChallengeSession & { user?: BaseUser },
+    data: MFASetupResponse,
+  ): Promise<AuthResponseDTO> {
     const user = challengeSession.user;
     if (!user) {
       throw new NAuthException(AuthErrorCode.CHALLENGE_INVALID, 'User not found in challenge session');
@@ -2589,7 +2598,7 @@ export class AuthService {
 
     // Fallback: Try to get sessionId from JWT payload in context
     if (!sessionId) {
-      const jwtPayload = ContextStorage.get<any>('JWT_PAYLOAD');
+      const jwtPayload = ContextStorage.get<Record<string, unknown>>('JWT_PAYLOAD');
       if (jwtPayload?.sessionId) {
         // Parse sessionId to number (JWT payload has it as string)
         const sessionIdStr = String(jwtPayload.sessionId);
@@ -2597,7 +2606,7 @@ export class AuthService {
         if (!isNaN(sessionIdNumber) && sessionIdNumber > 0) {
           sessionId = sessionIdNumber;
           // Update CLIENT_INFO in context for future use
-          const clientInfoInContext = ContextStorage.get<any>('CLIENT_INFO');
+          const clientInfoInContext = ContextStorage.get<Record<string, unknown>>('CLIENT_INFO');
           if (clientInfoInContext) {
             clientInfoInContext.sessionId = sessionIdNumber;
             ContextStorage.set('CLIENT_INFO', clientInfoInContext);

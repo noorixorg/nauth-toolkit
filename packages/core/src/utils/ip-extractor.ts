@@ -68,7 +68,7 @@ export interface IpExtractorOptions {
  * @param options - Optional configuration
  * @returns The client's IP address, or '0.0.0.0' if unable to determine
  */
-export function extractClientIp(req: any, options: IpExtractorOptions = {}): string {
+export function extractClientIp(req: Record<string, unknown>, options: IpExtractorOptions = {}): string {
   const { filterPrivateIps = false, useLeftmostIp = true } = options;
 
   // Priority order of headers to check

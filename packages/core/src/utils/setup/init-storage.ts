@@ -26,8 +26,8 @@ import { StorageAdapter, LoggerService, NAuthConfig, NAuthException, AuthErrorCo
  */
 export async function initStorage(
   config: NAuthConfig,
-  rateLimitRepo: Repository<any> | null,
-  storageLockRepo: Repository<any> | null,
+  rateLimitRepo: Repository<unknown> | null,
+  storageLockRepo: Repository<unknown> | null,
   logger: LoggerService,
 ): Promise<StorageAdapter> {
   // If storage adapter explicitly provided, use it
@@ -35,14 +35,14 @@ export async function initStorage(
     const adapter = config.storageAdapter;
 
     // Inject logger if adapter supports it
-    if (adapter && typeof (adapter as any).setLogger === 'function') {
-      (adapter as any).setLogger(logger);
+    if (adapter && typeof (adapter as Record<string, unknown>).setLogger === 'function') {
+      (adapter as Record<string, unknown>).setLogger(logger);
     }
 
     // Inject repositories into DatabaseStorageAdapter if it supports it
-    if (adapter && typeof (adapter as any).setRepositories === 'function') {
+    if (adapter && typeof (adapter as Record<string, unknown>).setRepositories === 'function') {
       if (rateLimitRepo && storageLockRepo) {
-        (adapter as any).setRepositories(rateLimitRepo, storageLockRepo);
+        (adapter as Record<string, unknown>).setRepositories(rateLimitRepo, storageLockRepo);
       }
     }
 
@@ -54,10 +54,10 @@ export async function initStorage(
   if (rateLimitRepo && storageLockRepo) {
     try {
       // Lazy import to avoid bundling if not used
-      // @ts-ignore - Dynamic import of optional peer dependency
+      // @ts-expect-error - Dynamic import of optional peer dependency
       const { DatabaseStorageAdapter } = await import('@nauth-toolkit/storage-database');
-      const adapter = new DatabaseStorageAdapter(null, null, logger as any);
-      adapter.setRepositories(rateLimitRepo as any, storageLockRepo as any);
+      const adapter = new DatabaseStorageAdapter(null, null, logger as unknown);
+      adapter.setRepositories(rateLimitRepo as unknown, storageLockRepo as unknown);
       await adapter.initialize();
 
       logger?.warn?.(
@@ -70,7 +70,7 @@ export async function initStorage(
       // If DatabaseStorageAdapter import fails, fall through to error
       logger?.error?.(
         'Failed to create DatabaseStorageAdapter. Please explicitly configure storageAdapter in your config.',
-        { error },
+        { error: error as Error },
       );
     }
   }

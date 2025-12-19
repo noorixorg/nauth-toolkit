@@ -12,8 +12,7 @@
     "packages/sms/*",
     "packages/social/*",
     "packages/mfa/*",
-    "packages/storage/*",
-    "examples/*"
+    "packages/storage/*"
   ],
   "packageManager": "yarn@1.22.0",
   "scripts": {

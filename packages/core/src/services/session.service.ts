@@ -233,14 +233,14 @@ export class SessionService {
     if (!clientInfo.ipLatitude || !clientInfo.ipLongitude) {
       this.logger?.warn?.(
         `[SessionService] Creating session WITHOUT coordinates: ` +
-        `IP=${clientInfo.ipAddress}, country=${clientInfo.ipCountry}, city=${clientInfo.ipCity}, ` +
-        `lat=${clientInfo.ipLatitude}, lon=${clientInfo.ipLongitude}`,
+          `IP=${clientInfo.ipAddress}, country=${clientInfo.ipCountry}, city=${clientInfo.ipCity}, ` +
+          `lat=${clientInfo.ipLatitude}, lon=${clientInfo.ipLongitude}`,
       );
     } else {
       this.logger?.debug?.(
         `[SessionService] Creating session WITH coordinates: ` +
-        `IP=${clientInfo.ipAddress}, ${clientInfo.ipCity}, ${clientInfo.ipCountry} ` +
-        `(${clientInfo.ipLatitude}, ${clientInfo.ipLongitude})`,
+          `IP=${clientInfo.ipAddress}, ${clientInfo.ipCity}, ${clientInfo.ipCountry} ` +
+          `(${clientInfo.ipLatitude}, ${clientInfo.ipLongitude})`,
       );
     }
 
@@ -430,37 +430,37 @@ export class SessionService {
         deviceId,
         deviceName,
         deviceType,
-      // Client info automatically extracted from ClientInfoService (transparent access)
-      ipAddress: clientInfo.ipAddress || null,
-      ipCountry: clientInfo.ipCountry || null,
-      ipCity: clientInfo.ipCity || null,
-      ipLatitude: clientInfo.ipLatitude || null,
-      ipLongitude: clientInfo.ipLongitude || null,
-      userAgent: clientInfo.userAgent || null,
-      platform,
-      browser,
-      authMethod: data.authMethod || null,
-      expiresAt: data.expiresAt,
-      isRemembered: data.isRemembered || false,
-      lastActivityAt: new Date(),
-    });
+        // Client info automatically extracted from ClientInfoService (transparent access)
+        ipAddress: clientInfo.ipAddress || null,
+        ipCountry: clientInfo.ipCountry || null,
+        ipCity: clientInfo.ipCity || null,
+        ipLatitude: clientInfo.ipLatitude || null,
+        ipLongitude: clientInfo.ipLongitude || null,
+        userAgent: clientInfo.userAgent || null,
+        platform,
+        browser,
+        authMethod: data.authMethod || null,
+        expiresAt: data.expiresAt,
+        isRemembered: data.isRemembered || false,
+        lastActivityAt: new Date(),
+      });
 
-    // Debug: Log what we're about to save in atomic transaction
-    if (!clientInfo.ipLatitude || !clientInfo.ipLongitude) {
-      this.logger?.warn?.(
-        `[SessionService.createSessionAtomic] Creating session WITHOUT coordinates: ` +
-        `IP=${clientInfo.ipAddress}, country=${clientInfo.ipCountry}, city=${clientInfo.ipCity}, ` +
-        `lat=${clientInfo.ipLatitude}, lon=${clientInfo.ipLongitude}`,
-      );
-    } else {
-      this.logger?.debug?.(
-        `[SessionService.createSessionAtomic] Creating session WITH coordinates: ` +
-        `IP=${clientInfo.ipAddress}, ${clientInfo.ipCity}, ${clientInfo.ipCountry} ` +
-        `(${clientInfo.ipLatitude}, ${clientInfo.ipLongitude})`,
-      );
-    }
+      // Debug: Log what we're about to save in atomic transaction
+      if (!clientInfo.ipLatitude || !clientInfo.ipLongitude) {
+        this.logger?.warn?.(
+          `[SessionService.createSessionAtomic] Creating session WITHOUT coordinates: ` +
+            `IP=${clientInfo.ipAddress}, country=${clientInfo.ipCountry}, city=${clientInfo.ipCity}, ` +
+            `lat=${clientInfo.ipLatitude}, lon=${clientInfo.ipLongitude}`,
+        );
+      } else {
+        this.logger?.debug?.(
+          `[SessionService.createSessionAtomic] Creating session WITH coordinates: ` +
+            `IP=${clientInfo.ipAddress}, ${clientInfo.ipCity}, ${clientInfo.ipCountry} ` +
+            `(${clientInfo.ipLatitude}, ${clientInfo.ipLongitude})`,
+        );
+      }
 
-    const saved = await trx.save(sessionEntity);
+      const saved = await trx.save(sessionEntity);
       const savedId = saved.id as number;
 
       const { accessTokenHash, refreshTokenHash, extra } = await generateHashes(savedId);

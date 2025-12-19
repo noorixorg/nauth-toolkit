@@ -56,7 +56,11 @@ export class NestJsLoggerAdapter implements LoggerProvider {
    *
    * @param options - Logger configuration options
    */
-  constructor(options?: { context?: string; enablePiiRedaction?: boolean; piiRedactionOptions?: any }) {
+  constructor(options?: {
+    context?: string;
+    enablePiiRedaction?: boolean;
+    piiRedactionOptions?: Record<string, unknown>;
+  }) {
     // Initialize NestJS Logger with context
     this.logger = new Logger(options?.context || 'nauth-toolkit');
 

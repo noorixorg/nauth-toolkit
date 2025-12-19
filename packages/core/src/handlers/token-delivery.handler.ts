@@ -24,7 +24,7 @@ export class TokenDeliveryHandler {
    * If it contains tokens, handle delivery and return sanitized body.
    * If not, return original body.
    */
-  public async handleResponse(req: NAuthRequest, res: NAuthResponse, body: any): Promise<any> {
+  public async handleResponse(req: NAuthRequest, res: NAuthResponse, body: unknown): Promise<unknown> {
     // Check if this is an auth response
     if (body && typeof body === 'object' && body.accessToken && body.refreshToken) {
       const deliveryMode = this.resolveDeliveryMode(req);
@@ -67,7 +67,7 @@ export class TokenDeliveryHandler {
     return method === 'cookies' ? 'cookies' : 'json';
   }
 
-  private setTokenCookies(res: NAuthResponse, body: any): void {
+  private setTokenCookies(res: NAuthResponse, body: Record<string, unknown>): void {
     const accessTokenCookieName = getAccessTokenCookieName(this.config);
     const refreshTokenCookieName = getRefreshTokenCookieName(this.config);
 

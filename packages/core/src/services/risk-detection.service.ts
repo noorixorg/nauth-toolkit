@@ -604,8 +604,8 @@ export class RiskDetectionService {
           lastLocation = {
             country: lastSession.ipCountry!,
             city: lastSession.ipCity ?? null,
-            latitude: (lastSession as any).ipLatitude ?? null,
-            longitude: (lastSession as any).ipLongitude ?? null,
+            latitude: (lastSession as ISession & { ipLatitude?: number }).ipLatitude ?? null,
+            longitude: (lastSession as ISession & { ipLongitude?: number }).ipLongitude ?? null,
             time: sessionTime,
             source: 'session',
           };
@@ -623,8 +623,8 @@ export class RiskDetectionService {
         lastLocation = {
           country: lastSession.ipCountry!,
           city: lastSession.ipCity ?? null,
-          latitude: (lastSession as any).ipLatitude ?? null,
-          longitude: (lastSession as any).ipLongitude ?? null,
+          latitude: (lastSession as ISession & { ipLatitude?: number }).ipLatitude ?? null,
+          longitude: (lastSession as ISession & { ipLongitude?: number }).ipLongitude ?? null,
           time: lastSession.createdAt,
           source: 'session',
         };

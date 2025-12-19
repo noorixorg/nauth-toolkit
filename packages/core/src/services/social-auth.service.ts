@@ -382,7 +382,7 @@ export class SocialAuthService {
     provider: string,
     providerId: string,
     providerEmail?: string | null,
-    metadata?: any,
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     const existingAccount = await this.findSocialAccountByUser(userId, provider);
 

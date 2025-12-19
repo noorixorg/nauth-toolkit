@@ -128,7 +128,7 @@ export class ExpressAdapter implements NAuthAdapter {
             res.json = originalJson;
             return originalJson(modifiedBody);
           })
-          .catch((error) => {
+          .catch((_error) => {
             // On error, send original body (error handled gracefully)
             res.json = originalJson;
             return originalJson(body);

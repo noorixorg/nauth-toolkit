@@ -165,11 +165,11 @@ export class GeoLocationService {
    * // { country: 'US', city: 'Mountain View', latitude: 37.386, longitude: -122.0838 }
    * ```
    */
-  async getIpGeolocation(ip: string): Promise<{ 
-    country?: string; 
-    city?: string; 
-    latitude?: number; 
-    longitude?: number 
+  async getIpGeolocation(ip: string): Promise<{
+    country?: string;
+    city?: string;
+    latitude?: number;
+    longitude?: number;
   }> {
     // ============================================================================
     // Check if Service is Available
@@ -203,23 +203,22 @@ export class GeoLocationService {
           latitude: result.location?.latitude,
           longitude: result.location?.longitude,
         };
-        
+
         // Warn if coordinates are missing (useful for production debugging)
         if (!geoData.latitude || !geoData.longitude) {
           this.logger?.warn?.(
             `MaxMind city lookup for IP ${ip} returned city/country but NO coordinates: ` +
-            `city=${geoData.city}, country=${geoData.country}`,
+              `city=${geoData.city}, country=${geoData.country}`,
           );
         }
-        
+
         return geoData;
-      } catch (error) {
+      } catch (_error) {
         // Non-fatal: Try country database (error logged at warn level if needed)
       }
     } else {
       this.logger?.warn?.(
-        `MaxMind cityReader is not initialized for IP ${ip}. ` +
-        `Only country database available (no coordinates).`,
+        `MaxMind cityReader is not initialized for IP ${ip}. ` + `Only country database available (no coordinates).`,
       );
     }
 
@@ -232,7 +231,7 @@ export class GeoLocationService {
         return {
           country: result.country?.isoCode,
         };
-      } catch (error) {
+      } catch (_error) {
         // Non-fatal: Return empty result (error handled gracefully)
       }
     }
@@ -484,7 +483,7 @@ export class GeoLocationService {
           // Add timeout to prevent hanging requests
           signal: AbortSignal.timeout(30000), // 30 second timeout
         });
-      } catch (fetchError: any) {
+      } catch (fetchError: unknown) {
         // Handle network errors (DNS failures, connection errors, etc.)
         if (
           fetchError?.code === 'ENOTFOUND' ||

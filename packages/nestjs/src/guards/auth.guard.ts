@@ -128,7 +128,7 @@ export class AuthGuard implements CanActivate {
         'metadata',
         'createdAt',
         'updatedAt',
-      ] as any,
+      ] as Array<keyof typeof user>,
       where: { sub: validation.payload!.sub },
     });
 

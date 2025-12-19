@@ -262,7 +262,7 @@ export class AuthModule {
                 // Lazy import to avoid bundling if not used
                 const { DatabaseStorageAdapter } = await import('@nauth-toolkit/storage-database');
                 const adapter = new DatabaseStorageAdapter(null, null, logger);
-                adapter.setRepositories(rateLimitRepo as any, storageLockRepo as any);
+                adapter.setRepositories(rateLimitRepo as unknown, storageLockRepo as unknown);
                 await adapter.initialize();
                 logger?.warn?.(
                   'WARNING: Storage adapter not provided. Using DatabaseStorageAdapter as default. ' +
@@ -859,7 +859,13 @@ export class AuthModule {
             logger: NAuthLogger,
             trustedDeviceService?: TrustedDeviceService | null, // TrustedDeviceService - optional
           ) => {
-            return new RiskDetectionService(sessionRepository, auditRepository, config, logger, trustedDeviceService ?? undefined);
+            return new RiskDetectionService(
+              sessionRepository,
+              auditRepository,
+              config,
+              logger,
+              trustedDeviceService ?? undefined,
+            );
           },
           inject: [
             'SessionRepository',
@@ -977,7 +983,7 @@ export class AuthModule {
             }
             // Inject global variables from email config if provider supports it
             if (provider && typeof provider.setGlobalVariables === 'function' && config.email) {
-              const globalVars: Record<string, any> = {};
+              const globalVars: Record<string, unknown> = {};
               // Extract top-level branding fields
               if (config.email.appName) globalVars.appName = config.email.appName;
               if (config.email.companyName) globalVars.companyName = config.email.companyName;
@@ -1011,7 +1017,7 @@ export class AuthModule {
             return new EmailVerificationService(
               verificationTokenRepo,
               userRepo,
-              emailProvider as any,
+              emailProvider as unknown,
               storageAdapter,
               nauthConfig,
               clientInfoService,
@@ -1059,7 +1065,7 @@ export class AuthModule {
                   return new PhoneVerificationService(
                     verificationTokenRepo,
                     userRepo,
-                    smsProvider as any,
+                    smsProvider as unknown,
                     storageAdapter,
                     nauthConfig,
                     clientInfoService,

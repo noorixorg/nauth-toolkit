@@ -11,11 +11,11 @@
     "lint:fix": "eslint src/**/*.ts --fix"
   },
   "dependencies": {
-    "@nauth-toolkit/core": "0.1.0",
-    "@nauth-toolkit/database-typeorm-postgres": "0.1.0",
-    "@nauth-toolkit/email-nodemailer": "0.1.0",
-    "@nauth-toolkit/sms-console": "0.1.0",
-    "@nauth-toolkit/storage-redis": "0.1.0",
+    "@nauth-toolkit/core": "^0.1.6",
+    "@nauth-toolkit/database-typeorm-postgres": "^0.1.6",
+    "@nauth-toolkit/email-nodemailer": "^0.1.6",
+    "@nauth-toolkit/sms-console": "^0.1.6",
+    "@nauth-toolkit/storage-redis": "^0.1.6",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

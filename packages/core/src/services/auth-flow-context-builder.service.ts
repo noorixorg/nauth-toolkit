@@ -91,7 +91,8 @@ export class AuthFlowContextBuilder {
     // Merge block status from existing storage and adaptive MFA decision
     const isBlocked = blockData.blocked || (mfaVerificationData.isBlocked ?? false);
     const blockedUntil = blockData.until; // From existing block
-    const blockReason = blockData.reason || (mfaVerificationData.isBlocked ? 'Sign in blocked due to suspicious activity' : undefined);
+    const blockReason =
+      blockData.reason || (mfaVerificationData.isBlocked ? 'Sign in blocked due to suspicious activity' : undefined);
 
     const computed = {
       isEmailVerificationRequired,
