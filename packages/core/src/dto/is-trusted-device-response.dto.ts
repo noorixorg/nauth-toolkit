@@ -31,3 +31,4 @@ export class IsTrustedDeviceResponseDTO {
   trusted!: boolean;
 }
 
+
