@@ -1,6 +1,6 @@
-# @nauth-toolkit/nestjs
+# @nauth-toolkit/mfa-email
 
-NestJS adapter for nauth-toolkit - Platform-specific integrations
+Email MFA provider for nauth-toolkit
 
 ## Preview Release Notice
 

@@ -1,12 +1,14 @@
 {
   "name": "@nauth-toolkit/email-nodemailer",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "description": "Nodemailer email provider for nauth-toolkit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist",
-    "src/templates/default/**/*.hbs"
+    "src/templates/default/**/*.hbs",
+    "LICENSE",
+    "README.md"
   ],
   "scripts": {
     "build": "npm run build-templates && tsc -b && npm run copy-templates",
@@ -24,7 +26,7 @@
     "nodemailer": "^6.9.7"
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.0"
+    "@nauth-toolkit/core": "^0.1.6"
   },
   "devDependencies": {
     "@types/handlebars": "^4.1.0",
@@ -39,9 +41,9 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "preview"
+    "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "UNLICENSED",
   "keywords": [
     "nestjs",
     "authentication",

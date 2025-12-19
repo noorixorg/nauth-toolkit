@@ -1,6 +1,6 @@
-# @nauth-toolkit/nestjs
+# @nauth-toolkit/sms-console
 
-NestJS adapter for nauth-toolkit - Platform-specific integrations
+Console SMS provider for nauth-toolkit (dev/test)
 
 ## Preview Release Notice
 

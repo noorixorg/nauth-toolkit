@@ -1,6 +1,6 @@
-# @nauth-toolkit/nestjs
+# @nauth-toolkit/mfa-sms
 
-NestJS adapter for nauth-toolkit - Platform-specific integrations
+SMS MFA provider for nauth-toolkit
 
 ## Preview Release Notice
 

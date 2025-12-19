@@ -1,6 +1,6 @@
-# @nauth-toolkit/nestjs
+# @nauth-toolkit/social-apple
 
-NestJS adapter for nauth-toolkit - Platform-specific integrations
+Apple OAuth provider for nauth-toolkit
 
 ## Preview Release Notice
 

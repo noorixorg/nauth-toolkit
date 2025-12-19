@@ -1,6 +1,6 @@
-# @nauth-toolkit/nestjs
+# @nauth-toolkit/mfa-passkey
 
-NestJS adapter for nauth-toolkit - Platform-specific integrations
+Passkey/WebAuthn MFA provider for nauth-toolkit
 
 ## Preview Release Notice
 

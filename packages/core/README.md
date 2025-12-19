@@ -1,6 +1,6 @@
-# @nauth-toolkit/nestjs
+# @nauth-toolkit/core
 
-NestJS adapter for nauth-toolkit - Platform-specific integrations
+Core authentication toolkit for Node JS
 
 ## Preview Release Notice
 

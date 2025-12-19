@@ -1,6 +1,6 @@
-# @nauth-toolkit/nestjs
+# @nauth-toolkit/email-nodemailer
 
-NestJS adapter for nauth-toolkit - Platform-specific integrations
+Nodemailer email provider for nauth-toolkit
 
 ## Preview Release Notice
 

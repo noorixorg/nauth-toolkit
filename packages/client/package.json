@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/client",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "description": "Framework-agnostic frontend SDK for nauth-toolkit",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
@@ -18,7 +18,9 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
@@ -48,9 +50,13 @@
   "engines": {
     "node": ">=22.0.0"
   },
-  "license": "MIT",
+  "license": "UNLICENSED",
   "repository": {
     "type": "git",
     "url": "https://github.com/noorix/nauth-toolkit"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
   }
 }

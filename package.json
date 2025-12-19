@@ -35,7 +35,9 @@
     "fix": "yarn lint:fix",
     "prepare": "husky",
     "lint:commit": "commitlint --from=HEAD~1 --to=HEAD",
-    "kill": "kill -9 $(lsof -t -i :3000) "
+    "kill": "kill -9 $(lsof -t -i :3000) ",
+    "publish:packages": "node scripts/publish.js latest",
+    "publish:packages:dry-run": "node scripts/publish.js latest --dry-run"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.1.0",
@@ -71,6 +73,6 @@
   ],
   "publishConfig": {
     "access": "public",
-    "tag": "preview"
+    "tag": "latest"
   }
 }

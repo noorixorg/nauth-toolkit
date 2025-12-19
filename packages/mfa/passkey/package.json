@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/mfa-passkey",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "description": "Passkey/WebAuthn MFA provider for nauth-toolkit",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -26,7 +26,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.0",
+    "@nauth-toolkit/core": "^0.1.6",
     "@simplewebauthn/server": "^10.0.0"
   },
   "devDependencies": {
@@ -40,9 +40,9 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "preview"
+    "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "UNLICENSED",
   "keywords": [
     "nestjs",
     "authentication",
@@ -50,5 +50,10 @@
     "passkey",
     "webauthn",
     "fido2"
+  ],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
   ]
 }

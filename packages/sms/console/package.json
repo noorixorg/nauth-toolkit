@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/sms-console",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "description": "Console SMS provider for nauth-toolkit (dev/test)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.0"
+    "@nauth-toolkit/core": "^0.1.6"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
@@ -28,14 +28,19 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "preview"
+    "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "UNLICENSED",
   "keywords": [
     "nestjs",
     "authentication",
     "sms",
     "console",
     "dev"
+  ],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
   ]
 }

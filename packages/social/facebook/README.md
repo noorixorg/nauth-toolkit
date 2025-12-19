@@ -1,6 +1,6 @@
-# @nauth-toolkit/nestjs
+# @nauth-toolkit/social-facebook
 
-NestJS adapter for nauth-toolkit - Platform-specific integrations
+Facebook OAuth provider for nauth-toolkit
 
 ## Preview Release Notice
 

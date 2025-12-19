@@ -1,6 +1,6 @@
-# @nauth-toolkit/nestjs
+# @nauth-toolkit/email-console
 
-NestJS adapter for nauth-toolkit - Platform-specific integrations
+Console email provider for nauth-toolkit (dev/test)
 
 ## Preview Release Notice
 

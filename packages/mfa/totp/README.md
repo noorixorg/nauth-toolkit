@@ -1,6 +1,6 @@
-# @nauth-toolkit/nestjs
+# @nauth-toolkit/mfa-totp
 
-NestJS adapter for nauth-toolkit - Platform-specific integrations
+TOTP/Authenticator MFA provider for nauth-toolkit
 
 ## Preview Release Notice
 

@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/social-facebook",
-  "version": "0.1.0",
+  "version": "0.1.6",
   "description": "Facebook OAuth provider for nauth-toolkit",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -26,7 +26,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.0",
+    "@nauth-toolkit/core": "^0.1.6",
     "@nestjs/common": "^9 || ^10 || ^11"
   },
   "peerDependenciesMeta": {
@@ -46,14 +46,19 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "preview"
+    "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "UNLICENSED",
   "keywords": [
     "nestjs",
     "authentication",
     "facebook",
     "oauth",
     "social"
+  ],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
   ]
 }

@@ -1,7 +1,7 @@
 {
   "name": "@nauth-toolkit/core",
-  "version": "0.1.0",
-  "description": "Core authentication toolkit for NestJS",
+  "version": "0.1.6",
+  "description": "Core authentication toolkit for Node JS",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -61,13 +61,18 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "preview"
+    "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "UNLICENSED",
   "keywords": [
     "nestjs",
     "authentication",
     "jwt",
     "typeorm"
+  ],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
   ]
 }

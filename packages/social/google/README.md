@@ -1,6 +1,6 @@
-# @nauth-toolkit/nestjs
+# @nauth-toolkit/social-google
 
-NestJS adapter for nauth-toolkit - Platform-specific integrations
+Google OAuth provider for nauth-toolkit
 
 ## Preview Release Notice
 
