@@ -121,7 +121,7 @@ const result = await nauth.authService.signup({
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { NAuth, FastifyAdapter, withNAuthContext } from '@nauth-toolkit/core';
+import { NAuth, FastifyAdapter } from '@nauth-toolkit/core';
 
 const nauth = await NAuth.create({
   config: authConfig,
@@ -129,11 +129,11 @@ const nauth = await NAuth.create({
   adapter: new FastifyAdapter(),
 });
 
-// Access services from nauth instance (wrap handlers with withNAuthContext)
+// Access services from nauth instance (wrap handlers with nauth.adapter.wrapRouteHandler)
 fastify.post(
   '/signup',
   { preHandler: nauth.helpers.public() },
-  withNAuthContext(async (req) => {
+  nauth.adapter.wrapRouteHandler(async (req) => {
     return nauth.authService.signup(req.body);
   }),
 );

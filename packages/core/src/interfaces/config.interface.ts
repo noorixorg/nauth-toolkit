@@ -17,6 +17,7 @@
 
 import { MFADeviceMethod } from '../enums/mfa-method.enum';
 import { StorageAdapter } from './storage-adapter.interface';
+import { EmailProvider, SMSProvider } from './provider.interface';
 
 export interface NAuthConfig {
   /**
@@ -137,7 +138,7 @@ export interface NAuthConfig {
    * })
    * ```
    */
-  emailProvider?: any; // EmailProvider type will be imported from provider.interface
+  emailProvider?: EmailProvider;
 
   /**
    * Email verification configuration
@@ -157,7 +158,7 @@ export interface NAuthConfig {
    * smsProvider: new TwilioSMSProvider({ accountSid: '...', authToken: '...', fromNumber: '...' })
    * ```
    */
-  smsProvider?: any; // SMSProvider type will be imported from provider.interface
+  smsProvider?: SMSProvider;
 
   /**
    * Phone verification configuration
@@ -1714,7 +1715,6 @@ export interface AdaptiveMFAConfig {
    * Risk score threshold (0-100) to require MFA
    *
    * @default 50
-   * @deprecated Use riskLevels instead for more granular control
    */
   riskThreshold?: number;
 

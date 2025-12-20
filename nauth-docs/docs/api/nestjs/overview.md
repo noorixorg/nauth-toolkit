@@ -21,7 +21,7 @@ npm install @nauth-toolkit/nestjs
 
 | Export | Description |
 |--------|-------------|
-| `AuthModule` | Main module with `forRoot()` and `forRootAsync()` |
+| `AuthModule` | Main module with `forRoot()` |
 | `NAuthModuleConfig` | Module configuration type |
 
 ### Guards
@@ -82,12 +82,6 @@ All exports from `@nauth-toolkit/core`:
 
 ```typescript
 AuthModule.forRoot(config: NAuthModuleConfig): DynamicModule
-```
-
-### forRootAsync()
-
-```typescript
-AuthModule.forRootAsync(options: NAuthModuleAsyncOptions): DynamicModule
 ```
 
 **Example**

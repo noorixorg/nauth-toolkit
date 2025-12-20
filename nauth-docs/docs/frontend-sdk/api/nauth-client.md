@@ -1291,7 +1291,7 @@ if (result.trusted) {
 **Related:**
 
 - [trustDevice()](#trustdevice) - Mark device as trusted
-- [Trusted Devices Guide](../../guides/mfa-setup#trusted-devices) - Complete guide
+- [Trusted Devices Guide](../guides/mfa-setup#trusted-devices) - Complete guide
 
 ---
 

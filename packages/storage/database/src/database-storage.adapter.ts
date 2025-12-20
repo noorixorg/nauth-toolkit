@@ -97,7 +97,7 @@ export class DatabaseStorageAdapter implements StorageAdapter {
       throw new Error(
         'DatabaseStorageAdapter requires RateLimit and StorageLock repositories to be registered. ' +
           'Make sure to include storage entities in TypeORM.forRoot(): ' +
-          'entities: [...getNAuthEntities(), ...getNAuthStorageEntities()]',
+          'entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()]',
       );
     }
   }

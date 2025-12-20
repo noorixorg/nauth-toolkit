@@ -120,7 +120,7 @@ app.post('/signup', nauth.helpers.public(),
 npm install @nauth-toolkit/core \\
   @nauth-toolkit/database-typeorm-postgres`,
 
-`import { NAuth, FastifyAdapter, withNAuthContext } from '@nauth-toolkit/core';
+`import { NAuth, FastifyAdapter } from '@nauth-toolkit/core';
 
 const nauth = await NAuth.create({
   config: authConfig,
@@ -134,7 +134,7 @@ fastify.addHook('onSend', nauth.middleware.tokenDelivery);
 
 fastify.post('/signup',
   { preHandler: nauth.helpers.public() },
-  withNAuthContext(async (req) =>
+  nauth.adapter.wrapRouteHandler(async (req) =>
     nauth.authService.signup(req.body)));`,
   ];
 

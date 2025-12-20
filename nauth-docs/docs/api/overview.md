@@ -246,7 +246,7 @@ const nauth = await NAuth.create({
 ## Getting Started
 
 ```typescript
-import { NAuth, FastifyAdapter, withNAuthContext, AuthService } from '@nauth-toolkit/core';
+import { NAuth, FastifyAdapter, AuthService } from '@nauth-toolkit/core';
 ```
 
 ## Documentation Structure
@@ -256,7 +256,7 @@ import { NAuth, FastifyAdapter, withNAuthContext, AuthService } from '@nauth-too
 - **Bootstrap** - `NAuth.create()` with `FastifyAdapter`
 - **Hooks** - `nauth.middleware.clientInfo`, `auth`, `csrf`, `tokenDelivery`
 - **Helpers** - `nauth.helpers.requireAuth()`, `public()`, `getCurrentUser()`
-- **Context** - `withNAuthContext()` wrapper for route handlers
+- **Context** - `nauth.adapter.wrapRouteHandler()` for route handlers
 
 ### Core Services
 
@@ -280,7 +280,7 @@ import { NAuth, FastifyAdapter, withNAuthContext, AuthService } from '@nauth-too
 ## Bootstrap Example
 
 ```typescript
-import { NAuth, FastifyAdapter, withNAuthContext } from '@nauth-toolkit/core';
+import { NAuth, FastifyAdapter } from '@nauth-toolkit/core';
 
 const nauth = await NAuth.create({
   config: authConfig,
@@ -294,11 +294,11 @@ fastify.addHook('onRequest', nauth.middleware.csrf as any);
 fastify.addHook('onRequest', nauth.middleware.auth as any);
 fastify.addHook('onSend', nauth.middleware.tokenDelivery as any);
 
-// Routes - wrap handlers with withNAuthContext
+// Routes - wrap handlers with nauth.adapter.wrapRouteHandler
 fastify.post(
   '/auth/signup',
   { preHandler: nauth.helpers.public() as any },
-  withNAuthContext(async (req) => {
+  nauth.adapter.wrapRouteHandler(async (req) => {
     return nauth.authService.signup(req.body as any);
   }),
 );
@@ -306,7 +306,7 @@ fastify.post(
 
 :::note Fastify Context
 Fastify hooks run independently, so AsyncLocalStorage context must be restored in route handlers.
-Use `withNAuthContext()` wrapper to access `nauth.helpers.getCurrentUser()` and context-dependent services.
+Use `nauth.adapter.wrapRouteHandler()` to access `nauth.helpers.getCurrentUser()` and context-dependent services.
 :::
 
 ## Feature Packages

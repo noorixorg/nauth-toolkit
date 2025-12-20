@@ -9,7 +9,7 @@ import { ContextStorage } from '../utils/context-storage';
  * Uses ContextStorage (AsyncLocalStorage) for platform-agnostic context management.
  *
  * Covers:
- * - All service methods (get, getIpAddress, getUserAgent, getDeviceToken, getDeviceId)
+ * - All service methods (get, getIpAddress, getUserAgent, getDeviceToken)
  * - ClientInfo retrieval from context
  * - Default values when no context exists
  * - All optional ClientInfo fields
@@ -332,41 +332,6 @@ describe('ClientInfoService', () => {
 
         expect(result.deviceToken).toBe('token-456');
       });
-    });
-  });
-
-  // ============================================================================
-  // getDeviceId() Method (Deprecated)
-  // ============================================================================
-
-  describe('getDeviceId()', () => {
-    it('should return undefined (deprecated method)', () => {
-      ContextStorage.run(() => {
-        ContextStorage.set('CLIENT_INFO', mockClientInfo);
-
-        const result = service.getDeviceId();
-
-        // Method always returns undefined (deprecated)
-        expect(result).toBeUndefined();
-      });
-    });
-
-    it('should return undefined even when device token is provided', () => {
-      ContextStorage.run(() => {
-        ContextStorage.set('CLIENT_INFO', mockClientInfo);
-
-        const result = service.getDeviceId();
-
-        // Method always returns undefined regardless of context
-        expect(result).toBeUndefined();
-      });
-    });
-
-    it('should return undefined when no client info in context', () => {
-      // Call outside ContextStorage.run() - no context
-      const result = service.getDeviceId();
-
-      expect(result).toBeUndefined();
     });
   });
 

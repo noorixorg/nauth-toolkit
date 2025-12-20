@@ -3,14 +3,13 @@ import { Reflector } from '@nestjs/core';
 import { Repository } from 'typeorm';
 import { AuthGuard } from './auth.guard';
 import {
-  JwtService,
-  SessionService,
   NAuthConfig,
   NAuthException,
   AuthErrorCode,
   IUser,
   ISession,
 } from '@nauth-toolkit/core';
+import { JwtService, SessionService } from '@nauth-toolkit/core/internal';
 
 // Minimal mock implementations
 const mockReflector = {

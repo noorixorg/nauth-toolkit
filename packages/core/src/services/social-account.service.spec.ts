@@ -125,7 +125,6 @@ describe('SocialAuthService', () => {
       getIpAddress: jest.fn().mockReturnValue('1.2.3.4'),
       getUserAgent: jest.fn().mockReturnValue('test-agent'),
       getDeviceToken: jest.fn().mockReturnValue(undefined),
-      getDeviceId: jest.fn().mockReturnValue(undefined),
     } as any;
 
     // Instantiate service directly

@@ -609,16 +609,7 @@ import { ConfigModule } from '@nestjs/config';
 @Module({
   imports: [
     ConfigModule.forRoot(),
-    AuthModule.forRootAsync({
-      useFactory: (config: ConfigService) => ({
-        jwt: {
-          accessToken: {
-            secret: config.get('JWT_SECRET'),
-          },
-        },
-      }),
-      inject: [ConfigService],
-    }),
+    AuthModule.forRoot(authConfig),
   ],
 })
 ```

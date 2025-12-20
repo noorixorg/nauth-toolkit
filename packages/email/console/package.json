@@ -1,9 +1,16 @@
 {
   "name": "@nauth-toolkit/email-console",
-  "version": "0.1.7",
+  "version": "0.1.11",
   "description": "Console email provider for nauth-toolkit (dev/test)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "files": [
     "dist",
     "LICENSE",
@@ -20,7 +27,7 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.7"
+    "@nauth-toolkit/core": "^0.1.11"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",

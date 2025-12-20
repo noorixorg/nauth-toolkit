@@ -59,8 +59,8 @@ export interface NAuthRequest {
   /**
    * Underlying framework request object (escape hatch)
    *
-   * @deprecated Avoid using raw - add needed properties to NAuthRequest interface instead.
-   *             Only use for framework-specific edge cases.
+   * Avoid using raw - add needed properties to NAuthRequest interface instead.
+   * Only use for framework-specific edge cases.
    */
   readonly raw: unknown;
 
@@ -127,7 +127,7 @@ export interface NAuthResponse {
   /**
    * Underlying framework response object (escape hatch)
    *
-   * @deprecated Avoid using raw - add needed methods to NAuthResponse interface instead.
+   * Avoid using raw - add needed methods to NAuthResponse interface instead.
    */
   readonly raw: unknown;
 

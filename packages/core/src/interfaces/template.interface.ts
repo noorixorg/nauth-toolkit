@@ -202,26 +202,6 @@ export interface TemplateEngine {
   registerTemplate(type: TemplateType | string, template: EmailTemplate): void;
 
   /**
-   * Register a custom template from files
-   *
-   * Allows loading templates from file system (.hbs, .html, .txt files).
-   * Consumer apps can provide paths to their own branded templates.
-   *
-   * @param type - Template type identifier
-   * @param templateFiles - Template file paths
-   *
-   * @example
-   * ```typescript
-   * engine.registerTemplateFromFiles(TemplateType.WELCOME, {
-   *   subject: { filePath: './templates/welcome.subject.hbs' },
-   *   html: { filePath: './templates/welcome.html.hbs' },
-   *   text: { filePath: './templates/welcome.text.hbs' }
-   * });
-   * ```
-   */
-  registerTemplateFromFiles?(type: TemplateType | string, templateFiles: TemplateFiles): Promise<void>;
-
-  /**
    * Register a custom template from mixed sources (strings or files)
    *
    * Flexible registration that supports both inline content and file paths.

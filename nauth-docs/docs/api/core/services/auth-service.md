@@ -115,7 +115,7 @@ app.post('/admin/reset-password',
 ```typescript
 fastify.post('/admin/reset-password',
   { preHandler: [nauth.helpers.requireAuth(), requireAdmin] },
-  withNAuthContext(async (req) => {
+  nauth.adapter.wrapRouteHandler(async (req) => {
     return nauth.authService.adminSetPassword(req.body);
   })
 );

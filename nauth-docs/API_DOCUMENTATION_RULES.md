@@ -204,7 +204,7 @@ app.post('/endpoint', async (req, res) => {
 
 ```typescript
 fastify.post('/endpoint', { preHandler: nauth.helpers.public() },
-  withNAuthContext(async (req) => {
+  nauth.adapter.wrapRouteHandler(async (req) => {
     return nauth.serviceName.methodName(req.body);
   }));
 ```

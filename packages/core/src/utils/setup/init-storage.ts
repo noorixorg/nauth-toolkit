@@ -126,7 +126,7 @@ export async function initStorage(
       '  import { createRedisStorageAdapter } from "@nauth-toolkit/express";\n' +
       '  storageAdapter: createRedisStorageAdapter(process.env.REDIS_URL)\n\n' +
       'Make sure to include storage entities in your DataSource configuration:\n' +
-      '  import { getNAuthStorageEntities } from "@nauth-toolkit/database-typeorm-postgres";\n' +
-      '  entities: [...getNAuthEntities(), ...getNAuthStorageEntities()]',
+      '  import { getNAuthTransientStorageEntities } from "@nauth-toolkit/database-typeorm-postgres";\n' +
+      '  entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()]',
   );
 }

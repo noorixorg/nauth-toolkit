@@ -61,7 +61,7 @@ import { IsTrustedDeviceResponseDTO } from '@nauth-toolkit/core';
 ## Related
 
 - [TrustDeviceResponseDTO](./trust-device-response-dto) - Response for trusting a device
-- [Trusted Device Feature](../../../../guides/trusted-devices) - Guide on trusted devices
+- [Trusted Device Feature](../../../frontend-sdk/guides/mfa-setup#trusted-devices) - Guide on trusted devices
 
 ## Notes
 

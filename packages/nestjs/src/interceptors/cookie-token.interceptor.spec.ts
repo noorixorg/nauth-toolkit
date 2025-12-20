@@ -1,5 +1,6 @@
 import { CookieTokenInterceptor } from './cookie-token.interceptor';
-import { NAuthConfig, NAuthException, AuthErrorCode, JwtService } from '@nauth-toolkit/core';
+import { NAuthConfig, NAuthException, AuthErrorCode } from '@nauth-toolkit/core';
+import { JwtService } from '@nauth-toolkit/core/internal';
 import { CallHandler, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { of } from 'rxjs';

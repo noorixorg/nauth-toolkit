@@ -679,8 +679,6 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
 
   /**
    * Navigate to dashboard page
-   *
-   * @deprecated Use goBack() instead for consistency
    */
   navigateToDashboard(): void {
     this.router.navigate(['/dashboard']);
@@ -696,7 +694,7 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
   /**
    * Navigate back to method selection (for embedded mode during signup)
    *
-   * @deprecated Use goBack() instead for consistency
+   * Prefer `goBack()` for a single consistent back-navigation entry point.
    */
   navigateToMethodSelection(): void {
     // Emit cancellation event to parent mfa-setup component

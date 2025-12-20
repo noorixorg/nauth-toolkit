@@ -141,7 +141,6 @@ export interface NAuthClientConfig {
 
   /**
    * Called when session expires (refresh fails with 401).
-   * @deprecated Use `redirects.sessionExpired` instead for platform-agnostic routing.
    */
   onSessionExpired?: () => void;
 

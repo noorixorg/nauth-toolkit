@@ -147,23 +147,6 @@ export class ClientInfoService {
   }
 
   /**
-   * Get device ID from the current request context (deprecated)
-   *
-   * @deprecated Use getDeviceToken() instead. deviceId was removed from ClientInfo for security.
-   * @returns Always undefined (deviceId not available from clientInfo - use session.deviceId if needed)
-   *
-   * @example
-   * ```typescript
-   * const deviceId = this.clientInfoService.getDeviceId();
-   * // Always returns undefined
-   * ```
-   */
-  getDeviceId(): string | undefined {
-    // deviceId removed from ClientInfo interface - use session.deviceId if needed
-    return undefined;
-  }
-
-  /**
    * Get session ID from the current request context
    *
    * Convenience method to get just the session ID (extracted from JWT token after authentication).

@@ -14,7 +14,6 @@ import {
   UnlinkSocialAccountDTO,
   IUser,
   IMFADevice,
-  withNAuthContext,
 } from '@nauth-toolkit/core';
 
 /**
@@ -39,7 +38,10 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
   // Wrap handlers to ensure ContextStorage is available
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handler = (fn: (req: any, reply: any) => Promise<any>): any => {
-    return withNAuthContext(async (req, reply) => {
+    return nauth.adapter.wrapRouteHandler(async (nauthReq, nauthRes) => {
+      // Prefer the platform-agnostic wrappers, but keep access to Fastify objects when needed.
+      const req = nauthReq.raw as FastifyRequest;
+      const reply = nauthRes.raw as FastifyReply;
       try {
         const result = await fn(req, reply);
         if (result !== undefined) {

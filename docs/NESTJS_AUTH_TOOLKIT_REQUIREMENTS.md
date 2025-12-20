@@ -296,7 +296,7 @@
 
 ## Configuration API
 
-**NestJS Pattern:** `AuthModule.forRoot(config)` or `AuthModule.forRootAsync({ useFactory: ... })`
+**NestJS Pattern:** `AuthModule.forRoot(config)`
 
 **Import from:** `@nauth-toolkit/nestjs` (not `@nauth-toolkit/core`)
 

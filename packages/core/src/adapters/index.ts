@@ -13,4 +13,3 @@ export { FastifyAdapter } from './fastify.adapter';
 
 // Legacy export for backward compatibility (deprecated)
 // TODO: Remove in next major version
-export { withNAuthContext } from './fastify.adapter';

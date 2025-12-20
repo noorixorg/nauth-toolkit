@@ -24,10 +24,10 @@ export class ChallengeSession extends BaseChallengeSession {
   @Column()
   declare userId: number;
 
-  @Column({ length: 50 })
+  @Column({ type: 'varchar', length: 50 })
   declare challengeName: string;
 
-  @Column({ unique: true, length: 255 })
+  @Column({ type: 'varchar', unique: true, length: 255 })
   declare sessionToken: string;
 
   @Column({ type: 'timestamptz' })
@@ -52,7 +52,7 @@ export class ChallengeSession extends BaseChallengeSession {
   @Column({ type: 'jsonb', nullable: true })
   declare metadata?: Record<string, unknown>;
 
-  @Column({ length: 45, nullable: true })
+  @Column({ type: 'varchar', length: 45, nullable: true })
   declare ipAddress: string | null;
 
   @Column({ type: 'text', nullable: true })

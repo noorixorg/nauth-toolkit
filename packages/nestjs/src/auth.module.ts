@@ -293,8 +293,8 @@ export class AuthModule {
                 '  import { RedisStorageAdapter } from "@nauth-toolkit/storage-redis";\n' +
                 '  storageAdapter: new RedisStorageAdapter(redisClient)\n\n' +
                 'Make sure to include storage entities in your TypeORM configuration:\n' +
-                '  import { getNAuthStorageEntities } from "@nauth-toolkit/database-typeorm-postgres";\n' +
-                '  entities: [...getNAuthEntities(), ...getNAuthStorageEntities()]',
+                '  import { getNAuthTransientStorageEntities } from "@nauth-toolkit/database-typeorm-postgres";\n' +
+                '  entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()]',
             );
           },
           inject: ['NAUTH_CONFIG', 'NAUTH_LOGGER', 'RateLimitRepository', 'StorageLockRepository'],
@@ -1220,21 +1220,6 @@ export class AuthModule {
         // Note: PhoneVerificationService is provided from core when an SMS provider is configured
       ],
     };
-  }
-
-  /**
-   * Configure module with async configuration
-   * @deprecated in v2.0 - Use forRoot() instead. Async config not needed in modular architecture.
-   */
-  static forRootAsync(_options: {
-    useFactory: (...args: unknown[]) => Promise<NAuthModuleConfig> | NAuthModuleConfig;
-    inject?: unknown[];
-  }): DynamicModule {
-    throw new NAuthException(
-      AuthErrorCode.INTERNAL_ERROR,
-      'forRootAsync() is deprecated in v2.0. Use forRoot() instead.\n' +
-        'The modular architecture requires entities to be provided synchronously.',
-    );
   }
 
   /**

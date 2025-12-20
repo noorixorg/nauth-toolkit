@@ -13,40 +13,163 @@ Install nauth-toolkit and add authentication to your Node.js application in minu
 
 ## Installation
 
+:::info Yarn 1.x Users
+If you're using **Yarn 1.x (Classic)**, you'll need to manually install peer dependencies. Yarn 1.x doesn't automatically install peer dependencies.
+
+**npm, pnpm, bun, and Yarn 2+** all handle peer dependencies automatically, so no manual installation is needed.
+
+See the [Peer Dependencies](#peer-dependencies) section below for the complete list if you're using Yarn 1.x.
+:::
+
 <Tabs groupId="framework">
 <TabItem value="nestjs" label="NestJS" default>
 
 ```bash npm2yarn
-npm install @nauth-toolkit/core @nauth-toolkit/nestjs @nauth-toolkit/database-typeorm-postgres
+npm install @nauth-toolkit/core @nauth-toolkit/nestjs @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console dotenv
+```
+
+**With Yarn 1.x, also install peer dependencies:**
+```bash
+yarn add @nauth-toolkit/core @nauth-toolkit/nestjs @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console dotenv
+yarn add typeorm @nestjs/common @nestjs/core @nestjs/typeorm reflect-metadata rxjs
+yarn add pg  # For PostgreSQL
+# OR
+yarn add mysql2  # For MySQL
 ```
 
 </TabItem>
 <TabItem value="express" label="Express">
 
 ```bash npm2yarn
-npm install @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres
+npm install @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console
+```
+
+**With Yarn 1.x, also install peer dependencies:**
+```bash
+yarn add @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console
+yarn add typeorm
+yarn add pg  # For PostgreSQL
+# OR
+yarn add mysql2  # For MySQL
 ```
 
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
 ```bash npm2yarn
-npm install @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres @fastify/cookie
+npm install @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console @fastify/cookie
+```
+
+**With Yarn 1.x, also install peer dependencies:**
+```bash
+yarn add @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console @fastify/cookie
+yarn add typeorm
+yarn add pg  # For PostgreSQL
+# OR
+yarn add mysql2  # For MySQL
 ```
 
 </TabItem>
 </Tabs>
+
+### Peer Dependencies
+
+The following peer dependencies are automatically installed by **npm, pnpm, bun, and Yarn 2+**. If you're using **Yarn 1.x (Classic)**, you'll need to install them manually:
+
+<Tabs groupId="framework">
+<TabItem value="nestjs" label="NestJS" default>
+
+**Required:**
+- `typeorm` (^0.3.0) - Required by core and database adapters
+- `@nestjs/common` (^9.0.0 || ^10.0.0 || ^11.0.0) - Required by NestJS adapter
+- `@nestjs/core` (^9.0.0 || ^10.0.0 || ^11.0.0) - Required by NestJS adapter
+- `@nestjs/typeorm` (^9.0.0 || ^10.0.0 || ^11.0.0) - Required by NestJS adapter
+- `reflect-metadata` (^0.1.13 || ^0.2.0) - Required by NestJS adapter
+- `rxjs` (^7.0.0) - Required by NestJS adapter
+
+**Database-specific:**
+- `pg` (^8.0.0) - For PostgreSQL
+- `mysql2` (^2.3.0 || ^3.0.0) - For MySQL
+
+**Optional:**
+- `@maxmind/geoip2-node` (^4.0.0 || ^5.0.0 || ^6.0.0) - For geolocation features
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+**Required:**
+- `typeorm` (^0.3.0) - Required by core and database adapters
+
+**Database-specific:**
+- `pg` (^8.0.0) - For PostgreSQL
+- `mysql2` (^2.3.0 || ^3.0.0) - For MySQL
+
+**Optional:**
+- `@maxmind/geoip2-node` (^4.0.0 || ^5.0.0 || ^6.0.0) - For geolocation features
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+**Required:**
+- `typeorm` (^0.3.0) - Required by core and database adapters
+
+**Database-specific:**
+- `pg` (^8.0.0) - For PostgreSQL
+- `mysql2` (^2.3.0 || ^3.0.0) - For MySQL
+
+**Optional:**
+- `@maxmind/geoip2-node` (^4.0.0 || ^5.0.0 || ^6.0.0) - For geolocation features
+
+</TabItem>
+</Tabs>
+
+**Additional peer dependencies for optional features:**
+- `otplib` (^12.0.1) & `qrcode` (^1.5.3) - For MFA TOTP
+- `@simplewebauthn/server` (^10.0.0) - For MFA Passkey/WebAuthn
+- `redis` (^4.6.0 || ^5.0.0) - For Redis storage adapter
+- `jose` (^6.0.0) - For social auth providers (Google/Apple)
 
 ## Basic Setup
 
 <Tabs groupId="framework">
 <TabItem value="nestjs" label="NestJS" default>
 
+```typescript title="main.ts"
+import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
+import * as dotenv from 'dotenv';
+import { NAuthHttpExceptionFilter } from '@nauth-toolkit/nestjs';
+
+// Load environment variables BEFORE importing AppModule
+dotenv.config();
+
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  // Enable global validation pipe for DTO validation
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
+
+  // Enable nauth-toolkit exception filter
+  app.useGlobalFilters(new NAuthHttpExceptionFilter());
+
+  await app.listen(3000);
+}
+bootstrap();
+```
+
 ```typescript title="app.module.ts"
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '@nauth-toolkit/nestjs';
-import { getNAuthEntities } from '@nauth-toolkit/database-typeorm-postgres';
+import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
 import { authConfig } from './config/auth.config';
 
 @Module({
@@ -58,8 +181,9 @@ import { authConfig } from './config/auth.config';
       username: process.env.DB_USERNAME,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_DATABASE,
-      entities: getNAuthEntities(),
-      synchronize: process.env.NODE_ENV === 'development',
+      // Storage entities are required when using DatabaseStorageAdapter.
+      // If you use RedisStorageAdapter instead, you can omit getNAuthTransientStorageEntities().
+      entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()],
     }),
     AuthModule.forRoot(authConfig),
   ],
@@ -103,7 +227,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import { DataSource } from 'typeorm';
 import { NAuth, ExpressAdapter } from '@nauth-toolkit/core';
-import { getNAuthEntities } from '@nauth-toolkit/database-typeorm-postgres';
+import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
 import { authConfig } from './config/auth.config';
 
 async function bootstrap() {
@@ -115,7 +239,9 @@ async function bootstrap() {
     username: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_DATABASE,
-    entities: getNAuthEntities(),
+    // Storage entities are required when using DatabaseStorageAdapter.
+    // If you use RedisStorageAdapter instead, you can omit getNAuthTransientStorageEntities().
+    entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()],
     synchronize: process.env.NODE_ENV === 'development',
   });
   await dataSource.initialize();
@@ -175,7 +301,7 @@ import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import { DataSource } from 'typeorm';
 import { NAuth, FastifyAdapter } from '@nauth-toolkit/core';
-import { getNAuthEntities } from '@nauth-toolkit/database-typeorm-postgres';
+import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
 import { authConfig } from './config/auth.config';
 
 async function bootstrap() {
@@ -187,7 +313,9 @@ async function bootstrap() {
     username: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_DATABASE,
-    entities: getNAuthEntities(),
+    // Storage entities are required when using DatabaseStorageAdapter.
+    // If you use RedisStorageAdapter instead, you can omit getNAuthTransientStorageEntities().
+    entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()],
     synchronize: process.env.NODE_ENV === 'development',
   });
   await dataSource.initialize();
@@ -248,7 +376,19 @@ bootstrap();
 
 ```typescript title="config/auth.config.ts"
 import { NAuthConfig } from '@nauth-toolkit/core';
-import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+// Console providers (for testing/quick start - logs to console)
+import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
+import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
+// Storage adapter (required for production)
+// Requires: yarn add @nauth-toolkit/storage-database
+import { createDatabaseStorageAdapter } from '@nauth-toolkit/nestjs';
+
+// For production, use real providers:
+// import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+// import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
+// For production multi-instance deployments, use Redis:
+// import { createClient } from 'redis';
+// import { RedisStorageAdapter } from '@nauth-toolkit/storage-redis';
 
 export const authConfig: NAuthConfig = {
   jwt: {
@@ -270,21 +410,22 @@ export const authConfig: NAuthConfig = {
     requireSpecialChars: true,
   },
 
-  emailProvider: new NodemailerEmailProvider({
-    transport: {
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    },
-    defaults: { from: 'noreply@myapp.com' },
-  }),
+  // REQUIRED for production:
+  // - DatabaseStorageAdapter (easy default): uses your TypeORM database + storage entities
+  // - RedisStorageAdapter (recommended for multi-server): uses Redis and does NOT require storage entities
+  storageAdapter: createDatabaseStorageAdapter(),
+
+  // Console provider (logs emails to console - for testing only)
+  // For production, use: new NodemailerEmailProvider({ transport: { ... } })
+  emailProvider: new ConsoleEmailProvider(),
+
+  // Console provider (logs SMS to console - for testing only)
+  // For production, use: new AWSSMSProvider({ region: 'us-east-1', ... })
+  smsProvider: new ConsoleSMSProvider(),
 
   signup: {
     enabled: true,
-    verificationMethod: 'email',
+    verificationMethod: 'email', // or 'phone' or 'both'
   },
 };
 ```
@@ -294,7 +435,13 @@ export const authConfig: NAuthConfig = {
 
 ```typescript title="config/auth.config.ts"
 import { NAuthConfig, MFAMethod, createRedisStorageAdapter } from '@nauth-toolkit/core';
-import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+// Console providers (for testing/quick start - logs to console)
+import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
+import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
+
+// For production, use real providers:
+// import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+// import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
 
 export const authConfig: NAuthConfig = {
   tablePrefix: 'nauth_',
@@ -327,7 +474,28 @@ export const authConfig: NAuthConfig = {
     historyCount: 5,
   },
 
-  emailProvider: new NodemailerEmailProvider({ /* ... */ }),
+  // Console provider (logs emails to console - for testing only)
+  // For production, use:
+  // emailProvider: new NodemailerEmailProvider({
+  //   transport: {
+  //     host: process.env.SMTP_HOST,
+  //     port: parseInt(process.env.SMTP_PORT || '587'),
+  //     auth: {
+  //       user: process.env.SMTP_USER,
+  //       pass: process.env.SMTP_PASS,
+  //     },
+  //   },
+  //   defaults: { from: 'noreply@myapp.com' },
+  // }),
+  emailProvider: new ConsoleEmailProvider(),
+
+  // Console provider (logs SMS to console - for testing only)
+  // For production, use:
+  // smsProvider: new AWSSMSProvider({
+  //   region: process.env.AWS_REGION || 'us-east-1',
+  //   originationNumber: process.env.AWS_SMS_ORIGINATION_NUMBER,
+  // }),
+  smsProvider: new ConsoleSMSProvider(),
 
   signup: { enabled: true, verificationMethod: 'email' },
   lockout: { enabled: true, maxAttempts: 5, duration: 900 },

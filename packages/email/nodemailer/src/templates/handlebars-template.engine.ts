@@ -106,7 +106,7 @@ export interface HandlebarsTemplateEngineOptions {
  *   useDefaultTemplates: false
  * });
  *
- * await engine.registerTemplateFromFiles(TemplateType.WELCOME, {
+ * await engine.registerTemplateFromSources(TemplateType.WELCOME, {
  *   subject: { filePath: 'welcome.subject.hbs' },
  *   html: { filePath: 'welcome.html.hbs' },
  *   text: { filePath: 'welcome.text.hbs' }
@@ -260,32 +260,21 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
   }
 
   /**
-   * Register a custom template from files (legacy method for backward compatibility)
-   *
-   * @param type - Template type identifier
-   * @param templateFiles - Template file paths
-   * @deprecated Use registerTemplateFromFile instead
-   */
-  async registerTemplateFromFiles(type: TemplateType | string, templateFiles: TemplateFiles): Promise<void> {
-    const subject = await this.loadTemplateSource(templateFiles.subject);
-    const html = await this.loadTemplateSource(templateFiles.html);
-    const text = templateFiles.text ? await this.loadTemplateSource(templateFiles.text) : undefined;
-
-    this.templates.set(type, {
-      subject: this.handlebars.compile(subject),
-      html: this.handlebars.compile(html),
-      text: text ? this.handlebars.compile(text) : undefined,
-    });
-  }
-
-  /**
    * Register a custom template from mixed sources (strings or files)
    *
    * @param type - Template type identifier
    * @param templateSources - Template sources (content or file paths)
    */
   async registerTemplateFromSources(type: TemplateType | string, templateSources: TemplateFiles): Promise<void> {
-    await this.registerTemplateFromFiles(type, templateSources);
+    const subject = await this.loadTemplateSource(templateSources.subject);
+    const html = await this.loadTemplateSource(templateSources.html);
+    const text = templateSources.text ? await this.loadTemplateSource(templateSources.text) : undefined;
+
+    this.templates.set(type, {
+      subject: this.handlebars.compile(subject),
+      html: this.handlebars.compile(html),
+      text: text ? this.handlebars.compile(text) : undefined,
+    });
   }
 
   /**

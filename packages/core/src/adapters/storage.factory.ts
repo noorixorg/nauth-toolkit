@@ -27,9 +27,9 @@ import { StorageAdapter } from '../interfaces/storage-adapter.interface';
  * in your DataSource configuration:
  *
  * ```typescript
- * import { getNAuthStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
+ * import { getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
  * const dataSource = new DataSource({
- *   entities: [...getNAuthEntities(), ...getNAuthStorageEntities()],
+ *   entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()],
  * });
  * ```
  *
