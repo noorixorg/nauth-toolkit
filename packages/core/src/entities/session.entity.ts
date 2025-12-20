@@ -19,7 +19,7 @@ export class BaseSession {
    * Automatically incremented on each update by the ORM
    * Used to detect race conditions and concurrent modifications
    *
-   * ⚠️ SECURITY CRITICAL: Prevents TOCTOU vulnerabilities
+   * SECURITY CRITICAL: Prevents TOCTOU vulnerabilities
    */
   version!: number;
 

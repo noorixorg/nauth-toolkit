@@ -215,6 +215,53 @@ export class SimulatedVerificationCodeService {
   }
 
   /**
+   * Fetch password reset code for an identifier
+   *
+   * @param identifier - User identifier (email, username, or phone)
+   * @returns Password reset code or null if not found
+   * @throws Error if the request fails
+   */
+  async fetchPasswordResetCode(identifier: string): Promise<string | null> {
+    try {
+      const response = await firstValueFrom(
+        this.http.get<{ code: string | null }>(`${environment.apiBaseUrl}/test/code/latest`, {
+          params: { identifier, type: 'password_reset' },
+        }),
+      );
+
+      return response?.code || null;
+    } catch {
+      // Failed to fetch code - silently return (service should be resilient)
+      return null;
+    }
+  }
+
+  /**
+   * Show password reset code toast
+   *
+   * Fetches the code and displays it in a toast notification.
+   * Also logs to console for development.
+   *
+   * @param identifier - User identifier used for password reset
+   * @param deliveryMedium - Delivery medium (email or sms)
+   */
+  async showPasswordResetCode(identifier: string, deliveryMedium?: string): Promise<void> {
+    // Wait for code to be saved to database
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const code = await this.fetchPasswordResetCode(identifier);
+    if (!code) {
+      return;
+    }
+
+    // Determine type based on delivery medium or default to email
+    const type: 'sms' | 'email' = deliveryMedium === 'sms' ? 'sms' : 'email';
+
+    // Show toast with verification code
+    this.showVerificationCodeToast(code, type);
+  }
+
+  /**
    * Show PrimeNG toast with verification code
    *
    * Dismisses all previous verification code toasts before showing the new one.

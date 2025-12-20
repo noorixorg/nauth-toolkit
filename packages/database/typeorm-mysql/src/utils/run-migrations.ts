@@ -48,5 +48,5 @@ export async function runNAuthMigrations(
   }
 
   logger.log(`[nauth-toolkit] Executed ${executed.length} migration(s):`);
-  for (const m of executed) logger.log(`  ✓ ${m.name}`);
+  for (const m of executed) logger.log(`  ${m.name}`);
 }

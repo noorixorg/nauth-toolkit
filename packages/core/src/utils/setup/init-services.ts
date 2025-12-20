@@ -28,6 +28,7 @@ import {
   PasswordService,
   JwtService,
   SessionService,
+  PasswordResetService,
   AuthAuditService, // Internal version with recordEvent()
   ChallengeService,
   TrustedDeviceService,
@@ -337,6 +338,20 @@ export function initServices(
   );
 
   // ============================================================================
+  // 10.5 Password Reset Service (Account Recovery)
+  // ============================================================================
+  const passwordResetService = new PasswordResetService(
+    repositories.verificationTokenRepository,
+    typedEmailProvider,
+    storageAdapter,
+    config,
+    clientInfoService,
+    logger,
+    auditService,
+    smsProvider ? (smsProvider as SMSProvider) : undefined,
+  );
+
+  // ============================================================================
   // 10. MFA Service (Conditional)
   // ============================================================================
 
@@ -372,6 +387,7 @@ export function initServices(
     mfaService,
     repositories.mfaDeviceRepository,
     trustedDeviceService,
+    passwordResetService,
   );
 
   // ============================================================================

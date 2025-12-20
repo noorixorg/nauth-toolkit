@@ -483,7 +483,7 @@ export interface GetPasskeyChallengeResponseDTO {
  * Generate Backup Codes Response DTO
  *
  * Returns newly generated backup codes.
- * ⚠️ Codes are only shown once - user must save them securely.
+ * Codes are only shown once - user must save them securely.
  *
  * @example
  * ```typescript

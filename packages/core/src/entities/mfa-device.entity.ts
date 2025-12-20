@@ -65,7 +65,7 @@ export class BaseMFADevice {
   /**
    * TOTP secret (encrypted)
    * Used only for TOTP devices
-   * ⚠️ SECURITY: Must be encrypted at rest
+   * SECURITY: Must be encrypted at rest
    */
   secret?: string | null;
 

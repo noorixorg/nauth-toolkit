@@ -119,7 +119,7 @@ export class AuthChallengeHelperService {
     // This prevents sending both codes at once, avoiding user confusion.
     // Challenges are sequential: first VERIFY_EMAIL, then VERIFY_PHONE
     if (challengeName === AuthChallenge.VERIFY_EMAIL && this.emailVerificationService) {
-      this.logger?.log?.(`📧 Sending verification email to: ${user.email}`);
+      this.logger?.log?.(`Sending verification email to: ${user.email}`);
       // Fire and forget - don't block challenge response
       const emailDto = Object.assign(new SendVerificationEmailDTO(), {
         sub: user.sub,

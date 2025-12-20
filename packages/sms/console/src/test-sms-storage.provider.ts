@@ -16,7 +16,7 @@ export interface TestSMSStorage {
  * Stores SMS codes in a test database table for E2E testing.
  * Allows tests to retrieve verification codes via test endpoints.
  *
- * ⚠️ TEST MODE ONLY - Only use when NAUTH_TEST_MODE=true
+ * TEST MODE ONLY - Only use when NAUTH_TEST_MODE=true
  */
 export class TestSMSStorageProvider implements SMSProvider {
   private logger: NAuthLogger;

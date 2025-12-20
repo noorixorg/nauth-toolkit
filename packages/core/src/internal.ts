@@ -28,7 +28,7 @@
  *
  * @example
  * ```typescript
- * // ✅ Framework adapter usage
+ * // Framework adapter usage
  * import { ChallengeService, PasswordService } from '@nauth-toolkit/core/internal';
  *
  * // Inject internal services in adapter setup
@@ -108,6 +108,12 @@ export { JwtService } from './services/jwt.service';
  * @internal
  */
 export { SessionService } from './services/session.service';
+
+/**
+ * Password reset (account recovery) service
+ * @internal
+ */
+export { PasswordResetService } from './services/password-reset.service';
 
 /**
  * Trusted device management service

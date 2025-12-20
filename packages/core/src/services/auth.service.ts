@@ -47,23 +47,27 @@ import { ResendCodeResponseDTO } from '../dto/resend-code-response.dto';
 import { SetMustChangePasswordDTO } from '../dto/set-must-change-password.dto';
 import { SetMustChangePasswordResponseDTO } from '../dto/set-must-change-password-response.dto';
 import { AdminSetPasswordDTO, AdminSetPasswordResponseDTO } from '../dto/admin-set-password.dto';
+import { ForgotPasswordDTO, ForgotPasswordResponseDTO } from '../dto/forgot-password.dto';
+import { ConfirmForgotPasswordDTO, ConfirmForgotPasswordResponseDTO } from '../dto/confirm-forgot-password.dto';
 import { TrustDeviceResponseDTO } from '../dto/trust-device-response.dto';
 import { IsTrustedDeviceResponseDTO } from '../dto/is-trusted-device-response.dto';
 import { VerifyEmailWithCodeDTO, ResendVerificationEmailDTO } from '../dto/verify-email.dto';
 import { SendVerificationSMSDTO, ResendVerificationSMSDTO } from '../dto/verify-phone.dto';
 import { VerifyPhoneWithCodeBySubDTO } from '../dto/verify-phone-by-sub.dto';
+import { PasswordResetService } from './password-reset.service';
 
 import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { MFAMethod } from '../enums/mfa-method.enum';
+import { isUUID } from 'class-validator';
 import * as crypto from 'crypto';
 
 /**
  * Dummy Argon2 hash for constant-time response
  *
- * ⚠️ SECURITY CRITICAL: Used when user doesn't exist to prevent timing attacks
+ * SECURITY CRITICAL: Used when user doesn't exist to prevent timing attacks
  * This dummy hash has same format/cost as real Argon2id hashes but verifies against nothing.
  *
  * Format: $argon2id$v=19$m=65536,t=3,p=4$salt$hash
@@ -90,6 +94,7 @@ export class AuthService {
     private readonly mfaService?: MFAService, // Optional - available when MFA modules are imported
     private readonly mfaDeviceRepository?: Repository<BaseMFADevice>, // Optional - available when MFA modules are imported
     private readonly trustedDeviceService?: TrustedDeviceService, // Optional - only available when rememberDevices is not 'never'
+    private readonly passwordResetService?: PasswordResetService, // Optional - only available when configured by framework adapter
   ) {
     this.logger?.log?.('AuthService initialized');
   }
@@ -418,7 +423,7 @@ export class AuthService {
     this.logger?.debug?.(`Finding user by identifier: ${dto.identifier}`);
     const user = await this.findUserByIdentifier(dto.identifier, identifierType);
 
-    // ⚠️ SECURITY CRITICAL: Always hash password even when user doesn't exist
+    // SECURITY CRITICAL: Always hash password even when user doesn't exist
     // This ensures constant-time response to prevent user enumeration via timing attacks
     const hashToVerify = user?.passwordHash || DUMMY_ARGON2_HASH;
 
@@ -1698,49 +1703,19 @@ export class AuthService {
 
     this.logger?.log?.(`Changing password for user: ${user.sub}`);
 
-    // Validate new password
-    const validation = await this.passwordService.validatePassword(newPassword, {
-      email: user.email,
-      username: user.username || undefined,
+    await this.updateUserPassword({
+      user,
+      newPassword,
+      mustChangePassword: false,
+      revokeSessions: true,
+      revokeReason: 'Password changed (force change password)',
+      audit: {
+        eventType: AuthAuditEventType.PASSWORD_CHANGED,
+        eventStatus: 'SUCCESS',
+        reason: 'force_change_password',
+        description: 'Password changed due to FORCE_CHANGE_PASSWORD challenge',
+      },
     });
-
-    if (!validation.valid) {
-      throw new NAuthException(AuthErrorCode.WEAK_PASSWORD, validation.errors.join(', '), {
-        errors: validation.errors,
-      });
-    }
-
-    // Check password history
-    if (this.config.password?.historyCount) {
-      const historyToCheck = user.passwordHistory || [];
-      const allPreviousPasswords = user.passwordHash ? [user.passwordHash, ...historyToCheck] : historyToCheck;
-
-      const isReused = await this.passwordService.isPasswordInHistory(newPassword, allPreviousPasswords);
-
-      if (isReused) {
-        throw new NAuthException(
-          AuthErrorCode.PASSWORD_REUSED,
-          'You have used this password recently. Please choose a different password.',
-        );
-      }
-    }
-
-    // Hash new password
-    const newHash = await this.passwordService.hashPassword(newPassword);
-
-    // Update password history
-    const newHistory = user.passwordHash
-      ? this.passwordService.addToHistory(user.passwordHistory || [], user.passwordHash)
-      : user.passwordHistory || [];
-
-    // Update user password and clear mustChangePassword flag - use save() for array fields
-    user.passwordHash = newHash;
-    user.passwordChangedAt = new Date();
-    user.passwordHistory = newHistory;
-    user.mustChangePassword = false;
-    await this.userRepository.save(user);
-
-    this.logger?.log?.(`Password changed successfully for user: ${user.sub}`);
 
     // Consume challenge session
     await this.challengeService.validateAndConsumeSession(
@@ -2915,72 +2890,22 @@ export class AuthService {
       throw new NAuthException(AuthErrorCode.PASSWORD_INCORRECT, 'Current password is incorrect');
     }
 
-    // Validate new password
-    const validation = await this.passwordService.validatePassword(dto.newPassword, {
-      email: user.email,
-      username: user.username || undefined,
-    });
-
-    if (!validation.valid) {
-      throw new NAuthException(AuthErrorCode.WEAK_PASSWORD, validation.errors.join(', '), {
-        errors: validation.errors,
-      });
-    }
-
-    // Check password history
-    if (this.config.password?.historyCount) {
-      // Include current password hash in the check to prevent immediate reuse
-      const historyToCheck = user.passwordHistory || [];
-      const allPreviousPasswords = user.passwordHash ? [user.passwordHash, ...historyToCheck] : historyToCheck;
-
-      const isReused = await this.passwordService.isPasswordInHistory(dto.newPassword, allPreviousPasswords);
-
-      if (isReused) {
-        throw new NAuthException(
-          AuthErrorCode.PASSWORD_REUSED,
-          'You have used this password recently. Please choose a different password.',
-        );
-      }
-    }
-
-    // Hash new password
-    const newHash = await this.passwordService.hashPassword(dto.newPassword);
-
-    // Update password history
-    const newHistory = this.passwordService.addToHistory(user.passwordHistory || [], user.passwordHash);
-
-    // Update user - use save() instead of update() to ensure TypeORM properly serializes simple-array fields
-    user.passwordHash = newHash;
-    user.passwordChangedAt = new Date();
-    user.passwordHistory = newHistory;
-    await this.userRepository.save(user);
-
     // Execute afterPasswordChange hook (use sub for external API)
     if (this.config.hooks?.afterPasswordChange) {
       await this.config.hooks.afterPasswordChange(dto.sub);
     }
 
-    // Optionally revoke all sessions (force re-login) - use internal id
-    await this.sessionService.revokeAllUserSessions(user.id, 'Password changed');
-
-    // ============================================================================
-    // Audit: Record password change
-    // ============================================================================
-    try {
-      await this.auditService?.recordEvent({
-        userId: user.id,
+    await this.updateUserPassword({
+      user,
+      newPassword: dto.newPassword,
+      mustChangePassword: false,
+      revokeSessions: true,
+      revokeReason: 'Password changed',
+      audit: {
         eventType: AuthAuditEventType.PASSWORD_CHANGED,
         eventStatus: 'SUCCESS',
-        // Client info automatically included from context
-      });
-    } catch (auditError) {
-      // Non-blocking: Log but continue
-      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-      this.logger?.error?.(`Failed to record PASSWORD_CHANGED audit event: ${errorMessage}`, {
-        error: auditError,
-        userId: user.id,
-      });
-    }
+      },
+    });
 
     return { success: true };
   }
@@ -3781,10 +3706,9 @@ export class AuthService {
     // Support multiple identifier types: email, username, phone, or sub (UUID)
     let user: IUser | null = null;
 
-    // Try to find by sub (UUID) first if it looks like a UUID
-    // UUID v4 format: 8-4-4-4-12 hex digits with dashes
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (uuidRegex.test(dto.identifier)) {
+    // Try to find by sub (UUID) first if it looks like a UUID.
+    // WHY: Many deployments treat `sub` as the primary immutable identifier.
+    if (isUUID(dto.identifier)) {
       this.logger?.debug?.(`Identifier appears to be UUID, searching by sub: ${dto.identifier}`);
       user = (await this.userRepository.findOne({ where: { sub: dto.identifier } })) as IUser | null;
     }
@@ -3813,97 +3737,26 @@ export class AuthService {
       );
     }
 
-    // ============================================================================
-    // Validate New Password
-    // ============================================================================
-    this.logger?.debug?.('Validating password against policy');
-    const passwordValidation = await this.passwordService.validatePassword(dto.newPassword, {
-      email: user.email,
-      username: user.username || undefined,
-    });
-
-    if (!passwordValidation.valid) {
-      this.logger?.warn?.(`Password validation failed for ${user.sub}: ${passwordValidation.errors.join(', ')}`);
-      throw new NAuthException(AuthErrorCode.WEAK_PASSWORD, passwordValidation.errors.join(', '), {
-        errors: passwordValidation.errors,
-      });
-    }
-
-    // ============================================================================
-    // Check Password History
-    // ============================================================================
-    if (this.config.password?.historyCount) {
-      const historyToCheck = user.passwordHistory || [];
-      const allPreviousPasswords = user.passwordHash ? [user.passwordHash, ...historyToCheck] : historyToCheck;
-
-      const isReused = await this.passwordService.isPasswordInHistory(dto.newPassword, allPreviousPasswords);
-
-      if (isReused) {
-        this.logger?.warn?.(`Password reuse detected for user: ${user.sub}`);
-        throw new NAuthException(
-          AuthErrorCode.PASSWORD_REUSED,
-          'This password was recently used. Please choose a different password.',
-        );
-      }
-    }
-
-    // ============================================================================
-    // Update Password
-    // ============================================================================
-    // Hash new password
-    const newHash = await this.passwordService.hashPassword(dto.newPassword);
-
-    // Update password history
-    const newHistory = this.passwordService.addToHistory(user.passwordHistory || [], user.passwordHash);
-
-    // Prepare update fields
     const mustChangePassword = dto.mustChangePassword ?? true; // Default to true for security
+    const revokeSessions = dto.revokeSessions !== false;
 
-    // Update user - use save() to ensure TypeORM properly serializes simple-array fields
-    user.passwordHash = newHash;
-    user.passwordChangedAt = new Date();
-    user.passwordHistory = newHistory;
-    user.mustChangePassword = mustChangePassword;
-    await this.userRepository.save(user);
-
-    this.logger?.log?.(`Password reset successfully for user: ${user.sub}`);
-
-    // ============================================================================
-    // Revoke Sessions (if enabled)
-    // ============================================================================
-    let sessionsRevoked = 0;
-    if (dto.revokeSessions !== false) {
-      // Default to true for security
-      this.logger?.debug?.(`Revoking all sessions for user: ${user.sub}`);
-      sessionsRevoked = await this.sessionService.revokeAllUserSessions(user.id, 'Password reset by administrator');
-      this.logger?.log?.(`Revoked ${sessionsRevoked} session(s) for user: ${user.sub}`);
-    }
-
-    // ============================================================================
-    // Audit: Record password reset
-    // ============================================================================
-    try {
-      await this.auditService?.recordEvent({
-        userId: user.id,
+    const { sessionsRevoked } = await this.updateUserPassword({
+      user,
+      newPassword: dto.newPassword,
+      mustChangePassword,
+      revokeSessions,
+      revokeReason: 'Password reset by administrator',
+      audit: {
         eventType: AuthAuditEventType.PASSWORD_RESET_COMPLETED,
         eventStatus: 'SUCCESS',
         reason: 'admin_reset',
         description: 'Password reset by administrator',
-        // Client info automatically included from context
         metadata: {
           identifier: dto.identifier,
           mustChangePassword,
-          sessionsRevoked,
         },
-      });
-    } catch (auditError) {
-      // Non-blocking: Log but continue
-      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-      this.logger?.error?.(`Failed to record PASSWORD_RESET_COMPLETED audit event: ${errorMessage}`, {
-        error: auditError,
-        userId: user.id,
-      });
-    }
+      },
+    });
 
     // ============================================================================
     // Return Response
@@ -3913,5 +3766,295 @@ export class AuthService {
       mustChangePassword,
       sessionsRevoked,
     };
+  }
+
+  // ============================================================================
+  // Forgot Password (Account Recovery)
+  // ============================================================================
+
+  /**
+   * Request a password reset code for an account.
+   *
+   * Security:
+   * - Avoids account enumeration: returns success even when user is not found.
+   * - Delivery is best-effort; errors are logged but should not reveal account existence.
+   *
+   * Channel selection (per config.signup.verificationMethod):
+   * - 'none': send to email if available; else phone (if available)
+   * - 'email': only send to verified email
+   * - 'phone': only send to verified phone
+   * - 'both': prefer verified email; fallback to verified phone
+   *
+   * @param dto - Forgot password request payload
+   * @returns Delivery metadata (masked destination) when available
+   */
+  async forgotPassword(dto: ForgotPasswordDTO): Promise<ForgotPasswordResponseDTO> {
+    const response: ForgotPasswordResponseDTO = { success: true };
+
+    if (!this.passwordResetService) {
+      // Do not leak configuration details to clients.
+      this.logger?.warn?.('PasswordResetService not configured; forgotPassword will not send any delivery');
+      return response;
+    }
+
+    // Respect identifier type restrictions (if configured)
+    if (
+      this.config.login?.identifierType &&
+      !this.validateIdentifierType(dto.identifier, this.config.login.identifierType)
+    ) {
+      // Non-enumerating: return success without sending
+      return response;
+    }
+
+    const user = await this.findUserByIdentifier(dto.identifier, this.config.login?.identifierType);
+    if (!user) {
+      return response; // Non-enumerating
+    }
+
+    // Only password-capable accounts can use forgot-password.
+    // Hybrid (password + social) is allowed (passwordHash exists).
+    if (!user.passwordHash) {
+      // ============================================================================
+      // Security: record attempt for social-only accounts (no password set)
+      // ============================================================================
+      // WHY: A malicious actor may spam forgot-password to learn about accounts or to harass users.
+      // We keep the API response non-enumerating, but still record an audit event for observability.
+      this.logger?.warn?.(`Password reset requested for social-only account; ignoring for user: ${user.sub}`);
+
+      try {
+        await this.auditService?.recordEvent({
+          userId: user.id,
+          eventType: AuthAuditEventType.PASSWORD_RESET_REQUESTED,
+          eventStatus: 'SUSPICIOUS',
+          authMethod: 'social',
+          reason: 'forgot_password_social_only',
+          description: 'Password reset requested for social-only account (ignored)',
+        });
+      } catch (auditError) {
+        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to record PASSWORD_RESET_REQUESTED audit event: ${errorMessage}`, {
+          error: auditError,
+          userId: user.id,
+        });
+      }
+
+      return response;
+    }
+
+    const verificationMethod = this.config.signup?.verificationMethod ?? 'email';
+
+    // ============================================================================
+    // Determine delivery channel
+    // ============================================================================
+    let delivery: 'email' | 'sms' | undefined;
+
+    if (verificationMethod === 'none') {
+      // Rare config: no verification required. Still prefer email if present, else phone.
+      if (user.email) delivery = 'email';
+      else if (user.phone) delivery = 'sms';
+    } else if (verificationMethod === 'email') {
+      if (user.isEmailVerified && user.email) delivery = 'email';
+    } else if (verificationMethod === 'phone') {
+      if (user.isPhoneVerified && user.phone) delivery = 'sms';
+    } else if (verificationMethod === 'both') {
+      if (user.isEmailVerified && user.email) delivery = 'email';
+      else if (user.isPhoneVerified && user.phone) delivery = 'sms';
+    }
+
+    if (!delivery) {
+      // Non-enumerating: return success without sending
+      return response;
+    }
+
+    try {
+      const result = await this.passwordResetService.requestReset(user, delivery);
+      response.destination = result.destination;
+      response.deliveryMedium = result.deliveryMedium;
+      response.expiresIn = result.expiresIn;
+    } catch (error) {
+      // Rate limit is safe to return (still does not reveal existence when user exists).
+      if (error instanceof NAuthException && error.code === AuthErrorCode.RATE_LIMIT_PASSWORD_RESET) {
+        throw error;
+      }
+
+      // Non-blocking: log and return success
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.error?.(`Failed to send password reset code: ${errorMessage}`, { error });
+    }
+
+    return response;
+  }
+
+  /**
+   * Confirm a password reset by validating the reset code and setting a new password.
+   *
+   * Security:
+   * - Uses platform-agnostic errors via NAuthException
+   * - Verifies reset code via PasswordResetService
+   * - Enforces password policy and history
+   * - Revokes all sessions upon successful reset
+   *
+   * @param dto - Confirm forgot password payload
+   * @returns Success response
+   * @throws {NAuthException} PASSWORD_RESET_CODE_INVALID | PASSWORD_RESET_CODE_EXPIRED | PASSWORD_RESET_MAX_ATTEMPTS
+   */
+  async confirmForgotPassword(dto: ConfirmForgotPasswordDTO): Promise<ConfirmForgotPasswordResponseDTO> {
+    if (!this.passwordResetService) {
+      throw new NAuthException(AuthErrorCode.SERVICE_UNAVAILABLE, 'Password reset is not available');
+    }
+
+    const user = await this.findUserByIdentifier(dto.identifier, this.config.login?.identifierType);
+    if (!user || !user.passwordHash) {
+      // Non-enumerating: treat as invalid code
+      throw new NAuthException(AuthErrorCode.PASSWORD_RESET_CODE_INVALID, 'Invalid password reset code');
+    }
+
+    const { sessionsRevoked: _sessionsRevoked } = await this.updateUserPassword({
+      user,
+      newPassword: dto.newPassword,
+      mustChangePassword: false,
+      revokeSessions: true,
+      revokeReason: 'Password reset',
+      beforePersist: async () => {
+        // Consume code (throws if invalid/expired/too many attempts)
+        await this.passwordResetService!.consumeValidCode(user, dto.code);
+      },
+      audit: {
+        eventType: AuthAuditEventType.PASSWORD_RESET_COMPLETED,
+        eventStatus: 'SUCCESS',
+        authMethod: 'password',
+        description: 'Password reset completed by user',
+        reason: 'forgot_password',
+      },
+    });
+
+    return { success: true, mustChangePassword: false };
+  }
+
+  // ============================================================================
+  // Internal Password Update Orchestration (Single Source of Truth)
+  // ============================================================================
+
+  /**
+   * Centralized password update flow used by:
+   * - changePassword()
+   * - confirmForgotPassword()
+   * - adminSetPassword()
+   * - FORCE_CHANGE_PASSWORD challenge handler
+   *
+   * WHY:
+   * - Prevent logic drift between different password-changing entrypoints
+   * - Ensure consistent validation, history enforcement, persistence, session revocation, and audit trails
+   *
+   * @param params - Password update parameters
+   * @returns Sessions revoked count (0 when not revoked)
+   * @throws {NAuthException} WEAK_PASSWORD | PASSWORD_REUSED | NOT_FOUND
+   */
+  private async updateUserPassword(params: {
+    user: IUser;
+    newPassword: string;
+    mustChangePassword: boolean;
+    revokeSessions: boolean;
+    revokeReason: string;
+    beforePersist?: () => Promise<void>;
+    audit?: {
+      eventType: AuthAuditEventType;
+      eventStatus: 'SUCCESS' | 'FAILURE' | 'INFO' | 'SUSPICIOUS';
+      reason?: string;
+      description?: string;
+      authMethod?: string;
+      metadata?: Record<string, unknown>;
+    };
+  }): Promise<{ sessionsRevoked: number }> {
+    const { user, newPassword, mustChangePassword, revokeSessions, revokeReason, beforePersist, audit } = params;
+
+    // ============================================================================
+    // Load full user entity (important for passwordHistory serialization + reuse checks)
+    // ============================================================================
+    // WHY: Some call sites use a slim projection (e.g., findUserByIdentifier) which may omit passwordHistory.
+    const userEntity = (await this.userRepository.findOne({ where: { id: user.id } })) as IUser | null;
+    if (!userEntity) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    // ============================================================================
+    // Validate new password + history
+    // ============================================================================
+    const validation = await this.passwordService.validatePassword(newPassword, {
+      email: userEntity.email,
+      username: userEntity.username || undefined,
+    });
+    if (!validation.valid) {
+      throw new NAuthException(AuthErrorCode.WEAK_PASSWORD, validation.errors.join(', '), {
+        errors: validation.errors,
+      });
+    }
+
+    if (this.config.password?.historyCount) {
+      const historyToCheck = userEntity.passwordHistory || [];
+      const allPreviousPasswords = userEntity.passwordHash
+        ? [userEntity.passwordHash, ...historyToCheck]
+        : historyToCheck;
+      const isReused = await this.passwordService.isPasswordInHistory(newPassword, allPreviousPasswords);
+      if (isReused) {
+        throw new NAuthException(AuthErrorCode.PASSWORD_REUSED, 'Cannot reuse a recent password');
+      }
+    }
+
+    // Hook point for flows that must prove possession of a reset code before persisting (forgot-password confirm)
+    if (beforePersist) {
+      await beforePersist();
+    }
+
+    // ============================================================================
+    // Persist password update
+    // ============================================================================
+    const newHash = await this.passwordService.hashPassword(newPassword);
+    const newHistory = userEntity.passwordHash
+      ? this.passwordService.addToHistory(userEntity.passwordHistory || [], userEntity.passwordHash)
+      : userEntity.passwordHistory || [];
+
+    userEntity.passwordHash = newHash;
+    userEntity.passwordChangedAt = new Date();
+    userEntity.passwordHistory = newHistory;
+    userEntity.mustChangePassword = mustChangePassword;
+    await this.userRepository.save(userEntity as unknown as BaseUser);
+
+    // ============================================================================
+    // Session revocation
+    // ============================================================================
+    let sessionsRevoked = 0;
+    if (revokeSessions) {
+      sessionsRevoked = await this.sessionService.revokeAllUserSessions(userEntity.id, revokeReason);
+    }
+
+    // ============================================================================
+    // Audit
+    // ============================================================================
+    if (audit) {
+      try {
+        await this.auditService?.recordEvent({
+          userId: userEntity.id,
+          eventType: audit.eventType,
+          eventStatus: audit.eventStatus,
+          reason: audit.reason,
+          description: audit.description,
+          authMethod: audit.authMethod,
+          metadata: {
+            ...audit.metadata,
+            mustChangePassword,
+            sessionsRevoked,
+          },
+        });
+      } catch (auditError) {
+        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to record ${audit.eventType} audit event: ${errorMessage}`, {
+          error: auditError,
+          userId: userEntity.id,
+        });
+      }
+    }
+
+    return { sessionsRevoked };
   }
 }

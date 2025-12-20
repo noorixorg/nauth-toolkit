@@ -103,6 +103,13 @@ export const authConfig: NAuthModuleConfig = {
     historyCount: 5,
     expiryDays: 0,
     specialChars: '$#!@',
+    passwordReset: {
+      codeLength: 6,
+      expiresIn: 900, // 15 minutes
+      rateLimitMax: 3,
+      rateLimitWindow: 3600, // 1 hour
+      maxAttempts: 3,
+    },
   },
   tokenDelivery: {
     method: 'cookies',
@@ -125,7 +132,7 @@ export const authConfig: NAuthModuleConfig = {
     maxMind: {
       licenseKey: process.env.MAXMIND_LICENSE_KEY,
       accountId: parseInt(process.env.MAXMIND_ACCOUNT_ID || '0', 10),
-      autoDownloadOnStartup: process.env.NODE_ENV === 'production' ? true : false,
+      autoDownloadOnStartup: false,
       editions: ['GeoLite2-City', 'GeoLite2-Country'],
     },
   },
@@ -191,7 +198,7 @@ export const authConfig: NAuthModuleConfig = {
   //smsProvider: new AWSSMSProvider(smsConfig)
   smsProvider: new ConsoleSMSProvider(),
 
-  lockout: { enabled: false, maxAttempts: 5, duration: 900, resetOnSuccess: true },
+  lockout: { enabled: true, maxAttempts: 5, duration: 900, resetOnSuccess: true },
   session: {
     maxConcurrent: 2,
     disallowMultipleSessions: false,

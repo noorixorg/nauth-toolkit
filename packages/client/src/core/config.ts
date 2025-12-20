@@ -39,6 +39,8 @@ export const defaultEndpoints: NAuthEndpoints = {
   profile: '/profile',
   changePassword: '/change-password',
   requestPasswordChange: '/request-password-change',
+  forgotPassword: '/forgot-password',
+  confirmForgotPassword: '/forgot-password/confirm',
   mfaStatus: '/mfa/status',
   mfaDevices: '/mfa/devices',
   mfaSetupData: '/mfa/setup-data',

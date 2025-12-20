@@ -40,7 +40,7 @@ export class BaseTrustedDevice {
    * The actual token is stored in HttpOnly cookie, only hash stored in DB
    * Used for validation and lookup
    *
-   * ⚠️ SECURITY: Never store the actual token, only the hash
+   * SECURITY: Never store the actual token, only the hash
    */
   deviceTokenHash!: string;
 

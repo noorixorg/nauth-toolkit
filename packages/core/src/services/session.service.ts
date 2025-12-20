@@ -696,7 +696,7 @@ export class SessionService {
    * Stores the token hash in cache with expiration matching the refresh token TTL.
    * Used to detect token reuse attacks where stolen tokens are reused multiple times.
    *
-   * ⚠️ SECURITY CRITICAL: This prevents token replay attacks
+   * SECURITY CRITICAL: This prevents token replay attacks
    *
    * @param tokenHash - SHA-256 hash of the refresh token
    * @param ttlSeconds - Time to live in seconds (should match refresh token expiry)

@@ -250,20 +250,20 @@ function buildTemplates() {
       // Write HTML file
       const htmlPath = path.join(OUTPUT_DIR, `${templateName}.html.hbs`);
       fs.writeFileSync(htmlPath, finalHtml, 'utf-8');
-      console.log(`✓ Built ${templateName}.html.hbs (${Math.round(finalHtml.length / 1024)}KB)`);
+      console.log(`Built ${templateName}.html.hbs (${Math.round(finalHtml.length / 1024)}KB)`);
 
       // Write text file
       const textPath = path.join(OUTPUT_DIR, `${templateName}.text.hbs`);
       fs.writeFileSync(textPath, TEXT_TEMPLATES[templateName], 'utf-8');
-      console.log(`✓ Built ${templateName}.text.hbs`);
+      console.log(`Built ${templateName}.text.hbs`);
     } catch (error) {
-      console.error(`✗ Error building ${templateName}:`, error.message);
+      console.error(`Error building ${templateName}:`, error.message);
       console.error(error.stack);
       process.exit(1);
     }
   });
 
-  console.log('\n✅ All templates built successfully!');
+  console.log('\nAll templates built successfully!');
 }
 
 // Run build

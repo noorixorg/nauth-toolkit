@@ -177,7 +177,7 @@ export class TOTPService {
    * Validates a 6-digit TOTP code using time-based verification.
    * Checks current time step plus configured window (before/after).
    *
-   * ⚠️ SECURITY: Uses time window to account for clock drift and user delay.
+   * SECURITY: Uses time window to account for clock drift and user delay.
    * Default window of 1 checks 3 time steps (current, ±1).
    *
    * @param secret - Base32-encoded TOTP secret
@@ -273,7 +273,7 @@ export class TOTPService {
   /**
    * Generate current TOTP code for secret
    *
-   * ⚠️ FOR TESTING ONLY - Do not use in production authentication flow.
+   * FOR TESTING ONLY - Do not use in production authentication flow.
    * This method generates the current valid code for a secret.
    *
    * @param secret - Base32-encoded TOTP secret

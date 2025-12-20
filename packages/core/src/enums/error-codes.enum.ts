@@ -240,6 +240,14 @@ export enum AuthErrorCode {
    */
   RATE_LIMIT_RESEND = 'RATE_LIMIT_RESEND',
 
+  /**
+   * Too many password reset requests
+   *
+   * Used for forgot-password flows to prevent abuse.
+   * Details should include retryAfter (seconds).
+   */
+  RATE_LIMIT_PASSWORD_RESET = 'RATE_LIMIT_PASSWORD_RESET',
+
   // ============================================================================
   // Social Auth Errors (SOCIAL_*)
   // ============================================================================
@@ -370,6 +378,31 @@ export enum AuthErrorCode {
    * Social-only users cannot change password.
    */
   PASSWORD_CHANGE_NOT_ALLOWED = 'PASSWORD_CHANGE_NOT_ALLOWED',
+
+  // ============================================================================
+  // Password Reset Errors (PASSWORD_RESET_*)
+  // ============================================================================
+
+  /**
+   * Password reset verification code is invalid
+   *
+   * Used when confirming a forgot-password code.
+   */
+  PASSWORD_RESET_CODE_INVALID = 'PASSWORD_RESET_CODE_INVALID',
+
+  /**
+   * Password reset verification code has expired
+   *
+   * Used when confirming a forgot-password code after TTL.
+   */
+  PASSWORD_RESET_CODE_EXPIRED = 'PASSWORD_RESET_CODE_EXPIRED',
+
+  /**
+   * Too many failed password reset code attempts
+   *
+   * Used when confirming a forgot-password code exceeds max attempts.
+   */
+  PASSWORD_RESET_MAX_ATTEMPTS = 'PASSWORD_RESET_MAX_ATTEMPTS',
 
   // ============================================================================
   // General Errors (*)

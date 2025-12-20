@@ -1,5 +1,5 @@
 import { Component, OnInit, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { AuthService, AuthResponse, SocialProvider } from '@nauth-toolkit/client/angular';
 import { NAuthClientError } from '@nauth-toolkit/client';
@@ -59,15 +59,22 @@ export class LoginComponent implements OnInit {
   error = signal<string | null>(null);
 
   /**
+   * Success message signal (for password reset success)
+   */
+  success = signal<string | null>(null);
+
+  /**
    * @param fb - Form builder for reactive forms
    * @param auth - Auth service for authentication
    * @param router - Router for navigation
+   * @param route - Activated route for query params
    * @param orchestrator - Challenge orchestrator service
    */
   constructor(
     private readonly fb: FormBuilder,
     private readonly auth: AuthService,
     private readonly router: Router,
+    private readonly route: ActivatedRoute,
     private readonly orchestrator: ChallengeOrchestratorService,
     private readonly verificationCodeService: SimulatedVerificationCodeService,
   ) {
@@ -80,6 +87,23 @@ export class LoginComponent implements OnInit {
   ngOnInit(): void {
     this.auth.authEvents$.subscribe((_event) => {
       // Handle auth events if needed
+    });
+
+    // Check for password reset success query param
+    this.route.queryParams.subscribe((params) => {
+      if (params['passwordReset'] === 'success') {
+        this.success.set('Password reset successful. Please sign in with your new password.');
+        // Clear query params
+        this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: {},
+          replaceUrl: true,
+        });
+        // Clear success message after 5 seconds
+        setTimeout(() => {
+          this.success.set(null);
+        }, 5000);
+      }
     });
   }
 
@@ -138,6 +162,13 @@ export class LoginComponent implements OnInit {
    */
   navigateToSignup(): void {
     this.router.navigate(['/signup']);
+  }
+
+  /**
+   * Navigate to forgot password page
+   */
+  navigateToForgotPassword(): void {
+    this.router.navigate(['/forgot-password']);
   }
 
   /**

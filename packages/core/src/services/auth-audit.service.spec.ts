@@ -203,7 +203,7 @@ describe('AuthAuditService', () => {
       );
     });
 
-    it('should allow explicit fields to override auto-extracted client info', async () => {
+    it('should use auto-extracted client info (explicit overrides are not supported)', async () => {
       const clientInfo: ClientInfo = {
         ipAddress: '5.6.7.8',
         userAgent: 'test-agent',
@@ -218,14 +218,12 @@ describe('AuthAuditService', () => {
         userId: 1,
         eventType: AuthAuditEventType.LOGIN_SUCCESS,
         eventStatus: 'SUCCESS',
-        ipAddress: '1.2.3.4', // Override
-        ipCountry: 'CA', // Override
       });
 
       expect(mockAuditRepository.create).toHaveBeenCalledWith(
         (expect as any).objectContaining({
-          ipAddress: '1.2.3.4', // Explicit value used
-          ipCountry: 'CA', // Explicit value used
+          ipAddress: '5.6.7.8',
+          ipCountry: 'US',
         }),
       );
     });
@@ -261,15 +259,6 @@ describe('AuthAuditService', () => {
         riskFactor: 75,
         riskFactors: [RiskFactor.NEW_DEVICE, RiskFactor.NEW_IP],
         adaptiveMfaTriggered: true,
-        ipAddress: '1.2.3.4',
-        ipCountry: 'US',
-        ipCity: 'New York',
-        userAgent: 'test-agent',
-        platform: 'iOS',
-        browser: 'Safari',
-        deviceId: 'device-123',
-        deviceName: 'iPhone',
-        deviceType: 'mobile',
         sessionId: 789,
         challengeSessionId: 456,
         authMethod: 'password',
@@ -287,15 +276,6 @@ describe('AuthAuditService', () => {
           riskFactor: 75,
           riskFactors: [RiskFactor.NEW_DEVICE, RiskFactor.NEW_IP],
           adaptiveMfaTriggered: true,
-          ipAddress: '1.2.3.4',
-          ipCountry: 'US',
-          ipCity: 'New York',
-          userAgent: 'test-agent',
-          platform: 'iOS',
-          browser: 'Safari',
-          deviceId: 'device-123',
-          deviceName: 'iPhone',
-          deviceType: 'mobile',
           sessionId: 789,
           challengeSessionId: 456,
           authMethod: 'password',

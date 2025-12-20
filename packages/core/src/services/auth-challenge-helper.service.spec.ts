@@ -99,6 +99,7 @@ describe('AuthChallengeHelperService', () => {
       createSession: jest.fn(),
       updateTokens: jest.fn(),
       revokeAllUserSessions: jest.fn(),
+      getSessionExpirationDate: jest.fn(() => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
     } as any;
 
     mockEmailVerificationService = {
@@ -246,7 +247,7 @@ describe('AuthChallengeHelperService', () => {
         createdAt: new Date(),
       };
       mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
-      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue(1);
+      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 1 } as any);
 
       const result = await service.createChallengeResponse(mockUser as IUser, AuthChallenge.VERIFY_EMAIL, mockConfig);
 
@@ -273,7 +274,7 @@ describe('AuthChallengeHelperService', () => {
         createdAt: new Date(),
       };
       mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
-      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue(123456);
+      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue({ tokenId: 123456 } as any);
 
       const result = await service.createChallengeResponse(mockUser as IUser, AuthChallenge.VERIFY_PHONE, mockConfig);
 
@@ -860,8 +861,8 @@ describe('AuthChallengeHelperService', () => {
         userAgent: 'test-agent',
         deviceToken: undefined,
       } as any);
-      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue(1);
-      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue(123456);
+      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 1 } as any);
+      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue({ tokenId: 123456 } as any);
     });
 
     it('should return challenge when verification pending', async () => {
@@ -1364,8 +1365,8 @@ describe('AuthChallengeHelperService', () => {
         deviceToken: undefined,
       } as any);
       // Setup default mocks for services
-      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue(1);
-      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue(123456);
+      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 1 } as any);
+      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue({ tokenId: 123456 } as any);
     });
 
     // ============================================================================

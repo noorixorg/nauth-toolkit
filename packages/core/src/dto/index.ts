@@ -11,6 +11,8 @@ export * from './verify-email.dto';
 export * from './verify-phone.dto';
 export * from './verify-phone-by-sub.dto';
 export * from './reset-password.dto';
+export * from './forgot-password.dto';
+export * from './confirm-forgot-password.dto';
 export * from './refresh-token.dto';
 export * from './auth-response.dto';
 export * from './auth-challenge.dto';

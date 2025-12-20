@@ -35,12 +35,17 @@ import { ClientInfoService } from './client-info.service';
 import { AccountLockoutStorageService } from '../storage/account-lockout-storage.service';
 import { ChallengeService } from './challenge.service';
 import { AuthChallengeHelperService } from './auth-challenge-helper.service';
-import { AuthAuditService } from './auth-audit.service';
+import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { TrustedDeviceService } from './trusted-device.service';
 import { MFAService } from './mfa.service';
 import { SignupDTO } from '../dto/signup.dto';
 import { LoginDTO } from '../dto/login.dto';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
+import { ChangePasswordRequestDTO } from '../dto/change-password-request.dto';
+import { UpdateUserAttributesRequestDTO } from '../dto/update-user-attributes-request.dto';
+import { LogoutDTO } from '../dto/logout.dto';
+import { LogoutAllDTO } from '../dto/logout-all.dto';
+import { RefreshTokenDTO } from '../dto/refresh-token.dto';
 import { IUser, ISession } from '../interfaces/entities.interface';
 import { BaseUser, BaseLoginAttempt, BaseMFADevice } from '../entities';
 import { NAuthConfig } from '../interfaces/config.interface';
@@ -57,11 +62,72 @@ import {
   VerifyMFACodeResponse,
   VerifyMFAPasskeyResponse,
 } from '../dto/challenge-response.dto';
-import { RespondChallengeDTO } from '../dto/respond-challenge.dto';
+import { ChallengeType, MFAMethodType, RespondChallengeDTO } from '../dto/respond-challenge.dto';
 import { MFAMethod } from '../enums/mfa-method.enum';
 
-const createRespondChallengeDto = (data: Partial<RespondChallengeDTO>): RespondChallengeDTO => {
-  return Object.assign(new RespondChallengeDTO(), data);
+/**
+ * Create a RespondChallengeDTO from the various \"challenge response\" shapes used in tests.
+ *
+ * Note: Many test helper response types model `type`/`method` as strings, while
+ * RespondChallengeDTO uses enums for validation. We normalize them here to keep
+ * test bodies concise and type-safe.
+ */
+const createRespondChallengeDto = (data: unknown): RespondChallengeDTO => {
+  const record = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {};
+  const mapped: Record<string, unknown> = { ...record };
+
+  // ============================================================================
+  // Normalize enums used by RespondChallengeDTO validation
+  // ============================================================================
+  if (typeof mapped.type === 'string') {
+    mapped.type = mapped.type as unknown as ChallengeType;
+  }
+  if (typeof mapped.method === 'string') {
+    mapped.method = mapped.method as unknown as MFAMethodType;
+  }
+
+  return Object.assign(new RespondChallengeDTO(), mapped);
+};
+
+/**
+ * Create an UpdateUserAttributesRequestDTO for tests.
+ */
+const createUpdateUserAttributesDto = (
+  sub: string,
+  data: Omit<Partial<UpdateUserAttributesRequestDTO>, 'sub'>,
+): UpdateUserAttributesRequestDTO => {
+  return Object.assign(new UpdateUserAttributesRequestDTO(), { sub, ...data });
+};
+
+/**
+ * Create a ChangePasswordRequestDTO for tests.
+ */
+const createChangePasswordRequestDto = (
+  sub: string,
+  data: Omit<Partial<ChangePasswordRequestDTO>, 'sub'>,
+): ChangePasswordRequestDTO => {
+  return Object.assign(new ChangePasswordRequestDTO(), { sub, ...data });
+};
+
+/**
+ * Create a LogoutDTO for tests.
+ */
+const createLogoutDto = (data: Partial<LogoutDTO>): LogoutDTO => {
+  return Object.assign(new LogoutDTO(), data);
+};
+
+/**
+ * Create a LogoutAllDTO for tests.
+ */
+const createLogoutAllDto = (data: Partial<LogoutAllDTO>): LogoutAllDTO => {
+  return Object.assign(new LogoutAllDTO(), data);
+};
+
+/**
+ * Create a RefreshTokenDTO for tests.
+ */
+const createRefreshTokenDto = (refreshToken: string): RefreshTokenDTO => {
+  return Object.assign(new RefreshTokenDTO(), { refreshToken });
 };
 
 describe('AuthService', () => {
@@ -334,6 +400,7 @@ describe('AuthService', () => {
       mockMfaService,
       mockMfaDeviceRepository,
       mockTrustedDeviceService,
+      undefined, // passwordResetService (not needed for most tests)
     );
   });
 
@@ -565,7 +632,7 @@ describe('AuthService', () => {
         mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
         mockUserRepository.create.mockReturnValue(mockUser as any);
         mockUserRepository.save.mockResolvedValue(mockUser as any);
-        mockEmailVerificationService.sendVerificationEmail.mockResolvedValue(123);
+        mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 123 } as any);
 
         const result = await service.signup(signupDto);
 
@@ -583,7 +650,7 @@ describe('AuthService', () => {
         const createdUser = { ...mockUser, email: signupDto.email, isEmailVerified: false };
         mockUserRepository.create.mockReturnValue(createdUser as any);
         mockUserRepository.save.mockResolvedValue(createdUser as any);
-        mockEmailVerificationService.sendVerificationEmail.mockResolvedValue(123);
+        mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 123 } as any);
 
         await service.signup(signupDto);
 
@@ -678,7 +745,7 @@ describe('AuthService', () => {
         mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
         mockUserRepository.create.mockReturnValue(mockUser as any);
         mockUserRepository.save.mockResolvedValue(mockUser as any);
-        mockEmailVerificationService.sendVerificationEmail.mockResolvedValue(123);
+        mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 123 } as any);
 
         const result = await service.signup(signupDtoWithPhone);
 
@@ -1829,7 +1896,7 @@ describe('AuthService', () => {
 
     describe('Successful token refresh', () => {
       it('should refresh tokens successfully', async () => {
-        const result = await service.refreshToken(mockRefreshToken);
+        const result = await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
 
         expect(result.accessToken).toBe('new-access-token');
         expect(result.refreshToken).toBe('new-refresh-token');
@@ -1841,7 +1908,7 @@ describe('AuthService', () => {
       });
 
       it('should acquire distributed lock before validation', async () => {
-        await service.refreshToken(mockRefreshToken);
+        await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
 
         const lockCall = mockSessionService.acquireRefreshLock.mock.calls[0];
         expect(lockCall[0]).toContain('session-refresh:');
@@ -1851,7 +1918,7 @@ describe('AuthService', () => {
       it('should mark refresh token as used when reuseDetection is enabled', async () => {
         mockConfig.jwt.refreshToken.reuseDetection = true;
 
-        await service.refreshToken(mockRefreshToken);
+        await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
 
         expect(mockSessionService.markRefreshTokenAsUsed).toHaveBeenCalledWith(
           mockTokenHash,
@@ -1862,13 +1929,13 @@ describe('AuthService', () => {
       it('should not mark token as used when reuseDetection is disabled', async () => {
         mockConfig.jwt.refreshToken.reuseDetection = false;
 
-        await service.refreshToken(mockRefreshToken);
+        await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
 
         expect(mockSessionService.markRefreshTokenAsUsed).not.toHaveBeenCalled();
       });
 
       it('should rotate refresh token (generate new token pair)', async () => {
-        await service.refreshToken(mockRefreshToken);
+        await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
 
         expect(mockJwtService.generateTokenPair).toHaveBeenCalledWith({
           userId: mockUser.sub,
@@ -1884,7 +1951,7 @@ describe('AuthService', () => {
           .mockReturnValueOnce('new-access-hash')
           .mockReturnValueOnce('new-refresh-hash');
 
-        await service.refreshToken(mockRefreshToken);
+        await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
 
         expect(mockSessionService.updateTokens).toHaveBeenCalledWith(
           mockSession.id,
@@ -1905,14 +1972,14 @@ describe('AuthService', () => {
           payload: { exp: refreshExp },
         } as any);
 
-        const result = await service.refreshToken(mockRefreshToken);
+        const result = await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
 
         expect(result.accessTokenExpiresAt).toBe(accessExp);
         expect(result.refreshTokenExpiresAt).toBe(refreshExp);
       });
 
       it('should release lock after successful refresh', async () => {
-        await service.refreshToken(mockRefreshToken);
+        await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
 
         expect(mockSessionService.releaseRefreshLock).toHaveBeenCalled();
       });
@@ -1926,7 +1993,7 @@ describe('AuthService', () => {
         } as any);
 
         try {
-          await service.refreshToken('invalid-token');
+          await service.refreshToken(createRefreshTokenDto('invalid-token'));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -1938,7 +2005,7 @@ describe('AuthService', () => {
         mockSessionService.findByRefreshToken.mockResolvedValue(null);
 
         try {
-          await service.refreshToken(mockRefreshToken);
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -1951,7 +2018,7 @@ describe('AuthService', () => {
         mockSessionService.findByRefreshToken.mockResolvedValue(revokedSession);
 
         try {
-          await service.refreshToken(mockRefreshToken);
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -1963,7 +2030,7 @@ describe('AuthService', () => {
         mockSessionService.findByIdLight.mockResolvedValue(null);
 
         try {
-          await service.refreshToken(mockRefreshToken);
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -1977,7 +2044,7 @@ describe('AuthService', () => {
         mockSessionService.acquireRefreshLock.mockResolvedValue(false);
 
         try {
-          await service.refreshToken(mockRefreshToken);
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -1992,7 +2059,7 @@ describe('AuthService', () => {
         } as any);
 
         try {
-          await service.refreshToken(mockRefreshToken);
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           // Expected
@@ -2005,7 +2072,7 @@ describe('AuthService', () => {
         mockJwtService.generateTokenPair.mockRejectedValue(new Error('Token generation failed'));
 
         try {
-          await service.refreshToken(mockRefreshToken);
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
           fail('Should have thrown Error');
         } catch (error: any) {
           // Expected
@@ -2024,7 +2091,7 @@ describe('AuthService', () => {
         mockSessionService.markRefreshTokenAsUsed.mockResolvedValue(false);
 
         try {
-          await service.refreshToken(mockRefreshToken);
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2049,7 +2116,7 @@ describe('AuthService', () => {
           sessionId: mockSession.id.toString(),
         } as any);
 
-        const result = await service.refreshToken(mockRefreshToken);
+        const result = await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
 
         // Should return current tokens (not throw error)
         expect(result.accessToken).toBeDefined();
@@ -2067,7 +2134,7 @@ describe('AuthService', () => {
         mockSessionService.revokeSession.mockResolvedValue(undefined);
 
         try {
-          await service.refreshToken(mockRefreshToken);
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2092,7 +2159,7 @@ describe('AuthService', () => {
         mockSessionService.markRefreshTokenAsUsed.mockResolvedValue(false);
 
         try {
-          await service.refreshToken(mockRefreshToken);
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2110,7 +2177,7 @@ describe('AuthService', () => {
 
     describe('Token family management', () => {
       it('should use same token family for rotated tokens', async () => {
-        await service.refreshToken(mockRefreshToken);
+        await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
 
         expect(mockJwtService.generateTokenPair).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -2125,7 +2192,7 @@ describe('AuthService', () => {
         mockSessionService.markRefreshTokenAsUsed.mockResolvedValue(false);
 
         try {
-          await service.refreshToken(mockRefreshToken);
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           // Expected
@@ -2153,7 +2220,7 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockResolvedValue(null);
 
         try {
-          await service.refreshToken(mockRefreshToken);
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2171,7 +2238,7 @@ describe('AuthService', () => {
         } as any);
         mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-        const result = await service.refreshToken(mockRefreshToken);
+        const result = await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
 
         // Should still succeed despite audit error
         expect(result.accessToken).toBeDefined();
@@ -2189,7 +2256,7 @@ describe('AuthService', () => {
           payload: {},
         } as any);
 
-        const result = await service.refreshToken(mockRefreshToken);
+        const result = await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
 
         expect(result.accessTokenExpiresAt).toBe(0);
         expect(result.refreshTokenExpiresAt).toBe(0);
@@ -2202,7 +2269,7 @@ describe('AuthService', () => {
         } as any);
 
         try {
-          await service.refreshToken(mockRefreshToken);
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2220,6 +2287,8 @@ describe('AuthService', () => {
     const mockSessionId = '1';
 
     beforeEach(() => {
+      // logout() reads sessionId from client info context (not from parameters)
+      mockClientInfo.sessionId = parseInt(mockSessionId, 10);
       mockSessionService.revokeSession.mockResolvedValue(undefined);
       mockSessionService.findById.mockResolvedValue(mockSession);
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
@@ -2227,19 +2296,19 @@ describe('AuthService', () => {
 
     describe('Successful logout', () => {
       it('should revoke session on logout', async () => {
-        await service.logout(mockSub, mockSessionId);
+        await service.logout(createLogoutDto({ sub: mockSub }));
 
-        expect(mockSessionService.revokeSession).toHaveBeenCalledWith(mockSessionId, 'User logout', undefined);
+        expect(mockSessionService.revokeSession).toHaveBeenCalledWith(1, 'User logout', undefined);
       });
 
       it('should revoke session with audit metadata', async () => {
-        await service.logout(mockSub, mockSessionId, false);
+        await service.logout(createLogoutDto({ sub: mockSub, forgetMe: false }));
 
-        expect(mockSessionService.revokeSession).toHaveBeenCalledWith(mockSessionId, 'User logout', undefined);
+        expect(mockSessionService.revokeSession).toHaveBeenCalledWith(1, 'User logout', undefined);
       });
 
       it('should complete logout successfully', async () => {
-        await service.logout(mockSub, mockSessionId);
+        await service.logout(createLogoutDto({ sub: mockSub }));
 
         expect(mockSessionService.revokeSession).toHaveBeenCalled();
       });
@@ -2253,10 +2322,10 @@ describe('AuthService', () => {
         };
         mockClientInfo.deviceToken = 'device-token-123';
 
-        await service.logout(mockSub, mockSessionId, true);
+        await service.logout(createLogoutDto({ sub: mockSub, forgetMe: true }));
 
         expect(mockSessionService.revokeSession).toHaveBeenCalledWith(
-          mockSessionId,
+          1,
           'User logout',
           (expect as any).objectContaining({
             deviceForgotten: true,
@@ -2271,7 +2340,7 @@ describe('AuthService', () => {
       });
 
       it('should not revoke trusted device when forgetMe is false', async () => {
-        await service.logout(mockSub, mockSessionId, false);
+        await service.logout(createLogoutDto({ sub: mockSub, forgetMe: false }));
 
         expect(mockTrustedDeviceService.revokeTrustedDevice).not.toHaveBeenCalled();
       });
@@ -2283,7 +2352,7 @@ describe('AuthService', () => {
         };
         mockClientInfo.deviceToken = undefined;
 
-        await service.logout(mockSub, mockSessionId, true);
+        await service.logout(createLogoutDto({ sub: mockSub, forgetMe: true }));
 
         // Should still revoke session, but not call revokeTrustedDevice
         expect(mockSessionService.revokeSession).toHaveBeenCalled();
@@ -2297,7 +2366,7 @@ describe('AuthService', () => {
         };
         mockClientInfo.deviceToken = 'device-token-123';
 
-        await service.logout(mockSub, mockSessionId, true);
+        await service.logout(createLogoutDto({ sub: mockSub, forgetMe: true }));
 
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -2313,7 +2382,7 @@ describe('AuthService', () => {
         mockSessionService.revokeSession.mockRejectedValue(new Error('Session not found'));
 
         try {
-          await service.logout(mockSub, mockSessionId);
+          await service.logout(createLogoutDto({ sub: mockSub }));
           fail('Should have thrown Error');
         } catch (error: any) {
           expect(error).toBeInstanceOf(Error);
@@ -2329,7 +2398,7 @@ describe('AuthService', () => {
         (mockTrustedDeviceService.revokeTrustedDevice as jest.Mock).mockRejectedValue(new Error('Device not found'));
 
         // Should still complete logout even if device removal fails
-        await service.logout(mockSub, mockSessionId, true);
+        await service.logout(createLogoutDto({ sub: mockSub, forgetMe: true }));
 
         expect(mockSessionService.revokeSession).toHaveBeenCalled();
         expect(mockLogger.debug).toHaveBeenCalled();
@@ -2343,7 +2412,7 @@ describe('AuthService', () => {
         mockClientInfo.deviceToken = 'device-token-123';
         mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-        await service.logout(mockSub, mockSessionId, true);
+        await service.logout(createLogoutDto({ sub: mockSub, forgetMe: true }));
 
         // Should still complete logout despite audit error
         expect(mockSessionService.revokeSession).toHaveBeenCalled();
@@ -2367,7 +2436,7 @@ describe('AuthService', () => {
 
     describe('Successful logout all', () => {
       it('should revoke all user sessions', async () => {
-        await service.logoutAll(mockSub);
+        await service.logoutAll(createLogoutAllDto({ sub: mockSub }));
 
         expect(mockUserRepository.findOne).toHaveBeenCalledWith({
           where: { sub: mockSub } as any,
@@ -2376,13 +2445,13 @@ describe('AuthService', () => {
       });
 
       it('should return number of revoked sessions', async () => {
-        const result = await service.logoutAll(mockSub);
+        const result = await service.logoutAll(createLogoutAllDto({ sub: mockSub }));
 
         expect(result).toBe(5);
       });
 
       it('should complete logoutAll successfully', async () => {
-        const result = await service.logoutAll(mockSub);
+        const result = await service.logoutAll(createLogoutAllDto({ sub: mockSub }));
 
         expect(result).toBe(5);
         expect(mockSessionService.revokeAllUserSessions).toHaveBeenCalled();
@@ -2394,7 +2463,7 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockResolvedValue(null);
 
         try {
-          await service.logoutAll(mockSub);
+          await service.logoutAll(createLogoutAllDto({ sub: mockSub }));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2408,7 +2477,7 @@ describe('AuthService', () => {
         mockSessionService.revokeAllUserSessions.mockRejectedValue(new Error('Database error'));
 
         try {
-          await service.logoutAll(mockSub);
+          await service.logoutAll(createLogoutAllDto({ sub: mockSub }));
           fail('Should have thrown Error');
         } catch (error: any) {
           expect(error).toBeInstanceOf(Error);
@@ -2417,7 +2486,7 @@ describe('AuthService', () => {
 
       it('should complete logoutAll even if errors occur', async () => {
         // logoutAll doesn't directly record audit events, so this test just verifies it completes
-        const result = await service.logoutAll(mockSub);
+        const result = await service.logoutAll(createLogoutAllDto({ sub: mockSub }));
 
         expect(result).toBe(5);
       });
@@ -2446,7 +2515,7 @@ describe('AuthService', () => {
 
     describe('Successful password change', () => {
       it('should change password successfully', async () => {
-        await service.changePassword(mockUser.sub, changePasswordDto);
+        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
         expect(mockPasswordService.verifyPassword).toHaveBeenCalledWith(
           changePasswordDto.oldPassword,
@@ -2461,7 +2530,7 @@ describe('AuthService', () => {
       });
 
       it('should update password hash in database', async () => {
-        await service.changePassword(mockUser.sub, changePasswordDto);
+        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
         expect(mockUserRepository.save).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -2473,7 +2542,7 @@ describe('AuthService', () => {
       });
 
       it('should add old password to history', async () => {
-        await service.changePassword(mockUser.sub, changePasswordDto);
+        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
         expect(mockPasswordService.addToHistory).toHaveBeenCalledWith(
           mockUser.passwordHistory || [],
@@ -2483,13 +2552,13 @@ describe('AuthService', () => {
       });
 
       it('should revoke all sessions after password change', async () => {
-        await service.changePassword(mockUser.sub, changePasswordDto);
+        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
         expect(mockSessionService.revokeAllUserSessions).toHaveBeenCalledWith(mockUser.id, 'Password changed');
       });
 
       it('should record PASSWORD_CHANGED audit event', async () => {
-        await service.changePassword(mockUser.sub, changePasswordDto);
+        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -2506,7 +2575,7 @@ describe('AuthService', () => {
         mockPasswordService.verifyPassword.mockResolvedValue(false);
 
         try {
-          await service.changePassword(mockUser.sub, changePasswordDto);
+          await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2521,7 +2590,7 @@ describe('AuthService', () => {
         } as any);
 
         try {
-          await service.changePassword(mockUser.sub, changePasswordDto);
+          await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2538,7 +2607,7 @@ describe('AuthService', () => {
         mockPasswordService.hashPassword.mockResolvedValue(mockUser.passwordHash!);
 
         // Service doesn't check if new hash equals old hash, so this should succeed
-        await service.changePassword(mockUser.sub, changePasswordDto);
+        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
         expect(mockUserRepository.update).toHaveBeenCalled();
       });
@@ -2547,7 +2616,7 @@ describe('AuthService', () => {
         mockPasswordService.isPasswordInHistory.mockResolvedValue(true);
 
         try {
-          await service.changePassword(mockUser.sub, changePasswordDto);
+          await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2561,7 +2630,7 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockResolvedValue(null);
 
         try {
-          await service.changePassword(mockUser.sub, changePasswordDto);
+          await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2576,7 +2645,7 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockResolvedValue(socialUser as any);
 
         try {
-          await service.changePassword(mockUser.sub, changePasswordDto);
+          await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2591,7 +2660,7 @@ describe('AuthService', () => {
         const userWithHistory = { ...mockUser, passwordHistory: ['hash1', 'hash2'] };
         mockUserRepository.findOne.mockResolvedValue(userWithHistory as any);
 
-        await service.changePassword(mockUser.sub, changePasswordDto);
+        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
         expect(mockPasswordService.isPasswordInHistory).toHaveBeenCalledWith(
           changePasswordDto.newPassword,
@@ -2603,7 +2672,7 @@ describe('AuthService', () => {
         const userWithNoHistory = { ...mockUser, passwordHistory: [] };
         mockUserRepository.findOne.mockResolvedValue(userWithNoHistory as any);
 
-        await service.changePassword(mockUser.sub, changePasswordDto);
+        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
         expect(mockPasswordService.addToHistory).toHaveBeenCalledWith([], mockUser.passwordHash!);
       });
@@ -2614,7 +2683,7 @@ describe('AuthService', () => {
         mockUserRepository.update.mockRejectedValue(new Error('Database error'));
 
         try {
-          await service.changePassword(mockUser.sub, changePasswordDto);
+          await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
           fail('Should have thrown Error');
         } catch (error: any) {
           expect(error).toBeInstanceOf(Error);
@@ -2624,7 +2693,7 @@ describe('AuthService', () => {
       it('should handle audit logging errors gracefully', async () => {
         mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-        await service.changePassword(mockUser.sub, changePasswordDto);
+        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
         // Should still complete password change despite audit error
         expect(mockUserRepository.update).toHaveBeenCalled();
@@ -2638,7 +2707,7 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockResolvedValue(userWithNullHash as any);
 
         try {
-          await service.changePassword(mockUser.sub, changePasswordDto);
+          await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2649,7 +2718,7 @@ describe('AuthService', () => {
         const userWithNoHistory = { ...mockUser, passwordHistory: null };
         mockUserRepository.findOne.mockResolvedValue(userWithNoHistory as any);
 
-        await service.changePassword(mockUser.sub, changePasswordDto);
+        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
         expect(mockPasswordService.addToHistory).toHaveBeenCalledWith([], mockUser.passwordHash!);
       });
@@ -3022,7 +3091,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(null) // Email uniqueness check
           .mockResolvedValueOnce({ ...mockUser, ...updateData } as any); // Final fetch by id
 
-        const result = await service.updateUserAttributes(mockUser.sub, updateData);
+        const result = await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, updateData));
 
         expect(mockUserRepository.findOne).toHaveBeenCalledWith({
           where: { sub: mockUser.sub } as any,
@@ -3037,10 +3106,12 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(mockUser as any)
           .mockResolvedValueOnce({ ...mockUser, firstName: 'John', lastName: 'Doe' } as any);
 
-        await service.updateUserAttributes(mockUser.sub, {
+        await service.updateUserAttributes(
+          createUpdateUserAttributesDto(mockUser.sub, {
           firstName: 'John',
           lastName: 'Doe',
-        });
+          }),
+        );
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3058,9 +3129,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(null) // Username uniqueness check
           .mockResolvedValueOnce({ ...mockUser, username: 'newusername' } as any);
 
-        await service.updateUserAttributes(mockUser.sub, {
-          username: 'newusername',
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { username: 'newusername' }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3077,9 +3146,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(null) // Email uniqueness check
           .mockResolvedValueOnce({ ...mockUser, email: 'newemail@example.com', isEmailVerified: false } as any);
 
-        await service.updateUserAttributes(mockUser.sub, {
-          email: 'newemail@example.com',
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: 'newemail@example.com' }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3098,9 +3165,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ ...mockUser, phone: '+1987654321', isPhoneVerified: false } as any);
         mockMfaDeviceRepository.find.mockResolvedValue([]);
 
-        await service.updateUserAttributes(mockUser.sub, {
-          phone: '+1987654321',
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3121,11 +3186,13 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ ...verifiedUser, email: 'newemail@example.com', phone: '+1987654321' } as any); // Final fetch by id
         mockMfaDeviceRepository.find.mockResolvedValue([]);
 
-        await service.updateUserAttributes(mockUser.sub, {
-          email: 'newemail@example.com',
-          phone: '+1987654321',
-          retainVerification: true,
-        });
+        await service.updateUserAttributes(
+          createUpdateUserAttributesDto(mockUser.sub, {
+            email: 'newemail@example.com',
+            phone: '+1987654321',
+            retainVerification: true,
+          }),
+        );
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3148,11 +3215,13 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ ...unverifiedUser, email: 'newemail@example.com', phone: '+1987654321' } as any); // Final fetch by id
         mockMfaDeviceRepository.find.mockResolvedValue([]);
 
-        await service.updateUserAttributes(mockUser.sub, {
-          email: 'newemail@example.com',
-          phone: '+1987654321',
-          retainVerification: true,
-        });
+        await service.updateUserAttributes(
+          createUpdateUserAttributesDto(mockUser.sub, {
+            email: 'newemail@example.com',
+            phone: '+1987654321',
+            retainVerification: true,
+          }),
+        );
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3172,9 +3241,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithMetadata as any) // Initial lookup by sub
           .mockResolvedValueOnce({ ...userWithMetadata, metadata: { key1: 'value1', key2: 'value2' } } as any); // Final fetch by id
 
-        await service.updateUserAttributes(mockUser.sub, {
-          metadata: { key2: 'value2' },
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { metadata: { key2: 'value2' } }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3194,7 +3261,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(null) // Email uniqueness check
           .mockResolvedValueOnce({ ...mockUser, ...updateData } as any);
 
-        await service.updateUserAttributes(mockUser.sub, updateData);
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, updateData));
 
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -3228,9 +3295,7 @@ describe('AuthService', () => {
 
         mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(mockUser.sub, {
-          email: 'new@example.com',
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: 'new@example.com' }));
 
         expect(mockMfaDeviceRepository.delete).toHaveBeenCalledWith(1);
       });
@@ -3256,9 +3321,7 @@ describe('AuthService', () => {
 
         mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(mockUser.sub, {
-          email: 'new@example.com',
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: 'new@example.com' }));
 
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -3298,9 +3361,7 @@ describe('AuthService', () => {
 
         mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(mockUser.sub, {
-          phone: '+1987654321',
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
 
         expect(mockMfaDeviceRepository.delete).toHaveBeenCalledWith(1);
       });
@@ -3327,9 +3388,7 @@ describe('AuthService', () => {
 
         mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(mockUser.sub, {
-          phone: '+1987654321',
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
 
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -3368,9 +3427,7 @@ describe('AuthService', () => {
 
         mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(mockUser.sub, {
-          email: 'new@example.com',
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: 'new@example.com' }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3405,9 +3462,7 @@ describe('AuthService', () => {
 
         mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(mockUser.sub, {
-          phone: '+1987654321',
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3429,9 +3484,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ id: 999 } as any); // Second call for email uniqueness check
 
         try {
-          await service.updateUserAttributes(mockUser.sub, {
-            email: 'existing@example.com',
-          });
+          await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: 'existing@example.com' }));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -3446,9 +3499,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ id: 999 } as any); // Second call for phone uniqueness check
 
         try {
-          await service.updateUserAttributes(mockUser.sub, {
-            phone: '+1234567890',
-          });
+          await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1234567890' }));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -3463,9 +3514,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ id: 999 } as any); // Second call for username uniqueness check
 
         try {
-          await service.updateUserAttributes(mockUser.sub, {
-            username: 'existinguser',
-          });
+          await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { username: 'existinguser' }));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -3480,9 +3529,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(null) // Email uniqueness check (not found = OK, because it's the same user)
           .mockResolvedValueOnce(mockUser as any); // Final fetch by id
 
-        await service.updateUserAttributes(mockUser.sub, {
-          email: mockUser.email,
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: mockUser.email }));
 
         expect(mockUserRepository.update).toHaveBeenCalled();
       });
@@ -3493,7 +3540,7 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockResolvedValue(null);
 
         try {
-          await service.updateUserAttributes(mockUser.sub, updateData);
+          await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, updateData));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -3519,9 +3566,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce([] as any); // Check for remaining active devices
         mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(mockUser.sub, {
-          phone: '+1987654321',
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
 
         expect(mockMfaDeviceRepository.find).toHaveBeenCalled();
         expect(mockMfaDeviceRepository.update).toHaveBeenCalled();
@@ -3534,9 +3579,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithPhone as any) // Initial lookup
           .mockResolvedValueOnce(userWithPhone as any); // Final fetch
 
-        await service.updateUserAttributes(mockUser.sub, {
-          firstName: 'New',
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { firstName: 'New' }));
 
         expect(mockMfaDeviceRepository.find).not.toHaveBeenCalled();
       });
@@ -3554,10 +3597,9 @@ describe('AuthService', () => {
           .mockResolvedValueOnce([] as any); // Check for remaining active devices
         mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(mockUser.sub, {
-          phone: '+1987654321',
-          retainVerification: true,
-        });
+        await service.updateUserAttributes(
+          createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321', retainVerification: true }),
+        );
 
         // Should preserve verification status
         expect(mockUserRepository.update).toHaveBeenCalledWith(
@@ -3579,7 +3621,7 @@ describe('AuthService', () => {
         mockUserRepository.update.mockRejectedValue(new Error('Database error'));
 
         try {
-          await service.updateUserAttributes(mockUser.sub, updateData);
+          await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, updateData));
           fail('Should have thrown Error');
         } catch (error: any) {
           expect(error).toBeInstanceOf(Error);
@@ -3594,7 +3636,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ ...mockUser, ...updateData } as any); // Final fetch by id
         mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-        await service.updateUserAttributes(mockUser.sub, updateData);
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, updateData));
 
         // Should still complete update despite audit error
         expect(mockUserRepository.update).toHaveBeenCalled();
@@ -3611,9 +3653,7 @@ describe('AuthService', () => {
         mockMfaDeviceRepository.find.mockRejectedValue(new Error('Database error'));
 
         // Should still complete update despite MFA device error
-        await service.updateUserAttributes(mockUser.sub, {
-          phone: '+1987654321',
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
 
         expect(mockUserRepository.update).toHaveBeenCalled();
         expect(mockLogger.warn).toHaveBeenCalled();
@@ -3627,9 +3667,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(mockUser as any)
           .mockResolvedValueOnce({ ...mockUser, firstName: 'NewFirst' } as any);
 
-        await service.updateUserAttributes(mockUser.sub, {
-          firstName: 'NewFirst',
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { firstName: 'NewFirst' }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3646,9 +3684,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithMetadata as any) // Initial lookup by sub
           .mockResolvedValueOnce(userWithMetadata as any); // Final fetch by id
 
-        await service.updateUserAttributes(mockUser.sub, {
-          metadata: {},
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { metadata: {} }));
 
         expect(mockUserRepository.update).toHaveBeenCalled();
       });
@@ -3660,9 +3696,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithNullMetadata as any) // Initial lookup by sub
           .mockResolvedValueOnce({ ...userWithNullMetadata, metadata: { key: 'value' } } as any); // Final fetch by id
 
-        await service.updateUserAttributes(mockUser.sub, {
-          metadata: { key: 'value' },
-        });
+        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { metadata: { key: 'value' } }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3692,7 +3726,7 @@ describe('AuthService', () => {
     beforeEach(() => {
       mockChallengeService.validateSession.mockResolvedValue(mockChallengeSession as any);
       mockChallengeService.validateAndConsumeSession.mockResolvedValue(mockChallengeSession as any);
-      mockMfaService.verifyCode.mockResolvedValue(true);
+      mockMfaService.verifyCode.mockResolvedValue({ valid: true } as any);
       mockJwtService.generateTokenFamily.mockReturnValue('token-family-123');
       mockJwtService.generateTokenPair.mockResolvedValue({
         accessToken: 'access-token',
@@ -3772,7 +3806,7 @@ describe('AuthService', () => {
           metadata: { passkeyChallenge: 'expected-challenge' },
         };
         mockChallengeService.validateSession.mockResolvedValue(sessionWithPasskey as any);
-        mockMfaService.verifyCode.mockResolvedValue(true);
+        mockMfaService.verifyCode.mockResolvedValue({ valid: true } as any);
 
         const response: VerifyMFAPasskeyResponse = {
           session: 'challenge-session-123',
@@ -3825,7 +3859,7 @@ describe('AuthService', () => {
 
     describe('Invalid MFA verification', () => {
       it('should throw NAuthException for invalid TOTP code', async () => {
-        mockMfaService.verifyCode.mockResolvedValue(false);
+        mockMfaService.verifyCode.mockResolvedValue({ valid: false } as any);
 
         const response: VerifyMFACodeResponse = {
           session: 'challenge-session-123',
@@ -3844,7 +3878,7 @@ describe('AuthService', () => {
       });
 
       it('should record MFA_VERIFICATION_FAILED audit event', async () => {
-        mockMfaService.verifyCode.mockResolvedValue(false);
+        mockMfaService.verifyCode.mockResolvedValue({ valid: false } as any);
 
         const response: VerifyMFACodeResponse = {
           session: 'challenge-session-123',
@@ -3871,7 +3905,7 @@ describe('AuthService', () => {
       });
 
       it('should increment challenge attempts on failure', async () => {
-        mockMfaService.verifyCode.mockResolvedValue(false);
+        mockMfaService.verifyCode.mockResolvedValue({ valid: false } as any);
 
         const response: VerifyMFACodeResponse = {
           session: 'challenge-session-123',
@@ -4052,6 +4086,8 @@ describe('AuthService', () => {
         rememberDevices: 'user_opt_in',
         rememberDeviceDays: 30,
       };
+      // trustDevice() reads sessionId from client info context (not from parameters)
+      mockClientInfoService.get.mockReturnValue({ ...mockClientInfo, sessionId: mockSession.id });
       mockSessionService.findById.mockResolvedValue(mockSession as any);
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockTrustedDeviceService.isDeviceTrusted.mockResolvedValue(false);
@@ -4060,7 +4096,7 @@ describe('AuthService', () => {
 
     describe('Successful device trust', () => {
       it('should create trusted device token successfully', async () => {
-        const result = await service.trustDevice('1');
+        const result = await service.trustDevice();
 
         expect(mockSessionService.findById).toHaveBeenCalledWith(1);
         expect(mockTrustedDeviceService.createTrustedDevice).toHaveBeenCalled();
@@ -4071,7 +4107,7 @@ describe('AuthService', () => {
         mockTrustedDeviceService.isDeviceTrusted.mockResolvedValue(true);
         mockClientInfo.deviceToken = 'existing-token';
 
-        const result = await service.trustDevice('1');
+        const result = await service.trustDevice();
 
         expect(result.deviceToken).toBe('existing-token');
         expect(mockTrustedDeviceService.createTrustedDevice).not.toHaveBeenCalled();
@@ -4081,14 +4117,14 @@ describe('AuthService', () => {
         mockClientInfo.deviceToken = 'existing-untrusted-token';
         mockTrustedDeviceService.isDeviceTrusted.mockResolvedValue(false);
 
-        await service.trustDevice('1');
+        await service.trustDevice();
 
         expect(mockTrustedDeviceService.revokeTrustedDevice).toHaveBeenCalled();
         expect(mockTrustedDeviceService.createTrustedDevice).toHaveBeenCalled();
       });
 
       it('should record DEVICE_TRUSTED audit event', async () => {
-        await service.trustDevice('1');
+        await service.trustDevice();
 
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -4112,7 +4148,7 @@ describe('AuthService', () => {
         };
 
         try {
-          await service.trustDevice('1');
+          await service.trustDevice();
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -4142,7 +4178,7 @@ describe('AuthService', () => {
         );
 
         try {
-          await serviceWithoutTrustedDevice.trustDevice('1');
+          await serviceWithoutTrustedDevice.trustDevice();
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -4154,7 +4190,7 @@ describe('AuthService', () => {
         mockSessionService.findById.mockResolvedValue(null);
 
         try {
-          await service.trustDevice('1');
+          await service.trustDevice();
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -4167,7 +4203,7 @@ describe('AuthService', () => {
         mockSessionService.findById.mockResolvedValue(revokedSession as any);
 
         try {
-          await service.trustDevice('1');
+          await service.trustDevice();
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -4179,7 +4215,7 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockResolvedValue(null);
 
         try {
-          await service.trustDevice('1');
+          await service.trustDevice();
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -4190,7 +4226,7 @@ describe('AuthService', () => {
       it('should handle audit logging errors gracefully', async () => {
         mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-        const result = await service.trustDevice('1');
+        const result = await service.trustDevice();
 
         // Should still complete trust operation despite audit error
         expect(result.deviceToken).toBe('device-token-123');

@@ -49,15 +49,13 @@ export class ConsoleEmailProvider implements EmailProvider {
    * @param code - Verification code (e.g., "123456")
    * @param link - Optional verification link (only logged if provided)
    */
-  async sendVerificationEmail(to: string, code: string, link?: string): Promise<void> {
-    this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    this.logger.log('📧 EMAIL: Verification');
+  async sendVerificationEmail(to: string, _code: string, _link?: string): Promise<void> {
+    // NOTE: Do not log secrets (codes/links) to console.
+    // In this repo, simulated codes should be viewed via test endpoints + frontend toast.
+    this.logger.log('----------------------------------------------');
+    this.logger.log('EMAIL: One-time code sent (simulated)');
     this.logger.log(`To: ${to}`);
-    this.logger.log(`Code: ${code}`);
-    if (link) {
-      this.logger.log(`Link: ${link}`);
-    }
-    this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    this.logger.log('----------------------------------------------');
   }
 
   /**
@@ -69,13 +67,12 @@ export class ConsoleEmailProvider implements EmailProvider {
    * @param token - Password reset token
    * @param link - Password reset link (e.g., "https://example.com/reset?token=xxx")
    */
-  async sendPasswordResetEmail(to: string, token: string, link: string): Promise<void> {
-    this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    this.logger.log('📧 EMAIL: Password Reset');
+  async sendPasswordResetEmail(to: string, _token: string, _link: string): Promise<void> {
+    // NOTE: Do not log secrets (tokens/links) to console.
+    this.logger.log('----------------------------------------------');
+    this.logger.log('EMAIL: Password reset email sent (simulated)');
     this.logger.log(`To: ${to}`);
-    this.logger.log(`Token: ${token}`);
-    this.logger.log(`Link: ${link}`);
-    this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    this.logger.log('----------------------------------------------');
   }
 
   /**
@@ -87,11 +84,11 @@ export class ConsoleEmailProvider implements EmailProvider {
    * @param name - User's name
    */
   async sendWelcomeEmail(to: string, name: string): Promise<void> {
-    this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    this.logger.log('📧 EMAIL: Welcome');
+    this.logger.log('----------------------------------------------');
+    this.logger.log('EMAIL: Welcome email sent (simulated)');
     this.logger.log(`To: ${to}`);
     this.logger.log(`Name: ${name}`);
-    this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    this.logger.log('----------------------------------------------');
   }
 
   /**
@@ -104,12 +101,12 @@ export class ConsoleEmailProvider implements EmailProvider {
    * @param duration - Lockout duration in seconds
    */
   async sendLockoutEmail(to: string, reason: string, duration: number): Promise<void> {
-    this.logger.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    this.logger.warn('⚠️  EMAIL: Account Lockout');
+    this.logger.warn('----------------------------------------------');
+    this.logger.warn('EMAIL: Account lockout notification (simulated)');
     this.logger.warn(`To: ${to}`);
     this.logger.warn(`Reason: ${reason}`);
     this.logger.warn(`Duration: ${Math.round(duration / 60)} minutes`);
-    this.logger.warn('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    this.logger.warn('----------------------------------------------');
   }
 
   /**
@@ -129,13 +126,13 @@ export class ConsoleEmailProvider implements EmailProvider {
       location?: string;
     },
   ): Promise<void> {
-    this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    this.logger.log('📧 EMAIL: New Device Login');
+    this.logger.log('----------------------------------------------');
+    this.logger.log('EMAIL: New device login notification (simulated)');
     this.logger.log(`To: ${to}`);
     this.logger.log(`Device: ${deviceInfo.name || 'Unknown'}`);
     this.logger.log(`Type: ${deviceInfo.type || 'Unknown'}`);
     this.logger.log(`IP: ${deviceInfo.ip || 'Unknown'}`);
     this.logger.log(`Location: ${deviceInfo.location || 'Unknown'}`);
-    this.logger.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    this.logger.log('----------------------------------------------');
   }
 }

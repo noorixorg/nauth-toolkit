@@ -3,7 +3,7 @@
   Your email address has been successfully changed to <strong>{{ userEmail }}</strong>.
 </mj-text>
 
-<mj-text css-class="text-small alert-box alert-success" padding="16px 24px"> ✓ Email change confirmed </mj-text>
+<mj-text css-class="text-small alert-box alert-success" padding="16px 24px"> Email change confirmed </mj-text>
 
 <mj-text css-class="text-small" padding="24px 24px 8px 24px">
   If you made this change, no further action is required.

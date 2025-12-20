@@ -6,7 +6,7 @@ import { AngularHttpAdapter } from './http-adapter';
 import { NAuthClient } from '../core/client';
 import { NAuthClientConfig } from '../types/config.types';
 import { ChallengeResponse, AuthResponse, TokenResponse } from '../types/auth.types';
-import { AuthUser } from '../types/user.types';
+import { AuthUser, ConfirmForgotPasswordResponse, ForgotPasswordResponse } from '../types/user.types';
 import { GetChallengeDataResponse, GetSetupDataResponse } from '../types/mfa.types';
 import { AuthEvent } from '../core/events';
 import { SocialProvider } from '../types/social.types';
@@ -231,6 +231,28 @@ export class AuthService {
    */
   refresh(): Observable<TokenResponse> {
     return from(this.client.refreshTokens());
+  }
+
+  // ============================================================================
+  // Account Recovery (Forgot Password)
+  // ============================================================================
+
+  /**
+   * Request a password reset code (forgot password).
+   */
+  forgotPassword(identifier: string): Observable<ForgotPasswordResponse> {
+    return from(this.client.forgotPassword(identifier));
+  }
+
+  /**
+   * Confirm a password reset code and set a new password.
+   */
+  confirmForgotPassword(
+    identifier: string,
+    code: string,
+    newPassword: string,
+  ): Observable<ConfirmForgotPasswordResponse> {
+    return from(this.client.confirmForgotPassword(identifier, code, newPassword));
   }
 
   // ============================================================================

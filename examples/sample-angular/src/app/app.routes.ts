@@ -22,6 +22,18 @@ export const routes: Routes = [
     loadComponent: () => import('./signup/signup.component').then((m) => m.SignupComponent),
   },
   {
+    path: 'forgot-password',
+    loadComponent: () =>
+      import('./forgot-password/forgot-password.component').then((m) => m.ForgotPasswordComponent),
+  },
+  {
+    path: 'forgot-password/confirm',
+    loadComponent: () =>
+      import('./forgot-password/confirm-forgot-password.component').then(
+        (m) => m.ConfirmForgotPasswordComponent,
+      ),
+  },
+  {
     path: 'auth/callback',
     canActivate: [oauthCallbackGuard],
     children: [], // Fallback - guard handles redirect

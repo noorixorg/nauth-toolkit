@@ -14,7 +14,7 @@ import { SMSProvider, NAuthLogger } from '@nauth-toolkit/core';
  * - See SMS content without sending actual messages
  *
  * **Security Note:**
- * - ⚠️ NEVER use in production (exposes sensitive codes in logs)
+ * - NEVER use in production (exposes sensitive codes in logs)
  * - For production, use real SMS providers like Twilio, AWS SNS, MessageBird
  *
  * @example

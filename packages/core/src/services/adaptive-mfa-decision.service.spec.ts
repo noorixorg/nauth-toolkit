@@ -2,7 +2,7 @@ import { AdaptiveMFADecisionService } from './adaptive-mfa-decision.service';
 import { RiskDetectionService } from './risk-detection.service';
 import { RiskScoringService } from './risk-scoring.service';
 import { StorageAdapter } from '../interfaces/storage-adapter.interface';
-import { AuthAuditService } from './auth-audit.service';
+import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { ClientInfoService } from './client-info.service';
 import { IUser } from '../interfaces/entities.interface';
 import { NAuthConfig, AdaptiveMFARiskEventPayload } from '../interfaces/config.interface';

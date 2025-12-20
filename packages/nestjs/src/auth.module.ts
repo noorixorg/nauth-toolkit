@@ -51,6 +51,7 @@ import {
   AuthChallengeHelperService,
   SocialProviderRegistry,
   AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent() for instantiation
+  PasswordResetService,
 } from '@nauth-toolkit/core/internal';
 
 // MaxMind module type (for type safety in factory)
@@ -97,11 +98,11 @@ export interface NAuthModuleConfig extends NAuthConfig {
    *
    * @example
    * ```typescript
-   * // ✅ PREFERRED - Auto-discovery (entities in TypeORM.forRoot())
+   * // PREFERRED - Auto-discovery (entities in TypeORM.forRoot())
    * TypeOrmModule.forRoot({ entities: getNAuthEntities(), ... })
    * AuthModule.forRoot({ jwt: {...} }) // entities not needed
    *
-   * // ✅ ALSO VALID - Explicit entities (if not using TypeORM.forRoot())
+   * // ALSO VALID - Explicit entities (if not using TypeORM.forRoot())
    * AuthModule.forRoot({ entities: getNAuthEntities(), jwt: {...} })
    * ```
    */
@@ -689,6 +690,7 @@ export class AuthModule {
             mfaService?: MFAService,
             mfaDeviceRepository?: Repository<BaseMFADevice>,
             trustedDeviceService?: TrustedDeviceService,
+            passwordResetService?: PasswordResetService,
           ) => {
             return new AuthService(
               userRepository,
@@ -708,6 +710,7 @@ export class AuthModule {
               mfaService,
               mfaDeviceRepository,
               trustedDeviceService,
+              passwordResetService,
             );
           },
           inject: [
@@ -728,6 +731,7 @@ export class AuthModule {
             { token: MFAService, optional: true }, // No circular dependency - MFAService no longer depends on AuthService
             { token: 'MFADeviceRepository', optional: true },
             { token: TrustedDeviceService, optional: true },
+            { token: PasswordResetService, optional: true },
           ],
         },
         {
@@ -1119,6 +1123,41 @@ export class AuthModule {
           : []),
 
         {
+          provide: PasswordResetService,
+          useFactory: (
+            verificationTokenRepo: Repository<BaseVerificationToken>,
+            emailProvider: EmailProvider,
+            storageAdapter: StorageAdapter,
+            nauthConfig: NAuthConfig,
+            clientInfoService: ClientInfoService,
+            logger: NAuthLogger,
+            auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
+            smsProvider?: SMSProvider, // Optional - only available when smsProvider is configured
+          ) => {
+            return new PasswordResetService(
+              verificationTokenRepo,
+              emailProvider,
+              storageAdapter,
+              nauthConfig,
+              clientInfoService,
+              logger,
+              auditService,
+              smsProvider,
+            );
+          },
+          inject: [
+            'VerificationTokenRepository',
+            'EMAIL_PROVIDER',
+            'STORAGE_ADAPTER',
+            'NAUTH_CONFIG',
+            ClientInfoService,
+            'NAUTH_LOGGER',
+            { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
+            { token: 'SMS_PROVIDER', optional: true }, // Optional - only available when smsProvider is configured
+          ],
+        },
+
+        {
           provide: RateLimitStorageService,
           useFactory: (storageAdapter: StorageAdapter) => {
             return new RateLimitStorageService(storageAdapter);
@@ -1169,7 +1208,7 @@ export class AuthModule {
         'NAUTH_CONFIG', // Export config so other modules can access it
         'SOCIAL_AUTH_STATE_STORE', // Needed by social auth providers for CSRF protection
         // Repository tokens exported for internal toolkit packages (MFA providers, etc.)
-        // ⚠️ WARNING: These are for INTERNAL toolkit packages ONLY, not consumer apps
+        // WARNING: These are for INTERNAL toolkit packages ONLY, not consumer apps
         // Consumer apps should use service methods (AuthService, MFAService, etc.) instead of direct repository access
         'UserRepository',
         'MFADeviceRepository',

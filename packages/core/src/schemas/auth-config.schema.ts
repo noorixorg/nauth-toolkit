@@ -156,6 +156,15 @@ export const passwordConfigSchema = z.object({
   preventUserInfo: z.boolean().optional(),
   historyCount: z.number().optional(),
   expiryDays: z.number().optional(),
+  passwordReset: z
+    .object({
+      codeLength: z.number().optional(),
+      expiresIn: z.number().optional(),
+      rateLimitMax: z.number().optional(),
+      rateLimitWindow: z.number().optional(),
+      maxAttempts: z.number().optional(),
+    })
+    .optional(),
 });
 
 // ============================================================================
@@ -342,7 +351,16 @@ export const riskLevelConfigSchema = z.object({
 
 export const adaptiveMFAConfigSchema = z.object({
   triggers: z
-    .array(z.enum(['new_device', 'new_ip', 'new_country', 'impossible_travel', 'suspicious_activity']))
+    .array(
+      z.enum([
+        'new_device',
+        'new_ip',
+        'new_country',
+        'impossible_travel',
+        'suspicious_activity',
+        'recent_password_reset',
+      ]),
+    )
     .optional(),
   riskThreshold: z.number().optional(), // Deprecated
   riskWeights: z.record(z.string(), z.number()).optional(),

@@ -36,6 +36,8 @@ export interface NAuthEndpoints {
   profile: string;
   changePassword: string;
   requestPasswordChange: string;
+  forgotPassword: string;
+  confirmForgotPassword: string;
   mfaStatus: string;
   mfaDevices: string;
   mfaSetupData: string;

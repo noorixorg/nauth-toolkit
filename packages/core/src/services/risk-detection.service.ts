@@ -77,6 +77,7 @@ export class RiskDetectionService {
         RiskFactor.NEW_DEVICE,
         RiskFactor.NEW_IP,
         RiskFactor.NEW_COUNTRY,
+        RiskFactor.RECENT_PASSWORD_RESET,
       ];
 
       this.logger?.debug?.(
@@ -200,6 +201,23 @@ export class RiskDetectionService {
           factors.push(RiskFactor.SUSPICIOUS_ACTIVITY);
           this.logger?.debug?.(`Suspicious activity detected for user ${user.sub}`);
         }
+      }
+
+      // ============================================================================
+      // Account Recovery Risk Detection
+      // ============================================================================
+      // Detect if the password was reset/changed after the last successful login.
+      // WHY: Many providers treat post-reset sign-in as higher risk and require step-up auth.
+      if (
+        enabledTriggers.includes(RiskFactor.RECENT_PASSWORD_RESET) &&
+        user.passwordChangedAt &&
+        user.lastLoginAt &&
+        user.passwordChangedAt > user.lastLoginAt
+      ) {
+        factors.push(RiskFactor.RECENT_PASSWORD_RESET);
+        this.logger?.debug?.(
+          `Recent password reset detected for user ${user.sub}: passwordChangedAt=${user.passwordChangedAt.toISOString()}, lastLoginAt=${user.lastLoginAt.toISOString()}`,
+        );
       }
 
       // ============================================================================

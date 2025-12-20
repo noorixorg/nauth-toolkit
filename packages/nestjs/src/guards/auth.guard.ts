@@ -140,7 +140,7 @@ export class AuthGuard implements CanActivate {
       throw new NAuthException(AuthErrorCode.ACCOUNT_INACTIVE, 'Account is not active');
     }
 
-    // ⚠️ SECURITY CRITICAL: Re-check session hasn't been modified (optimistic locking)
+    // SECURITY CRITICAL: Re-check session hasn't been modified (optimistic locking)
     // Prevents TOCTOU (Time-of-Check-Time-of-Use) vulnerabilities
     const revalidated = await this.sessionService.findByIdLight(sessionId);
     if (!revalidated || revalidated.version !== initialVersion || revalidated.isRevoked) {

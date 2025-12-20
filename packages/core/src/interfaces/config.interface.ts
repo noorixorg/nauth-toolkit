@@ -756,6 +756,46 @@ export interface PasswordConfig {
    * Password expiry in days (0 = disabled)
    */
   expiryDays?: number;
+
+  /**
+   * Password reset (account recovery) configuration
+   *
+   * Controls forgot-password verification code behavior (delivery is handled by the
+   * configured email/SMS providers).
+   *
+   * Note: Defaults are applied in service layer when not provided.
+   */
+  passwordReset?: {
+    /**
+     * Verification code length
+     * @default 6
+     */
+    codeLength?: number;
+
+    /**
+     * Code expiry in seconds
+     * @default 900 (15 minutes)
+     */
+    expiresIn?: number;
+
+    /**
+     * Maximum reset requests per time window
+     * @default 3
+     */
+    rateLimitMax?: number;
+
+    /**
+     * Rate limit time window in seconds
+     * @default 3600 (1 hour)
+     */
+    rateLimitWindow?: number;
+
+    /**
+     * Maximum code verification attempts per code
+     * @default 3
+     */
+    maxAttempts?: number;
+  };
 }
 
 export interface LockoutConfig {
@@ -957,9 +997,29 @@ export interface SecurityConfig {
 
 export interface LifecycleHooks {
   /**
+   * Before signup hook
+   *
+   * Allows consumer applications to implement custom checks before signup proceeds
+   * (e.g., denylist, invite-only signups, external validation).
+   *
+   * Return `false` to block signup.
+   */
+  beforeSignup?: (dto: unknown) => Promise<void | false>;
+
+  /**
    * After signup hook
    */
   afterSignup?: (user: any, metadata?: { requiresVerification?: boolean }) => Promise<void>;
+
+  /**
+   * Before login hook
+   *
+   * Allows consumer applications to implement custom checks before login proceeds
+   * (e.g., denylist, maintenance windows, external risk checks).
+   *
+   * Return `false` to block login.
+   */
+  beforeLogin?: (identifier: string) => Promise<void | false>;
 
   afterLogin?: (user: any, session: any) => Promise<void>;
 
@@ -1642,10 +1702,13 @@ export interface AdaptiveMFAConfig {
    * - 'new_country': Login from different country
    * - 'impossible_travel': Geographic distance/time anomaly
    * - 'suspicious_activity': Unusual behavior patterns
+   * - 'recent_password_reset': Password was reset/changed after last successful login
    *
    * @default ['new_device', 'new_ip', 'new_country']
    */
-  triggers?: Array<'new_device' | 'new_ip' | 'new_country' | 'impossible_travel' | 'suspicious_activity'>;
+  triggers?: Array<
+    'new_device' | 'new_ip' | 'new_country' | 'impossible_travel' | 'suspicious_activity' | 'recent_password_reset'
+  >;
 
   /**
    * Risk score threshold (0-100) to require MFA

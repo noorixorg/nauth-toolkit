@@ -35,3 +35,37 @@ export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;
 }
+
+/**
+ * Forgot password request payload.
+ */
+export interface ForgotPasswordRequest {
+  identifier: string;
+}
+
+/**
+ * Forgot password response payload.
+ */
+export interface ForgotPasswordResponse {
+  success: boolean;
+  destination?: string;
+  deliveryMedium?: 'email' | 'sms';
+  expiresIn?: number;
+}
+
+/**
+ * Confirm forgot password request payload.
+ */
+export interface ConfirmForgotPasswordRequest {
+  identifier: string;
+  code: string;
+  newPassword: string;
+}
+
+/**
+ * Confirm forgot password response payload.
+ */
+export interface ConfirmForgotPasswordResponse {
+  success: boolean;
+  mustChangePassword: boolean;
+}

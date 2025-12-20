@@ -21,8 +21,8 @@ import { TestService } from './test.service';
  * - Reset database/Redis state (optional, not used by default)
  * - Retrieve test data (email codes, SMS codes, TOTP secrets)
  *
- * ⚠️ ONLY ENABLED when NAUTH_TEST_MODE=true
- * ⚠️ DO NOT USE in production
+ * ONLY ENABLED when NAUTH_TEST_MODE=true
+ * DO NOT USE in production
  *
  * Note: Configuration changes require manual edits to auth.config.ts and app restart.
  * The app auto-restarts on file changes when using yarn start:dev.
@@ -37,7 +37,7 @@ export class TestController {
   ) {
     // Verify test mode is enabled
     if (process.env.NAUTH_TEST_MODE !== 'true') {
-      this.logger.warn('⚠️  Test mode endpoints are DISABLED. Set NAUTH_TEST_MODE=true to enable.');
+      this.logger.warn('Test mode endpoints are DISABLED. Set NAUTH_TEST_MODE=true to enable.');
     }
   }
 
@@ -68,13 +68,16 @@ export class TestController {
   }
 
   /**
-   * Get latest verification code for a challenge session
+   * Get latest verification code for a challenge session or password reset
    *
    * GET /test/code/latest?sessionId=99f45d2b-3834-46d6-8a89-b90c349a9a94
+   * GET /test/code/latest?identifier=user@example.com&type=password_reset
    *
-   * Retrieves the latest verification code from nauth_verification_tokens
+   * For challenge sessions: Retrieves the latest verification code from nauth_verification_tokens
    * by finding the challenge session by sessionToken, then the token by challengeSessionId.
-   * This ensures we always get the correct code for the specific challenge session.
+   *
+   * For password reset: Retrieves the latest password reset code by finding the user by identifier
+   * (email, username, or phone), then the password reset token by userId.
    *
    * Returns null if code is not found (instead of empty string) to distinguish
    * between "no code" and "code exists but is empty".
@@ -82,13 +85,21 @@ export class TestController {
   @Public()
   @Get('code/latest')
   async getLatestCode(
-    @Query('sessionId') sessionId: string,
+    @Query('sessionId') sessionId?: string,
     @Query('method') method?: string,
+    @Query('identifier') identifier?: string,
+    @Query('type') type?: string,
   ): Promise<{ code: string | null }> {
     if (process.env.NAUTH_TEST_MODE !== 'true') {
       throw new BadRequestException('Test mode is not enabled');
     }
 
+    // Handle password reset code request
+    if (type === 'password_reset' && identifier) {
+      return this.getPasswordResetCode(identifier);
+    }
+
+    // Handle challenge session code request (existing logic)
     if (!sessionId || sessionId === 'undefined' || sessionId.trim() === '') {
       this.logger?.warn?.(`Invalid sessionId provided: ${JSON.stringify(sessionId)}`);
       throw new BadRequestException('Invalid sessionId provided');
@@ -326,6 +337,91 @@ export class TestController {
 
     this.logger?.debug?.(
       `Found verification token: id=${verificationToken.id}, createdAt=${verificationToken.createdAt}, code=***`,
+    );
+    return { code: verificationToken.code };
+  }
+
+  /**
+   * Get password reset code for an identifier
+   *
+   * Helper method to retrieve password reset codes by user identifier.
+   *
+   * @param identifier - User identifier (email, username, or phone)
+   * @returns Password reset code or null if not found
+   */
+  private async getPasswordResetCode(identifier: string): Promise<{ code: string | null }> {
+    // Get repositories using table names (database-agnostic approach)
+    const userMetadata = this.dataSource.entityMetadatas.find((m) => m.tableName === 'nauth_users');
+    if (!userMetadata) {
+      throw new BadRequestException('User entity not found');
+    }
+    const userRepo = this.dataSource.getRepository(userMetadata.target);
+
+    const verificationTokenMetadata = this.dataSource.entityMetadatas.find(
+      (m) => m.tableName === 'nauth_verification_tokens',
+    );
+    if (!verificationTokenMetadata) {
+      throw new BadRequestException('VerificationToken entity not found');
+    }
+    const verificationTokenRepo = this.dataSource.getRepository(verificationTokenMetadata.target);
+
+    // Step 1: Find user by identifier (email, username, or phone)
+    const normalizedIdentifier = identifier.toLowerCase().trim();
+    let user: unknown = null;
+
+    // Try email first
+    user = await userRepo.findOne({ where: { email: normalizedIdentifier } as any });
+
+    // Try username if not found
+    if (!user) {
+      user = await userRepo.findOne({
+        where: { username: normalizedIdentifier } as any,
+      });
+    }
+
+    // Try phone if not found
+    if (!user) {
+      user = await userRepo.findOne({
+        where: { phone: identifier } as any, // Phone numbers may have + prefix, don't lowercase
+      });
+    }
+
+    if (!user) {
+      this.logger?.warn?.(`User not found for identifier: ${identifier}`);
+      return { code: null };
+    }
+
+    const userRow = user as { id?: unknown } | null;
+    const userId = userRow?.id;
+    if (userId === undefined || userId === null) {
+      this.logger?.warn?.(`User ID not found for identifier: ${identifier}`);
+      return { code: null };
+    }
+
+    // Step 2: Find latest unused password reset token
+    const tokens = await verificationTokenRepo.find({
+      where: {
+        userId,
+        type: 'password_reset',
+        usedAt: IsNull(),
+      } as any,
+      order: { createdAt: 'DESC' } as any,
+    });
+
+    this.logger?.debug?.(
+      `Found ${tokens.length} password reset tokens for userId: ${userId}, identifier: ${identifier}`,
+    );
+
+    // Step 3: Find token with actual code
+    const verificationToken = tokens.find((t) => t.code !== null && t.code !== '' && String(t.code).trim() !== '');
+
+    if (!verificationToken) {
+      this.logger?.warn?.(`No password reset token with code found for userId: ${userId}, identifier: ${identifier}`);
+      return { code: null };
+    }
+
+    this.logger?.debug?.(
+      `Found password reset token: id=${verificationToken.id}, createdAt=${verificationToken.createdAt}, code=***`,
     );
     return { code: verificationToken.code };
   }

@@ -52,44 +52,6 @@ Automatically injected by your framework adapter. No manual instantiation requir
 
 ## Methods
 
-### changePassword()
-
-Change user's password. Requires current password verification.
-
-```typescript
-async changePassword(dto: ChangePasswordRequestDTO): Promise<ChangePasswordResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`ChangePasswordRequestDTO`](../dto/change-password-request-dto)
-
-**Returns**
-
-- [`ChangePasswordResponseDTO`](../dto/change-password-response-dto)
-
-**Errors**
-
-| Code                          | When                       | Details                |
-| ----------------------------- | -------------------------- | ---------------------- |
-| `NOT_FOUND`                   | User not found             | `{ userId?: string }`  |
-| `PASSWORD_INCORRECT`          | Current password incorrect | `undefined`            |
-| `WEAK_PASSWORD`               | Policy violation           | `{ errors: string[] }` |
-| `PASSWORD_REUSED`             | Password recently used     | `undefined`            |
-| `PASSWORD_CHANGE_NOT_ALLOWED` | Social-only account        | `undefined`            |
-
-**Example**
-
-```typescript
-await authService.changePassword({
-  sub: 'a21b654c-2746-4168-acee-c175083a65cd',
-  oldPassword: 'OldPass123!',
-  newPassword: 'NewPass456!',
-});
-```
-
----
-
 ### adminSetPassword()
 
 Admin-only: Reset user password by identifier.
@@ -165,6 +127,193 @@ fastify.post('/admin/reset-password',
 :::note
 Admin authorization required. This method does not check admin status - protect routes with admin guards.
 :::
+
+---
+
+### changePassword()
+
+Change user's password. Requires current password verification.
+
+```typescript
+async changePassword(dto: ChangePasswordRequestDTO): Promise<ChangePasswordResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`ChangePasswordRequestDTO`](../dto/change-password-request-dto)
+
+**Returns**
+
+- [`ChangePasswordResponseDTO`](../dto/change-password-response-dto)
+
+**Errors**
+
+| Code                          | When                       | Details                |
+| ----------------------------- | -------------------------- | ---------------------- |
+| `NOT_FOUND`                   | User not found             | `{ userId?: string }`  |
+| `PASSWORD_INCORRECT`          | Current password incorrect | `undefined`            |
+| `WEAK_PASSWORD`               | Policy violation           | `{ errors: string[] }` |
+| `PASSWORD_REUSED`             | Password recently used     | `undefined`            |
+| `PASSWORD_CHANGE_NOT_ALLOWED` | Social-only account        | `undefined`            |
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+await authService.changePassword({
+  sub: 'a21b654c-2746-4168-acee-c175083a65cd',
+  oldPassword: 'OldPass123!',
+  newPassword: 'NewPass456!',
+});
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.post('/auth/change-password', async (req, res) => {
+  const result = await nauth.authService.changePassword(req.body);
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.post('/auth/change-password', async (req, reply) => {
+  const result = await nauth.authService.changePassword(req.body);
+  reply.send(result);
+});
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+### confirmForgotPassword()
+
+Confirm password reset code and set a new password.
+
+```typescript
+async confirmForgotPassword(dto: ConfirmForgotPasswordDTO): Promise<ConfirmForgotPasswordResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`ConfirmForgotPasswordDTO`](../dto/forgot-password-dto)
+
+**Returns**
+
+- [`ConfirmForgotPasswordResponseDTO`](../dto/forgot-password-dto)
+
+**Errors**
+
+| Code | When | Details |
+| ---- | ---- | ------- |
+| `PASSWORD_RESET_CODE_INVALID` | Code invalid or no active reset | `undefined` |
+| `PASSWORD_RESET_CODE_EXPIRED` | Code expired | `undefined` |
+| `PASSWORD_RESET_MAX_ATTEMPTS` | Too many failed attempts | `undefined` |
+| `WEAK_PASSWORD` | Policy violation | `{ errors: string[] }` |
+| `PASSWORD_REUSED` | Password recently used | `undefined` |
+| `SERVICE_UNAVAILABLE` | Password reset not configured | `undefined` |
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+await authService.confirmForgotPassword({
+  identifier: 'user@example.com',
+  code: '123456',
+  newPassword: 'NewSecurePass123!',
+});
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.post('/auth/forgot-password/confirm', async (req, res) => {
+  const result = await nauth.authService.confirmForgotPassword(req.body);
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.post('/auth/forgot-password/confirm', async (req, reply) => {
+  const result = await nauth.authService.confirmForgotPassword(req.body);
+  reply.send(result);
+});
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+### forgotPassword()
+
+Request a password reset code (account recovery).
+
+```typescript
+async forgotPassword(dto: ForgotPasswordDTO): Promise<ForgotPasswordResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`ForgotPasswordDTO`](../dto/forgot-password-dto)
+
+**Returns**
+
+- [`ForgotPasswordResponseDTO`](../dto/forgot-password-dto)
+
+**Errors**
+
+| Code | When | Details |
+| ---- | ---- | ------- |
+| `RATE_LIMIT_PASSWORD_RESET` | Too many requests | `{ retryAfter: number, maxAttempts: number }` |
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+await authService.forgotPassword({
+  identifier: 'user@example.com',
+});
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.post('/auth/forgot-password', async (req, res) => {
+  const result = await nauth.authService.forgotPassword(req.body);
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.post('/auth/forgot-password', async (req, reply) => {
+  const result = await nauth.authService.forgotPassword(req.body);
+  reply.send(result);
+});
+```
+
+</TabItem>
+</Tabs>
 
 ---
 

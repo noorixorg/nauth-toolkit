@@ -121,15 +121,15 @@ Edit `master.mjml` → `<mj-attributes>` → `<mj-text>`
 **To change button style:**
 Edit `master.mjml` → `<mj-attributes>` → `<mj-button>`
 
-**No need to edit individual content templates!** 🎉
+**No need to edit individual content templates!**
 
 ## Best Practices
 
-1. ✅ **Use CSS classes** - Don't inline styles in content templates
-2. ✅ **Keep content simple** - Just structure, no styling
-3. ✅ **Use conditionals** - `{{#if variable}}` for optional content
-4. ✅ **Test after changes** - Run `yarn build-templates` and check output
-5. ✅ **One master, many content** - All styling in master.mjml
+1. **Use CSS classes** - Don't inline styles in content templates
+2. **Keep content simple** - Just structure, no styling
+3. **Use conditionals** - `{{#if variable}}` for optional content
+4. **Test after changes** - Run `yarn build-templates` and check output
+5. **One master, many content** - All styling in master.mjml
 
 ## Build Integration
 

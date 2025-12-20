@@ -38,6 +38,10 @@ import {
   ResendCodeDTO,
   SetMustChangePasswordDTO,
   ChangePasswordRequestDTO,
+  ForgotPasswordDTO,
+  ForgotPasswordResponseDTO,
+  ConfirmForgotPasswordDTO,
+  ConfirmForgotPasswordResponseDTO,
   GetSocialAuthUrlDTO,
   HandleSocialCallbackDTO,
   LinkSocialAccountDTO,
@@ -52,9 +56,12 @@ import {
 /**
  * Unified Authentication Controller (Clean Architecture)
  *
- * 8 endpoints total:
- * - 5 primary endpoints (signup, login, respond-challenge, refresh, logout)
- * - 3 helper endpoints (setup-data, challenge-data, resend)
+ * Primary endpoints:
+ * - signup, login, respond-challenge, refresh, logout
+ * - forgot-password, forgot-password/confirm
+ *
+ * Helper endpoints:
+ * - setup-data, challenge-data, resend
  *
  * All business logic is in nauth-toolkit library.
  * This controller is a thin proxy that validates DTOs and delegates to services.
@@ -86,6 +93,32 @@ export class CustomAuthController {
     @Inject(SocialAuthService)
     protected readonly socialAuthService?: SocialAuthService,
   ) {}
+
+  // ============================================================================
+  // Account Recovery (Forgot Password)
+  // ============================================================================
+
+  /**
+   * Request password reset code.
+   *
+   * Non-enumerating: backend should return success even if user does not exist.
+   */
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() dto: ForgotPasswordDTO): Promise<ForgotPasswordResponseDTO> {
+    return await this.authService.forgotPassword(dto);
+  }
+
+  /**
+   * Confirm password reset code and set new password.
+   */
+  @Public()
+  @Post('forgot-password/confirm')
+  @HttpCode(HttpStatus.OK)
+  async confirmForgotPassword(@Body() dto: ConfirmForgotPasswordDTO): Promise<ConfirmForgotPasswordResponseDTO> {
+    return await this.authService.confirmForgotPassword(dto);
+  }
 
   // ============================================================================
   // PRIMARY FLOW (5 endpoints)

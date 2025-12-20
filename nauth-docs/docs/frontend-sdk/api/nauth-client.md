@@ -629,15 +629,91 @@ See [`ChangePasswordRequest`](./types/change-password-request) for request struc
 
 **Errors**
 
-| Code                       | When                                   | Details                       |
-| -------------------------- | -------------------------------------- | ----------------------------- |
-| `AUTH_INVALID_CREDENTIALS` | Wrong current password                 | `undefined`                   |
-| `SIGNUP_WEAK_PASSWORD`     | New password doesn't meet requirements | `{ requirements?: string[] }` |
+| Code                          | When                       | Details                |
+| ----------------------------- | -------------------------- | ---------------------- |
+| `PASSWORD_INCORRECT`          | Wrong current password     | `undefined`            |
+| `WEAK_PASSWORD`               | Policy violation           | `{ errors?: string[] }` |
+| `PASSWORD_REUSED`             | Password recently used     | `undefined`            |
+| `PASSWORD_CHANGE_NOT_ALLOWED` | Social-only account        | `undefined`            |
 
 **Example**
 
 ```typescript
 await client.changePassword('oldPassword123', 'newSecurePassword456!');
+```
+
+---
+
+### confirmForgotPassword()
+
+Confirm a password reset code and set a new password.
+
+```typescript
+async confirmForgotPassword(identifier: string, code: string, newPassword: string): Promise<ConfirmForgotPasswordResponse>
+```
+
+**Parameters**
+
+| Parameter     | Type     | Description              |
+| ------------- | -------- | ------------------------ |
+| `identifier`  | `string` | Email, username, or phone |
+| `code`        | `string` | One-time reset code      |
+| `newPassword` | `string` | New password             |
+
+**Returns**
+
+- [`ConfirmForgotPasswordResponse`](./types/confirm-forgot-password-response)
+
+See [`ConfirmForgotPasswordRequest`](./types/confirm-forgot-password-request) for request structure.
+
+**Errors**
+
+| Code                        | When                    | Details                |
+| --------------------------- | ----------------------- | ---------------------- |
+| `PASSWORD_RESET_CODE_INVALID` | Code invalid           | `undefined`            |
+| `PASSWORD_RESET_CODE_EXPIRED` | Code expired           | `undefined`            |
+| `PASSWORD_RESET_MAX_ATTEMPTS` | Too many attempts      | `undefined`            |
+| `WEAK_PASSWORD`            | Policy violation        | `{ errors?: string[] }` |
+| `PASSWORD_REUSED`          | Password recently used  | `undefined`            |
+
+**Example**
+
+```typescript
+await client.confirmForgotPassword('user@example.com', '123456', 'NewSecurePass123!');
+```
+
+---
+
+### forgotPassword()
+
+Request a password reset code (account recovery).
+
+```typescript
+async forgotPassword(identifier: string): Promise<ForgotPasswordResponse>
+```
+
+**Parameters**
+
+| Parameter    | Type     | Description              |
+| ------------ | -------- | ------------------------ |
+| `identifier` | `string` | Email, username, or phone |
+
+**Returns**
+
+- [`ForgotPasswordResponse`](./types/forgot-password-response)
+
+See [`ForgotPasswordRequest`](./types/forgot-password-request) for request structure.
+
+**Errors**
+
+| Code                      | When              | Details                                   |
+| ------------------------- | ----------------- | ----------------------------------------- |
+| `RATE_LIMIT_PASSWORD_RESET` | Too many requests | `{ retryAfter?: number, maxAttempts?: number }` |
+
+**Example**
+
+```typescript
+await client.forgotPassword('user@example.com');
 ```
 
 ---

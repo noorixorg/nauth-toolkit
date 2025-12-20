@@ -336,7 +336,7 @@ export class JwtService {
    * Refresh tokens are long-lived (typically 30 days) and used to obtain new access tokens.
    * They should be stored securely and rotated on each use.
    *
-   * ⚠️ NOTE: Refresh tokens always use a symmetric algorithm (HS256/HS384/HS512)
+   * NOTE: Refresh tokens always use a symmetric algorithm (HS256/HS384/HS512)
    * because RefreshTokenConfig only provides a secret, not a privateKey.
    * This ensures compatibility between the algorithm and key type.
    *
@@ -485,7 +485,7 @@ export class JwtService {
   /**
    * Decode a token without verification
    *
-   * ⚠️ WARNING: This method does NOT validate the token signature or expiration.
+   * WARNING: This method does NOT validate the token signature or expiration.
    * Only use for non-security-critical operations like logging or analytics.
    *
    * @param token - JWT token to decode
@@ -527,7 +527,7 @@ export class JwtService {
    * Token families are used to track token rotation and detect reuse attacks.
    * All tokens in the same "family" (original + rotated versions) share this ID.
    *
-   * ⚠️ SECURITY FIX #10: Increased from 16 bytes (128 bits) to 32 bytes (256 bits)
+   * SECURITY FIX #10: Increased from 16 bytes (128 bits) to 32 bytes (256 bits)
    *
    * @returns Random token family ID (256 bits)
    */

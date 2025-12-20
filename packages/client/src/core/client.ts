@@ -27,7 +27,15 @@ import {
   SocialVerifyRequest,
   SocialProvider,
 } from '../types/social.types';
-import { ChangePasswordRequest, AuthUser, UpdateProfileRequest } from '../types/user.types';
+import {
+  AuthUser,
+  ChangePasswordRequest,
+  ConfirmForgotPasswordRequest,
+  ConfirmForgotPasswordResponse,
+  ForgotPasswordRequest,
+  ForgotPasswordResponse,
+  UpdateProfileRequest,
+} from '../types/user.types';
 import { AuditHistoryResponse } from '../types/audit.types';
 
 const USER_KEY = 'nauth_user';
@@ -370,6 +378,26 @@ export class NAuthClient {
   async changePassword(oldPassword: string, newPassword: string): Promise<void> {
     const payload: ChangePasswordRequest = { currentPassword: oldPassword, newPassword };
     await this.post(this.config.endpoints.changePassword, payload, true);
+  }
+
+  /**
+   * Request a password reset code (forgot password).
+   */
+  async forgotPassword(identifier: string): Promise<ForgotPasswordResponse> {
+    const payload: ForgotPasswordRequest = { identifier };
+    return this.post<ForgotPasswordResponse>(this.config.endpoints.forgotPassword, payload);
+  }
+
+  /**
+   * Confirm a password reset code and set a new password.
+   */
+  async confirmForgotPassword(
+    identifier: string,
+    code: string,
+    newPassword: string,
+  ): Promise<ConfirmForgotPasswordResponse> {
+    const payload: ConfirmForgotPasswordRequest = { identifier, code, newPassword };
+    return this.post<ConfirmForgotPasswordResponse>(this.config.endpoints.confirmForgotPassword, payload);
   }
 
   /**

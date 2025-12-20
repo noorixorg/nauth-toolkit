@@ -165,10 +165,19 @@ export class ProfileComponent implements OnInit {
 
   /**
    * Check if account has password (is password-based)
+   *
+   * Returns false for pure social accounts (no password set).
+   * Returns true if account has a password (password-based or hybrid).
    */
   hasPassword = computed((): boolean => {
     const currentUser = this.user();
     if (!currentUser) return false;
+
+    // Pure social accounts cannot have passwords
+    if (this.isPureSocialAccount()) {
+      return false;
+    }
+
     // Has password if: username is not null OR hasPasswordHash is true/undefined
     // If both username is null and hasPasswordHash is false, then no password
     if (currentUser.username === null && currentUser.hasPasswordHash === false) {
@@ -276,16 +285,14 @@ export class ProfileComponent implements OnInit {
     });
 
     // Add custom validator for password match
-    this.changePasswordForm
-      .get('confirmPassword')
-      ?.addValidators((control) => {
-        const newPassword = this.changePasswordForm.get('newPassword')?.value;
-        const confirmPassword = control.value;
-        if (newPassword && confirmPassword && newPassword !== confirmPassword) {
-          return { passwordMismatch: true };
-        }
-        return null;
-      });
+    this.changePasswordForm.get('confirmPassword')?.addValidators((control) => {
+      const newPassword = this.changePasswordForm.get('newPassword')?.value;
+      const confirmPassword = control.value;
+      if (newPassword && confirmPassword && newPassword !== confirmPassword) {
+        return { passwordMismatch: true };
+      }
+      return null;
+    });
 
     // Re-validate confirm password when new password changes
     this.changePasswordForm.get('newPassword')?.valueChanges.subscribe(() => {
@@ -496,8 +503,16 @@ export class ProfileComponent implements OnInit {
 
   /**
    * Open change password dialog
+   *
+   * Prevents opening for pure social accounts (no password set).
    */
   openChangePasswordDialog(): void {
+    // Prevent opening dialog for pure social accounts
+    if (this.isPureSocialAccount() || !this.hasPassword()) {
+      this.error.set('Password change is not available for social-only accounts.');
+      return;
+    }
+
     this.changePasswordForm.reset();
     this.error.set(null);
     this.success.set(null);

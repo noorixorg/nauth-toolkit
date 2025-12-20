@@ -39,5 +39,7 @@ import { ChangePasswordRequest } from '@nauth-toolkit/client';
 
 ## Related Types
 
+- [`ForgotPasswordRequest`](./forgot-password-request) - Start account recovery
+- [`ConfirmForgotPasswordRequest`](./confirm-forgot-password-request) - Confirm account recovery
 - [`AuthUser`](./auth-user) - User profile
 - [`UpdateProfileRequest`](./update-profile-request) - Profile update request

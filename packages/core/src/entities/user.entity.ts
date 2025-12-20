@@ -148,7 +148,7 @@ export class BaseUser {
 
   /**
    * TOTP secret (encrypted)
-   * ⚠️ DEPRECATED: Use MFADevice entity instead
+   * DEPRECATED: Use MFADevice entity instead
    */
   totpSecret?: string | null;
 

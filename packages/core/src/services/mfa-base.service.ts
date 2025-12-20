@@ -554,7 +554,7 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
    * - Grace period for REQUIRED enforcement
    * - User's MFA enrollment date
    *
-   * ⚠️ ADAPTIVE enforcement currently behaves like REQUIRED (placeholder for future risk-based logic)
+   * ADAPTIVE enforcement currently behaves like REQUIRED (placeholder for future risk-based logic)
    *
    * @param user - User to check
    * @returns True if MFA is required
