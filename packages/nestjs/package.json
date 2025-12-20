@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/nestjs",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "NestJS adapter for nauth-toolkit - Platform-specific integrations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -32,7 +32,7 @@
     "typeorm": "^0.3.0"
   },
   "dependencies": {
-    "@nauth-toolkit/core": "0.1.6"
+    "@nauth-toolkit/core": "0.1.7"
   },
   "devDependencies": {
     "@nestjs/common": "^11.1.8",

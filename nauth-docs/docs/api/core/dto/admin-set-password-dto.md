@@ -1,0 +1,73 @@
+---
+title: AdminSetPasswordDTO
+description: Admin-only password reset DTOs for resetting user passwords by identifier with configurable force change and session revocation.
+keywords: [admin, password, reset, dto, request, response, api]
+image: /img/api-social-card.png
+sidebar_position: 2
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# AdminSetPasswordDTO
+
+**Package:** `@nauth-toolkit/core`
+**Type:** DTO (Request/Response)
+
+Data transfer objects for admin-initiated password reset by identifier (email, username, phone, or sub).
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+import { AdminSetPasswordDTO, AdminSetPasswordResponseDTO } from '@nauth-toolkit/nestjs';
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+import { AdminSetPasswordDTO, AdminSetPasswordResponseDTO } from '@nauth-toolkit/core';
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+import { AdminSetPasswordDTO, AdminSetPasswordResponseDTO } from '@nauth-toolkit/core';
+```
+
+</TabItem>
+</Tabs>
+
+## AdminSetPasswordDTO (Request)
+
+| Property             | Type      | Required | Description                                                                                      |
+| -------------------- | --------- | -------- | ------------------------------------------------------------------------------------------------ |
+| `identifier`         | `string`  | Yes      | User identifier. Email, username, phone, or sub/UUID. 1-255 chars. Trimmed, lowercased if email. |
+| `newPassword`        | `string`  | Yes      | New password. 8-128 characters. Not trimmed.                                                     |
+| `mustChangePassword` | `boolean` | No       | Require password change on next login. Default: true.                                            |
+| `revokeSessions`     | `boolean` | No       | Revoke all active sessions. Default: true.                                                       |
+
+## AdminSetPasswordResponseDTO (Response)
+
+| Property             | Type      | Description                                      |
+| -------------------- | --------- | ------------------------------------------------ |
+| `success`            | `boolean` | Always true on success.                          |
+| `mustChangePassword` | `boolean` | Whether user must change password on next login. |
+| `sessionsRevoked`    | `number`  | Number of sessions revoked.                      |
+
+## Example
+
+```json
+{
+  "identifier": "user@example.com",
+  "newPassword": "NewSecurePassword123!",
+  "mustChangePassword": true,
+  "revokeSessions": true
+}
+```
+
+## Used By
+
+- [AuthService.adminSetPassword()](../services/auth-service#adminsetpassword)

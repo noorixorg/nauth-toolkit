@@ -22,6 +22,21 @@ import {
 import { PasswordService, ChallengeService } from '../../internal';
 
 /**
+ * Import an optional peer dependency at runtime without creating a compile-time
+ * dependency for TypeScript consumers of `@nauth-toolkit/core`.
+ *
+ * IMPORTANT: the module specifier is intentionally typed as `string` (not a literal)
+ * to prevent TypeScript from erroring when the peer dependency isn't installed.
+ */
+async function importOptional<TModule>(moduleName: string): Promise<TModule | null> {
+  try {
+    return (await import(moduleName)) as unknown as TModule;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Register MFA providers with the MFA service
  *
  * Dynamically imports MFA provider packages based on configuration.
@@ -59,26 +74,33 @@ export async function registerMFAProviders(
   // TOTP MFA Provider
   // ============================================================================
   try {
-    // @ts-expect-error - Optional peer dependency, may not be installed
-    const { TOTPMFAProviderService, TOTPService } = await import('@nauth-toolkit/mfa-totp');
+    type TotpModule = {
+      TOTPMFAProviderService: new (...args: unknown[]) => IMFAProviderService;
+      TOTPService: new (...args: unknown[]) => unknown;
+    };
 
-    const totpService = new TOTPService(config, logger);
+    const mod = await importOptional<TotpModule>('@nauth-toolkit/mfa-totp' as string);
+    if (!mod) {
+      logger?.warn?.('TOTP MFA package not found. Install @nauth-toolkit/mfa-totp to enable TOTP MFA.');
+    } else {
+      const totpService = new mod.TOTPService(config, logger);
 
-    const totpProvider = new TOTPMFAProviderService(
-      mfaDeviceRepository,
-      userRepository,
-      config,
-      logger,
-      passwordService,
-      totpService,
-      challengeService,
-      auditService,
-      clientInfoService,
-    );
+      const totpProvider = new mod.TOTPMFAProviderService(
+        mfaDeviceRepository,
+        userRepository,
+        config,
+        logger,
+        passwordService,
+        totpService,
+        challengeService,
+        auditService,
+        clientInfoService,
+      );
 
-    mfaService.registerProvider(totpProvider as unknown as IMFAProviderService);
-    logger?.debug?.('TOTP MFA provider registered');
-  } catch (_error) {
+      mfaService.registerProvider(totpProvider);
+      logger?.debug?.('TOTP MFA provider registered');
+    }
+  } catch {
     logger?.warn?.('TOTP MFA package not found. Install @nauth-toolkit/mfa-totp to enable TOTP MFA.');
   }
 
@@ -87,24 +109,30 @@ export async function registerMFAProviders(
   // ============================================================================
   if (phoneVerificationService) {
     try {
-      // @ts-expect-error - Optional peer dependency, may not be installed
-      const { SMSMFAProviderService } = await import('@nauth-toolkit/mfa-sms');
+      type SmsModule = {
+        SMSMFAProviderService: new (...args: unknown[]) => IMFAProviderService;
+      };
 
-      const smsProvider = new SMSMFAProviderService(
-        mfaDeviceRepository,
-        userRepository,
-        config,
-        logger,
-        passwordService,
-        phoneVerificationService,
-        challengeService,
-        auditService,
-        clientInfoService,
-      );
+      const mod = await importOptional<SmsModule>('@nauth-toolkit/mfa-sms' as string);
+      if (!mod) {
+        logger?.warn?.('SMS MFA package not found. Install @nauth-toolkit/mfa-sms to enable SMS MFA.');
+      } else {
+        const smsProvider = new mod.SMSMFAProviderService(
+          mfaDeviceRepository,
+          userRepository,
+          config,
+          logger,
+          passwordService,
+          phoneVerificationService,
+          challengeService,
+          auditService,
+          clientInfoService,
+        );
 
-      mfaService.registerProvider(smsProvider as unknown as IMFAProviderService);
-      logger?.debug?.('SMS MFA provider registered');
-    } catch (_error) {
+        mfaService.registerProvider(smsProvider);
+        logger?.debug?.('SMS MFA provider registered');
+      }
+    } catch {
       logger?.warn?.('SMS MFA package not found. Install @nauth-toolkit/mfa-sms to enable SMS MFA.');
     }
   } else {
@@ -115,24 +143,30 @@ export async function registerMFAProviders(
   // Email MFA Provider
   // ============================================================================
   try {
-    // @ts-expect-error - Optional peer dependency, may not be installed
-    const { EmailMFAProviderService } = await import('@nauth-toolkit/mfa-email');
+    type EmailModule = {
+      EmailMFAProviderService: new (...args: unknown[]) => IMFAProviderService;
+    };
 
-    const emailProvider = new EmailMFAProviderService(
-      mfaDeviceRepository,
-      userRepository,
-      config,
-      logger,
-      passwordService,
-      emailVerificationService,
-      challengeService,
-      auditService,
-      clientInfoService,
-    );
+    const mod = await importOptional<EmailModule>('@nauth-toolkit/mfa-email' as string);
+    if (!mod) {
+      logger?.warn?.('Email MFA package not found. Install @nauth-toolkit/mfa-email to enable Email MFA.');
+    } else {
+      const emailProvider = new mod.EmailMFAProviderService(
+        mfaDeviceRepository,
+        userRepository,
+        config,
+        logger,
+        passwordService,
+        emailVerificationService,
+        challengeService,
+        auditService,
+        clientInfoService,
+      );
 
-    mfaService.registerProvider(emailProvider as unknown as IMFAProviderService);
-    logger?.debug?.('Email MFA provider registered');
-  } catch (_error) {
+      mfaService.registerProvider(emailProvider);
+      logger?.debug?.('Email MFA provider registered');
+    }
+  } catch {
     logger?.warn?.('Email MFA package not found. Install @nauth-toolkit/mfa-email to enable Email MFA.');
   }
 
@@ -140,26 +174,33 @@ export async function registerMFAProviders(
   // Passkey MFA Provider
   // ============================================================================
   try {
-    // @ts-expect-error - Optional peer dependency, may not be installed
-    const { PasskeyMFAProviderService, PasskeyService } = await import('@nauth-toolkit/mfa-passkey');
+    type PasskeyModule = {
+      PasskeyMFAProviderService: new (...args: unknown[]) => IMFAProviderService;
+      PasskeyService: new (...args: unknown[]) => unknown;
+    };
 
-    const passkeyService = new PasskeyService(config, logger);
+    const mod = await importOptional<PasskeyModule>('@nauth-toolkit/mfa-passkey' as string);
+    if (!mod) {
+      logger?.warn?.('Passkey MFA package not found. Install @nauth-toolkit/mfa-passkey to enable Passkey MFA.');
+    } else {
+      const passkeyService = new mod.PasskeyService(config, logger);
 
-    const passkeyProvider = new PasskeyMFAProviderService(
-      mfaDeviceRepository,
-      userRepository,
-      config,
-      logger,
-      passwordService,
-      passkeyService,
-      challengeService,
-      auditService,
-      clientInfoService,
-    );
+      const passkeyProvider = new mod.PasskeyMFAProviderService(
+        mfaDeviceRepository,
+        userRepository,
+        config,
+        logger,
+        passwordService,
+        passkeyService,
+        challengeService,
+        auditService,
+        clientInfoService,
+      );
 
-    mfaService.registerProvider(passkeyProvider as unknown as IMFAProviderService);
-    logger?.debug?.('Passkey MFA provider registered');
-  } catch (_error) {
+      mfaService.registerProvider(passkeyProvider);
+      logger?.debug?.('Passkey MFA provider registered');
+    }
+  } catch {
     logger?.warn?.('Passkey MFA package not found. Install @nauth-toolkit/mfa-passkey to enable Passkey MFA.');
   }
 }

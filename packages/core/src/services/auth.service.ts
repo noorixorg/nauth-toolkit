@@ -46,6 +46,7 @@ import { ResendCodeDTO } from '../dto/resend-code.dto';
 import { ResendCodeResponseDTO } from '../dto/resend-code-response.dto';
 import { SetMustChangePasswordDTO } from '../dto/set-must-change-password.dto';
 import { SetMustChangePasswordResponseDTO } from '../dto/set-must-change-password-response.dto';
+import { AdminSetPasswordDTO, AdminSetPasswordResponseDTO } from '../dto/admin-set-password.dto';
 import { TrustDeviceResponseDTO } from '../dto/trust-device-response.dto';
 import { IsTrustedDeviceResponseDTO } from '../dto/is-trusted-device-response.dto';
 import { VerifyEmailWithCodeDTO, ResendVerificationEmailDTO } from '../dto/verify-email.dto';
@@ -626,7 +627,7 @@ export class AuthService {
             deviceId = session.deviceId;
           }
         }
-      } catch (_error) {
+      } catch {
         // Non-blocking: Continue without sessionId/deviceId
         this.logger?.debug?.('Failed to extract sessionId/deviceId from token for audit');
       }
@@ -1730,7 +1731,7 @@ export class AuthService {
     // Update password history
     const newHistory = user.passwordHash
       ? this.passwordService.addToHistory(user.passwordHistory || [], user.passwordHash)
-      : (user.passwordHistory || []);
+      : user.passwordHistory || [];
 
     // Update user password and clear mustChangePassword flag - use save() for array fields
     user.passwordHash = newHash;
@@ -3734,5 +3735,183 @@ export class AuthService {
     this.logger?.log?.(`Must-change-password flag set for user: ${dto.userId}`);
 
     return { success: true };
+  }
+
+  /**
+   * Admin-only: Reset a user's password by identifier.
+   *
+   * Allows administrators to reset a user's password using any identifier
+   * (email, username, phone, or sub). Automatically revokes sessions and optionally
+   * requires password change on next login using the existing challenge system.
+   *
+   * SECURITY: This is an admin-only operation. Ensure proper authorization
+   * checks are in place before calling this method.
+   *
+   * @param dto - Admin reset password request
+   * @returns Response with success status and session revocation count
+   * @throws {NAuthException} If user not found, user has no password (social-only), or password validation fails
+   *
+   * @example
+   * ```typescript
+   * // Reset with force password change
+   * const result = await authService.adminSetPassword({
+   *   identifier: 'user@example.com',
+   *   newPassword: 'NewSecurePassword123!',
+   *   mustChangePassword: true,
+   *   revokeSessions: true
+   * });
+   *
+   * // Reset without forcing password change
+   * const result = await authService.adminSetPassword({
+   *   identifier: 'a21b654c-2746-4168-acee-c175083a65cd',
+   *   newPassword: 'NewSecurePassword123!',
+   *   mustChangePassword: false
+   * });
+   * ```
+   */
+  async adminSetPassword(dto: AdminSetPasswordDTO): Promise<AdminSetPasswordResponseDTO> {
+    this.logger?.log?.(`Admin password reset requested for identifier: ${dto.identifier}`);
+    this.logger?.debug?.(
+      `Reset details: { identifier: ${dto.identifier}, mustChangePassword: ${dto.mustChangePassword ?? true}, revokeSessions: ${dto.revokeSessions ?? true} }`,
+    );
+
+    // ============================================================================
+    // Find User by Identifier
+    // ============================================================================
+    // Support multiple identifier types: email, username, phone, or sub (UUID)
+    let user: IUser | null = null;
+
+    // Try to find by sub (UUID) first if it looks like a UUID
+    // UUID v4 format: 8-4-4-4-12 hex digits with dashes
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(dto.identifier)) {
+      this.logger?.debug?.(`Identifier appears to be UUID, searching by sub: ${dto.identifier}`);
+      user = (await this.userRepository.findOne({ where: { sub: dto.identifier } })) as IUser | null;
+    }
+
+    // If not found by sub, try by identifier (email, username, phone)
+    if (!user) {
+      this.logger?.debug?.(`Searching by identifier (email/username/phone): ${dto.identifier}`);
+      user = await this.findUserByIdentifier(dto.identifier);
+    }
+
+    if (!user) {
+      this.logger?.warn?.(`Password reset failed - user not found: ${dto.identifier}`);
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    // ============================================================================
+    // Validate User Can Have Password Reset
+    // ============================================================================
+    // CRITICAL PROTECTION: Only allow for users with password authentication
+    // Pure social users cannot have password reset (they don't have passwords)
+    if (!user.passwordHash) {
+      this.logger?.warn?.(`Password reset failed - user doesn't have a password (pure social signup): ${user.sub}`);
+      throw new NAuthException(
+        AuthErrorCode.PASSWORD_CHANGE_NOT_ALLOWED,
+        'Password reset not available. This account uses social authentication only and has no password.',
+      );
+    }
+
+    // ============================================================================
+    // Validate New Password
+    // ============================================================================
+    this.logger?.debug?.('Validating password against policy');
+    const passwordValidation = await this.passwordService.validatePassword(dto.newPassword, {
+      email: user.email,
+      username: user.username || undefined,
+    });
+
+    if (!passwordValidation.valid) {
+      this.logger?.warn?.(`Password validation failed for ${user.sub}: ${passwordValidation.errors.join(', ')}`);
+      throw new NAuthException(AuthErrorCode.WEAK_PASSWORD, passwordValidation.errors.join(', '), {
+        errors: passwordValidation.errors,
+      });
+    }
+
+    // ============================================================================
+    // Check Password History
+    // ============================================================================
+    if (this.config.password?.historyCount) {
+      const historyToCheck = user.passwordHistory || [];
+      const allPreviousPasswords = user.passwordHash ? [user.passwordHash, ...historyToCheck] : historyToCheck;
+
+      const isReused = await this.passwordService.isPasswordInHistory(dto.newPassword, allPreviousPasswords);
+
+      if (isReused) {
+        this.logger?.warn?.(`Password reuse detected for user: ${user.sub}`);
+        throw new NAuthException(
+          AuthErrorCode.PASSWORD_REUSED,
+          'This password was recently used. Please choose a different password.',
+        );
+      }
+    }
+
+    // ============================================================================
+    // Update Password
+    // ============================================================================
+    // Hash new password
+    const newHash = await this.passwordService.hashPassword(dto.newPassword);
+
+    // Update password history
+    const newHistory = this.passwordService.addToHistory(user.passwordHistory || [], user.passwordHash);
+
+    // Prepare update fields
+    const mustChangePassword = dto.mustChangePassword ?? true; // Default to true for security
+
+    // Update user - use save() to ensure TypeORM properly serializes simple-array fields
+    user.passwordHash = newHash;
+    user.passwordChangedAt = new Date();
+    user.passwordHistory = newHistory;
+    user.mustChangePassword = mustChangePassword;
+    await this.userRepository.save(user);
+
+    this.logger?.log?.(`Password reset successfully for user: ${user.sub}`);
+
+    // ============================================================================
+    // Revoke Sessions (if enabled)
+    // ============================================================================
+    let sessionsRevoked = 0;
+    if (dto.revokeSessions !== false) {
+      // Default to true for security
+      this.logger?.debug?.(`Revoking all sessions for user: ${user.sub}`);
+      sessionsRevoked = await this.sessionService.revokeAllUserSessions(user.id, 'Password reset by administrator');
+      this.logger?.log?.(`Revoked ${sessionsRevoked} session(s) for user: ${user.sub}`);
+    }
+
+    // ============================================================================
+    // Audit: Record password reset
+    // ============================================================================
+    try {
+      await this.auditService?.recordEvent({
+        userId: user.id,
+        eventType: AuthAuditEventType.PASSWORD_RESET_COMPLETED,
+        eventStatus: 'SUCCESS',
+        reason: 'admin_reset',
+        description: 'Password reset by administrator',
+        // Client info automatically included from context
+        metadata: {
+          identifier: dto.identifier,
+          mustChangePassword,
+          sessionsRevoked,
+        },
+      });
+    } catch (auditError) {
+      // Non-blocking: Log but continue
+      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to record PASSWORD_RESET_COMPLETED audit event: ${errorMessage}`, {
+        error: auditError,
+        userId: user.id,
+      });
+    }
+
+    // ============================================================================
+    // Return Response
+    // ============================================================================
+    return {
+      success: true,
+      mustChangePassword,
+      sessionsRevoked,
+    };
   }
 }

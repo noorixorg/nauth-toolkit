@@ -90,6 +90,84 @@ await authService.changePassword({
 
 ---
 
+### adminSetPassword()
+
+Admin-only: Reset user password by identifier.
+
+```typescript
+async adminSetPassword(dto: AdminSetPasswordDTO): Promise<AdminSetPasswordResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminSetPasswordDTO`](../dto/admin-set-password-dto)
+
+**Returns**
+
+- [`AdminSetPasswordResponseDTO`](../dto/admin-set-password-dto)
+
+**Errors**
+
+| Code                          | When                       | Details                |
+| ----------------------------- | -------------------------- | ---------------------- |
+| `NOT_FOUND`                   | User not found             | `undefined`            |
+| `PASSWORD_CHANGE_NOT_ALLOWED` | Social-only account        | `undefined`            |
+| `WEAK_PASSWORD`               | Policy violation           | `{ errors: string[] }` |
+| `PASSWORD_REUSED`             | Password recently used     | `undefined`            |
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Controller('admin')
+@UseGuards(AuthGuard, AdminGuard)
+export class AdminController {
+  constructor(private authService: AuthService) {}
+
+  @Post('reset-password')
+  async resetPassword(@Body() dto: AdminSetPasswordDTO) {
+    return this.authService.adminSetPassword(dto);
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.post('/admin/reset-password',
+  nauth.helpers.requireAuth(),
+  requireAdmin,
+  async (req, res) => {
+    const result = await nauth.authService.adminSetPassword(req.body);
+    res.json(result);
+  }
+);
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.post('/admin/reset-password',
+  { preHandler: [nauth.helpers.requireAuth(), requireAdmin] },
+  withNAuthContext(async (req) => {
+    return nauth.authService.adminSetPassword(req.body);
+  })
+);
+```
+
+</TabItem>
+</Tabs>
+
+:::note
+Admin authorization required. This method does not check admin status - protect routes with admin guards.
+:::
+
+---
+
 ### getUserByEmail()
 
 Retrieve user by email address.

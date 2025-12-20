@@ -284,6 +284,20 @@
               <p class="text-secondary-900">{{ currentUser.createdAt | date: 'mediumDate' }}</p>
             </div>
           }
+
+          <!-- Change Password Link -->
+          @if (hasPassword()) {
+            <div>
+              <button
+                type="button"
+                class="text-primary-600 hover:text-primary-700 text-sm font-medium flex items-center gap-2 transition-colors"
+                (click)="openChangePasswordDialog()"
+              >
+                <i class="pi pi-key text-sm"></i>
+                <span>Change Password</span>
+              </button>
+            </div>
+          }
         </div>
       </div>
 
@@ -393,3 +407,133 @@
     </div>
   }
 </p-card>
+
+<!-- Change Password Dialog -->
+<p-dialog
+  [visible]="showChangePasswordDialog()"
+  (visibleChange)="showChangePasswordDialog.set($event)"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  header="Change Password"
+  [style]="{ width: '90%', maxWidth: '500px' }"
+  (onHide)="closeChangePasswordDialog()"
+>
+  <form [formGroup]="changePasswordForm" class="space-y-4">
+    <!-- Error Message -->
+    @if (error()) {
+      <p-message severity="error" [text]="error() || ''" styleClass="w-full" />
+    }
+
+    <!-- Old Password -->
+    <div class="flex flex-col gap-2">
+      <label for="oldPassword" class="form-label">Current Password</label>
+      <p-password
+        id="oldPassword"
+        formControlName="oldPassword"
+        placeholder="Enter current password"
+        [feedback]="false"
+        [toggleMask]="true"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+        [class.p-invalid]="
+          changePasswordForm.get('oldPassword')?.invalid &&
+          changePasswordForm.get('oldPassword')?.touched
+        "
+      />
+      @if (
+        changePasswordForm.get('oldPassword')?.invalid &&
+        changePasswordForm.get('oldPassword')?.touched
+      ) {
+        <small class="p-error">
+          @if (changePasswordForm.get('oldPassword')?.errors?.['required']) {
+            Current password is required
+          }
+        </small>
+      }
+    </div>
+
+    <!-- New Password -->
+    <div class="flex flex-col gap-2">
+      <label for="newPassword" class="form-label">New Password</label>
+      <p-password
+        id="newPassword"
+        formControlName="newPassword"
+        placeholder="Enter new password"
+        [feedback]="true"
+        [toggleMask]="true"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+        [class.p-invalid]="
+          changePasswordForm.get('newPassword')?.invalid &&
+          changePasswordForm.get('newPassword')?.touched
+        "
+      />
+      @if (
+        changePasswordForm.get('newPassword')?.invalid &&
+        changePasswordForm.get('newPassword')?.touched
+      ) {
+        <small class="p-error">
+          @if (changePasswordForm.get('newPassword')?.errors?.['required']) {
+            New password is required
+          } @else if (changePasswordForm.get('newPassword')?.errors?.['minlength']) {
+            Password must be at least 8 characters
+          } @else if (changePasswordForm.get('newPassword')?.errors?.['maxlength']) {
+            Password must not exceed 128 characters
+          }
+        </small>
+      }
+    </div>
+
+    <!-- Confirm Password -->
+    <div class="flex flex-col gap-2">
+      <label for="confirmPassword" class="form-label">Confirm New Password</label>
+      <p-password
+        id="confirmPassword"
+        formControlName="confirmPassword"
+        placeholder="Confirm new password"
+        [feedback]="false"
+        [toggleMask]="true"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+        [class.p-invalid]="
+          changePasswordForm.get('confirmPassword')?.invalid &&
+          changePasswordForm.get('confirmPassword')?.touched
+        "
+      />
+      @if (
+        changePasswordForm.get('confirmPassword')?.invalid &&
+        changePasswordForm.get('confirmPassword')?.touched
+      ) {
+        <small class="p-error">
+          @if (changePasswordForm.get('confirmPassword')?.errors?.['required']) {
+            Please confirm your new password
+          } @else if (changePasswordForm.get('confirmPassword')?.errors?.['passwordMismatch']) {
+            Passwords do not match
+          }
+        </small>
+      }
+    </div>
+
+    <!-- Dialog Actions -->
+    <div class="flex gap-2 pt-4">
+      <p-button
+        label="Change Password"
+        icon="pi pi-check"
+        (onClick)="changePassword()"
+        [loading]="changingPassword()"
+        [disabled]="changePasswordForm.invalid"
+        styleClass="flex-1"
+      />
+      <p-button
+        label="Cancel"
+        icon="pi pi-times"
+        severity="secondary"
+        (onClick)="closeChangePasswordDialog()"
+        [disabled]="changingPassword()"
+        styleClass="flex-1"
+      />
+    </div>
+  </form>
+</p-dialog>

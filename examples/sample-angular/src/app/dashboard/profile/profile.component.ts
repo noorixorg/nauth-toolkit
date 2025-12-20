@@ -13,6 +13,8 @@ import { AvatarModule } from 'primeng/avatar';
 import { MessageModule } from 'primeng/message';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { TooltipModule } from 'primeng/tooltip';
+import { DialogModule } from 'primeng/dialog';
+import { PasswordModule } from 'primeng/password';
 import { ConfirmationService } from 'primeng/api';
 
 /**
@@ -44,6 +46,8 @@ import { ConfirmationService } from 'primeng/api';
     MessageModule,
     ConfirmDialogModule,
     TooltipModule,
+    DialogModule,
+    PasswordModule,
   ],
   providers: [ConfirmationService],
   templateUrl: './profile.component.html',
@@ -129,6 +133,21 @@ export class ProfileComponent implements OnInit {
    * Unlinking account state
    */
   unlinking = signal<string | null>(null);
+
+  /**
+   * Change password dialog visibility
+   */
+  showChangePasswordDialog = signal(false);
+
+  /**
+   * Changing password state
+   */
+  changingPassword = signal(false);
+
+  /**
+   * Change password form group
+   */
+  changePasswordForm: FormGroup;
 
   /**
    * Check if account is pure social (no password)
@@ -248,6 +267,29 @@ export class ProfileComponent implements OnInit {
       lastName: ['', [Validators.maxLength(100)]],
       email: ['', [Validators.required, Validators.email, Validators.maxLength(255)]],
       phone: ['', [Validators.maxLength(20)]],
+    });
+
+    this.changePasswordForm = this.fb.group({
+      oldPassword: ['', [Validators.required]],
+      newPassword: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(128)]],
+      confirmPassword: ['', [Validators.required]],
+    });
+
+    // Add custom validator for password match
+    this.changePasswordForm
+      .get('confirmPassword')
+      ?.addValidators((control) => {
+        const newPassword = this.changePasswordForm.get('newPassword')?.value;
+        const confirmPassword = control.value;
+        if (newPassword && confirmPassword && newPassword !== confirmPassword) {
+          return { passwordMismatch: true };
+        }
+        return null;
+      });
+
+    // Re-validate confirm password when new password changes
+    this.changePasswordForm.get('newPassword')?.valueChanges.subscribe(() => {
+      this.changePasswordForm.get('confirmPassword')?.updateValueAndValidity();
     });
   }
 
@@ -450,5 +492,63 @@ export class ProfileComponent implements OnInit {
         }
       },
     });
+  }
+
+  /**
+   * Open change password dialog
+   */
+  openChangePasswordDialog(): void {
+    this.changePasswordForm.reset();
+    this.error.set(null);
+    this.success.set(null);
+    this.showChangePasswordDialog.set(true);
+  }
+
+  /**
+   * Close change password dialog
+   */
+  closeChangePasswordDialog(): void {
+    this.showChangePasswordDialog.set(false);
+    this.changePasswordForm.reset();
+    this.error.set(null);
+  }
+
+  /**
+   * Change user password
+   */
+  async changePassword(): Promise<void> {
+    if (this.changePasswordForm.invalid) {
+      Object.keys(this.changePasswordForm.controls).forEach((key) => {
+        this.changePasswordForm.get(key)?.markAsTouched();
+      });
+      return;
+    }
+
+    this.changingPassword.set(true);
+    this.error.set(null);
+    this.success.set(null);
+
+    try {
+      const { oldPassword, newPassword } = this.changePasswordForm.value;
+      await this.auth.getClient().changePassword(oldPassword, newPassword);
+
+      this.changingPassword.set(false);
+      this.success.set('Password changed successfully');
+      this.closeChangePasswordDialog();
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        this.success.set(null);
+      }, 3000);
+    } catch (err: unknown) {
+      this.changingPassword.set(false);
+      if (err instanceof NAuthClientError) {
+        this.error.set(err.message);
+      } else if (err instanceof Error) {
+        this.error.set(err.message || 'Failed to change password');
+      } else {
+        this.error.set('Failed to change password');
+      }
+    }
   }
 }

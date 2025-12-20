@@ -490,11 +490,7 @@ export class GeoLocationService {
         const errorMessage = typeof fetchErrorObj.message === 'string' ? fetchErrorObj.message : undefined;
 
         // Handle network errors (DNS failures, connection errors, etc.)
-        if (
-          errorCode === 'ENOTFOUND' ||
-          errorCode === 'ECONNREFUSED' ||
-          errorName === 'AbortError'
-        ) {
+        if (errorCode === 'ENOTFOUND' || errorCode === 'ECONNREFUSED' || errorName === 'AbortError') {
           throw new NAuthException(
             AuthErrorCode.INTERNAL_ERROR,
             `Network error while downloading MaxMind database ${edition}: ${

@@ -1,6 +1,14 @@
-import { createRemoteJWKSet, jwtVerify, JWTPayload } from 'jose';
+import type { JWTPayload } from 'jose';
 import { NAuthConfig, NAuthLogger, NAuthException, AuthErrorCode, ITokenVerifierService } from '@nauth-toolkit/core';
 import { VerifiedAppleTokenProfile } from './verified-token-profile.interface';
+
+/**
+ * jose module type (ESM-only dependency).
+ *
+ * IMPORTANT: `jose@6` is ESM-only. This package is compiled to CommonJS by default,
+ * so we load jose via dynamic import to avoid `ERR_REQUIRE_ESM` at runtime.
+ */
+type JoseModule = typeof import('jose');
 
 /**
  * Token Verifier Service for Apple OAuth (Platform-Agnostic)
@@ -21,13 +29,29 @@ import { VerifiedAppleTokenProfile } from './verified-token-profile.interface';
  * ```
  */
 export class TokenVerifierService implements ITokenVerifierService {
-  private appleJWKS: ReturnType<typeof createRemoteJWKSet>;
+  private appleJWKS: ReturnType<JoseModule['createRemoteJWKSet']> | null = null;
   private readonly logger: NAuthLogger;
+  private readonly loadJose: () => Promise<JoseModule>;
+  private joseModulePromise: Promise<JoseModule> | null = null;
 
-  constructor(config: NAuthConfig) {
+  constructor(config: NAuthConfig, loadJose?: () => Promise<JoseModule>) {
     this.logger = config.logger as NAuthLogger;
+    this.loadJose = loadJose ?? (() => import('jose') as Promise<JoseModule>);
+  }
+
+  private async getJose(): Promise<JoseModule> {
+    if (!this.joseModulePromise) {
+      this.joseModulePromise = this.loadJose();
+    }
+    return await this.joseModulePromise;
+  }
+
+  private async getAppleJWKS(): Promise<ReturnType<JoseModule['createRemoteJWKSet']>> {
+    if (this.appleJWKS) return this.appleJWKS;
+    const jose = await this.getJose();
     // Initialize Apple Remote JWKS (fetched and cached by jose)
-    this.appleJWKS = createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));
+    this.appleJWKS = jose.createRemoteJWKSet(new URL('https://appleid.apple.com/auth/keys'));
+    return this.appleJWKS;
   }
 
   /**
@@ -55,7 +79,10 @@ export class TokenVerifierService implements ITokenVerifierService {
     try {
       this.logger?.debug?.(`[TokenVerifier] Verifying Apple token`);
 
-      const { payload } = await jwtVerify(idToken, this.appleJWKS, {
+      const jose = await this.getJose();
+      const appleJWKS = await this.getAppleJWKS();
+
+      const { payload } = await jose.jwtVerify(idToken, appleJWKS, {
         issuer: 'https://appleid.apple.com',
         audience: clientId,
         clockTolerance: 300, // 5 minutes leeway

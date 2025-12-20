@@ -1,8 +1,16 @@
-import * as jose from 'jose';
 import { JwtConfig } from '../interfaces/config.interface';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import * as crypto from 'crypto';
+
+/**
+ * jose module type (ESM-only dependency).
+ *
+ * IMPORTANT: `jose@6` is ESM-only. This monorepo currently compiles core to CommonJS, so
+ * a static `import ... from 'jose'` emits `require('jose')` and fails at runtime with
+ * `ERR_REQUIRE_ESM`. We therefore load jose via dynamic import.
+ */
+type JoseModule = typeof import('jose');
 
 /**
  * JWT Payload structure
@@ -119,9 +127,30 @@ export class JwtService {
   /** Cached refresh token key (for performance) */
   private refreshTokenKey: Uint8Array | crypto.KeyObject | null = null;
 
+  /**
+   * Cached dynamic import of jose.
+   * Kept as a promise so concurrent calls share the same module load.
+   */
+  private joseModulePromise: Promise<JoseModule> | null = null;
+
   constructor(jwtConfig: JwtConfig) {
     this.config = jwtConfig;
     this.prepareKeys();
+  }
+
+  // ============================================================================
+  // jose (ESM-only) loader
+  // ============================================================================
+
+  /**
+   * Lazy-load jose (ESM-only) in a CJS-compatible way.
+   * @private
+   */
+  private async getJose(): Promise<JoseModule> {
+    if (!this.joseModulePromise) {
+      this.joseModulePromise = import('jose') as Promise<JoseModule>;
+    }
+    return await this.joseModulePromise;
   }
 
   // ============================================================================
@@ -271,6 +300,7 @@ export class JwtService {
       );
     }
 
+    const jose = await this.getJose();
     const algorithm = this.getAlgorithm();
     let jwt = new jose.SignJWT({
       sub: data.userId,
@@ -323,6 +353,7 @@ export class JwtService {
       throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Refresh token secret not configured.');
     }
 
+    const jose = await this.getJose();
     // Use refresh token-specific algorithm (always symmetric)
     const algorithm = this.getRefreshTokenAlgorithm();
     const jwt = new jose.SignJWT({
@@ -370,6 +401,7 @@ export class JwtService {
    */
   async validateAccessToken(token: string): Promise<TokenValidationResult> {
     try {
+      const jose = await this.getJose();
       // Determine key for verification
       let verificationKey: Uint8Array | crypto.KeyObject;
 
@@ -425,6 +457,7 @@ export class JwtService {
         throw new Error('Refresh token key not configured');
       }
 
+      const jose = await this.getJose();
       // Verify and decode token
       const { payload } = await jose.jwtVerify(token, this.refreshTokenKey);
 
@@ -460,12 +493,28 @@ export class JwtService {
    */
   decodeToken(token: string): JwtPayload | null {
     try {
-      const payload = jose.decodeJwt(token);
-      // Convert jose.JWTPayload to our JwtPayload via unknown
-      return payload as unknown as JwtPayload;
+      // This is intentionally NOT signature-validated.
+      // Avoid jose here to keep this method synchronous and safe in CJS builds.
+      const parts = token.split('.');
+      if (parts.length < 2) return null;
+
+      const payloadJson = Buffer.from(this.base64UrlToBase64(parts[1]), 'base64').toString('utf8');
+      const parsed = JSON.parse(payloadJson) as unknown;
+      return parsed as JwtPayload;
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Convert base64url-encoded strings to standard base64 for decoding.
+   * @private
+   */
+  private base64UrlToBase64(input: string): string {
+    // Replace URL-safe chars, then pad to a multiple of 4.
+    const base64 = input.replace(/-/g, '+').replace(/_/g, '/');
+    const padLength = (4 - (base64.length % 4)) % 4;
+    return `${base64}${'='.repeat(padLength)}`;
   }
 
   // ============================================================================

@@ -8,6 +8,21 @@ import { Repository, type ObjectLiteral } from 'typeorm';
 import { StorageAdapter, LoggerService, NAuthConfig, NAuthException, AuthErrorCode } from '../../index';
 
 /**
+ * Import an optional peer dependency at runtime without creating a compile-time
+ * dependency for TypeScript consumers of `@nauth-toolkit/core`.
+ *
+ * IMPORTANT: the module specifier is intentionally typed as `string` (not a literal)
+ * to prevent TypeScript from erroring when the peer dependency isn't installed.
+ */
+async function importOptional<TModule>(moduleName: string): Promise<TModule | null> {
+  try {
+    return (await import(moduleName)) as unknown as TModule;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Initialize storage adapter
  *
  * Handles:
@@ -45,7 +60,10 @@ export async function initStorage(
     // Inject repositories into DatabaseStorageAdapter if it supports it
     {
       const maybeRepoAware = adapter as {
-        setRepositories?: (rateLimitRepo: Repository<ObjectLiteral>, storageLockRepo: Repository<ObjectLiteral>) => void;
+        setRepositories?: (
+          rateLimitRepo: Repository<ObjectLiteral>,
+          storageLockRepo: Repository<ObjectLiteral>,
+        ) => void;
       };
       if (typeof maybeRepoAware.setRepositories === 'function' && rateLimitRepo && storageLockRepo) {
         maybeRepoAware.setRepositories(rateLimitRepo, storageLockRepo);
@@ -59,11 +77,25 @@ export async function initStorage(
   // No storage adapter provided - try to use DatabaseStorageAdapter if repositories available
   if (rateLimitRepo && storageLockRepo) {
     try {
+      type DatabaseStorageAdapterModule = {
+        DatabaseStorageAdapter: new (...args: unknown[]) => StorageAdapter & {
+          setRepositories?: (
+            rateLimitRepo: Repository<ObjectLiteral>,
+            storageLockRepo: Repository<ObjectLiteral>,
+          ) => void;
+        };
+      };
+
       // Lazy import to avoid bundling if not used
-      // @ts-expect-error - Dynamic import of optional peer dependency
-      const { DatabaseStorageAdapter } = await import('@nauth-toolkit/storage-database');
-      const adapter = new DatabaseStorageAdapter(null, null, logger as unknown);
-      adapter.setRepositories(rateLimitRepo as unknown, storageLockRepo as unknown);
+      const mod = await importOptional<DatabaseStorageAdapterModule>('@nauth-toolkit/storage-database' as string);
+      if (!mod) {
+        throw new Error('storage-database package not installed');
+      }
+
+      const adapter = new mod.DatabaseStorageAdapter(null, null, logger);
+      if (typeof adapter.setRepositories === 'function') {
+        adapter.setRepositories(rateLimitRepo, storageLockRepo);
+      }
       await adapter.initialize();
 
       logger?.warn?.(

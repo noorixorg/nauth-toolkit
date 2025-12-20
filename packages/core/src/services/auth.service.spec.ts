@@ -2657,6 +2657,341 @@ describe('AuthService', () => {
   });
 
   // ============================================================================
+  // adminSetPassword Tests
+  // ============================================================================
+
+  describe('adminSetPassword()', () => {
+    const adminSetPasswordDto = {
+      identifier: 'test@example.com',
+      newPassword: 'NewSecurePassword123!',
+      mustChangePassword: true,
+      revokeSessions: true,
+    };
+
+    beforeEach(() => {
+      mockPasswordService.validatePassword.mockResolvedValue({ valid: true, errors: [] });
+      mockPasswordService.hashPassword.mockResolvedValue('new-hashed-password');
+      mockPasswordService.isPasswordInHistory.mockResolvedValue(false);
+      mockPasswordService.addToHistory.mockReturnValue(['old-hash']);
+      mockSessionService.revokeAllUserSessions.mockResolvedValue(3);
+      mockUserRepository.save.mockResolvedValue(mockUser as any);
+    });
+
+    describe('Successful password reset', () => {
+      it('should successfully reset password with valid identifier (email)', async () => {
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.createQueryBuilder = jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(mockUser as any),
+        })) as any;
+
+        const result = await service.adminSetPassword(adminSetPasswordDto);
+
+        expect(mockPasswordService.validatePassword).toHaveBeenCalledWith(
+          adminSetPasswordDto.newPassword,
+          {
+            email: mockUser.email,
+            username: mockUser.username,
+          },
+        );
+        expect(mockPasswordService.hashPassword).toHaveBeenCalledWith(adminSetPasswordDto.newPassword);
+        expect(mockUserRepository.save).toHaveBeenCalled();
+        expect(mockSessionService.revokeAllUserSessions).toHaveBeenCalledWith(
+          mockUser.id,
+          'Password reset by administrator',
+        );
+        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            eventType: AuthAuditEventType.PASSWORD_RESET_COMPLETED,
+            eventStatus: 'SUCCESS',
+            reason: 'admin_reset',
+          }),
+        );
+        expect(result.success).toBe(true);
+        expect(result.mustChangePassword).toBe(true);
+        expect(result.sessionsRevoked).toBe(3);
+      });
+
+      it('should successfully reset password by UUID sub', async () => {
+        const uuidIdentifier = 'a21b654c-2746-4168-acee-c175083a65cd';
+        mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+
+        const result = await service.adminSetPassword({
+          ...adminSetPasswordDto,
+          identifier: uuidIdentifier,
+        });
+
+        expect(mockUserRepository.findOne).toHaveBeenCalledWith({
+          where: { sub: uuidIdentifier },
+        });
+        expect(result.success).toBe(true);
+      });
+
+      it('should successfully reset password by username', async () => {
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.createQueryBuilder = jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(mockUser as any),
+        })) as any;
+
+        const result = await service.adminSetPassword({
+          ...adminSetPasswordDto,
+          identifier: 'testuser',
+        });
+
+        expect(result.success).toBe(true);
+      });
+
+      it('should successfully reset password by phone', async () => {
+        const userWithPhone = { ...mockUser, phone: '+1234567890' };
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.createQueryBuilder = jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(userWithPhone as any),
+        })) as any;
+
+        const result = await service.adminSetPassword({
+          ...adminSetPasswordDto,
+          identifier: '+1234567890',
+        });
+
+        expect(result.success).toBe(true);
+      });
+
+      it('should set mustChangePassword flag correctly (true by default)', async () => {
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.createQueryBuilder = jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(mockUser as any),
+        })) as any;
+
+        const dtoWithoutFlag = {
+          identifier: 'test@example.com',
+          newPassword: 'NewSecurePassword123!',
+        };
+
+        const result = await service.adminSetPassword(dtoWithoutFlag);
+
+        expect(mockUserRepository.save).toHaveBeenCalledWith(
+          expect.objectContaining({
+            mustChangePassword: true,
+          }),
+        );
+        expect(result.mustChangePassword).toBe(true);
+      });
+
+      it('should respect mustChangePassword: false option', async () => {
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.createQueryBuilder = jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(mockUser as any),
+        })) as any;
+
+        const result = await service.adminSetPassword({
+          ...adminSetPasswordDto,
+          mustChangePassword: false,
+        });
+
+        expect(mockUserRepository.save).toHaveBeenCalledWith(
+          expect.objectContaining({
+            mustChangePassword: false,
+          }),
+        );
+        expect(result.mustChangePassword).toBe(false);
+      });
+
+      it('should revoke sessions by default', async () => {
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.createQueryBuilder = jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(mockUser as any),
+        })) as any;
+
+        const dtoWithoutRevoke = {
+          identifier: 'test@example.com',
+          newPassword: 'NewSecurePassword123!',
+        };
+
+        await service.adminSetPassword(dtoWithoutRevoke);
+
+        expect(mockSessionService.revokeAllUserSessions).toHaveBeenCalled();
+      });
+
+      it('should respect revokeSessions: false option', async () => {
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.createQueryBuilder = jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(mockUser as any),
+        })) as any;
+
+        const result = await service.adminSetPassword({
+          ...adminSetPasswordDto,
+          revokeSessions: false,
+        });
+
+        expect(mockSessionService.revokeAllUserSessions).not.toHaveBeenCalled();
+        expect(result.sessionsRevoked).toBe(0);
+      });
+
+      it('should update password history correctly', async () => {
+        const userWithHistory = { ...mockUser, passwordHistory: ['hash1', 'hash2'] };
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.createQueryBuilder = jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(userWithHistory as any),
+        })) as any;
+
+        await service.adminSetPassword(adminSetPasswordDto);
+
+        expect(mockPasswordService.addToHistory).toHaveBeenCalledWith(
+          ['hash1', 'hash2'],
+          mockUser.passwordHash,
+        );
+      });
+    });
+
+    describe('Error handling', () => {
+      it('should throw NOT_FOUND for non-existent user', async () => {
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.createQueryBuilder = jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(null),
+        })) as any;
+
+        try {
+          await service.adminSetPassword(adminSetPasswordDto);
+          fail('Should have thrown NAuthException');
+        } catch (error: any) {
+          expect(error).toBeInstanceOf(NAuthException);
+          expect(error.code).toBe(AuthErrorCode.NOT_FOUND);
+        }
+      });
+
+      it('should throw PASSWORD_CHANGE_NOT_ALLOWED for social-only users', async () => {
+        const socialOnlyUser = { ...mockUser, passwordHash: null };
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.createQueryBuilder = jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(socialOnlyUser as any),
+        })) as any;
+
+        try {
+          await service.adminSetPassword(adminSetPasswordDto);
+          fail('Should have thrown NAuthException');
+        } catch (error: any) {
+          expect(error).toBeInstanceOf(NAuthException);
+          expect(error.code).toBe(AuthErrorCode.PASSWORD_CHANGE_NOT_ALLOWED);
+        }
+      });
+
+      it('should throw WEAK_PASSWORD for invalid passwords', async () => {
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.createQueryBuilder = jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(mockUser as any),
+        })) as any;
+        mockPasswordService.validatePassword.mockResolvedValue({
+          valid: false,
+          errors: ['Password too weak', 'Missing uppercase'],
+        });
+
+        try {
+          await service.adminSetPassword(adminSetPasswordDto);
+          fail('Should have thrown NAuthException');
+        } catch (error: any) {
+          expect(error).toBeInstanceOf(NAuthException);
+          expect(error.code).toBe(AuthErrorCode.WEAK_PASSWORD);
+          expect(error.metadata?.errors).toEqual(['Password too weak', 'Missing uppercase']);
+        }
+      });
+
+      it('should throw PASSWORD_REUSED when password in history', async () => {
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.createQueryBuilder = jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(mockUser as any),
+        })) as any;
+        mockPasswordService.isPasswordInHistory.mockResolvedValue(true);
+
+        try {
+          await service.adminSetPassword(adminSetPasswordDto);
+          fail('Should have thrown NAuthException');
+        } catch (error: any) {
+          expect(error).toBeInstanceOf(NAuthException);
+          expect(error.code).toBe(AuthErrorCode.PASSWORD_REUSED);
+        }
+      });
+
+      it('should record audit event with correct metadata', async () => {
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.createQueryBuilder = jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(mockUser as any),
+        })) as any;
+
+        await service.adminSetPassword(adminSetPasswordDto);
+
+        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userId: mockUser.id,
+            eventType: AuthAuditEventType.PASSWORD_RESET_COMPLETED,
+            eventStatus: 'SUCCESS',
+            reason: 'admin_reset',
+            description: 'Password reset by administrator',
+            metadata: expect.objectContaining({
+              identifier: adminSetPasswordDto.identifier,
+              mustChangePassword: true,
+              sessionsRevoked: 3,
+            }),
+          }),
+        );
+      });
+
+      it('should handle audit service errors gracefully', async () => {
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.createQueryBuilder = jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(mockUser as any),
+        })) as any;
+        mockAuditService.recordEvent.mockRejectedValue(new Error('Audit service error'));
+
+        // Should not throw, just log error
+        const result = await service.adminSetPassword(adminSetPasswordDto);
+
+        expect(result.success).toBe(true);
+      });
+    });
+  });
+
+  // ============================================================================
   // updateUserAttributes Tests
   // ============================================================================
 

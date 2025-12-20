@@ -37,6 +37,7 @@ import {
   LogoutAllDTO,
   ResendCodeDTO,
   SetMustChangePasswordDTO,
+  ChangePasswordRequestDTO,
   GetSocialAuthUrlDTO,
   HandleSocialCallbackDTO,
   LinkSocialAccountDTO,
@@ -478,6 +479,33 @@ export class CustomAuthController {
       ...body,
     };
     return await this.authService.updateUserAttributes(dto);
+  }
+
+  /**
+   * Change user password
+   *
+   * Allows authenticated users to change their password by providing
+   * their current password and a new password.
+   *
+   * @param user - Current user (from JWT)
+   * @param body - Current and new password (accepts both 'oldPassword' and 'currentPassword' for compatibility)
+   * @returns Success message
+   */
+  @UseGuards(AuthGuard)
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @CurrentUser() user: IUser,
+    @Body() body: { oldPassword?: string; currentPassword?: string; newPassword: string },
+  ): Promise<{ message: string }> {
+    const dto = new ChangePasswordRequestDTO();
+    dto.sub = user.sub;
+    // Support both 'oldPassword' and 'currentPassword' field names for compatibility
+    dto.oldPassword = body.oldPassword || body.currentPassword || '';
+    dto.newPassword = body.newPassword;
+    await this.authService.changePassword(dto);
+    this.logger.log(`Password changed for user: ${user.email}`);
+    return { message: 'Password changed successfully' };
   }
 
   /**

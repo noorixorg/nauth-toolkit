@@ -74,6 +74,7 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [ResetPasswordDTO](./reset-password-dto) | Reset password request | Reset token and new password |
 | [SetMustChangePasswordDTO](./set-must-change-password-dto) | Force password change | Admin operation |
 | [SetMustChangePasswordResponseDTO](./set-must-change-password-response-dto) | Force password change response | Success confirmation |
+| [AdminSetPasswordDTO](./admin-set-password-dto) | Admin password reset | Identifier and new password |
 
 ## Email Verification DTOs
 

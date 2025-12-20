@@ -46,6 +46,7 @@ export * from './logout-all.dto';
 export * from './logout-all-response.dto';
 export * from './set-must-change-password.dto';
 export * from './set-must-change-password-response.dto';
+export * from './admin-set-password.dto';
 // Note: trust-device.dto.ts removed - trustDevice() no longer takes parameters
 export * from './trust-device-response.dto';
 export * from './is-trusted-device-response.dto';
