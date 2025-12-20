@@ -6,6 +6,7 @@
  */
 
 import { Repository } from 'typeorm';
+import type { EmailProvider, SMSProvider } from '../../interfaces/provider.interface';
 // Public API imports
 import {
   NAuthConfig,
@@ -200,15 +201,24 @@ export function initServices(
     );
   }
 
+  // At this point the provider has been validated for required methods.
+  // We still accept `unknown` inputs to keep peer-dependency providers optional,
+  // but we narrow once validated to maintain strict typing.
+  const typedEmailProvider = emailProvider as EmailProvider;
+
   // Inject logger into email provider if it supports it
-  if (emailProvider && typeof (emailProvider as Record<string, unknown>).setLogger === 'function') {
-    (emailProvider as Record<string, unknown>).setLogger(logger);
+  {
+    const maybeLoggerAware = emailProvider as { setLogger?: (logger: NAuthLogger) => void };
+    if (typeof maybeLoggerAware.setLogger === 'function') {
+      maybeLoggerAware.setLogger(logger);
+    }
   }
 
   // Inject global variables from email config if provider supports it
   if (
     emailProvider &&
-    typeof (emailProvider as Record<string, unknown>).setGlobalVariables === 'function' &&
+    typeof (emailProvider as { setGlobalVariables?: (vars: Record<string, unknown>) => void }).setGlobalVariables ===
+      'function' &&
     config.email
   ) {
     const globalVars: Record<string, unknown> = {};
@@ -225,13 +235,13 @@ export function initServices(
       ...globalVars,
       ...(config.email.templates?.globalVariables || {}),
     };
-    (emailProvider as Record<string, unknown>).setGlobalVariables(mergedVars);
+    (emailProvider as { setGlobalVariables: (vars: Record<string, unknown>) => void }).setGlobalVariables(mergedVars);
   }
 
   const emailVerificationService = new EmailVerificationService(
     repositories.verificationTokenRepository,
     repositories.userRepository,
-    emailProvider as unknown,
+    typedEmailProvider,
     storageAdapter,
     config,
     clientInfoService,
@@ -246,15 +256,19 @@ export function initServices(
   let phoneVerificationService: PhoneVerificationService | undefined;
 
   if (smsProvider) {
+    const typedSmsProvider = smsProvider as SMSProvider;
     // Inject logger into SMS provider if it supports it
-    if (smsProvider && typeof (smsProvider as Record<string, unknown>).setLogger === 'function') {
-      (smsProvider as Record<string, unknown>).setLogger(logger);
+    {
+      const maybeLoggerAware = smsProvider as { setLogger?: (logger: NAuthLogger) => void };
+      if (typeof maybeLoggerAware.setLogger === 'function') {
+        maybeLoggerAware.setLogger(logger);
+      }
     }
 
     phoneVerificationService = new PhoneVerificationService(
       repositories.verificationTokenRepository,
       repositories.userRepository,
-      smsProvider as unknown,
+      typedSmsProvider,
       storageAdapter,
       config,
       clientInfoService,
@@ -272,12 +286,37 @@ export function initServices(
     : undefined;
 
   // ============================================================================
-  // 9. Auth Flow Services
+  // 9. Risk Detection and Adaptive MFA Services (Always created)
+  // ============================================================================
+  // NOTE: These services are needed by the auth flow context builder to decide
+  // whether MFA is required / whether a sign-in should be blocked.
+  const riskDetectionService = new RiskDetectionService(
+    repositories.sessionRepository,
+    repositories.authAuditRepository,
+    config,
+    logger,
+    trustedDeviceService,
+  );
+
+  const riskScoringService = new RiskScoringService(config, logger);
+
+  const adaptiveMFADecisionService = new AdaptiveMFADecisionService(
+    riskDetectionService,
+    riskScoringService,
+    storageAdapter,
+    clientInfoService,
+    config,
+    logger,
+    auditService,
+  );
+
+  // ============================================================================
+  // 10. Auth Flow Services
   // ============================================================================
 
   const authFlowContextBuilder = new AuthFlowContextBuilder(
     trustedDeviceService,
-    undefined, // adaptiveMFADecisionService - will be set later
+    adaptiveMFADecisionService,
     clientInfoService,
     logger,
   );
@@ -366,34 +405,6 @@ export function initServices(
       logger?.warn?.('MaxMind GeoIP2 module not installed. Geolocation features will be disabled.');
     }
   }
-
-  // ============================================================================
-  // 14. Risk Detection and Adaptive MFA Services (Conditional)
-  // ============================================================================
-
-  // Always create risk services (needed for adaptive MFA)
-  const riskDetectionService = new RiskDetectionService(
-    repositories.sessionRepository,
-    repositories.authAuditRepository,
-    config,
-    logger,
-    trustedDeviceService,
-  );
-
-  const riskScoringService = new RiskScoringService(config, logger);
-
-  const adaptiveMFADecisionService = new AdaptiveMFADecisionService(
-    riskDetectionService,
-    riskScoringService,
-    storageAdapter,
-    clientInfoService,
-    config,
-    logger,
-    auditService,
-  );
-
-  // Now inject adaptiveMFADecisionService into authFlowContextBuilder
-  (authFlowContextBuilder as Record<string, unknown>).adaptiveMFADecisionService = adaptiveMFADecisionService;
 
   // ============================================================================
   // Return Service Container

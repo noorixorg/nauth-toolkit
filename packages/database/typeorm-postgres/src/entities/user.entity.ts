@@ -36,28 +36,28 @@ export class User extends BaseUser {
   declare sub: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true, unique: true })
-  declare username?: string | null;
+  declare username: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
-  declare firstName?: string | null;
+  declare firstName: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
-  declare lastName?: string | null;
+  declare lastName: string | null;
 
   @Column({ type: 'varchar', length: 255, unique: true })
   declare email: string;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
-  declare phone?: string | null;
+  declare phone: string | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  declare passwordHash?: string | null;
+  declare passwordHash: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })
-  declare passwordChangedAt?: Date | null;
+  declare passwordChangedAt: Date | null;
 
   @Column({ type: 'simple-array', nullable: true })
-  declare passwordHistory?: string[] | null;
+  declare passwordHistory: string[] | null;
 
   @Column({ type: 'boolean', default: false })
   declare mustChangePassword: boolean;
@@ -75,31 +75,31 @@ export class User extends BaseUser {
   declare isLocked: boolean;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
-  declare lockReason?: string | null;
+  declare lockReason: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })
-  declare lockedAt?: Date | null;
+  declare lockedAt: Date | null;
 
   @Column({ type: 'timestamptz', nullable: true })
-  declare lockedUntil?: Date | null;
+  declare lockedUntil: Date | null;
 
   @Column({ type: 'int', default: 0 })
   declare failedLoginAttempts: number;
 
   @Column({ type: 'timestamptz', nullable: true })
-  declare lastFailedLoginAt?: Date | null;
+  declare lastFailedLoginAt: Date | null;
 
   @Column({ type: 'timestamptz', nullable: true })
-  declare lastLoginAt?: Date | null;
+  declare lastLoginAt: Date | null;
 
   @Column({ type: 'varchar', length: 45, nullable: true })
-  declare lastLoginIp?: string | null;
+  declare lastLoginIp: string | null;
 
   @Column({ type: 'boolean', default: false })
   declare mfaEnabled: boolean;
 
   @Column({ type: 'simple-array', nullable: true })
-  declare mfaMethods?: string[] | null;
+  declare mfaMethods: string[] | null;
 
   @Column({ type: 'timestamptz', nullable: true })
   declare mfaEnforcedAt?: Date | null;
@@ -108,10 +108,10 @@ export class User extends BaseUser {
   declare totpSecret?: string | null;
 
   @Column({ type: 'simple-array', nullable: true })
-  declare backupCodes?: string[] | null;
+  declare backupCodes: string[] | null;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
-  declare preferredMfaMethod?: string | null;
+  declare preferredMfaMethod: string | null;
 
   @Column({ type: 'boolean', default: false })
   declare mfaExempt?: boolean;
@@ -129,10 +129,10 @@ export class User extends BaseUser {
   declare hasSocialAuth: boolean;
 
   @Column({ type: 'simple-array', nullable: true })
-  declare socialProviders?: string[] | null;
+  declare socialProviders: string[] | null;
 
   @Column({ type: 'jsonb', nullable: true })
-  declare metadata?: Record<string, unknown> | null;
+  declare metadata: Record<string, unknown> | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   declare createdAt: Date;
@@ -141,5 +141,5 @@ export class User extends BaseUser {
   declare updatedAt: Date;
 
   @DeleteDateColumn({ type: 'timestamptz' })
-  declare deletedAt?: Date | null;
+  declare deletedAt: Date | null;
 }

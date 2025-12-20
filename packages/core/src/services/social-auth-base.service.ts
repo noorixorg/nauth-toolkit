@@ -12,7 +12,7 @@ import { ClientInfoService } from './client-info.service';
 import { PhoneVerificationService } from './phone-verification.service';
 import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
-import { NAuthConfig } from '../interfaces/config.interface';
+import { NAuthConfig, SocialProviderConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { AuthResponseDTO } from '../dto';
 import { OAuthUserProfile } from '../interfaces/oauth.interface';
@@ -89,12 +89,13 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
    * @returns Provider configuration from NAuthConfig
    * @protected
    */
-  protected getProviderConfig(): Record<string, unknown> | null {
+  protected getProviderConfig(): SocialProviderConfig | null {
     const socialConfig = this.config.social;
     if (!socialConfig) return null;
 
     // Access config dynamically using providerName (no hardcoding)
-    return (socialConfig as Record<string, unknown>)[this.providerName] || null;
+    const providerConfig = (socialConfig as Record<string, SocialProviderConfig | undefined>)[this.providerName];
+    return providerConfig || null;
   }
 
   /**
@@ -189,7 +190,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     profileData?: Record<string, unknown>,
   ): Promise<AuthResponseDTO> {
     const providerConfig = this.getProviderConfig();
-    if (!providerConfig || !providerConfig.enabled) {
+    if (!providerConfig || providerConfig.enabled !== true) {
       throw new NAuthException(
         AuthErrorCode.SOCIAL_CONFIG_MISSING,
         `Provider '${this.providerName}' is not configured or not enabled`,
@@ -372,7 +373,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
   /**
    * Find existing user or create new one
    */
-  protected async findOrCreateUser(profile: OAuthUserProfile, providerConfig: Record<string, unknown>): Promise<IUser> {
+  protected async findOrCreateUser(profile: OAuthUserProfile, providerConfig: SocialProviderConfig): Promise<IUser> {
     // First, try to find user by social account
     const socialAccount = await this.socialAuthService.findSocialAccountByProvider(this.providerName, profile.id);
 
@@ -381,7 +382,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     }
 
     // If auto-link is enabled, try to find by email
-    if (providerConfig.autoLink && profile.email) {
+    if (providerConfig.autoLink === true && profile.email) {
       // Get full user entity (need internal id for foreign keys)
       const existingUser = (await this.userRepository.findOne({
         where: { email: profile.email, isEmailVerified: true },
@@ -393,7 +394,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     }
 
     // Create new user if allowSignup is enabled
-    if (providerConfig.allowSignup) {
+    if (providerConfig.allowSignup !== false) {
       this.logger?.log?.(
         `[SocialAuth] Creating user: email=${profile.email}, isEmailVerified=${profile.verified || false}`,
       );

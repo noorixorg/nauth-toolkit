@@ -46,17 +46,17 @@ export class ChallengeSession extends BaseChallengeSession {
   declare maxAttempts: number;
 
   @Column({ type: 'jsonb', nullable: true })
-  declare challengeParameters?: Record<string, unknown>;
+  declare challengeParameters: Record<string, unknown> | null;
 
   // Alias for challengeParameters (backwards compatibility)
   @Column({ type: 'jsonb', nullable: true })
   declare metadata?: Record<string, unknown>;
 
   @Column({ length: 45, nullable: true })
-  declare ipAddress?: string;
+  declare ipAddress: string | null;
 
   @Column({ type: 'text', nullable: true })
-  declare userAgent?: string;
+  declare userAgent: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   declare createdAt: Date;

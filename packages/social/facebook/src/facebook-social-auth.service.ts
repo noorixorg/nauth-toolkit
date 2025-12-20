@@ -107,7 +107,8 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
       return; // Exit constructor early if disabled
     }
 
-    if (!providerConfig.clientId || !providerConfig.clientSecret) {
+    const webClientId = Array.isArray(providerConfig.clientId) ? providerConfig.clientId[0] : providerConfig.clientId;
+    if (!webClientId || !providerConfig.clientSecret) {
       // Schema validation should catch this, but handle gracefully
       this.oauthClient = null;
       this.tokenVerifier = null;
@@ -115,7 +116,7 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
     }
 
     this.oauthClient = new FacebookOAuthClient({
-      clientId: providerConfig.clientId,
+      clientId: webClientId,
       clientSecret: providerConfig.clientSecret,
       redirectUri: providerConfig.callbackUrl || '',
       scopes: providerConfig.scopes || ['email', 'public_profile'],
@@ -195,7 +196,7 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Facebook OAuth is not configured');
     }
 
-    const appId = providerConfig.clientId || '';
+    const appId = Array.isArray(providerConfig.clientId) ? providerConfig.clientId[0] : providerConfig.clientId || '';
     const appSecret = providerConfig.clientSecret || '';
 
     if (!this.tokenVerifier.verifyFacebookToken) {

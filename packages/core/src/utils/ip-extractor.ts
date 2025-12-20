@@ -62,13 +62,26 @@ export interface IpExtractorOptions {
 }
 
 /**
+ * Minimal request shape required for IP extraction.
+ *
+ * We keep this intentionally framework-agnostic (no Express/Fastify types) to avoid
+ * adding hard dependencies from core.
+ */
+interface IpRequestLike extends Record<string, unknown> {
+  headers?: Record<string, unknown>;
+  ip?: string;
+  socket?: { remoteAddress?: string };
+  connection?: { remoteAddress?: string };
+}
+
+/**
  * Extracts the real client IP address from an HTTP request
  *
  * @param req - Express Request object
  * @param options - Optional configuration
  * @returns The client's IP address, or '0.0.0.0' if unable to determine
  */
-export function extractClientIp(req: Record<string, unknown>, options: IpExtractorOptions = {}): string {
+export function extractClientIp(req: IpRequestLike, options: IpExtractorOptions = {}): string {
   const { filterPrivateIps = false, useLeftmostIp = true } = options;
 
   // Priority order of headers to check
@@ -84,7 +97,7 @@ export function extractClientIp(req: Record<string, unknown>, options: IpExtract
   ];
 
   // Ensure headers object exists
-  const reqHeaders = req.headers || {};
+  const reqHeaders: Record<string, unknown> = req.headers || {};
 
   // Try each header in priority order
   for (const header of headers) {
@@ -98,10 +111,11 @@ export function extractClientIp(req: Record<string, unknown>, options: IpExtract
         .join('-'), // PascalCase: X-Forwarded-For
     ];
 
-    let value = null;
+    let value: string | string[] | null = null;
     for (const variant of variations) {
-      if (reqHeaders[variant]) {
-        value = reqHeaders[variant];
+      const candidate = reqHeaders[variant];
+      if (typeof candidate === 'string' || Array.isArray(candidate)) {
+        value = candidate;
         break;
       }
     }

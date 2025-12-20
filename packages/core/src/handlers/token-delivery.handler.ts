@@ -20,13 +20,27 @@ export class TokenDeliveryHandler {
   ) {}
 
   /**
+   * Type guard for detecting an auth response payload.
+   *
+   * We intentionally validate types at runtime because the handler receives `unknown`
+   * response bodies from framework adapters.
+   */
+  private isAuthResponseBody(
+    body: unknown,
+  ): body is Record<string, unknown> & { accessToken: string; refreshToken: string } {
+    if (!body || typeof body !== 'object') return false;
+    const rec = body as Record<string, unknown>;
+    return typeof rec.accessToken === 'string' && typeof rec.refreshToken === 'string';
+  }
+
+  /**
    * Process the response body.
    * If it contains tokens, handle delivery and return sanitized body.
    * If not, return original body.
    */
   public async handleResponse(req: NAuthRequest, res: NAuthResponse, body: unknown): Promise<unknown> {
     // Check if this is an auth response
-    if (body && typeof body === 'object' && body.accessToken && body.refreshToken) {
+    if (this.isAuthResponseBody(body)) {
       const deliveryMode = this.resolveDeliveryMode(req);
 
       if (deliveryMode === 'cookies') {
@@ -34,7 +48,7 @@ export class TokenDeliveryHandler {
 
         // Remove tokens and expiration fields from body
         // Expiration is managed by cookie maxAge, so these fields are not needed
-        const sanitizedBody = { ...body };
+        const sanitizedBody: Record<string, unknown> = { ...body };
         delete sanitizedBody.accessToken;
         delete sanitizedBody.refreshToken;
         delete sanitizedBody.accessTokenExpiresAt;
@@ -67,7 +81,10 @@ export class TokenDeliveryHandler {
     return method === 'cookies' ? 'cookies' : 'json';
   }
 
-  private setTokenCookies(res: NAuthResponse, body: Record<string, unknown>): void {
+  private setTokenCookies(
+    res: NAuthResponse,
+    body: Record<string, unknown> & { accessToken: string; refreshToken: string },
+  ): void {
     const accessTokenCookieName = getAccessTokenCookieName(this.config);
     const refreshTokenCookieName = getRefreshTokenCookieName(this.config);
 

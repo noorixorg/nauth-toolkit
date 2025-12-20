@@ -484,15 +484,22 @@ export class GeoLocationService {
           signal: AbortSignal.timeout(30000), // 30 second timeout
         });
       } catch (fetchError: unknown) {
+        const fetchErrorObj = fetchError as { code?: unknown; name?: unknown; message?: unknown };
+        const errorCode = typeof fetchErrorObj.code === 'string' ? fetchErrorObj.code : undefined;
+        const errorName = typeof fetchErrorObj.name === 'string' ? fetchErrorObj.name : undefined;
+        const errorMessage = typeof fetchErrorObj.message === 'string' ? fetchErrorObj.message : undefined;
+
         // Handle network errors (DNS failures, connection errors, etc.)
         if (
-          fetchError?.code === 'ENOTFOUND' ||
-          fetchError?.code === 'ECONNREFUSED' ||
-          fetchError?.name === 'AbortError'
+          errorCode === 'ENOTFOUND' ||
+          errorCode === 'ECONNREFUSED' ||
+          errorName === 'AbortError'
         ) {
           throw new NAuthException(
             AuthErrorCode.INTERNAL_ERROR,
-            `Network error while downloading MaxMind database ${edition}: ${fetchError.message || 'DNS lookup failed or connection refused'}. Check your network connection and proxy settings.`,
+            `Network error while downloading MaxMind database ${edition}: ${
+              errorMessage || 'DNS lookup failed or connection refused'
+            }. Check your network connection and proxy settings.`,
           );
         }
         throw fetchError;

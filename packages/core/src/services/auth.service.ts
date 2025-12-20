@@ -1728,7 +1728,9 @@ export class AuthService {
     const newHash = await this.passwordService.hashPassword(newPassword);
 
     // Update password history
-    const newHistory = this.passwordService.addToHistory(user.passwordHistory || [], user.passwordHash);
+    const newHistory = user.passwordHash
+      ? this.passwordService.addToHistory(user.passwordHistory || [], user.passwordHash)
+      : (user.passwordHistory || []);
 
     // Update user password and clear mustChangePassword flag - use save() for array fields
     user.passwordHash = newHash;

@@ -31,6 +31,8 @@ import {
   AccountLockoutStorageService,
   NAuthLogger,
   AuthAuditService, // Public type for DI token
+  EmailProvider,
+  SMSProvider,
 } from '@nauth-toolkit/core';
 
 // Internal API imports (for framework adapter use only)
@@ -262,7 +264,7 @@ export class AuthModule {
                 // Lazy import to avoid bundling if not used
                 const { DatabaseStorageAdapter } = await import('@nauth-toolkit/storage-database');
                 const adapter = new DatabaseStorageAdapter(null, null, logger);
-                adapter.setRepositories(rateLimitRepo as unknown, storageLockRepo as unknown);
+                adapter.setRepositories(rateLimitRepo, storageLockRepo);
                 await adapter.initialize();
                 logger?.warn?.(
                   'WARNING: Storage adapter not provided. Using DatabaseStorageAdapter as default. ' +
@@ -967,7 +969,7 @@ export class AuthModule {
         // Email Provider (required - must be provided in config or from email package)
         {
           provide: 'EMAIL_PROVIDER',
-          useFactory: () => {
+          useFactory: (): EmailProvider => {
             if (!config.emailProvider) {
               throw new NAuthException(
                 AuthErrorCode.VALIDATION_FAILED,
@@ -976,13 +978,33 @@ export class AuthModule {
                   '  yarn add @nauth-toolkit/email-nodemailer (for production)',
               );
             }
-            const provider = config.emailProvider;
+            const provider = config.emailProvider as EmailProvider;
+
+            // Validate required methods (core contract)
+            if (
+              typeof provider.sendVerificationEmail !== 'function' ||
+              typeof provider.sendPasswordResetEmail !== 'function' ||
+              typeof provider.sendWelcomeEmail !== 'function'
+            ) {
+              throw new NAuthException(
+                AuthErrorCode.VALIDATION_FAILED,
+                'emailProvider must implement sendVerificationEmail, sendPasswordResetEmail, and sendWelcomeEmail',
+              );
+            }
+
             // Inject logger into provider if it has setLogger method
-            if (provider && typeof provider.setLogger === 'function') {
-              provider.setLogger(nauthLogger);
+            {
+              const maybeLoggerAware = provider as unknown as { setLogger?: (logger: NAuthLogger) => void };
+              if (typeof maybeLoggerAware.setLogger === 'function') {
+                maybeLoggerAware.setLogger(nauthLogger);
+              }
             }
             // Inject global variables from email config if provider supports it
-            if (provider && typeof provider.setGlobalVariables === 'function' && config.email) {
+            if (
+              typeof (provider as unknown as { setGlobalVariables?: (vars: Record<string, unknown>) => void })
+                .setGlobalVariables === 'function' &&
+              config.email
+            ) {
               const globalVars: Record<string, unknown> = {};
               // Extract top-level branding fields
               if (config.email.appName) globalVars.appName = config.email.appName;
@@ -997,7 +1019,9 @@ export class AuthModule {
                 ...globalVars,
                 ...(config.email.templates?.globalVariables || {}),
               };
-              provider.setGlobalVariables(mergedVars);
+              (
+                provider as unknown as { setGlobalVariables: (vars: Record<string, unknown>) => void }
+              ).setGlobalVariables(mergedVars);
             }
             return provider;
           },
@@ -1007,7 +1031,7 @@ export class AuthModule {
           useFactory: (
             verificationTokenRepo: Repository<BaseVerificationToken>,
             userRepo: Repository<BaseUser>,
-            emailProvider: unknown,
+            emailProvider: EmailProvider,
             storageAdapter: StorageAdapter,
             nauthConfig: NAuthConfig,
             clientInfoService: ClientInfoService,
@@ -1017,7 +1041,7 @@ export class AuthModule {
             return new EmailVerificationService(
               verificationTokenRepo,
               userRepo,
-              emailProvider as unknown,
+              emailProvider,
               storageAdapter,
               nauthConfig,
               clientInfoService,
@@ -1042,11 +1066,18 @@ export class AuthModule {
           ? [
               {
                 provide: 'SMS_PROVIDER',
-                useFactory: () => {
-                  const provider = config.smsProvider!;
-                  if (provider && typeof provider.setLogger === 'function') {
-                    provider.setLogger(nauthLogger);
+                useFactory: (): SMSProvider => {
+                  const provider = config.smsProvider as SMSProvider;
+
+                  if (!provider || typeof provider.sendOTP !== 'function') {
+                    throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'smsProvider must implement sendOTP');
                   }
+
+                  const maybeLoggerAware = provider as unknown as { setLogger?: (logger: NAuthLogger) => void };
+                  if (typeof maybeLoggerAware.setLogger === 'function') {
+                    maybeLoggerAware.setLogger(nauthLogger);
+                  }
+
                   return provider;
                 },
               },
@@ -1055,7 +1086,7 @@ export class AuthModule {
                 useFactory: (
                   verificationTokenRepo: Repository<BaseVerificationToken>,
                   userRepo: Repository<BaseUser>,
-                  smsProvider: unknown,
+                  smsProvider: SMSProvider,
                   storageAdapter: StorageAdapter,
                   nauthConfig: NAuthConfig,
                   clientInfoService: ClientInfoService,
@@ -1065,7 +1096,7 @@ export class AuthModule {
                   return new PhoneVerificationService(
                     verificationTokenRepo,
                     userRepo,
-                    smsProvider as unknown,
+                    smsProvider,
                     storageAdapter,
                     nauthConfig,
                     clientInfoService,

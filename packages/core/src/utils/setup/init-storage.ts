@@ -4,7 +4,7 @@
  * Initializes storage adapter with repository injection and proper error handling.
  */
 
-import { Repository } from 'typeorm';
+import { Repository, type ObjectLiteral } from 'typeorm';
 import { StorageAdapter, LoggerService, NAuthConfig, NAuthException, AuthErrorCode } from '../../index';
 
 /**
@@ -26,8 +26,8 @@ import { StorageAdapter, LoggerService, NAuthConfig, NAuthException, AuthErrorCo
  */
 export async function initStorage(
   config: NAuthConfig,
-  rateLimitRepo: Repository<unknown> | null,
-  storageLockRepo: Repository<unknown> | null,
+  rateLimitRepo: Repository<ObjectLiteral> | null,
+  storageLockRepo: Repository<ObjectLiteral> | null,
   logger: LoggerService,
 ): Promise<StorageAdapter> {
   // If storage adapter explicitly provided, use it
@@ -35,14 +35,20 @@ export async function initStorage(
     const adapter = config.storageAdapter;
 
     // Inject logger if adapter supports it
-    if (adapter && typeof (adapter as Record<string, unknown>).setLogger === 'function') {
-      (adapter as Record<string, unknown>).setLogger(logger);
+    {
+      const maybeLoggerAware = adapter as { setLogger?: (logger: LoggerService) => void };
+      if (typeof maybeLoggerAware.setLogger === 'function') {
+        maybeLoggerAware.setLogger(logger);
+      }
     }
 
     // Inject repositories into DatabaseStorageAdapter if it supports it
-    if (adapter && typeof (adapter as Record<string, unknown>).setRepositories === 'function') {
-      if (rateLimitRepo && storageLockRepo) {
-        (adapter as Record<string, unknown>).setRepositories(rateLimitRepo, storageLockRepo);
+    {
+      const maybeRepoAware = adapter as {
+        setRepositories?: (rateLimitRepo: Repository<ObjectLiteral>, storageLockRepo: Repository<ObjectLiteral>) => void;
+      };
+      if (typeof maybeRepoAware.setRepositories === 'function' && rateLimitRepo && storageLockRepo) {
+        maybeRepoAware.setRepositories(rateLimitRepo, storageLockRepo);
       }
     }
 

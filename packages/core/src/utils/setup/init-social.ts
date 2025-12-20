@@ -24,11 +24,12 @@ import {
   TrustedDeviceService,
 } from '../../internal';
 import { Repository } from 'typeorm';
+import { ISocialAuthProviderService } from '../../interfaces/social-auth-provider.interface';
 
 export interface NAuthSocialProviders {
-  googleAuth?: Record<string, unknown>;
-  appleAuth?: Record<string, unknown>;
-  facebookAuth?: Record<string, unknown>;
+  googleAuth?: ISocialAuthProviderService;
+  appleAuth?: ISocialAuthProviderService;
+  facebookAuth?: ISocialAuthProviderService;
 }
 
 /**
@@ -82,7 +83,7 @@ export async function initSocialAuth(
       // Create token verifier for native mobile token validation
       const tokenVerifier = new TokenVerifierService(config);
 
-      providers.googleAuth = new GoogleSocialAuthService(
+      const googleAuth = new GoogleSocialAuthService(
         config,
         logger,
         authService,
@@ -99,10 +100,12 @@ export async function initSocialAuth(
         tokenVerifier,
       );
 
+      providers.googleAuth = googleAuth;
+
       // Register with registry
-      providerRegistry.registerProvider(providers.googleAuth);
+      providerRegistry.registerProvider(googleAuth);
       logger?.debug?.('Google OAuth provider initialized');
-    } catch (_error) {
+    } catch {
       logger?.warn?.(
         'Google OAuth provider not available. Install @nauth-toolkit/social-google to enable Google authentication.',
       );
@@ -120,7 +123,7 @@ export async function initSocialAuth(
       // Create token verifier for native mobile token validation
       const tokenVerifier = new TokenVerifierService(config);
 
-      providers.appleAuth = new AppleSocialAuthService(
+      const appleAuth = new AppleSocialAuthService(
         config,
         logger,
         authService,
@@ -137,10 +140,12 @@ export async function initSocialAuth(
         tokenVerifier,
       );
 
+      providers.appleAuth = appleAuth;
+
       // Register with registry
-      providerRegistry.registerProvider(providers.appleAuth);
+      providerRegistry.registerProvider(appleAuth);
       logger?.debug?.('Apple Sign-In provider initialized');
-    } catch (_error) {
+    } catch {
       logger?.warn?.(
         'Apple Sign-In provider not available. Install @nauth-toolkit/social-apple to enable Apple authentication.',
       );
@@ -158,7 +163,7 @@ export async function initSocialAuth(
       // Create token verifier for native mobile token validation
       const tokenVerifier = new TokenVerifierService(config);
 
-      providers.facebookAuth = new FacebookSocialAuthService(
+      const facebookAuth = new FacebookSocialAuthService(
         config,
         logger,
         authService,
@@ -175,10 +180,12 @@ export async function initSocialAuth(
         tokenVerifier,
       );
 
+      providers.facebookAuth = facebookAuth;
+
       // Register with registry
-      providerRegistry.registerProvider(providers.facebookAuth);
+      providerRegistry.registerProvider(facebookAuth);
       logger?.debug?.('Facebook OAuth provider initialized');
-    } catch (_error) {
+    } catch {
       logger?.warn?.(
         'Facebook OAuth provider not available. Install @nauth-toolkit/social-facebook to enable Facebook authentication.',
       );

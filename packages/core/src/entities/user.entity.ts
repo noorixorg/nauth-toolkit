@@ -26,17 +26,17 @@ export class BaseUser {
   /**
    * User's username (optional, unique if set)
    */
-  username?: string | null;
+  username!: string | null;
 
   /**
    * User's first name
    */
-  firstName?: string | null;
+  firstName!: string | null;
 
   /**
    * User's last name
    */
-  lastName?: string | null;
+  lastName!: string | null;
 
   /**
    * User's email address (required, unique)
@@ -46,25 +46,25 @@ export class BaseUser {
   /**
    * User's phone number in E.164 format (optional)
    */
-  phone?: string | null;
+  phone!: string | null;
 
   /**
    * Hashed password (Argon2)
    * NULL for social-only accounts
    */
-  passwordHash?: string | null;
+  passwordHash!: string | null;
 
   /**
    * When password was last changed
    * Used for password expiry policies
    */
-  passwordChangedAt?: Date | null;
+  passwordChangedAt!: Date | null;
 
   /**
    * Password history (hashed)
    * Used to prevent password reuse
    */
-  passwordHistory?: string[] | null;
+  passwordHistory!: string[] | null;
 
   /**
    * Flag to force password change on next login
@@ -98,17 +98,17 @@ export class BaseUser {
   /**
    * Reason for account lock
    */
-  lockReason?: string | null;
+  lockReason!: string | null;
 
   /**
    * When account was locked
    */
-  lockedAt?: Date | null;
+  lockedAt!: Date | null;
 
   /**
    * When account lock expires (NULL = permanent)
    */
-  lockedUntil?: Date | null;
+  lockedUntil!: Date | null;
 
   /**
    * Number of consecutive failed login attempts
@@ -118,17 +118,17 @@ export class BaseUser {
   /**
    * When last failed login occurred
    */
-  lastFailedLoginAt?: Date | null;
+  lastFailedLoginAt!: Date | null;
 
   /**
    * When user last successfully logged in
    */
-  lastLoginAt?: Date | null;
+  lastLoginAt!: Date | null;
 
   /**
    * IP address of last successful login
    */
-  lastLoginIp?: string | null;
+  lastLoginIp!: string | null;
 
   /**
    * MFA enabled status
@@ -139,7 +139,7 @@ export class BaseUser {
    * List of enabled MFA methods
    * Examples: ['totp', 'sms', 'passkey']
    */
-  mfaMethods?: string[] | null;
+  mfaMethods!: string[] | null;
 
   /**
    * When MFA was enforced for this user
@@ -156,13 +156,13 @@ export class BaseUser {
    * Backup recovery codes (hashed)
    * Single-use codes for account recovery
    */
-  backupCodes?: string[] | null;
+  backupCodes!: string[] | null;
 
   /**
    * User's preferred MFA method
    * Used to pre-select MFA method during authentication
    */
-  preferredMfaMethod?: string | null;
+  preferredMfaMethod!: string | null;
 
   /**
    * MFA exemption status
@@ -217,13 +217,13 @@ export class BaseUser {
    * Examples: ['google', 'apple', 'facebook']
    * Updated automatically when social accounts are linked/unlinked
    */
-  socialProviders?: string[] | null;
+  socialProviders!: string[] | null;
 
   /**
    * Additional user metadata (JSON)
    * For custom application-specific data
    */
-  metadata?: Record<string, unknown> | null;
+  metadata!: Record<string, unknown> | null;
 
   /**
    * Account creation timestamp
@@ -239,5 +239,5 @@ export class BaseUser {
    * Soft delete timestamp
    * NULL if account is not deleted
    */
-  deletedAt?: Date | null;
+  deletedAt!: Date | null;
 }

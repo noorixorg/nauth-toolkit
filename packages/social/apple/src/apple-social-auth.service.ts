@@ -107,7 +107,8 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
       return; // Exit constructor early if disabled
     }
 
-    if (!providerConfig.clientId) {
+    const webClientId = Array.isArray(providerConfig.clientId) ? providerConfig.clientId[0] : providerConfig.clientId;
+    if (!webClientId) {
       // Schema validation should catch this, but handle gracefully
       this.oauthClient = null;
       this.tokenVerifier = null;
@@ -117,7 +118,7 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
     // Note: Apple clientSecret is optional for native flow, but required for web OAuth
     // It's a JWT that needs to be generated from Apple Developer credentials
     this.oauthClient = new AppleOAuthClient({
-      clientId: providerConfig.clientId,
+      clientId: webClientId,
       clientSecret: providerConfig.clientSecret || '',
       redirectUri: providerConfig.callbackUrl || '',
       scopes: providerConfig.scopes || ['name', 'email'],
@@ -195,7 +196,7 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Apple OAuth is not configured');
     }
 
-    const clientId = providerConfig.clientId || '';
+    const clientId = Array.isArray(providerConfig.clientId) ? providerConfig.clientId[0] : providerConfig.clientId || '';
     if (!this.tokenVerifier.verifyAppleToken) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Apple token verifier is not available');
     }
