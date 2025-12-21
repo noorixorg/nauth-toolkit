@@ -63,6 +63,7 @@ export interface SignupRequest {
   firstName?: string;
   lastName?: string;
   phone?: string;
+  metadata?: Record<string, unknown>;
 }
 
 /**

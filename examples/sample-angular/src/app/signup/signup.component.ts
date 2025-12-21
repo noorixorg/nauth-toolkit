@@ -208,6 +208,9 @@ export class SignupComponent implements OnInit {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phone: formattedPhone,
+        metadata: {
+          invite_code: '92837984372',
+        },
       })
       .subscribe({
         next: async (response: AuthResponse) => {

@@ -233,6 +233,10 @@ const response = await client.signup({
   firstName: 'John',
   lastName: 'Doe',
   phone: '+14155551234',
+  metadata: {
+    invitation_code: '83891D228', // for custom use cases
+    referralCode: 'ABC123',
+  },
 });
 
 if (response.challengeName === 'VERIFY_EMAIL') {
