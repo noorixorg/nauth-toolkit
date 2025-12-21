@@ -315,7 +315,7 @@ inventory.core.services.forEach((service, idx) => {
   }
 
   fs.writeFileSync(filepath, createServiceSkeleton(service, idx + 1));
-  console.log(`  ✅ ${filename}`);
+  console.log(`  ${filename}`);
 });
 
 // Core DTOs
@@ -336,7 +336,7 @@ inventory.core.dtos.forEach((dto, idx) => {
   }
 
   fs.writeFileSync(filepath, createDTOSkeleton(dto, idx + 1));
-  console.log(`  ✅ ${filename}`);
+  console.log(`  ${filename}`);
 });
 
 // NestJS Guards
@@ -354,7 +354,7 @@ inventory.nestjs.guards.forEach((guard, idx) => {
   }
 
   fs.writeFileSync(filepath, createGuardSkeleton(guard, idx + 1));
-  console.log(`  ✅ ${filename}`);
+  console.log(`  ${filename}`);
 });
 
 // NestJS Decorators
@@ -372,7 +372,7 @@ inventory.nestjs.decorators.forEach((decorator, idx) => {
   }
 
   fs.writeFileSync(filepath, createDecoratorSkeleton(decorator, idx + 1));
-  console.log(`  ✅ ${filename}`);
+  console.log(`  ${filename}`);
 });
 
 // Express Middleware
@@ -390,7 +390,7 @@ inventory.express.middleware.forEach((middleware, idx) => {
   }
 
   fs.writeFileSync(filepath, createMiddlewareSkeleton(middleware, idx + 1));
-  console.log(`  ✅ ${filename}`);
+  console.log(`  ${filename}`);
 });
 
 // Express Helpers
@@ -408,10 +408,10 @@ inventory.express.helpers.forEach((helper, idx) => {
   }
 
   fs.writeFileSync(filepath, createMiddlewareSkeleton(helper, idx + 1));
-  console.log(`  ✅ ${filename}`);
+  console.log(`  ${filename}`);
 });
 
-console.log('\n✅ Skeleton generation complete!');
+  console.log('\nSkeleton generation complete!');
 console.log('\n📝 Next steps:');
 console.log('  1. Review generated skeletons');
 console.log('  2. Fill in method signatures and descriptions');

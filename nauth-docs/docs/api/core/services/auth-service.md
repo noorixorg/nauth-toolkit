@@ -682,6 +682,27 @@ const result = await authService.signup({
 
 ---
 
+### isTrustedDevice()
+
+Check whether the **current device** is trusted (eligible for trusted-device MFA bypass).
+
+```typescript
+async isTrustedDevice(): Promise<IsTrustedDeviceResponseDTO>
+```
+
+**Returns**
+
+- [`IsTrustedDeviceResponseDTO`](../dto/is-trusted-device-response-dto) - `{ trusted: boolean }`
+
+**Example**
+
+```typescript
+const result = await authService.isTrustedDevice();
+// result.trusted === true | false
+```
+
+---
+
 ### trustDevice()
 
 Mark current device as trusted for MFA bypass.

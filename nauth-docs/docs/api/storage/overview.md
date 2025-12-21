@@ -14,10 +14,13 @@ Storage adapters for transient authentication state (rate limits, locks, token t
 
 | Adapter | Package | Use Case |
 |---------|---------|----------|
-| [Redis](./redis) | `@nauth-toolkit/storage-redis` | Production (single instance) |
+| [Redis](./redis) | `@nauth-toolkit/storage-redis` | Production (recommended, multi-server) |
 | [Redis Cluster](./redis-cluster) | `@nauth-toolkit/storage-redis` | Production (high availability) |
-| [Database](./database) | `@nauth-toolkit/storage-database` | Production (TypeORM) |
-| [Memory](./memory) | `@nauth-toolkit/core` | Development only |
+| [Database](./database) | `@nauth-toolkit/storage-database` | Production (single-server, low-traffic) |
+
+:::important
+**Storage adapter is REQUIRED.** You must configure either `DatabaseStorageAdapter` or `RedisStorageAdapter`. If you don't provide one explicitly, `DatabaseStorageAdapter` will be auto-created if storage entities are available in your TypeORM configuration.
+:::
 
 ## Purpose
 

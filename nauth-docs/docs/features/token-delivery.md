@@ -14,7 +14,7 @@ For complete token delivery configuration options, see the [Configuration guide]
 
 - **Web app only?** Use `cookies` mode (most secure for browsers)
 - **Mobile app only?** Use `json` mode (standard Bearer tokens)
-- **Both web and mobile?** Use `hybrid` mode (automatic detection)
+- **Both web and mobile?** Use `hybrid` mode (backend supports both; use explicit routes per client)
   :::
 
 ## Delivery Methods
@@ -77,7 +77,7 @@ fetch('/api/protected', {
 If using JSON mode for web apps, store tokens in memory or secure storage, not `localStorage`. Attackers can steal tokens via XSS attacks if stored in `localStorage`.
 :::
 
-  </TabItem>
+</TabItem>
   <TabItem value="cookies" label="Cookies (Most Secure for Web)">
 
 Tokens are set as HTTP-only cookies. Your frontend doesn't handle tokens directly; the browser sends them automatically.
@@ -97,7 +97,6 @@ Tokens are set as HTTP-only cookies. Your frontend doesn't handle tokens directl
   },
   security: {
     csrf: {
-      enabled: true,        // Required when using cookies
       cookieName: 'csrf-token',
       headerName: 'x-csrf-token',
     },
@@ -143,13 +142,10 @@ fetch('/api/protected', {
 Cookie mode is the most secure option for web applications. Even if an attacker injects malicious JavaScript, they can't steal the tokens.
 :::
 
-  </TabItem>
+</TabItem>
   <TabItem value="hybrid" label="Hybrid (Web + Mobile)">
 
-Automatically detects the client type:
-
-- **Web browsers**: Use cookies (secure)
-- **Mobile apps**: Use JSON response (compatible)
+Hybrid is a backend pattern that supports both cookie delivery and JSON delivery. The recommended approach is to make delivery explicit per route (for example: `/auth/login` for cookies and `/auth/login/mobile` for JSON) so each client targets the correct endpoints.
 
 **Configuration:**
 
@@ -165,19 +161,17 @@ Automatically detects the client type:
   },
   security: {
     csrf: {
-      enabled: true, // Only enforced for cookie requests
+      // Customize CSRF cookie/header names and excluded paths (no enable flag)
     },
   },
 }
 ```
 
-**How it works:**
+**How it works (recommended):**
 
-1. Client logs in
-2. nauth-toolkit checks the request:
-   - If browser (has `User-Agent` with browser signature) → Send cookies
-   - If mobile app or API client → Send JSON response
-3. Client uses the appropriate method going forward
+- Web client calls cookie endpoints (for example: `/auth/login`, `/auth/refresh`)
+- Mobile client calls JSON endpoints (for example: `/auth/login/mobile`, `/auth/refresh/mobile`)
+- Use route-level delivery override (`@TokenDelivery()` in NestJS, `nauth.helpers.tokenDelivery()` in Express/Fastify)
 
 **Frontend usage:**
 
@@ -208,15 +202,15 @@ fetch('/api/protected', {
 ```
 
 **Pros:**
-• Single backend serves both web and mobile
-• Best security for each platform
-• No code duplication
+- Single backend serves both web and mobile
+- Best security for each platform
+- No code duplication
 
 **Cons:**
-• Slightly more complex setup
-• Frontend needs platform detection
+- Slightly more complex setup
+- Clients must target the correct endpoints
 
-  </TabItem>
+</TabItem>
 </Tabs>
 
 ## CSRF Protection
@@ -243,7 +237,6 @@ When using `cookies` or `hybrid` mode, you **must** enable CSRF protection to pr
 {
   security: {
     csrf: {
-      enabled: true,
       cookieName: 'csrf-token',
       headerName: 'x-csrf-token',
       excludePaths: ['/api/public/*'], // Don't require CSRF for public endpoints
@@ -322,9 +315,9 @@ nauth-toolkit enforces your chosen delivery method. This prevents security vulne
 
 | Mode      | Bearer Token                       | Cookie Token                        |
 | --------- | ---------------------------------- | ----------------------------------- |
-| `json`    | ✅ Accepted                        | ❌ Rejected (`COOKIES_NOT_ALLOWED`) |
-| `cookies` | ❌ Rejected (`BEARER_NOT_ALLOWED`) | ✅ Accepted                         |
-| `hybrid`  | ✅ Accepted                        | ✅ Accepted (checks cookies first)  |
+| `json`    | Accepted                           | Rejected (`COOKIES_NOT_ALLOWED`)    |
+| `cookies` | Rejected (`BEARER_NOT_ALLOWED`)    | Accepted                            |
+| `hybrid`  | Accepted                           | Accepted (checks cookies first)     |
 
 **Why enforce this?**
 
@@ -351,7 +344,7 @@ The "Remember Device" feature works with all delivery modes:
 - Web: Cookie-based (automatic)
 - Mobile: JSON-based (manual storage)
 
-See [MFA documentation](/docs/features/mfa#remember-device) for more details.
+See [MFA documentation](/docs/features/mfa#remember-device-trusted-devices) for more details.
 
 ## Migration Guide
 

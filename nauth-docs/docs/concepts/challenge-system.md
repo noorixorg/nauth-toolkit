@@ -52,12 +52,13 @@ You don't need separate endpoints for every verification type. The toolkit provi
 
 ### Backend Implementation
 
-<Tabs>
+<Tabs groupId="platform">
   <TabItem value="nestjs" label="NestJS" default>
 
 ```typescript
 import { Controller, Post, Body } from '@nestjs/common';
 import { AuthService, Public } from '@nauth-toolkit/nestjs';
+import { AuthErrorCode, NAuthException } from '@nauth-toolkit/core';
 
 @Controller('auth')
 export class AuthController {
@@ -100,6 +101,7 @@ export class AuthController {
 ```typescript
 import { Router } from 'express';
 import { NAuthExpress } from '@nauth-toolkit/express';
+import { AuthErrorCode, NAuthException } from '@nauth-toolkit/core';
 
 export function createAuthRoutes(nauth: NAuthExpress) {
   const router = Router();
@@ -136,6 +138,38 @@ export function createAuthRoutes(nauth: NAuthExpress) {
 ```
 
   </TabItem>
+  <TabItem value="fastify" label="Fastify">
+
+```typescript
+import { FastifyInstance } from 'fastify';
+import { createNAuth } from '@nauth-toolkit/fastify';
+
+export async function registerAuthRoutes(fastify: FastifyInstance, nauth: Awaited<ReturnType<typeof createNAuth>>) {
+  fastify.post('/auth/login', nauth.adapter.wrapRouteHandler(async (req) => {
+    const result = await nauth.authService.login(req.body);
+
+    if (result.challengeName) {
+      return {
+        challengeName: result.challengeName,
+        session: result.session,
+        challengeParameters: result.challengeParameters,
+      };
+    }
+
+    return result;
+  }));
+
+  fastify.post('/auth/challenge', nauth.adapter.wrapRouteHandler(async (req) => {
+    return nauth.authService.respondToChallenge({
+      session: (req.body as any).session,
+      type: (req.body as any).challengeType,
+      code: (req.body as any).code,
+    });
+  }));
+}
+```
+
+  </TabItem>
 </Tabs>
 
 ### Frontend Implementation
@@ -156,9 +190,6 @@ async function handleAuthResponse(response) {
       case 'MFA_REQUIRED':
         showMfaInputScreen(response.session);
         break;
-      case 'VERIFY_EMAIL_AND_PHONE':
-        showEmailVerificationScreen(response.session);
-        break;
     }
     return;
   }
@@ -167,7 +198,7 @@ async function handleAuthResponse(response) {
   if (response.accessToken) {
     // Tokens are automatically stored in cookies if using cookie mode
     // Otherwise, store them in localStorage/sessionStorage
-    window.location.href = '/dashboard';
+    // Use your router/navigation here
   }
 }
 
@@ -262,11 +293,30 @@ Issued during login if the user has 2FA enabled.
 }
 ```
 
-### 4. `VERIFY_EMAIL_AND_PHONE`
+### 4. `MFA_SETUP_REQUIRED`
 
-Issued when both email and phone verification are required simultaneously.
+Issued during login when **MFA enforcement is enabled** and the user is required to set up MFA before being allowed to sign in.
 
-**User Action**: Verify email first, then phone verification challenge will be issued.
+**When you’ll see it:**
+
+- `mfa.enabled = true`
+- `mfa.enforcement = 'REQUIRED'` (and the grace period has expired or is disabled)
+
+**User Action**: Take the user through MFA setup (e.g., TOTP QR code, SMS enrollment, passkey registration).
+
+**Next Step**: Complete MFA setup, then call the challenge completion endpoint to finish the login.
+
+Related:
+
+- [Configuration → MFA](/docs/concepts/configuration#multi-factor-authentication)
+- [MFAService API](/docs/api/core/services/mfa-service)
+
+### 5. Email + Phone verification (chained challenges)
+
+If your configuration requires both verifications (`signup.verificationMethod = 'both'`), challenges are returned **sequentially**:
+
+1. `VERIFY_EMAIL`
+2. then `VERIFY_PHONE`
 
 ## Progressive Challenge Flow
 
@@ -274,7 +324,7 @@ Challenges can be chained. Here's an example of a multi-step flow:
 
 ```
 1. User signs up with email and phone
-2. Response: { challengeName: 'VERIFY_EMAIL_AND_PHONE', session: '...' }
+2. Response: { challengeName: 'VERIFY_EMAIL', session: '...' }
 3. User verifies email
 4. Response: { challengeName: 'VERIFY_PHONE', session: '...' }
 5. User verifies phone
@@ -290,7 +340,7 @@ Challenges can be chained. Here's an example of a multi-step flow:
 
 ## Error Handling
 
-<Tabs>
+<Tabs groupId="platform">
   <TabItem value="nestjs" label="NestJS" default>
 
 ```typescript
@@ -306,10 +356,10 @@ async respondToChallenge(@Body() dto: RespondToChallengeDTO) {
   } catch (error) {
     if (error instanceof NAuthException) {
       // Handle specific error codes
-      if (error.code === 'VERIFICATION_CODE_INVALID') {
+      if (error.code === AuthErrorCode.VERIFICATION_CODE_INVALID) {
         throw new BadRequestException('Invalid verification code');
       }
-      if (error.code === 'VERIFICATION_CODE_EXPIRED') {
+      if (error.code === AuthErrorCode.VERIFICATION_CODE_EXPIRED) {
         throw new BadRequestException('Code expired. Please request a new one');
       }
     }
@@ -333,16 +383,41 @@ router.post('/challenge', async (req, res) => {
   } catch (error) {
     if (error instanceof NAuthException) {
       // Handle specific error codes
-      if (error.code === 'VERIFICATION_CODE_INVALID') {
+      if (error.code === AuthErrorCode.VERIFICATION_CODE_INVALID) {
         return res.status(400).json({ error: 'Invalid verification code' });
       }
-      if (error.code === 'VERIFICATION_CODE_EXPIRED') {
+      if (error.code === AuthErrorCode.VERIFICATION_CODE_EXPIRED) {
         return res.status(400).json({ error: 'Code expired. Please request a new one' });
       }
     }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+```
+
+  </TabItem>
+  <TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.post('/auth/challenge', nauth.adapter.wrapRouteHandler(async (req) => {
+  try {
+    return await nauth.authService.respondToChallenge({
+      session: (req.body as any).session,
+      type: (req.body as any).challengeType,
+      code: (req.body as any).code,
+    });
+  } catch (error) {
+    if (error instanceof NAuthException) {
+      if (error.code === AuthErrorCode.VERIFICATION_CODE_INVALID) {
+        throw new Error('Invalid verification code');
+      }
+      if (error.code === AuthErrorCode.VERIFICATION_CODE_EXPIRED) {
+        throw new Error('Code expired. Please request a new one');
+      }
+    }
+    throw error;
+  }
+}));
 ```
 
   </TabItem>

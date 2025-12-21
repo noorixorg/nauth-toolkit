@@ -67,12 +67,12 @@ When caught, `NAuthException` has the following structure:
 
 | Property    | Type                      | Required | Description                               |
 | ----------- | ------------------------- | -------- | ----------------------------------------- |
-| `code`      | `AuthErrorCode` | ✅ Yes   | Machine-readable error code for programmatic handling |
-| `message`   | `string`                  | ✅ Yes   | Human-readable error message              |
-| `details`   | `Record<string, unknown>` | ❌ No    | Optional metadata (retryAfter, field names, etc.) |
-| `timestamp` | `string`                  | ✅ Yes   | ISO 8601 timestamp when error occurred    |
-| `name`      | `string`                  | ✅ Yes   | Always `"NAuthException"`                 |
-| `stack`     | `string`                  | ❌ No    | Stack trace (standard Error property)     |
+| `code`      | `AuthErrorCode`           | Yes      | Machine-readable error code for programmatic handling |
+| `message`   | `string`                  | Yes      | Human-readable error message              |
+| `details`   | `Record<string, unknown>` | No       | Optional metadata (retryAfter, field names, etc.) |
+| `timestamp` | `string`                  | Yes      | ISO 8601 timestamp when error occurred    |
+| `name`      | `string`                  | Yes      | Always `"NAuthException"`                 |
+| `stack`     | `string`                  | No       | Stack trace (standard Error property)     |
 
 ### Details Object Structure
 

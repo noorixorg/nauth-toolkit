@@ -96,22 +96,29 @@ If you need to integrate with another framework, implement the adapter interface
 Core handlers operate on generic interfaces, not framework-specific objects:
 
 ```typescript
-// Generic interfaces - handlers use these
+// Generic interfaces - handlers use these (simplified)
 interface NAuthRequest {
   method: string;
   path: string;
-  body: any;
-  headers: Record<string, string>;
-  cookies: Record<string, string>;
+  url: string;
+  body: Record<string, unknown>;
+  headers: Record<string, string | string[] | undefined>;
+  cookies: Record<string, string | undefined>;
   ip: string;
 }
 
 interface NAuthResponse {
   status(code: number): this;
-  setCookie(name: string, value: string, options?: any): this;
-  json(body: any): void;
+  setCookie(name: string, value: string, options?: { httpOnly?: boolean; secure?: boolean; sameSite?: string }): this;
+  json(body: unknown): void;
 }
 ```
+
+Full contracts:
+
+- [`NAuthRequest`](/docs/api/core/interfaces/nauth-request)
+- [`NAuthResponse`](/docs/api/core/interfaces/nauth-response)
+- [`NAuthAdapter`](/docs/api/core/interfaces/nauth-adapter)
 
 Adapters wrap framework-specific req/res into these interfaces and handle:
 
@@ -197,6 +204,11 @@ NAuth.create({
 - MFA requires providers for enabled methods
 - JWT algorithms validated against key types
 
+Related:
+
+- [Configuration](/docs/concepts/configuration) - Full `NAuthConfig` reference
+- [AuthService API](/docs/api/core/services/auth-service) - Auth methods and responses
+
 ## Why This Architecture
 
 ### 1. No External Dependencies
@@ -235,28 +247,21 @@ Users → Your Database
 - Easy backups and exports
 - Compliance-friendly (data residency)
 
-### 3. Free & Open Source
+### 3. Operational Simplicity
 
-```
-SaaS Auth:
-Monthly Active Users × $X = Costs grow
+Because nauth-toolkit runs inside your app, it behaves like any other application module:
 
-nauth-toolkit:
-MIT licensed = $0 forever
-Only pay for your infrastructure
-```
+- No separate auth service to deploy
+- No cross-service networking for auth flows
+- Debugging happens in your app logs and DB
 
-### 4. Complete Customization
+### 4. Extensibility (Consumer-Facing)
 
-```
-SaaS Auth:
-Limited configuration options
+You can customize behavior via:
 
-nauth-toolkit:
-Full source code access
-Lifecycle hooks at every step
-Extend any service
-```
+- Configuration (`NAuthConfig`) for security + UX tradeoffs
+- Providers (email/SMS/storage) to match your infrastructure
+- Lifecycle hooks for app-specific workflows (notifications, analytics, approvals)
 
 ## Next Steps
 

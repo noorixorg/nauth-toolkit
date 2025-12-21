@@ -177,6 +177,33 @@ fastify.register(nauth.routes, { prefix: '/auth' });
 
 ## Core Configuration
 
+### Top-level options (NAuthConfig)
+
+These are the top-level keys you can provide in `NAuthConfig` / `NAuthModuleConfig`:
+
+| Option | Type | Required | Description |
+| --- | --- | --- | --- |
+| `tablePrefix` | `string` | No | Database table prefix (default: `nauth_`) |
+| `jwt` | `JwtConfig` | Yes | JWT configuration |
+| `signup` | `SignupConfig` | No | Signup + verification settings |
+| `login` | `LoginConfig` | No | Login identifier policy |
+| `password` | `PasswordConfig` | No | Password policy + password reset |
+| `lockout` | `LockoutConfig` | No | IP-based lockout settings |
+| `session` | `SessionConfig` | No | Session lifetime + concurrency |
+| `security` | `SecurityConfig` | No | CSRF + security settings |
+| `tokenDelivery` | `TokenDeliveryConfig` | No | JSON/cookies/hybrid token delivery |
+| `challenge` | `ChallengeConfig` | No | Challenge session limits |
+| `auditLogs` | `{ enabled?: boolean; fireAndForget?: boolean }` | No | Audit logging behavior |
+| `emailProvider` | `EmailProvider` | No | Email provider instance (required when email verification or MFA email is enabled) |
+| `email` | `EmailConfig` | No | Email branding + email templates |
+| `smsProvider` | `SMSProvider` | No | SMS provider instance (required when phone verification or MFA SMS is enabled) |
+| `sms` | `{ templates?: SMSTemplateConfig }` | No | SMS template configuration |
+| `social` | `SocialConfig` | No | Social provider settings |
+| `mfa` | `MFAConfig` | No | MFA configuration |
+| `geoLocation` | `GeoLocationConfig` | No | IP geolocation (MaxMind) |
+| `logger` | `LoggerService \| NAuthLoggerConfig` | No | Logger instance + PII redaction controls |
+| `hooks` | `LifecycleHooks` | No | Lifecycle hooks |
+
 ### JWT Configuration
 
 Controls JWT token generation and validation. JWTs are used for stateless authentication - the access token authorizes API requests, while the refresh token allows obtaining new access tokens without re-authentication.
@@ -234,10 +261,10 @@ jwt: {
 
 ### Storage Adapter
 
-Choose between Redis, Database, or Memory for transient storage.
+**Storage adapter is REQUIRED.** Choose between Redis or Database for transient storage.
 
 ```typescript
-// Redis (Recommended for production)
+// Redis (Recommended for production, multi-server)
 import { createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
 storageAdapter: createRedisStorageAdapter('redis://localhost:6379'),
 
@@ -248,13 +275,24 @@ storageAdapter: createDatabaseStorageAdapter(),
 // Database (No Redis needed) - Express/Fastify
 // import { DatabaseStorageAdapter } from '@nauth-toolkit/storage-database';
 // storageAdapter: new DatabaseStorageAdapter(),
-
-// Memory (Development only - NOT for production)
-import { MemoryStorageAdapter } from '@nauth-toolkit/core';
-storageAdapter: new MemoryStorageAdapter(),
 ```
 
-See [Storage](/docs/concepts/storage) for detailed comparison.
+:::tip
+If you don't provide a `storageAdapter` explicitly, `DatabaseStorageAdapter` will be auto-created if storage entities (`getNAuthTransientStorageEntities()`) are included in your TypeORM configuration.
+:::
+
+See [Storage](/docs/concepts/storage) for detailed comparison and auto-detection behavior.
+
+### Login Configuration
+
+Controls which identifier types are accepted during login.
+
+```typescript
+login: {
+  // 'email' | 'username' | 'phone' | 'email_or_username'
+  identifierType: 'email_or_username',
+},
+```
 
 ### Email Provider
 
@@ -621,6 +659,20 @@ tokenDelivery: {
 - **Mobile apps**: Use `'json'` for simplicity
 - **Both**: Use `'hybrid'` mode
 
+### Hybrid policy (tokenDelivery.method = 'hybrid')
+
+In hybrid mode, nauth-toolkit chooses between cookies vs JSON delivery based on request origin.
+
+```typescript
+tokenDelivery: {
+  method: 'hybrid',
+  hybridPolicy: {
+    webOrigins: ['https://app.myapp.com'],
+    nativeOrigins: ['capacitor://localhost', 'ionic://localhost'],
+  },
+},
+```
+
 ## Session Configuration
 
 Manage user sessions and concurrency.
@@ -786,6 +838,16 @@ Configure audit trail.
 auditLogs: {
   enabled: true,
   fireAndForget: false,  // Set true for performance (no await)
+},
+```
+
+## Challenge Configuration
+
+Challenge session limits for flows like verification, MFA, and step-up challenges.
+
+```typescript
+challenge: {
+  maxAttempts: 3, // Default: 3
 },
 ```
 

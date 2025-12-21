@@ -34,7 +34,7 @@ The toolkit's responsibility is to **throw consistent, structured errors**. Cons
 │   Throws: NAuthException            │
 │   - code: AuthErrorCode             │
 │   - message: string                 │
-│   - details: Record<string, any>    │
+│   - details: Record<string, unknown>│
 └─────────────────────────────────────┘
               ▼
 ┌─────────────────────────────────────┐
@@ -68,6 +68,12 @@ For HTTP/REST APIs, the toolkit provides a ready-to-use exception filter:
 
 #### Option A: Use Provided Filter (Easiest)
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS" default>
+
 ```typescript
 // src/main.ts
 import { NAuthHttpExceptionFilter } from '@nauth-toolkit/nestjs';
@@ -99,6 +105,19 @@ export class AuthController {}
 @UseFilters(NAuthHttpExceptionFilter)
 async signup() {}
 ```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+The toolkit does not ship an Express-specific filter. Use the “Custom Mapping” pattern below to map `NAuthException` to your API responses.
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+The toolkit does not ship a Fastify-specific filter. Use the “Custom Mapping” pattern below to map `NAuthException` to your API responses.
+
+</TabItem>
+</Tabs>
 
 #### Option B: Custom HTTP Filter
 

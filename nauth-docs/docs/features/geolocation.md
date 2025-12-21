@@ -29,7 +29,7 @@ nauth-toolkit integrates with MaxMind GeoIP2 to convert IP addresses to geograph
 - Provide localized experiences
 
 :::tip Adaptive MFA Integration
-Geolocation data powers [Adaptive MFA](/docs/features/mfa#adaptive-mfa), automatically requiring two-factor authentication for logins from new or suspicious locations.
+Geolocation data powers [Adaptive MFA](/docs/features/mfa#adaptive-mfa-risk-based-authentication), automatically requiring two-factor authentication for logins from new or suspicious locations.
 :::
 
 ## Setup
@@ -246,7 +246,7 @@ Geofencing can lock out legitimate users traveling abroad. Consider using `requi
 
 ## Integration with Adaptive MFA
 
-Geolocation data is a key input for [Adaptive MFA risk scoring](/docs/features/mfa#adaptive-mfa):
+Geolocation data is a key input for [Adaptive MFA risk scoring](/docs/features/mfa#adaptive-mfa-risk-based-authentication):
 
 ```typescript
 {

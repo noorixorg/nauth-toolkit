@@ -52,6 +52,12 @@ MFA method identifiers.
 
 See [MFAMethod](./mfa-method) for values and related types.
 
+## SMSTemplateType
+
+SMS template type identifiers used by the SMS template engine.
+
+See [SMSTemplateType](./sms-template-type) for values.
+
 ## RiskFactor
 
 Risk factor identifiers used in risk scoring and audit logging.

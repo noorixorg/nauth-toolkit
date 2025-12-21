@@ -198,6 +198,6 @@ sms: {
 ## Related
 
 - [SMS Templates Feature Guide](/docs/features/sms-templates)
-- [SMSTemplateEngine Interface](./sms-template-engine)
+- [SMSTemplateEngine Interface](/docs/api/core/interfaces/sms-template-engine)
 - [SMS Providers Overview](./overview)
 

@@ -291,11 +291,11 @@ export class ProfileController {
   @Get()
   getProfile(@CurrentUser() user: IUser) {
     // TypeScript knows all user properties
-    const email: string = user.email;  // ✅ Type-safe
-    const sub: string = user.sub;      // ✅ Type-safe
+    const email: string = user.email;  // Type-safe
+    const sub: string = user.sub;      // Type-safe
 
     // TypeScript prevents errors
-    // const invalid = user.nonExistent;  // ❌ Compile error
+    // const invalid = user.nonExistent;  // Compile error
 
     return { user };
   }
@@ -381,7 +381,7 @@ describe('ProfileController', () => {
 The decorator itself doesn't throw errors. If `req.user` is undefined, it returns `undefined`. Ensure `AuthGuard` is applied:
 
 ```typescript
-// ❌ BAD: No guard, user will be undefined
+// BAD: No guard, user will be undefined
 @Controller('profile')
 export class ProfileController {
   @Get()
@@ -391,7 +391,7 @@ export class ProfileController {
   }
 }
 
-// ✅ GOOD: Guard ensures user exists
+// GOOD: Guard ensures user exists
 @Controller('profile')
 @UseGuards(AuthGuard)
 export class ProfileController {

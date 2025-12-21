@@ -32,7 +32,7 @@ Your frontend must match your backend's token delivery mode:
 | Frontend Mode | Backend Endpoint                                       | Use Case               |
 | ------------- | ------------------------------------------------------ | ---------------------- |
 | `cookies`     | `/auth` (cookies mode)                                 | Web apps (recommended) |
-| `json`        | `/auth` (JSON mode) or `/mobile/auth` (hybrid backend) | Mobile/native apps     |
+| `json`        | `/auth` (JSON mode)                                    | Mobile/native apps     |
 
 Check your backend's `nauth.config.ts`:
 
@@ -40,11 +40,13 @@ Check your backend's `nauth.config.ts`:
 // Backend configuration
 NAuthModule.forRoot({
   tokenDelivery: {
-    mode: 'cookies', // Your mode
+    method: 'cookies', // Your mode
     // ...
   },
 });
 ```
+
+If your backend uses `tokenDelivery.method = 'hybrid'`, the same `/auth` endpoints can serve both web (cookies) and native/mobile (JSON) clients. The backend selects delivery based on request origin (see [Configuration](/docs/concepts/configuration#hybrid-policy-tokendeliverymethod--hybrid)).
 
 See [NAuthClientConfig](../api/nauth-client-config) for all configuration options including custom storage adapters, CSRF settings, endpoint overrides, and callbacks.
 
@@ -85,7 +87,7 @@ export const authClient = new NAuthClient({
   },
   onAuthStateChange: (user) => {
     // React to auth changes
-    console.log('Auth state changed:', user?.email ?? 'logged out');
+    // Use your application's logger/telemetry here
   },
 });
 ```
@@ -150,7 +152,7 @@ async function bootstrap(): Promise<void> {
 
   // Check if already logged in
   if (authClient.isAuthenticatedSync()) {
-    console.log('User:', authClient.getCurrentUser());
+    // Use your application's logger/telemetry here
   }
 
   // Render your app

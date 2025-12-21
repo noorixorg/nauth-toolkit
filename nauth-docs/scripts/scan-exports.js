@@ -99,6 +99,6 @@ Object.entries(packages).forEach(([pkg, exports]) => {
 // Save inventory to JSON
 const outputPath = path.join(__dirname, 'api-inventory.json');
 fs.writeFileSync(outputPath, JSON.stringify(packages, null, 2));
-console.log(`\n✅ Inventory saved to ${outputPath}`);
+console.log(`\nInventory saved to ${outputPath}`);
 
 

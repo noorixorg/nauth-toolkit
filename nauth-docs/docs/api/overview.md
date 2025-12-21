@@ -53,9 +53,8 @@ import { AuthService, AuthModule, AuthGuard } from '@nauth-toolkit/nestjs';
 
 ### MFA Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/mfa-totp
-yarn add @nauth-toolkit/mfa-sms
 ```
 
 ```typescript
@@ -73,9 +72,8 @@ import { SMSMFAModule } from '@nauth-toolkit/mfa-sms/nestjs';
 
 ### Social Auth Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/social-google
-yarn add @nauth-toolkit/social-apple
 ```
 
 ```typescript
@@ -93,9 +91,8 @@ import { AppleSocialAuthModule } from '@nauth-toolkit/social-apple/nestjs';
 
 ### Email & SMS Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/email-nodemailer
-yarn add @nauth-toolkit/sms-aws-sns
 ```
 
 Configure in `AuthModule.forRoot()`:
@@ -175,9 +172,8 @@ app.post('/auth/signup', nauth.helpers.public(), async (req, res, next) => {
 
 ### MFA Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/mfa-totp
-yarn add @nauth-toolkit/mfa-sms
 ```
 
 MFA providers auto-register when configured:
@@ -197,9 +193,8 @@ const nauth = await NAuth.create({
 
 ### Social Auth Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/social-google
-yarn add @nauth-toolkit/social-apple
 ```
 
 Social providers auto-register when configured:
@@ -222,9 +217,8 @@ const nauth = await NAuth.create({
 
 ### Email & SMS Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/email-nodemailer
-yarn add @nauth-toolkit/sms-aws-sns
 ```
 
 Configure in `NAuth.create()`:
@@ -313,9 +307,8 @@ Use `nauth.adapter.wrapRouteHandler()` to access `nauth.helpers.getCurrentUser()
 
 ### MFA Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/mfa-totp
-yarn add @nauth-toolkit/mfa-sms
 ```
 
 MFA providers auto-register when configured:
@@ -335,9 +328,8 @@ const nauth = await NAuth.create({
 
 ### Social Auth Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/social-google
-yarn add @nauth-toolkit/social-apple
 ```
 
 Social providers auto-register when configured:
@@ -360,9 +352,8 @@ const nauth = await NAuth.create({
 
 ### Email & SMS Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/email-nodemailer
-yarn add @nauth-toolkit/sms-aws-sns
 ```
 
 Configure in `NAuth.create()`:

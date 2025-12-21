@@ -14,11 +14,11 @@ This document explains how nauth-toolkit delivers JWT tokens to clients and how 
 
 **Hybrid is a backend deployment pattern, not a frontend mode.**
 
-When your backend uses hybrid mode, it exposes **two sets of endpoints**:
+When your backend uses hybrid mode, you typically expose **two delivery paths** (recommended: explicit routes), so each client type calls endpoints that match its delivery mode:
 
 ```
 Web (cookies):    /auth/login, /auth/refresh, etc.
-Mobile (JSON):    /mobile/auth/login, /mobile/auth/refresh, etc.
+Mobile (JSON):    /auth/login/mobile, /auth/refresh/mobile (or any dedicated prefix you choose)
 ```
 
 Each frontend app (web or mobile) chooses ONE delivery mode and calls the appropriate endpoints:
@@ -26,7 +26,7 @@ Each frontend app (web or mobile) chooses ONE delivery mode and calls the approp
 - **Web app** → `tokenDelivery: 'cookies'`, `baseUrl: '/auth'`
 - **Mobile app** → `tokenDelivery: 'json'`, `baseUrl: '/mobile/auth'`
 
-The same endpoint cannot serve both cookies AND JSON tokens simultaneously.
+The same request should never receive both cookie tokens and JSON tokens at the same time. In practice, keep delivery deterministic by using explicit routes (recommended) or by using `hybridPolicy` (Origin-based).
 
 ## Backend Configuration
 
@@ -60,29 +60,31 @@ Create two auth controllers with different decorators:
 ```typescript
 // web-auth.controller.ts - Cookies mode
 @Controller('auth')
-@UseNAuthCookies() // Sets httpOnly cookies
 export class WebAuthController {
   @Post('login')
+  @TokenDelivery('cookies')
   login() {
     /* ... */
   }
 
   @Post('refresh')
+  @TokenDelivery('cookies')
   refresh() {
     /* ... */
   }
 }
 
 // mobile-auth.controller.ts - JSON mode
-@Controller('mobile/auth')
-@UseNAuthJson() // Returns tokens in body
+@Controller('auth')
 export class MobileAuthController {
-  @Post('login')
+  @Post('login/mobile')
+  @TokenDelivery('json')
   login() {
     /* ... */
   }
 
-  @Post('refresh')
+  @Post('refresh/mobile')
+  @TokenDelivery('json')
   refresh() {
     /* ... */
   }
@@ -151,11 +153,11 @@ export const appConfig = {
 
 | Aspect          | Cookies Mode                   | JSON Mode                        |
 | --------------- | ------------------------------ | -------------------------------- |
-| XSS Protection  | ✅ httpOnly prevents JS access | ⚠️ Tokens accessible to JS       |
-| CSRF Protection | ⚠️ Requires CSRF tokens        | ✅ Not vulnerable (no auto-send) |
-| Cross-origin    | ⚠️ Requires CORS config        | ✅ Works anywhere                |
-| Mobile Native   | ❌ Limited cookie support      | ✅ Full control                  |
-| SSR Compatible  | ⚠️ No cookies on server        | ✅ Tokens in headers             |
+| XSS Protection  | httpOnly prevents JS access | Tokens accessible to JS (treat as sensitive) |
+| CSRF Protection | Requires CSRF tokens | Not vulnerable (no auto-send) |
+| Cross-origin    | Requires CORS configuration | Works anywhere |
+| Mobile Native   | Cookie support varies by client | Full control |
+| SSR Compatible  | Cookies not always available to server-side rendering | Tokens in headers |
 
 ## Cookie Security Defaults
 

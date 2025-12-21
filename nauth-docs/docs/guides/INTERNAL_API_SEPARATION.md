@@ -8,10 +8,10 @@ As of version 0.1.0, nauth-toolkit separates **public** and **internal** APIs to
 
 Previously, all services were exported from `@nauth-toolkit/core`, including low-level primitives like `PasswordService`, `JwtService`, and `SessionService`. This created confusion:
 
-- ❌ Consumers imported internal services directly, bypassing the intended public API
-- ❌ Breaking changes to internal services could affect consumer applications
-- ❌ IDE auto-completion suggested internal services alongside public ones
-- ❌ Documentation was cluttered with implementation details
+- Consumers imported internal services directly, bypassing the intended public API
+- Breaking changes to internal services could affect consumer applications
+- IDE auto-completion suggested internal services alongside public ones
+- Documentation was cluttered with implementation details
 
 ## Solution: Dual Export Paths
 
@@ -21,10 +21,10 @@ The main export path contains only services intended for consumer use:
 
 ```typescript
 import {
-  AuthService,        // ✅ Main authentication API
-  MFAService,         // ✅ Multi-factor authentication
-  SocialAuthService,  // ✅ Social authentication (OAuth)
-  ClientInfoService,  // ✅ Access request context
+  AuthService,        // Main authentication API
+  MFAService,         // Multi-factor authentication
+  SocialAuthService,  // Social authentication (OAuth)
+  ClientInfoService,  // Access request context
   // ... other public services
 } from '@nauth-toolkit/core';
 ```
@@ -34,7 +34,7 @@ import {
 Internal services used by framework adapters (NestJS, Express) are available via `/internal`:
 
 ```typescript
-// ⚠️ INTERNAL USE ONLY - Framework adapters only
+// Internal use only (framework adapters)
 import {
   PasswordService,    // Low-level password hashing
   JwtService,         // JWT token generation
@@ -58,6 +58,16 @@ These services are the **official public API** for consumer applications:
 | `PhoneVerificationService` | SMS verification workflows |
 | `ClientInfoService` | Access request context (IP, user agent, session ID) |
 | `AuthAuditService` | Query authentication audit logs |
+
+**Related references:**
+
+- [`AuthService`](/docs/api/core/services/auth-service)
+- [`MFAService`](/docs/api/core/services/mfa-service)
+- [`SocialAuthService`](/docs/api/core/services/social-auth-service)
+- [`EmailVerificationService`](/docs/api/core/services/email-verification-service)
+- [`PhoneVerificationService`](/docs/api/core/services/phone-verification-service)
+- [`ClientInfoService`](/docs/api/core/services/client-info-service)
+- [`AuthAuditService`](/docs/api/core/services/auth-audit-service)
 
 ## Internal Services
 
@@ -93,7 +103,7 @@ These services are **implementation details** and should NOT be used by consumer
 
 If you were previously importing internal services, here's how to migrate:
 
-### ❌ Before (Old Way)
+### Before (Old Way)
 ```typescript
 import { PasswordService, JwtService } from '@nauth-toolkit/nestjs';
 
@@ -104,7 +114,7 @@ const hashedPassword = await passwordService.hashPassword('myPassword123');
 const tokens = await jwtService.generateTokenPair(user, session);
 ```
 
-### ✅ After (Public API)
+### After (Public API)
 ```typescript
 import { AuthService } from '@nauth-toolkit/nestjs';
 
@@ -177,7 +187,7 @@ The dual export system is fully supported in TypeScript with proper type definit
 **A:** Use `AuthService.signup()` or `AuthService.changePassword()`. For test utilities, create a test helper that uses the public API.
 
 ### Q: How do I know which services are public vs. internal?
-**A:** If it's exported from `@nauth-toolkit/core`, `@nauth-toolkit/nestjs`, or `@nauth-toolkit/express` without `/internal`, it's public. Services in `/internal` are for adapter developers only.
+**A:** If it's exported from `@nauth-toolkit/core`, `@nauth-toolkit/nestjs`, `@nauth-toolkit/express`, or `@nauth-toolkit/fastify` without `/internal`, it's public. Services in `/internal` are for adapter developers only.
 
 ### Q: Will internal APIs change often?
 **A:** Internal APIs may evolve as we improve the framework, but public APIs follow semantic versioning and breaking changes will be clearly documented.
@@ -185,6 +195,6 @@ The dual export system is fully supported in TypeScript with proper type definit
 ## Related
 
 - [API Documentation](../api/overview.md)
-- [AuthService Reference](../api/core/services/auth-service.md)
-- [MFAService Reference](../api/core/services/mfa-service.md)
+- [AuthService Reference](/docs/api/core/services/auth-service)
+- [MFAService Reference](/docs/api/core/services/mfa-service)
 

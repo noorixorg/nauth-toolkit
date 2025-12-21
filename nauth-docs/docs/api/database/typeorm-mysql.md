@@ -189,8 +189,7 @@ const nauth = await NAuth.create({
 | Storage Adapter | Include `getNAuthTransientStorageEntities()`? |
 |-----------------|----------------------------------------------|
 | `RedisStorageAdapter` | No |
-| `MemoryStorageAdapter` | No |
-| `DatabaseStorageAdapter` | **Yes** |
+| `DatabaseStorageAdapter` | **Yes** (required) |
 
 ## Related
 

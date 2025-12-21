@@ -376,7 +376,7 @@ async function main() {
     }
   }
 
-  console.log('\n✅ Documentation skeleton generation complete!');
+  console.log('\nDocumentation skeleton generation complete!');
 }
 
 main().catch(console.error);

@@ -210,7 +210,7 @@ Challenges are HTTP 200 responses, not errors. Single endpoint: `respondToChalle
 | --------- | -------------------------------------- |
 | `json`    | Tokens in response body only           |
 | `cookies` | Tokens in httpOnly cookies only        |
-| `hybrid`  | Auto-detect (web=cookies, mobile=json) |
+| `hybrid`  | Mixed delivery via route override (recommended) or `hybridPolicy` (Origin-based) |
 
 Override per-route: `nauth.helpers.tokenDelivery('cookies')` or `@TokenDelivery('cookies')`
 
@@ -218,10 +218,10 @@ Override per-route: `nauth.helpers.tokenDelivery('cookies')` or `@TokenDelivery(
 
 ## CSRF Protection
 
-Auto-enabled for `cookies`/`hybrid` modes.
+Enforced when cookie delivery is used (`cookies` or `hybrid` effective delivery). CSRF settings are customizable via `security.csrf` in config.
 
-- Server sets httpOnly cookie: `nauth_csrf_token`
-- Client sends header: `X-CSRF-Token`
+- Server sets readable cookie: `nauth_csrf_token` (not httpOnly)
+- Client sends header: `x-csrf-token`
 - Skips GET, HEAD, OPTIONS
 
 Bypass: `nauth.helpers.public()` or `@Public()`

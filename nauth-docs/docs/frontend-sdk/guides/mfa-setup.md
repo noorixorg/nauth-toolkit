@@ -683,7 +683,7 @@ See [Backend Passkey Configuration](/docs/features/mfa#passkey-webauthn) for ser
 The SDK validates TOTP setup requests before sending to the backend:
 
 ```typescript
-// ❌ This will throw NAuthClientError with VALIDATION_FAILED
+// This will throw NAuthClientError with VALIDATION_FAILED
 await client.respondToChallenge({
   session,
   type: 'MFA_SETUP_REQUIRED',
@@ -691,7 +691,7 @@ await client.respondToChallenge({
   setupData: { code: '123456' }, // Missing secret!
 });
 
-// ✅ Correct - includes both secret and code
+// Correct - includes both secret and code
 const setupData = await client.getSetupData(session, 'totp');
 await client.respondToChallenge({
   session,

@@ -181,13 +181,13 @@ async function verifyEmail(code: string): Promise<void> {
     handleNextChallenge(response);
   } else {
     // Verification complete
-    window.location.href = '/dashboard';
+    // Use your router/navigation here
   }
 }
 
 async function resendEmailCode(): Promise<void> {
   const result = await authClient.resendCode(challengeSession.session!);
-  console.log('Code sent to:', result.destination);
+  // Use your application logger/telemetry here
 }
 ```
 
@@ -398,7 +398,7 @@ async function verifyMfa(code: string): Promise<void> {
   });
 
   if (!response.challengeName) {
-    window.location.href = '/dashboard';
+    // Use your router/navigation here
   }
 }
 
@@ -622,34 +622,43 @@ export class AppComponent implements OnInit {
 
 ## Error Handling
 
+Client errors use `NAuthErrorCode` values that mirror the backend `AuthErrorCode`.
+
+See:
+
+- [`NAuthErrorCode`](../api/types/nauth-error-code)
+- [Error Handling (Backend)](/docs/concepts/error-handling)
+
 Common challenge errors:
 
 | Code              | Description               | Action                  |
 | ----------------- | ------------------------- | ----------------------- |
-| `INVALID_CODE`    | Wrong verification code   | Show error, allow retry |
-| `CODE_EXPIRED`    | Code expired              | Resend code             |
-| `SESSION_EXPIRED` | Challenge session expired | Restart login           |
-| `RATE_LIMITED`    | Too many attempts         | Show retry timer        |
+| `VERIFY_CODE_INVALID`    | Wrong verification code   | Show error, allow retry |
+| `VERIFY_CODE_EXPIRED`    | Code expired              | Resend code             |
+| `CHALLENGE_EXPIRED`      | Challenge session expired | Restart login           |
+| `RATE_LIMIT_SMS`  | Too many SMS sent         | Show retry timer        |
 
 ```typescript
+import { NAuthErrorCode } from '@nauth-toolkit/client';
+
 try {
   await client.respondToChallenge({
     /* ... */
   });
 } catch (error) {
   switch (error.code) {
-    case 'INVALID_CODE':
+    case NAuthErrorCode.VERIFY_CODE_INVALID:
       showError('Invalid code. Please try again.');
       break;
-    case 'CODE_EXPIRED':
+    case NAuthErrorCode.VERIFY_CODE_EXPIRED:
       await client.resendCode(session);
       showMessage('Code expired. New code sent.');
       break;
-    case 'SESSION_EXPIRED':
+    case NAuthErrorCode.CHALLENGE_EXPIRED:
       showError('Session expired. Please login again.');
       navigateTo('/login');
       break;
-    case 'RATE_LIMITED':
+    case NAuthErrorCode.RATE_LIMIT_SMS:
       showError(`Too many attempts. Retry in ${error.details?.retryAfter}s`);
       break;
   }
