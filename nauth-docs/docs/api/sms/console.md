@@ -97,7 +97,32 @@ provider.setStorageCallback(async (phone, code) => {
 });
 ```
 
+## Templates
+
+Customize SMS message content with templates:
+
+```typescript
+AuthModule.forRoot({
+  smsProvider: new ConsoleSMSProvider(),
+  sms: {
+    templates: {
+      globalVariables: {
+        appName: 'My App',
+      },
+      customTemplates: {
+        verification: {
+          content: '{{appName}}: Your code is {{code}}. Expires in {{expiryMinutes}} min.',
+        },
+      },
+    },
+  },
+});
+```
+
+See [SMS Templates](/docs/features/sms-templates) for complete documentation.
+
 ## Related
 
 - [SMS Overview](./overview)
+- [SMS Templates Configuration](./templates)
 - [AWS SNS](./aws-sns) - Production provider

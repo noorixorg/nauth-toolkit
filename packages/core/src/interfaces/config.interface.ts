@@ -161,6 +161,54 @@ export interface NAuthConfig {
   smsProvider?: SMSProvider;
 
   /**
+   * SMS template configuration
+   *
+   * Configure custom SMS templates and global variables for branding.
+   * Templates are validated at startup to ensure required parameters are present.
+   *
+   * Note: Top-level branding fields (appName, companyName, etc.) are automatically
+   * merged into sms.templates.globalVariables. You can override them in globalVariables if needed.
+   *
+   * @example Basic configuration with top-level branding
+   * ```typescript
+   * sms: {
+   *   templates: {
+   *     globalVariables: {
+   *       appName: process.env.APP_NAME || 'My Application',
+   *       companyName: process.env.COMPANY_NAME || 'My Company Inc.',
+   *       supportPhone: process.env.SUPPORT_PHONE || '+1-800-123-4567',
+   *     },
+   *   },
+   * }
+   * ```
+   *
+   * @example Advanced configuration with custom templates
+   * ```typescript
+   * sms: {
+   *   templates: {
+   *     globalVariables: {
+   *       appName: 'My App',
+   *       companyName: 'My Company',
+   *     },
+   *     customTemplates: {
+   *       verification: {
+   *         content: '{{appName}}: Your verification code is {{code}}. Expires in {{expiryMinutes}} min.',
+   *         // Must include: {{code}}, {{expiryMinutes}}
+   *       },
+   *       mfa: {
+   *         contentPath: './sms-templates/mfa.txt.hbs',
+   *         // Must include: {{code}}, {{expiryMinutes}}
+   *       },
+   *     },
+   *   },
+   * }
+   * ```
+   */
+  sms?: {
+    templates?: import('./sms-template.interface').SMSTemplateConfig;
+  };
+
+  /**
    * Phone verification configuration
    */
   phone?: PhoneConfig;

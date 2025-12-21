@@ -114,8 +114,34 @@ AWS SDK auto-discovers credentials from:
 - **US/Canada:** Phone number required (`+12345678901`)
 - **Other regions:** Alphanumeric sender ID supported (`MyApp`)
 
+## Templates
+
+Customize SMS message content with templates:
+
+```typescript
+AuthModule.forRoot({
+  smsProvider: new AWSSMSProvider(config),
+  sms: {
+    templates: {
+      globalVariables: {
+        appName: 'My App',
+        supportPhone: '+1-800-123-4567',
+      },
+      customTemplates: {
+        verification: {
+          content: '{{appName}}: Your code is {{code}}. Expires in {{expiryMinutes}} min.',
+        },
+      },
+    },
+  },
+});
+```
+
+See [SMS Templates](/docs/features/sms-templates) for complete documentation.
+
 ## Related
 
 - [SMS Overview](./overview)
-- [Console SMS](./console) - Development testing
+- [SMS Templates Configuration](./templates)
+- [Console SMS](./console) - Development provider
 

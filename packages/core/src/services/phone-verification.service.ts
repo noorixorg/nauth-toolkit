@@ -181,7 +181,31 @@ export class PhoneVerificationService {
       `SMS token created: sub=${sub}, tokenId=${saved.id}, code=${code}, codeType=${typeof code}, userId=${user.id}, usedAt=${saved.usedAt || 'null'}`,
     );
 
-    await this.smsProvider.sendOTP(user.phone, code);
+    // Calculate expiry minutes for template variables
+    const expiresInSeconds = this.config.signup?.phoneVerification?.expiresIn || 300;
+    const expiryMinutes = Math.ceil(expiresInSeconds / 60);
+
+    // Determine template type: 'mfa' if called from MFA context, otherwise 'verification'
+    // MFA context is detected by skipAlreadyVerifiedCheck being explicitly true AND phone already verified
+    // (MFA always sends codes even if phone is verified, while verification only sends if not verified)
+    // Default to 'verification' for phone verification flows
+    const templateType =
+      dto.skipAlreadyVerifiedCheck && user.isPhoneVerified ? 'mfa' : 'verification';
+
+    // Get appName from email config or SMS templates global variables
+    const smsConfig = this.config.sms as { templates?: { globalVariables?: Record<string, unknown> } } | undefined;
+    const appName = this.config.email?.appName || smsConfig?.templates?.globalVariables?.appName as string | undefined;
+
+    // Send SMS with template support
+    await this.smsProvider.sendOTP(user.phone, code, templateType, {
+      expiryMinutes,
+      appName,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      userName: user.username,
+      userEmail: user.email,
+      phone: user.phone,
+    });
     this.logger?.log?.(
       `SMS verification code sent: sub=${sub}, tokenId=${saved.id}, phone=${this.maskPhone(user.phone)}`,
     );

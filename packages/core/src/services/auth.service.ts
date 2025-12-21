@@ -1240,6 +1240,7 @@ export class AuthService {
         try {
           const smsDto = Object.assign(new SendVerificationSMSDTO(), {
             sub: user.sub,
+            skipAlreadyVerifiedCheck: false, // Explicitly set to false for phone verification (not MFA)
             challengeSessionId: challengeSession.id, // Link SMS code to this challenge session
           });
           await this.phoneVerificationService.sendVerificationSMS(smsDto);

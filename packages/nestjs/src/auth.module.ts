@@ -33,6 +33,8 @@ import {
   AuthAuditService, // Public type for DI token
   EmailProvider,
   SMSProvider,
+  SMSTemplateEngine,
+  SMSTemplateEngineImpl,
 } from '@nauth-toolkit/core';
 
 // Internal API imports (for framework adapter use only)
@@ -1070,16 +1072,93 @@ export class AuthModule {
           ? [
               {
                 provide: 'SMS_PROVIDER',
-                useFactory: (): SMSProvider => {
+                useFactory: async (): Promise<SMSProvider> => {
                   const provider = config.smsProvider as SMSProvider;
 
                   if (!provider || typeof provider.sendOTP !== 'function') {
                     throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'smsProvider must implement sendOTP');
                   }
 
-                  const maybeLoggerAware = provider as unknown as { setLogger?: (logger: NAuthLogger) => void };
-                  if (typeof maybeLoggerAware.setLogger === 'function') {
-                    maybeLoggerAware.setLogger(nauthLogger);
+                  // Inject logger into provider if it has setLogger method
+                  {
+                    const maybeLoggerAware = provider as unknown as { setLogger?: (logger: NAuthLogger) => void };
+                    if (typeof maybeLoggerAware.setLogger === 'function') {
+                      maybeLoggerAware.setLogger(nauthLogger);
+                    }
+                  }
+
+                  // ============================================================================
+                  // Initialize SMS Template Engine
+                  // ============================================================================
+                  const smsTemplates = config.sms?.templates;
+                  if (smsTemplates) {
+                    // If user configured templates, the provider must support the template hooks.
+                    // This avoids silent fallback to hard-coded messages when templates are expected.
+                    if (typeof provider.setTemplateEngine !== 'function') {
+                      throw new NAuthException(
+                        AuthErrorCode.VALIDATION_FAILED,
+                        'sms.templates is configured, but smsProvider does not support templates. ' +
+                          'Please upgrade your SMS provider package to a version that implements setTemplateEngine().',
+                      );
+                    }
+
+                    // Use provided engine or create new one
+                    const templateEngine: SMSTemplateEngine =
+                      smsTemplates.engine ?? new SMSTemplateEngineImpl(process.cwd(), nauthLogger);
+
+                    // Register custom templates
+                    if (smsTemplates.customTemplates) {
+                      for (const [type, templateDef] of Object.entries(smsTemplates.customTemplates)) {
+                        try {
+                          if (templateDef.content) {
+                            // Inline template
+                            templateEngine.registerTemplate(type, { content: templateDef.content });
+                          } else if (templateDef.contentPath) {
+                            // File-based template
+                            await templateEngine.registerTemplateFromSources(type, {
+                              content: { filePath: templateDef.contentPath },
+                            });
+                          }
+                        } catch (error) {
+                          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                          nauthLogger.error?.(
+                            `Failed to register SMS template "${type}": ${errorMessage}. Using default template.`,
+                          );
+                        }
+                      }
+                    }
+
+                    // Inject template engine into provider
+                    provider.setTemplateEngine(templateEngine);
+
+                    // Set global variables
+                    if (typeof provider.setGlobalVariables === 'function' && smsTemplates.globalVariables) {
+                      // Extract top-level branding fields from email config (if available)
+                      const globalVars: Record<string, string | number | boolean | undefined> = {};
+                      if (config.email?.appName) globalVars.appName = config.email.appName;
+                      if (config.email?.companyName) globalVars.companyName = config.email.companyName;
+                      if (config.email?.supportEmail) globalVars.supportEmail = config.email.supportEmail;
+
+                      // Merge with sms.templates.globalVariables (sms.templates.globalVariables takes precedence)
+                      // Filter out non-compatible types from globalVariables
+                      const smsGlobalVars: Record<string, string | number | boolean | undefined> = {};
+                      for (const [key, value] of Object.entries(smsTemplates.globalVariables)) {
+                          if (
+                            typeof value === 'string' ||
+                            typeof value === 'number' ||
+                            typeof value === 'boolean' ||
+                            value === undefined
+                          ) {
+                            smsGlobalVars[key] = value;
+                          }
+                      }
+
+                      const mergedVars: Record<string, string | number | boolean | undefined> = {
+                        ...globalVars,
+                        ...smsGlobalVars,
+                      };
+                      provider.setGlobalVariables(mergedVars as import('@nauth-toolkit/core').SMSTemplateVariables);
+                    }
                   }
 
                   return provider;

@@ -143,6 +143,7 @@ export class AuthChallengeHelperService {
       // Fire and forget - don't block challenge response
       const smsDto = Object.assign(new SendVerificationSMSDTO(), {
         sub: user.sub,
+        skipAlreadyVerifiedCheck: false, // Explicitly set to false for phone verification (not MFA)
         challengeSessionId: challengeSession.id, // Link verification token to this challenge session
       });
       this.phoneVerificationService

@@ -10,6 +10,7 @@ export * from './provider.interface';
 export * from './social-auth-provider.interface';
 export * from './storage-adapter.interface';
 export * from './template.interface';
+export * from './sms-template.interface';
 export * from './token-verifier.interface';
 // Note: ClientInfo interface is exported directly from core/index.ts as IClientInfo
 // to avoid naming conflict with ClientInfo decorator

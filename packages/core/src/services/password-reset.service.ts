@@ -162,7 +162,24 @@ export class PasswordResetService {
     if (!user.phone) {
       return { deliveryMedium: 'sms', expiresIn };
     }
-    await this.smsProvider.sendOTP(user.phone, code);
+    // Calculate expiry minutes for template variables
+    // Use the same expiresIn that was calculated for the token
+    const expiryMinutes = Math.ceil(expiresIn / 60);
+
+    // Get appName from email config or SMS templates global variables
+    const smsConfig = this.config.sms as { templates?: { globalVariables?: Record<string, unknown> } } | undefined;
+    const appName = this.config.email?.appName || smsConfig?.templates?.globalVariables?.appName as string | undefined;
+
+    // Send SMS with template support
+    await this.smsProvider.sendOTP(user.phone, code, 'passwordReset', {
+      expiryMinutes,
+      appName,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      userName: user.username,
+      userEmail: user.email,
+      phone: user.phone,
+    });
     this.logger?.log?.(`Password reset code sent via SMS to user ${user.sub}`);
 
     await this.auditService?.recordEvent({

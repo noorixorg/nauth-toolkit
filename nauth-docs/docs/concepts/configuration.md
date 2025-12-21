@@ -28,7 +28,7 @@ Load sensitive values (secrets, credentials) from your preferred configuration s
 The toolkit is agnostic to how you manage configuration - use what works best for your infrastructure.
 :::
 
-<Tabs>
+<Tabs groupId="platform">
   <TabItem value="nestjs" label="NestJS" default>
 
 **1. Create configuration file:**
@@ -143,6 +143,36 @@ app.use('/auth', nauth.routes);
 ```
 
   </TabItem>
+  <TabItem value="fastify" label="Fastify">
+
+```typescript title="src/config/auth.config.ts"
+import { NAuthConfig } from '@nauth-toolkit/fastify';
+import { createRedisStorageAdapter } from '@nauth-toolkit/fastify';
+import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+
+export const authConfig: NAuthConfig = {
+  jwt: {
+    algorithm: 'HS256',
+    accessToken: { secret: 'your-secret-key', expiresIn: '15m' },
+    refreshToken: { secret: 'your-refresh-secret', expiresIn: '7d' },
+  },
+  storageAdapter: createRedisStorageAdapter('redis://localhost:6379'),
+  emailProvider: new NodemailerEmailProvider({
+    transport: { host: 'smtp.example.com', port: 587, auth: { user: 'smtp-user', pass: 'smtp-password' } },
+    defaults: { from: 'My App <noreply@example.com>' },
+  }),
+};
+```
+
+```typescript title="src/index.ts"
+import { createNAuth } from '@nauth-toolkit/fastify';
+import { authConfig } from './config/auth.config';
+
+const nauth = await createNAuth(authConfig, dataSource);
+fastify.register(nauth.routes, { prefix: '/auth' });
+```
+
+  </TabItem>
 </Tabs>
 
 ## Core Configuration
@@ -211,9 +241,13 @@ Choose between Redis, Database, or Memory for transient storage.
 import { createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
 storageAdapter: createRedisStorageAdapter('redis://localhost:6379'),
 
-// Database (No Redis needed)
-import { DatabaseStorageAdapter } from '@nauth-toolkit/storage-database';
-storageAdapter: new DatabaseStorageAdapter(),
+// Database (No Redis needed) - NestJS
+import { createDatabaseStorageAdapter } from '@nauth-toolkit/nestjs';
+storageAdapter: createDatabaseStorageAdapter(),
+
+// Database (No Redis needed) - Express/Fastify
+// import { DatabaseStorageAdapter } from '@nauth-toolkit/storage-database';
+// storageAdapter: new DatabaseStorageAdapter(),
 
 // Memory (Development only - NOT for production)
 import { MemoryStorageAdapter } from '@nauth-toolkit/core';
@@ -272,6 +306,69 @@ email: {
 
   </TabItem>
 </Tabs>
+
+### SMS Provider
+
+Configure SMS delivery for phone verification, MFA, and password reset.
+
+<Tabs>
+  <TabItem value="aws-sns" label="AWS SNS (Production)" default>
+
+```typescript
+import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
+
+smsProvider: new AWSSMSProvider({
+  region: process.env.AWS_REGION as string,
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID as string,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY as string,
+}),
+```
+
+  </TabItem>
+  <TabItem value="console" label="Console (Development)">
+
+```typescript
+import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
+
+smsProvider: new ConsoleSMSProvider(),
+```
+
+  </TabItem>
+</Tabs>
+
+### SMS Templates
+
+Customize SMS message content globally (branding + custom templates).
+
+```typescript
+import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
+
+smsProvider: new ConsoleSMSProvider(),
+
+sms: {
+  templates: {
+    globalVariables: {
+      appName: 'My App',
+      supportPhone: '+1-800-123-4567',
+    },
+    customTemplates: {
+      verification: {
+        content:
+          '{{#if appName}}{{appName}}: {{/if}}Your verification code is {{code}}. Valid for {{expiryMinutes}} minutes. Need help? {{supportPhone}}',
+      },
+      mfa: {
+        content: '{{#if appName}}{{appName}}: {{/if}}Your MFA code is {{code}}. Valid for {{expiryMinutes}} minutes.',
+      },
+      passwordReset: {
+        content:
+          '{{#if appName}}{{appName}}: {{/if}}Your password reset code is {{code}}. Valid for {{expiryMinutes}} minutes.',
+      },
+    },
+  },
+},
+```
+
+See [SMS Templates Feature Guide](/docs/features/sms-templates) and [SMS Templates Configuration](/docs/api/sms/templates).
 
 ### Logger
 
@@ -657,16 +754,16 @@ React to authentication events.
 ```typescript
 hooks: {
   afterSignup: async (user, metadata) => {
-    console.log(`New user: ${user.email}`);
+    // Use your application logger here (avoid console logging in production)
     await sendWelcomeEmail(user);
   },
 
   afterLogin: async (user, session) => {
-    console.log(`Login: ${user.email}`);
+    // Use your application logger here (avoid console logging in production)
   },
 
   afterLoginFailed: async (identifier, reason) => {
-    console.log(`Failed login: ${identifier}`);
+    // Use your application logger here (avoid console logging in production)
   },
 
   onAdaptiveMFATriggered: async (payload) => {
@@ -699,6 +796,7 @@ Here's a production-ready configuration:
 ```typescript title="src/config/auth.config.ts"
 import { NAuthModuleConfig, MFAMethod, createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
 import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
 import { Logger } from '@nestjs/common';
 
 export const authConfig: NAuthModuleConfig = {
@@ -785,6 +883,20 @@ export const authConfig: NAuthModuleConfig = {
     supportEmail: 'support@myapp.com',
     logoUrl: 'https://myapp.com/logo.png',
     brandColor: '#4f46e5',
+  },
+
+  smsProvider: new AWSSMSProvider({
+    region: process.env.AWS_REGION as string,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID as string,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY as string,
+  }),
+
+  sms: {
+    templates: {
+      globalVariables: {
+        appName: 'My App',
+      },
+    },
   },
 
   social: {

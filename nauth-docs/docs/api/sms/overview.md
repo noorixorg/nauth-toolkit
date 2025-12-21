@@ -23,10 +23,24 @@ All SMS providers implement `SMSProvider`:
 
 ```typescript
 interface SMSProvider {
-  sendOTP(phone: string, code: string): Promise<void>;
-  sendVerificationCode(phone: string, code: string): Promise<void>;
+  sendOTP(
+    phone: string,
+    code: string,
+    templateType?: string,
+    variables?: Record<string, unknown>
+  ): Promise<void>;
+  sendVerificationCode?(phone: string, code: string): Promise<void>;
+  setTemplateEngine?(engine: SMSTemplateEngine): void;
+  setGlobalVariables?(variables: SMSTemplateVariables): void;
 }
 ```
+
+## Templates
+
+Customize SMS message content with templates:
+
+- [SMS Templates Feature Guide](/docs/features/sms-templates) - Complete guide to customizing SMS messages
+- [SMS Templates Configuration](./templates) - API reference for template configuration
 
 ## Related
 

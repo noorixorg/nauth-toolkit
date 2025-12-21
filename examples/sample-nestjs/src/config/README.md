@@ -59,7 +59,30 @@ phone: {
 }
 ```
 
-### 6. Custom Session Limits
+### 6. Customize SMS Templates
+```typescript
+sms: {
+  templates: {
+    // Global variables available to all templates
+    globalVariables: {
+      appName: 'My App',
+      companyName: 'My Company',
+      supportPhone: '+1-800-123-4567',
+    },
+    // Custom templates (override defaults)
+    customTemplates: {
+      verification: {
+        content: '{{appName}}: Your code is {{code}}. Expires in {{expiryMinutes}} min.',
+      },
+      mfa: {
+        contentPath: './sms-templates/mfa.txt.hbs', // File-based template
+      },
+    },
+  },
+}
+```
+
+### 7. Custom Session Limits
 ```typescript
 session: {
   maxConcurrent: 2, // Only 2 active sessions per user
@@ -67,7 +90,7 @@ session: {
 }
 ```
 
-### 7. Add Lifecycle Hooks
+### 8. Add Lifecycle Hooks
 ```typescript
 hooks: {
   afterSignup: async (user, metadata) => {

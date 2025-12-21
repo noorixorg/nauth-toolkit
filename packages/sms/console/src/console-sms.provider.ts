@@ -1,4 +1,4 @@
-import { SMSProvider, NAuthLogger } from '@nauth-toolkit/core';
+import { SMSProvider, NAuthLogger, SMSTemplateEngine, SMSTemplateVariables } from '@nauth-toolkit/core';
 
 /**
  * Console SMS Provider (Platform-Agnostic)
@@ -31,6 +31,16 @@ export class ConsoleSMSProvider implements SMSProvider {
   private logger: NAuthLogger;
   private storageCallback?: (phone: string, code: string) => Promise<void>;
 
+  /**
+   * Optional SMS template engine for customizing message content
+   */
+  private templateEngine?: SMSTemplateEngine;
+
+  /**
+   * Global variables available to all SMS templates
+   */
+  private globalVariables: SMSTemplateVariables = {};
+
   constructor(logger?: NAuthLogger) {
     this.logger = logger || new NAuthLogger();
   }
@@ -52,24 +62,49 @@ export class ConsoleSMSProvider implements SMSProvider {
   }
 
   /**
+   * Set template engine for SMS message customization
+   *
+   * @param engine - SMS template engine instance
+   */
+  setTemplateEngine(engine: SMSTemplateEngine): void {
+    this.templateEngine = engine;
+  }
+
+  /**
+   * Set global variables for SMS templates
+   *
+   * @param variables - Global template variables (appName, companyName, etc.)
+   */
+  setGlobalVariables(variables: SMSTemplateVariables): void {
+    this.globalVariables = variables || {};
+  }
+
+  /**
    * Send OTP code via SMS (console output)
+   *
+   * If template engine is configured, uses template to format message.
+   * Otherwise, falls back to hard-coded default message for backward compatibility.
    *
    * @param phone - Recipient phone number
    * @param code - OTP code to send
+   * @param templateType - Optional template type (verification, mfa, passwordReset)
+   * @param variables - Optional template variables (expiryMinutes, appName, etc.)
    *
    * @example
    * ```typescript
+   * // Without templates (backward compatible)
    * await smsProvider.sendOTP('+1234567890', '123456');
-   * // Console output:
-   * // ============================================================
-   * // SMS MESSAGE
-   * // ============================================================
-   * // To: +1234567890
-   * // Message: Your verification code is: 123456
-   * // ============================================================
+   *
+   * // With templates
+   * await smsProvider.sendOTP('+1234567890', '123456', 'verification', { expiryMinutes: 5 });
    * ```
    */
-  async sendOTP(phone: string, code: string): Promise<void> {
+  async sendOTP(
+    phone: string,
+    code: string,
+    templateType?: string,
+    variables?: Record<string, unknown>,
+  ): Promise<void> {
     // Store in test database if callback provided (test mode)
     if (this.storageCallback) {
       try {
@@ -81,12 +116,42 @@ export class ConsoleSMSProvider implements SMSProvider {
 
     this.logger.log(`Sending SMS to: ${phone}`);
 
+    let message: string;
+
+    // ============================================================================
+    // Template-based message rendering
+    // ============================================================================
+    if (this.templateEngine && templateType) {
+      try {
+        // Merge global variables with template-specific variables
+        const allVariables: SMSTemplateVariables = {
+          ...this.globalVariables,
+          code,
+          ...(variables as SMSTemplateVariables),
+        };
+
+        // Render template
+        const template = await this.templateEngine.render(templateType, allVariables);
+        message = template.content;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger.error?.(`Failed to render SMS template: ${errorMessage}`);
+        // Fall back to hard-coded message on template rendering error
+        message = `Your verification code is: ${code}`;
+      }
+    } else {
+      // ============================================================================
+      // Backward compatibility: hard-coded default message
+      // ============================================================================
+      message = `Your verification code is: ${code}`;
+    }
+
     // Log SMS content in a visually distinct format
     this.logger.log(`\n${'='.repeat(60)}`);
     this.logger.log('SMS MESSAGE');
     this.logger.log('='.repeat(60));
     this.logger.log(`To: ${phone}`);
-    this.logger.log(`Message: Your verification code is: ${code}`);
+    this.logger.log(`Message: ${message}`);
     this.logger.log(`${'='.repeat(60)}\n`);
 
     this.logger.log(`SMS sent successfully to: ${phone}`);

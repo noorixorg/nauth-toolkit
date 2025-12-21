@@ -565,6 +565,37 @@ Before going live:
 
 ---
 
+## 📝 SMS Templates
+
+Customize SMS message content with templates. See the [SMS Templates Guide](/docs/features/sms-templates) for complete documentation.
+
+### Quick Example
+
+```typescript
+AuthModule.forRoot({
+  smsProvider: new AWSSMSProvider(config),
+  sms: {
+    templates: {
+      globalVariables: {
+        appName: 'My App',
+        supportPhone: '+1-800-123-4567',
+      },
+      customTemplates: {
+        verification: {
+          content: '{{appName}}: Your code is {{code}}. Expires in {{expiryMinutes}} min.',
+        },
+      },
+    },
+  },
+});
+```
+
+**Benefits:**
+- Consistent branding across all SMS messages
+- Customize message format per template type
+- Support for Handlebars-like conditionals
+- Automatic variable injection (code, expiryMinutes, appName, etc.)
+
 ## 📚 Additional Resources
 
 **AWS Documentation:**
@@ -573,6 +604,8 @@ Before going live:
 - Pricing: https://aws.amazon.com/sns/sms-pricing/
 
 **nauth-toolkit Documentation:**
+- [SMS Templates Feature Guide](/docs/features/sms-templates) - Customize SMS message content
+- [SMS Templates API Reference](/docs/api/sms/templates) - Configuration API
 - Phone Verification API: `/docs/API.md#phone-verification`
 - Configuration Reference: `/docs/NESTJS_AUTH_TOOLKIT_REQUIREMENTS.md`
 

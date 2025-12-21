@@ -198,6 +198,56 @@ export const authConfig: NAuthModuleConfig = {
   //smsProvider: new AWSSMSProvider(smsConfig)
   smsProvider: new ConsoleSMSProvider(),
 
+  // ============================================================================
+  // SMS Templates Configuration
+  // ============================================================================
+  // Showcase SMS template customization features:
+  // 1. Global Variables - Available to all templates (appName, companyName, supportPhone)
+  // 2. Inline Templates - Templates defined directly in config (verification, mfa, passwordReset)
+  // 3. File-based Templates - Templates loaded from files (see sms-templates/ directory)
+  // 4. Conditional Rendering - Handlebars-like {{#if variable}}...{{/if}} syntax
+  // 5. Variable Injection - Automatic replacement of {{code}}, {{expiryMinutes}}, etc.
+  //
+  // When SMS is sent, the template engine:
+  // - Merges globalVariables with template-specific variables
+  // - Renders the template with all variables replaced
+  // - Falls back to hard-coded message if template engine not configured (backward compatible)
+  sms: {
+    templates: {
+      // Global variables available to all SMS templates
+      globalVariables: {
+        appName: process.env.APP_NAME || 'Nauth App',
+        companyName: process.env.COMPANY_NAME || 'Nauth Company Pty Ltd.',
+        supportPhone: process.env.SUPPORT_PHONE || '1300-123-4567',
+      },
+      // Custom templates (override defaults)
+      customTemplates: {
+        // Example 1: Inline template for verification codes
+        // Shows conditional rendering ({{#if appName}}) and multiple variables (code, expiryMinutes, supportPhone)
+        verification: {
+          content:
+            '{{#if appName}}{{appName}}: {{/if}}Your verification code is {{code}}. Valid for {{expiryMinutes}} minutes. Need help? Call {{supportPhone}}.',
+        },
+        // Example 2: Inline template for MFA codes
+        // Shows simpler template with just code and expiry
+        mfa: {
+          content:
+            '{{#if appName}}{{appName}}: {{/if}}Your MFA code is {{code}}. Expires in {{expiryMinutes}} minutes.',
+        },
+        // Example 3: File-based template for password reset
+        // Uncomment to use file-based template instead of inline:
+        // passwordReset: {
+        //   contentPath: './sms-templates/password-reset.txt.hbs',
+        // },
+        // Example 4: Inline template for password reset (currently active)
+        passwordReset: {
+          content:
+            '{{#if appName}}{{appName}}: {{/if}}Your password reset code is {{code}}. Valid for {{expiryMinutes}} minutes.',
+        },
+      },
+    },
+  },
+
   lockout: { enabled: true, maxAttempts: 5, duration: 900, resetOnSuccess: true },
   session: {
     maxConcurrent: 2,

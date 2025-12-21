@@ -289,6 +289,48 @@ export const emailConfigSchema = z.object({
 });
 
 // ============================================================================
+// SMS Template Configuration Schema
+// ============================================================================
+
+/**
+ * Custom SMS template definition schema
+ *
+ * Validates template definition structure:
+ * - Must have either contentPath OR content (not both)
+ */
+const customSMSTemplateDefinitionSchema = z
+  .object({
+    contentPath: z.string().optional(),
+    content: z.string().optional(),
+  })
+  .refine((data) => !!(data.contentPath || data.content), {
+    message: 'Must provide either "contentPath" or "content"',
+  })
+  .refine((data) => !(data.contentPath && data.content), {
+    message: 'Cannot provide both "contentPath" and "content". Use one or the other.',
+  });
+
+/**
+ * SMS template configuration schema
+ *
+ * Validates SMS template configuration:
+ * - Global variables for branding
+ * - Custom templates with required parameters
+ */
+const smsTemplateConfigSchema = z.object({
+  engine: z.any().optional(), // SMSTemplateEngine instance - runtime validation
+  globalVariables: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
+  customTemplates: z.record(customSMSTemplateDefinitionSchema).optional(),
+});
+
+/**
+ * SMS configuration schema
+ */
+export const smsConfigSchema = z.object({
+  templates: smsTemplateConfigSchema.optional(),
+});
+
+// ============================================================================
 // Phone Configuration Schema
 // ============================================================================
 
@@ -481,7 +523,8 @@ export const authConfigSchema = z
     emailProvider: z.any().optional(), // Runtime instance - cannot validate type
     email: emailConfigSchema.optional(),
     smsProvider: z.any().optional(), // Runtime instance - cannot validate type
-    phone: phoneConfigSchema.optional(),
+    sms: smsConfigSchema.optional(),
+  phone: phoneConfigSchema.optional(),
     storageAdapter: z.any().optional(), // Runtime instance - cannot validate type
     social: socialConfigSchema.optional(),
     mfa: mfaConfigSchema.optional(),

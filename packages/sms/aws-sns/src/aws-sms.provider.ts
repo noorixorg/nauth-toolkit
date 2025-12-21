@@ -1,4 +1,11 @@
-import { SMSProvider, NAuthLogger, NAuthException, AuthErrorCode } from '@nauth-toolkit/core';
+import {
+  SMSProvider,
+  NAuthLogger,
+  NAuthException,
+  AuthErrorCode,
+  SMSTemplateEngine,
+  SMSTemplateVariables,
+} from '@nauth-toolkit/core';
 import { AWSSMSConfig } from './aws-sms-config.interface';
 
 // Lazy-load AWS SDK types (installed as optionalDependency)
@@ -30,6 +37,16 @@ export class AWSSMSProvider implements SMSProvider {
   private SNSClientClass: any = null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private PublishCommandClass: any = null;
+
+  /**
+   * Optional SMS template engine for customizing message content
+   */
+  private templateEngine?: SMSTemplateEngine;
+
+  /**
+   * Global variables available to all SMS templates
+   */
+  private globalVariables: SMSTemplateVariables = {};
 
   constructor(config: AWSSMSConfig) {
     this.logger = new NAuthLogger();
@@ -79,15 +96,37 @@ export class AWSSMSProvider implements SMSProvider {
   }
 
   /**
+   * Set template engine for SMS message customization
+   *
+   * @param engine - SMS template engine instance
+   */
+  setTemplateEngine(engine: SMSTemplateEngine): void {
+    this.templateEngine = engine;
+  }
+
+  /**
+   * Set global variables for SMS templates
+   *
+   * @param variables - Global template variables (appName, companyName, etc.)
+   */
+  setGlobalVariables(variables: SMSTemplateVariables): void {
+    this.globalVariables = variables || {};
+  }
+
+  /**
    * Send OTP code via AWS SNS
    *
    * Sends a transactional SMS message with the OTP code using AWS SNS.
-   * Automatically formats the message and applies configured settings.
+   * If template engine is configured, uses template to format message.
+   * Otherwise, falls back to hard-coded default message for backward compatibility.
    *
-   * **Message Format:**
+   * **Message Format (without templates):**
    * ```
    * Your verification code is: 123456
    * ```
+   *
+   * **Message Format (with templates):**
+   * Uses configured template with variables (code, expiryMinutes, appName, etc.)
    *
    * **Delivery Time:**
    * - US: ~2-5 seconds
@@ -95,17 +134,56 @@ export class AWSSMSProvider implements SMSProvider {
    *
    * @param phone - Recipient phone number in E.164 format (e.g., '+12345678901')
    * @param code - OTP code to send (typically 6 digits)
+   * @param templateType - Optional template type (verification, mfa, passwordReset)
+   * @param variables - Optional template variables (expiryMinutes, appName, etc.)
    *
    * @throws {Error} If SMS delivery fails
    *
    * @example
    * ```typescript
+   * // Without templates (backward compatible)
    * await provider.sendOTP('+12345678901', '123456');
-   * // SMS delivered: "Your verification code is: 123456"
+   *
+   * // With templates
+   * await provider.sendOTP('+12345678901', '123456', 'verification', { expiryMinutes: 5 });
    * ```
    */
-  async sendOTP(phone: string, code: string): Promise<void> {
-    const message = `Your verification code is: ${code}`;
+  async sendOTP(
+    phone: string,
+    code: string,
+    templateType?: string,
+    variables?: Record<string, unknown>,
+  ): Promise<void> {
+    let message: string;
+
+    // ============================================================================
+    // Template-based message rendering
+    // ============================================================================
+    if (this.templateEngine && templateType) {
+      try {
+        // Merge global variables with template-specific variables
+        const allVariables: SMSTemplateVariables = {
+          ...this.globalVariables,
+          code,
+          ...(variables as SMSTemplateVariables),
+        };
+
+        // Render template
+        const template = await this.templateEngine.render(templateType, allVariables);
+        message = template.content;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger.error(`Failed to render SMS template: ${errorMessage}`);
+        // Fall back to hard-coded message on template rendering error
+        message = `Your verification code is: ${code}`;
+      }
+    } else {
+      // ============================================================================
+      // Backward compatibility: hard-coded default message
+      // ============================================================================
+      message = `Your verification code is: ${code}`;
+    }
+
     await this.sendSMS(phone, message);
   }
 
