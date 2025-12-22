@@ -1,5 +1,6 @@
 // Core Auth DTOs
 export * from './signup.dto';
+export * from './admin-signup.dto';
 export * from './login.dto';
 export * from './change-password.dto';
 export * from './change-password-request.dto';

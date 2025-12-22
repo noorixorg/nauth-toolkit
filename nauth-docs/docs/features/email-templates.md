@@ -174,11 +174,11 @@ subject: Verify your email - {{appName}}
 
 <!DOCTYPE html>
 <html>
-<head>
+  <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    /* Use inline styles for best email client compatibility */
+    <style>
+      /* Use inline styles for best email client compatibility */
     body {
       font-family: Arial, sans-serif;
       line-height: 1.6;
@@ -212,9 +212,9 @@ subject: Verify your email - {{appName}}
       border-top: 1px solid #ddd;
       padding-top: 20px;
     }
-  </style>
-</head>
-<body>
+    </style>
+  </head>
+  <body>
   <h1>Verify Your Email</h1>
 
   {{#if greetingName}}
@@ -242,7 +242,7 @@ subject: Verify your email - {{appName}}
   <div class="footer">
     <p>&copy; {{currentYear}} {{companyName}}. All rights reserved.</p>
   </div>
-</body>
+  </body>
 </html>
 ```
 

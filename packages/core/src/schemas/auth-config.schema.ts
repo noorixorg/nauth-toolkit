@@ -109,6 +109,7 @@ export const signupConfigSchema = z.object({
   emailVerification: z
     .object({
       expiresIn: z.number().optional(),
+      maxAttempts: z.number().optional(),
       resendDelay: z.number().optional(),
       rateLimitMax: z.number().optional(),
       rateLimitWindow: z.number().optional(),
@@ -524,7 +525,7 @@ export const authConfigSchema = z
     email: emailConfigSchema.optional(),
     smsProvider: z.any().optional(), // Runtime instance - cannot validate type
     sms: smsConfigSchema.optional(),
-  phone: phoneConfigSchema.optional(),
+    phone: phoneConfigSchema.optional(),
     storageAdapter: z.any().optional(), // Runtime instance - cannot validate type
     social: socialConfigSchema.optional(),
     mfa: mfaConfigSchema.optional(),

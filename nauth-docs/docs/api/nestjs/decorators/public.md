@@ -230,7 +230,8 @@ Support optional authentication (public but user-aware):
 
 ```typescript
 import { Controller, Get } from '@nestjs/common';
-import { Public, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { Public, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('posts')
 export class PostsController {

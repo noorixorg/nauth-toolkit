@@ -16,4 +16,9 @@ export interface NAuthStorageAdapter {
    * Remove a stored value.
    */
   removeItem(key: string): Promise<void>;
+
+  /**
+   * Clear all stored values.
+   */
+  clear(): Promise<void>;
 }

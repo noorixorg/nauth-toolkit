@@ -393,7 +393,8 @@ Revokes the current session and clears authentication cookies.
 
 ```typescript
 import { Controller, Get, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
-import { AuthService, LogoutDTO, AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthService, LogoutDTO, AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('auth')
 export class AuthController {
@@ -494,7 +495,8 @@ Allows authenticated users to change their password.
 
 ```typescript
 import { Controller, Post, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
-import { AuthService, ChangePasswordRequestDTO, AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthService, ChangePasswordRequestDTO, AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('auth')
 export class AuthController {
@@ -871,7 +873,8 @@ Get MFA configuration status for the current user.
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { MFAService, AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { MFAService, AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('auth')
 export class AuthController {
@@ -1112,7 +1115,8 @@ Get the authenticated user's profile.
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('auth')
 export class AuthController {

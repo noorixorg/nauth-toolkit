@@ -126,6 +126,9 @@ class CapacitorStorage implements NAuthStorageAdapter {
   async removeItem(key: string): Promise<void> {
     await Preferences.remove({ key });
   }
+  async clear(): Promise<void> {
+    await Preferences.clear();
+  }
 }
 
 export const authClient = new NAuthClient({

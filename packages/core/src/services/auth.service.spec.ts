@@ -39,6 +39,7 @@ import { InternalAuthAuditService as AuthAuditService } from './auth-audit.servi
 import { TrustedDeviceService } from './trusted-device.service';
 import { MFAService } from './mfa.service';
 import { SignupDTO } from '../dto/signup.dto';
+import { AdminSignupDTO } from '../dto/admin-signup.dto';
 import { LoginDTO } from '../dto/login.dto';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
 import { ChangePasswordRequestDTO } from '../dto/change-password-request.dto';
@@ -4561,6 +4562,314 @@ describe('AuthService', () => {
           expect(error.code).toBe(AuthErrorCode.CHALLENGE_INVALID);
         }
       });
+    });
+  });
+
+  // ============================================================================
+  // Admin Signup
+  // ============================================================================
+
+  describe('adminSignup()', () => {
+    const adminSignupDto: AdminSignupDTO = {
+      email: 'admin-created@example.com',
+      password: 'AdminPass123!',
+      username: 'adminuser',
+      firstName: 'Admin',
+      lastName: 'User',
+    };
+
+    beforeEach(() => {
+      // Reset mocks
+      jest.clearAllMocks();
+    });
+
+    it('should create user with default values (isEmailVerified: false, isPhoneVerified: false)', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockPasswordService.validatePassword.mockResolvedValue({ valid: true, errors: [] });
+      mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
+      const createdUser = { ...mockUser, email: adminSignupDto.email };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+
+      const result = await service.adminSignup(adminSignupDto);
+
+      expect(mockUserRepository.create).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          email: adminSignupDto.email,
+          passwordHash: 'hashed-password',
+          isActive: true,
+          isEmailVerified: false,
+          isPhoneVerified: false,
+          mustChangePassword: false,
+        }),
+      );
+      expect(result.user).toBeDefined();
+      expect(result.generatedPassword).toBeUndefined();
+    });
+
+    it('should override isEmailVerified to true', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockPasswordService.validatePassword.mockResolvedValue({ valid: true, errors: [] });
+      mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
+      const createdUser = { ...mockUser, email: adminSignupDto.email, isEmailVerified: true };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+
+      const result = await service.adminSignup({
+        ...adminSignupDto,
+        isEmailVerified: true,
+      });
+
+      expect(mockUserRepository.create).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          isEmailVerified: true,
+        }),
+      );
+      expect(result.user.isEmailVerified).toBe(true);
+    });
+
+    it('should override isPhoneVerified to true', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockPasswordService.validatePassword.mockResolvedValue({ valid: true, errors: [] });
+      mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
+      const createdUser = { ...mockUser, email: adminSignupDto.email, isPhoneVerified: true };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+
+      const result = await service.adminSignup({
+        ...adminSignupDto,
+        isPhoneVerified: true,
+      });
+
+      expect(mockUserRepository.create).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          isPhoneVerified: true,
+        }),
+      );
+      expect(result.user.isPhoneVerified).toBe(true);
+    });
+
+    it('should set mustChangePassword flag', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockPasswordService.validatePassword.mockResolvedValue({ valid: true, errors: [] });
+      mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
+      const createdUser = { ...mockUser, email: adminSignupDto.email, mustChangePassword: true };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+
+      const result = await service.adminSignup({
+        ...adminSignupDto,
+        mustChangePassword: true,
+      });
+
+      expect(mockUserRepository.create).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          mustChangePassword: true,
+        }),
+      );
+      expect(result.user.mustChangePassword).toBe(true);
+    });
+
+    it('should generate password when requested', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      const createdUser = { ...mockUser, email: adminSignupDto.email };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+      mockPasswordService.hashPassword.mockResolvedValue('hashed-generated-password');
+
+      const result = await service.adminSignup({
+        ...adminSignupDto,
+        generatePassword: true,
+        password: undefined,
+      });
+
+      expect(mockPasswordService.validatePassword).not.toHaveBeenCalled();
+      expect(mockPasswordService.hashPassword).toHaveBeenCalled();
+      expect(result.generatedPassword).toBeDefined();
+      expect(typeof result.generatedPassword).toBe('string');
+      expect(result.generatedPassword!.length).toBeGreaterThanOrEqual(16);
+    });
+
+    it('should validate duplicate email', async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+
+      try {
+        await service.adminSignup(adminSignupDto);
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.EMAIL_EXISTS);
+      }
+    });
+
+    it('should validate duplicate username', async () => {
+      mockUserRepository.findOne
+        .mockResolvedValueOnce(null) // Email check passes
+        .mockResolvedValueOnce(mockUser as any); // Username check fails
+
+      try {
+        await service.adminSignup(adminSignupDto);
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.USERNAME_EXISTS);
+      }
+    });
+
+    it('should validate duplicate phone when duplicates not allowed', async () => {
+      mockConfig.signup!.allowDuplicatePhones = false;
+      mockUserRepository.findOne
+        .mockResolvedValueOnce(null) // Email check passes
+        .mockResolvedValueOnce(null) // Username check passes
+        .mockResolvedValueOnce(mockUser as any); // Phone check fails
+
+      try {
+        await service.adminSignup({
+          ...adminSignupDto,
+          phone: '+1234567890',
+        });
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.PHONE_EXISTS);
+      }
+    });
+
+    it('should validate password policy when password is provided', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockPasswordService.validatePassword.mockResolvedValue({
+        valid: false,
+        errors: ['Password too weak'],
+      });
+
+      try {
+        await service.adminSignup(adminSignupDto);
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.WEAK_PASSWORD);
+      }
+    });
+
+    it('should require password when generatePassword is false', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      try {
+        await service.adminSignup({
+          ...adminSignupDto,
+          password: undefined,
+          generatePassword: false,
+        });
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.WEAK_PASSWORD);
+        expect(error.message).toContain('Password is required');
+      }
+    });
+
+    it('should record audit event with createdByAdmin flag', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockPasswordService.validatePassword.mockResolvedValue({ valid: true, errors: [] });
+      mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
+      const createdUser = { ...mockUser, email: adminSignupDto.email, id: 999 };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+
+      await service.adminSignup(adminSignupDto);
+
+      expect(mockAuditService?.recordEvent).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          userId: 999,
+          eventType: AuthAuditEventType.ACCOUNT_CREATED,
+          eventStatus: 'INFO',
+          authMethod: 'admin',
+          metadata: (expect as any).objectContaining({
+            createdByAdmin: true,
+            isEmailVerified: false,
+            isPhoneVerified: false,
+            mustChangePassword: false,
+            passwordGenerated: false,
+          }),
+        }),
+      );
+    });
+
+    it('should generate unique passwords on each call', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      const createdUser1 = { ...mockUser, email: 'user1@example.com' };
+      const createdUser2 = { ...mockUser, email: 'user2@example.com' };
+      mockUserRepository.create
+        .mockReturnValueOnce(createdUser1 as any)
+        .mockReturnValueOnce(createdUser2 as any);
+      mockUserRepository.save
+        .mockResolvedValueOnce(createdUser1 as any)
+        .mockResolvedValueOnce(createdUser2 as any);
+      mockPasswordService.hashPassword
+        .mockResolvedValueOnce('hashed-password-1')
+        .mockResolvedValueOnce('hashed-password-2');
+
+      const result1 = await service.adminSignup({
+        email: 'user1@example.com',
+        generatePassword: true,
+      });
+      const result2 = await service.adminSignup({
+        email: 'user2@example.com',
+        generatePassword: true,
+      });
+
+      expect(result1.generatedPassword).toBeDefined();
+      expect(result2.generatedPassword).toBeDefined();
+      expect(result1.generatedPassword).not.toBe(result2.generatedPassword);
+    });
+
+    it('should skip signup.enabled check', async () => {
+      mockConfig.signup!.enabled = false; // Signup disabled
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockPasswordService.validatePassword.mockResolvedValue({ valid: true, errors: [] });
+      mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
+      const createdUser = { ...mockUser, email: adminSignupDto.email };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+
+      // Should not throw even though signup is disabled
+      const result = await service.adminSignup(adminSignupDto);
+
+      expect(result.user).toBeDefined();
+    });
+
+    it('should not trigger challenge system', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockPasswordService.validatePassword.mockResolvedValue({ valid: true, errors: [] });
+      mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
+      const createdUser = { ...mockUser, email: adminSignupDto.email };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+
+      const result = await service.adminSignup(adminSignupDto);
+
+      // Should return user object, not AuthResponseDTO with challenge
+      expect(result.user).toBeDefined();
+      expect((result as any).challengeName).toBeUndefined();
+      expect((result as any).tokens).toBeUndefined();
+      expect(mockChallengeHelper.determineAuthResponse).not.toHaveBeenCalled();
+    });
+
+    it('should not send verification emails', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockPasswordService.validatePassword.mockResolvedValue({ valid: true, errors: [] });
+      mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
+      const createdUser = { ...mockUser, email: adminSignupDto.email };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+
+      await service.adminSignup({
+        ...adminSignupDto,
+        isEmailVerified: true,
+      });
+
+      // Email verification service should not be called
+      expect(mockEmailVerificationService.sendVerificationEmail).not.toHaveBeenCalled();
     });
   });
 });

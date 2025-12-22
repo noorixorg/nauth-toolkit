@@ -93,14 +93,29 @@ export class CookieTokenInterceptor implements NestInterceptor {
     }
 
     return next.handle().pipe(
-      map((data: AuthResponseDTO | { deviceToken?: string }) => {
+      map((data: unknown) => {
+        // ============================================================================
+        // Safety: Only process object responses
+        // ============================================================================
+        // Some consumer endpoints (e.g. health checks) legitimately return primitives
+        // like strings. The `in` operator throws on non-objects, so we must no-op.
+        if (!data || typeof data !== 'object' || Array.isArray(data)) {
+          return data;
+        }
+
+        type TokenishResponse = AuthResponseDTO & { deviceToken?: string };
+        const responseData = data as TokenishResponse;
+        const record = data as Record<string, unknown>;
+
         // Handle trust-device endpoint which returns only deviceToken
-        const hasDeviceTokenOnly = data && 'deviceToken' in data && !('accessToken' in data);
-        const hasAccessToken = data && 'accessToken' in data && data.accessToken;
+        const hasDeviceTokenOnly =
+          'deviceToken' in record && !('accessToken' in record) && typeof responseData.deviceToken === 'string';
+        const hasAccessToken =
+          'accessToken' in record && typeof responseData.accessToken === 'string' && !!responseData.accessToken;
 
         // Only process responses that include tokens OR deviceToken
-        if (!data || (!hasAccessToken && !hasDeviceTokenOnly)) {
-          return data;
+        if (!hasAccessToken && !hasDeviceTokenOnly) {
+          return responseData;
         }
 
         // Smart default cookie options
@@ -141,8 +156,8 @@ export class CookieTokenInterceptor implements NestInterceptor {
         // We decode here (signature already trusted as tokens are freshly issued);
         // full validation and blacklist checks happen in the AuthGuard on subsequent requests.
         let accessTokenMaxAgeMs = 0;
-        if (hasAccessToken && 'accessToken' in data && data.accessToken) {
-          const accessPayload = this.jwtService.decodeToken(data.accessToken);
+        if (hasAccessToken && responseData.accessToken) {
+          const accessPayload = this.jwtService.decodeToken(responseData.accessToken);
           if (!accessPayload?.exp) {
             throw new NAuthException(
               AuthErrorCode.TOKEN_INVALID,
@@ -168,16 +183,16 @@ export class CookieTokenInterceptor implements NestInterceptor {
         };
 
         // Set cookies only when effective is 'cookies'
-        if (effective === 'cookies' && hasAccessToken && 'accessToken' in data && data.accessToken) {
+        if (effective === 'cookies' && hasAccessToken && responseData.accessToken) {
           const accessTokenCookieName = getAccessTokenCookieName(this.config);
-          setCookie(accessTokenCookieName, data.accessToken, {
+          setCookie(accessTokenCookieName, responseData.accessToken, {
             ...cookieOptions,
             maxAge: accessTokenMaxAgeMs,
           });
         }
 
-        if ('refreshToken' in data && data.refreshToken && effective === 'cookies') {
-          const refreshPayload = this.jwtService.decodeToken(data.refreshToken);
+        if (typeof responseData.refreshToken === 'string' && responseData.refreshToken && effective === 'cookies') {
+          const refreshPayload = this.jwtService.decodeToken(responseData.refreshToken);
           if (!refreshPayload?.exp) {
             throw new NAuthException(
               AuthErrorCode.TOKEN_INVALID,
@@ -193,7 +208,7 @@ export class CookieTokenInterceptor implements NestInterceptor {
             );
           }
           const refreshTokenCookieName = getRefreshTokenCookieName(this.config);
-          setCookie(refreshTokenCookieName, data.refreshToken, {
+          setCookie(refreshTokenCookieName, responseData.refreshToken, {
             ...cookieOptions,
             maxAge: refreshTokenMaxAgeMs,
           });
@@ -202,11 +217,11 @@ export class CookieTokenInterceptor implements NestInterceptor {
         // Set device token cookie for trusted device feature (web)
         // Only set cookie when deviceToken is present and effective is cookies
         // (hybrid mode may resolve to cookies for web origins)
-        if ('deviceToken' in data && data.deviceToken && effective === 'cookies') {
+        if (typeof responseData.deviceToken === 'string' && responseData.deviceToken && effective === 'cookies') {
           const rememberDeviceDays = this.config.mfa?.rememberDeviceDays || 30;
           const deviceTokenMaxAgeMs = rememberDeviceDays * 24 * 60 * 60 * 1000; // Convert days to milliseconds
           const deviceTokenCookieName = getDeviceTokenCookieName(this.config);
-          setCookie(deviceTokenCookieName, data.deviceToken, {
+          setCookie(deviceTokenCookieName, responseData.deviceToken, {
             ...cookieOptions,
             maxAge: deviceTokenMaxAgeMs,
           });
@@ -234,12 +249,12 @@ export class CookieTokenInterceptor implements NestInterceptor {
             // For trust-device endpoint, return empty object (deviceToken set as cookie)
             return {};
           }
-          const authData = data as AuthResponseDTO;
+          const authData = responseData as AuthResponseDTO;
           const { accessToken, refreshToken, deviceToken, accessTokenExpiresAt, refreshTokenExpiresAt, ...sanitized } =
             authData;
           return sanitized;
         }
-        return data;
+        return responseData;
       }),
     );
   }

@@ -34,7 +34,8 @@ The `@CurrentUser()` decorator provides a clean, type-safe way to access the aut
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('profile')
 @UseGuards(AuthGuard)
@@ -57,7 +58,8 @@ Combine with other decorators:
 
 ```typescript
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('posts')
 @UseGuards(AuthGuard)
@@ -77,7 +79,8 @@ export class PostsController {
 
 ```typescript
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('posts')
 @UseGuards(AuthGuard)
@@ -101,7 +104,8 @@ Access user in services:
 
 ```typescript
 import { Controller, Put, Body, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('settings')
 @UseGuards(AuthGuard)
@@ -161,7 +165,8 @@ Check if user owns resource:
 
 ```typescript
 import { Controller, Get, Param, UseGuards, ForbiddenException } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('posts')
 @UseGuards(AuthGuard)
@@ -191,7 +196,8 @@ Log user actions:
 
 ```typescript
 import { Controller, Delete, Param, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('posts')
 @UseGuards(AuthGuard)
@@ -227,7 +233,8 @@ Pass user to services:
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('dashboard')
 @UseGuards(AuthGuard)
@@ -259,7 +266,8 @@ Make user optional for routes that work with or without auth:
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser, Public } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser, Public } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('posts')
 export class PostsController {
@@ -283,7 +291,8 @@ Use TypeScript for full type safety:
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('profile')
 @UseGuards(AuthGuard)
@@ -308,7 +317,8 @@ Validate user properties:
 
 ```typescript
 import { Controller, Post, Body, UseGuards, BadRequestException } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('posts')
 @UseGuards(AuthGuard)

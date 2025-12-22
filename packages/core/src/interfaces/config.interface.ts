@@ -591,6 +591,13 @@ export interface SignupConfig {
     expiresIn?: number;
 
     /**
+     * Maximum attempts to verify a single code
+     * Prevents brute force attacks on verification codes
+     * @default 3
+     */
+    maxAttempts?: number;
+
+    /**
      * Delay between resend requests in seconds
      * Prevents users from requesting codes too frequently
      * @default 60

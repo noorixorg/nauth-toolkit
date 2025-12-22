@@ -12,6 +12,9 @@ class MockStorage implements NAuthStorageAdapter {
   async removeItem(key: string): Promise<void> {
     this.data.delete(key);
   }
+  async clear(): Promise<void> {
+    this.data.clear();
+  }
 }
 
 describe('NAuthClient', () => {

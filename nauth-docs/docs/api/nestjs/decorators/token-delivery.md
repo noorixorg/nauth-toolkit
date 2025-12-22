@@ -79,7 +79,8 @@ Use different delivery modes for different endpoints:
 
 ```typescript
 import { Controller, Post, Get, UseGuards } from '@nestjs/common';
-import { AuthGuard, TokenDelivery, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, TokenDelivery, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('api')
 @UseGuards(AuthGuard)

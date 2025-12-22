@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/client",
-  "version": "0.1.13",
+  "version": "0.1.18",
   "description": "Framework-agnostic frontend SDK for nauth-toolkit",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
@@ -15,6 +15,13 @@
       "types": "./dist/angular/index.d.ts",
       "import": "./dist/angular/index.mjs",
       "require": "./dist/angular/index.cjs"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "angular": [
+        "dist/angular/index.d.ts"
+      ]
     }
   },
   "files": [

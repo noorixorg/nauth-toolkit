@@ -452,6 +452,7 @@ signup: {
 
   emailVerification: {
     expiresIn: 3600,        // 1 hour
+    maxAttempts: 3,         // Max attempts per code
     resendDelay: 60,        // 60 seconds
     rateLimitMax: 3,        // 3 emails per window
     rateLimitWindow: 3600,  // 1 hour
@@ -488,6 +489,7 @@ signup: {
 | Option               | Description                                                                    | Default | Recommended   |
 | -------------------- | ------------------------------------------------------------------------------ | ------- | ------------- |
 | `expiresIn`          | How long verification codes/links are valid (seconds). Balance security vs UX. | 3600    | 3600 (1 hour) |
+| `maxAttempts`        | Max attempts to verify a single code. Prevents brute force.                    | 3       | 3             |
 | `resendDelay`        | Minimum time between resend requests (seconds). Prevents spam.                 | 60      | 60 (1 minute) |
 | `rateLimitMax`       | Maximum verification emails per time window. Prevents email bombing.           | 3       | 3             |
 | `rateLimitWindow`    | Time window for rate limiting (seconds).                                       | 3600    | 3600 (1 hour) |

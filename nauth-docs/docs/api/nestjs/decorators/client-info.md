@@ -90,7 +90,8 @@ Use with authenticated routes:
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AuthGuard, ClientInfo, CurrentUser, IClientInfo, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, ClientInfo, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IClientInfo, IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('profile')
 @UseGuards(AuthGuard)

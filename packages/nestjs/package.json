@@ -1,9 +1,16 @@
 {
   "name": "@nauth-toolkit/nestjs",
-  "version": "0.1.13",
+  "version": "0.1.18",
   "description": "NestJS adapter for nauth-toolkit - Platform-specific integrations",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -b",
     "test": "jest",
@@ -32,7 +39,7 @@
     "typeorm": "^0.3.0"
   },
   "dependencies": {
-    "@nauth-toolkit/core": "0.1.13"
+    "@nauth-toolkit/core": "0.1.18"
   },
   "devDependencies": {
     "@nestjs/common": "^11.1.8",
@@ -59,5 +66,10 @@
   ],
   "engines": {
     "node": ">=22.0.0"
+  },
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorix/nauth-toolkit"
   }
 }

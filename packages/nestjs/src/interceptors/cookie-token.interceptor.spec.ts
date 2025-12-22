@@ -83,6 +83,22 @@ describe('CookieTokenInterceptor', () => {
     });
   });
 
+  it('does not throw for non-object responses (e.g. health checks)', (done) => {
+    const config = { tokenDelivery: { method: 'cookies' } } as unknown as NAuthConfig;
+    const interceptor = new CookieTokenInterceptor(config, jwtMock as JwtService, reflector);
+    const { ctx, cookiesSet } = createHttpContextMock();
+
+    const next: CallHandler = {
+      handle: () => of('Hello World!'),
+    } as any;
+
+    interceptor.intercept(ctx, next).subscribe((result: any) => {
+      expect(cookiesSet.length).toBe(0);
+      expect(result).toBe('Hello World!');
+      done();
+    });
+  });
+
   it('in strict hybrid, defaults to cookies and strips tokens (safe default)', (done) => {
     const config = { tokenDelivery: { method: 'hybrid' } } as unknown as NAuthConfig;
     const interceptor = new CookieTokenInterceptor(config, jwtMock as JwtService, reflector);

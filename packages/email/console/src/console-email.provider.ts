@@ -49,13 +49,20 @@ export class ConsoleEmailProvider implements EmailProvider {
    * @param code - Verification code (e.g., "123456")
    * @param link - Optional verification link (only logged if provided)
    */
-  async sendVerificationEmail(to: string, _code: string, _link?: string): Promise<void> {
-    // NOTE: Do not log secrets (codes/links) to console.
-    // In this repo, simulated codes should be viewed via test endpoints + frontend toast.
-    this.logger.log('----------------------------------------------');
-    this.logger.log('EMAIL: One-time code sent (simulated)');
+  async sendVerificationEmail(to: string, code: string, link?: string): Promise<void> {
+    // Build message similar to SMS format
+    let message = `Your verification code is: ${code}`;
+    if (link) {
+      message += `\nOr use this link: ${link}`;
+    }
+
+    // Log email content in a visually distinct format (matching SMS format)
+    this.logger.log(`\n${'='.repeat(60)}`);
+    this.logger.log('EMAIL MESSAGE');
+    this.logger.log('='.repeat(60));
     this.logger.log(`To: ${to}`);
-    this.logger.log('----------------------------------------------');
+    this.logger.log(`Message: ${message}`);
+    this.logger.log(`${'='.repeat(60)}\n`);
   }
 
   /**

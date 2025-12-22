@@ -168,8 +168,14 @@ bootstrap();
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '@nauth-toolkit/nestjs';
-import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
+import {
+  getNAuthEntities,
+  getNAuthTransientStorageEntities,
+} from '@nauth-toolkit/database-typeorm-postgres';
 import { authConfig } from './config/auth.config';
+import { AuthController } from './auth.controller';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -186,13 +192,16 @@ import { authConfig } from './config/auth.config';
     }),
     AuthModule.forRoot(authConfig),
   ],
+  controllers: [AppController, AuthController],
+  providers: [AppService],
 })
 export class AppModule {}
 ```
 
 ```typescript title="auth.controller.ts"
 import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
-import { AuthService, SignupDTO, LoginDTO, AuthGuard, CurrentUser, Public, IUser } from '@nauth-toolkit/nestjs';
+import { AuthService, SignupDTO, LoginDTO, AuthGuard, CurrentUser, Public } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('auth')
 export class AuthController {
@@ -212,7 +221,7 @@ export class AuthController {
 
   @UseGuards(AuthGuard)
   @Get('profile')
-  async getProfile(@CurrentUser() user: IUser) {
+  getProfile(@CurrentUser() user: IUser) {
     return user;
   }
 }

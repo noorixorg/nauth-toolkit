@@ -1,0 +1,319 @@
+# Admin Operations
+
+Administrative user management features for creating and managing user accounts with override capabilities.
+
+## Overview
+
+The `adminSignup()` method allows administrators to create user accounts with capabilities not available in regular signup:
+
+- **Bypass verification requirements** - Pre-verify email/phone without sending verification codes
+- **Force password change** - Require users to change password on first login
+- **Auto-generate passwords** - Create secure temporary passwords for new accounts
+- **Skip challenge system** - Create accounts that can login immediately (if verified)
+
+## Security Warning
+
+**IMPORTANT:** The `adminSignup()` endpoint has **NO built-in authentication**. You **MUST** protect it with your own admin authentication guard/middleware.
+
+```typescript
+// ❌ INSECURE - No protection
+@Post('admin/signup')
+async createUser(@Body() dto: AdminSignupDTO) {
+  return this.authService.adminSignup(dto);
+}
+
+// ✅ SECURE - Protected with admin guard
+@Post('admin/signup')
+@UseGuards(AdminAuthGuard) // Your own guard
+async createUser(@Body() dto: AdminSignupDTO) {
+  return this.authService.adminSignup(dto);
+}
+```
+
+## Usage
+
+### Basic Admin Signup
+
+Create a user with default settings (unverified email/phone):
+
+```typescript
+const result = await authService.adminSignup({
+  email: 'user@example.com',
+  password: 'SecurePass123!',
+  firstName: 'John',
+  lastName: 'Doe',
+});
+
+// Returns: { user: IUser }
+// User must verify email/phone through normal flow
+```
+
+### Pre-Verified Accounts
+
+Create accounts with pre-verified email and phone:
+
+```typescript
+const result = await authService.adminSignup({
+  email: 'user@example.com',
+  password: 'SecurePass123!',
+  isEmailVerified: true,
+  isPhoneVerified: true,
+});
+
+// User can login immediately (no verification challenges)
+```
+
+### Auto-Generated Passwords
+
+Generate secure temporary passwords for new accounts:
+
+```typescript
+const result = await authService.adminSignup({
+  email: 'user@example.com',
+  generatePassword: true,
+  isEmailVerified: true,
+  mustChangePassword: true, // User must change password on first login
+});
+
+// Returns: { user: IUser, generatedPassword: 'Kx9#mP2$vN7@qR4!' }
+// Admin should securely deliver the password to the user
+```
+
+**Security Note:** Generated passwords are returned **once** in the response and **never stored in plain text**. The admin must securely deliver the password to the user (e.g., via secure email, in-person, etc.).
+
+### Force Password Change
+
+Require users to change their password on first login:
+
+```typescript
+const result = await authService.adminSignup({
+  email: 'user@example.com',
+  password: 'TemporaryPass123!',
+  mustChangePassword: true,
+});
+
+// User will be required to change password on next login
+```
+
+## API Reference
+
+### AdminSignupDTO
+
+```typescript
+interface AdminSignupDTO {
+  // Required fields
+  email: string; // Valid email format, max 255 chars
+
+  // Password (required unless generatePassword is true)
+  password?: string; // Min 8 chars, max 128 chars, validated against policy
+
+  // Optional user fields
+  username?: string; // 3-50 chars, alphanumeric + underscore/hyphen
+  firstName?: string; // 1-100 chars, letters/spaces/hyphens/apostrophes
+  lastName?: string; // 1-100 chars, letters/spaces/hyphens/apostrophes
+  phone?: string; // E.164 format (e.g., +14155552671)
+  metadata?: Record<string, unknown>; // Custom fields
+
+  // Admin override flags
+  isEmailVerified?: boolean; // Default: false - bypass email verification
+  isPhoneVerified?: boolean; // Default: false - bypass phone verification
+  mustChangePassword?: boolean; // Default: false - force password change on login
+  generatePassword?: boolean; // Default: false - auto-generate secure password
+}
+```
+
+### AdminSignupResponseDTO
+
+```typescript
+interface AdminSignupResponseDTO {
+  user: IUser; // Created user object
+  generatedPassword?: string; // Only present if generatePassword was true
+}
+```
+
+## Framework Examples
+
+### NestJS
+
+```typescript
+import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { AuthService, AdminSignupDTO } from '@nauth-toolkit/nestjs';
+import { AdminAuthGuard } from './guards/admin-auth.guard'; // Your guard
+
+@Controller('admin')
+export class AdminController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Post('signup')
+  @UseGuards(AdminAuthGuard) // Protect with your admin guard
+  async createUser(@Body() dto: AdminSignupDTO) {
+    return this.authService.adminSignup(dto);
+  }
+}
+```
+
+### Express
+
+```typescript
+import { nauth } from './nauth'; // Your NAuth instance
+import { requireAdminAuth } from './middleware/admin-auth'; // Your middleware
+
+app.post(
+  '/admin/signup',
+  requireAdminAuth, // Protect with your admin middleware
+  async (req, res) => {
+    const result = await nauth.authService.adminSignup(req.body);
+    res.json(result);
+  }
+);
+```
+
+### Fastify
+
+```typescript
+import { nauth } from './nauth'; // Your NAuth instance
+import { requireAdminAuth } from './hooks/admin-auth'; // Your hook
+
+fastify.post(
+  '/admin/signup',
+  { preHandler: requireAdminAuth }, // Protect with your admin hook
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    return nauth.authService.adminSignup(req.body as AdminSignupDTO);
+  })
+);
+```
+
+## Verification Bypass Behavior
+
+When `isEmailVerified` or `isPhoneVerified` are set to `true`:
+
+- **No verification emails/SMS are sent** - The user's email/phone is marked as verified immediately
+- **No challenge system is triggered** - User can login without verification challenges
+- **User can login immediately** - If both email and phone are verified (or verification is not required by config)
+
+When set to `false` (default):
+
+- User must verify through normal verification flow
+- Verification codes/links are sent when user attempts to login
+- Challenge system enforces verification before allowing access
+
+## Force Password Change Workflow
+
+When `mustChangePassword: true`:
+
+1. User account is created with the provided/generated password
+2. User attempts to login with the password
+3. Login succeeds but returns `FORCE_CHANGE_PASSWORD` challenge
+4. User must call `respondToChallenge()` with new password
+5. After password change, user receives tokens and can access the system
+
+**Example Flow:**
+
+```typescript
+// Admin creates user
+const { user } = await authService.adminSignup({
+  email: 'user@example.com',
+  generatePassword: true,
+  mustChangePassword: true,
+});
+
+// User logs in
+const loginResult = await authService.login({
+  identifier: 'user@example.com',
+  password: generatedPassword,
+});
+
+// Result contains challenge
+// loginResult.challengeName === 'FORCE_CHANGE_PASSWORD'
+
+// User responds to challenge
+await authService.respondToChallenge({
+  session: loginResult.session,
+  type: 'FORCE_CHANGE_PASSWORD',
+  newPassword: 'NewSecurePass123!',
+});
+```
+
+## Generated Password Best Practices
+
+1. **Never log generated passwords** - They appear only in the API response
+2. **Deliver securely** - Use encrypted email, secure messaging, or in-person delivery
+3. **Set expiration** - Consider setting `mustChangePassword: true` to force immediate change
+4. **One-time use** - Generated passwords should be changed immediately after first login
+5. **Audit trail** - All admin-created accounts are logged with `createdByAdmin: true` in audit logs
+
+## Audit Trail
+
+All admin-created accounts are logged in the audit trail with:
+
+- `eventType: ACCOUNT_CREATED`
+- `authMethod: 'admin'`
+- `metadata.createdByAdmin: true`
+- `metadata.adminIdentifier: <IP address>`
+- `metadata.isEmailVerified: <boolean>`
+- `metadata.isPhoneVerified: <boolean>`
+- `metadata.mustChangePassword: <boolean>`
+- `metadata.passwordGenerated: <boolean>`
+
+Query admin-created accounts:
+
+```typescript
+const adminCreatedAccounts = await auditService.getEventsByType({
+  eventType: AuthAuditEventType.ACCOUNT_CREATED,
+  filters: {
+    metadata: { createdByAdmin: true },
+  },
+});
+```
+
+## Validation Rules
+
+Admin signup enforces the same validation rules as regular signup:
+
+- **Email uniqueness** - Email must not already exist
+- **Username uniqueness** - Username must not already exist (if provided)
+- **Phone uniqueness** - Phone must not already exist (if duplicates not allowed)
+- **Password policy** - Password must meet strength requirements (unless auto-generated)
+- **Field formats** - Email, phone, username must match required formats
+
+## Differences from Regular Signup
+
+| Feature | Regular Signup | Admin Signup |
+|---------|---------------|--------------|
+| Signup enabled check | Enforced | Bypassed |
+| Email verification | Always false initially | Can be set to true |
+| Phone verification | Always false initially | Can be set to true |
+| Password generation | Not supported | Supported |
+| Force password change | Not supported | Supported |
+| Challenge system | Triggered if verification required | Never triggered |
+| Verification emails | Sent automatically | Never sent |
+| Response type | `AuthResponseDTO` (tokens/challenge) | `AdminSignupResponseDTO` (user only) |
+| Audit log | `authMethod: 'password'` | `authMethod: 'admin'` |
+
+## When to Use
+
+**Use `adminSignup()` when:**
+- Creating accounts for existing users (e.g., migrating from another system)
+- Bulk account creation (with proper admin authentication)
+- Creating test accounts in development
+- Onboarding users via admin panel
+- Creating accounts with pre-verified credentials
+
+**Use regular `signup()` when:**
+- Users are self-registering
+- You want standard verification flow
+- You want challenge system to handle verification
+- You want automatic verification emails/SMS
+
+## Error Handling
+
+Common errors:
+
+- `EMAIL_EXISTS` - Email already registered
+- `USERNAME_EXISTS` - Username already taken
+- `PHONE_EXISTS` - Phone already registered (if duplicates not allowed)
+- `WEAK_PASSWORD` - Password doesn't meet policy requirements
+- `VALIDATION_FAILED` - Invalid DTO format
+
+All errors follow the standard `NAuthException` format with error codes and metadata.
+

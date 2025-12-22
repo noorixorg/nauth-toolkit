@@ -822,6 +822,44 @@ describe('EmailVerificationService', () => {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_TOO_MANY_ATTEMPTS);
       }
     });
+
+    it('should use custom maxAttempts config', async () => {
+      mockConfig.signup!.emailVerification!.maxAttempts = 5;
+      service = new EmailVerificationService(
+        mockVerificationTokenRepository,
+        mockUserRepository,
+        mockEmailProvider,
+        mockStorageAdapter,
+        mockConfig,
+        mockClientInfoService,
+        mockLogger,
+        mockAuditService,
+      );
+
+      const tokenWithMethod = {
+        ...mockVerificationToken,
+        attempts: 4, // Less than custom limit of 5
+        maxAttemptsExceeded: jest.fn((max: number) => {
+          return 4 >= max;
+        }),
+      };
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.expire.mockResolvedValue();
+      mockVerificationTokenRepository.findOne.mockResolvedValue(tokenWithMethod as any);
+
+      try {
+        await service.verifyEmailWithCode({
+          email: 'test@example.com',
+          code: '123456',
+          challengeSessionId: 1,
+        });
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error.code).toBe(AuthErrorCode.VERIFICATION_TOO_MANY_ATTEMPTS);
+        expect(tokenWithMethod.maxAttemptsExceeded).toHaveBeenCalledWith(5);
+      }
+    });
   });
 
   // ============================================================================

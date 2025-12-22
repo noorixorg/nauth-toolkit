@@ -17,6 +17,7 @@ import { RiskFactor } from '../enums/risk-factor.enum';
 import { MFAService } from './mfa.service';
 import { ContextStorage } from '../utils/context-storage';
 import { SignupDTO } from '../dto/signup.dto';
+import { AdminSignupDTO, AdminSignupResponseDTO } from '../dto/admin-signup.dto';
 import { LoginDTO } from '../dto/login.dto';
 import { ChangePasswordRequestDTO } from '../dto/change-password-request.dto';
 import { ChangePasswordResponseDTO } from '../dto/change-password-response.dto';
@@ -63,6 +64,7 @@ import { AuthErrorCode } from '../enums/error-codes.enum';
 import { MFAMethod } from '../enums/mfa-method.enum';
 import { isUUID } from 'class-validator';
 import * as crypto from 'crypto';
+import { generateSecurePassword } from '../utils/password-generator';
 
 /**
  * Dummy Argon2 hash for constant-time response
@@ -309,6 +311,217 @@ export class AuthService {
     }
 
     return response;
+  }
+
+  // ============================================================================
+  // Admin Signup
+  // ============================================================================
+
+  /**
+   * Administrative user creation with override capabilities
+   *
+   * Allows administrators to create user accounts with:
+   * - Bypass email/phone verification requirements
+   * - Force password change on first login
+   * - Auto-generate secure passwords
+   *
+   * Security:
+   * - No built-in authentication - endpoint must be protected by framework adapter
+   * - All duplicate checks still enforced
+   * - Password policy still enforced (unless auto-generated)
+   * - Audit trail records admin-created accounts
+   *
+   * @param dto - Admin signup DTO with override flags
+   * @returns User object and optionally generated password
+   * @throws {NAuthException} EMAIL_EXISTS | USERNAME_EXISTS | PHONE_EXISTS | WEAK_PASSWORD
+   *
+   * @example
+   * ```typescript
+   * // Create user with pre-verified email
+   * const result = await authService.adminSignup({
+   *   email: 'user@example.com',
+   *   password: 'SecurePass123!',
+   *   isEmailVerified: true,
+   * });
+   *
+   * // Create user with auto-generated password
+   * const result = await authService.adminSignup({
+   *   email: 'user@example.com',
+   *   generatePassword: true,
+   *   isEmailVerified: true,
+   *   mustChangePassword: true,
+   * });
+   * // result.generatedPassword contains the temporary password
+   * ```
+   */
+  async adminSignup(dto: AdminSignupDTO): Promise<AdminSignupResponseDTO> {
+    // Get client info from request context (transparent!)
+    const clientInfo = this.clientInfoService.get();
+
+    this.logger?.log?.(`Admin signup attempt for email: ${dto.email}`);
+    this.logger?.debug?.(
+      `Admin signup details: { email: ${dto.email}, username: ${dto.username || 'none'}, ip: ${clientInfo.ipAddress} }`,
+    );
+
+    // Skip signup.enabled check (admin bypass)
+
+    // Check if user already exists (email and username)
+    this.logger?.debug?.(`Checking if user exists: ${dto.email}`);
+    const existingUserByEmail = await this.userRepository.findOne({
+      where: { email: dto.email },
+    });
+
+    if (existingUserByEmail) {
+      this.logger?.warn?.(`Admin signup failed - user already exists: ${dto.email}`);
+      throw new NAuthException(AuthErrorCode.EMAIL_EXISTS, 'User with this email already exists');
+    }
+
+    // Check for duplicate username if provided
+    if (dto.username) {
+      this.logger?.debug?.(`Checking if username exists: ${dto.username}`);
+      const existingUserByUsername = await this.userRepository.findOne({
+        where: { username: dto.username },
+      });
+
+      if (existingUserByUsername) {
+        this.logger?.warn?.(`Admin signup failed - username already exists: ${dto.username}`);
+        throw new NAuthException(AuthErrorCode.USERNAME_EXISTS, 'Username is already taken');
+      }
+    }
+
+    // Check for duplicate phone if provided and duplicates not allowed
+    if (dto.phone && !this.config.signup?.allowDuplicatePhones) {
+      this.logger?.debug?.(`Checking if phone exists: ${dto.phone}`);
+      const existingUserByPhone = await this.userRepository.findOne({
+        where: { phone: dto.phone },
+      });
+
+      if (existingUserByPhone) {
+        this.logger?.warn?.(`Admin signup failed - phone already exists: ${dto.phone}`);
+        throw new NAuthException(AuthErrorCode.PHONE_EXISTS, 'Phone number is already registered');
+      }
+    }
+
+    // Handle password
+    let passwordHash: string;
+    let generatedPassword: string | undefined;
+
+    if (dto.generatePassword) {
+      // Generate secure random password
+      generatedPassword = generateSecurePassword(16);
+      this.logger?.debug?.(`Generated password for admin-created user: ${dto.email}`);
+      passwordHash = await this.passwordService.hashPassword(generatedPassword);
+    } else {
+      // Validate password policy
+      if (!dto.password) {
+        throw new NAuthException(AuthErrorCode.WEAK_PASSWORD, 'Password is required when generatePassword is false');
+      }
+
+      this.logger?.debug?.('Validating password against policy');
+      const passwordValidation = await this.passwordService.validatePassword(dto.password, {
+        email: dto.email,
+        username: dto.username,
+      });
+
+      if (!passwordValidation.valid) {
+        this.logger?.warn?.(`Password validation failed for ${dto.email}: ${passwordValidation.errors.join(', ')}`);
+        throw new NAuthException(AuthErrorCode.WEAK_PASSWORD, passwordValidation.errors.join(', '), {
+          errors: passwordValidation.errors,
+        });
+      }
+
+      // Hash password
+      passwordHash = await this.passwordService.hashPassword(dto.password);
+    }
+
+    // Create user with override flags
+    this.logger?.debug?.(
+      `Creating admin user record for: ${dto.email} || ${dto.username} || ${dto.phone} (isEmailVerified: ${dto.isEmailVerified || false}, isPhoneVerified: ${dto.isPhoneVerified || false})`,
+    );
+    const user = this.userRepository.create({
+      email: dto.email,
+      username: dto.username,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      phone: dto.phone,
+      passwordHash,
+      passwordChangedAt: new Date(),
+      isEmailVerified: dto.isEmailVerified ?? false, // Use DTO value or default to false
+      isPhoneVerified: dto.isPhoneVerified ?? false, // Use DTO value or default to false
+      mustChangePassword: dto.mustChangePassword ?? false, // Use DTO value or default to false
+      isActive: true, // Always active
+      metadata: dto.metadata,
+    });
+
+    let savedUser: IUser;
+    try {
+      savedUser = (await this.userRepository.save(user)) as unknown as IUser;
+      this.logger?.log?.(`Admin user created successfully: ${dto.email} (sub: ${savedUser.sub})`);
+
+      // ============================================================================
+      // Audit: Record account creation by admin
+      // ============================================================================
+      try {
+        await this.auditService?.recordEvent({
+          userId: savedUser.id,
+          eventType: AuthAuditEventType.ACCOUNT_CREATED,
+          eventStatus: 'INFO',
+          authMethod: 'admin',
+          // Client info automatically included from context
+          metadata: {
+            email: savedUser.email,
+            username: savedUser.username || null,
+            createdByAdmin: true,
+            adminIdentifier: clientInfo.ipAddress || 'unknown',
+            isEmailVerified: savedUser.isEmailVerified,
+            isPhoneVerified: savedUser.isPhoneVerified,
+            mustChangePassword: savedUser.mustChangePassword,
+            passwordGenerated: !!generatedPassword,
+          },
+        });
+      } catch (auditError) {
+        // Non-blocking: Log but continue
+        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to record ACCOUNT_CREATED audit event: ${errorMessage}`, {
+          error: auditError,
+          userId: savedUser.id,
+        });
+      }
+    } catch (error: unknown) {
+      // Handle database constraint violations gracefully
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+        // PostgreSQL unique constraint violation
+        const dbError = error as { code: string; detail?: string; message?: string };
+        if (dbError.detail?.includes('email')) {
+          this.logger?.warn?.(`Admin signup failed - email constraint violation: ${dto.email}`);
+          throw new NAuthException(AuthErrorCode.EMAIL_EXISTS, 'User with this email already exists');
+        } else if (dbError.detail?.includes('username')) {
+          this.logger?.warn?.(`Admin signup failed - username constraint violation: ${dto.username}`);
+          throw new NAuthException(AuthErrorCode.USERNAME_EXISTS, 'Username is already taken');
+        } else if (dbError.detail?.includes('phone')) {
+          this.logger?.warn?.(`Admin signup failed - phone constraint violation: ${dto.phone}`);
+          throw new NAuthException(AuthErrorCode.PHONE_EXISTS, 'Phone number is already registered');
+        } else {
+          this.logger?.error?.(`Admin signup failed - database constraint violation: ${dbError.message}`);
+          throw new NAuthException(AuthErrorCode.EMAIL_EXISTS, 'User with this information already exists', {
+            conflictType: 'unknown',
+          });
+        }
+      }
+
+      // Re-throw other database errors
+      const errorMessage = error instanceof Error ? error.message : 'Unknown database error';
+      this.logger?.error?.(`Admin signup failed - database error: ${errorMessage}`);
+      throw error;
+    }
+
+    // No tokens, no challenge system, no verification emails - pure user creation
+    // Return sanitized user object (excludes passwordHash and other sensitive fields)
+    const userDto = UserResponseDto.fromEntity(savedUser);
+    return {
+      user: userDto,
+      generatedPassword,
+    };
   }
 
   // ============================================================================

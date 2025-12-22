@@ -1,0 +1,363 @@
+<p-card styleClass="dashboard-card">
+  <ng-template pTemplate="header">
+    <div class="dashboard-card-header">
+      <div class="dashboard-card-header-content">
+        <div class="dashboard-card-header-title">
+          <i class="pi pi-shield dashboard-card-header-icon"></i>
+          <h2 class="dashboard-card-header-text">Admin</h2>
+        </div>
+        <p-button
+          label="Create User"
+          icon="pi pi-user-plus"
+          severity="primary"
+          size="small"
+          (onClick)="openCreateUserDialog()"
+        />
+      </div>
+    </div>
+  </ng-template>
+
+  <div class="p-6">
+    <p class="text-secondary-600 mb-4">
+      Administrative user management. Create user accounts with override capabilities including pre-verified
+      email/phone, auto-generated passwords, and force password change options.
+    </p>
+
+    <div class="space-y-2">
+      <div class="flex items-center gap-2 text-sm text-secondary-700">
+        <i class="pi pi-check-circle text-primary-600"></i>
+        <span>Create users with pre-verified email/phone</span>
+      </div>
+      <div class="flex items-center gap-2 text-sm text-secondary-700">
+        <i class="pi pi-check-circle text-primary-600"></i>
+        <span>Auto-generate secure passwords</span>
+      </div>
+      <div class="flex items-center gap-2 text-sm text-secondary-700">
+        <i class="pi pi-check-circle text-primary-600"></i>
+        <span>Force password change on first login</span>
+      </div>
+      <div class="flex items-center gap-2 text-sm text-secondary-700">
+        <i class="pi pi-clock text-secondary-500"></i>
+        <span class="text-secondary-500">Reset password for any user (coming soon)</span>
+      </div>
+    </div>
+  </div>
+</p-card>
+
+<!-- Create User Dialog -->
+<p-dialog
+  [visible]="showDialog()"
+  (visibleChange)="showDialog.set($event)"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '600px', maxWidth: '90vw' }"
+  header="Create User"
+  (onHide)="closeDialog()"
+>
+  <form [formGroup]="createUserForm" (ngSubmit)="onSubmit()" class="space-y-4">
+    <!-- Error Message -->
+    @if (error(); as errorMessage) {
+      <div class="mb-4">
+        <p-message severity="error" [text]="errorMessage" styleClass="w-full" />
+      </div>
+    }
+
+    <!-- Success Message -->
+    @if (success(); as successMessage) {
+      <div class="mb-4">
+        <p-message severity="success" [text]="successMessage" styleClass="w-full" />
+      </div>
+    }
+
+    <!-- Email Field -->
+    <div class="flex flex-col gap-2">
+      <label for="email" class="form-label">
+        Email <span class="form-required">*</span>
+      </label>
+      <input
+        id="email"
+        type="email"
+        pInputText
+        formControlName="email"
+        placeholder="user@example.com"
+        maxlength="255"
+        [class.p-invalid]="createUserForm.get('email')?.invalid && createUserForm.get('email')?.touched"
+        class="w-full"
+      />
+      @if (createUserForm.get('email')?.invalid && createUserForm.get('email')?.touched) {
+        <small class="p-error">
+          @if (createUserForm.get('email')?.errors?.['required']) {
+            Email is required
+          } @else if (createUserForm.get('email')?.errors?.['email']) {
+            Please enter a valid email address
+          } @else if (createUserForm.get('email')?.errors?.['maxlength']) {
+            Email must not exceed 255 characters
+          }
+        </small>
+      }
+    </div>
+
+    <!-- Generate Password Checkbox -->
+    <div class="flex items-center gap-2">
+      <p-checkbox formControlName="generatePassword" [binary]="true" inputId="generatePassword" />
+      <label for="generatePassword" class="form-label cursor-pointer">
+        Auto-generate secure password
+      </label>
+    </div>
+
+    <!-- Password Field (shown when not generating) -->
+    @if (!createUserForm.get('generatePassword')?.value) {
+      <div class="flex flex-col gap-2">
+        <label for="password" class="form-label">
+          Password <span class="form-required">*</span>
+        </label>
+        <p-password
+          id="password"
+          formControlName="password"
+          placeholder="Enter password"
+          [toggleMask]="true"
+          [feedback]="true"
+          [class.p-invalid]="
+            createUserForm.get('password')?.invalid && createUserForm.get('password')?.touched
+          "
+          styleClass="w-full"
+          inputStyleClass="w-full"
+        />
+        @if (createUserForm.get('password')?.invalid && createUserForm.get('password')?.touched) {
+          <small class="p-error">
+            @if (createUserForm.get('password')?.errors?.['required']) {
+              Password is required
+            } @else if (createUserForm.get('password')?.errors?.['minlength']) {
+              Password must be at least 8 characters
+            } @else if (createUserForm.get('password')?.errors?.['maxlength']) {
+              Password must not exceed 128 characters
+            }
+          </small>
+        }
+      </div>
+    }
+
+    <!-- Username Field -->
+    <div class="flex flex-col gap-2">
+      <label for="username" class="form-label">Username</label>
+      <input
+        id="username"
+        type="text"
+        pInputText
+        formControlName="username"
+        placeholder="username (optional)"
+        maxlength="255"
+        [class.p-invalid]="
+          createUserForm.get('username')?.invalid && createUserForm.get('username')?.touched
+        "
+        class="w-full"
+      />
+      @if (createUserForm.get('username')?.invalid && createUserForm.get('username')?.touched) {
+        <small class="p-error">
+          @if (createUserForm.get('username')?.errors?.['minlength']) {
+            Username must be at least 3 characters
+          } @else if (createUserForm.get('username')?.errors?.['maxlength']) {
+            Username must not exceed 255 characters
+          } @else if (createUserForm.get('username')?.errors?.['pattern']) {
+            Username can only contain letters, numbers, underscores, and hyphens
+          }
+        </small>
+      }
+    </div>
+
+    <!-- First Name and Last Name Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- First Name -->
+      <div class="flex flex-col gap-2">
+        <label for="firstName" class="form-label">First Name</label>
+        <input
+          id="firstName"
+          type="text"
+          pInputText
+          formControlName="firstName"
+          placeholder="First name (optional)"
+          maxlength="100"
+          [class.p-invalid]="
+            createUserForm.get('firstName')?.invalid && createUserForm.get('firstName')?.touched
+          "
+          class="w-full"
+        />
+        @if (
+          createUserForm.get('firstName')?.invalid && createUserForm.get('firstName')?.touched
+        ) {
+          <small class="p-error">
+            @if (createUserForm.get('firstName')?.errors?.['maxlength']) {
+              First name must not exceed 100 characters
+            } @else if (createUserForm.get('firstName')?.errors?.['pattern']) {
+              First name can only contain letters, spaces, hyphens, and apostrophes
+            }
+          </small>
+        }
+      </div>
+
+      <!-- Last Name -->
+      <div class="flex flex-col gap-2">
+        <label for="lastName" class="form-label">Last Name</label>
+        <input
+          id="lastName"
+          type="text"
+          pInputText
+          formControlName="lastName"
+          placeholder="Last name (optional)"
+          maxlength="100"
+          [class.p-invalid]="
+            createUserForm.get('lastName')?.invalid && createUserForm.get('lastName')?.touched
+          "
+          class="w-full"
+        />
+        @if (
+          createUserForm.get('lastName')?.invalid && createUserForm.get('lastName')?.touched
+        ) {
+          <small class="p-error">
+            @if (createUserForm.get('lastName')?.errors?.['maxlength']) {
+              Last name must not exceed 100 characters
+            } @else if (createUserForm.get('lastName')?.errors?.['pattern']) {
+              Last name can only contain letters, spaces, hyphens, and apostrophes
+            }
+          </small>
+        }
+      </div>
+    </div>
+
+    <!-- Phone Field -->
+    <div class="flex flex-col gap-2">
+      <label for="phone" class="form-label">Phone</label>
+      <p-inputmask
+        id="phone"
+        formControlName="phone"
+        mask="+99999999999999"
+        slotChar=""
+        placeholder="+14155552671"
+        [unmask]="false"
+        [autoClear]="false"
+        [class.p-invalid]="createUserForm.get('phone')?.invalid && createUserForm.get('phone')?.touched"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+      />
+      @if (createUserForm.get('phone')?.invalid && createUserForm.get('phone')?.touched) {
+        <small class="p-error">
+          @if (createUserForm.get('phone')?.errors?.['phoneFormat']) {
+            {{ createUserForm.get('phone')?.errors?.['phoneFormat']?.['message'] }}
+          } @else if (createUserForm.get('phone')?.errors?.['maxlength']) {
+            Phone must not exceed 20 characters
+          }
+        </small>
+      }
+      <small class="text-secondary-500 text-xs">Format: +[country code][number] (e.g., +14155552671)</small>
+    </div>
+
+    <!-- Admin Override Options -->
+    <div class="border-t border-secondary-200 pt-4 space-y-3">
+      <h3 class="text-sm font-semibold text-secondary-900 mb-3">Admin Options</h3>
+
+      <!-- Email Verified -->
+      <div class="flex items-center gap-2">
+        <p-checkbox formControlName="isEmailVerified" [binary]="true" inputId="isEmailVerified" />
+        <label for="isEmailVerified" class="form-label cursor-pointer">
+          Email verified (bypass email verification)
+        </label>
+      </div>
+
+      <!-- Phone Verified -->
+      <div class="flex items-center gap-2">
+        <p-checkbox formControlName="isPhoneVerified" [binary]="true" inputId="isPhoneVerified" />
+        <label for="isPhoneVerified" class="form-label cursor-pointer">
+          Phone verified (bypass phone verification)
+        </label>
+      </div>
+
+      <!-- Force Password Change -->
+      <div class="flex items-center gap-2">
+        <p-checkbox
+          formControlName="mustChangePassword"
+          [binary]="true"
+          inputId="mustChangePassword"
+        />
+        <label for="mustChangePassword" class="form-label cursor-pointer">
+          Force password change on first login
+        </label>
+      </div>
+    </div>
+
+    <!-- Submit Button -->
+    <div class="flex justify-end gap-2 pt-4 border-t border-secondary-200">
+      <p-button
+        label="Cancel"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="closeDialog()"
+        [disabled]="loading()"
+      />
+      <p-button
+        type="submit"
+        label="{{ loading() ? 'Creating...' : 'Create User' }}"
+        [disabled]="createUserForm.invalid || loading()"
+        [loading]="loading()"
+        icon="pi pi-user-plus"
+      />
+    </div>
+  </form>
+</p-dialog>
+
+<!-- Generated Password Dialog -->
+<p-dialog
+  [visible]="showPasswordDialog()"
+  (visibleChange)="showPasswordDialog.set($event)"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '500px', maxWidth: '90vw' }"
+  header="Generated Password"
+  (onHide)="closePasswordDialog()"
+>
+  <div class="space-y-4">
+    <p class="text-secondary-700">
+      A secure password has been generated for the new user. Please copy this password and deliver it
+      securely to the user.
+    </p>
+
+    <div class="bg-secondary-50 border border-secondary-200 rounded-lg p-4">
+      <div class="flex items-center justify-between gap-4">
+        <code class="text-lg font-mono text-secondary-900 flex-1 break-all">
+          {{ generatedPassword() }}
+        </code>
+        <p-button
+          icon="pi pi-copy"
+          severity="secondary"
+          [outlined]="true"
+          size="small"
+          (onClick)="copyPasswordAndClose()"
+          pTooltip="Copy password to clipboard"
+        />
+      </div>
+    </div>
+
+    <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+      <div class="flex items-start gap-2">
+        <i class="pi pi-exclamation-triangle text-amber-600 mt-0.5"></i>
+        <div class="text-sm text-amber-800">
+          <p class="font-semibold mb-1">Security Warning</p>
+          <p>This password is shown only once. It will not be displayed again. Make sure to copy it
+            before closing this dialog.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-2 pt-4">
+      <p-button
+        label="I've Copied It"
+        severity="primary"
+        (onClick)="closePasswordDialog()"
+      />
+    </div>
+  </div>
+</p-dialog>
+

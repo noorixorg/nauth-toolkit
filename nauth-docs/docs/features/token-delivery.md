@@ -77,7 +77,7 @@ fetch('/api/protected', {
 If using JSON mode for web apps, store tokens in memory or secure storage, not `localStorage`. Attackers can steal tokens via XSS attacks if stored in `localStorage`.
 :::
 
-</TabItem>
+  </TabItem>
   <TabItem value="cookies" label="Cookies (Most Secure for Web)">
 
 Tokens are set as HTTP-only cookies. Your frontend doesn't handle tokens directly; the browser sends them automatically.
@@ -142,7 +142,7 @@ fetch('/api/protected', {
 Cookie mode is the most secure option for web applications. Even if an attacker injects malicious JavaScript, they can't steal the tokens.
 :::
 
-</TabItem>
+  </TabItem>
   <TabItem value="hybrid" label="Hybrid (Web + Mobile)">
 
 Hybrid is a backend pattern that supports both cookie delivery and JSON delivery. The recommended approach is to make delivery explicit per route (for example: `/auth/login` for cookies and `/auth/login/mobile` for JSON) so each client targets the correct endpoints.

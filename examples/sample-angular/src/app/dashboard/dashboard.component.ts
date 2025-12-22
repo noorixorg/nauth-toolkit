@@ -10,6 +10,7 @@ import { ToastModule } from 'primeng/toast';
 import { ProfileComponent } from './profile/profile.component';
 import { AuditComponent } from './audit/audit.component';
 import { MfaComponent } from './mfa/mfa.component';
+import { AdminComponent } from './admin/admin.component';
 
 /**
  * Dashboard component
@@ -43,6 +44,7 @@ import { MfaComponent } from './mfa/mfa.component';
     ProfileComponent,
     AuditComponent,
     MfaComponent,
+    AdminComponent,
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css',

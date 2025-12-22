@@ -278,10 +278,11 @@ export class EmailVerificationService {
       throw new NAuthException(AuthErrorCode.VERIFICATION_CODE_EXPIRED, 'Verification code has expired');
     }
 
-    // Check max attempts (3 attempts)
+    // Check max attempts (configurable, default 3)
+    const maxAttempts = this.config.signup?.emailVerification?.maxAttempts ?? 3;
     const maxAttemptsExceeded = verificationToken.maxAttemptsExceeded
-      ? verificationToken.maxAttemptsExceeded(3)
-      : verificationToken.attempts >= 3;
+      ? verificationToken.maxAttemptsExceeded(maxAttempts)
+      : verificationToken.attempts >= maxAttempts;
     if (maxAttemptsExceeded) {
       // Token exceeded max attempts - increment IP rate limit
       await incrementIPRateLimit();

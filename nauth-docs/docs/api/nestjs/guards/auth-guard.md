@@ -117,7 +117,8 @@ Use `@CurrentUser()` decorator to get authenticated user:
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('profile')
 @UseGuards(AuthGuard)
@@ -320,7 +321,7 @@ Access user in service without guard:
 import { Injectable } from '@nestjs/common';
 import { REQUEST } from '@nestjs/core';
 import { Inject } from '@nestjs/common';
-import { IUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Injectable()
 export class MyService {

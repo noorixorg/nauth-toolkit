@@ -20,6 +20,8 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import {
   AuthService,
   SignupDTO,
+  AdminSignupDTO,
+  AdminSignupResponseDTO,
   LoginDTO,
   AuthResponseDTO,
   AuthGuard,
@@ -144,6 +146,40 @@ export class CustomAuthController {
   async signup(@Body() dto: SignupDTO): Promise<AuthResponseDTO> {
     this.logger.log(`Signup attempt: ${dto.email}`);
     return await this.authService.signup(dto);
+  }
+
+  /**
+   * Administrative user creation
+   *
+   * Allows administrators to create user accounts with override capabilities:
+   * - Bypass email/phone verification requirements
+   * - Force password change on first login
+   * - Auto-generate secure passwords
+   *
+   * **SECURITY WARNING:** This endpoint has NO built-in authentication.
+   * You MUST protect it with your own admin authentication guard.
+   *
+   * @param dto - Admin signup DTO with override flags
+   * @returns Created user object and optionally generated password
+   *
+   * @example
+   * ```typescript
+   * POST /auth/admin/signup
+   * {
+   *   "email": "user@example.com",
+   *   "password": "SecurePass123!",
+   *   "isEmailVerified": true,
+   *   "mustChangePassword": false
+   * }
+   * ```
+   */
+  @Post('admin/signup')
+  @HttpCode(HttpStatus.CREATED)
+  async adminSignup(@Body() dto: AdminSignupDTO): Promise<AdminSignupResponseDTO> {
+    this.logger.log(`Admin signup attempt: ${dto.email}`);
+    // NOTE: No @Public() decorator - endpoint should be protected by admin guard
+    // This is intentionally unprotected at the framework level - users must add their own guard
+    return await this.authService.adminSignup(dto);
   }
 
   /**
