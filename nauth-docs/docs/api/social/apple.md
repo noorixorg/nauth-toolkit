@@ -30,15 +30,37 @@ npm install @nauth-toolkit/social-apple
 
 Configure Apple under `config.social.apple` (in `@nauth-toolkit/core` config).
 
+Apple requires a JWT client secret for web OAuth, which is automatically generated and refreshed by the toolkit from your Apple Developer credentials. The JWT is stored in the database and refreshed when it has less than 30 days until expiration.
+
 | Key | Type | Required | Description |
 | --- | --- | --- | --- |
 | `enabled` | `boolean` | No | Enable Apple Sign-In |
-| `clientId` | `string` | Yes (if enabled) | Apple Services ID |
-| `clientSecret` | `string` | Yes (if enabled for web) | Client secret JWT (web) |
+| `clientId` | `string` | Yes (if enabled) | Apple Services ID (e.g., 'com.myapp.services') |
+| `teamId` | `string` | Yes (if enabled for web) | Apple Developer Team ID (required for web OAuth) |
+| `keyId` | `string` | Yes (if enabled for web) | Apple Key ID (kid) from your .p8 key (required for web OAuth) |
+| `privateKeyPem` | `string` | Yes (if enabled for web) | Contents of your .p8 private key file in PEM format (required for web OAuth) |
 | `callbackUrl` | `string` | Yes (if enabled) | Backend callback URL (`/auth/social/apple/callback`) |
 | `scopes` | `string[]` | No | Default: `['name', 'email']` |
 | `autoLink` | `boolean` | No | Auto-link to existing users by verified email |
 | `allowSignup` | `boolean` | No | Allow creating new users on first login |
+
+### Example Configuration
+
+```typescript
+social: {
+  apple: {
+    enabled: true,
+    clientId: 'com.myapp.services',
+    teamId: 'ABC123DEF4',
+    keyId: 'XYZ789ABC0',
+    privateKeyPem: '-----BEGIN PRIVATE KEY-----\nMIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQg...\n-----END PRIVATE KEY-----',
+    callbackUrl: 'https://api.myapp.com/auth/social/apple/callback',
+    scopes: ['name', 'email'],
+  },
+}
+```
+
+**Note:** For native iOS apps, `teamId`, `keyId`, and `privateKeyPem` are not required as native apps do not use the web OAuth flow.
 
 ## Usage
 

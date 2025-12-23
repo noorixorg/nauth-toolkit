@@ -27,6 +27,7 @@ import {
 import { Repository } from 'typeorm';
 import { ISocialAuthProviderService } from '../../interfaces/social-auth-provider.interface';
 import { ITokenVerifierService } from '../../interfaces/token-verifier.interface';
+import { BaseSocialProviderSecret } from '../../entities';
 
 export interface NAuthSocialProviders {
   googleAuth?: ISocialAuthProviderService;
@@ -69,6 +70,7 @@ async function importOptional<TModule>(moduleName: string): Promise<TModule | nu
  * @param phoneVerificationService - Phone verification service (optional)
  * @param auditService - Audit logging service (optional)
  * @param trustedDeviceService - Trusted device service (optional)
+ * @param socialProviderSecretRepository - Repository for social provider secrets (optional, for Apple JWT rotation)
  * @returns Object containing initialized social providers
  */
 export async function initSocialAuth(
@@ -86,6 +88,7 @@ export async function initSocialAuth(
   phoneVerificationService?: PhoneVerificationService,
   auditService?: AuthAuditService,
   trustedDeviceService?: TrustedDeviceService,
+  socialProviderSecretRepository?: Repository<BaseSocialProviderSecret> | null,
 ): Promise<NAuthSocialProviders> {
   const providers: NAuthSocialProviders = {};
 
@@ -175,6 +178,7 @@ export async function initSocialAuth(
         auditService,
         trustedDeviceService,
         tokenVerifier,
+        socialProviderSecretRepository || undefined,
       );
 
       providers.appleAuth = appleAuth;

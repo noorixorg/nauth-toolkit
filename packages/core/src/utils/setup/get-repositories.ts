@@ -19,6 +19,7 @@ import {
   BaseTrustedDevice,
   BaseRateLimit,
   BaseStorageLock,
+  BaseSocialProviderSecret,
 } from '../../entities';
 
 /**
@@ -43,6 +44,7 @@ export function getRepositories(dataSource: DataSource): {
   trustedDeviceRepository: Repository<BaseTrustedDevice> | null;
   rateLimitRepository: Repository<BaseRateLimit> | null;
   storageLockRepository: Repository<BaseStorageLock> | null;
+  socialProviderSecretRepository: Repository<BaseSocialProviderSecret>;
 } {
   return {
     userRepository: getRepository<BaseUser>(dataSource, 'User', 'nauth_users', true),
@@ -77,6 +79,31 @@ export function getRepositories(dataSource: DataSource): {
     ),
     rateLimitRepository: getRepository<BaseRateLimit>(dataSource, 'RateLimit', 'nauth_rate_limits', false),
     storageLockRepository: getRepository<BaseStorageLock>(dataSource, 'StorageLock', 'nauth_storage_locks', false),
+    socialProviderSecretRepository: (() => {
+      try {
+        return getRepository<BaseSocialProviderSecret>(
+          dataSource,
+          'SocialProviderSecret',
+          'nauth_social_provider_secrets',
+          true, // Required for Apple JWT rotation
+        );
+      } catch (error) {
+        // If entity not found, log detailed error and rethrow
+        const availableTables = dataSource.entityMetadatas.map((m) => m.tableName).join(', ');
+        const availableNames = dataSource.entityMetadatas
+          .map((m) => (typeof m.target === 'function' ? m.target.name : String(m.target)))
+          .join(', ');
+        throw new NAuthException(
+          AuthErrorCode.VALIDATION_FAILED,
+          `SocialProviderSecret entity not found in DataSource. ` +
+            `Expected table name: nauth_social_provider_secrets. ` +
+            `Available tables: ${availableTables || 'none'}. ` +
+            `Available entity names: ${availableNames || 'none'}. ` +
+            `Total entities: ${dataSource.entityMetadatas.length}. ` +
+            `Make sure SocialProviderSecret is included in getNAuthEntities() and passed to TypeORM.`,
+        );
+      }
+    })(),
   };
 }
 
@@ -127,11 +154,19 @@ function getRepository<T extends ObjectLiteral>(
 
   // Not found
   if (required) {
+    // Debug: log available entities to help diagnose the issue
+    const availableTables = dataSource.entityMetadatas.map((m) => m.tableName).join(', ');
+    const availableNames = dataSource.entityMetadatas
+      .map((m) => (typeof m.target === 'function' ? m.target.name : String(m.target)))
+      .join(', ');
     throw new NAuthException(
       AuthErrorCode.VALIDATION_FAILED,
       `${entityName} entity not found in DataSource. ` +
         `Make sure entities are registered in DataSource configuration. ` +
-        `Expected table name: ${tableName}`,
+        `Expected table name: ${tableName}. ` +
+        `Available tables: ${availableTables || 'none'}. ` +
+        `Available entity names: ${availableNames || 'none'}. ` +
+        `Total entities registered: ${dataSource.entityMetadatas.length}.`,
     );
   }
 

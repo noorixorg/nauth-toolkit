@@ -70,6 +70,17 @@ export const authConfig = {
       callbackUrl: 'https://api.mycompany.com/auth/social/google/callback',
       scopes: ['openid', 'email', 'profile'],
     },
+    apple: {
+      enabled: true,
+      clientId: process.env.APPLE_CLIENT_ID,
+      // Apple requires a JWT client secret for web OAuth, which is automatically generated
+      // and refreshed by the toolkit from your Apple Developer credentials below.
+      teamId: process.env.APPLE_TEAM_ID,
+      keyId: process.env.APPLE_KEY_ID,
+      privateKeyPem: process.env.APPLE_PRIVATE_KEY_PEM,
+      callbackUrl: 'https://api.mycompany.com/auth/social/apple/callback',
+      scopes: ['name', 'email'],
+    },
   },
 } as const;
 ```

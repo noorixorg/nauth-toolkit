@@ -477,6 +477,46 @@ export class AuthModule {
           inject: [DataSource],
         },
         {
+          provide: 'SocialProviderSecretRepository',
+          useFactory: (dataSource: DataSource, logger?: LoggerService) => {
+            // Try to find entity from config first
+            const entityFromConfig = entities.find((e: Function) => e.name === 'SocialProviderSecret');
+            if (entityFromConfig) {
+              const repo = dataSource.getRepository(entityFromConfig);
+              if (logger) {
+                (logger as { debug?: (msg: string) => void }).debug?.(
+                  '[NAuth] SocialProviderSecretRepository: Found entity from config',
+                );
+              }
+              return repo;
+            }
+
+            // Fallback: find by table name in DataSource metadata
+            const metadata = dataSource.entityMetadatas.find(
+              (m: EntityMetadata) => m.tableName === 'nauth_social_provider_secrets',
+            );
+
+            if (metadata) {
+              const repo = dataSource.getRepository(metadata.target);
+              if (logger) {
+                (logger as { debug?: (msg: string) => void }).debug?.(
+                  '[NAuth] SocialProviderSecretRepository: Found entity from DataSource metadata',
+                );
+              }
+              return repo;
+            }
+
+            // Not found: keep this OPTIONAL at the AuthModule layer.
+            // WHY: social providers are optional; we only require this repository when Apple is enabled.
+            // Apple module/service will validate presence when apple.enabled === true.
+            (logger as { debug?: (msg: string) => void } | undefined)?.debug?.(
+              '[NAuth] SocialProviderSecretRepository: entity not registered (optional unless Apple is enabled)',
+            );
+            return null;
+          },
+          inject: [DataSource, 'NAUTH_LOGGER'],
+        },
+        {
           provide: 'ChallengeSessionRepository',
           useFactory: (dataSource: DataSource) => {
             const entityFromConfig = entities.find((e: Function) => e.name === 'ChallengeSession');
@@ -1312,6 +1352,8 @@ export class AuthModule {
         // Consumer apps should use service methods (AuthService, MFAService, etc.) instead of direct repository access
         'UserRepository',
         'MFADeviceRepository',
+        // Needed by @nauth-toolkit/social-apple for Apple JWT client secret rotation
+        'SocialProviderSecretRepository',
         // Note: TypeOrmModule not exported to prevent consumer apps from accessing entities directly
 
         // Note: MFA provider services (TOTPMFAProviderService, SMSMFAProviderService, PasskeyMFAProviderService)

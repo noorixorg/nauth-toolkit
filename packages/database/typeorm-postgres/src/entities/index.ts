@@ -9,6 +9,7 @@ export * from './auth-audit.entity';
 export * from './trusted-device.entity';
 export * from './rate-limit.entity';
 export * from './storage-lock.entity';
+export * from './social-provider-secret.entity';
 
 // Import all entities for the helper function
 import { User } from './user.entity';
@@ -22,6 +23,7 @@ import { AuthAudit } from './auth-audit.entity';
 import { TrustedDevice } from './trusted-device.entity';
 import { RateLimit } from './rate-limit.entity';
 import { StorageLock } from './storage-lock.entity';
+import { SocialProviderSecret } from './social-provider-secret.entity';
 
 /**
  * Get all nauth-toolkit entities for TypeORM configuration (excluding storage entities)
@@ -57,6 +59,7 @@ export function getNAuthEntities(): Function[] {
     MFADevice,
     AuthAudit,
     TrustedDevice,
+    SocialProviderSecret,
   ];
 }
 

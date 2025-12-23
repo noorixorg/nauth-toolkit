@@ -157,9 +157,14 @@ export const authConfig: NAuthModuleConfig = {
     },
     apple: {
       enabled: true, // Enable Apple Sign-In (default: false)
-      clientId: process.env.APPLE_CLIENT_ID || 'com.noorix.nauth', // Apple Services ID (e.g., 'com.myapp.services')
-      clientSecret: process.env.APPLE_CLIENT_SECRET, // Client secret JWT (not needed for native iOS, required for web)
-      callbackUrl: 'http://localhost:3000/auth/social/apple/callback', // Callback URL (must match provider registration)
+      clientId: process.env.APPLE_SERVICE_ID, // Apple Services ID (e.g., 'com.myapp.services')
+      // Apple requires a JWT client secret for web OAuth, which is automatically generated and refreshed
+      // by the toolkit from your Apple Developer credentials below.
+      // The JWT is stored in the database and refreshed when it has less than 30 days until expiration.
+      teamId: process.env.APPLE_TEAM_ID, // Apple Developer Team ID (required for web OAuth)
+      keyId: process.env.APPLE_KEY_ID, // Apple Key ID (kid) from your .p8 key (required for web OAuth)
+      privateKeyPem: process.env.APPLE_P8_KEY, // Contents of your .p8 private key file in PEM format (required for web OAuth)
+      callbackUrl: 'https://api.angular.dev1.noorix.com/auth/social/apple/callback', // Callback URL (must match provider registration)
       scopes: ['name', 'email'], // OAuth scopes (default: ['name', 'email'])
       autoLink: true, // Auto-link to existing users by verified email (default: true)
       allowSignup: true, // Allow new user creation (default: true)

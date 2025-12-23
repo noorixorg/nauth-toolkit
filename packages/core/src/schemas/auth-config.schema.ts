@@ -354,6 +354,18 @@ export const socialProviderConfigSchema = z.object({
   allowSignup: z.boolean().optional(),
 });
 
+/**
+ * Apple-specific social provider configuration schema
+ *
+ * Apple requires teamId, keyId, and privateKeyPem instead of a static clientSecret.
+ * The toolkit will automatically generate and refresh the JWT client secret.
+ */
+export const appleSocialProviderConfigSchema = socialProviderConfigSchema.omit({ clientSecret: true }).extend({
+  teamId: z.string().optional(),
+  keyId: z.string().optional(),
+  privateKeyPem: z.string().optional(),
+});
+
 export const socialRedirectConfigSchema = z.object({
   frontendBaseUrl: z.string().optional(),
   allowAbsoluteReturnTo: z.boolean().optional(),
@@ -362,7 +374,7 @@ export const socialRedirectConfigSchema = z.object({
 
 export const socialConfigSchema = z.object({
   google: socialProviderConfigSchema.optional(),
-  apple: socialProviderConfigSchema.optional(),
+  apple: appleSocialProviderConfigSchema.optional(),
   facebook: socialProviderConfigSchema.optional(),
   redirect: socialRedirectConfigSchema.optional(),
 });
@@ -675,12 +687,41 @@ export const authConfigSchema = z
             path: ['social', provider, 'clientId'],
           });
         }
-        if (!providerConfig.clientSecret) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: `clientSecret is required when ${provider} provider is enabled`,
-            path: ['social', provider, 'clientSecret'],
-          });
+        // Apple requires teamId, keyId, and privateKeyPem instead of clientSecret
+        if (provider === 'apple') {
+          const appleConfig = providerConfig as { teamId?: string; keyId?: string; privateKeyPem?: string };
+          if (!appleConfig.teamId) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: 'teamId is required when Apple provider is enabled (for web OAuth)',
+              path: ['social', 'apple', 'teamId'],
+            });
+          }
+          if (!appleConfig.keyId) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: 'keyId is required when Apple provider is enabled (for web OAuth)',
+              path: ['social', 'apple', 'keyId'],
+            });
+          }
+          if (!appleConfig.privateKeyPem) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: 'privateKeyPem is required when Apple provider is enabled (for web OAuth)',
+              path: ['social', 'apple', 'privateKeyPem'],
+            });
+          }
+        } else {
+          // Google and Facebook require clientSecret
+          // Type assertion needed because TypeScript doesn't know which provider config type we have
+          const standardConfig = providerConfig as { clientSecret?: string };
+          if (!standardConfig.clientSecret) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `clientSecret is required when ${provider} provider is enabled`,
+              path: ['social', provider, 'clientSecret'],
+            });
+          }
         }
       }
     });

@@ -136,6 +136,24 @@ export interface NAuthConfig {
    *     from: process.env.EMAIL_FROM, // e.g., "My App <noreply@example.com>"
    *   },
    * })
+   *
+   * // Nodemailer with AWS SES SDK (production - uses IAM roles automatically)
+   * import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+   * import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+   * emailProvider: new NodemailerEmailProvider({
+   *   transport: {
+   *     SES: {
+   *       sesClient: new SESv2Client({
+   *         region: process.env.AWS_REGION || 'us-east-1',
+   *         // Credentials automatically discovered from IAM role on EC2/ECS/containers
+   *       }),
+   *       SendEmailCommand,
+   *     },
+   *   },
+   *   defaults: {
+   *     from: process.env.EMAIL_FROM, // e.g., "My App <noreply@example.com>"
+   *   },
+   * })
    * ```
    */
   emailProvider?: EmailProvider;
@@ -273,8 +291,12 @@ export interface NAuthConfig {
    *   },
    *   apple: {
    *     enabled: true,
-   *     clientId: process.env.APPLE_CLIENT_ID, // Your env var name
-   *     clientSecret: process.env.APPLE_CLIENT_SECRET,
+   *     clientId: process.env.APPLE_CLIENT_ID, // Apple Services ID (e.g., 'com.myapp.services')
+   *     // IMPORTANT: Apple requires a JWT client secret, not a static string
+   *     // Easy way to generate: Use online tool at https://www.better-auth.com/docs/authentication/apple
+   *     // You'll need: Team ID, Key ID (kid), Client ID, and your .p8 private key file
+   *     // The JWT expires in 6 months - regenerate before expiration
+   *     clientSecret: process.env.APPLE_CLIENT_SECRET, // Pre-generated JWT (required for web OAuth, not needed for native iOS)
    *     callbackUrl: 'https://myapp.com/auth/apple/callback',
    *     autoLink: true,
    *     allowSignup: true
@@ -1358,7 +1380,7 @@ export interface SocialConfig {
   /**
    * Apple OAuth configuration
    */
-  apple?: SocialProviderConfig;
+  apple?: AppleSocialProviderConfig;
 
   /**
    * Facebook OAuth configuration
@@ -1443,7 +1465,10 @@ export interface SocialProviderConfig {
 
   /**
    * OAuth client secret from the provider
-   * Required if enabled
+   * Required if enabled (except for Apple, which uses AppleSocialProviderConfig)
+   *
+   * @example
+   * clientSecret: 'your-oauth-client-secret'
    */
   clientSecret?: string;
 
@@ -1480,6 +1505,62 @@ export interface SocialProviderConfig {
    * @default true
    */
   allowSignup?: boolean;
+}
+
+/**
+ * Apple-specific social provider configuration
+ *
+ * Apple Sign in with Apple requires a JWT client secret that must be generated
+ * from your Apple Developer credentials. This configuration allows you to provide
+ * the raw credentials, and the toolkit will automatically generate and refresh
+ * the JWT client secret as needed.
+ *
+ * @example
+ * ```typescript
+ * apple: {
+ *   enabled: true,
+ *   clientId: 'com.myapp.services',
+ *   teamId: 'ABC123DEF4',
+ *   keyId: 'XYZ789ABC0',
+ *   privateKeyPem: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
+ *   callbackUrl: 'https://myapp.com/auth/apple/callback',
+ *   scopes: ['name', 'email']
+ * }
+ * ```
+ */
+export interface AppleSocialProviderConfig extends Omit<SocialProviderConfig, 'clientSecret'> {
+  /**
+   * Apple Developer Team ID
+   * Found in your Apple Developer account under Membership
+   * Required for web OAuth (not needed for native iOS apps)
+   *
+   * @example
+   * teamId: 'ABC123DEF4'
+   */
+  teamId?: string;
+
+  /**
+   * Apple Key ID (kid)
+   * The identifier for your .p8 private key in Apple Developer
+   * Required for web OAuth (not needed for native iOS apps)
+   *
+   * @example
+   * keyId: 'XYZ789ABC0'
+   */
+  keyId?: string;
+
+  /**
+   * Apple .p8 private key in PEM format
+   * The contents of your .p8 private key file downloaded from Apple Developer
+   * Required for web OAuth (not needed for native iOS apps)
+   *
+   * The toolkit will use this to generate and automatically refresh the JWT client secret.
+   * The JWT is stored in the database and refreshed when it has less than 30 days until expiration.
+   *
+   * @example
+   * privateKeyPem: '-----BEGIN PRIVATE KEY-----\nMIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQg...\n-----END PRIVATE KEY-----'
+   */
+  privateKeyPem?: string;
 }
 
 /**

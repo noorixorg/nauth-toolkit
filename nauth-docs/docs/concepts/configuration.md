@@ -751,7 +751,12 @@ social: {
   apple: {
     enabled: true,
     clientId: 'com.myapp.services',
-    clientSecret: 'your-apple-client-secret',
+    // Apple requires a JWT client secret for web OAuth, which is automatically generated
+    // and refreshed by the toolkit from your Apple Developer credentials below.
+    // The JWT is stored in the database and refreshed when it has less than 30 days until expiration.
+    teamId: 'ABC123DEF4', // Apple Developer Team ID (required for web OAuth)
+    keyId: 'XYZ789ABC0', // Apple Key ID (kid) from your .p8 key (required for web OAuth)
+    privateKeyPem: '-----BEGIN PRIVATE KEY-----\nMIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQg...\n-----END PRIVATE KEY-----', // Contents of your .p8 private key file in PEM format (required for web OAuth)
     callbackUrl: 'https://myapp.com/auth/apple/callback',
     scopes: ['name', 'email'],
     autoLink: true,

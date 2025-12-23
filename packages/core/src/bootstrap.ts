@@ -233,6 +233,7 @@ export class NAuth {
       services.phoneVerificationService,
       services.auditService,
       services.trustedDeviceService,
+      repos.socialProviderSecretRepository,
     );
 
     // ========================================================================

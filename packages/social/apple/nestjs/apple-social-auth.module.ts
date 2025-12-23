@@ -10,6 +10,8 @@ import {
   PhoneVerificationService,
   ITokenVerifierService,
   ISocialAuthStateStore,
+  BaseSocialProviderSecret,
+  BaseUser,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import {
@@ -21,6 +23,7 @@ import {
   TrustedDeviceService,
 } from '@nauth-toolkit/core/internal';
 import { TokenVerifierService as AppleTokenVerifierService } from '../src/token-verifier.service';
+import type { Repository } from 'typeorm';
 
 /**
  * Apple Social Authentication Module (NestJS Adapter)
@@ -79,11 +82,12 @@ import { TokenVerifierService as AppleTokenVerifierService } from '../src/token-
         challengeHelper: AuthChallengeHelperService,
         clientInfoService: ClientInfoService,
         stateStore: ISocialAuthStateStore,
-        userRepository: any,
+        userRepository: Repository<BaseUser>,
         phoneVerificationService?: PhoneVerificationService,
         auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
         trustedDeviceService?: TrustedDeviceService, // Optional - only available when rememberDevices is enabled
         tokenVerifier?: ITokenVerifierService,
+        socialProviderSecretRepository?: Repository<BaseSocialProviderSecret>,
       ) => {
         return new AppleSocialAuthService(
           config,
@@ -100,6 +104,7 @@ import { TokenVerifierService as AppleTokenVerifierService } from '../src/token-
           auditService,
           trustedDeviceService,
           tokenVerifier,
+          socialProviderSecretRepository,
         );
       },
       inject: [
@@ -117,6 +122,8 @@ import { TokenVerifierService as AppleTokenVerifierService } from '../src/token-
         { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
         { token: TrustedDeviceService, optional: true }, // Optional - only available when rememberDevices is enabled
         { token: 'APPLE_TOKEN_VERIFIER', optional: true },
+        // Required when Apple is enabled (used for DB-backed JWT client secret rotation)
+        'SocialProviderSecretRepository',
       ],
     },
   ],
