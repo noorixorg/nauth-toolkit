@@ -354,10 +354,17 @@ export const socialProviderConfigSchema = z.object({
   allowSignup: z.boolean().optional(),
 });
 
+export const socialRedirectConfigSchema = z.object({
+  frontendBaseUrl: z.string().optional(),
+  allowAbsoluteReturnTo: z.boolean().optional(),
+  allowedReturnToOrigins: z.array(z.string()).optional(),
+});
+
 export const socialConfigSchema = z.object({
   google: socialProviderConfigSchema.optional(),
   apple: socialProviderConfigSchema.optional(),
   facebook: socialProviderConfigSchema.optional(),
+  redirect: socialRedirectConfigSchema.optional(),
 });
 
 // ============================================================================
@@ -656,9 +663,11 @@ export const authConfigSchema = z
     // ============================================================================
     // 11. Social Provider Validation
     // ============================================================================
+    let anySocialEnabled = false;
     ['google', 'apple', 'facebook'].forEach((provider) => {
       const providerConfig = data.social?.[provider as 'google' | 'apple' | 'facebook'];
       if (providerConfig?.enabled) {
+        anySocialEnabled = true;
         if (!providerConfig.clientId) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -675,6 +684,18 @@ export const authConfigSchema = z
         }
       }
     });
+
+    // Redirect-first social login requires frontendBaseUrl when any provider is enabled
+    if (anySocialEnabled) {
+      const frontendBaseUrl = data.social?.redirect?.frontendBaseUrl;
+      if (!frontendBaseUrl || typeof frontendBaseUrl !== 'string' || frontendBaseUrl.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'social.redirect.frontendBaseUrl is required when any social provider is enabled',
+          path: ['social', 'redirect', 'frontendBaseUrl'],
+        });
+      }
+    }
 
     // ============================================================================
     // 12. MaxMind GeoLocation Validation

@@ -1364,6 +1364,53 @@ export interface SocialConfig {
    * Facebook OAuth configuration
    */
   facebook?: SocialProviderConfig;
+
+  /**
+   * Redirect-first social login configuration (web)
+   *
+   * Used by framework adapters (e.g., NestJS) to perform backend-owned redirects:
+   * - Start: backend redirects to provider
+   * - Callback: backend sets cookies (or issues exchange token) and redirects to frontend
+   */
+  redirect?: SocialRedirectConfig;
+}
+
+/**
+ * Social redirect configuration
+ *
+ * Defines how the backend should redirect back to the frontend after completing OAuth.
+ *
+ * Security:
+ * - Prefer relative `returnTo` paths only
+ * - If allowing absolute `returnTo`, enforce an origin allowlist to prevent open redirects
+ */
+export interface SocialRedirectConfig {
+  /**
+   * Frontend base URL used to resolve relative return paths.
+   *
+   * @example
+   * ```typescript
+   * frontendBaseUrl: 'https://app.example.com'
+   * ```
+   */
+  frontendBaseUrl: string;
+
+  /**
+   * Whether absolute returnTo URLs are allowed.
+   *
+   * Default: false (relative-only).
+   */
+  allowAbsoluteReturnTo?: boolean;
+
+  /**
+   * Allowlist of origins permitted when allowAbsoluteReturnTo is true.
+   *
+   * @example
+   * ```typescript
+   * allowedReturnToOrigins: ['https://app.example.com', 'https://admin.example.com']
+   * ```
+   */
+  allowedReturnToOrigins?: string[];
 }
 
 /**

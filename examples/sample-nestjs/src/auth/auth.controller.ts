@@ -10,13 +10,12 @@ import {
   HttpStatus,
   Logger,
   Req,
-  Res,
   Inject,
   BadRequestException,
   Query,
   Param,
 } from '@nestjs/common';
-import type { FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyRequest } from 'fastify';
 import {
   AuthService,
   SignupDTO,
@@ -44,8 +43,6 @@ import {
   ForgotPasswordResponseDTO,
   ConfirmForgotPasswordDTO,
   ConfirmForgotPasswordResponseDTO,
-  GetSocialAuthUrlDTO,
-  HandleSocialCallbackDTO,
   LinkSocialAccountDTO,
   GetLinkedAccountsDTO,
   UnlinkSocialAccountDTO,
@@ -328,7 +325,7 @@ export class CustomAuthController {
     // Optional: validate user sub matches authenticated user
     dto.sub = user.sub;
 
-    // ✅ Automatically clears cookies via ClientInfoService context
+    // Automatically clears cookies via ClientInfoService context
     await this.authService.logout(dto);
     this.logger.log(`User logged out: ${user.email}`);
 
@@ -362,7 +359,7 @@ export class CustomAuthController {
     @CurrentUser() user: IUser,
     @Body() body?: { forgetDevices?: boolean },
   ): Promise<{ message: string; revokedCount: number }> {
-    // ✅ Automatically clears cookies via ClientInfoService context
+    // Automatically clears cookies via ClientInfoService context
     const dto = new LogoutAllDTO();
     dto.sub = user.sub;
     if (body?.forgetDevices !== undefined) {
@@ -781,7 +778,7 @@ export class CustomAuthController {
   /**
    * Grant or revoke MFA exemption for current user
    *
-   * ⚠️ SECURITY NOTE: In production, this should be an admin-only operation.
+   * SECURITY NOTE: In production, this should be an admin-only operation.
    * This endpoint allows users to grant/revoke their own exemption for testing purposes.
    *
    * @param user - Current user (from JWT)
@@ -827,100 +824,15 @@ export class CustomAuthController {
   // ============================================================================
 
   /**
-   * Get social authentication URL
+   * NOTE: Social redirect-first endpoints are now owned by the toolkit (consumer stays lightweight).
    *
-   * Returns the OAuth authorization URL for the specified provider.
+   * Use:
+   * - GET /auth/social/:provider/redirect
+   * - GET|POST /auth/social/:provider/callback
+   * - POST /auth/social/exchange (json/hybrid)
    *
-   * @param body - Provider name and optional state
-   * @returns OAuth authorization URL
-   *
-   * @example
-   * ```typescript
-   * POST /auth/social/auth-url
-   * { "provider": "google", "state": "random-state-123" }
-   * ```
+   * Implemented by `@nauth-toolkit/nestjs` (SocialRedirectController).
    */
-  @Public()
-  @Post('social/auth-url')
-  @HttpCode(HttpStatus.OK)
-  async getSocialAuthUrl(@Body() body: GetSocialAuthUrlDTO): Promise<{ url: string }> {
-    if (!this.socialAuthService) {
-      throw new BadRequestException('Social auth service is not available');
-    }
-
-    const dto = Object.assign(new GetSocialAuthUrlDTO(), body);
-    const { url } = await this.socialAuthService.getSocialAuthUrl(dto);
-    return { url };
-  }
-
-  /**
-   * Handle social authentication callback (GET - OAuth redirect)
-   *
-   * OAuth providers redirect to this endpoint with code and state in query params.
-   * This endpoint then redirects to the frontend with the same parameters.
-   *
-   * @param provider - Provider name from route
-   * @param query - OAuth callback query parameters
-   * @param req - Request object (may contain auth header for linking)
-   * @param res - Response object for redirect
-   * @returns Redirect to frontend
-   *
-   * @example
-   * ```typescript
-   * GET /auth/social/google/callback?code=...&state=...
-   * ```
-   */
-  @Public()
-  @Get('social/:provider/callback')
-  async handleSocialCallbackRedirect(
-    @Param('provider') provider: string,
-    @Query('code') code: string,
-    @Query('state') state: string,
-    @Req() req: FastifyRequest,
-    @Res() res: FastifyReply,
-  ): Promise<void> {
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:4200';
-
-    // Check if user is authenticated (linking scenario)
-    const authHeader = (req.headers as any).authorization;
-    if (authHeader?.startsWith('Bearer ')) {
-      // Authenticated user - redirect to frontend for linking
-      const redirectUrl = `${frontendUrl}/auth/callback?provider=${provider}&code=${code}&state=${state}&action=link`;
-      return res.status(302).redirect(redirectUrl);
-    }
-
-    // Not authenticated - login flow
-    const redirectUrl = `${frontendUrl}/auth/callback?provider=${provider}&code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
-    return res.status(302).redirect(redirectUrl);
-  }
-
-  /**
-   * Handle social authentication callback (POST)
-   *
-   * Processes the OAuth callback and authenticates the user.
-   * Returns unified auth response (tokens or challenge).
-   *
-   * @param body - OAuth callback parameters
-   * @returns Unified authentication response
-   *
-   * @example
-   * ```typescript
-   * POST /auth/social/callback
-   * { "provider": "google", "code": "...", "state": "..." }
-   * ```
-   */
-  @Public()
-  @Post('social/callback')
-  @HttpCode(HttpStatus.OK)
-  async handleSocialCallback(@Body() body: HandleSocialCallbackDTO): Promise<AuthResponseDTO> {
-    if (!this.socialAuthService) {
-      throw new BadRequestException('Social auth service is not available');
-    }
-
-    this.logger.log(`Social login callback: ${body.provider}`);
-    const dto = Object.assign(new HandleSocialCallbackDTO(), body);
-    return await this.socialAuthService.handleSocialCallback(dto);
-  }
 
   // ============================================================================
   // Social Account Management Endpoints

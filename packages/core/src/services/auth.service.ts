@@ -1106,10 +1106,18 @@ export class AuthService {
       }
     }
 
-    // // Execute afterLogin hook
-    // if (this.config.hooks?.afterLogin) {
-    //   await this.config.hooks.afterLogin(user, session);
-    // }
+    // ============================================================================
+    // Lifecycle Hook: afterLogin
+    // ============================================================================
+    if (this.config.hooks?.afterLogin) {
+      try {
+        await this.config.hooks.afterLogin(user, session);
+      } catch (hookError: unknown) {
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        // Non-blocking: auth succeeded; hook errors should not break login
+        this.logger?.error?.(`afterLogin hook failed (continuing): ${errorMessage}`, { error: hookError });
+      }
+    }
 
     // ============================================================================
     // Trusted Device Token Management (Remember Device Feature)
@@ -3758,7 +3766,7 @@ export class AuthService {
 
       // Lock IP if max attempts reached
       if (attempts >= (this.config.lockout.maxAttempts || 5)) {
-        await this.accountLockoutStorage.blockIpAdresss(
+        await this.accountLockoutStorage.lockIpAddress(
           ipAddress,
           this.config.lockout.duration || 900, // 15 minutes default
           'Too many failed login attempts from this IP',
@@ -3771,10 +3779,18 @@ export class AuthService {
       }
     }
 
-    // // Execute hook
-    // if (this.config.hooks?.afterLoginFailed) {
-    //   await this.config.hooks.afterLoginFailed(identifier, reason || 'unknown');
-    // }
+    // ============================================================================
+    // Lifecycle Hook: afterLoginFailed
+    // ============================================================================
+    if (this.config.hooks?.afterLoginFailed) {
+      try {
+        await this.config.hooks.afterLoginFailed(identifier, reason || 'unknown');
+      } catch (hookError: unknown) {
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        // Non-blocking: login already failed; do not throw
+        this.logger?.error?.(`afterLoginFailed hook failed (continuing): ${errorMessage}`, { error: hookError });
+      }
+    }
   }
 
   /**

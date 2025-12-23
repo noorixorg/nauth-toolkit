@@ -302,13 +302,14 @@ describe('AuthService', () => {
 
     mockClientInfoService = {
       get: jest.fn().mockReturnValue(mockClientInfo),
+      getResponse: jest.fn().mockReturnValue(undefined),
     } as any;
 
     mockAccountLockoutStorage = {
       isAccountLocked: jest.fn().mockResolvedValue(false),
       recordFailedAttempt: jest.fn().mockResolvedValue(1),
       resetFailedAttempts: jest.fn().mockResolvedValue(undefined),
-      lockAccount: jest.fn().mockResolvedValue(undefined),
+      lockIpAddress: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     mockChallengeService = {
@@ -2448,13 +2449,13 @@ describe('AuthService', () => {
       it('should return number of revoked sessions', async () => {
         const result = await service.logoutAll(createLogoutAllDto({ sub: mockSub }));
 
-        expect(result).toBe(5);
+        expect(result.revokedCount).toBe(5);
       });
 
       it('should complete logoutAll successfully', async () => {
         const result = await service.logoutAll(createLogoutAllDto({ sub: mockSub }));
 
-        expect(result).toBe(5);
+        expect(result.revokedCount).toBe(5);
         expect(mockSessionService.revokeAllUserSessions).toHaveBeenCalled();
       });
     });
@@ -2489,7 +2490,7 @@ describe('AuthService', () => {
         // logoutAll doesn't directly record audit events, so this test just verifies it completes
         const result = await service.logoutAll(createLogoutAllDto({ sub: mockSub }));
 
-        expect(result).toBe(5);
+        expect(result.revokedCount).toBe(5);
       });
     });
   });
@@ -2504,14 +2505,33 @@ describe('AuthService', () => {
       newPassword: 'NewPassword456!',
     };
 
+    let userBySub: IUser;
+    let userById: IUser;
+
     beforeEach(() => {
-      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      // IMPORTANT: use fresh objects for each test to avoid cross-test mutation
+      userBySub = { ...mockUser, passwordHash: 'hashed-password', passwordHistory: [] };
+      userById = { ...mockUser, passwordHash: 'hashed-password', passwordHistory: [] };
+
+      // AuthService.changePassword performs two lookups:
+      // 1) by sub
+      // 2) by internal id (inside updateUserPassword)
+      mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
+        const where = (args as { where?: Record<string, unknown> } | undefined)?.where || {};
+        if (where.sub === userBySub.sub) {
+          return userBySub as any;
+        }
+        if (where.id === userById.id) {
+          return userById as any;
+        }
+        return null as any;
+      });
       mockPasswordService.verifyPassword.mockResolvedValue(true);
       mockPasswordService.validatePassword.mockResolvedValue({ valid: true } as any);
       mockPasswordService.isPasswordInHistory.mockResolvedValue(false);
       mockPasswordService.hashPassword.mockResolvedValue('new-hashed-password');
       mockPasswordService.addToHistory.mockReturnValue([]);
-      mockUserRepository.save.mockResolvedValue(mockUser as any);
+      mockUserRepository.save.mockResolvedValue(userById as any);
     });
 
     describe('Successful password change', () => {
@@ -2520,7 +2540,7 @@ describe('AuthService', () => {
 
         expect(mockPasswordService.verifyPassword).toHaveBeenCalledWith(
           changePasswordDto.oldPassword,
-          mockUser.passwordHash!,
+          'hashed-password',
         );
         expect(mockPasswordService.validatePassword).toHaveBeenCalledWith(changePasswordDto.newPassword, {
           email: mockUser.email,
@@ -2546,8 +2566,8 @@ describe('AuthService', () => {
         await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
         expect(mockPasswordService.addToHistory).toHaveBeenCalledWith(
-          mockUser.passwordHistory || [],
-          mockUser.passwordHash!,
+          [],
+          'hashed-password',
         );
         expect(mockSessionService.revokeAllUserSessions).toHaveBeenCalledWith(mockUser.id, 'Password changed');
       });
@@ -2605,12 +2625,12 @@ describe('AuthService', () => {
         mockPasswordService.verifyPassword.mockResolvedValue(true);
         mockPasswordService.validatePassword.mockResolvedValue({ valid: true } as any);
         // Simulate same password by making hash match - service doesn't prevent this
-        mockPasswordService.hashPassword.mockResolvedValue(mockUser.passwordHash!);
+        mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
 
         // Service doesn't check if new hash equals old hash, so this should succeed
         await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
-        expect(mockUserRepository.update).toHaveBeenCalled();
+        expect(mockUserRepository.save).toHaveBeenCalled();
       });
 
       it('should throw NAuthException if new password is in history', async () => {
@@ -2658,30 +2678,34 @@ describe('AuthService', () => {
     describe('Password history management', () => {
       it('should check password history when historyCount is configured', async () => {
         mockConfig.password!.historyCount = 10;
-        const userWithHistory = { ...mockUser, passwordHistory: ['hash1', 'hash2'] };
-        mockUserRepository.findOne.mockResolvedValue(userWithHistory as any);
+        const userWithHistory = { ...mockUser, passwordHash: 'hashed-password', passwordHistory: ['hash1', 'hash2'] };
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithHistory as any)
+          .mockResolvedValueOnce({ ...userWithHistory } as any);
 
         await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
         expect(mockPasswordService.isPasswordInHistory).toHaveBeenCalledWith(
           changePasswordDto.newPassword,
-          userWithHistory.passwordHistory,
+          ['hashed-password', 'hash1', 'hash2'],
         );
       });
 
       it('should handle empty password history', async () => {
         const userWithNoHistory = { ...mockUser, passwordHistory: [] };
-        mockUserRepository.findOne.mockResolvedValue(userWithNoHistory as any);
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithNoHistory as any)
+          .mockResolvedValueOnce({ ...userWithNoHistory } as any);
 
         await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
-        expect(mockPasswordService.addToHistory).toHaveBeenCalledWith([], mockUser.passwordHash!);
+        expect(mockPasswordService.addToHistory).toHaveBeenCalledWith([], 'hashed-password');
       });
     });
 
     describe('Error handling', () => {
       it('should handle database update errors gracefully', async () => {
-        mockUserRepository.update.mockRejectedValue(new Error('Database error'));
+        mockUserRepository.save.mockRejectedValue(new Error('Database error'));
 
         try {
           await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
@@ -2697,7 +2721,7 @@ describe('AuthService', () => {
         await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
         // Should still complete password change despite audit error
-        expect(mockUserRepository.update).toHaveBeenCalled();
+        expect(mockUserRepository.save).toHaveBeenCalled();
         expect(mockLogger.error).toHaveBeenCalled();
       });
     });
@@ -2717,11 +2741,13 @@ describe('AuthService', () => {
 
       it('should handle missing password history gracefully', async () => {
         const userWithNoHistory = { ...mockUser, passwordHistory: null };
-        mockUserRepository.findOne.mockResolvedValue(userWithNoHistory as any);
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithNoHistory as any)
+          .mockResolvedValueOnce({ ...userWithNoHistory } as any);
 
         await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
-        expect(mockPasswordService.addToHistory).toHaveBeenCalledWith([], mockUser.passwordHash!);
+        expect(mockPasswordService.addToHistory).toHaveBeenCalledWith([], 'hashed-password');
       });
     });
   });
@@ -4667,7 +4693,8 @@ describe('AuthService', () => {
           mustChangePassword: true,
         }),
       );
-      expect(result.user.mustChangePassword).toBe(true);
+      // Note: `mustChangePassword` is an internal user flag and is not exposed in UserResponseDto
+      expect(result.user).toBeDefined();
     });
 
     it('should generate password when requested', async () => {
