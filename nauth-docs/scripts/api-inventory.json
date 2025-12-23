@@ -33,12 +33,13 @@
     "utilities": [],
     "guards": [
       "AuthGuard",
+      "NAuthContextGuard",
       "CsrfGuard"
     ],
     "decorators": [],
     "middleware": [],
     "interceptors": [
-      "ClientInfoInterceptor",
+      "NAuthContextInterceptor",
       "CookieTokenInterceptor"
     ],
     "filters": [

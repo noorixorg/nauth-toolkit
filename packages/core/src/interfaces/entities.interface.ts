@@ -23,6 +23,12 @@ export interface IUser {
   passwordHash: string | null;
   passwordChangedAt: Date | null;
   passwordHistory: string[] | null;
+  /**
+   * Whether this user has a password set
+   * Computed field - derived from passwordHash at runtime
+   * Never expose passwordHash directly; use this boolean flag instead
+   */
+  hasPasswordHash?: boolean;
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
   isActive: boolean;

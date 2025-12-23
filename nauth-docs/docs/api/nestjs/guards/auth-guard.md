@@ -167,14 +167,16 @@ Supports both Authorization header and cookies.
 
 ## Request Flow
 
-1. **Check Public Route:** If route marked `@Public()`, bypass guard
-2. **Extract Token:** From Authorization header or cookie (based on delivery mode)
-3. **Validate Token:** Verify JWT signature and expiration
-4. **Check Session:** Verify session exists and not revoked
-5. **Load User:** Fetch user data from database
-6. **Update Activity:** Update session's last activity timestamp
-7. **Attach to Request:** Add user and session to `req.user` and `req.session`
-8. **Allow Access:** Return true to proceed to route handler
+1. **NAuthContextGuard:** Initializes AsyncLocalStorage context (runs first)
+2. **Check Public Route:** If route marked `@Public()`, bypass guard
+3. **Extract Token:** From Authorization header or cookie (based on delivery mode)
+4. **Validate Token:** Verify JWT signature and expiration
+5. **Check Session:** Verify session exists and not revoked
+6. **Load User:** Fetch user data via `AuthService.getUserForAuthContext()` (service-first architecture)
+7. **Store in Context:** Store user, session, and token in AsyncLocalStorage
+8. **Attach to Request:** Add user and token to `req.user` and `req.token`
+9. **NAuthContextInterceptor:** Restores context for controller execution
+10. **Allow Access:** Return true to proceed to route handler
 
 ## Error Handling
 
@@ -219,6 +221,9 @@ interface IUser {
   createdAt: Date;                // Account creation date
   lastLoginAt?: Date;             // Last login timestamp
   passwordChangedAt?: Date;       // Last password change
+
+  // Authentication capabilities
+  hasPasswordHash?: boolean;      // Whether user has password set (for password-based auth)
 
   // MFA status
   isMFAEnabled?: boolean;
@@ -389,6 +394,8 @@ describe('ProfileController', () => {
 - [`@Public()` Decorator](../decorators/public) - Mark routes as public
 - [`@CurrentUser()` Decorator](../decorators/current-user) - Extract user from request
 - [`@TokenDelivery()` Decorator](../decorators/token-delivery) - Override delivery mode
+- [NAuthContextGuard](./nauth-context-guard) - Context initialization guard (runs first)
+- [NAuthContextInterceptor](../interceptors/nauth-context-interceptor) - Context restoration interceptor
 - [CsrfGuard](./csrf-guard) - CSRF protection guard
 - [AuthService](/docs/api/core/services/auth-service) - Main authentication service
 

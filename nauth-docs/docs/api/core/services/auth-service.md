@@ -52,6 +52,91 @@ Automatically injected by your framework adapter. No manual instantiation requir
 
 ## Methods
 
+### adminSignup()
+
+Admin-only: Create user account with override capabilities.
+
+```typescript
+async adminSignup(dto: AdminSignupDTO): Promise<AdminSignupResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminSignupDTO`](../dto/admin-signup-dto)
+
+**Returns**
+
+- [`AdminSignupResponseDTO`](../dto/admin-signup-dto)
+
+**Errors**
+
+| Code            | When                   | Details                |
+| --------------- | ---------------------- | ---------------------- |
+| `EMAIL_EXISTS`  | Email already exists   | `undefined`            |
+| `USERNAME_EXISTS` | Username already exists | `undefined`            |
+| `PHONE_EXISTS`  | Phone already exists   | `undefined`            |
+| `WEAK_PASSWORD` | Policy violation       | `{ errors: string[] }` |
+
+:::note Admin capabilities
+- Bypass email/phone verification requirements
+- Force password change on first login
+- Auto-generate secure passwords
+- Skip signup.enabled check
+:::
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Controller('admin')
+@UseGuards(AuthGuard, AdminGuard)
+export class AdminController {
+  constructor(private authService: AuthService) {}
+
+  @Post('create-user')
+  async createUser(@Body() dto: AdminSignupDTO) {
+    return this.authService.adminSignup(dto);
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.post('/admin/create-user',
+  nauth.helpers.requireAuth(),
+  requireAdmin,
+  async (req, res) => {
+    const result = await nauth.authService.adminSignup(req.body);
+    res.json(result);
+  }
+);
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.post('/admin/create-user',
+  { preHandler: [nauth.helpers.requireAuth(), requireAdmin] },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    return nauth.authService.adminSignup(req.body);
+  })
+);
+```
+
+</TabItem>
+</Tabs>
+
+:::note
+Admin authorization required. This method does not check admin status - protect routes with admin guards.
+:::
+
+---
+
 ### adminSetPassword()
 
 Admin-only: Reset user password by identifier.
@@ -153,11 +238,19 @@ async changePassword(dto: ChangePasswordRequestDTO): Promise<ChangePasswordRespo
 
 | Code                          | When                       | Details                |
 | ----------------------------- | -------------------------- | ---------------------- |
-| `NOT_FOUND`                   | User not found             | `{ userId?: string }`  |
+| `NOT_FOUND`                   | User not found or no password | `{ userId?: string }`  |
 | `PASSWORD_INCORRECT`          | Current password incorrect | `undefined`            |
 | `WEAK_PASSWORD`               | Policy violation           | `{ errors: string[] }` |
 | `PASSWORD_REUSED`             | Password recently used     | `undefined`            |
 | `PASSWORD_CHANGE_NOT_ALLOWED` | Social-only account        | `undefined`            |
+
+:::warning Social-only users
+This method **requires an existing password**. Social-only users (users who signed up via OAuth and have no password) cannot use this method.
+
+**For social-only users:**
+- To **set your first password**: Use [`SocialAuthService.setPasswordForSocialUser()`](../social-auth-service) or the [`forgotPassword()`](#forgotpassword) + [`confirmForgotPassword()`](#confirmforgotpassword) flow
+- After setting a password, you can use `changePassword()` like any other user
+:::
 
 **Example**
 
@@ -340,7 +433,14 @@ async getUserByEmail(dto: GetUserByEmailDTO): Promise<UserResponseDto | null>
 
 - [`UserResponseDto`](../dto/user-response-dto) or `null` if not found
 
+:::note Internal use
+This method is primarily for use by social auth providers. For general user lookup, use `getUserById()`.
+:::
+
 **Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
 
 ```typescript
 const user = await authService.getUserByEmail({
@@ -348,6 +448,29 @@ const user = await authService.getUserByEmail({
   requireEmailVerified: true,
 });
 ```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+const user = await nauth.authService.getUserByEmail({
+  email: 'user@example.com',
+  requireEmailVerified: true,
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+const user = await nauth.authService.getUserByEmail({
+  email: 'user@example.com',
+  requireEmailVerified: true,
+});
+```
+
+</TabItem>
+</Tabs>
 
 ---
 
@@ -369,11 +492,96 @@ async getUserById(dto: GetUserByIdDTO): Promise<UserResponseDto | null>
 
 **Example**
 
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
 ```typescript
 const user = await authService.getUserById({
   sub: 'a21b654c-2746-4168-acee-c175083a65cd',
 });
 ```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+const user = await nauth.authService.getUserById({
+  sub: 'a21b654c-2746-4168-acee-c175083a65cd',
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+const user = await nauth.authService.getUserById({
+  sub: 'a21b654c-2746-4168-acee-c175083a65cd',
+});
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+### getUserForAuthContext()
+
+Get user for authentication context with sensitive fields removed.
+
+```typescript
+async getUserForAuthContext(sub: string): Promise<IUser>
+```
+
+**Parameters**
+
+- `sub` - External user identifier (UUID)
+
+**Returns**
+
+- `IUser` - User object with `hasPasswordHash` flag, without sensitive fields
+
+**Errors**
+
+| Code                | When              | Details       |
+| ------------------- | ----------------- | ------------- |
+| `NOT_FOUND`         | User not found    | `undefined`    |
+| `ACCOUNT_INACTIVE`  | Account disabled  | `undefined`   |
+
+:::note Internal use
+This method is primarily used by AuthHandler and AuthGuard to load authenticated users. It ensures consistent user object shape across platforms (core + NestJS) with sensitive fields removed.
+:::
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+const user = await authService.getUserForAuthContext('user-uuid-123');
+// user.hasPasswordHash === true/false
+// user.passwordHash === undefined (removed)
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+const user = await nauth.authService.getUserForAuthContext('user-uuid-123');
+// user.hasPasswordHash === true/false
+// user.passwordHash === undefined (removed)
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+const user = await nauth.authService.getUserForAuthContext('user-uuid-123');
+// user.hasPasswordHash === true/false
+// user.passwordHash === undefined (removed)
+```
+
+</TabItem>
+</Tabs>
 
 ---
 

@@ -56,7 +56,6 @@ const NauthPreset = definePreset(Aura, {
  *
  * Configures:
  * - PrimeNG theme (Aura)
- * - Router
  * - HTTP client with nauth authentication interceptor
  * - NAuth client configuration
  *

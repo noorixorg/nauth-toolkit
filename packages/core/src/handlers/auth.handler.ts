@@ -8,17 +8,16 @@
  * Context is managed by the adapter, not this handler.
  */
 
-import { Repository } from 'typeorm';
 import {
   NAuthConfig,
   NAuthException,
   AuthErrorCode,
   resolveDeliveryForRequest,
-  BaseUser,
   getAccessTokenCookieName,
   NAuthLogger,
   ContextStorage,
   IClientInfo,
+  AuthService,
 } from '../index';
 import { JwtService, SessionService } from '../internal';
 import { NAuthRequest, NAuthResponse } from '../platform/interfaces';
@@ -33,7 +32,7 @@ export class AuthHandler {
   constructor(
     private jwtService: JwtService,
     private sessionService: SessionService,
-    private userRepository: Repository<BaseUser>,
+    private authService: AuthService,
     private config: NAuthConfig,
     private logger?: NAuthLogger,
   ) {}
@@ -92,23 +91,13 @@ export class AuthHandler {
         return;
       }
 
-      // Load user
-      const user = await this.userRepository.findOne({
-        select: this.getUserSelectFields(),
-        where: { sub: validation.payload!.sub },
-      });
-
-      if (!user) {
-        this.logger?.warn?.('User not found:', validation.payload!.sub);
-        await next();
-        return;
-      }
-
-      if (!user.isActive) {
-        this.logger?.warn?.('Account is not active:', user.sub);
-        await next();
-        return;
-      }
+      // Load user via AuthService (service-first architecture)
+      // AuthService.getUserForAuthContext handles:
+      // - User lookup by sub
+      // - Active status check
+      // - Computing hasPasswordHash from passwordHash
+      // - Removing sensitive fields (passwordHash, totpSecret, backupCodes, passwordHistory)
+      const user = await this.authService.getUserForAuthContext(validation.payload!.sub);
 
       // Optimistic locking check - ensure session wasn't modified during request
       const revalidated = await this.sessionService.findByIdLight(sessionId);
@@ -218,43 +207,5 @@ export class AuthHandler {
         ContextStorage.set('CLIENT_INFO', clientInfo);
       }
     }
-  }
-
-  /**
-   * Get fields to select when loading user
-   */
-  private getUserSelectFields(): (keyof BaseUser)[] {
-    return [
-      'id',
-      'sub',
-      'username',
-      'firstName',
-      'lastName',
-      'email',
-      'phone',
-      'isEmailVerified',
-      'isPhoneVerified',
-      'isActive',
-      'mustChangePassword',
-      'isLocked',
-      'lockReason',
-      'lockedAt',
-      'lockedUntil',
-      'failedLoginAttempts',
-      'lastFailedLoginAt',
-      'lastLoginAt',
-      'lastLoginIp',
-      'hasSocialAuth',
-      'socialProviders',
-      'mfaEnabled',
-      'mfaMethods',
-      'preferredMfaMethod',
-      'mfaExempt',
-      'mfaExemptReason',
-      'mfaExemptGrantedAt',
-      'metadata',
-      'createdAt',
-      'updatedAt',
-    ] as (keyof BaseUser)[];
   }
 }

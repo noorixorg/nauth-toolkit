@@ -243,7 +243,7 @@ export class NAuth {
     const authHandler = new AuthHandler(
       services.jwtService,
       services.sessionService,
-      repos.userRepository,
+      services.authService,
       config,
       logger,
     );

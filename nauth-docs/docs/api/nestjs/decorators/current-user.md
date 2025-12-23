@@ -148,6 +148,9 @@ interface IUser {
   lastLoginAt?: Date;             // Last login time
   passwordChangedAt?: Date;       // Last password change
 
+  // Authentication capabilities
+  hasPasswordHash?: boolean;      // Whether user has password set (for password-based auth)
+
   // MFA
   isMFAEnabled?: boolean;         // Has MFA devices
   mfaMethods?: string[];          // Enabled MFA methods

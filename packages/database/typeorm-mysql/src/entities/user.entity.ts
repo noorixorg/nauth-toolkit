@@ -7,6 +7,7 @@ import {
   DeleteDateColumn,
   Index,
   BeforeInsert,
+  AfterLoad,
 } from 'typeorm';
 import { BaseUser } from '@nauth-toolkit/core';
 import * as crypto from 'crypto';
@@ -164,6 +165,12 @@ export class User extends BaseUser {
   declare deletedAt: Date | null;
 
   /**
+   * Whether this user has a password set
+   * Computed field - derived from passwordHash at runtime via @AfterLoad hook
+   */
+  declare hasPasswordHash?: boolean;
+
+  /**
    * Generate UUID for sub field before insert (MySQL doesn't support @Generated('uuid'))
    */
   @BeforeInsert()
@@ -171,5 +178,21 @@ export class User extends BaseUser {
     if (!this.sub) {
       this.sub = crypto.randomUUID();
     }
+  }
+
+  /**
+   * Compute hasPasswordHash from passwordHash
+   *
+   * This hook runs after the entity is loaded from the database.
+   * It computes the boolean flag. Note: passwordHash is NOT deleted here
+   * to allow AuthService.getUserForAuthContext() to check it before deletion.
+   * The service method handles passwordHash deletion after computing hasPasswordHash.
+   */
+  @AfterLoad()
+  computeHasPasswordHash(): void {
+    // Compute hasPasswordHash from passwordHash
+    // NOTE: Do NOT delete passwordHash here - it's needed by AuthService.getUserForAuthContext()
+    // The service method will delete it after computing hasPasswordHash
+    this.hasPasswordHash = Boolean(this.passwordHash);
   }
 }

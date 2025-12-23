@@ -62,6 +62,7 @@ const inventory = {
   nestjs: {
     guards: [
       { name: 'AuthGuard', desc: 'JWT route protection' },
+      { name: 'NAuthContextGuard', desc: 'Initialize AsyncLocalStorage context' },
       { name: 'CsrfGuard', desc: 'CSRF validation' },
     ],
     decorators: [
@@ -71,7 +72,7 @@ const inventory = {
       { name: '@TokenDelivery()', desc: 'Override delivery mode' },
     ],
     interceptors: [
-      { name: 'ClientInfoInterceptor', desc: 'Auto-extract client info' },
+      { name: 'NAuthContextInterceptor', desc: 'Restore AsyncLocalStorage context' },
       { name: 'CookieTokenInterceptor', desc: 'Cookie-based delivery' },
     ],
   },

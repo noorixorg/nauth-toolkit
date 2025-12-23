@@ -24,7 +24,7 @@ import { ClientInfo } from '@nauth-toolkit/nestjs';
 
 ## Overview
 
-The `@ClientInfo()` decorator provides a clean, type-safe way to access client metadata without manual extraction. Client information is automatically extracted by `ClientInfoInterceptor` and made available via this decorator.
+The `@ClientInfo()` decorator provides a clean, type-safe way to access client metadata without manual extraction. Client information is automatically extracted by `NAuthContextGuard` and made available via this decorator.
 
 **Key Features:**
 
@@ -35,7 +35,7 @@ The `@ClientInfo()` decorator provides a clean, type-safe way to access client m
 - Type-safe access to client metadata
 
 :::note
-Client information is automatically extracted by `ClientInfoInterceptor` when using `AuthModule`. No manual setup required.
+Client information is automatically extracted by `NAuthContextGuard` when using `AuthModule`. No manual setup required.
 :::
 
 ## Usage
@@ -162,6 +162,7 @@ async login(
 
 ## Related APIs
 
-- [ClientInfoInterceptor](/docs/api/nestjs/interceptors/client-info-interceptor) - Automatic client info extraction
+- [NAuthContextGuard](/docs/api/nestjs/guards/nauth-context-guard) - Automatic client info extraction and context initialization
+- [NAuthContextInterceptor](/docs/api/nestjs/interceptors/nauth-context-interceptor) - Context restoration for controllers
 - [AuthGuard](../guards/auth-guard) - Route protection
 - [`@CurrentUser()` Decorator](./current-user) - Extract authenticated user

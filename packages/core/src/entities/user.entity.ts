@@ -51,8 +51,17 @@ export class BaseUser {
   /**
    * Hashed password (Argon2)
    * NULL for social-only accounts
+   * SECURITY: This field should be excluded from select queries when returning user objects.
+   * Use hasPasswordHash boolean flag instead.
    */
   passwordHash!: string | null;
+
+  /**
+   * Whether this user has a password set
+   * Computed field - derived from passwordHash at runtime via @AfterLoad hook
+   * Never expose passwordHash directly; use this boolean flag instead
+   */
+  hasPasswordHash?: boolean;
 
   /**
    * When password was last changed

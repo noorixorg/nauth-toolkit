@@ -3826,10 +3826,62 @@ export class AuthService {
   }
 
   /**
-   * Get user by ID (sub)
-   * @param sub - User sub (external identifier)
-   * @returns User entity or null
+   * Get user for authentication context
+   *
+   * Loads user by sub (external identifier) with all fields needed for auth context.
+   * Computes hasPasswordHash from passwordHash, then removes passwordHash and other sensitive fields.
+   *
+   * This method is used by AuthHandler and AuthGuard to load authenticated users.
+   * It ensures consistent user object shape across platforms (core + NestJS).
+   *
+   * @param sub - External user identifier (UUID)
+   * @returns User object with hasPasswordHash flag, without sensitive fields
+   * @throws {NAuthException} If user not found or account is inactive
+   *
+   * @example
+   * ```typescript
+   * const user = await authService.getUserForAuthContext('user-uuid-123');
+   * // user.hasPasswordHash === true/false
+   * // user.passwordHash === undefined (removed)
+   * ```
    */
+  async getUserForAuthContext(sub: string): Promise<IUser> {
+    // Load user with all fields including passwordHash (needed to compute hasPasswordHash)
+    // NOTE: We need to load passwordHash before @AfterLoad hook deletes it
+    // The hook computes hasPasswordHash but deletes passwordHash, so we check it first
+    const user = await this.userRepository.findOne({
+      where: { sub },
+    });
+
+    if (!user) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    if (!user.isActive) {
+      throw new NAuthException(AuthErrorCode.ACCOUNT_INACTIVE, 'Account is not active');
+    }
+
+    // CRITICAL: The @AfterLoad hook computes hasPasswordHash but doesn't delete passwordHash anymore
+    // Use the computed value from the hook, or compute it from passwordHash if hook didn't run
+    const userWithPassword = user as IUser & { passwordHash?: string | null };
+    const hasPasswordHash =
+      user.hasPasswordHash !== undefined ? user.hasPasswordHash : Boolean(userWithPassword.passwordHash);
+
+    // Create safe user object without sensitive fields
+    const safeUser = {
+      ...user,
+      hasPasswordHash,
+    } as IUser;
+
+    // Remove sensitive fields (passwordHash may already be deleted by @AfterLoad hook, but ensure it's gone)
+    delete (safeUser as unknown as { passwordHash?: string | null }).passwordHash;
+    delete (safeUser as unknown as { totpSecret?: string | null }).totpSecret;
+    delete (safeUser as unknown as { backupCodes?: string[] | null }).backupCodes;
+    delete (safeUser as unknown as { passwordHistory?: string[] | null }).passwordHistory;
+
+    return safeUser;
+  }
+
   async getUserById(dto: GetUserByIdDTO): Promise<UserResponseDto | null> {
     const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
     return user ? UserResponseDto.fromEntity(user) : null;

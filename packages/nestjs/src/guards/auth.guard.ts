@@ -1,17 +1,18 @@
 import { Injectable, CanActivate, ExecutionContext, Inject } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Repository } from 'typeorm';
 import {
   NAuthConfig,
   NAuthException,
   AuthErrorCode,
   resolveDeliveryForRequest,
-  BaseUser,
   getAccessTokenCookieName,
+  AuthService,
+  ContextStorage,
 } from '@nauth-toolkit/core';
 import { JwtService, SessionService } from '@nauth-toolkit/core/internal';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { TOKEN_DELIVERY_KEY, RouteDelivery } from '../decorators/token-delivery.decorator';
+import { getNAuthContextStore } from './nauth-context.guard';
 
 /**
  * Native Auth Guard (NO Passport dependency)
@@ -35,8 +36,7 @@ export class AuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly jwtService: JwtService,
     private readonly sessionService: SessionService,
-    @Inject('UserRepository')
-    private readonly userRepository: Repository<BaseUser>,
+    private readonly authService: AuthService,
     @Inject('NAUTH_CONFIG')
     private readonly config: NAuthConfig,
   ) {}
@@ -92,83 +92,60 @@ export class AuthGuard implements CanActivate {
       throw new NAuthException(AuthErrorCode.SESSION_EXPIRED, 'Session has expired');
     }
 
-    // Load user by sub (external identifier from JWT payload)
-    // Include all non-sensitive fields needed by endpoints (profile, MFA status, etc.)
-    // Excludes: passwordHistory, totpSecret, backupCodes (sensitive)
+    // ============================================================================
+    // Load user via AuthService (service-first architecture)
+    // ============================================================================
+    // AuthService.getUserForAuthContext handles:
+    // - User lookup by sub
+    // - Active status check
+    // - Computing hasPasswordHash from passwordHash
+    // - Removing sensitive fields (passwordHash, totpSecret, backupCodes, passwordHistory)
     //
-    // TODO (architecture): This logic should be delegated to `@nauth-toolkit/core` via the platform abstraction
-    // (NAuthRequest/NAuthResponse + core handlers) so NestJS remains a thin wrapper. This guard should eventually
-    // become a delegator that reads the authenticated user from ContextStorage/request attributes set by core.
-    const user = await this.userRepository.findOne({
-      select: [
-        'id',
-        'sub',
-        'username',
-        'firstName',
-        'lastName',
-        'email',
-        'phone',
-        // SECURITY: selected only to derive `hasPasswordHash`. Must be stripped before attaching to request.
-        'passwordHash',
-        'isEmailVerified',
-        'isPhoneVerified',
-        'isActive',
-        'mustChangePassword',
-        'isLocked',
-        'lockReason',
-        'lockedAt',
-        'lockedUntil',
-        'failedLoginAttempts',
-        'lastFailedLoginAt',
-        'lastLoginAt',
-        'lastLoginIp',
-        'hasSocialAuth',
-        'socialProviders',
-        'mfaEnabled',
-        'mfaMethods',
-        'preferredMfaMethod',
-        'mfaExempt',
-        'mfaExemptReason',
-        'mfaExemptGrantedAt',
-        'metadata',
-        'createdAt',
-        'updatedAt',
-      ] as Array<keyof typeof user>,
-      where: { sub: validation.payload!.sub },
+    // Wrap in context restoration to ensure ContextStorage.set() works
+    const store = getNAuthContextStore(request);
+    if (!store) {
+      // No context available - should not happen with proper setup
+      throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Context not initialized');
+    }
+
+    return ContextStorage.enterStore(store, async () => {
+      const user = await this.authService.getUserForAuthContext(validation.payload!.sub);
+
+      // SECURITY CRITICAL: Re-check session hasn't been modified (optimistic locking)
+      // Prevents TOCTOU (Time-of-Check-Time-of-Use) vulnerabilities
+      const revalidated = await this.sessionService.findByIdLight(sessionId);
+      if (!revalidated || revalidated.version !== initialVersion || revalidated.isRevoked) {
+        throw new NAuthException(
+          AuthErrorCode.TOKEN_INVALID,
+          'Session was modified during request - possible security breach',
+        );
+      }
+
+      // Attach user to request
+      request.user = user;
+      request.token = validation.payload;
+
+      // Store in ContextStorage for service access
+      ContextStorage.set('CURRENT_USER', user);
+      ContextStorage.set('JWT_PAYLOAD', validation.payload);
+      ContextStorage.set('CURRENT_SESSION', sessionId);
+
+      // Update CLIENT_INFO with sessionId and userId
+      const clientInfo = ContextStorage.get<{ sessionId?: number; userId?: number }>('CLIENT_INFO');
+      if (clientInfo) {
+        const sessionIdNumber = typeof sessionId === 'number' ? sessionId : parseInt(String(sessionId), 10);
+        const userIdNumber = typeof user.id === 'number' ? user.id : parseInt(String(user.id), 10);
+        if (!isNaN(sessionIdNumber) && sessionIdNumber > 0) {
+          clientInfo.sessionId = sessionIdNumber;
+        }
+        if (!isNaN(userIdNumber) && userIdNumber > 0) {
+          clientInfo.userId = userIdNumber;
+        }
+        ContextStorage.set('CLIENT_INFO', clientInfo);
+      }
+
+      return true;
     });
-
-    if (!user) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
-    }
-
-    if (!user.isActive) {
-      throw new NAuthException(AuthErrorCode.ACCOUNT_INACTIVE, 'Account is not active');
-    }
-
-    // ============================================================================
-    // Attach derived auth capability flags (without exposing sensitive fields)
-    // ============================================================================
-    // WHY: Many consumers need to know whether the account can login with password. We derive the flag
-    // from `passwordHash` but NEVER expose the hash itself on `@CurrentUser()`.
-    const userWithPasswordHash = user as unknown as { passwordHash?: string | null; hasPasswordHash?: boolean };
-    userWithPasswordHash.hasPasswordHash = Boolean(userWithPasswordHash.passwordHash);
-    delete userWithPasswordHash.passwordHash;
-
-    // SECURITY CRITICAL: Re-check session hasn't been modified (optimistic locking)
-    // Prevents TOCTOU (Time-of-Check-Time-of-Use) vulnerabilities
-    const revalidated = await this.sessionService.findByIdLight(sessionId);
-    if (!revalidated || revalidated.version !== initialVersion || revalidated.isRevoked) {
-      throw new NAuthException(
-        AuthErrorCode.TOKEN_INVALID,
-        'Session was modified during request - possible security breach',
-      );
-    }
-
-    // Attach user to request
-    request.user = user;
-    request.token = validation.payload;
-
-    return true;
   }
 
   /**

@@ -30,12 +30,13 @@ export { AuthModule, NAuthModuleConfig } from './auth.module';
  * NestJS Guards - Route protection and authentication
  */
 export { AuthGuard } from './guards/auth.guard';
+export { NAuthContextGuard } from './guards/nauth-context.guard';
 export { CsrfGuard } from './guards/csrf.guard';
 
 /**
  * NestJS Interceptors - Request/response processing
  */
-export { ClientInfoInterceptor } from './interceptors/client-info.interceptor';
+export { NAuthContextInterceptor } from './interceptors/nauth-context.interceptor';
 export { CookieTokenInterceptor } from './interceptors/cookie-token.interceptor';
 
 /**

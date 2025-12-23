@@ -29,6 +29,7 @@ npm install @nauth-toolkit/nestjs
 | Export | Documentation |
 |--------|---------------|
 | `AuthGuard` | [AuthGuard](/docs/api/nestjs/guards/auth-guard) |
+| `NAuthContextGuard` | [NAuthContextGuard](/docs/api/nestjs/guards/nauth-context-guard) |
 | `CsrfGuard` | [CsrfGuard](/docs/api/nestjs/guards/csrf-guard) |
 
 ### Decorators
@@ -44,7 +45,7 @@ npm install @nauth-toolkit/nestjs
 
 | Export | Documentation |
 |--------|---------------|
-| `ClientInfoInterceptor` | [ClientInfoInterceptor](/docs/api/nestjs/interceptors/client-info-interceptor) |
+| `NAuthContextInterceptor` | [NAuthContextInterceptor](/docs/api/nestjs/interceptors/nauth-context-interceptor) |
 | `CookieTokenInterceptor` | [CookieTokenInterceptor](/docs/api/nestjs/interceptors/cookie-token-interceptor) |
 
 ### Filters
@@ -114,5 +115,5 @@ export class AppModule {}
 
 - [Guards](/docs/api/nestjs/guards/auth-guard)
 - [Decorators](/docs/api/nestjs/decorators/current-user)
-- [Interceptors](/docs/api/nestjs/interceptors/client-info-interceptor)
+- [Interceptors](/docs/api/nestjs/interceptors/nauth-context-interceptor)
 - [Filters](/docs/api/nestjs/filters/nauth-exception-filter)

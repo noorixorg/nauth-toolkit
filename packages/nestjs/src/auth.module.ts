@@ -78,9 +78,10 @@ type MaxMindModule = {
     }>;
   };
 };
-import { ClientInfoInterceptor } from './interceptors/client-info.interceptor';
 import { CookieTokenInterceptor } from './interceptors/cookie-token.interceptor';
+import { NAuthContextInterceptor } from './interceptors/nauth-context.interceptor';
 import { AuthGuard } from './guards/auth.guard';
+import { NAuthContextGuard } from './guards/nauth-context.guard';
 import { CsrfGuard } from './guards/csrf.guard';
 import { CsrfService } from './services/csrf.service';
 import { TokenDeliveryHttpService } from './services/token-delivery-http.service';
@@ -158,10 +159,17 @@ export class AuthModule {
         // Auto-run nauth-toolkit migrations on startup (no consumer burden)
         nauthMigrationsBootstrapProvider,
 
-        // Global interceptor for automatic client info extraction
+        // Global guard for AsyncLocalStorage context initialization (runs FIRST)
+        // Must run before other guards to ensure context is available
+        {
+          provide: APP_GUARD,
+          useClass: NAuthContextGuard,
+        },
+
+        // Global interceptor for context restoration (restores context for controllers)
         {
           provide: APP_INTERCEPTOR,
-          useClass: ClientInfoInterceptor,
+          useClass: NAuthContextInterceptor,
         },
         // Shared token delivery helper (used by interceptor + controllers)
         TokenDeliveryHttpService,
