@@ -299,7 +299,7 @@ login: {
 Configure email delivery for verification codes and notifications.
 
 <Tabs>
-  <TabItem value="nodemailer" label="Nodemailer (Production)" default>
+  <TabItem value="nodemailer" label="Nodemailer (SMTP)" default>
 
 ```typescript
 import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
@@ -327,6 +327,50 @@ email: {
   brandColor: '#4f46e5',
 },
 ```
+
+  </TabItem>
+  <TabItem value="aws-ses-sdk" label="AWS SES (SDK with IAM)">
+
+Uses AWS SDK v3 with automatic IAM role discovery. Perfect for EC2/ECS/containers.
+
+```bash npm2yarn
+npm install @aws-sdk/client-sesv2
+```
+
+```typescript
+import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+
+emailProvider: new NodemailerEmailProvider({
+  transport: {
+    SES: {
+      sesClient: new SESv2Client({
+        region: process.env.AWS_REGION || 'us-east-1',
+        // Credentials automatically discovered from:
+        // 1. IAM role (when running on EC2/ECS/containers) - RECOMMENDED
+        // 2. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+        // 3. Shared credentials file (~/.aws/credentials)
+      }),
+      SendEmailCommand,
+    },
+  },
+  defaults: {
+    from: 'My App <noreply@myapp.com>',
+  },
+}),
+
+email: {
+  appName: 'My App',
+  companyName: 'My Company Inc.',
+  supportEmail: 'support@myapp.com',
+  logoUrl: 'https://myapp.com/logo.png',
+  brandColor: '#4f46e5',
+},
+```
+
+:::tip
+The AWS SES SDK transport automatically uses IAM roles when running on AWS infrastructure (EC2, ECS, Lambda), eliminating the need to manage credentials manually.
+:::
 
   </TabItem>
   <TabItem value="console" label="Console (Development)">
@@ -927,6 +971,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
 
+  // Option 1: SMTP Transport
   emailProvider: new NodemailerEmailProvider({
     transport: {
       host: 'smtp.example.com',
@@ -940,6 +985,20 @@ export const authConfig: NAuthModuleConfig = {
       from: 'My App <noreply@myapp.com>',
     },
   }),
+
+  // Option 2: AWS SES SDK Transport (with IAM roles)
+  // import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+  // emailProvider: new NodemailerEmailProvider({
+  //   transport: {
+  //     SES: {
+  //       sesClient: new SESv2Client({ region: process.env.AWS_REGION || 'us-east-1' }),
+  //       SendEmailCommand,
+  //     },
+  //   },
+  //   defaults: {
+  //     from: 'My App <noreply@myapp.com>',
+  //   },
+  // }),
 
   email: {
     appName: 'My App',

@@ -455,18 +455,36 @@ import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
 ```
 
 </TabItem>
-<TabItem value="aws-ses" label="AWS SES">
+<TabItem value="aws-ses-sdk" label="AWS SES (SDK with IAM)">
+
+Uses AWS SDK v3 with automatic IAM role discovery. Perfect for EC2/ECS/containers.
+
+```bash npm2yarn
+npm install @aws-sdk/client-sesv2
+```
 
 ```typescript
-import { AWSSESEmailProvider } from '@nauth-toolkit/email-aws-ses';
+import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
 
 {
   email: {
-    provider: new AWSSESEmailProvider({
-      region: 'us-east-1',
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      from: 'noreply@myapp.com',
+    provider: new NodemailerEmailProvider({
+      transport: {
+        SES: {
+          sesClient: new SESv2Client({
+            region: process.env.AWS_REGION || 'us-east-1',
+            // Credentials automatically discovered from:
+            // 1. IAM role (when running on EC2/ECS/containers) - RECOMMENDED
+            // 2. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+            // 3. Shared credentials file (~/.aws/credentials)
+          }),
+          SendEmailCommand,
+        },
+      },
+      defaults: {
+        from: 'noreply@myapp.com',
+      },
     }),
     appName: 'My App',
     templates: {
@@ -475,6 +493,10 @@ import { AWSSESEmailProvider } from '@nauth-toolkit/email-aws-ses';
   }
 }
 ```
+
+:::tip
+The AWS SES SDK transport automatically uses IAM roles when running on AWS infrastructure (EC2, ECS, Lambda), eliminating the need to manage credentials manually.
+:::
 
 </TabItem>
 <TabItem value="custom" label="Custom">

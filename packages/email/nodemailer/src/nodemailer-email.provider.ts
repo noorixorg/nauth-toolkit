@@ -1,19 +1,20 @@
-import { EmailProvider, TemplateType, TemplateVariables, LoggerService } from '@nauth-toolkit/core';
+import { EmailProvider, TemplateType, TemplateVariables, LoggerService, TemplateEngine } from '@nauth-toolkit/core';
 import { HandlebarsTemplateEngine } from './templates/handlebars-template.engine';
 import * as nodemailer from 'nodemailer';
-import type { Transporter, SendMailOptions } from 'nodemailer';
+import type { Transporter, SendMailOptions, TransportOptions } from 'nodemailer';
 
 /**
  * Nodemailer Transport Configuration
  *
  * Supports various transport types:
  * - SMTP (generic)
- * - AWS SES
+ * - AWS SES (via SDK)
  * - SendGrid
  * - Mailgun
  * - Postmark
  * - Gmail (with OAuth2)
  * - Outlook/Office365
+ * - Custom transports
  */
 export interface NodemailerTransportConfig {
   /**
@@ -54,14 +55,33 @@ export interface NodemailerTransportConfig {
   service?: string;
 
   /**
-   * AWS region (for SES)
+   * AWS region (for SES SMTP)
    */
   region?: string;
 
   /**
+   * AWS SES SDK transport configuration
+   * Requires @aws-sdk/client-sesv2 package
+   *
+   * @example
+   * ```typescript
+   * import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+   *
+   * SES: {
+   *   sesClient: new SESv2Client({ region: 'us-east-1' }),
+   *   SendEmailCommand,
+   * }
+   * ```
+   */
+  SES?: {
+    sesClient: unknown; // SESv2Client from @aws-sdk/client-sesv2
+    SendEmailCommand: unknown; // SendEmailCommand from @aws-sdk/client-sesv2
+  };
+
+  /**
    * Additional transport options
    */
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -69,9 +89,36 @@ export interface NodemailerTransportConfig {
  */
 export interface NodemailerProviderConfig {
   /**
-   * Nodemailer transport configuration
+   * Nodemailer transport configuration or pre-configured transporter
+   *
+   * Can be:
+   * - NodemailerTransportConfig (SMTP-style config)
+   * - Raw nodemailer transport config (for AWS SES SDK, custom transports, etc.)
+   * - Pre-configured Transporter instance
+   *
+   * @example AWS SES with SDK (IAM roles)
+   * ```typescript
+   * import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+   *
+   * new NodemailerProvider({
+   *   transport: {
+   *     SES: {
+   *       sesClient: new SESv2Client({ region: 'us-east-1' }), // Uses IAM role automatically
+   *       SendEmailCommand,
+   *     },
+   *   },
+   * })
+   * ```
+   *
+   * @example Pre-configured transporter
+   * ```typescript
+   * const transporter = nodemailer.createTransport({ ... });
+   * new NodemailerProvider({
+   *   transport: transporter,
+   * })
+   * ```
    */
-  transport: NodemailerTransportConfig;
+  transport: NodemailerTransportConfig | TransportOptions | Transporter;
 
   /**
    * Default email options (from, replyTo, etc.)
@@ -79,7 +126,7 @@ export interface NodemailerProviderConfig {
   defaults?: {
     from?: string;
     replyTo?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 
   /**
@@ -90,12 +137,19 @@ export interface NodemailerProviderConfig {
   /**
    * Custom template engine (default: HandlebarsTemplateEngine with MJML templates)
    */
-  templateEngine?: any;
+  templateEngine?: TemplateEngine;
 
   /**
    * Enable preview URL in development (default: false)
    */
   preview?: boolean;
+
+  /**
+   * Skip connection verification (optional, for transports that don't support verify)
+   * Note: AWS SES SDK transport DOES support verify() according to nodemailer docs
+   * @default false
+   */
+  skipVerification?: boolean;
 }
 
 /**
@@ -111,8 +165,7 @@ export interface NodemailerProviderConfig {
  * - Connection pooling
  * - Retry logic
  * - Preview URLs in development
- *
- * **Phase 2c Implementation**
+ * - AWS SES SDK support with IAM roles
  *
  * @example SMTP Configuration
  * ```typescript
@@ -136,17 +189,37 @@ export interface NodemailerProviderConfig {
  * })
  * ```
  *
- * @example AWS SES Configuration
+ * @example AWS SES with SDK (IAM roles) - Recommended
  * ```typescript
+ * import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+ *
  * new NodemailerProvider({
  *   transport: {
- *     service: 'SES',
- *     auth: {
- *       user: process.env.AWS_ACCESS_KEY_ID,
- *       pass: process.env.AWS_SECRET_ACCESS_KEY,
+ *     SES: {
+ *       sesClient: new SESv2Client({ region: 'us-east-1' }), // Uses IAM role automatically
+ *       SendEmailCommand,
  *     },
- *     region: 'us-east-1',
  *   },
+ *   defaults: {
+ *     from: '"My App" <noreply@example.com>',
+ *   },
+ * })
+ * ```
+ *
+ * @example Pre-configured transporter
+ * ```typescript
+ * import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+ * import * as nodemailer from 'nodemailer';
+ *
+ * const transporter = nodemailer.createTransport({
+ *   SES: {
+ *     sesClient: new SESv2Client({ region: 'us-east-1' }),
+ *     SendEmailCommand,
+ *   },
+ * });
+ *
+ * new NodemailerProvider({
+ *   transport: transporter,
  * })
  * ```
  *
@@ -210,47 +283,111 @@ export class NodemailerProvider implements EmailProvider {
    */
   constructor(config: NodemailerProviderConfig) {
     // Log configuration (sanitized)
+    const isSES = this.isSESTransport(config.transport);
+    const transportType = isSES
+      ? 'AWS SES SDK'
+      : this.isTransporterInstance(config.transport)
+        ? 'Pre-configured'
+        : 'Config-based';
     this.logger?.debug?.('Initializing NodemailerProvider', {
-      host: config.transport.host,
-      port: config.transport.port,
-      secure: config.transport.secure,
+      transportType,
       from: config.defaults?.from,
     });
 
-    // Create Nodemailer transporter
-    this.transporter = nodemailer.createTransport(config.transport as any);
+    // Create or use provided transporter
+    if (this.isTransporterInstance(config.transport)) {
+      // Pre-configured transporter instance
+      this.transporter = config.transport;
+      this.logger?.debug?.('Using pre-configured transporter');
+    } else {
+      // Create transporter from config
+      // nodemailer.createTransport accepts any transport config, including SES SDK config
+      this.transporter = nodemailer.createTransport(config.transport as TransportOptions);
+      this.logger?.debug?.('Created transporter from config');
+    }
 
     // Initialize template engine
-    this.templateEngine = config.templateEngine || new HandlebarsTemplateEngine();
+    this.templateEngine =
+      (config.templateEngine as HandlebarsTemplateEngine | undefined) || new HandlebarsTemplateEngine();
 
     // Set defaults
     this.defaults = config.defaults || {};
     this.preview = config.preview || false;
 
-    // Verify connection
-    this.verifyConnection();
+    // Verify connection (skip if configured)
+    if (!config.skipVerification) {
+      this.verifyConnection();
+    } else {
+      this.logger?.debug?.('Skipping connection verification');
+    }
   }
 
   /**
-   * Verify SMTP connection
+   * Check if transport config uses AWS SES SDK
+   *
+   * @param transport - Transport configuration to check
+   * @returns True if transport uses AWS SES SDK
+   * @private
+   */
+  private isSESTransport(transport: unknown): boolean {
+    if (!transport || typeof transport !== 'object') {
+      return false;
+    }
+    if (this.isTransporterInstance(transport)) {
+      return false;
+    }
+    const transportObj = transport as { SES?: { sesClient?: unknown; SendEmailCommand?: unknown } };
+    return 'SES' in transportObj && !!transportObj.SES?.sesClient && !!transportObj.SES?.SendEmailCommand;
+  }
+
+  /**
+   * Check if transport is a pre-configured Transporter instance
+   *
+   * @param transport - Transport to check
+   * @returns True if transport is a Transporter instance
+   * @private
+   */
+  private isTransporterInstance(transport: unknown): transport is Transporter {
+    if (!transport || typeof transport !== 'object') {
+      return false;
+    }
+    const transporter = transport as Transporter;
+    return typeof transporter.sendMail === 'function' && typeof transporter.verify === 'function';
+  }
+
+  /**
+   * Verify email transport connection
+   *
+   * For SMTP: Tests actual connection
+   * For SES SDK: Attempts to send invalid test message to validate credentials
+   *
    * @private
    */
   private async verifyConnection(): Promise<void> {
     try {
-      this.logger?.debug?.('Verifying SMTP connection...');
-      await this.transporter.verify();
-      this.logger?.log?.('Nodemailer connection verified successfully');
-    } catch (error: any) {
-      this.logger?.error?.('Nodemailer connection failed');
-      this.logger?.error?.(`Error details: ${error?.message || 'Unknown error'}`);
-      if (error?.code) {
-        this.logger?.error?.(`Error code: ${error.code}`);
+      this.logger?.debug?.('Verifying email transport connection...');
+
+      // Check if transporter supports verify (all standard transports do)
+      if (typeof this.transporter.verify === 'function') {
+        await this.transporter.verify();
+        this.logger?.log?.('Nodemailer connection verified successfully');
+      } else {
+        this.logger?.debug?.('Transporter does not support verify(), skipping verification');
       }
-      if (error?.command) {
-        this.logger?.error?.(`Failed at command: ${error.command}`);
+    } catch (error: unknown) {
+      this.logger?.error?.('Nodemailer connection verification failed');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.error?.(`Error details: ${errorMessage}`);
+      if (error && typeof error === 'object' && 'code' in error) {
+        this.logger?.error?.(`Error code: ${String(error.code)}`);
+      }
+      if (error && typeof error === 'object' && 'command' in error) {
+        this.logger?.error?.(`Failed at command: ${String(error.command)}`);
       }
       // Log full error for debugging
       this.logger?.debug?.('Full error object:', error);
+      // Don't throw - allow provider to be used even if verification fails
+      // Verification is best-effort and shouldn't block initialization
     }
   }
 
@@ -385,9 +522,13 @@ export class NodemailerProvider implements EmailProvider {
    * Send new device login notification
    *
    * @param to - Recipient email address
-   * @param deviceInfo - Device information
+   * @param deviceInfo - Device information object with optional properties: name, type, ipAddress, location
    */
-  async sendNewDeviceEmail(to: string, deviceInfo: any, variables: TemplateVariables = {}): Promise<void> {
+  async sendNewDeviceEmail(
+    to: string,
+    deviceInfo: { name?: string; type?: string; ipAddress?: string; location?: string },
+    variables: TemplateVariables = {},
+  ): Promise<void> {
     const templateVariables: TemplateVariables = {
       ...this.globalVariables,
       userName: to.split('@')[0],
@@ -443,12 +584,13 @@ export class NodemailerProvider implements EmailProvider {
           this.logger?.log?.(`Preview URL: ${previewUrl}`);
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       this.logger?.error?.('Failed to send email');
       this.logger?.error?.(`To: ${mailOptions.to}`);
-      this.logger?.error?.(`Error: ${error?.message || 'Unknown error'}`);
-      if (error?.code) {
-        this.logger?.error?.(`Error code: ${error.code}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.error?.(`Error: ${errorMessage}`);
+      if (error && typeof error === 'object' && 'code' in error) {
+        this.logger?.error?.(`Error code: ${String(error.code)}`);
       }
       this.logger?.debug?.('Full error object:', error);
       throw error;

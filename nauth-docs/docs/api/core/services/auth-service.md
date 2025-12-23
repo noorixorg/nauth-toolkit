@@ -248,7 +248,7 @@ async changePassword(dto: ChangePasswordRequestDTO): Promise<ChangePasswordRespo
 This method **requires an existing password**. Social-only users (users who signed up via OAuth and have no password) cannot use this method.
 
 **For social-only users:**
-- To **set your first password**: Use [`SocialAuthService.setPasswordForSocialUser()`](../social-auth-service) or the [`forgotPassword()`](#forgotpassword) + [`confirmForgotPassword()`](#confirmforgotpassword) flow
+- To **set your first password**: Use [`SocialAuthService.setPasswordForSocialUser()`](./social-auth-service) or the [`forgotPassword()`](#forgotpassword) + [`confirmForgotPassword()`](#confirmforgotpassword) flow
 - After setting a password, you can use `changePassword()` like any other user
 :::
 

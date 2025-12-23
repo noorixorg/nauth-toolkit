@@ -14,6 +14,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.957.0",
     "@fastify/cookie": "^11.0.0",
     "@maxmind/geoip2-node": "^6.2.0",
     "@nauth-toolkit/database-typeorm-postgres": "^0.1.6",

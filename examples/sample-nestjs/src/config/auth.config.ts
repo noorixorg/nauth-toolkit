@@ -1,8 +1,11 @@
 import { MFAMethod, NAuthModuleConfig, createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
-import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
+//import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
 import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
-// import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
 import { Logger } from '@nestjs/common';
+
+// AWS SES SDK imports (install: yarn add @aws-sdk/client-sesv2)
+import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
 
 // const smsConfig: AWSSMSConfig = {
 //   region: 'ap-southeast-2',
@@ -172,27 +175,26 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
 
-  emailProvider: new ConsoleEmailProvider(),
+  //emailProvider: new ConsoleEmailProvider(),
 
-  // emailProvider: new NodemailerEmailProvider({
-  //   transport: {
-  //     host: process.env.SMTP_HOST,
-  //     port: 587,
-  //     secure: false,
-  //     auth: {
-  //       user: process.env.SMTP_USER as string,
-  //       pass: process.env.SMTP_PASS as string,
-  //     },
-  //   },
-  //   defaults: {
-  //     from: 'Nauth App <noreply@noorix.com>',
-  //   },
-  // }),
+  emailProvider: new NodemailerEmailProvider({
+    transport: {
+      SES: {
+        sesClient: new SESv2Client({
+          region: process.env.AWS_REGION || 'ap-southeast-2',
+        }),
+        SendEmailCommand,
+      },
+    },
+    defaults: {
+      from: 'Nauth App <noreply@noorix.com>',
+    },
+  }),
 
   email: {
     appName: process.env.APP_NAME || 'Nauth App',
     companyName: process.env.COMPANY_NAME || 'Nauth Company Pty Ltd.',
-    supportEmail: process.env.SUPPORT_EMAIL || 'support@noorix.com',
+    supportEmail: process.env.SUPPORT_EMAIL || 'support@noorix.com.au',
     logoUrl: process.env.LOGO_URL || 'https://www.noorix.com.au/images/noorix-logo-social.png',
     dashboardUrl: process.env.DASHBOARD_URL || 'https://app.example.com/dashboard',
     brandColor: process.env.BRAND_COLOR || '#4f46e5',
