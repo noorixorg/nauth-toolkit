@@ -121,7 +121,7 @@ unsubscribe();
 **See**
 
 - [Authentication Events Guide](../guides/authentication-events) - Complete event documentation
-- [Event-Driven Architecture](../guides/social-auth#event-driven-architecture) - OAuth-specific events
+- [Authentication Events](../guides/authentication-events) - OAuth-specific events
 - [Angular AuthService Events](../angular/auth-service#observables) - Angular Observable streams
 
 ---
@@ -982,18 +982,18 @@ See [Backend Social Login Configuration](/docs/features/social-login) for setup 
 
 ### loginWithSocial()
 
-Start social OAuth login flow with automatic state management.
+Start redirect-first web social login.
 
 ```typescript
-async loginWithSocial(provider: 'google' | 'apple' | 'facebook', options?: { redirectUri?: string }): Promise<void>
+async loginWithSocial(provider: 'google' | 'apple' | 'facebook', options?: SocialLoginOptions): Promise<void>
 ```
 
 **Parameters**
 
-| Parameter             | Type                                | Description                  |
-| --------------------- | ----------------------------------- | ---------------------------- |
-| `provider`            | `'google' \| 'apple' \| 'facebook'` | OAuth provider               |
-| `options.redirectUri` | `string`                            | Optional custom redirect URI |
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `provider` | `'google' \| 'apple' \| 'facebook'` | OAuth provider |
+| `options` | [`SocialLoginOptions`](./types/social-login-options) | Redirect options (`returnTo`, `appState`, `action`) |
 
 **Returns**
 
@@ -1002,7 +1002,7 @@ async loginWithSocial(provider: 'google' | 'apple' | 'facebook', options?: { red
 **Example**
 
 ```typescript
-await client.loginWithSocial('google');
+await client.loginWithSocial('google', { returnTo: '/auth/callback', appState: '12345' });
 ```
 
 **See**
@@ -1011,98 +1011,38 @@ await client.loginWithSocial('google');
 
 ---
 
-### handleOAuthCallback()
+### exchangeSocialRedirect()
 
-Auto-detect and handle OAuth callback.
+Exchange an `exchangeToken` (returned in the frontend callback URL) into an `AuthResponse`.
 
 ```typescript
-async handleOAuthCallback(urlOrParams?: string | URLSearchParams): Promise<AuthResponse | null>
+async exchangeSocialRedirect(exchangeToken: string): Promise<AuthResponse>
 ```
 
 **Parameters**
 
-| Parameter     | Type                        | Description                                           |
-| ------------- | --------------------------- | ----------------------------------------------------- |
-| `urlOrParams` | `string \| URLSearchParams` | Optional URL or params (auto-detects if not provided) |
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `exchangeToken` | `string` | One-time token issued by backend redirect flow |
 
 **Returns**
 
-- `Promise<AuthResponse \| null>` - AuthResponse if OAuth callback, null otherwise
+- [`AuthResponse`](./types/auth-response) - Authentication result (tokens or challenge)
 
 **Example**
 
 ```typescript
-const response = await client.handleOAuthCallback();
-if (response?.challengeName) {
-  // Handle challenge
+const params = new URLSearchParams(window.location.search);
+const exchangeToken = params.get('exchangeToken');
+if (exchangeToken) {
+  const response = await client.exchangeSocialRedirect(exchangeToken);
+  // Redirect based on response.challengeName or success
 }
 ```
 
 **See**
 
 - [Social Authentication Guide](/docs/frontend-sdk/guides/social-auth)
-
----
-
-### getSocialAuthUrl()
-
-Get OAuth redirect URL (low-level API). For most cases, use [`loginWithSocial()`](#loginwithsocial).
-
-```typescript
-async getSocialAuthUrl(request: { provider: string; state?: string }): Promise<{ url: string }>
-```
-
-**Parameters**
-
-| Parameter          | Type     | Description          |
-| ------------------ | -------- | -------------------- |
-| `request.provider` | `string` | OAuth provider       |
-| `request.state`    | `string` | Optional state token |
-
-**Returns**
-
-- `{ url: string }` - OAuth authorization URL
-
-**Example**
-
-```typescript
-const { url } = await client.getSocialAuthUrl({
-  provider: 'google',
-  state: 'custom-state',
-});
-```
-
----
-
-### handleSocialCallback()
-
-Handle OAuth callback (low-level API). For most cases, use [`handleOAuthCallback()`](#handleoauthcallback).
-
-```typescript
-async handleSocialCallback(request: { provider: string; code: string; state: string }): Promise<AuthResponse>
-```
-
-**Parameters**
-
-| Parameter          | Type     | Description        |
-| ------------------ | -------- | ------------------ |
-| `request.provider` | `string` | OAuth provider     |
-| `request.code`     | `string` | Authorization code |
-| `request.state`    | `string` | State token        |
-
-**Returns**
-
-- [`AuthResponse`](./types/auth-response)
-
-**Example**
-
-```typescript
-const response = await client.handleSocialCallback({
-  provider: 'google',
-  code: 'auth-code',
-  state: 'state-token',
-});
-```
 
 ---
 
@@ -1183,8 +1123,6 @@ async linkSocialAccount(
 | `provider` | `SocialProvider` | Social provider (`'google'`, `'apple'`, `'facebook'`) |
 | `code`     | `string`         | OAuth authorization code from callback                |
 | `state`    | `string`         | OAuth state parameter from callback                   |
-
-See [`SocialCallbackRequest`](./types/social-callback-request) for request structure.
 
 **Returns**
 

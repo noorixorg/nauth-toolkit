@@ -22,23 +22,23 @@ npm install @nauth-toolkit/social-google
 
 | Export | Type | Entry |
 |--------|------|-------|
-| `GoogleSocialAuthProvider` | Class | Default |
+| `GoogleSocialAuthService` | Class | Default |
+| `TokenVerifierService` | Class | Default |
 | `GoogleSocialAuthModule` | NestJS Module | `/nestjs` |
 
-## Constructor
+## Configuration
 
-```typescript
-new GoogleSocialAuthProvider(options: GoogleSocialAuthOptions)
-```
+Configure Google under `config.social.google` (in `@nauth-toolkit/core` config).
 
-## Options
-
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `clientId` | `string` | Yes | Google OAuth client ID |
-| `clientSecret` | `string` | Yes | Google OAuth client secret |
-| `redirectUri` | `string` | Yes | OAuth callback URL |
-| `scopes` | `string[]` | No | OAuth scopes. Default: `['email', 'profile']` |
+| Key | Type | Required | Description |
+| --- | --- | --- | --- |
+| `enabled` | `boolean` | No | Enable Google OAuth |
+| `clientId` | `string \| string[]` | Yes (if enabled) | OAuth client ID (supports multi-platform IDs) |
+| `clientSecret` | `string` | Yes (if enabled) | OAuth client secret |
+| `callbackUrl` | `string` | Yes (if enabled) | Backend callback URL (`/auth/social/google/callback`) |
+| `scopes` | `string[]` | No | Default: `['openid', 'email', 'profile']` |
+| `autoLink` | `boolean` | No | Auto-link to existing users by verified email |
+| `allowSignup` | `boolean` | No | Allow creating new users on first login |
 
 ## Usage
 
@@ -58,18 +58,8 @@ export class AppModule {}
 <TabItem value="express" label="Express">
 
 ```typescript
-import { GoogleSocialAuthProvider } from '@nauth-toolkit/social-google';
-
 const nauth = await NAuth.create({
-  config: {
-    socialProviders: [
-      new GoogleSocialAuthProvider({
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        redirectUri: 'https://myapp.com/auth/google/callback',
-      }),
-    ],
-  },
+  config,
   dataSource,
   adapter: new ExpressAdapter(),
 });
@@ -79,18 +69,8 @@ const nauth = await NAuth.create({
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { GoogleSocialAuthProvider } from '@nauth-toolkit/social-google';
-
 const nauth = await NAuth.create({
-  config: {
-    socialProviders: [
-      new GoogleSocialAuthProvider({
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        redirectUri: 'https://myapp.com/auth/google/callback',
-      }),
-    ],
-  },
+  config,
   dataSource,
   adapter: new FastifyAdapter(),
 });

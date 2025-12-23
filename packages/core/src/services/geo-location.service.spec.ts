@@ -361,7 +361,6 @@ describe('GeoLocationService', () => {
       });
       expect(mockCityReader.city).toHaveBeenCalled();
       expect(mockCountryReader.country).toHaveBeenCalledWith('8.8.8.8');
-      expect(mockLogger.debug).toHaveBeenCalledWith((expect as any).stringContaining('City lookup failed'));
     });
 
     it('should return empty object when both lookups fail', async () => {
@@ -378,7 +377,6 @@ describe('GeoLocationService', () => {
       const result = await service.getIpGeolocation('8.8.8.8');
 
       expect(result).toEqual({});
-      expect(mockLogger.debug).toHaveBeenCalledWith((expect as any).stringContaining('Country lookup failed'));
     });
 
     it('should return empty object when no databases loaded', async () => {

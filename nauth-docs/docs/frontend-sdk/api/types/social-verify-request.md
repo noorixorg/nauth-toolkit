@@ -46,6 +46,5 @@ import { SocialVerifyRequest } from '@nauth-toolkit/client';
 
 ## Related Types
 
-- [`SocialAuthUrlRequest`](./social-auth-url-request) - Web OAuth URL request
-- [`SocialCallbackRequest`](./social-callback-request) - Web OAuth callback
+- [`SocialLoginOptions`](./social-login-options) - Web redirect-first options
 - [`AuthResponse`](./auth-response) - Authentication response

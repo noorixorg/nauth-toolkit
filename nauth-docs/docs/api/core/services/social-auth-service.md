@@ -279,6 +279,10 @@ fastify.get('/auth/google', nauth.adapter.wrapRouteHandler(async (req, reply) =>
 
 Handle OAuth callback and authenticate user (login or signup). Called after user is redirected from OAuth provider.
 
+::::note
+For redirect-first web flows, prefer `SocialRedirectHandler` (consumer controller delegates) which manages CSRF state, redirects, and cookie/exchange delivery.
+::::
+
 ```typescript
 async handleSocialCallback(dto: HandleSocialCallbackDTO): Promise<AuthResponseDTO>
 ```
@@ -306,9 +310,9 @@ async handleSocialCallback(dto: HandleSocialCallbackDTO): Promise<AuthResponseDT
 ```typescript
 import { HandleSocialCallbackDTO } from '@nauth-toolkit/nestjs';
 
-@Post('social/callback')
-async callback(@Body() body: HandleSocialCallbackDTO) {
-  const dto = Object.assign(new HandleSocialCallbackDTO(), body);
+@Get('social/:provider/callback')
+async callback(@Param('provider') provider: string, @Query() query: { code?: string; state?: string }) {
+  const dto = Object.assign(new HandleSocialCallbackDTO(), { provider, code: query.code, state: query.state });
   return await this.socialAuthService.handleSocialCallback(dto);
 }
 ```
@@ -319,8 +323,12 @@ async callback(@Body() body: HandleSocialCallbackDTO) {
 ```typescript
 import { HandleSocialCallbackDTO } from '@nauth-toolkit/core';
 
-app.post('/auth/social/callback', async (req, res) => {
-  const dto = Object.assign(new HandleSocialCallbackDTO(), req.body);
+app.get('/auth/social/:provider/callback', async (req, res) => {
+  const dto = Object.assign(new HandleSocialCallbackDTO(), {
+    provider: req.params.provider,
+    code: req.query.code,
+    state: req.query.state,
+  });
   const result = await nauth.socialAuthService.handleSocialCallback(dto);
   res.json(result);
 });
@@ -332,8 +340,13 @@ app.post('/auth/social/callback', async (req, res) => {
 ```typescript
 import { HandleSocialCallbackDTO } from '@nauth-toolkit/core';
 
-fastify.post('/auth/social/callback', nauth.adapter.wrapRouteHandler(async (req, reply) => {
-  const dto = Object.assign(new HandleSocialCallbackDTO(), req.body);
+fastify.get('/auth/social/:provider/callback', nauth.adapter.wrapRouteHandler(async (req) => {
+  const q = req.query as Record<string, unknown>;
+  const dto = Object.assign(new HandleSocialCallbackDTO(), {
+    provider: (req.params as any).provider,
+    code: q.code,
+    state: q.state,
+  });
   const result = await nauth.socialAuthService.handleSocialCallback(dto);
   return result;
 }));

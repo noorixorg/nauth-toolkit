@@ -2,7 +2,7 @@ export * from './tokens';
 export * from './auth.service';
 export * from './auth.interceptor';
 export * from './auth.guard';
-export * from './oauth-callback.guard';
+export * from './social-redirect-callback.guard';
 export * from './auth.module';
 export * from './http-adapter';
 

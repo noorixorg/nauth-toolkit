@@ -8,6 +8,7 @@ export * from './provider.interface';
 // Import from @nauth-toolkit/sms-aws-sns, @nauth-toolkit/sms-twilio, etc.
 // export * from './sms-config.interface'; // Deprecated - kept for backward compatibility notes only
 export * from './social-auth-provider.interface';
+export * from './social-auth-state-store.interface';
 export * from './storage-adapter.interface';
 export * from './template.interface';
 export * from './sms-template.interface';

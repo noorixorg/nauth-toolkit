@@ -20,13 +20,7 @@ import {
 } from '../types/auth.types';
 import { NAuthClientConfig } from '../types/config.types';
 import { GetChallengeDataResponse, GetSetupDataResponse, MFAStatus } from '../types/mfa.types';
-import {
-  LinkedAccountsResponse,
-  SocialAuthUrlRequest,
-  SocialCallbackRequest,
-  SocialVerifyRequest,
-  SocialProvider,
-} from '../types/social.types';
+import { LinkedAccountsResponse, SocialLoginOptions, SocialVerifyRequest, SocialProvider } from '../types/social.types';
 import {
   AuthUser,
   ChangePasswordRequest,
@@ -525,154 +519,64 @@ export class NAuthClient {
   // ============================================================================
 
   /**
-   * Start social OAuth flow with automatic state management.
+   * Start redirect-first social OAuth flow (web).
    *
-   * Generates a secure state token, stores OAuth context, and redirects to the OAuth provider.
-   * After OAuth callback, use `handleOAuthCallback()` to complete authentication.
+   * This performs a browser navigation to:
+   * `GET {baseUrl}/social/:provider/redirect?returnTo=...&appState=...`
+   *
+   * The backend:
+   * - generates and stores CSRF state (cluster-safe)
+   * - redirects the user to the provider
+   * - completes OAuth on callback and sets cookies (or issues an exchange token)
+   * - redirects back to `returnTo` with `appState` (and `exchangeToken` for json/hybrid)
    *
    * @param provider - OAuth provider ('google', 'apple', 'facebook')
-   * @param options - Optional configuration
+   * @param options - Optional redirect options
    *
    * @example
    * ```typescript
-   * // Simple usage
-   * await client.loginWithSocial('google');
-   *
-   * // With custom redirect URI
-   * await client.loginWithSocial('apple', {
-   *   redirectUri: 'https://example.com/auth/callback'
-   * });
+   * await client.loginWithSocial('google', { returnTo: '/auth/callback', appState: '12345' });
    * ```
    */
-  async loginWithSocial(provider: SocialProvider, _options?: { redirectUri?: string }): Promise<void> {
+  async loginWithSocial(provider: SocialProvider, options?: SocialLoginOptions): Promise<void> {
     // Emit event
     this.eventEmitter.emit({ type: 'oauth:started', data: { provider }, timestamp: Date.now() });
 
-    // Get OAuth URL from backend (backend will generate and store state)
-    // Don't send state - backend handles it
-    const { url } = await this.getSocialAuthUrl({ provider });
-
-    // Redirect to OAuth provider (via backend)
     if (hasWindow()) {
-      window.location.href = url;
+      const startPath = this.config.endpoints.socialRedirectStart.replace(':provider', provider);
+      const base = this.config.baseUrl.replace(/\/$/, '');
+      const startUrl = new URL(`${base}${startPath}`);
+
+      const returnTo = options?.returnTo ?? this.config.redirects?.success ?? '/';
+
+      startUrl.searchParams.set('returnTo', returnTo);
+      // Only include action when deviating from the default ('login').
+      if (options?.action === 'link') {
+        startUrl.searchParams.set('action', 'link');
+      }
+      if (typeof options?.appState === 'string' && options.appState.trim() !== '') {
+        startUrl.searchParams.set('appState', options.appState);
+      }
+
+      window.location.href = startUrl.toString();
     }
   }
 
   /**
-   * Auto-detect and handle OAuth callback.
+   * Exchange an `exchangeToken` (from redirect callback URL) into an AuthResponse.
    *
-   * Call this on app initialization or in callback route.
-   * Returns null if not an OAuth callback (no provider/code params).
+   * Used for `tokenDelivery: 'json'` or hybrid flows where the backend redirects back
+   * with `exchangeToken` instead of setting cookies.
    *
-   * The SDK validates the state token, completes authentication via backend,
-   * and emits appropriate events.
-   *
-   * @param urlOrParams - Optional URL string or URLSearchParams (auto-detects from window.location if not provided)
-   * @returns AuthResponse if OAuth callback detected, null otherwise
-   *
-   * @example
-   * ```typescript
-   * // Auto-detect on app init
-   * const response = await client.handleOAuthCallback();
-   * if (response) {
-   *   if (response.challengeName) {
-   *     router.navigate(['/challenge', response.challengeName]);
-   *   } else {
-   *     router.navigate(['/']); // Navigate to your app's home route
-   *   }
-   * }
-   *
-   * // In callback route
-   * const response = await client.handleOAuthCallback(window.location.search);
-   * ```
+   * @param exchangeToken - One-time exchange token from the callback URL
+   * @returns AuthResponse
    */
-  async handleOAuthCallback(urlOrParams?: string | URLSearchParams): Promise<AuthResponse | null> {
-    // Parse URL params
-    let params: URLSearchParams;
-    if (urlOrParams instanceof URLSearchParams) {
-      params = urlOrParams;
-    } else if (typeof urlOrParams === 'string') {
-      params = new URLSearchParams(urlOrParams);
-    } else if (hasWindow()) {
-      params = new URLSearchParams(window.location.search);
-    } else {
-      return null;
+  async exchangeSocialRedirect(exchangeToken: string): Promise<AuthResponse> {
+    const token = exchangeToken?.trim();
+    if (!token) {
+      throw new NAuthClientError(NAuthErrorCode.CHALLENGE_INVALID, 'Missing exchangeToken');
     }
-
-    // Check if this is an OAuth callback
-    const provider = params.get('provider') as SocialProvider | null;
-    const code = params.get('code');
-    const state = params.get('state');
-    const error = params.get('error');
-
-    if (!provider || (!code && !error)) {
-      return null; // Not an OAuth callback
-    }
-
-    this.eventEmitter.emit({ type: 'oauth:callback', data: { provider }, timestamp: Date.now() });
-
-    try {
-      // Handle OAuth error
-      if (error) {
-        const authError = new NAuthClientError(
-          NAuthErrorCode.SOCIAL_TOKEN_INVALID,
-          params.get('error_description') || error,
-          { details: { error, provider } },
-        );
-        this.eventEmitter.emit({ type: 'oauth:error', data: authError, timestamp: Date.now() });
-        throw authError;
-      }
-
-      if (!state) {
-        throw new NAuthClientError(NAuthErrorCode.CHALLENGE_INVALID, 'Missing OAuth state parameter');
-      }
-
-      // Complete OAuth flow via backend
-      // Backend validates state - don't validate on frontend
-      const response = await this.handleSocialCallback({
-        provider,
-        code: code!,
-        state,
-      });
-
-      // Emit appropriate event
-      if (response.challengeName) {
-        this.eventEmitter.emit({ type: 'auth:challenge', data: response, timestamp: Date.now() });
-      } else {
-        this.eventEmitter.emit({ type: 'auth:success', data: response, timestamp: Date.now() });
-      }
-
-      this.eventEmitter.emit({ type: 'oauth:completed', data: response, timestamp: Date.now() });
-
-      return response;
-    } catch (error) {
-      const authError =
-        error instanceof NAuthClientError
-          ? error
-          : new NAuthClientError(
-              NAuthErrorCode.SOCIAL_TOKEN_INVALID,
-              (error as Error).message || 'OAuth callback failed',
-            );
-
-      this.eventEmitter.emit({ type: 'oauth:error', data: authError, timestamp: Date.now() });
-      throw authError;
-    }
-  }
-
-  /**
-   * Get social auth URL (low-level API).
-   *
-   * For most cases, use `loginWithSocial()` which handles state management automatically.
-   */
-  async getSocialAuthUrl(request: SocialAuthUrlRequest): Promise<{ url: string }> {
-    return this.post(this.config.endpoints.socialAuthUrl, request);
-  }
-
-  /**
-   * Handle social callback.
-   */
-  async handleSocialCallback(request: SocialCallbackRequest): Promise<AuthResponse> {
-    const result = await this.post<AuthResponse>(this.config.endpoints.socialCallback, request);
+    const result = await this.post<AuthResponse>(this.config.endpoints.socialExchange, { exchangeToken: token });
     await this.handleAuthResponse(result);
     return result;
   }
@@ -973,6 +877,29 @@ export class NAuthClient {
       const accessToken = (await this.tokenManager.getTokens()).accessToken;
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+    }
+
+    // ============================================================================
+    // Trusted Device Header (JSON mode)
+    // ============================================================================
+    // In cookies mode the device token is sent automatically via httpOnly cookie.
+    // In JSON mode the backend expects the device token via a header (default: X-Device-Token).
+    //
+    // This is required for:
+    // - Checking trust status (`isTrustedDevice`)
+    // - Skipping MFA on future logins when a device is trusted
+    //
+    // We intentionally send it on all requests in JSON mode so the backend can
+    // consistently associate requests with a trusted device when present.
+    if (this.config.tokenDelivery === 'json') {
+      try {
+        const deviceToken = await this.config.storage.getItem(this.config.deviceTrust.storageKey);
+        if (deviceToken) {
+          headers[this.config.deviceTrust.headerName] = deviceToken;
+        }
+      } catch {
+        // Non-fatal: storage can fail in restricted environments (private mode, SSR, etc.).
       }
     }
 

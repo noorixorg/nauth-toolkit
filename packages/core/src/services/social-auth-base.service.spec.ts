@@ -13,6 +13,9 @@ import { OAuthUserProfile } from '../interfaces/oauth.interface';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { IUser } from '../interfaces/entities.interface';
+import { ISocialAuthStateStore } from '../interfaces/social-auth-state-store.interface';
+import type { Repository } from 'typeorm';
+import type { BaseUser } from '../entities';
 
 /**
  * Test implementation of BaseSocialAuthProviderService
@@ -64,13 +67,19 @@ describe('BaseSocialAuthProviderService', () => {
   let service: TestSocialAuthProviderService;
   let mockConfig: NAuthConfig;
   let mockLogger: NAuthLogger;
-  let mockAuthService: jest.Mocked<AuthService>;
+  type AuthServiceMockShape = {
+    getUserById: (...args: unknown[]) => Promise<IUser | null>;
+    getUserByEmail: (...args: unknown[]) => Promise<IUser | null>;
+    createSocialUser: (...args: unknown[]) => Promise<IUser>;
+  };
+  let mockAuthService: jest.Mocked<AuthServiceMockShape>;
   let mockSocialAuthService: jest.Mocked<SocialAuthService>;
   let mockJwtService: jest.Mocked<JwtService>;
   let mockSessionService: jest.Mocked<SessionService>;
   let mockChallengeHelper: jest.Mocked<AuthChallengeHelperService>;
   let mockClientInfoService: jest.Mocked<ClientInfoService>;
-  let mockStateStore: Map<string, { timestamp: number; provider: string }>;
+  let mockStateStore: jest.Mocked<ISocialAuthStateStore>;
+  let mockUserRepository: Repository<BaseUser>;
   let mockPhoneVerificationService: jest.Mocked<PhoneVerificationService>;
   let mockAuditService: jest.Mocked<AuthAuditService>;
   let mockUser: IUser;
@@ -158,7 +167,13 @@ describe('BaseSocialAuthProviderService', () => {
       }),
     } as any;
 
-    mockStateStore = new Map();
+    mockStateStore = {
+      createCsrfState: jest.fn().mockResolvedValue('generated-state'),
+      validateAndConsumeCsrfState: jest.fn().mockResolvedValue(undefined),
+      setRedirectContext: jest.fn().mockResolvedValue(undefined),
+      consumeRedirectContext: jest.fn().mockResolvedValue(null),
+    };
+    mockUserRepository = {} as unknown as Repository<BaseUser>;
     mockPhoneVerificationService = {} as any;
     mockAuditService = {
       recordEvent: jest.fn(),
@@ -174,13 +189,14 @@ describe('BaseSocialAuthProviderService', () => {
     service = new TestSocialAuthProviderService(
       mockConfig,
       mockLogger,
-      mockAuthService,
+      mockAuthService as unknown as AuthService,
       mockSocialAuthService,
       mockJwtService,
       mockSessionService,
       mockChallengeHelper,
       mockClientInfoService,
       mockStateStore,
+      mockUserRepository,
       mockPhoneVerificationService,
       mockAuditService,
     );
@@ -206,13 +222,14 @@ describe('BaseSocialAuthProviderService', () => {
       const newService = new TestSocialAuthProviderService(
         mockConfig,
         mockLogger,
-        mockAuthService,
+        mockAuthService as unknown as AuthService,
         mockSocialAuthService,
         mockJwtService,
         mockSessionService,
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
       );
@@ -224,89 +241,39 @@ describe('BaseSocialAuthProviderService', () => {
   });
 
   describe('validateState', () => {
-    it('should validate state parameter', () => {
-      const state = 'valid-state';
-      mockStateStore.set(state, {
-        timestamp: Date.now(),
-        provider: 'test',
-      });
-
-      (service as any).validateState(state);
-
-      expect(mockStateStore.has(state)).toBe(false); // Should be deleted after validation
+    it('should validate state via ISocialAuthStateStore', async () => {
+      await (service as any).validateState('valid-state');
+      expect(mockStateStore.validateAndConsumeCsrfState).toHaveBeenCalledWith('test', 'valid-state');
     });
 
-    it('should throw error when state is not found', () => {
-      try {
-        (service as any).validateState('invalid-state');
-        fail('Should have thrown NAuthException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.VALIDATION_FAILED);
-      }
-    });
-
-    it('should throw error when state provider mismatch', () => {
-      const state = 'valid-state';
-      mockStateStore.set(state, {
-        timestamp: Date.now(),
-        provider: 'different-provider',
-      });
-
-      try {
-        (service as any).validateState(state);
-        fail('Should have thrown NAuthException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.VALIDATION_FAILED);
-      }
-    });
-
-    it('should throw error when state is expired', () => {
-      const state = 'expired-state';
-      mockStateStore.set(state, {
-        timestamp: Date.now() - 6 * 60 * 1000, // 6 minutes ago
-        provider: 'test',
-      });
-
-      try {
-        (service as any).validateState(state);
-        fail('Should have thrown NAuthException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.CHALLENGE_EXPIRED);
-      }
+    it('should propagate state validation errors', async () => {
+      mockStateStore.validateAndConsumeCsrfState.mockRejectedValueOnce(
+        new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Invalid state parameter', { field: 'state' }),
+      );
+      await expect((service as any).validateState('bad-state')).rejects.toBeInstanceOf(NAuthException);
     });
   });
 
   describe('generateState', () => {
-    it('should generate state and store it', () => {
-      const state = (service as any).generateState();
-
-      expect(state).toBeDefined();
-      expect(typeof state).toBe('string');
-      expect(mockStateStore.has(state)).toBe(true);
-      expect(mockStateStore.get(state)?.provider).toBe('test');
+    it('should generate state via ISocialAuthStateStore', async () => {
+      const state = await (service as any).generateState();
+      expect(state).toBe('generated-state');
+      expect(mockStateStore.createCsrfState).toHaveBeenCalledWith('test');
     });
   });
 
   describe('handleCallback', () => {
     it('should handle OAuth callback and return auth response', async () => {
-      const state = 'valid-state';
-      mockStateStore.set(state, {
-        timestamp: Date.now(),
-        provider: 'test',
-      });
-
       mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
       mockAuthService.getUserByEmail.mockResolvedValue(null);
       mockAuthService.createSocialUser.mockResolvedValue(mockUser);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      const result = await service.handleCallback('code', state);
+      const result = await service.handleCallback('code', 'valid-state');
 
       expect(result).toBeDefined();
       expect(mockAuthService.createSocialUser).toHaveBeenCalled();
+      expect(mockStateStore.validateAndConsumeCsrfState).toHaveBeenCalledWith('test', 'valid-state');
     });
 
     it('should throw error when provider config is missing', async () => {
@@ -314,13 +281,14 @@ describe('BaseSocialAuthProviderService', () => {
       const newService = new TestSocialAuthProviderService(
         mockConfig,
         mockLogger,
-        mockAuthService,
+        mockAuthService as unknown as AuthService,
         mockSocialAuthService,
         mockJwtService,
         mockSessionService,
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
       );
@@ -353,13 +321,14 @@ describe('BaseSocialAuthProviderService', () => {
       const newService = new TestSocialAuthProviderService(
         mockConfig,
         mockLogger,
-        mockAuthService,
+        mockAuthService as unknown as AuthService,
         mockSocialAuthService,
         mockJwtService,
         mockSessionService,
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
       );
@@ -376,29 +345,18 @@ describe('BaseSocialAuthProviderService', () => {
 
   describe('linkAccount', () => {
     it('should link social account to existing user', async () => {
-      const state = 'valid-state';
-      mockStateStore.set(state, {
-        timestamp: Date.now(),
-        provider: 'test',
-      });
-
       mockAuthService.getUserById.mockResolvedValue(mockUser);
       mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      const result = await service.linkAccount('user-123', 'code', state);
+      const result = await service.linkAccount('user-123', 'code', 'valid-state');
 
       expect(result.message).toContain('account linked successfully');
       expect(mockSocialAuthService.createOrUpdateSocialAccount).toHaveBeenCalled();
+      expect(mockStateStore.validateAndConsumeCsrfState).toHaveBeenCalledWith('test', 'valid-state');
     });
 
     it('should throw error when account is already linked', async () => {
-      const state = 'valid-state';
-      mockStateStore.set(state, {
-        timestamp: Date.now(),
-        provider: 'test',
-      });
-
       mockAuthService.getUserById.mockResolvedValue(mockUser);
       mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue({
         id: 1,
@@ -407,7 +365,7 @@ describe('BaseSocialAuthProviderService', () => {
       } as any);
 
       try {
-        await service.linkAccount('user-123', 'code', state);
+        await service.linkAccount('user-123', 'code', 'valid-state');
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);

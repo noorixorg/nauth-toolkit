@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CustomAuthController } from './auth.controller';
+import { SocialRedirectController } from './social-redirect.controller';
 import { AuthModule } from '@nauth-toolkit/nestjs';
 import { GoogleSocialAuthModule } from '@nauth-toolkit/social-google/nestjs';
 import { AppleSocialAuthModule } from '@nauth-toolkit/social-apple/nestjs';
@@ -32,6 +33,6 @@ import { authConfig } from '../config/auth.config';
     PasskeyMFAModule, // 👈 Passkey MFA support (WebAuthn/FIDO2)
     AuthModule.forRoot(authConfig), // 👈 Import core module AFTER providers so they're registered
   ],
-  controllers: [CustomAuthController],
+  controllers: [CustomAuthController, SocialRedirectController],
 })
 export class CustomAuthModule {}

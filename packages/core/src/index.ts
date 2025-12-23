@@ -116,3 +116,8 @@ export * from './adapters';
 
 // Storage Factories
 export * from './adapters/storage.factory';
+
+// ============================================================================
+// Framework-neutral Handlers (for consumer backends to delegate to)
+// ============================================================================
+export * from './handlers/social-redirect.handler';

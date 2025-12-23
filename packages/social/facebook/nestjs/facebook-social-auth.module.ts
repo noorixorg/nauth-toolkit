@@ -9,6 +9,8 @@ import {
   NAuthLogger,
   PhoneVerificationService,
   ITokenVerifierService,
+  ISocialAuthStateStore,
+  BaseUser,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import {
@@ -20,6 +22,7 @@ import {
   TrustedDeviceService,
 } from '@nauth-toolkit/core/internal';
 import { TokenVerifierService as FacebookTokenVerifierService } from '../src/token-verifier.service';
+import { Repository } from 'typeorm';
 
 /**
  * Facebook Social Authentication Module (NestJS Adapter)
@@ -77,8 +80,8 @@ import { TokenVerifierService as FacebookTokenVerifierService } from '../src/tok
         sessionService: SessionService,
         challengeHelper: AuthChallengeHelperService,
         clientInfoService: ClientInfoService,
-        stateStore: Map<string, { timestamp: number; provider: string }>,
-        userRepository: any,
+        stateStore: ISocialAuthStateStore,
+        userRepository: Repository<BaseUser>,
         phoneVerificationService?: PhoneVerificationService,
         auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
         trustedDeviceService?: TrustedDeviceService, // Optional - only available when rememberDevices is enabled

@@ -9,7 +9,7 @@ import { ChallengeService } from './challenge.service';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
 import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
-import { AuthAuditService } from './auth-audit.service';
+import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { ClientInfoService } from './client-info.service';
 
@@ -594,7 +594,7 @@ describe('MFAService', () => {
       mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      await service.setPreferredMethod('user-uuid-123', 'sms');
+      await service.setPreferredMethod({ userSub: 'user-uuid-123', methodType: 'sms' });
 
       expect(mockUserRepository.update).toHaveBeenCalledWith({ id: 1 } as any, { preferredMfaMethod: 'sms' } as any);
       expect(mockMfaDeviceRepository.update).toHaveBeenCalledWith({ id: 2 } as any, { isPrimary: true } as any);
@@ -602,7 +602,7 @@ describe('MFAService', () => {
 
     it('should throw error when method type is invalid', async () => {
       try {
-        await service.setPreferredMethod('user-uuid-123', 'invalid');
+        await service.setPreferredMethod({ userSub: 'user-uuid-123', methodType: 'invalid' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -614,7 +614,7 @@ describe('MFAService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.setPreferredMethod('non-existent-user', 'totp');
+        await service.setPreferredMethod({ userSub: 'non-existent-user', methodType: 'totp' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -630,7 +630,7 @@ describe('MFAService', () => {
       mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
 
       try {
-        await service.setPreferredMethod('user-uuid-123', 'sms');
+        await service.setPreferredMethod({ userSub: 'user-uuid-123', methodType: 'sms' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -652,7 +652,7 @@ describe('MFAService', () => {
       mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      await service.setPreferredMethod('user-uuid-123', 'sms');
+      await service.setPreferredMethod({ userSub: 'user-uuid-123', methodType: 'sms' });
 
       // Should set device 2 (first SMS device) as primary
       expect(mockMfaDeviceRepository.update).toHaveBeenCalledWith({ id: 2 } as any, { isPrimary: true } as any);
@@ -674,7 +674,7 @@ describe('MFAService', () => {
       mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      await service.setPreferredMethod('user-uuid-123', 'sms');
+      await service.setPreferredMethod({ userSub: 'user-uuid-123', methodType: 'sms' });
 
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({

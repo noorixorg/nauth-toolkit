@@ -428,35 +428,39 @@ getMfaStatus(): Observable<MFAStatus>
 
 ---
 
-### getSocialAuthUrl()
+### loginWithSocial()
 
-Get OAuth redirect URL.
+Start redirect-first web social login (performs browser navigation).
 
 ```typescript
-getSocialAuthUrl(provider: string, redirectUri?: string): Observable<{ url: string }>
+loginWithSocial(provider: SocialProvider, options?: SocialLoginOptions): Promise<void>
 ```
 
 **Example**
 
 ```typescript
-this.auth.getSocialAuthUrl('google', window.location.origin + '/auth/callback').subscribe(({ url }) => {
-  window.location.href = url;
-});
+this.auth.loginWithSocial('google', { returnTo: '/auth/callback', appState: '12345' });
 ```
 
 ---
 
-### handleSocialCallback()
+### exchangeSocialRedirect()
 
-Handle OAuth callback.
+Exchange `exchangeToken` (from callback URL) into an auth result.
 
 ```typescript
-handleSocialCallback(provider: string, code: string, state: string): Observable<AuthResponse>
+exchangeSocialRedirect(exchangeToken: string): Observable<AuthResponse>
 ```
 
-**Returns**
+---
 
-- `Observable<[AuthResponse](../api/types/auth-response)>` - Emits auth result or challenge
+### verifyNativeSocial()
+
+Verify native social token (mobile).
+
+```typescript
+verifyNativeSocial(request: SocialVerifyRequest): Observable<AuthResponse>
+```
 
 ---
 

@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import '@fastify/cookie';
 
 // Load environment variables BEFORE importing AppModule
 dotenv.config();
@@ -12,7 +13,7 @@ import { NAuthHttpExceptionFilter } from '@nauth-toolkit/nestjs';
 /**
  * Bootstrap the NestJS application with Fastify
  *
- * ✅ **PLATFORM-AGNOSTIC PROOF OF CONCEPT:**
+ * **PLATFORM-AGNOSTIC PROOF OF CONCEPT:**
  * This demonstrates that nauth-toolkit's core and NestJS adapter
  * work seamlessly with ANY NestJS HTTP adapter (Express, Fastify, etc.)
  *
@@ -86,7 +87,7 @@ async function bootstrap() {
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id', 'x-csrf-token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id', 'x-csrf-token', 'x-device-token'],
   });
   const port = process.env.PORT || 3000;
 

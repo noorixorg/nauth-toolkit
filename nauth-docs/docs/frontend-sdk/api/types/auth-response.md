@@ -135,5 +135,6 @@ When phone collection is required (user has no phone number):
 - [NAuthClient.login()](../nauth-client#login) - Returns [`AuthResponse`](./auth-response)
 - [NAuthClient.signup()](../nauth-client#signup) - Returns [`AuthResponse`](./auth-response)
 - [NAuthClient.respondToChallenge()](../nauth-client#respondtochallenge) - Returns [`AuthResponse`](./auth-response)
-- [NAuthClient.handleSocialCallback()](../nauth-client#handlesocialcallback) - Returns [`AuthResponse`](./auth-response)
+- [NAuthClient.exchangeSocialRedirect()](../nauth-client#exchangesocialredirect) - Returns [`AuthResponse`](./auth-response)
+- [NAuthClient.verifyNativeSocial()](../nauth-client#verifynativesocial) - Returns [`AuthResponse`](./auth-response)
 - [Angular AuthService](../../angular/auth-service) - Observable wrapper

@@ -76,7 +76,7 @@ export interface AccountLockoutStorage {
   recordFailedAttempt(ipAddress: string): Promise<number>;
   getFailedAttempts(ipAddress: string): Promise<number>;
   isAccountLocked(ipAddress: string): Promise<boolean>;
-  blockIpAdresss(ipAddress: string, duration: number, reason: string): Promise<void>;
-  unblockIPAdress(ipAddress: string): Promise<void>;
+  lockIpAddress(ipAddress: string, duration: number, reason: string): Promise<void>;
+  unlockIpAddress(ipAddress: string): Promise<void>;
   resetFailedAttempts(ipAddress: string): Promise<void>;
 }

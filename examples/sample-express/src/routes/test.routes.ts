@@ -4,8 +4,8 @@
  * Provides endpoints for E2E testing:
  * - Retrieve test data (email codes, SMS codes)
  *
- * ⚠️ ONLY ENABLED when NAUTH_TEST_MODE=true
- * ⚠️ DO NOT USE in production
+ * WARNING: ONLY ENABLED when NAUTH_TEST_MODE=true
+ * WARNING: DO NOT USE in production
  */
 
 import { Router, Request, Response } from 'express';

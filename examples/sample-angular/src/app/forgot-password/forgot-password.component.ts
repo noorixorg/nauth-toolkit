@@ -149,7 +149,10 @@ export class ForgotPasswordComponent implements OnInit {
         this.loading.set(false);
 
         // Handle rate limit errors specifically
-        if (err instanceof NAuthClientError && err.code === NAuthErrorCode.RATE_LIMIT_PASSWORD_RESET) {
+        if (
+          err instanceof NAuthClientError &&
+          err.code === NAuthErrorCode.RATE_LIMIT_PASSWORD_RESET
+        ) {
           this.error.set('Too many reset requests. Please try again later.');
         } else {
           this.handleError(err);
@@ -176,4 +179,3 @@ export class ForgotPasswordComponent implements OnInit {
     handleAuthError(err, this.error);
   }
 }
-

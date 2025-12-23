@@ -53,6 +53,7 @@ import { runNAuthMigrationsOnStartup } from './utils/setup/run-nauth-migrations'
 import { AuthFlowContextBuilder, AuthFlowStateMachineService } from './internal';
 import { ClientInfo } from './interfaces/client-info.interface';
 import { IUser } from './interfaces/entities.interface';
+import { SocialAuthStateStore } from './services/social-auth-state-store.service';
 
 // ============================================================================
 // Types
@@ -199,7 +200,7 @@ export class NAuth {
     // ========================================================================
     // 4. Register MFA & Social Providers
     // ========================================================================
-    const socialAuthStateStore = new Map<string, { timestamp: number; provider: string }>();
+    const socialAuthStateStore = new SocialAuthStateStore(storage, logger);
 
     if (config.mfa?.enabled && services.mfaService) {
       await registerMFAProviders(

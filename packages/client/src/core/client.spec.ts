@@ -17,6 +17,30 @@ class MockStorage implements NAuthStorageAdapter {
   }
 }
 
+type FetchMock = jest.MockInstance<Promise<Response>, [RequestInfo | URL, RequestInit?]>;
+
+const getFetchMock = (): FetchMock => globalThis.fetch as unknown as FetchMock;
+
+const createMockResponse = (params: {
+  ok: boolean;
+  status: number;
+  body: unknown;
+}): Response => {
+  const rawText = typeof params.body === 'string' ? params.body : JSON.stringify(params.body);
+
+  // Minimal Response shape required by FetchAdapter:
+  // - ok/status/text()
+  // - headers.forEach()
+  return {
+    ok: params.ok,
+    status: params.status,
+    text: async () => rawText,
+    headers: {
+      forEach: (_cb: (value: string, key: string) => void): void => undefined,
+    } as unknown as Headers,
+  } as unknown as Response;
+};
+
 describe('NAuthClient', () => {
   const baseConfig: NAuthClientConfig = {
     baseUrl: 'https://api.example.com/auth',
@@ -26,24 +50,24 @@ describe('NAuthClient', () => {
   };
 
   beforeEach(() => {
-    // @ts-expect-error mocking fetch on global
-    global.fetch = jest.fn();
+    const fetchMock = jest.fn<Promise<Response>, [RequestInfo | URL, RequestInit?]>();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
   });
 
   it('handles login token response', async () => {
     const client = new NAuthClient(baseConfig);
-    // @ts-expect-error mock
-    global.fetch.mockResolvedValue({
-      ok: true,
-      status: 200,
-      text: async () =>
-        JSON.stringify({
+    getFetchMock().mockResolvedValue({
+      ...createMockResponse({
+        ok: true,
+        status: 200,
+        body: {
           accessToken: 'a1',
           refreshToken: 'r1',
           accessTokenExpiresAt: 10,
           refreshTokenExpiresAt: 20,
           user: { sub: 'u1', email: 'user@example.com', isEmailVerified: true, hasPasswordHash: true },
-        }),
+        },
+      }),
     });
 
     const response = await client.login('user@example.com', 'password');
@@ -54,12 +78,61 @@ describe('NAuthClient', () => {
 
   it('throws on non-OK response', async () => {
     const client = new NAuthClient(baseConfig);
-    // @ts-expect-error mock
-    global.fetch.mockResolvedValue({
-      ok: false,
-      status: 401,
-      text: async () => JSON.stringify({ code: 'AUTH_INVALID_CREDENTIALS', message: 'invalid' }),
-    });
+    getFetchMock().mockResolvedValue(
+      createMockResponse({
+        ok: false,
+        status: 401,
+        body: { code: 'AUTH_INVALID_CREDENTIALS', message: 'invalid' },
+      }),
+    );
     await expect(client.login('x', 'y')).rejects.toThrow('invalid');
+  });
+
+  it('sends device token header in JSON mode (trusted device feature)', async () => {
+    const storage = new MockStorage();
+    await storage.setItem('nauth_device_token', 'dt1');
+
+    const client = new NAuthClient({
+      ...baseConfig,
+      storage,
+    });
+
+    getFetchMock().mockImplementation(async (input: RequestInfo | URL, options?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+
+      if (url.endsWith('/login')) {
+        return createMockResponse({
+          ok: true,
+          status: 200,
+          body: {
+            accessToken: 'a1',
+            refreshToken: 'r1',
+            accessTokenExpiresAt: 10,
+            refreshTokenExpiresAt: 20,
+            user: { sub: 'u1', email: 'user@example.com', isEmailVerified: true, hasPasswordHash: true },
+          },
+        });
+      }
+
+      if (url.endsWith('/is-trusted-device')) {
+        const headers = (options?.headers ?? {}) as Record<string, string>;
+        expect(headers['X-Device-Token']).toBe('dt1');
+        return createMockResponse({
+          ok: true,
+          status: 200,
+          body: { trusted: true },
+        });
+      }
+
+      return createMockResponse({
+        ok: true,
+        status: 200,
+        body: {},
+      });
+    });
+
+    await client.login('user@example.com', 'password');
+    const result = await client.isTrustedDevice();
+    expect(result.trusted).toBe(true);
   });
 });

@@ -116,7 +116,7 @@ async function main() {
       },
       { prefix: '/test' },
     );
-    logger.warn('⚠️  Test mode endpoints are ENABLED. DO NOT USE in production.');
+    logger.warn('WARNING: Test mode endpoints are ENABLED. DO NOT USE in production.');
   }
 
   // Health Check

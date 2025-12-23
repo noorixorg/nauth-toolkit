@@ -47,8 +47,8 @@ interface NAuthEndpoints {
   mfaExemption: string;
 
   // Social Authentication
-  socialAuthUrl: string;
-  socialCallback: string;
+  socialRedirectStart: string;
+  socialExchange: string;
   socialLinked: string;
   socialLink: string;
   socialUnlink: string;
@@ -87,8 +87,8 @@ interface NAuthEndpoints {
   mfaPreferred: '/mfa/preferred-method',
   mfaBackupCodes: '/mfa/backup-codes/generate',
   mfaExemption: '/mfa/exemption',
-  socialAuthUrl: '/social/auth-url',
-  socialCallback: '/social/callback',
+  socialRedirectStart: '/social/:provider/redirect',
+  socialExchange: '/social/exchange',
   socialLinked: '/social/linked',
   socialLink: '/social/link',
   socialUnlink: '/social/unlink',

@@ -18,7 +18,7 @@ import { processTestConfig } from '../../current-config-filter';
  * When run via current-config.spec.ts, only tests matching the current auth.config.ts will run.
  */
 
-// ✅ ENABLED: Deferred verification tests are now active
+// ENABLED: Deferred verification tests are now active
 const DEFERRED_VERIFICATION_ENABLED = true;
 
 if (DEFERRED_VERIFICATION_ENABLED) {

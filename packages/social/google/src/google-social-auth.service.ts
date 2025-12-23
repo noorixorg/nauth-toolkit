@@ -12,6 +12,7 @@ import {
   ITokenVerifierService,
   PhoneVerificationService,
   BaseUser,
+  ISocialAuthStateStore,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import {
@@ -72,7 +73,7 @@ export class GoogleSocialAuthService extends BaseSocialAuthProviderService imple
     challengeHelper: AuthChallengeHelperService,
     clientInfoService: ClientInfoService,
     // State store shared across all providers
-    stateStore: Map<string, { timestamp: number; provider: string }>,
+    stateStore: ISocialAuthStateStore,
     userRepository: Repository<BaseUser>,
     // Phone verification service (optional - only available when SMS provider is configured)
     phoneVerificationService?: PhoneVerificationService,
@@ -140,7 +141,7 @@ export class GoogleSocialAuthService extends BaseSocialAuthProviderService imple
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Google OAuth is not enabled');
     }
 
-    const finalState = state || this.generateState();
+    const finalState = state || (await this.generateState());
     return this.oauthClient.getAuthorizationUrl(finalState);
   }
 

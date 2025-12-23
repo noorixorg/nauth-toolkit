@@ -52,17 +52,13 @@ export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, ne
   const refreshPath = endpoints.refresh ?? '/refresh';
   const loginPath = endpoints.login ?? '/login';
   const signupPath = endpoints.signup ?? '/signup';
-  const socialAuthUrlPath = endpoints.socialAuthUrl ?? '/social/auth-url';
-  const socialCallbackPath = endpoints.socialCallback ?? '/social/callback';
+  const socialExchangePath = endpoints.socialExchange ?? '/social/exchange';
   const refreshUrl = `${baseUrl}${refreshPath}`;
 
   const isAuthApiRequest = req.url.includes(baseUrl);
   const isRefreshEndpoint = req.url.includes(refreshPath);
   const isPublicEndpoint =
-    req.url.includes(loginPath) ||
-    req.url.includes(signupPath) ||
-    req.url.includes(socialAuthUrlPath) ||
-    req.url.includes(socialCallbackPath);
+    req.url.includes(loginPath) || req.url.includes(signupPath) || req.url.includes(socialExchangePath);
 
   // Build request with credentials (cookies mode only)
   let authReq = req;

@@ -1,21 +1,10 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Inject } from '@nestjs/common';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import {
-  AuthResponseDTO,
-  NAuthConfig,
-  TokenDeliveryConfig,
-  NAuthException,
-  AuthErrorCode,
-  resolveDeliveryForRequest,
-  getAccessTokenCookieName,
-  getRefreshTokenCookieName,
-  getDeviceTokenCookieName,
-} from '@nauth-toolkit/core';
-import { JwtService } from '@nauth-toolkit/core/internal';
+import { AuthResponseDTO } from '@nauth-toolkit/core';
 import { TOKEN_DELIVERY_KEY, RouteDelivery } from '../decorators/token-delivery.decorator';
-import { CsrfService } from '../services/csrf.service';
+import { TokenDeliveryHttpService } from '../services/token-delivery-http.service';
 
 /**
  * Cookie Token Interceptor
@@ -36,11 +25,8 @@ import { CsrfService } from '../services/csrf.service';
 @Injectable()
 export class CookieTokenInterceptor implements NestInterceptor {
   constructor(
-    @Inject('NAUTH_CONFIG')
-    private readonly config: NAuthConfig,
-    private readonly jwtService: JwtService,
+    private readonly tokenDeliveryHttp: TokenDeliveryHttpService,
     private readonly reflector: Reflector,
-    private readonly csrfService?: CsrfService, // Optional - only available when CSRF is enabled
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
@@ -49,7 +35,6 @@ export class CookieTokenInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    const deliveryConfig: TokenDeliveryConfig | undefined = this.config.tokenDelivery;
     const http = context.switchToHttp();
     type GenericRequest = { headers?: Record<string, unknown> };
     type GenericResponse = { cookie?: Function; setCookie?: Function } & Record<string, unknown>;
@@ -58,39 +43,18 @@ export class CookieTokenInterceptor implements NestInterceptor {
 
     // Determine effective delivery for this request
     const routeMode = this.reflector.get<RouteDelivery>(TOKEN_DELIVERY_KEY, context.getHandler());
-    const method = deliveryConfig?.method || 'json';
+    const effective = this.tokenDeliveryHttp.resolveEffectiveDelivery(req, routeMode);
 
-    // Validate route-level delivery mode against global configuration
-    if (routeMode === 'cookies') {
-      // Route requests cookies - config must allow cookies (cookies or hybrid)
-      if (method === 'json') {
-        throw new NAuthException(
-          AuthErrorCode.COOKIES_NOT_ALLOWED,
-          "Route-level cookie delivery requested, but tokenDelivery.method is 'json' (cookies disabled)",
-        );
-      }
-      // method === 'cookies' or 'hybrid' - both allow cookies, so OK
-    } else if (routeMode === 'json') {
-      // Route requests JSON - config must allow JSON (json or hybrid)
-      if (method === 'cookies') {
-        throw new NAuthException(
-          AuthErrorCode.BEARER_NOT_ALLOWED,
-          "Route-level JSON delivery requested, but tokenDelivery.method is 'cookies' (JSON/Bearer tokens disabled)",
-        );
-      }
-      // method === 'json' or 'hybrid' - both allow JSON, so OK
-    }
-
-    let effective: 'cookies' | 'json' = 'json';
-    if (routeMode) {
-      effective = routeMode;
-    } else if (method === 'hybrid') {
-      effective = resolveDeliveryForRequest(req, deliveryConfig?.hybridPolicy);
-    } else if (method === 'cookies') {
-      effective = 'cookies';
-    } else {
-      effective = 'json';
-    }
+    // ============================================================================
+    // Expose route-level delivery decision to downstream handlers
+    // ============================================================================
+    // Social redirect endpoints (and other framework-neutral handlers) may need to
+    // know the route-level delivery override in hybrid deployments. Provider callbacks
+    // often omit `Origin`, so the only deterministic signal is the route itself.
+    //
+    // We store it on the request object using a non-enumerable-ish private-ish key.
+    // Frameworks tolerate extra properties on the request object (Express/Fastify).
+    (req as Record<string, unknown>).__nauthRouteDelivery = routeMode;
 
     return next.handle().pipe(
       map((data: unknown) => {
@@ -118,128 +82,17 @@ export class CookieTokenInterceptor implements NestInterceptor {
           return responseData;
         }
 
-        // Smart default cookie options
-        const opt = deliveryConfig?.cookieOptions;
-
-        // Cookie domain handling:
-        // - undefined: Cookie set for exact host:port (e.g., localhost:3000)
-        //   For cross-port requests (localhost:4200 → localhost:3000), cookies work IF:
-        //   - Frontend sends withCredentials: true
-        //   - Backend CORS allows credentials
-        //   - SameSite allows cross-site requests (e.g., 'lax' or 'none')
-        //
-        // - 'localhost' or '.localhost': Some browsers accept this, others reject it
-        //   Modern browsers generally allow 'localhost' without domain attribute
-        //
-        // - '.example.com': For production cross-subdomain sharing
-        //   Allows cookies set by api.example.com to be sent from app.example.com
-        const cookieOptions: {
-          httpOnly: true;
-          secure: boolean;
-          sameSite: 'strict' | 'lax' | 'none';
-          path: string;
-          domain?: string;
-        } = {
-          httpOnly: true as const,
-          secure: opt?.secure !== false, // default true
-          sameSite: (opt?.sameSite || 'strict') as 'strict' | 'lax' | 'none',
-          path: opt?.path || '/',
-        };
-
-        // Include domain if provided (browsers handle localhost differently - some accept, some reject)
-        // For cross-port testing (like Cognito), omitting domain works with sameSite: 'lax' or 'none'
-        if (opt?.domain) {
-          cookieOptions.domain = opt.domain;
-        }
-
-        // Derive expiry strictly from JWT claims (no fallback)
-        // We decode here (signature already trusted as tokens are freshly issued);
-        // full validation and blacklist checks happen in the AuthGuard on subsequent requests.
-        let accessTokenMaxAgeMs = 0;
-        if (hasAccessToken && responseData.accessToken) {
-          const accessPayload = this.jwtService.decodeToken(responseData.accessToken);
-          if (!accessPayload?.exp) {
-            throw new NAuthException(
-              AuthErrorCode.TOKEN_INVALID,
-              'Access token missing or invalid exp claim; refusing to set cookies',
-            );
-          }
-          const accessExpSeconds = accessPayload.exp as number;
-          accessTokenMaxAgeMs = Math.max(0, accessExpSeconds * 1000 - Date.now());
-          if (accessTokenMaxAgeMs <= 0) {
-            throw new NAuthException(
-              AuthErrorCode.TOKEN_INVALID,
-              'Access token already expired; refusing to set cookies',
-            );
-          }
-        }
-
-        const setCookie = (name: string, value: string, options: Record<string, unknown>) => {
-          if (res && typeof res.cookie === 'function') {
-            res.cookie(name, value, options);
-          } else if (res && typeof res.setCookie === 'function') {
-            res.setCookie(name, value, options);
-          }
-        };
-
         // Set cookies only when effective is 'cookies'
         if (effective === 'cookies' && hasAccessToken && responseData.accessToken) {
-          const accessTokenCookieName = getAccessTokenCookieName(this.config);
-          setCookie(accessTokenCookieName, responseData.accessToken, {
-            ...cookieOptions,
-            maxAge: accessTokenMaxAgeMs,
+          this.tokenDeliveryHttp.setAuthCookies(res, {
+            accessToken: responseData.accessToken,
+            refreshToken: typeof responseData.refreshToken === 'string' ? responseData.refreshToken : undefined,
+            deviceToken: typeof responseData.deviceToken === 'string' ? responseData.deviceToken : undefined,
           });
-        }
-
-        if (typeof responseData.refreshToken === 'string' && responseData.refreshToken && effective === 'cookies') {
-          const refreshPayload = this.jwtService.decodeToken(responseData.refreshToken);
-          if (!refreshPayload?.exp) {
-            throw new NAuthException(
-              AuthErrorCode.TOKEN_INVALID,
-              'Refresh token missing or invalid exp claim; refusing to set cookies',
-            );
-          }
-          const refreshExpSeconds = refreshPayload.exp as number;
-          const refreshTokenMaxAgeMs = Math.max(0, refreshExpSeconds * 1000 - Date.now());
-          if (refreshTokenMaxAgeMs <= 0) {
-            throw new NAuthException(
-              AuthErrorCode.TOKEN_INVALID,
-              'Refresh token already expired; refusing to set cookies',
-            );
-          }
-          const refreshTokenCookieName = getRefreshTokenCookieName(this.config);
-          setCookie(refreshTokenCookieName, responseData.refreshToken, {
-            ...cookieOptions,
-            maxAge: refreshTokenMaxAgeMs,
-          });
-        }
-
-        // Set device token cookie for trusted device feature (web)
-        // Only set cookie when deviceToken is present and effective is cookies
-        // (hybrid mode may resolve to cookies for web origins)
-        if (typeof responseData.deviceToken === 'string' && responseData.deviceToken && effective === 'cookies') {
-          const rememberDeviceDays = this.config.mfa?.rememberDeviceDays || 30;
-          const deviceTokenMaxAgeMs = rememberDeviceDays * 24 * 60 * 60 * 1000; // Convert days to milliseconds
-          const deviceTokenCookieName = getDeviceTokenCookieName(this.config);
-          setCookie(deviceTokenCookieName, responseData.deviceToken, {
-            ...cookieOptions,
-            maxAge: deviceTokenMaxAgeMs,
-          });
-        }
-
-        // Set CSRF token cookie when using cookie-based token delivery
-        // CSRF token is required for state-changing requests to prevent CSRF attacks
-        if (effective === 'cookies' && this.csrfService && this.config.security?.csrf) {
-          const csrfToken = this.csrfService.generateToken();
-          const csrfCookieName = this.csrfService.getCookieName();
-          const csrfCookieOptions = this.csrfService.getCookieOptions();
-
-          // Use same max age as access token for CSRF cookie
-          // This ensures CSRF token expires when access token expires
-          setCookie(csrfCookieName, csrfToken, {
-            ...csrfCookieOptions,
-            maxAge: accessTokenMaxAgeMs > 0 ? accessTokenMaxAgeMs : undefined,
-          });
+          this.tokenDeliveryHttp.setCsrfCookie(res, responseData.accessToken);
+        } else if (effective === 'cookies' && hasDeviceTokenOnly && responseData.deviceToken) {
+          // trust-device endpoint: cookie only
+          this.tokenDeliveryHttp.setDeviceTokenCookie(res, responseData.deviceToken);
         }
 
         // Strip tokens, deviceToken, and expiration fields only when effective is cookies (strict web path)

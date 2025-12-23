@@ -545,16 +545,28 @@ export class ProfileComponent implements OnInit {
 
     try {
       const { oldPassword, newPassword } = this.changePasswordForm.value;
-      await this.auth.getClient().changePassword(oldPassword, newPassword);
+      this.auth.changePassword(oldPassword, newPassword).subscribe({
+        next: () => {
+          this.changingPassword.set(false);
+          this.success.set('Password changed successfully');
+          this.closeChangePasswordDialog();
 
-      this.changingPassword.set(false);
-      this.success.set('Password changed successfully');
-      this.closeChangePasswordDialog();
-
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        this.success.set(null);
-      }, 3000);
+          // Clear success message after 3 seconds
+          setTimeout(() => {
+            this.success.set(null);
+          }, 3000);
+        },
+        error: (err: unknown) => {
+          this.changingPassword.set(false);
+          if (err instanceof NAuthClientError) {
+            this.error.set(err.message);
+          } else if (err instanceof Error) {
+            this.error.set(err.message || 'Failed to change password');
+          } else {
+            this.error.set('Failed to change password');
+          }
+        },
+      });
     } catch (err: unknown) {
       this.changingPassword.set(false);
       if (err instanceof NAuthClientError) {

@@ -16,6 +16,7 @@ import {
   AuthErrorCode,
   ITokenVerifierService,
   PhoneVerificationService,
+  ISocialAuthStateStore,
 } from '@nauth-toolkit/core';
 import { VerifiedGoogleTokenProfile } from './verified-token-profile.interface';
 
@@ -41,7 +42,7 @@ describe('GoogleSocialAuthService', () => {
   let mockChallengeHelper: jest.Mocked<AuthChallengeHelperService>;
   let mockClientInfoService: jest.Mocked<ClientInfoService>;
   let mockAuditService: jest.Mocked<AuthAuditService>;
-  let mockStateStore: Map<string, { timestamp: number; provider: string }>;
+  let mockStateStore: jest.Mocked<ISocialAuthStateStore>;
   let mockPhoneVerificationService: jest.Mocked<PhoneVerificationService>;
   let mockTokenVerifier: jest.Mocked<ITokenVerifierService>;
   let mockOAuthClient: jest.Mocked<GoogleOAuthClient>;
@@ -79,7 +80,12 @@ describe('GoogleSocialAuthService', () => {
     mockPhoneVerificationService = {} as any;
 
     // Create mock state store
-    mockStateStore = new Map();
+    mockStateStore = {
+      createCsrfState: jest.fn().mockResolvedValue('generated-state'),
+      validateAndConsumeCsrfState: jest.fn().mockResolvedValue(undefined),
+      setRedirectContext: jest.fn().mockResolvedValue(undefined),
+      consumeRedirectContext: jest.fn().mockResolvedValue(null),
+    };
 
     // Create mock token verifier
     mockTokenVerifier = {
@@ -293,14 +299,8 @@ describe('GoogleSocialAuthService', () => {
       const result = await service.getAuthUrl();
 
       expect(result).toBe(authUrl);
-      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalled();
-      // Verify state was generated (should be a string)
-      const callArg = mockOAuthClient.getAuthorizationUrl.mock.calls[0]?.[0];
-      expect(callArg).toBeDefined();
-      if (callArg) {
-        expect(typeof callArg).toBe('string');
-        expect(callArg.length).toBeGreaterThan(0);
-      }
+      expect(mockStateStore.createCsrfState).toHaveBeenCalledWith('google');
+      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith('generated-state');
     });
   });
 

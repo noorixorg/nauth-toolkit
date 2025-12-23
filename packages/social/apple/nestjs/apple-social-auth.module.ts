@@ -9,6 +9,7 @@ import {
   NAuthLogger,
   PhoneVerificationService,
   ITokenVerifierService,
+  ISocialAuthStateStore,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import {
@@ -77,7 +78,7 @@ import { TokenVerifierService as AppleTokenVerifierService } from '../src/token-
         sessionService: SessionService,
         challengeHelper: AuthChallengeHelperService,
         clientInfoService: ClientInfoService,
-        stateStore: Map<string, { timestamp: number; provider: string }>,
+        stateStore: ISocialAuthStateStore,
         userRepository: any,
         phoneVerificationService?: PhoneVerificationService,
         auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true

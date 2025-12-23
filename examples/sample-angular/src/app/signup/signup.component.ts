@@ -236,7 +236,7 @@ export class SignupComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
 
-    this.auth.loginWithSocial(provider).catch((err: unknown) => {
+    this.auth.loginWithSocial(provider, { returnTo: '/auth/callback' }).catch((err: unknown) => {
       this.loading.set(false);
       this.handleError(err);
     });

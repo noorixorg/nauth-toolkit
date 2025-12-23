@@ -28,6 +28,13 @@ Each frontend app (web or mobile) chooses ONE delivery mode and calls the approp
 
 The same request should never receive both cookie tokens and JSON tokens at the same time. In practice, keep delivery deterministic by using explicit routes (recommended) or by using `hybridPolicy` (Origin-based).
 
+### Social login redirects in hybrid mode
+
+Redirect-first social login follows the same rule: **delivery must be deterministic**.
+
+- **Do not** make delivery a frontend concern for social redirects.
+- Prefer **explicit routes** (recommended) or **route-level overrides** (NestJS: `@TokenDelivery('cookies' | 'json')`) so the backend can decide delivery at the **start** request and persist it server-side for the provider callback.
+
 ## Backend Configuration
 
 ### Web Only (Cookies)

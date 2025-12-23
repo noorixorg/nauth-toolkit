@@ -215,4 +215,3 @@ export class ConfirmForgotPasswordComponent implements OnInit {
     handleAuthError(err, this.error);
   }
 }
-

@@ -470,6 +470,6 @@ this.auth.authEvents$
 
 - [AuthService (Angular)](../angular/auth-service#observables) - Angular-specific event observables
 - [NAuthClient](../api/nauth-client#event-methods) - Core client event methods
-- [Social Auth Guide](./social-auth#event-driven-architecture) - OAuth event examples
+- [Social Auth Guide](./social-auth) - Redirect-first social flow
 - [Challenge Handling](./challenge-handling) - Challenge flow navigation
 

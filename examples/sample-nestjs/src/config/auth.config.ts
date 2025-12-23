@@ -25,7 +25,6 @@ export const authConfig: NAuthModuleConfig = {
       secret: process.env.JWT_REFRESH_SECRET as string,
       expiresIn: '1d',
       rotation: true,
-      reuseDetection: true,
     },
   },
 
@@ -61,10 +60,10 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   mfa: {
-    enabled: false,
-    enforcement: 'OPTIONAL',
+    enabled: true,
+    enforcement: 'REQUIRED',
     gracePeriod: 0,
-    requireForSocialLogin: true,
+    requireForSocialLogin: false,
     allowedMethods: [MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.TOTP, MFAMethod.PASSKEY],
     issuer: 'Nauth App',
     totp: {
@@ -119,7 +118,6 @@ export const authConfig: NAuthModuleConfig = {
       domain: '.angular.dev1.noorix.com',
     },
   },
-  security: {
     csrf: {
       cookieName: 'nauth_csrf_token',
       headerName: 'x-csrf-token',
@@ -137,6 +135,11 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   social: {
+    redirect: {
+      frontendBaseUrl: 'https://angular.dev1.noorix.com',
+      allowAbsoluteReturnTo: false,
+      allowedReturnToOrigins: ['https://angular.dev1.noorix.com'],
+    },
     google: {
       enabled: true, // Enable Google OAuth (default: false)
       clientId: process.env.GOOGLE_IOS_CLIENT_ID

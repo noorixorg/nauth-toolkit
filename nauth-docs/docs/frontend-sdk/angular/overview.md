@@ -23,7 +23,7 @@ The Angular adapter provides:
 
 ## Installation
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/client
 ```
 
@@ -112,7 +112,7 @@ export const routes: Routes = [
   {
     path: 'dashboard',
     component: DashboardComponent,
-    canActivate: [authGuard],
+    canActivate: [authGuard()],
   },
 ];
 ```

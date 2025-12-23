@@ -1,44 +1,45 @@
 ---
-title: OAuth Callback Guard
-description: Drop-in route guard for handling OAuth social authentication callbacks
+title: Social Redirect Callback Guard
+description: Drop-in route guard for handling redirect-first web social login callbacks
 sidebar_position: 50
-keywords: [oauth, guard, social, callback, route, angular]
+keywords: [social, oauth, guard, redirect, callback, route, angular]
 image: /img/api-social-card.png
 ---
 
-# OAuth Callback Guard
+# Social Redirect Callback Guard
 
 **Package:** `@nauth-toolkit/client/angular`
 **Type:** Route Guard
 
-Drop-in route guard that automatically processes OAuth callbacks and redirects appropriately.
+Drop-in route guard for the redirect-first social flow. It supports:
+
+- Cookies mode: backend sets cookies before redirecting back; guard redirects to `redirects.success`
+- JSON/hybrid (and cookies-with-challenge): backend redirects back with `exchangeToken`; guard exchanges it and redirects
 
 ```typescript
-import { oauthCallbackGuard } from '@nauth-toolkit/client/angular';
+import { socialRedirectCallbackGuard } from '@nauth-toolkit/client/angular';
 ```
 
 ## Overview
 
-The `oauthCallbackGuard` eliminates the need to write custom OAuth callback components. Simply add it to your callback route and it handles:
+The `socialRedirectCallbackGuard` eliminates the need to write custom callback logic. Add it to your callback route and it handles:
 
-- Auto-detecting OAuth callback parameters
-- Validating state tokens
-- Completing authentication via backend
+- Detecting `exchangeToken` or provider errors in the callback URL
+- Completing authentication via backend exchange (`POST /auth/social/exchange`)
 - Redirecting to success/challenge/error pages
-- Event emission for custom logic
 
 ## Basic Usage
 
 ```typescript
 // app.routes.ts
 import { Routes } from '@angular/router';
-import { oauthCallbackGuard } from '@nauth-toolkit/client/angular';
+import { socialRedirectCallbackGuard } from '@nauth-toolkit/client/angular';
 
 export const routes: Routes = [
   {
     path: 'auth/callback',
-    canActivate: [oauthCallbackGuard],
-    children: [], // Empty - guard handles everything
+    canActivate: [socialRedirectCallbackGuard],
+    children: [], // Guard-only callback route
   },
   {
     path: 'home',
@@ -58,7 +59,7 @@ export const routes: Routes = [
 | Authentication successful | `/` (root)                        |
 | Challenge required        | `/auth/challenge/:challengeName`  |
 | OAuth error               | `/login`                          |
-| Not an OAuth callback     | Allow navigation (returns `true`) |
+| Not an OAuth callback     | Redirect to `redirects.success`   |
 
 ## Custom Configuration
 
@@ -104,13 +105,13 @@ sequenceDiagram
     participant OAuth as OAuth Provider
     participant Backend as NAuth Backend
     participant App as Your App
-    participant Guard as oauthCallbackGuard
+    participant Guard as socialRedirectCallbackGuard
 
-    OAuth->>Backend: Callback with code
-    Backend->>App: 302 Redirect<br/>/auth/callback?provider=google&code=...&state=...
+    OAuth->>Backend: Callback (provider -> backend)
+    Backend->>App: 302 Redirect<br/>/auth/callback?exchangeToken=...
     App->>Guard: canActivate()
-    Guard->>Guard: Detect OAuth params
-    Guard->>Backend: POST /auth/social/callback
+    Guard->>Guard: Detect exchangeToken
+    Guard->>Backend: POST /auth/social/exchange
     Backend-->>Guard: AuthResponse
 
     alt No Challenge
@@ -151,5 +152,4 @@ export class AppComponent implements OnInit {
 
 - [Social Authentication Guide](/docs/frontend-sdk/guides/social-auth) - Complete social auth guide
 - [`NAuthClient.loginWithSocial()`](../api/nauth-client#loginwithsocial) - Initiate OAuth flow
-- [`NAuthClient.handleOAuthCallback()`](../api/nauth-client#handleoauthcallback) - Manual callback handling
 - [`NAuthClientConfig`](../api/nauth-client-config#redirect-urls) - Configuration with redirect URLs

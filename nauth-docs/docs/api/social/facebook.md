@@ -22,23 +22,23 @@ npm install @nauth-toolkit/social-facebook
 
 | Export | Type | Entry |
 |--------|------|-------|
-| `FacebookSocialAuthProvider` | Class | Default |
+| `FacebookSocialAuthService` | Class | Default |
+| `TokenVerifierService` | Class | Default |
 | `FacebookSocialAuthModule` | NestJS Module | `/nestjs` |
 
-## Constructor
+## Configuration
 
-```typescript
-new FacebookSocialAuthProvider(options: FacebookSocialAuthOptions)
-```
+Configure Facebook under `config.social.facebook` (in `@nauth-toolkit/core` config).
 
-## Options
-
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `clientId` | `string` | Yes | Facebook App ID |
-| `clientSecret` | `string` | Yes | Facebook App Secret |
-| `redirectUri` | `string` | Yes | OAuth callback URL |
-| `scopes` | `string[]` | No | OAuth scopes. Default: `['email', 'public_profile']` |
+| Key | Type | Required | Description |
+| --- | --- | --- | --- |
+| `enabled` | `boolean` | No | Enable Facebook OAuth |
+| `clientId` | `string` | Yes (if enabled) | Facebook App ID |
+| `clientSecret` | `string` | Yes (if enabled) | Facebook App Secret |
+| `callbackUrl` | `string` | Yes (if enabled) | Backend callback URL (`/auth/social/facebook/callback`) |
+| `scopes` | `string[]` | No | Default: `['email', 'public_profile']` |
+| `autoLink` | `boolean` | No | Auto-link to existing users by verified email |
+| `allowSignup` | `boolean` | No | Allow creating new users on first login |
 
 ## Usage
 
@@ -58,18 +58,8 @@ export class AppModule {}
 <TabItem value="express" label="Express">
 
 ```typescript
-import { FacebookSocialAuthProvider } from '@nauth-toolkit/social-facebook';
-
 const nauth = await NAuth.create({
-  config: {
-    socialProviders: [
-      new FacebookSocialAuthProvider({
-        clientId: process.env.FACEBOOK_APP_ID!,
-        clientSecret: process.env.FACEBOOK_APP_SECRET!,
-        redirectUri: 'https://myapp.com/auth/facebook/callback',
-      }),
-    ],
-  },
+  config,
   dataSource,
   adapter: new ExpressAdapter(),
 });
@@ -79,18 +69,8 @@ const nauth = await NAuth.create({
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { FacebookSocialAuthProvider } from '@nauth-toolkit/social-facebook';
-
 const nauth = await NAuth.create({
-  config: {
-    socialProviders: [
-      new FacebookSocialAuthProvider({
-        clientId: process.env.FACEBOOK_APP_ID!,
-        clientSecret: process.env.FACEBOOK_APP_SECRET!,
-        redirectUri: 'https://myapp.com/auth/facebook/callback',
-      }),
-    ],
-  },
+  config,
   dataSource,
   adapter: new FastifyAdapter(),
 });

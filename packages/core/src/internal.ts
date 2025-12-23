@@ -166,6 +166,12 @@ export { BaseMFAProviderService } from './services/mfa-base.service';
 export { BaseSocialAuthProviderService } from './services/social-auth-base.service';
 
 /**
+ * Storage-backed OAuth CSRF + redirect context store
+ * @internal
+ */
+export { SocialAuthStateStore } from './services/social-auth-state-store.service';
+
+/**
  * Social provider registry service
  * Internal registry for managing social auth provider instances
  * @internal

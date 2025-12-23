@@ -49,7 +49,7 @@ export class AccountLockoutStorageService implements AccountLockoutStorage {
    * @param duration - Lock duration in seconds
    * @param reason - Reason for lockout
    */
-  async blockIpAdresss(ipAddress: string, duration: number, reason: string): Promise<void> {
+  async lockIpAddress(ipAddress: string, duration: number, reason: string): Promise<void> {
     const lockKey = this.getLockKey(ipAddress);
     const lockData = JSON.stringify({
       reason,
@@ -64,7 +64,7 @@ export class AccountLockoutStorageService implements AccountLockoutStorage {
    * Unlock an IP address and reset failed attempts
    * @param ipAddress - IP address to unlock
    */
-  async unblockIPAdress(ipAddress: string): Promise<void> {
+  async unlockIpAddress(ipAddress: string): Promise<void> {
     const lockKey = this.getLockKey(ipAddress);
     await this.storageAdapter.del(lockKey);
     await this.resetFailedAttempts(ipAddress);

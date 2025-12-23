@@ -311,14 +311,14 @@ See the [API Reference](./api/overview) for type requirements.
 | `mfaPreferred`     | `/mfa/preferred`            | Set preferred MFA        |
 | `mfaBackupCodes`   | `/mfa/backup-codes`         | Generate backup codes    |
 | `mfaExemption`     | `/mfa/exemption`            | Set MFA exemption        |
-| `socialAuthUrl`    | `/social/auth-url`          | Social auth URL          |
-| `socialCallback`   | `/social/callback`          | Social callback          |
+| `socialRedirectStart` | `/social/:provider/redirect` | Start web social login redirect |
+| `socialExchange`   | `/social/exchange`          | Exchange `exchangeToken` (json/hybrid or cookies-with-challenge) |
 | `socialVerify`     | `/social/:provider/verify`  | Verify native social     |
 | `socialLinked`     | `/social/linked`            | Linked accounts          |
 | `socialLink`       | `/social/link`              | Link account             |
 | `socialUnlink`     | `/social/unlink`            | Unlink account           |
 | `trustDevice`      | `/trust-device`             | Trust device             |
-| `auditHistory`     | `/audit-history`            | Audit history            |
+| `auditHistory`     | `/audit/history`            | Audit history            |
 
 ## Device Trust
 

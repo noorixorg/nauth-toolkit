@@ -46,12 +46,12 @@ export interface NAuthEndpoints {
   mfaPreferred: string;
   mfaBackupCodes: string;
   mfaExemption: string;
-  socialAuthUrl: string;
-  socialCallback: string;
   socialLinked: string;
   socialLink: string;
   socialUnlink: string;
   socialVerify: string;
+  socialRedirectStart: string;
+  socialExchange: string;
   trustDevice: string;
   isTrustedDevice: string;
   auditHistory: string;

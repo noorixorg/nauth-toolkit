@@ -144,14 +144,14 @@ const client = new NAuthClient({
 | `mfaPreferred` | `/mfa/preferred` |
 | `mfaBackupCodes` | `/mfa/backup-codes` |
 | `mfaExemption` | `/mfa/exemption` |
-| `socialAuthUrl` | `/social/auth-url` |
-| `socialCallback` | `/social/callback` |
+| `socialRedirectStart` | `/social/:provider/redirect` |
+| `socialExchange` | `/social/exchange` |
 | `socialVerify` | `/social/:provider/verify` |
 | `socialLinked` | `/social/linked` |
 | `socialLink` | `/social/link` |
 | `socialUnlink` | `/social/unlink` |
 | `trustDevice` | `/trust-device` |
-| `auditHistory` | `/audit-history` |
+| `auditHistory` | `/audit/history` |
 
 ---
 
@@ -242,16 +242,16 @@ export const appConfig: ApplicationConfig = {
 };
 ```
 
-The `oauthCallbackGuard` and `authInterceptor` automatically use the redirect URLs from the config:
+The `socialRedirectCallbackGuard` and `authInterceptor` automatically use the redirect URLs from the config:
 
 ```typescript
 import { Routes } from '@angular/router';
-import { authGuard, oauthCallbackGuard } from '@nauth-toolkit/client/angular';
+import { authGuard, socialRedirectCallbackGuard } from '@nauth-toolkit/client/angular';
 
 export const routes: Routes = [
   {
     path: 'auth/callback',
-    canActivate: [oauthCallbackGuard], // Uses config.redirects
+    canActivate: [socialRedirectCallbackGuard], // Uses config.redirects
     children: [],
   },
   {

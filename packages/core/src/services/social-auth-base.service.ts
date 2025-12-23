@@ -1,4 +1,3 @@
-import * as crypto from 'crypto';
 import { Repository } from 'typeorm';
 import { BaseUser } from '../entities';
 import { IUser } from '../interfaces/entities.interface';
@@ -13,6 +12,7 @@ import { PhoneVerificationService } from './phone-verification.service';
 import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { NAuthConfig, SocialProviderConfig } from '../interfaces/config.interface';
+import { ISocialAuthStateStore } from '../interfaces/social-auth-state-store.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { AuthResponseDTO } from '../dto';
 import { OAuthUserProfile } from '../interfaces/oauth.interface';
@@ -70,8 +70,8 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     protected readonly sessionService: SessionService,
     protected readonly challengeHelper: AuthChallengeHelperService,
     protected readonly clientInfoService: ClientInfoService,
-    // State store for CSRF protection - shared across all providers
-    protected readonly stateStore: Map<string, { timestamp: number; provider: string }>,
+    // State store for OAuth CSRF protection - MUST be shared across instances (StorageAdapter-backed)
+    protected readonly stateStore: ISocialAuthStateStore,
     // User repository for creating social users
     protected readonly userRepository: Repository<BaseUser>,
     // Phone verification service (optional - only available when SMS provider is configured)
@@ -155,7 +155,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     }
 
     // Validate state (basic CSRF protection)
-    this.validateState(state);
+    await this.validateState(state);
 
     try {
       // Get user profile from provider
@@ -235,7 +235,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     }
 
     // Validate state
-    this.validateState(state);
+    await this.validateState(state);
 
     try {
       // Get user profile from provider
@@ -338,36 +338,19 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
   /**
    * Validate state parameter for CSRF protection
    */
-  protected validateState(state: string): void {
-    const stateData = this.stateStore.get(state);
-    if (!stateData) {
-      throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Invalid state parameter', { field: 'state' });
-    }
-
-    if (stateData.provider !== this.providerName) {
-      throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'State provider mismatch', { field: 'state' });
-    }
-
-    // Check if state is not too old (5 minutes)
-    if (Date.now() - stateData.timestamp > 5 * 60 * 1000) {
-      this.stateStore.delete(state);
-      throw new NAuthException(AuthErrorCode.CHALLENGE_EXPIRED, 'State parameter expired');
-    }
-
-    // Clean up used state
-    this.stateStore.delete(state);
+  protected async validateState(state: string): Promise<void> {
+    // ========================================================================
+    // SECURITY: CSRF state MUST be one-time use
+    // ========================================================================
+    // The store enforces single-use semantics in a multi-server safe way.
+    await this.stateStore.validateAndConsumeCsrfState(this.providerName, state);
   }
 
   /**
    * Generate random state for CSRF protection
    */
-  protected generateState(): string {
-    const state = crypto.randomBytes(32).toString('hex');
-    this.stateStore.set(state, {
-      timestamp: Date.now(),
-      provider: this.providerName,
-    });
-    return state;
+  protected async generateState(): Promise<string> {
+    return await this.stateStore.createCsrfState(this.providerName);
   }
 
   /**

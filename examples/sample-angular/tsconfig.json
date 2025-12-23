@@ -12,6 +12,15 @@
     "isolatedModules": true,
     "experimentalDecorators": true,
     "importHelpers": true,
+    "baseUrl": ".",
+    "paths": {
+      "@nauth-toolkit/client": [
+        "../../packages/client/src/index.ts"
+      ],
+      "@nauth-toolkit/client/angular": [
+        "../../packages/client/src/angular/index.ts"
+      ]
+    },
     "target": "ES2022",
     "module": "preserve"
   },

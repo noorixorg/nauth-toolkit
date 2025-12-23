@@ -1,5 +1,5 @@
 import { Module, DynamicModule, Global } from '@nestjs/common';
-import { APP_INTERCEPTOR, APP_GUARD, Reflector } from '@nestjs/core';
+import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource, EntityMetadata, Repository } from 'typeorm';
 // Public API imports
@@ -35,6 +35,7 @@ import {
   SMSProvider,
   SMSTemplateEngine,
   SMSTemplateEngineImpl,
+  SocialRedirectHandler,
 } from '@nauth-toolkit/core';
 
 // Internal API imports (for framework adapter use only)
@@ -54,6 +55,7 @@ import {
   SocialProviderRegistry,
   AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent() for instantiation
   PasswordResetService,
+  SocialAuthStateStore,
 } from '@nauth-toolkit/core/internal';
 
 // MaxMind module type (for type safety in factory)
@@ -81,6 +83,7 @@ import { CookieTokenInterceptor } from './interceptors/cookie-token.interceptor'
 import { AuthGuard } from './guards/auth.guard';
 import { CsrfGuard } from './guards/csrf.guard';
 import { CsrfService } from './services/csrf.service';
+import { TokenDeliveryHttpService } from './services/token-delivery-http.service';
 import { nauthMigrationsBootstrapProvider } from './services/migrations-bootstrap.service';
 
 /**
@@ -160,23 +163,28 @@ export class AuthModule {
           provide: APP_INTERCEPTOR,
           useClass: ClientInfoInterceptor,
         },
+        // Shared token delivery helper (used by interceptor + controllers)
+        TokenDeliveryHttpService,
+
+        // Social redirect handler (framework-neutral). Consumer apps define controllers and delegate here.
+        {
+          provide: SocialRedirectHandler,
+          useFactory: (
+            config: NAuthConfig,
+            socialAuthService: SocialAuthService,
+            stateStore: SocialAuthStateStore,
+            storage: StorageAdapter,
+            logger: NAuthLogger,
+          ) => {
+            return new SocialRedirectHandler(config, socialAuthService, stateStore, storage, logger);
+          },
+          inject: ['NAUTH_CONFIG', SocialAuthService, 'SOCIAL_AUTH_STATE_STORE', 'STORAGE_ADAPTER', 'NAUTH_LOGGER'],
+        },
+
         // Global interceptor for cookie token delivery (no-op in JSON mode)
         {
           provide: APP_INTERCEPTOR,
-          useFactory: (
-            config: NAuthConfig,
-            jwtService: JwtService,
-            reflector: Reflector,
-            csrfService?: CsrfService, // Optional - only available when CSRF is enabled
-          ) => {
-            return new CookieTokenInterceptor(config, jwtService, reflector, csrfService);
-          },
-          inject: [
-            'NAUTH_CONFIG',
-            JwtService,
-            Reflector,
-            { token: CsrfService, optional: true }, // Optional - only available when CSRF is enabled
-          ],
+          useClass: CookieTokenInterceptor,
         },
 
         // CSRF Service (always provided, but only used when tokenDelivery.method === 'cookies' or 'hybrid')
@@ -752,10 +760,13 @@ export class AuthModule {
           inject: ['NAUTH_CONFIG', 'NAUTH_LOGGER', { token: 'TrustedDeviceRepository', optional: true }],
         },
 
-        // Social Auth State Store - shared Map for CSRF state validation across all providers
+        // Social Auth State Store - StorageAdapter-backed, cluster-safe CSRF state + redirect context store
         {
           provide: 'SOCIAL_AUTH_STATE_STORE',
-          useValue: new Map<string, { timestamp: number; provider: string }>(),
+          useFactory: (storageAdapter: StorageAdapter, logger: NAuthLogger) => {
+            return new SocialAuthStateStore(storageAdapter, logger);
+          },
+          inject: ['STORAGE_ADAPTER', 'NAUTH_LOGGER'],
         },
 
         // Social Provider Registry - internal registry for social providers
@@ -1143,14 +1154,14 @@ export class AuthModule {
                       // Filter out non-compatible types from globalVariables
                       const smsGlobalVars: Record<string, string | number | boolean | undefined> = {};
                       for (const [key, value] of Object.entries(smsTemplates.globalVariables)) {
-                          if (
-                            typeof value === 'string' ||
-                            typeof value === 'number' ||
-                            typeof value === 'boolean' ||
-                            value === undefined
-                          ) {
-                            smsGlobalVars[key] = value;
-                          }
+                        if (
+                          typeof value === 'string' ||
+                          typeof value === 'number' ||
+                          typeof value === 'boolean' ||
+                          value === undefined
+                        ) {
+                          smsGlobalVars[key] = value;
+                        }
                       }
 
                       const mergedVars: Record<string, string | number | boolean | undefined> = {
@@ -1282,6 +1293,8 @@ export class AuthModule {
         ...(config.smsProvider ? ['SMS_PROVIDER', PhoneVerificationService] : []),
         SocialAuthService, // Always export - providers register themselves when modules are imported
         MFAService, // Always export - MFA providers register themselves when modules are imported
+        // Social redirect helper (framework-neutral handler consumers delegate to)
+        SocialRedirectHandler,
         // TrustedDeviceService is provided but not exported (used internally by AuthService)
         'NAUTH_LOGGER',
         'NAUTH_CONFIG', // Export config so other modules can access it

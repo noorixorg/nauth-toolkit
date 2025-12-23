@@ -944,28 +944,26 @@ See [Managing MFA Devices](/docs/features/mfa#managing-mfa-devices) for complete
 
 ## Social Authentication
 
-### Get Social Auth URL
+Redirect-first social login. The backend owns the OAuth callback, sets cookies (or issues an `exchangeToken`), then redirects back to the frontend.
 
-Get OAuth authorization URL for a social provider.
+### Start social login redirect
+
+`GET /auth/social/:provider/redirect?returnTo=/auth/callback&appState=12345`
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { SocialAuthService, GetSocialAuthUrlDTO, Public } from '@nauth-toolkit/nestjs';
-
-@Controller('auth')
-export class AuthController {
-  constructor(private readonly socialAuthService: SocialAuthService) {}
-
-  @Public()
-  @Post('social/auth-url')
-  @HttpCode(HttpStatus.OK)
-  async getSocialAuthUrl(@Body() dto: GetSocialAuthUrlDTO): Promise<{ url: string }> {
-    const { url } = await this.socialAuthService.getSocialAuthUrl(dto);
-    return { url };
-  }
+@Public()
+@Redirect()
+@Get('social/:provider/redirect')
+async start(
+  @Param('provider') provider: string,
+  @Query() q: { returnTo?: string; appState?: string },
+  @Req() req: unknown,
+): Promise<{ url: string }> {
+  const out = await this.socialRedirect.start({ provider, returnTo: q.returnTo, appState: q.appState, req });
+  return { url: out.redirectUrl };
 }
 ```
 
@@ -973,17 +971,17 @@ export class AuthController {
 <TabItem value="express" label="Express">
 
 ```typescript
-router.post('/social/auth-url', nauth.helpers.public(), async (req, res, next) => {
+router.get('/social/:provider/redirect', async (req, res, next) => {
   try {
-    if (!nauth.socialAuthService) {
-      return res.status(400).json({ error: 'Social auth service is not available' });
-    }
-
-    const dto = Object.assign(new GetSocialAuthUrlDTO(), req.body);
-    const { url } = await nauth.socialAuthService.getSocialAuthUrl(dto);
-    res.json({ url });
-  } catch (error) {
-    next(error);
+    const out = await socialRedirect.start({
+      provider: req.params.provider,
+      returnTo: typeof req.query.returnTo === 'string' ? req.query.returnTo : undefined,
+      appState: typeof req.query.appState === 'string' ? req.query.appState : undefined,
+      req,
+    });
+    res.redirect(302, out.redirectUrl);
+  } catch (e) {
+    next(e);
   }
 });
 ```
@@ -992,117 +990,79 @@ router.post('/social/auth-url', nauth.helpers.public(), async (req, res, next) =
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-fastify.post(
-  '/social/auth-url',
-  { preHandler: nauth.helpers.public() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    if (!nauth.socialAuthService) {
-      throw new BadRequestException('Social auth service is not available');
-    }
-
-    const dto = Object.assign(new GetSocialAuthUrlDTO(), req.body);
-    const { url } = await nauth.socialAuthService.getSocialAuthUrl(dto);
-    return { url };
-  }),
-);
-```
-
-</TabItem>
-</Tabs>
-
-**Request DTO:** [`GetSocialAuthUrlDTO`](/docs/api/core/dto/get-social-auth-url-dto)
-
-```json
-{
-  "provider": "google",
-  "state": "random-state-123"
-}
-```
-
-**Response:**
-```json
-{
-  "url": "https://accounts.google.com/o/oauth2/v2/auth?..."
-}
-```
-
-### Handle Social Callback
-
-Process OAuth callback and authenticate user.
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { SocialAuthService, HandleSocialCallbackDTO, AuthResponseDTO, Public } from '@nauth-toolkit/nestjs';
-
-@Controller('auth')
-export class AuthController {
-  constructor(private readonly socialAuthService: SocialAuthService) {}
-
-  @Public()
-  @Post('social/callback')
-  @HttpCode(HttpStatus.OK)
-  async handleSocialCallback(@Body() dto: HandleSocialCallbackDTO): Promise<AuthResponseDTO> {
-    return await this.socialAuthService.handleSocialCallback(dto);
-  }
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-router.post('/social/callback', nauth.helpers.public(), async (req, res, next) => {
-  try {
-    if (!nauth.socialAuthService) {
-      return res.status(400).json({ error: 'Social auth service is not available' });
-    }
-
-    const dto = Object.assign(new HandleSocialCallbackDTO(), req.body);
-    const result = await nauth.socialAuthService.handleSocialCallback(dto);
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
+fastify.get('/social/:provider/redirect', async (req, reply) => {
+  const q = req.query as Record<string, unknown>;
+  const out = await socialRedirect.start({
+    provider: (req.params as any).provider,
+    returnTo: typeof q.returnTo === 'string' ? q.returnTo : undefined,
+    appState: typeof q.appState === 'string' ? q.appState : undefined,
+    req,
+  });
+  return reply.redirect(302, out.redirectUrl);
 });
 ```
 
 </TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-fastify.post(
-  '/social/callback',
-  { preHandler: nauth.helpers.public() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    if (!nauth.socialAuthService) {
-      throw new BadRequestException('Social auth service is not available');
-    }
-
-    const dto = Object.assign(new HandleSocialCallbackDTO(), req.body);
-    return nauth.socialAuthService.handleSocialCallback(dto);
-  }),
-);
-```
-
-</TabItem>
 </Tabs>
 
-**Request DTO:** [`HandleSocialCallbackDTO`](/docs/api/core/dto/handle-social-callback-dto)
+### Provider callback (backend)
 
-```json
-{
-  "provider": "google",
-  "code": "4/0AeanS...",
-  "state": "random-state-123"
+Provider redirects back to:
+
+- `GET /auth/social/:provider/callback` (Google/Facebook)
+- `POST /auth/social/:provider/callback` (Apple `form_post`)
+
+Backend responds with:
+
+- **302 → frontend** `returnTo?appState=...` (cookies success path), and sets httpOnly cookies in the same response
+- **302 → frontend** `returnTo?appState=...&exchangeToken=...` (json/hybrid, and cookies-with-challenge)
+
+#### NestJS: avoiding manual cookie logic
+
+If you return the auth payload in the same object as the redirect URL, the toolkit’s `CookieTokenInterceptor` can set cookies automatically (same behavior as other endpoints), and strip tokens from the response body in cookies mode.
+
+```typescript
+import { Controller, Get, Param, Query, Req, Redirect } from '@nestjs/common';
+import { Public, SocialRedirectHandler, AuthResponseDTO, TokenDelivery } from '@nauth-toolkit/nestjs';
+
+@Controller('auth/social')
+export class SocialRedirectController {
+  constructor(private readonly socialRedirect: SocialRedirectHandler) {}
+
+  @Public()
+  @Redirect()
+  // Optional: use explicit route-level delivery in hybrid deployments
+  // @TokenDelivery('cookies')
+  @Get(':provider/callback')
+  async callbackGet(
+    @Param('provider') provider: string,
+    @Query() q: { code?: string; state?: string; error?: string; error_description?: string },
+    @Req() req: unknown,
+  ): Promise<{ url: string } & Partial<AuthResponseDTO>> {
+    const out = await this.socialRedirect.callback({
+      provider,
+      code: q.code,
+      state: q.state,
+      error: q.error,
+      errorDescription: q.error_description,
+      req,
+    });
+
+    const authResponse = (out as unknown as { authResponse?: AuthResponseDTO }).authResponse;
+    return { url: out.redirectUrl, ...(authResponse ?? {}) };
+  }
 }
 ```
 
-**Response:** [`AuthResponseDTO`](/docs/api/core/dto/auth-response-dto) - Contains tokens or challenge
+### Exchange `exchangeToken`
 
-See [Social Login](/docs/features/social-login) for complete social authentication flow.
+`POST /auth/social/exchange`
+
+```json
+{ "exchangeToken": "..." }
+```
+
+Response: [`AuthResponseDTO`](/docs/api/core/dto/auth-response-dto)
 
 ## User Profile
 

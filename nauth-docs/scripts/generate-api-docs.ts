@@ -323,13 +323,13 @@ ${properties.map((p) => `  ${p.name}: undefined, // TODO: Add example value`).jo
  * Main execution
  */
 async function main() {
-  console.log('🔍 Scanning nauth-toolkit packages...\n');
+  console.log('Scanning nauth-toolkit packages...\n');
 
   const packagesDir = path.join(__dirname, '../../packages');
   const packages = ['core', 'nestjs', 'express'];
 
   for (const pkg of packages) {
-    console.log(`📦 Scanning ${pkg}...`);
+    console.log(`Scanning ${pkg}...`);
     const packagePath = path.join(packagesDir, pkg);
     const exports = scanPackage(packagePath);
 

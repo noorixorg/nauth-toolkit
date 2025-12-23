@@ -256,7 +256,13 @@ describe('AuthChallengeHelperService', () => {
       expect(result.challengeParameters?.email).toBe('test@example.com');
       expect(result.challengeParameters?.codeDeliveryDestination).toBeDefined();
       expect(result.userSub).toBe('user-uuid-123');
-      expect(mockEmailVerificationService.sendVerificationEmail).toHaveBeenCalledWith('user-uuid-123', undefined);
+      expect(mockEmailVerificationService.sendVerificationEmail).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          sub: 'user-uuid-123',
+          baseUrl: undefined,
+          challengeSessionId: 1,
+        }),
+      );
     });
 
     it('should create challenge response for VERIFY_PHONE and send SMS', async () => {
@@ -281,7 +287,13 @@ describe('AuthChallengeHelperService', () => {
       expect(result.challengeName).toBe(AuthChallenge.VERIFY_PHONE);
       expect(result.challengeParameters?.phone).toBe('+1234567890');
       expect(result.challengeParameters?.codeDeliveryDestination).toBeDefined();
-      expect(mockPhoneVerificationService.sendVerificationSMS).toHaveBeenCalledWith('user-uuid-123');
+      expect(mockPhoneVerificationService.sendVerificationSMS).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          sub: 'user-uuid-123',
+          skipAlreadyVerifiedCheck: false,
+          challengeSessionId: 1,
+        }),
+      );
     });
 
     it('should handle VERIFY_PHONE when phone is not provided', async () => {

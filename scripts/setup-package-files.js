@@ -96,7 +96,7 @@ function createREADME(packagePath, packageName, description) {
 
 ${description}
 
-## ⚠️ Preview Release Notice
+## WARNING: Preview Release Notice
 
 **This is a preview release for internal testing. Do not use in production yet.**
 
@@ -132,7 +132,7 @@ function copyLICENSE(packagePath, packageName) {
   const licenseDest = path.join(packagePath, 'LICENSE');
 
   if (!fs.existsSync(LICENSE_FILE)) {
-    console.log(`  ⚠️  LICENSE file not found at root, skipping copy for ${packageName}`);
+    console.log(`  WARNING: LICENSE file not found at root, skipping copy for ${packageName}`);
     return;
   }
 
@@ -146,7 +146,7 @@ function copyLICENSE(packagePath, packageName) {
 }
 
 function main() {
-  console.log('📦 Setting up package files...\n');
+  console.log('Setting up package files...\n');
 
   const packages = getAllPackages();
 
@@ -157,7 +157,7 @@ function main() {
     copyLICENSE(pkg.path, pkg.name);
   }
 
-  console.log('\n✅ All packages updated!\n');
+  console.log('\nAll packages updated!\n');
 }
 
 main();

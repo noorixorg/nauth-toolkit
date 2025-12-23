@@ -15,6 +15,7 @@ import {
   AuthErrorCode,
   ITokenVerifierService,
   PhoneVerificationService,
+  ISocialAuthStateStore,
 } from '@nauth-toolkit/core';
 import { VerifiedAppleTokenProfile } from './verified-token-profile.interface';
 
@@ -40,7 +41,7 @@ describe('AppleSocialAuthService', () => {
   let mockChallengeHelper: jest.Mocked<AuthChallengeHelperService>;
   let mockClientInfoService: jest.Mocked<ClientInfoService>;
   let mockAuditService: jest.Mocked<AuthAuditService>;
-  let mockStateStore: Map<string, { timestamp: number; provider: string }>;
+  let mockStateStore: jest.Mocked<ISocialAuthStateStore>;
   let mockPhoneVerificationService: jest.Mocked<PhoneVerificationService>;
   let mockTokenVerifier: jest.Mocked<ITokenVerifierService>;
   let mockOAuthClient: jest.Mocked<AppleOAuthClient>;
@@ -83,7 +84,12 @@ describe('AppleSocialAuthService', () => {
     mockClientInfoService = {} as any;
     mockAuditService = {} as any;
     mockPhoneVerificationService = {} as any;
-    mockStateStore = new Map();
+    mockStateStore = {
+      createCsrfState: jest.fn().mockResolvedValue('generated-state'),
+      validateAndConsumeCsrfState: jest.fn().mockResolvedValue(undefined),
+      setRedirectContext: jest.fn().mockResolvedValue(undefined),
+      consumeRedirectContext: jest.fn().mockResolvedValue(null),
+    };
 
     mockTokenVerifier = {
       verifyAppleToken: jest.fn(),

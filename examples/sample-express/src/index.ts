@@ -108,7 +108,7 @@ async function main() {
   // Test routes (only enabled when NAUTH_TEST_MODE=true)
   if (process.env.NAUTH_TEST_MODE === 'true') {
     app.use('/test', createTestRoutes(dataSource));
-    logger.warn('⚠️  Test mode endpoints are ENABLED. DO NOT USE in production.');
+    logger.warn('WARNING: Test mode endpoints are ENABLED. DO NOT USE in production.');
   }
 
   // Health check endpoint

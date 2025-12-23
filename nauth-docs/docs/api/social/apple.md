@@ -22,24 +22,23 @@ npm install @nauth-toolkit/social-apple
 
 | Export | Type | Entry |
 |--------|------|-------|
-| `AppleSocialAuthProvider` | Class | Default |
+| `AppleSocialAuthService` | Class | Default |
+| `TokenVerifierService` | Class | Default |
 | `AppleSocialAuthModule` | NestJS Module | `/nestjs` |
 
-## Constructor
+## Configuration
 
-```typescript
-new AppleSocialAuthProvider(options: AppleSocialAuthOptions)
-```
+Configure Apple under `config.social.apple` (in `@nauth-toolkit/core` config).
 
-## Options
-
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `clientId` | `string` | Yes | Apple Services ID |
-| `teamId` | `string` | Yes | Apple Developer Team ID |
-| `keyId` | `string` | Yes | Sign in with Apple key ID |
-| `privateKey` | `string` | Yes | Private key (PEM format) |
-| `redirectUri` | `string` | Yes | OAuth callback URL |
+| Key | Type | Required | Description |
+| --- | --- | --- | --- |
+| `enabled` | `boolean` | No | Enable Apple Sign-In |
+| `clientId` | `string` | Yes (if enabled) | Apple Services ID |
+| `clientSecret` | `string` | Yes (if enabled for web) | Client secret JWT (web) |
+| `callbackUrl` | `string` | Yes (if enabled) | Backend callback URL (`/auth/social/apple/callback`) |
+| `scopes` | `string[]` | No | Default: `['name', 'email']` |
+| `autoLink` | `boolean` | No | Auto-link to existing users by verified email |
+| `allowSignup` | `boolean` | No | Allow creating new users on first login |
 
 ## Usage
 
@@ -59,20 +58,8 @@ export class AppModule {}
 <TabItem value="express" label="Express">
 
 ```typescript
-import { AppleSocialAuthProvider } from '@nauth-toolkit/social-apple';
-
 const nauth = await NAuth.create({
-  config: {
-    socialProviders: [
-      new AppleSocialAuthProvider({
-        clientId: process.env.APPLE_CLIENT_ID!,
-        teamId: process.env.APPLE_TEAM_ID!,
-        keyId: process.env.APPLE_KEY_ID!,
-        privateKey: process.env.APPLE_PRIVATE_KEY!,
-        redirectUri: 'https://myapp.com/auth/apple/callback',
-      }),
-    ],
-  },
+  config,
   dataSource,
   adapter: new ExpressAdapter(),
 });
@@ -82,20 +69,8 @@ const nauth = await NAuth.create({
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { AppleSocialAuthProvider } from '@nauth-toolkit/social-apple';
-
 const nauth = await NAuth.create({
-  config: {
-    socialProviders: [
-      new AppleSocialAuthProvider({
-        clientId: process.env.APPLE_CLIENT_ID!,
-        teamId: process.env.APPLE_TEAM_ID!,
-        keyId: process.env.APPLE_KEY_ID!,
-        privateKey: process.env.APPLE_PRIVATE_KEY!,
-        redirectUri: 'https://myapp.com/auth/apple/callback',
-      }),
-    ],
-  },
+  config,
   dataSource,
   adapter: new FastifyAdapter(),
 });

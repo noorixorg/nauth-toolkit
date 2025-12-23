@@ -14,6 +14,7 @@ import {
   AuthAuditService,
   PhoneVerificationService,
   BaseUser,
+  ISocialAuthStateStore,
 } from '../../index';
 // Internal API imports (for framework adapter use only)
 import {
@@ -80,7 +81,7 @@ export async function initSocialAuth(
   challengeHelper: AuthChallengeHelperService,
   clientInfoService: ClientInfoService,
   logger: NAuthLogger,
-  socialAuthStateStore: Map<string, { timestamp: number; provider: string }>,
+  socialAuthStateStore: ISocialAuthStateStore,
   userRepository: Repository<BaseUser>,
   phoneVerificationService?: PhoneVerificationService,
   auditService?: AuthAuditService,

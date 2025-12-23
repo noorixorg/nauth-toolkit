@@ -57,8 +57,7 @@ import {
 
   // Social types
   LinkedAccountsResponse, // See [LinkedAccountsResponse](./types/linked-accounts-response)
-  SocialAuthUrlRequest, // See [SocialAuthUrlRequest](./types/social-auth-url-request)
-  SocialCallbackRequest, // See [SocialCallbackRequest](./types/social-callback-request)
+  SocialLoginOptions, // See [SocialLoginOptions](./types/social-login-options)
   SocialVerifyRequest, // See [SocialVerifyRequest](./types/social-verify-request)
 
   // Config types

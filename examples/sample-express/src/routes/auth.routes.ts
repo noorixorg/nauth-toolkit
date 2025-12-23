@@ -543,7 +543,7 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
   /**
    * Grant or revoke MFA exemption for current user
    *
-   * ⚠️ SECURITY NOTE: In production, this should be an admin-only operation.
+   * SECURITY NOTE: In production, this should be an admin-only operation.
    *
    * POST /auth/mfa/exemption
    * Body: { exempt: boolean, reason?: string }

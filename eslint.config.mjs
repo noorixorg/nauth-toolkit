@@ -80,7 +80,7 @@ export default [
       '@typescript-eslint/interface-name-prefix': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/no-explicit-any': 'warn', // ✅ PROJ_RULES: Warn instead of error (too many in interfaces)
+      '@typescript-eslint/no-explicit-any': 'warn', // PROJ_RULES: Warn instead of error (too many in interfaces)
       '@typescript-eslint/no-unused-vars': 'off', // Handled by unused-imports plugin
       '@typescript-eslint/no-empty-function': 'warn',
       '@typescript-eslint/ban-ts-comment': 'warn',
@@ -106,7 +106,7 @@ export default [
       // ============================================================================
       // General Best Practices
       // ============================================================================
-      'no-console': ['warn', { allow: ['warn', 'error'] }], // ✅ PROJ_RULES: No console.log
+      'no-console': ['warn', { allow: ['warn', 'error'] }], // PROJ_RULES: No console.log
       'no-debugger': 'error',
       'no-var': 'error',
       'prefer-const': 'error',

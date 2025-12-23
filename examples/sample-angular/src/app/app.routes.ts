@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, oauthCallbackGuard } from '@nauth-toolkit/client/angular';
+import { authGuard, socialRedirectCallbackGuard } from '@nauth-toolkit/client/angular';
 import { challengeRouteGuard } from './guards/challenge-route.guard';
 
 /**
@@ -35,8 +35,10 @@ export const routes: Routes = [
   },
   {
     path: 'auth/callback',
-    canActivate: [oauthCallbackGuard],
-    children: [], // Fallback - guard handles redirect
+    canActivate: [socialRedirectCallbackGuard],
+    // Guard-only callback route. The guard handles exchanging `exchangeToken` (json/hybrid)
+    // and then redirects to `redirects.success` (dashboard).
+    children: [],
   },
   {
     path: 'auth/challenge/force-change-password',
@@ -50,12 +52,14 @@ export const routes: Routes = [
   // MFA setup OTP verification route (for SMS/Email setup during signup)
   {
     path: 'auth/challenge/mfa-setup-required/verify',
-    loadComponent: () => import('./challenge/otp-verify.component').then((m) => m.OtpVerifyComponent),
+    loadComponent: () =>
+      import('./challenge/otp-verify.component').then((m) => m.OtpVerifyComponent),
   },
   // MFA method selector route (for choosing from existing methods during login)
   {
     path: 'auth/challenge/mfa-selector',
-    loadComponent: () => import('./challenge/mfa-selector.component').then((m) => m.MfaSelectorComponent),
+    loadComponent: () =>
+      import('./challenge/mfa-selector.component').then((m) => m.MfaSelectorComponent),
   },
   // Passkey verification route (MFA_REQUIRED with passkey method)
   // Passkey component handles both setup and verification

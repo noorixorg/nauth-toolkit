@@ -71,12 +71,14 @@ export class FetchAdapter implements HttpAdapter {
     if (!response.ok) {
       const errorData = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {};
       const code =
-        typeof errorData['code'] === 'string' ? (errorData.code as NAuthErrorCode) : NAuthErrorCode.INTERNAL_ERROR;
+        typeof errorData['code'] === 'string'
+          ? (errorData['code'] as NAuthErrorCode)
+          : NAuthErrorCode.INTERNAL_ERROR;
       const message =
         typeof errorData['message'] === 'string'
-          ? (errorData.message as string)
+          ? (errorData['message'] as string)
           : `Request failed with status ${status}`;
-      const timestamp = typeof errorData['timestamp'] === 'string' ? errorData.timestamp : undefined;
+      const timestamp = typeof errorData['timestamp'] === 'string' ? (errorData['timestamp'] as string) : undefined;
       const details = errorData['details'] as Record<string, unknown> | undefined;
 
       throw new NAuthClientError(code, message, {

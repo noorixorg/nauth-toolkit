@@ -41,5 +41,4 @@ import { LinkedAccountsResponse } from '@nauth-toolkit/client';
 
 ## Related Types
 
-- [`SocialCallbackRequest`](./social-callback-request) - OAuth callback request
-- [`SocialAuthUrlRequest`](./social-auth-url-request) - OAuth URL request
+- [`SocialLoginOptions`](./social-login-options) - Web redirect-first options
