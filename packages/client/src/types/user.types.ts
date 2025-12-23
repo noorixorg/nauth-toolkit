@@ -14,6 +14,13 @@ export interface AuthUser {
   mfaEnabled?: boolean;
   socialProviders?: string[] | null;
   hasPasswordHash: boolean;
+  /**
+   * Authentication method used to create the current session.
+   *
+   * This is session-scoped (how the user logged in this time), not an account capability.
+   * Use `hasPasswordHash` and `socialProviders` to determine what login methods the account supports.
+   */
+  sessionAuthMethod?: string | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }

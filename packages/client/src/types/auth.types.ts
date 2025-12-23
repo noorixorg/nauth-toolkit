@@ -21,6 +21,16 @@ export interface AuthResponse {
   refreshToken?: string;
   accessTokenExpiresAt?: number;
   refreshTokenExpiresAt?: number;
+  /**
+   * Authentication method used to create the current session.
+   *
+   * Examples:
+   * - `password`
+   * - `google`
+   * - `apple`
+   * - `facebook`
+   */
+  authMethod?: string;
   trusted?: boolean;
   deviceToken?: string;
   challengeName?: AuthChallenge;

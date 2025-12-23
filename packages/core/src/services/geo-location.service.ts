@@ -213,7 +213,7 @@ export class GeoLocationService {
         }
 
         return geoData;
-      } catch (_error) {
+      } catch {
         // Non-fatal: Try country database (error logged at warn level if needed)
       }
     } else {
@@ -231,7 +231,7 @@ export class GeoLocationService {
         return {
           country: result.country?.isoCode,
         };
-      } catch (_error) {
+      } catch {
         // Non-fatal: Return empty result (error handled gracefully)
       }
     }

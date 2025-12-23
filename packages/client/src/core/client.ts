@@ -391,7 +391,15 @@ export class NAuthClient {
     newPassword: string,
   ): Promise<ConfirmForgotPasswordResponse> {
     const payload: ConfirmForgotPasswordRequest = { identifier, code, newPassword };
-    return this.post<ConfirmForgotPasswordResponse>(this.config.endpoints.confirmForgotPassword, payload);
+    const result = await this.post<ConfirmForgotPasswordResponse>(this.config.endpoints.confirmForgotPassword, payload);
+    // ============================================================================
+    // IMPORTANT: Password reset revokes all sessions
+    // ============================================================================
+    // WHY: The backend invalidates all sessions as a security measure. Clearing local auth state avoids
+    // stale UI (e.g., still showing social-only/no-password state from cached user) and prevents the
+    // client from attempting further authenticated calls with invalid tokens/cookies.
+    await this.clearAuthState(false);
+    return result;
   }
 
   /**
@@ -793,7 +801,11 @@ export class NAuthClient {
 
     // Always store user info (needed for both modes)
     if (response.user) {
-      await this.setUser(response.user as AuthUser);
+      const user = response.user as AuthUser;
+      // WHY: Consumers often need to know if the current session was created via password
+      // or via a specific social provider (google/apple/facebook).
+      user.sessionAuthMethod = response.authMethod ?? null;
+      await this.setUser(user);
     }
 
     await this.clearChallenge();

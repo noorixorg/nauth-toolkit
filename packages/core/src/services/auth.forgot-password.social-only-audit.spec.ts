@@ -1,10 +1,9 @@
 /**
- * AuthService forgotPassword() - Social-only audit coverage
+ * AuthService forgotPassword() - Social-only support coverage
  *
  * Focused test suite to avoid coupling to the large legacy AuthService test file.
- * We only verify the new security requirement:
- * - When a social-only account (no passwordHash) requests forgot-password,
- *   we should NOT send a code, but SHOULD write an audit event for the user.
+ * We verify:
+ * - Social-only accounts (no passwordHash) are allowed to use forgot-password to set their first password.
  */
 
 import { Repository } from 'typeorm';
@@ -24,13 +23,12 @@ import { TrustedDeviceService } from './trusted-device.service';
 import { PasswordResetService } from './password-reset.service';
 import { BaseLoginAttempt, BaseMFADevice, BaseUser } from '../entities';
 import { ForgotPasswordDTO } from '../dto/forgot-password.dto';
-import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { LoggerService, NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { IUser } from '../interfaces/entities.interface';
 
-describe('AuthService.forgotPassword() (social-only audit)', () => {
-  it('records PASSWORD_RESET_REQUESTED audit event for social-only account and does not send code', async () => {
+describe('AuthService.forgotPassword() (social-only)', () => {
+  it('allows social-only account to request reset code (first-password flow)', async () => {
     const mockUserRepository = {} as unknown as Repository<BaseUser>;
     const mockLoginAttemptRepository = {} as unknown as Repository<BaseLoginAttempt>;
     const mockMfaDeviceRepository = {} as unknown as Repository<BaseMFADevice>;
@@ -66,7 +64,11 @@ describe('AuthService.forgotPassword() (social-only audit)', () => {
     });
 
     const mockPasswordResetService = {
-      requestReset: jest.fn(),
+      requestReset: jest.fn().mockResolvedValue({
+        destination: 's***@example.com',
+        deliveryMedium: 'email',
+        expiresIn: 900,
+      }),
     } as unknown as PasswordResetService;
 
     const mockConfig: NAuthConfig = {
@@ -105,6 +107,7 @@ describe('AuthService.forgotPassword() (social-only audit)', () => {
       sub: 'social-only-sub',
       email: 'social@example.com',
       passwordHash: null,
+      isEmailVerified: true,
     } as unknown as IUser;
 
     // Avoid mocking TypeORM query builders: override the private lookup method.
@@ -115,15 +118,7 @@ describe('AuthService.forgotPassword() (social-only audit)', () => {
     const res = await service.forgotPassword(dto);
 
     expect(res.success).toBe(true);
-    expect(mockPasswordResetService.requestReset).not.toHaveBeenCalled();
-    expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: socialOnlyUser.id,
-        eventType: AuthAuditEventType.PASSWORD_RESET_REQUESTED,
-        eventStatus: 'SUSPICIOUS',
-        reason: 'forgot_password_social_only',
-      }),
-    );
+    expect(mockPasswordResetService.requestReset).toHaveBeenCalledWith(socialOnlyUser, 'email');
   });
 });
 

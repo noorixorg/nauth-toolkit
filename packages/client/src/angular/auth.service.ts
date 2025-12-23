@@ -246,6 +246,23 @@ export class AuthService {
     return from(this.client.refreshTokens());
   }
 
+  /**
+   * Refresh tokens (promise-based).
+   *
+   * Returns a promise instead of an Observable, matching the core NAuthClient API.
+   * Useful for async/await patterns in guards and interceptors.
+   *
+   * @returns Promise of TokenResponse
+   *
+   * @example
+   * ```typescript
+   * const tokens = await auth.refreshTokensPromise();
+   * ```
+   */
+  refreshTokensPromise(): Promise<TokenResponse> {
+    return this.client.refreshTokens();
+  }
+
   // ============================================================================
   // Account Recovery (Forgot Password)
   // ============================================================================
@@ -320,6 +337,27 @@ export class AuthService {
         return user;
       }),
     );
+  }
+
+  /**
+   * Get current user profile (promise-based).
+   *
+   * Returns a promise instead of an Observable, matching the core NAuthClient API.
+   * Useful for async/await patterns in guards and interceptors.
+   *
+   * @returns Promise of current user profile
+   *
+   * @example
+   * ```typescript
+   * const user = await auth.getProfilePromise();
+   * ```
+   */
+  getProfilePromise(): Promise<AuthUser> {
+    return this.client.getProfile().then((user) => {
+      // Update local state when profile is fetched
+      this.currentUserSubject.next(user);
+      return user;
+    });
   }
 
   /**
@@ -425,6 +463,24 @@ export class AuthService {
    */
   exchangeSocialRedirect(exchangeToken: string): Observable<AuthResponse> {
     return from(this.client.exchangeSocialRedirect(exchangeToken).then((res) => this.updateChallengeState(res)));
+  }
+
+  /**
+   * Exchange an exchangeToken (from redirect callback URL) into an AuthResponse (promise-based).
+   *
+   * Returns a promise instead of an Observable, matching the core NAuthClient API.
+   * Useful for async/await patterns in guards and interceptors.
+   *
+   * @param exchangeToken - One-time exchange token from the callback URL
+   * @returns Promise of AuthResponse
+   *
+   * @example
+   * ```typescript
+   * const response = await auth.exchangeSocialRedirectPromise(exchangeToken);
+   * ```
+   */
+  exchangeSocialRedirectPromise(exchangeToken: string): Promise<AuthResponse> {
+    return this.client.exchangeSocialRedirect(exchangeToken).then((res) => this.updateChallengeState(res));
   }
 
   /**

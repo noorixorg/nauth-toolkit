@@ -73,9 +73,12 @@ async adminSetPassword(dto: AdminSetPasswordDTO): Promise<AdminSetPasswordRespon
 | Code                          | When                       | Details                |
 | ----------------------------- | -------------------------- | ---------------------- |
 | `NOT_FOUND`                   | User not found             | `undefined`            |
-| `PASSWORD_CHANGE_NOT_ALLOWED` | Social-only account        | `undefined`            |
 | `WEAK_PASSWORD`               | Policy violation           | `{ errors: string[] }` |
 | `PASSWORD_REUSED`             | Password recently used     | `undefined`            |
+
+::::note Social-first accounts
+Admins can also use this method to **set the first password** for a social-only (social-first) account.
+::::
 
 **Example**
 
@@ -262,6 +265,10 @@ fastify.post('/auth/forgot-password/confirm', async (req, reply) => {
 ### forgotPassword()
 
 Request a password reset code (account recovery).
+
+::::note Social-first accounts
+This flow can also be used by social-only (social-first) accounts to **set a first password** after proving delivery-channel ownership via the reset code.
+::::
 
 ```typescript
 async forgotPassword(dto: ForgotPasswordDTO): Promise<ForgotPasswordResponseDTO>

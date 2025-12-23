@@ -2981,9 +2981,10 @@ describe('AuthService', () => {
         }
       });
 
-      it('should throw PASSWORD_CHANGE_NOT_ALLOWED for social-only users', async () => {
-        const socialOnlyUser = { ...mockUser, passwordHash: null };
-        mockUserRepository.findOne.mockResolvedValue(null);
+      it('should allow admin to set first password for social-only users', async () => {
+        const socialOnlyUser = { ...mockUser, passwordHash: null, passwordHistory: null };
+        // updateUserPassword() loads the full entity by internal ID.
+        mockUserRepository.findOne.mockResolvedValue(socialOnlyUser as any);
         mockUserRepository.createQueryBuilder = jest.fn(() => ({
           where: jest.fn().mockReturnThis(),
           orWhere: jest.fn().mockReturnThis(),
@@ -2991,13 +2992,11 @@ describe('AuthService', () => {
           getOne: jest.fn().mockResolvedValue(socialOnlyUser as any),
         })) as any;
 
-        try {
-          await service.adminSetPassword(adminSetPasswordDto);
-          fail('Should have thrown NAuthException');
-        } catch (error: any) {
-          expect(error).toBeInstanceOf(NAuthException);
-          expect(error.code).toBe(AuthErrorCode.PASSWORD_CHANGE_NOT_ALLOWED);
-        }
+        const result = await service.adminSetPassword(adminSetPasswordDto);
+
+        expect(result.success).toBe(true);
+        expect(result.mustChangePassword).toBe(true);
+        expect(result.sessionsRevoked).toBe(3);
       });
 
       it('should throw WEAK_PASSWORD for invalid passwords', async () => {
@@ -3063,6 +3062,7 @@ describe('AuthService', () => {
             metadata: expect.objectContaining({
               identifier: adminSetPasswordDto.identifier,
               mustChangePassword: true,
+              wasSocialOnly: false,
               sessionsRevoked: 3,
             }),
           }),

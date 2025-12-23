@@ -189,12 +189,12 @@ export class PhoneVerificationService {
     // MFA context is detected by skipAlreadyVerifiedCheck being explicitly true AND phone already verified
     // (MFA always sends codes even if phone is verified, while verification only sends if not verified)
     // Default to 'verification' for phone verification flows
-    const templateType =
-      dto.skipAlreadyVerifiedCheck && user.isPhoneVerified ? 'mfa' : 'verification';
+    const templateType = dto.skipAlreadyVerifiedCheck && user.isPhoneVerified ? 'mfa' : 'verification';
 
     // Get appName from email config or SMS templates global variables
     const smsConfig = this.config.sms as { templates?: { globalVariables?: Record<string, unknown> } } | undefined;
-    const appName = this.config.email?.appName || smsConfig?.templates?.globalVariables?.appName as string | undefined;
+    const appName =
+      this.config.email?.appName || (smsConfig?.templates?.globalVariables?.appName as string | undefined);
 
     // Send SMS with template support
     await this.smsProvider.sendOTP(user.phone, code, templateType, {

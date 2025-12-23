@@ -105,7 +105,7 @@ export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, ne
         const refresh$ =
           tokenDelivery === 'cookies'
             ? http.post<{ accessToken?: string }>(refreshUrl, {}, { withCredentials: true })
-            : from(authService.getClient().refreshTokens());
+            : from(authService.refreshTokensPromise());
 
         return refresh$.pipe(
           switchMap((response) => {

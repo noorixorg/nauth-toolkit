@@ -23,7 +23,7 @@ You’ll implement **redirect-first OAuth**:
 ## Before you start (what you need)
 
 - **OAuth credentials** for your provider(s)
-- A stable backend base URL for the provider callback(s)
+- A working backend with nauth configured and operational
 - Decide how you want to deliver tokens: `cookies`, `json`, or `hybrid` (see [Token Delivery Modes](/docs/features/token-delivery))
 
 ## Step 1: Install social provider packages
@@ -232,6 +232,10 @@ If you’re using Angular, the simplest approach is the guard-only callback rout
 | `cookies` | No (httpOnly cookies set on backend callback) | Redirect to your app; no extra call unless a challenge occurs |
 | `json` | No | Frontend calls `/auth/social/exchange` with `exchangeToken` to receive `AuthResponse` |
 | `hybrid` | Depends on route/origin policy | Use explicit routes + `@TokenDelivery()` for deterministic behavior |
+
+::::note Session auth method
+When authentication completes successfully, the response payload includes `authMethod` (for JSON/hybrid exchange flows) and the frontend SDK stores it on the cached user as `sessionAuthMethod`. Values are `password` or the social provider name (e.g. `google`, `apple`, `facebook`).
+::::
 
 ### How does it all work
 

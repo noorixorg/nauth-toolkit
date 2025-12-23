@@ -386,6 +386,29 @@ getProfile(): Observable<AuthUser>
 
 ---
 
+### getProfilePromise()
+
+Fetch current user profile from server (promise-based).
+
+Returns a promise instead of an Observable, matching the core NAuthClient API. Useful for async/await patterns in guards and interceptors.
+
+```typescript
+getProfilePromise(): Promise<AuthUser>
+```
+
+**Returns**
+
+- `Promise<[AuthUser](../api/types/auth-user)>`
+
+**Example**
+
+```typescript
+// In a route guard
+const user = await auth.getProfilePromise();
+```
+
+---
+
 ### updateProfile()
 
 Update user profile.
@@ -454,6 +477,35 @@ exchangeSocialRedirect(exchangeToken: string): Observable<AuthResponse>
 
 ---
 
+### exchangeSocialRedirectPromise()
+
+Exchange `exchangeToken` (from callback URL) into an auth result (promise-based).
+
+Returns a promise instead of an Observable, matching the core NAuthClient API. Useful for async/await patterns in guards and interceptors.
+
+```typescript
+exchangeSocialRedirectPromise(exchangeToken: string): Promise<AuthResponse>
+```
+
+**Parameters**
+
+| Parameter       | Type     | Description                    |
+| --------------- | -------- | ------------------------------ |
+| `exchangeToken` | `string` | One-time exchange token from callback URL |
+
+**Returns**
+
+- `Promise<[AuthResponse](../api/types/auth-response)>`
+
+**Example**
+
+```typescript
+// In a route guard
+const response = await auth.exchangeSocialRedirectPromise(exchangeToken);
+```
+
+---
+
 ### verifyNativeSocial()
 
 Verify native social token (mobile).
@@ -464,9 +516,36 @@ verifyNativeSocial(request: SocialVerifyRequest): Observable<AuthResponse>
 
 ---
 
+### refreshTokensPromise()
+
+Refresh tokens (promise-based).
+
+Returns a promise instead of an Observable, matching the core NAuthClient API. Useful for async/await patterns in guards and interceptors.
+
+```typescript
+refreshTokensPromise(): Promise<TokenResponse>
+```
+
+**Returns**
+
+- `Promise<[TokenResponse](../api/types/token-response)>`
+
+**Example**
+
+```typescript
+// In an interceptor
+const tokens = await auth.refreshTokensPromise();
+```
+
+---
+
 ### getClient()
 
 Get underlying NAuthClient instance for advanced operations.
+
+:::warning Deprecated
+This method is deprecated. Use promise-based methods (`getProfilePromise()`, `exchangeSocialRedirectPromise()`, `refreshTokensPromise()`) instead of accessing the client directly. The `getClient()` method is kept for backward compatibility only and may be removed in a future version.
+:::
 
 ```typescript
 getClient(): NAuthClient
@@ -475,9 +554,12 @@ getClient(): NAuthClient
 **Example**
 
 ```typescript
-// Access methods not exposed on AuthService
+// Deprecated - use promise-based methods instead
 const client = this.auth.getClient();
-await client.setMfaExemption(true, 'Testing');
+await client.getProfile();
+
+// Preferred - use promise-based methods
+await auth.getProfilePromise();
 ```
 
 ---

@@ -152,13 +152,15 @@ export class ProfileComponent implements OnInit {
   /**
    * Check if account is pure social (no password)
    * Pure social means: no password AND has social providers
-   * Determined by: username is null OR hasPasswordHash is false
+   * Determined by: hasPasswordHash is false
    */
   isPureSocialAccount = computed((): boolean => {
     const currentUser = this.user();
     if (!currentUser) return false;
-    // Pure social: no username (null) OR explicitly no password hash (false) AND has social providers
-    const hasNoPassword = currentUser.username === null || currentUser.hasPasswordHash === false;
+    // IMPORTANT:
+    // - `username` may legitimately be null for password users (username is optional)
+    // - `hasPasswordHash` is the canonical capability flag
+    const hasNoPassword = currentUser.hasPasswordHash === false;
     const hasSocial = this.hasSocialProviders();
     return hasNoPassword && hasSocial;
   });
@@ -173,18 +175,7 @@ export class ProfileComponent implements OnInit {
     const currentUser = this.user();
     if (!currentUser) return false;
 
-    // Pure social accounts cannot have passwords
-    if (this.isPureSocialAccount()) {
-      return false;
-    }
-
-    // Has password if: username is not null OR hasPasswordHash is true/undefined
-    // If both username is null and hasPasswordHash is false, then no password
-    if (currentUser.username === null && currentUser.hasPasswordHash === false) {
-      return false;
-    }
-    // If username exists or hasPasswordHash is not explicitly false, assume has password
-    return currentUser.username !== null || currentUser.hasPasswordHash !== false;
+    return currentUser.hasPasswordHash === true;
   });
 
   /**

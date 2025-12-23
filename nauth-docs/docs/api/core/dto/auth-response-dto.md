@@ -48,6 +48,7 @@ import { AuthResponseDTO } from '@nauth-toolkit/core';
 | `refreshToken`           | `string`                  | Conditional | JWT refresh token. Present when authentication complete.        |
 | `accessTokenExpiresAt`   | `number`                  | Conditional | Access token expiration (Unix timestamp). Present when tokens available. |
 | `refreshTokenExpiresAt`  | `number`                  | Conditional | Refresh token expiration (Unix timestamp). Present when tokens available. |
+| `authMethod`             | `string`                  | Conditional | Authentication method used to create the current session (e.g., `password`, `google`, `apple`, `facebook`). Present when authentication complete. |
 | `trusted`                | `boolean`                 | Conditional | Whether device is trusted. Present when authentication complete. |
 | `deviceToken`            | `string`                  | Conditional | Device trust token (UUID v4). Present when device trusted.       |
 | `user`                   | `object`                  | Conditional | User information. Present when authentication complete.          |
@@ -80,6 +81,7 @@ import { AuthResponseDTO } from '@nauth-toolkit/core';
   "refreshToken": "eyJhbGc...",
   "accessTokenExpiresAt": 1730000000,
   "refreshTokenExpiresAt": 1732592000,
+  "authMethod": "google",
   "trusted": true,
   "deviceToken": "a21b654c-2746-4168-acee-c175083a65cd",
   "user": {

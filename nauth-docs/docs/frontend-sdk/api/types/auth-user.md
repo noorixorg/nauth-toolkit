@@ -33,6 +33,7 @@ import { AuthUser } from '@nauth-toolkit/client';
 | `preferredMfaMethod` | `string \| null` | Preferred MFA method (`'sms'`, `'email'`, `'totp'`, `'passkey'`) |
 | `socialProviders`    | `string[]`       | Linked social auth providers (e.g., `['google', 'apple']`)       |
 | `hasPasswordHash`    | `boolean`        | Whether user has a password set                                  |
+| `sessionAuthMethod`  | `string \| null` | How the current session was authenticated (`password`, `google`, `apple`, `facebook`) |
 | `isActive`           | `boolean`        | Whether account is active                                        |
 | `createdAt`          | `Date`           | Account creation timestamp                                       |
 | `updatedAt`          | `Date`           | Last update timestamp                                            |
@@ -53,6 +54,7 @@ import { AuthUser } from '@nauth-toolkit/client';
   "preferredMfaMethod": "totp",
   "socialProviders": ["google"],
   "hasPasswordHash": true,
+  "sessionAuthMethod": "google",
   "isActive": true,
   "createdAt": "2024-01-01T00:00:00.000Z",
   "updatedAt": "2024-01-15T12:30:00.000Z"

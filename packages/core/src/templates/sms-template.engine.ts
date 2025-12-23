@@ -8,10 +8,9 @@ import {
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { NAuthLogger } from '../utils/nauth-logger';
-import { readFileSync } from 'fs';
+import { access, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { promisify } from 'util';
-import { access } from 'fs';
 
 const accessAsync = promisify(access);
 

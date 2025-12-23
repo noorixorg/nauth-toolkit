@@ -565,6 +565,7 @@ export class AuthChallengeHelperService {
       blockedUntil?: Date;
       reason?: string;
     },
+    sessionAuthMethod: string = 'password',
   ): Promise<AuthResponseDTO> {
     // Get client info from ClientInfoService (for deviceToken only - IP/userAgent come from context automatically)
     const clientInfo = this.clientInfoService.get();
@@ -604,7 +605,9 @@ export class AuthChallengeHelperService {
       tokenFamily,
       deviceId: finalDeviceId,
       expiresAt: this.sessionService.getSessionExpirationDate(),
-      authMethod: 'password', // Default to password for challenge flows (signup, verification completion)
+      // WHY: Persist how the session was authenticated so the frontend can tell whether the user logged in
+      // via password or via a specific social provider (google/apple/facebook).
+      authMethod: sessionAuthMethod,
     });
 
     // Now regenerate tokens with the actual sessionId
@@ -632,6 +635,7 @@ export class AuthChallengeHelperService {
       refreshToken: tokens.refreshToken,
       accessTokenExpiresAt: accessTokenValidation.payload?.exp || 0,
       refreshTokenExpiresAt: refreshTokenValidation.payload?.exp || 0,
+      authMethod: sessionAuthMethod,
       trusted: isTrusted,
       // Expose deviceToken so that:
       // - In cookies mode, CookieTokenInterceptor can set the httpOnly nauth_device_token cookie
@@ -785,12 +789,15 @@ export class AuthChallengeHelperService {
     if (state === AuthFlowState.GRACE_PERIOD_ACTIVE) {
       // Grace period active - return success with metadata
       const isTrusted = context.computed.isDeviceTrusted;
+      const sessionAuthMethod =
+        context.authMethod === 'social' ? context.authProvider || 'social' : context.authMethod || 'password';
       const response = await this.createSuccessResponse(
         context.user,
         deviceToken,
         isTrusted,
         context.authMethod === 'social',
         metadata,
+        sessionAuthMethod,
       );
       // Merge metadata
       if (metadata?.gracePeriodEndsAt) {
@@ -821,6 +828,15 @@ export class AuthChallengeHelperService {
 
     // AUTHENTICATED state - return success
     const isTrusted = context.computed.isDeviceTrusted;
-    return this.createSuccessResponse(context.user, deviceToken, isTrusted, context.authMethod === 'social', metadata);
+    const sessionAuthMethod =
+      context.authMethod === 'social' ? context.authProvider || 'social' : context.authMethod || 'password';
+    return this.createSuccessResponse(
+      context.user,
+      deviceToken,
+      isTrusted,
+      context.authMethod === 'social',
+      metadata,
+      sessionAuthMethod,
+    );
   }
 }

@@ -67,6 +67,21 @@ export class AuthResponseDTO {
   refreshTokenExpiresAt?: number;
 
   /**
+   * Authentication method used to create the current session (when authentication succeeds).
+   *
+   * Semantics:
+   * - `password`: email/username/phone + password login, or password-first flows
+   * - `<provider>`: social login provider that created the session (e.g., `google`, `apple`, `facebook`)
+   *
+   * Notes:
+   * - This is session-scoped state (not account capability). Account capabilities are expressed via:
+   *   - `user.hasPasswordHash`
+   *   - `user.socialProviders`
+   * - Only present when authentication is complete (no pending challenges).
+   */
+  authMethod?: string;
+
+  /**
    * Whether the current device is already trusted
    *
    * When true, the device has a valid trusted device token and UI should NOT show

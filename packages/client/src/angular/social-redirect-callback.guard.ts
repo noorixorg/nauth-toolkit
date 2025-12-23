@@ -52,13 +52,28 @@ export const socialRedirectCallbackGuard: CanActivateFn = async (): Promise<bool
   //
   // Note: we do not "activate" the callback route to avoid consumers needing to render a page.
   if (!exchangeToken) {
+    // ============================================================================
+    // Cookies mode: hydrate user state before redirecting
+    // ============================================================================
+    // WHY: In cookie delivery, the OAuth callback completes via browser redirects, so the frontend
+    // does not receive a JSON AuthResponse to populate the SDK's cached `currentUser`.
+    //
+    // Without this, sync guards (`authGuard`) can immediately redirect to /login because
+    // `currentUser` is still null even though cookies were set successfully.
+    try {
+      await auth.getProfilePromise();
+    } catch {
+      const errorUrl = config.redirects?.oauthError || '/login';
+      window.location.replace(errorUrl);
+      return false;
+    }
     const successUrl = config.redirects?.success || '/';
     window.location.replace(successUrl);
     return false;
   }
 
   // Exchange token and route accordingly
-  const response = await auth.getClient().exchangeSocialRedirect(exchangeToken);
+  const response = await auth.exchangeSocialRedirectPromise(exchangeToken);
   if (response.challengeName) {
     const challengeBase = config.redirects?.challengeBase || '/auth/challenge';
     const challengeRoute = response.challengeName.toLowerCase().replace(/_/g, '-');
@@ -70,5 +85,3 @@ export const socialRedirectCallbackGuard: CanActivateFn = async (): Promise<bool
   window.location.replace(successUrl);
   return false;
 };
-
-

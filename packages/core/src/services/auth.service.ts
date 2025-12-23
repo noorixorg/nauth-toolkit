@@ -1181,11 +1181,13 @@ export class AuthService {
         isPhoneVerified: userDto.isPhoneVerified ?? undefined,
         socialProviders:
           userDto.socialProviders && userDto.socialProviders.length > 0 ? userDto.socialProviders : undefined,
+        hasPasswordHash: userDto.hasPasswordHash,
       },
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       accessTokenExpiresAt: accessTokenValidation.payload?.exp || 0,
       refreshTokenExpiresAt: refreshTokenValidation.payload?.exp || 0,
+      authMethod: 'password',
       trusted: isTrusted, // Include trusted flag so frontend knows if device is already trusted
       // Include deviceToken - CookieTokenInterceptor will handle cookie/stripping based on @TokenDelivery decorator
       deviceToken,
@@ -3954,21 +3956,9 @@ export class AuthService {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
 
-    // ============================================================================
-    // Validate User Can Have Password Reset
-    // ============================================================================
-    // CRITICAL PROTECTION: Only allow for users with password authentication
-    // Pure social users cannot have password reset (they don't have passwords)
-    if (!user.passwordHash) {
-      this.logger?.warn?.(`Password reset failed - user doesn't have a password (pure social signup): ${user.sub}`);
-      throw new NAuthException(
-        AuthErrorCode.PASSWORD_CHANGE_NOT_ALLOWED,
-        'Password reset not available. This account uses social authentication only and has no password.',
-      );
-    }
-
     const mustChangePassword = dto.mustChangePassword ?? true; // Default to true for security
     const revokeSessions = dto.revokeSessions !== false;
+    const wasSocialOnly = !user.passwordHash;
 
     const { sessionsRevoked } = await this.updateUserPassword({
       user,
@@ -3984,6 +3974,9 @@ export class AuthService {
         metadata: {
           identifier: dto.identifier,
           mustChangePassword,
+          // WHY: Admins can set the first password for social-only accounts so users can login via either route later.
+          // This flag helps downstream observability without exposing anything to clients.
+          wasSocialOnly,
         },
       },
     });
@@ -4041,35 +4034,11 @@ export class AuthService {
       return response; // Non-enumerating
     }
 
-    // Only password-capable accounts can use forgot-password.
-    // Hybrid (password + social) is allowed (passwordHash exists).
-    if (!user.passwordHash) {
-      // ============================================================================
-      // Security: record attempt for social-only accounts (no password set)
-      // ============================================================================
-      // WHY: A malicious actor may spam forgot-password to learn about accounts or to harass users.
-      // We keep the API response non-enumerating, but still record an audit event for observability.
-      this.logger?.warn?.(`Password reset requested for social-only account; ignoring for user: ${user.sub}`);
-
-      try {
-        await this.auditService?.recordEvent({
-          userId: user.id,
-          eventType: AuthAuditEventType.PASSWORD_RESET_REQUESTED,
-          eventStatus: 'SUSPICIOUS',
-          authMethod: 'social',
-          reason: 'forgot_password_social_only',
-          description: 'Password reset requested for social-only account (ignored)',
-        });
-      } catch (auditError) {
-        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-        this.logger?.error?.(`Failed to record PASSWORD_RESET_REQUESTED audit event: ${errorMessage}`, {
-          error: auditError,
-          userId: user.id,
-        });
-      }
-
-      return response;
-    }
+    // ============================================================================
+    // Allow social-only accounts to set their first password via forgot-password
+    // ============================================================================
+    // WHY: Social-first users commonly want to add a password later. The reset code proves possession
+    // of the delivery channel (email/sms) and avoids weakening account security.
 
     const verificationMethod = this.config.signup?.verificationMethod ?? 'email';
 
@@ -4134,7 +4103,7 @@ export class AuthService {
     }
 
     const user = await this.findUserByIdentifier(dto.identifier, this.config.login?.identifierType);
-    if (!user || !user.passwordHash) {
+    if (!user) {
       // Non-enumerating: treat as invalid code
       throw new NAuthException(AuthErrorCode.PASSWORD_RESET_CODE_INVALID, 'Invalid password reset code');
     }

@@ -26,6 +26,7 @@ import { AuthResponse } from '@nauth-toolkit/client';
 | `refreshToken`          | `string`                                 | Refresh token (JSON mode only)                                            |
 | `accessTokenExpiresAt`  | `number`                                 | Access token expiry timestamp (milliseconds since epoch)                  |
 | `refreshTokenExpiresAt` | `number`                                 | Refresh token expiry timestamp (milliseconds since epoch)                 |
+| `authMethod`            | `string`                                 | Authentication method used to create the current session (`password`, `google`, `apple`, `facebook`) |
 | `trusted`               | `boolean`                                | Whether device is trusted                                                 |
 | `deviceToken`           | `string`                                 | Device trust token                                                        |
 | `challengeName`         | [`AuthChallenge`](./auth-challenge)      | Challenge type (if auth incomplete)                                       |
@@ -54,6 +55,7 @@ import { AuthResponse } from '@nauth-toolkit/client';
   "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "accessTokenExpiresAt": 1704067200000,
   "refreshTokenExpiresAt": 1704153600000,
+  "authMethod": "password",
   "trusted": true,
   "deviceToken": "device_token_abc123"
 }

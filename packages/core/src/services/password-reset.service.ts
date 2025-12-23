@@ -168,7 +168,8 @@ export class PasswordResetService {
 
     // Get appName from email config or SMS templates global variables
     const smsConfig = this.config.sms as { templates?: { globalVariables?: Record<string, unknown> } } | undefined;
-    const appName = this.config.email?.appName || smsConfig?.templates?.globalVariables?.appName as string | undefined;
+    const appName =
+      this.config.email?.appName || (smsConfig?.templates?.globalVariables?.appName as string | undefined);
 
     // Send SMS with template support
     await this.smsProvider.sendOTP(user.phone, code, 'passwordReset', {

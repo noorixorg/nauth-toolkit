@@ -5,7 +5,7 @@ import { AppService } from './app.service';
 import { TestService } from './test.service';
 import { CustomAuthModule } from './auth/auth.module';
 // Import helper function to get entities (prevents direct entity access)
-import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-mysql';
+import { getNAuthEntities } from '@nauth-toolkit/database-typeorm-postgres';
 import { TestModule } from './test/test.module';
 
 /**
@@ -18,19 +18,18 @@ import { TestModule } from './test/test.module';
  * Note: Entities now imported from database package
  */
 // Build entities array
-const entities = [...getNAuthEntities(), ...getNAuthTransientStorageEntities()];
+const entities = [...getNAuthEntities()];
 
 const imports = [
   // TypeORM configuration for MySQL
   TypeOrmModule.forRoot({
-    type: 'mysql',
+    type: 'postgres',
     host: process.env.DB_HOST,
     port: parseInt(process.env.DB_PORT!, 10),
     username: process.env.DB_USERNAME as string,
     password: process.env.DB_PASSWORD as string,
     database: process.env.DB_DATABASE as string,
     entities,
-    synchronize: false, // migrations will be run automatically
     logging: false,
   }),
 

@@ -367,12 +367,31 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     // If auto-link is enabled, try to find by email
     if (providerConfig.autoLink === true && profile.email) {
       // Get full user entity (need internal id for foreign keys)
+      // ============================================================================
+      // SECURITY: Safe auto-linking rules
+      // ============================================================================
+      // We allow auto-linking when:
+      // - The existing local account email is already verified, OR
+      // - The provider asserts the email is verified (`profile.verified === true`)
+      //
+      // WHY: This enables "password-first account -> later social login (same email)" without requiring
+      // the local account to be verified first, while still requiring proof of email ownership.
       const existingUser = (await this.userRepository.findOne({
-        where: { email: profile.email, isEmailVerified: true },
+        where: { email: profile.email },
       })) as IUser | null;
 
       if (existingUser) {
-        return existingUser;
+        const providerVerified = profile.verified === true;
+
+        if (!existingUser.isEmailVerified && providerVerified) {
+          // Provider verified the email; promote local email verification.
+          await this.userRepository.update({ id: existingUser.id }, { isEmailVerified: true });
+          existingUser.isEmailVerified = true;
+        }
+
+        if (existingUser.isEmailVerified || providerVerified) {
+          return existingUser;
+        }
       }
     }
 

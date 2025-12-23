@@ -4,7 +4,7 @@ import { NAuthException } from '../exceptions/nauth.exception';
 import { IUser, IChallengeSession } from '../interfaces/entities.interface';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
 import { NAuthLogger } from '../utils/nauth-logger';
-import { AuthAuditService } from './auth-audit.service';
+import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { BaseChallengeSession } from '../entities';

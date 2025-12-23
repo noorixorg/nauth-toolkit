@@ -16,6 +16,10 @@ import TabItem from '@theme/TabItem';
 
 Data transfer objects for account recovery: request a password reset code and confirm the reset with a code and new password.
 
+::::note Social-first accounts
+Social-only (social-first) accounts can use this flow to **set their first password**, enabling both password and social login afterward.
+::::
+
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
 

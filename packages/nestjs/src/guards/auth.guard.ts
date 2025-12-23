@@ -94,8 +94,11 @@ export class AuthGuard implements CanActivate {
 
     // Load user by sub (external identifier from JWT payload)
     // Include all non-sensitive fields needed by endpoints (profile, MFA status, etc.)
-    // Excludes: passwordHash, passwordHistory, totpSecret, backupCodes (sensitive)
-    //  TODO: SHIT Work. NEEDS TO BE FIXED.
+    // Excludes: passwordHistory, totpSecret, backupCodes (sensitive)
+    //
+    // TODO (architecture): This logic should be delegated to `@nauth-toolkit/core` via the platform abstraction
+    // (NAuthRequest/NAuthResponse + core handlers) so NestJS remains a thin wrapper. This guard should eventually
+    // become a delegator that reads the authenticated user from ContextStorage/request attributes set by core.
     const user = await this.userRepository.findOne({
       select: [
         'id',
@@ -105,6 +108,8 @@ export class AuthGuard implements CanActivate {
         'lastName',
         'email',
         'phone',
+        // SECURITY: selected only to derive `hasPasswordHash`. Must be stripped before attaching to request.
+        'passwordHash',
         'isEmailVerified',
         'isPhoneVerified',
         'isActive',
@@ -139,6 +144,15 @@ export class AuthGuard implements CanActivate {
     if (!user.isActive) {
       throw new NAuthException(AuthErrorCode.ACCOUNT_INACTIVE, 'Account is not active');
     }
+
+    // ============================================================================
+    // Attach derived auth capability flags (without exposing sensitive fields)
+    // ============================================================================
+    // WHY: Many consumers need to know whether the account can login with password. We derive the flag
+    // from `passwordHash` but NEVER expose the hash itself on `@CurrentUser()`.
+    const userWithPasswordHash = user as unknown as { passwordHash?: string | null; hasPasswordHash?: boolean };
+    userWithPasswordHash.hasPasswordHash = Boolean(userWithPasswordHash.passwordHash);
+    delete userWithPasswordHash.passwordHash;
 
     // SECURITY CRITICAL: Re-check session hasn't been modified (optimistic locking)
     // Prevents TOCTOU (Time-of-Check-Time-of-Use) vulnerabilities
