@@ -512,6 +512,7 @@ describe('AuthGuard', () => {
       // Assert
       expect(request.user).toBeDefined();
       expect(request.user.sub).toBe(mockUser.sub);
+      expect(request.user.sessionAuthMethod).toBe(mockSession.authMethod);
       expect(request.token).toBeDefined();
       expect(request.token.sub).toBe('user-123');
       expect(request.token.sessionId).toBe('1');

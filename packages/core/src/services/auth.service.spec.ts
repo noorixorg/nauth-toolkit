@@ -2775,7 +2775,15 @@ describe('AuthService', () => {
 
     describe('Successful password reset', () => {
       it('should successfully reset password with valid identifier (email)', async () => {
-        mockUserRepository.findOne.mockResolvedValue(null);
+        // WHY: adminSetPassword first checks by sub (UUID), then calls updateUserPassword()
+        // which loads the full entity by internal ID. Ensure the ID lookup returns the user.
+        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
+          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
+          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
+            return mockUser as any;
+          }
+          return null;
+        });
         mockUserRepository.createQueryBuilder = jest.fn(() => ({
           where: jest.fn().mockReturnThis(),
           orWhere: jest.fn().mockReturnThis(),
@@ -2826,7 +2834,13 @@ describe('AuthService', () => {
       });
 
       it('should successfully reset password by username', async () => {
-        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
+          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
+          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
+            return mockUser as any;
+          }
+          return null;
+        });
         mockUserRepository.createQueryBuilder = jest.fn(() => ({
           where: jest.fn().mockReturnThis(),
           orWhere: jest.fn().mockReturnThis(),
@@ -2844,7 +2858,13 @@ describe('AuthService', () => {
 
       it('should successfully reset password by phone', async () => {
         const userWithPhone = { ...mockUser, phone: '+1234567890' };
-        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
+          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
+          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
+            return userWithPhone as any;
+          }
+          return null;
+        });
         mockUserRepository.createQueryBuilder = jest.fn(() => ({
           where: jest.fn().mockReturnThis(),
           orWhere: jest.fn().mockReturnThis(),
@@ -2861,7 +2881,13 @@ describe('AuthService', () => {
       });
 
       it('should set mustChangePassword flag correctly (true by default)', async () => {
-        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
+          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
+          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
+            return mockUser as any;
+          }
+          return null;
+        });
         mockUserRepository.createQueryBuilder = jest.fn(() => ({
           where: jest.fn().mockReturnThis(),
           orWhere: jest.fn().mockReturnThis(),
@@ -2885,7 +2911,13 @@ describe('AuthService', () => {
       });
 
       it('should respect mustChangePassword: false option', async () => {
-        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
+          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
+          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
+            return mockUser as any;
+          }
+          return null;
+        });
         mockUserRepository.createQueryBuilder = jest.fn(() => ({
           where: jest.fn().mockReturnThis(),
           orWhere: jest.fn().mockReturnThis(),
@@ -2907,7 +2939,13 @@ describe('AuthService', () => {
       });
 
       it('should revoke sessions by default', async () => {
-        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
+          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
+          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
+            return mockUser as any;
+          }
+          return null;
+        });
         mockUserRepository.createQueryBuilder = jest.fn(() => ({
           where: jest.fn().mockReturnThis(),
           orWhere: jest.fn().mockReturnThis(),
@@ -2926,7 +2964,13 @@ describe('AuthService', () => {
       });
 
       it('should respect revokeSessions: false option', async () => {
-        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
+          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
+          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
+            return mockUser as any;
+          }
+          return null;
+        });
         mockUserRepository.createQueryBuilder = jest.fn(() => ({
           where: jest.fn().mockReturnThis(),
           orWhere: jest.fn().mockReturnThis(),
@@ -2945,7 +2989,13 @@ describe('AuthService', () => {
 
       it('should update password history correctly', async () => {
         const userWithHistory = { ...mockUser, passwordHistory: ['hash1', 'hash2'] };
-        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
+          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
+          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
+            return userWithHistory as any;
+          }
+          return null;
+        });
         mockUserRepository.createQueryBuilder = jest.fn(() => ({
           where: jest.fn().mockReturnThis(),
           orWhere: jest.fn().mockReturnThis(),
@@ -3000,7 +3050,13 @@ describe('AuthService', () => {
       });
 
       it('should throw WEAK_PASSWORD for invalid passwords', async () => {
-        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
+          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
+          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
+            return mockUser as any;
+          }
+          return null;
+        });
         mockUserRepository.createQueryBuilder = jest.fn(() => ({
           where: jest.fn().mockReturnThis(),
           orWhere: jest.fn().mockReturnThis(),
@@ -3023,7 +3079,13 @@ describe('AuthService', () => {
       });
 
       it('should throw PASSWORD_REUSED when password in history', async () => {
-        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
+          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
+          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
+            return mockUser as any;
+          }
+          return null;
+        });
         mockUserRepository.createQueryBuilder = jest.fn(() => ({
           where: jest.fn().mockReturnThis(),
           orWhere: jest.fn().mockReturnThis(),
@@ -3042,7 +3104,13 @@ describe('AuthService', () => {
       });
 
       it('should record audit event with correct metadata', async () => {
-        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
+          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
+          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
+            return mockUser as any;
+          }
+          return null;
+        });
         mockUserRepository.createQueryBuilder = jest.fn(() => ({
           where: jest.fn().mockReturnThis(),
           orWhere: jest.fn().mockReturnThis(),
@@ -3070,7 +3138,13 @@ describe('AuthService', () => {
       });
 
       it('should handle audit service errors gracefully', async () => {
-        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
+          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
+          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
+            return mockUser as any;
+          }
+          return null;
+        });
         mockUserRepository.createQueryBuilder = jest.fn(() => ({
           where: jest.fn().mockReturnThis(),
           orWhere: jest.fn().mockReturnThis(),

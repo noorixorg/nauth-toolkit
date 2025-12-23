@@ -29,6 +29,21 @@ export interface IUser {
    * Never expose passwordHash directly; use this boolean flag instead
    */
   hasPasswordHash?: boolean;
+  /**
+   * Authentication method used to create the CURRENT session.
+   *
+   * This is session-scoped state (how the user authenticated this time), not an account capability.
+   * For account capabilities, use:
+   * - `hasPasswordHash`
+   * - `socialProviders`
+   *
+   * Common values:
+   * - `password`
+   * - `google`
+   * - `apple`
+   * - `facebook`
+   */
+  sessionAuthMethod?: string | null;
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
   isActive: boolean;

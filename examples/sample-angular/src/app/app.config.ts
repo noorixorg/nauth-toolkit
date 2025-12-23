@@ -82,7 +82,7 @@ export const appConfig: ApplicationConfig = {
       provide: NAUTH_CLIENT_CONFIG,
       useValue: {
         baseUrl: `${environment.apiBaseUrl}/auth`,
-        tokenDelivery: 'cookies',
+        tokenDelivery: 'json',
         debug: true,
 
         redirects: {

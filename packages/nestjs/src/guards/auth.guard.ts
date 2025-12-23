@@ -8,6 +8,7 @@ import {
   getAccessTokenCookieName,
   AuthService,
   ContextStorage,
+  IUser,
 } from '@nauth-toolkit/core';
 import { JwtService, SessionService } from '@nauth-toolkit/core/internal';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
@@ -110,6 +111,15 @@ export class AuthGuard implements CanActivate {
 
     return ContextStorage.enterStore(store, async () => {
       const user = await this.authService.getUserForAuthContext(validation.payload!.sub);
+
+      // ============================================================================
+      // Session-scoped auth method propagation
+      // ============================================================================
+      // WHY: NestJS `@CurrentUser()` often backs `/profile` and other "who am I" endpoints.
+      // Attaching session auth method allows frontends to show "Signed in with Google/Apple/etc."
+      // even after refresh or cookie-based OAuth redirects.
+      const sessionAuthMethod = (session as unknown as { authMethod?: string | null }).authMethod ?? null;
+      (user as IUser & { sessionAuthMethod?: string | null }).sessionAuthMethod = sessionAuthMethod;
 
       // SECURITY CRITICAL: Re-check session hasn't been modified (optimistic locking)
       // Prevents TOCTOU (Time-of-Check-Time-of-Use) vulnerabilities

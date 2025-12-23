@@ -151,6 +151,9 @@ interface IUser {
   // Authentication capabilities
   hasPasswordHash?: boolean;      // Whether user has password set (for password-based auth)
 
+  // Session information
+  sessionAuthMethod?: string | null; // How the current session was authenticated ('password', 'google', 'apple', 'facebook', etc.)
+
   // MFA
   isMFAEnabled?: boolean;         // Has MFA devices
   mfaMethods?: string[];          // Enabled MFA methods

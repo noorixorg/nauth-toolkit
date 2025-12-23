@@ -99,6 +99,14 @@ export class AuthHandler {
       // - Removing sensitive fields (passwordHash, totpSecret, backupCodes, passwordHistory)
       const user = await this.authService.getUserForAuthContext(validation.payload!.sub);
 
+      // ============================================================================
+      // Session-scoped auth method propagation
+      // ============================================================================
+      // WHY: `/profile` (and other "current user" reads) must be able to show how the user
+      // authenticated for THIS session, even after a page refresh or cookie-based OAuth redirect.
+      // The source of truth is the session record (`session.authMethod`), not the user account.
+      user.sessionAuthMethod = session.authMethod ?? null;
+
       // Optimistic locking check - ensure session wasn't modified during request
       const revalidated = await this.sessionService.findByIdLight(sessionId);
       if (!revalidated || revalidated.version !== initialVersion || revalidated.isRevoked) {

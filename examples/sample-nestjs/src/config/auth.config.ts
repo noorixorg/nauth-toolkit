@@ -114,7 +114,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   tokenDelivery: {
-    method: 'cookies',
+    method: 'json',
     cookieOptions: {
       secure: true,
       sameSite: 'strict',

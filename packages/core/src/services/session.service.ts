@@ -316,11 +316,11 @@ export class SessionService {
    */
   async findByIdLight(
     sessionId: string | number,
-  ): Promise<Pick<ISession, 'id' | 'version' | 'isRevoked' | 'expiresAt' | 'userId'> | null> {
+  ): Promise<Pick<ISession, 'id' | 'version' | 'isRevoked' | 'expiresAt' | 'userId' | 'authMethod'> | null> {
     const id = typeof sessionId === 'string' ? parseInt(sessionId, 10) : sessionId;
     // Select minimal session fields to reduce DB payload
     const record = (await this.sessionRepository.findOne({
-      select: ['id', 'version', 'isRevoked', 'expiresAt', 'userId'],
+      select: ['id', 'version', 'isRevoked', 'expiresAt', 'userId', 'authMethod'],
       where: { id },
     })) as unknown as ISession | null;
 
@@ -332,7 +332,8 @@ export class SessionService {
       isRevoked: record.isRevoked,
       expiresAt: record.expiresAt,
       userId: record.userId,
-    } as unknown as Pick<ISession, 'id' | 'version' | 'isRevoked' | 'expiresAt' | 'userId'>;
+      authMethod: record.authMethod ?? null,
+    } as unknown as Pick<ISession, 'id' | 'version' | 'isRevoked' | 'expiresAt' | 'userId' | 'authMethod'>;
     return light;
   }
 

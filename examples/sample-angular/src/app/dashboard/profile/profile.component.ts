@@ -232,6 +232,22 @@ export class ProfileComponent implements OnInit {
   });
 
   /**
+   * Social provider used for the CURRENT session (if any).
+   *
+   * This is derived from `user.sessionAuthMethod` and only returns known social providers.
+   * For password sessions, this returns null.
+   */
+  sessionSocialProvider = computed((): SocialProvider | null => {
+    const currentUser = this.user();
+    const method = currentUser?.sessionAuthMethod?.toLowerCase();
+    if (!method) return null;
+    if (method === 'google' || method === 'apple' || method === 'facebook') {
+      return method;
+    }
+    return null;
+  });
+
+  /**
    * Get provider display name
    *
    * @param provider - Social provider identifier

@@ -46,6 +46,20 @@
           </h3>
           <p class="text-sm text-secondary-600">{{ currentUser.email }}</p>
         </div>
+        @if (sessionSocialProvider(); as provider) {
+          <div class="flex justify-end">
+            <div
+              class="inline-flex items-center gap-2 px-3 py-2  rounded-lg"
+              role="status"
+              [attr.aria-label]="'Signed in with ' + getProviderName(provider)"
+            >
+              <i [class]="getProviderIcon(provider)" class="text-sm text-secondary-700"></i>
+              <span class="text-sm text-secondary-700">
+                Signed in with {{ getProviderName(provider) }}
+              </span>
+            </div>
+          </div>
+        }
       </div>
 
       <!-- Success Message -->
