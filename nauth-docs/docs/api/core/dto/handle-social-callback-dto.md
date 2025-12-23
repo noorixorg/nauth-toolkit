@@ -3,7 +3,7 @@ title: HandleSocialCallbackDTO
 description: Request DTO for handling OAuth callback. Includes provider, authorization code, and CSRF state parameter.
 keywords: [social, auth, oauth, dto, request, callback, api]
 image: /img/api-social-card.png
-sidebar_position: 29
+sidebar_position: 39
 ---
 
 import Tabs from '@theme/Tabs';

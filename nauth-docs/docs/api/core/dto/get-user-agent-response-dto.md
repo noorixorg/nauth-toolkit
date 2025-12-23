@@ -3,7 +3,7 @@ title: GetUserAgentResponseDTO
 description: Response DTO for user agent. Returns just the user agent string from the current request context.
 keywords: [user-agent, client, response, dto, api]
 image: /img/api-social-card.png
-sidebar_position: 52
+sidebar_position: 33
 ---
 
 import Tabs from '@theme/Tabs';

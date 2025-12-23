@@ -1,7 +1,7 @@
 ---
 title: GetSuspiciousActivityResponseDTO
 description: Response DTO for suspicious activity audit events
-sidebar_position: 102
+sidebar_position: 32
 keywords: [dto, response, audit, suspicious, security, api]
 image: /img/api-social-card.png
 ---

@@ -3,7 +3,7 @@ title: AuthAuditService
 description: Authentication audit logging and querying service
 keywords: [service, audit, logging, security, api]
 image: /img/api-social-card.png
-sidebar_position: 7
+sidebar_position: 1
 ---
 
 import Tabs from '@theme/Tabs';

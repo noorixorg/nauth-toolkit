@@ -1,7 +1,7 @@
 ---
 title: optionalAuth()
 description: Optional authentication marker for Express routes
-sidebar_position: 2
+sidebar_position: 1
 keywords: [express, helper, optional, auth, api]
 image: /img/api-social-card.png
 ---

@@ -118,6 +118,7 @@ export const authConfig: NAuthModuleConfig = {
       domain: '.angular.dev1.noorix.com',
     },
   },
+  security: {
     csrf: {
       cookieName: 'nauth_csrf_token',
       headerName: 'x-csrf-token',

@@ -3,7 +3,7 @@ title: UnlinkSocialAccountResponseDTO
 description: Response DTO for unlink social account operation. Returns success message.
 keywords: [social, auth, dto, response, unlink, api]
 image: /img/api-social-card.png
-sidebar_position: 35
+sidebar_position: 75
 ---
 
 import Tabs from '@theme/Tabs';

@@ -3,7 +3,7 @@ title: GetSocialAuthUrlResponseDTO
 description: Response DTO for get social auth URL operation. Returns OAuth authorization URL.
 keywords: [social, auth, oauth, dto, response, url, api]
 image: /img/api-social-card.png
-sidebar_position: 28
+sidebar_position: 30
 ---
 
 import Tabs from '@theme/Tabs';

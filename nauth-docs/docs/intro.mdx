@@ -13,11 +13,12 @@ import FeatureCard from '@site/src/components/FeatureCard';
 
 The inspiration was to free developers from commercial SaaS services (AWS Cognito, Auth0) that provide limited UI control and complex social auth in hybrid mobile apps. This toolkit enables seamless, integrated authentication without heavy lifting—yet with all features of a commercial platform.
 
-Core dependencies are minimal: Argon2 for hashing, jose for JWT, Zod for validation. Optional features use lightweight packages: SimpleWebAuthn for passkeys, MaxMind GeoIP2 for geolocation.
+There are some core dependencies: Argon2 for hashing, jose for JWT, and TypeORM for database storage of authentication data. Optional features use lightweight packages: SimpleWebAuthn for passkeys, Redis for transient storage, MaxMind GeoIP2 for geolocation.
 
 :::warning Under Active Development
 nauth-toolkit is under active development. Features including email/password authentication, social login, and MFA. **API may change. Not recommended for production yet.** Public source will be shared later; current evaluation builds are available on npm: https://www.npmjs.com/package/@nauth-toolkit.
 :::
+
 
 Ready to start? Check out [Quick Start](/docs/quick-start) to configure nauth-toolkit.
 
@@ -194,14 +195,17 @@ Ready to start? Check out [Quick Start](/docs/quick-start) to configure nauth-to
 
 ## Framework Support
 
+:::danger IMPORTANT
+NestJS and Angular for frontend SDK are being prioritised for stability and maturity, express/fastify and other platform adaptations are experimental. Documentation may not be accurate and will improve over time.
+:::
+
 | Framework    | Status                | Package                 |
 | ------------ | --------------------- | ----------------------- |
 | **NestJS**   | Full adapter          | `@nauth-toolkit/nestjs` |
-| **Express**  | Built-in adapter      | `@nauth-toolkit/core`   |
-| **Fastify**  | Built-in adapter      | `@nauth-toolkit/core`   |
-| **Koa/Hapi** | Create custom adapter | `@nauth-toolkit/core`   |
+| **Express**  | Built-in adapter      | `@nauth-toolkit/express`   |
+| **Fastify**  | Built-in adapter      | `@nauth-toolkit/fastify`   |
+| **Koa/Hapi** | Create custom adapter | TBA   |
 
-All frameworks use the same core services. Adapters handle framework-specific integration (middleware/hooks, request/response wrapping, context management).
 
 ## Why nauth-toolkit?
 
@@ -248,7 +252,7 @@ All frameworks use the same core services. Adapters handle framework-specific in
 
 ## Next Steps
 
-- [Quick Start](/docs/quick-start) - Get running in 5 minutes
+- [Quick Start](/docs/quick-start) - Get started quickly
 - [Architecture](/docs/concepts/architecture) - Understand the design
 - [API Reference](/docs/api/overview) - Complete service documentation
 

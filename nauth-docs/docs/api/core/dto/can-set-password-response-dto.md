@@ -3,7 +3,7 @@ title: CanSetPasswordResponseDTO
 description: Response DTO for can set password check. Returns boolean indicating if user can set password.
 keywords: [social, auth, dto, response, password, api]
 image: /img/api-social-card.png
-sidebar_position: 37
+sidebar_position: 5
 ---
 
 import Tabs from '@theme/Tabs';

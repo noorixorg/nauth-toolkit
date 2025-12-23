@@ -3,7 +3,7 @@ title: StorageAdapter
 description: Interface for shared state adapters used for rate limits, locks, and token reuse detection
 keywords: [storage, adapter, redis, database, interface, api]
 image: /img/api-social-card.png
-sidebar_position: 4
+sidebar_position: 9
 ---
 
 import Tabs from '@theme/Tabs';

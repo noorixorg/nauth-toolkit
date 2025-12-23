@@ -1,7 +1,7 @@
 ---
 title: clientInfo
 description: Client information extraction middleware for Express
-sidebar_position: 3
+sidebar_position: 2
 keywords: [express, middleware, client-info, ip, user-agent, api]
 image: /img/api-social-card.png
 ---

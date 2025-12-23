@@ -3,7 +3,7 @@ title: public()
 description: Fastify preHandler for public routes
 keywords: [fastify, helper, public, api]
 image: /img/api-social-card.png
-sidebar_position: 2
+sidebar_position: 3
 ---
 
 # public()

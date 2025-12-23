@@ -3,7 +3,7 @@ title: SMSProvider
 description: Interface for SMS providers used for phone verification, MFA, and password reset codes
 keywords: [sms, provider, templates, interface, api]
 image: /img/api-social-card.png
-sidebar_position: 3
+sidebar_position: 7
 ---
 
 import Tabs from '@theme/Tabs';

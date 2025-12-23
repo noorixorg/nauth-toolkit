@@ -420,3 +420,36 @@ export class SetPasswordForSocialUserResponseDTO {
    */
   message!: string;
 }
+
+/**
+ * DTO for exchanging a social redirect exchange token
+ *
+ * Used in redirect-first social login flow. The backend redirects back to the frontend
+ * with an `exchangeToken` in the URL, and the frontend exchanges it for an AuthResponse.
+ *
+ * Security:
+ * - Exchange token validated for length
+ * - One-time use (consumed immediately)
+ * - Short TTL (default: 60 seconds)
+ */
+export class SocialExchangeDTO {
+  /**
+   * One-time exchange token from callback redirect URL
+   *
+   * Validation:
+   * - Must be non-empty string
+   * - Max 500 characters
+   *
+   * Sanitization:
+   * - Trimmed
+   */
+  @IsString({ message: 'exchangeToken must be a string' })
+  @MaxLength(500, { message: 'exchangeToken must not exceed 500 characters' })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    return value;
+  })
+  exchangeToken!: string;
+}

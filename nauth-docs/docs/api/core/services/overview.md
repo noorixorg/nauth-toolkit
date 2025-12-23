@@ -43,18 +43,18 @@ import { AuthService } from '@nauth-toolkit/core';
 | ----------------------------- | ---------------------------------------------------------------------- |
 | [AuthService](./auth-service) | Main authentication orchestration - signup, login, password management |
 
-## Verification Services
+## Audit & Logging
 
-| Service                                                  | Description                                           |
-| -------------------------------------------------------- | ----------------------------------------------------- |
-| [EmailVerificationService](./email-verification-service) | Email verification code generation and validation     |
-| [PhoneVerificationService](./phone-verification-service) | Phone/SMS verification code generation and validation |
+| Service                                  | Description                                                |
+| ---------------------------------------- | ---------------------------------------------------------- |
+| [AuthAuditService](./auth-audit-service) | Audit trail logging for authentication and security events |
 
-## Social Authentication
+## Client Information & Security
 
-| Service                                    | Description                                                            |
-| ------------------------------------------ | ---------------------------------------------------------------------- |
-| [SocialAuthService](./social-auth-service) | Complete API for OAuth authentication, account linking, and management |
+| Service                                    | Description                                         |
+| ------------------------------------------ | --------------------------------------------------- |
+| [ClientInfoService](./client-info-service) | Extract IP address, user-agent, and session context |
+| [CsrfService](./csrf-service) | CSRF token generation and validation |
 
 ## Multi-Factor Authentication
 
@@ -62,17 +62,18 @@ import { AuthService } from '@nauth-toolkit/core';
 | --------------------------- | --------------------------------------- |
 | [MFAService](./mfa-service) | MFA provider registry and orchestration |
 
-## Client Information & Security
+## Social Authentication
 
-| Service                                    | Description                                         |
-| ------------------------------------------ | --------------------------------------------------- |
-| [ClientInfoService](./client-info-service) | Extract IP address, user-agent, and session context |
+| Service                                    | Description                                                            |
+| ------------------------------------------ | ---------------------------------------------------------------------- |
+| [SocialAuthService](./social-auth-service) | Complete API for OAuth authentication, account linking, and management |
 
-## Audit & Logging
+## Verification Services
 
-| Service                                  | Description                                                |
-| ---------------------------------------- | ---------------------------------------------------------- |
-| [AuthAuditService](./auth-audit-service) | Audit trail logging for authentication and security events |
+| Service                                                  | Description                                           |
+| -------------------------------------------------------- | ----------------------------------------------------- |
+| [EmailVerificationService](./email-verification-service) | Email verification code generation and validation     |
+| [PhoneVerificationService](./phone-verification-service) | Phone/SMS verification code generation and validation |
 
 ## Usage Pattern
 

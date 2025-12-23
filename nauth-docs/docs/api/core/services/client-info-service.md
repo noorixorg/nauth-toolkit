@@ -1,7 +1,7 @@
 ---
 title: ClientInfoService
 description: Service for accessing client information from request context. Provides transparent access to IP address, user agent, device info, and geolocation data.
-sidebar_position: 11
+sidebar_position: 3
 keywords: [client, info, ip, user-agent, device, service, api]
 image: /img/api-social-card.png
 ---

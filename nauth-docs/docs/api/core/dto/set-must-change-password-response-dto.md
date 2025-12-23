@@ -3,7 +3,7 @@ title: SetMustChangePasswordResponseDTO
 description: Set must change password response DTO with success indicator. Simple boolean response for flag setting operations.
 keywords: [password, change, required, response, dto, success, api]
 image: /img/api-social-card.png
-sidebar_position: 28
+sidebar_position: 67
 ---
 
 import Tabs from '@theme/Tabs';

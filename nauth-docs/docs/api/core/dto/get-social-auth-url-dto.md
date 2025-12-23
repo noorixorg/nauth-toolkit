@@ -3,7 +3,7 @@ title: GetSocialAuthUrlDTO
 description: Request DTO for getting OAuth authorization URL. Includes provider name and optional CSRF state parameter.
 keywords: [social, auth, oauth, dto, request, url, api]
 image: /img/api-social-card.png
-sidebar_position: 27
+sidebar_position: 29
 ---
 
 import Tabs from '@theme/Tabs';

@@ -3,7 +3,7 @@ title: getCurrentUser()
 description: Get authenticated user from context
 keywords: [fastify, helper, user, context, api]
 image: /img/api-social-card.png
-sidebar_position: 4
+sidebar_position: 1
 ---
 
 # getCurrentUser()

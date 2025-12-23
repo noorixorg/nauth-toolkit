@@ -3,7 +3,7 @@ title: SocialAuthService
 description: Social authentication service for OAuth flows, account linking, and management. Supports Google, Apple, Facebook, and other providers.
 keywords: [social, auth, oauth, service, google, apple, facebook, api]
 image: /img/api-social-card.png
-sidebar_position: 7
+sidebar_position: 8
 ---
 
 import Tabs from '@theme/Tabs';

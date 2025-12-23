@@ -11,7 +11,7 @@ import TabItem from '@theme/TabItem';
 
 # Authentication Routes
 
-This is not an exhaustive and complete guide but sows how to implement the most common authentication endpoints with DTO validation, error handling, and multi-step authentication flows.
+This is not an exhaustive and complete guide but shows how to implement the most common authentication endpoints with DTO validation, error handling, and multi-step authentication flows.
 
 
 :::warning Accuracy and Adaptation

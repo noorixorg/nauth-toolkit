@@ -1,7 +1,7 @@
 ---
 title: "@ClientInfo()"
 description: Extract client information (IP address, user agent, device info) in NestJS controllers
-sidebar_position: 3
+sidebar_position: 1
 keywords: [nestjs, decorator, client-info, ip, user-agent, api]
 image: /img/api-social-card.png
 ---

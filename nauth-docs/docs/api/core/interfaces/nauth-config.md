@@ -3,7 +3,7 @@ title: NAuthConfig
 description: Main configuration interface for nauth-toolkit authentication, providers, and security
 keywords: [config, nauthconfig, authentication, providers, api]
 image: /img/api-social-card.png
-sidebar_position: 1
+sidebar_position: 3
 ---
 
 # NAuthConfig

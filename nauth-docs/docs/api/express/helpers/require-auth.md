@@ -1,7 +1,7 @@
 ---
 title: requireAuth()
 description: Require authentication for Express routes
-sidebar_position: 1
+sidebar_position: 3
 keywords: [express, helper, auth, protected, api]
 image: /img/api-social-card.png
 ---

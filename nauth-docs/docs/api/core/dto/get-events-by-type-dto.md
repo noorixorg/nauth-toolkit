@@ -1,7 +1,7 @@
 ---
 title: GetEventsByTypeDTO
 description: Request DTO for getting paginated audit events filtered by event type with optional date range filtering
-sidebar_position: 101
+sidebar_position: 18
 keywords: [dto, request, audit, events, filtering, api]
 image: /img/api-social-card.png
 ---

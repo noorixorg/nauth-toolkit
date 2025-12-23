@@ -3,7 +3,7 @@ title: AuthAuditEventType
 description: Complete enumeration of authentication audit event types
 keywords: [enum, audit, events, security, api]
 image: /img/api-social-card.png
-sidebar_position: 1
+sidebar_position: 2
 ---
 
 import Tabs from '@theme/Tabs';

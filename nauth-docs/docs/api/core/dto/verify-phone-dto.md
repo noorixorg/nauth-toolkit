@@ -3,7 +3,7 @@ title: VerifyPhoneDTO
 description: Phone verification DTO with E.164 format validation and 6-digit code verification. Includes strict input sanitization.
 keywords: [verify, phone, dto, verification, code, e164, api]
 image: /img/api-social-card.png
-sidebar_position: 11
+sidebar_position: 85
 ---
 
 import Tabs from '@theme/Tabs';

@@ -3,7 +3,7 @@ title: ChangePasswordDTO
 description: Password change DTO with current and new password validation. Requires current password verification for security.
 keywords: [password, change, dto, authentication, request, security, api]
 image: /img/api-social-card.png
-sidebar_position: 4
+sidebar_position: 8
 ---
 
 import Tabs from '@theme/Tabs';

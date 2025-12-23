@@ -1,7 +1,7 @@
 ---
 title: "@CurrentUser()"
 description: Parameter decorator to extract authenticated user from request
-sidebar_position: 1
+sidebar_position: 2
 ---
 
 # @CurrentUser()

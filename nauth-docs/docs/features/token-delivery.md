@@ -50,7 +50,7 @@ Tokens are returned in the response body. Your frontend stores them and sends th
 **Frontend usage:**
 
 ```typescript
-// Store tokens
+// Store tokens. This is an example only, if you use the Frontend SDK, storage is automatically handled
 localStorage.setItem('accessToken', response.accessToken);
 localStorage.setItem('refreshToken', response.refreshToken);
 

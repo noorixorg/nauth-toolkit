@@ -1,7 +1,7 @@
 ---
 title: public()
 description: Mark routes as public to bypass CSRF validation in Express
-sidebar_position: 3
+sidebar_position: 2
 keywords: [express, helper, public, csrf, api]
 image: /img/api-social-card.png
 ---

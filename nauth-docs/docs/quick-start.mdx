@@ -412,26 +412,22 @@ This quick start shows the minimal setup. For complete authentication route impl
 
 ## Configuration
 
-<Tabs>
-<TabItem value="basic" label="Basic Config">
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
 
 ```typescript title="config/auth.config.ts"
-import { NAuthConfig } from '@nauth-toolkit/core';
+import { NAuthModuleConfig, createDatabaseStorageAdapter } from '@nauth-toolkit/nestjs';
 // Console providers (for testing/quick start - logs to console)
 import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
 import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
-// Storage adapter (required for production)
-// Requires: yarn add @nauth-toolkit/storage-database
-import { createDatabaseStorageAdapter } from '@nauth-toolkit/nestjs';
 
 // For production, use real providers:
 // import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
 // import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
 // For production multi-instance deployments, use Redis:
-// import { createClient } from 'redis';
-// import { RedisStorageAdapter } from '@nauth-toolkit/storage-redis';
+// import { createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
 
-export const authConfig: NAuthConfig = {
+export const authConfig: NAuthModuleConfig = {
   jwt: {
     algorithm: 'HS256',
     accessToken: {
@@ -466,17 +462,425 @@ export const authConfig: NAuthConfig = {
 
   signup: {
     enabled: true,
-    verificationMethod: 'email', // or 'phone' or 'both'
+    // 'email' or 'phone' or 'both'.
+    // You will need to understand Challenge System and handle verification challenges
+    verificationMethod: 'none',
   },
 };
 ```
 
 </TabItem>
-<TabItem value="advanced" label="Advanced Config">
+<TabItem value="express" label="Express">
+
+```typescript title="config/auth.config.ts"
+import { NAuthConfig, createDatabaseStorageAdapter } from '@nauth-toolkit/core';
+// Console providers (for testing/quick start - logs to console)
+import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
+import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
+
+// For production, use real providers:
+// import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+// import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
+// For production multi-instance deployments, use Redis:
+// import { createRedisStorageAdapter } from '@nauth-toolkit/core';
+
+export const authConfig: NAuthConfig = {
+  jwt: {
+    algorithm: 'HS256',
+    accessToken: {
+      secret: process.env.JWT_SECRET!,
+      expiresIn: '15m',
+    },
+    refreshToken: {
+      secret: process.env.JWT_REFRESH_SECRET!,
+      expiresIn: '7d',
+    },
+  },
+
+  password: {
+    minLength: 8,
+    requireUppercase: true,
+    requireNumbers: true,
+    requireSpecialChars: true,
+  },
+
+  // REQUIRED for production:
+  // - DatabaseStorageAdapter (easy default): uses your TypeORM database + storage entities
+  // - RedisStorageAdapter (recommended for multi-server): uses Redis and does NOT require storage entities
+  storageAdapter: createDatabaseStorageAdapter(),
+
+  // Console provider (logs emails to console - for testing only)
+  // For production, use: new NodemailerEmailProvider({ transport: { ... } })
+  emailProvider: new ConsoleEmailProvider(),
+
+  // Console provider (logs SMS to console - for testing only)
+  // For production, use: new AWSSMSProvider({ region: 'us-east-1', ... })
+  smsProvider: new ConsoleSMSProvider(),
+
+
+  signup: {
+    enabled: true,
+    // 'email' or 'phone' or 'both'.
+    // You will need to understand Challenge System and handle verification challenges
+    verificationMethod: 'none',
+  },
+};
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript title="config/auth.config.ts"
+import { NAuthConfig, createDatabaseStorageAdapter } from '@nauth-toolkit/core';
+// Console providers (for testing/quick start - logs to console)
+import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
+import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
+
+// For production, use real providers:
+// import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+// import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
+// For production multi-instance deployments, use Redis:
+// import { createRedisStorageAdapter } from '@nauth-toolkit/core';
+
+export const authConfig: NAuthConfig = {
+  jwt: {
+    algorithm: 'HS256',
+    accessToken: {
+      secret: process.env.JWT_SECRET!,
+      expiresIn: '15m',
+    },
+    refreshToken: {
+      secret: process.env.JWT_REFRESH_SECRET!,
+      expiresIn: '7d',
+    },
+  },
+
+  password: {
+    minLength: 8,
+    requireUppercase: true,
+    requireNumbers: true,
+    requireSpecialChars: true,
+  },
+
+  // REQUIRED for production:
+  // - DatabaseStorageAdapter (easy default): uses your TypeORM database + storage entities
+  // - RedisStorageAdapter (recommended for multi-server): uses Redis and does NOT require storage entities
+  storageAdapter: createDatabaseStorageAdapter(),
+
+  // Console provider (logs emails to console - for testing only)
+  // For production, use: new NodemailerEmailProvider({ transport: { ... } })
+  emailProvider: new ConsoleEmailProvider(),
+
+  // Console provider (logs SMS to console - for testing only)
+  // For production, use: new AWSSMSProvider({ region: 'us-east-1', ... })
+  smsProvider: new ConsoleSMSProvider(),
+
+
+  signup: {
+    enabled: true,
+    // 'email' or 'phone' or 'both'.
+    // You will need to understand Challenge System and handle verification challenges
+    verificationMethod: 'none',
+  },
+};
+```
+
+</TabItem>
+</Tabs>
+
+### Advanced Configuration
+
+This is an example of how an advanced configuration would look in a production environment. Note that this requires installing additional dependency packages.
+For details and production-ready endpoint implementations, see [Authentication Routes](/docs/features/routes).
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript title="config/auth.config.ts"
+import { NAuthModuleConfig, MFAMethod, createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
+import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
+import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
+import { Logger } from '@nestjs/common';
+
+// For production, use real providers:
+// import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+// import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
+
+export const authConfig: NAuthModuleConfig = {
+  tablePrefix: 'nauth_',
+
+  // Redis for production (rate limits, locks, token reuse detection)
+  storageAdapter: createRedisStorageAdapter(process.env.REDIS_URL!),
+
+  jwt: {
+    algorithm: 'HS256',
+    issuer: 'com.myapp',
+    audience: ['web', 'mobile'],
+    accessToken: {
+      secret: process.env.JWT_SECRET!,
+      expiresIn: '15m',
+    },
+    refreshToken: {
+      secret: process.env.JWT_REFRESH_SECRET!,
+      expiresIn: '7d',
+      rotation: true,
+      reuseDetection: true,
+    },
+  },
+
+  // Logger configuration
+  logger: {
+    instance: new Logger('NAuth'),
+    enablePiiRedaction: true,
+    logLevel: 'info',
+  },
+
+  // Signup with detailed verification settings
+  signup: {
+    enabled: true,
+    verificationMethod: 'both', // 'email', 'phone', or 'both'
+    allowDuplicatePhones: false,
+    emailVerification: {
+      expiresIn: 3600, // 1 hour
+      resendDelay: 60, // 1 minute between resends
+      rateLimitMax: 5, // Max emails per window
+      rateLimitWindow: 3600, // 1 hour window
+      maxAttemptsPerIP: 10, // Max verification attempts per IP
+      attemptWindow: 3600, // 1 hour window for attempts
+    },
+    phoneVerification: {
+      codeLength: 6,
+      expiresIn: 300, // 5 minutes
+      maxAttempts: 3, // Max verification attempts
+      resendDelay: 60, // 1 minute between resends
+      rateLimitMax: 5, // Max SMS per window
+      rateLimitWindow: 3600, // 1 hour window
+      maxAttemptsPerUser: 5, // Max attempts per user
+      maxAttemptsPerIP: 10, // Max attempts per IP
+      attemptWindow: 3600, // 1 hour window
+    },
+  },
+
+  // MFA with comprehensive settings
+  mfa: {
+    enabled: true,
+    enforcement: 'ADAPTIVE', // 'OPTIONAL', 'REQUIRED', or 'ADAPTIVE'
+    gracePeriod: 0, // Days before MFA becomes required (when enforcement is 'REQUIRED')
+    requireForSocialLogin: false,
+    allowedMethods: [MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.TOTP, MFAMethod.PASSKEY],
+    issuer: 'My App',
+    totp: {
+      window: 1, // Accept codes from previous/next time step
+      stepSeconds: 30, // Standard 30 seconds (compatible with Google Authenticator, Authy)
+      digits: 6,
+      algorithm: 'sha1',
+    },
+    passkey: {
+      rpName: 'My App',
+      rpId: 'myapp.com', // Relying Party ID (domain)
+      origin: ['https://myapp.com', 'https://www.myapp.com'], // Allowed origins
+      timeout: 60000, // 60 seconds
+      userVerification: 'preferred', // 'required', 'preferred', or 'discouraged'
+      authenticatorAttachment: undefined, // 'platform' or 'cross-platform'
+    },
+    adaptive: {
+      triggers: ['new_device', 'new_ip', 'new_country', 'impossible_travel'],
+      riskLevels: {
+        low: { maxScore: 20, action: 'allow', notifyUser: false },
+        medium: { maxScore: 50, action: 'require_mfa', notifyUser: true },
+        high: { maxScore: 100, action: 'block_signin', notifyUser: true },
+      },
+    },
+    rememberDevices: 'user_opt_in', // 'never', 'user_opt_in', or 'always'
+    rememberDeviceDays: 30,
+    bypassMFAForTrustedDevices: true, // Does not apply to Adaptive MFA
+  },
+
+  // Password policy with reset settings
+  password: {
+    minLength: 8,
+    requireUppercase: true,
+    requireNumbers: true,
+    requireSpecialChars: true,
+    preventCommon: true,
+    historyCount: 5, // Prevent reusing last 5 passwords
+    expiryDays: 0, // 0 = never expire, or set days (e.g., 90)
+    specialChars: '$#!@', // Allowed special characters
+    passwordReset: {
+      codeLength: 6,
+      expiresIn: 900, // 15 minutes
+      rateLimitMax: 3, // Max reset requests per window
+      rateLimitWindow: 3600, // 1 hour window
+      maxAttempts: 3, // Max verification attempts
+    },
+  },
+
+  // Token delivery configuration
+  tokenDelivery: {
+    method: 'hybrid', // 'json', 'cookies', or 'hybrid'
+    cookieOptions: {
+      secure: true, // HTTPS only
+      sameSite: 'strict', // 'strict', 'lax', or 'none'
+      domain: '.myapp.com', // Cookie domain (optional)
+    },
+  },
+
+  // Security settings
+  security: {
+    csrf: {
+      cookieName: 'nauth_csrf_token',
+      headerName: 'x-csrf-token',
+      cookieOptions: {
+        domain: '.myapp.com', // Optional: set cookie domain
+      },
+    },
+  },
+
+  // IP geolocation (MaxMind)
+  geoLocation: {
+    maxMind: {
+      licenseKey: process.env.MAXMIND_LICENSE_KEY,
+      accountId: parseInt(process.env.MAXMIND_ACCOUNT_ID || '0', 10),
+      autoDownloadOnStartup: false, // Set to true to auto-download on server start
+      editions: ['GeoLite2-City', 'GeoLite2-Country'],
+    },
+  },
+
+  // Social authentication providers
+  social: {
+    redirect: {
+      frontendBaseUrl: 'https://myapp.com',
+      allowAbsoluteReturnTo: false, // Only allow relative URLs
+      allowedReturnToOrigins: ['https://myapp.com'], // Allowed redirect origins
+    },
+    google: {
+      enabled: true,
+      clientId: process.env.GOOGLE_CLIENT_ID, // Or array for multi-platform
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackUrl: 'https://api.myapp.com/auth/social/google/callback',
+      scopes: ['openid', 'email', 'profile'],
+      autoLink: true, // Auto-link to existing users by verified email
+      allowSignup: true, // Allow new user creation
+    },
+    apple: {
+      enabled: true,
+      clientId: process.env.APPLE_CLIENT_ID || 'com.myapp.services',
+      clientSecret: process.env.APPLE_CLIENT_SECRET, // Required for web
+      callbackUrl: 'https://api.myapp.com/auth/social/apple/callback',
+      scopes: ['name', 'email'],
+      autoLink: true,
+      allowSignup: true,
+    },
+    facebook: {
+      enabled: true,
+      clientId: process.env.FACEBOOK_CLIENT_ID,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+      callbackUrl: 'https://api.myapp.com/auth/social/facebook/callback',
+      scopes: ['email', 'public_profile'],
+      autoLink: true,
+      allowSignup: true,
+    },
+  },
+
+  // Email provider (console for testing, nodemailer for production)
+  emailProvider: new ConsoleEmailProvider(),
+  // emailProvider: new NodemailerEmailProvider({
+  //   transport: {
+  //     host: process.env.SMTP_HOST,
+  //     port: 587,
+  //     secure: false,
+  //     auth: {
+  //       user: process.env.SMTP_USER,
+  //       pass: process.env.SMTP_PASS,
+  //     },
+  //   },
+  //   defaults: {
+  //     from: 'My App <noreply@myapp.com>',
+  //   },
+  // }),
+
+  // Email branding and templates
+  email: {
+    appName: process.env.APP_NAME || 'My App',
+    companyName: process.env.COMPANY_NAME || 'My Company Inc.',
+    supportEmail: process.env.SUPPORT_EMAIL || 'support@myapp.com',
+    logoUrl: process.env.LOGO_URL || 'https://myapp.com/logo.png',
+    dashboardUrl: process.env.DASHBOARD_URL || 'https://myapp.com/dashboard',
+    brandColor: process.env.BRAND_COLOR || '#4f46e5',
+  },
+
+  // SMS provider (console for testing, AWS SNS for production)
+  smsProvider: new ConsoleSMSProvider(),
+  // smsProvider: new AWSSMSProvider({
+  //   region: process.env.AWS_REGION || 'us-east-1',
+  //   originationNumber: process.env.AWS_SMS_ORIGINATION_NUMBER,
+  // }),
+
+  // SMS template customization
+  sms: {
+    templates: {
+      // Global variables available to all SMS templates
+      globalVariables: {
+        appName: process.env.APP_NAME || 'My App',
+        companyName: process.env.COMPANY_NAME || 'My Company Inc.',
+        supportPhone: process.env.SUPPORT_PHONE || '1-800-123-4567',
+      },
+      // Custom templates (override defaults)
+      customTemplates: {
+        verification: {
+          content: '{{#if appName}}{{appName}}: {{/if}}Your verification code is {{code}}. Valid for {{expiryMinutes}} minutes.',
+        },
+        mfa: {
+          content: '{{#if appName}}{{appName}}: {{/if}}Your MFA code is {{code}}. Expires in {{expiryMinutes}} minutes.',
+        },
+        passwordReset: {
+          content: '{{#if appName}}{{appName}}: {{/if}}Your password reset code is {{code}}. Valid for {{expiryMinutes}} minutes.',
+        },
+      },
+    },
+  },
+
+  // Account lockout protection
+  lockout: {
+    enabled: true,
+    maxAttempts: 5, // Max failed login attempts
+    duration: 900, // Lockout duration in seconds (15 minutes)
+    resetOnSuccess: true, // Reset attempt count on successful login
+  },
+
+  // Session management
+  session: {
+    maxConcurrent: 5, // Max concurrent sessions per user
+    disallowMultipleSessions: false, // Set to true to allow only one session
+    maxLifetime: '30d', // Maximum session lifetime
+  },
+
+  // Challenge settings
+  challenge: {
+    maxAttempts: 3, // Max challenge verification attempts (default: 3)
+  },
+
+  // Audit logging
+  auditLogs: {
+    enabled: true,
+    fireAndForget: true, // Don't wait for audit log writes (improves performance)
+  },
+
+  // Lifecycle hooks
+  hooks: {
+    afterSignup: async (user) => {
+      console.log('New user:', user.email);
+      // Send welcome email, create user profile, etc.
+    },
+  },
+};
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
 
 ```typescript title="config/auth.config.ts"
 import { NAuthConfig, MFAMethod, createRedisStorageAdapter } from '@nauth-toolkit/core';
-// Console providers (for testing/quick start - logs to console)
 import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
 import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
 
@@ -506,6 +910,67 @@ export const authConfig: NAuthConfig = {
     },
   },
 
+  // Signup with detailed verification settings
+  signup: {
+    enabled: true,
+    verificationMethod: 'both', // 'email', 'phone', or 'both'
+    allowDuplicatePhones: false,
+    emailVerification: {
+      expiresIn: 3600, // 1 hour
+      resendDelay: 60, // 1 minute between resends
+      rateLimitMax: 5, // Max emails per window
+      rateLimitWindow: 3600, // 1 hour window
+      maxAttemptsPerIP: 10, // Max verification attempts per IP
+      attemptWindow: 3600, // 1 hour window for attempts
+    },
+    phoneVerification: {
+      codeLength: 6,
+      expiresIn: 300, // 5 minutes
+      maxAttempts: 3, // Max verification attempts
+      resendDelay: 60, // 1 minute between resends
+      rateLimitMax: 5, // Max SMS per window
+      rateLimitWindow: 3600, // 1 hour window
+      maxAttemptsPerUser: 5, // Max attempts per user
+      maxAttemptsPerIP: 10, // Max attempts per IP
+      attemptWindow: 3600, // 1 hour window
+    },
+  },
+
+  // MFA with comprehensive settings
+  mfa: {
+    enabled: true,
+    enforcement: 'ADAPTIVE', // 'OPTIONAL', 'REQUIRED', or 'ADAPTIVE'
+    gracePeriod: 0, // Days before MFA becomes required
+    requireForSocialLogin: false,
+    allowedMethods: [MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.TOTP, MFAMethod.PASSKEY],
+    issuer: 'My App',
+    totp: {
+      window: 1,
+      stepSeconds: 30,
+      digits: 6,
+      algorithm: 'sha1',
+    },
+    passkey: {
+      rpName: 'My App',
+      rpId: 'myapp.com',
+      origin: ['https://myapp.com', 'https://www.myapp.com'],
+      timeout: 60000,
+      userVerification: 'preferred',
+    },
+    adaptive: {
+      triggers: ['new_device', 'new_ip', 'new_country', 'impossible_travel'],
+      riskLevels: {
+        low: { maxScore: 20, action: 'allow', notifyUser: false },
+        medium: { maxScore: 50, action: 'require_mfa', notifyUser: true },
+        high: { maxScore: 100, action: 'block_signin', notifyUser: true },
+      },
+    },
+    rememberDevices: 'user_opt_in',
+    rememberDeviceDays: 30,
+    bypassMFAForTrustedDevices: true,
+  },
+
+  // Password policy with reset settings
   password: {
     minLength: 8,
     requireUppercase: true,
@@ -513,54 +978,164 @@ export const authConfig: NAuthConfig = {
     requireSpecialChars: true,
     preventCommon: true,
     historyCount: 5,
+    expiryDays: 0, // 0 = never expire
+    specialChars: '$#!@',
+    passwordReset: {
+      codeLength: 6,
+      expiresIn: 900, // 15 minutes
+      rateLimitMax: 3,
+      rateLimitWindow: 3600,
+      maxAttempts: 3,
+    },
   },
 
-  // Console provider (logs emails to console - for testing only)
-  // For production, use:
+  // Token delivery configuration
+  tokenDelivery: {
+    method: 'hybrid', // 'json', 'cookies', or 'hybrid'
+    cookieOptions: {
+      secure: true,
+      sameSite: 'strict',
+      domain: '.myapp.com',
+    },
+  },
+
+  // Security settings
+  security: {
+    csrf: {
+      cookieName: 'nauth_csrf_token',
+      headerName: 'x-csrf-token',
+      cookieOptions: {
+        domain: '.myapp.com',
+      },
+    },
+  },
+
+  // IP geolocation (MaxMind)
+  geoLocation: {
+    maxMind: {
+      licenseKey: process.env.MAXMIND_LICENSE_KEY,
+      accountId: parseInt(process.env.MAXMIND_ACCOUNT_ID || '0', 10),
+      autoDownloadOnStartup: false,
+      editions: ['GeoLite2-City', 'GeoLite2-Country'],
+    },
+  },
+
+  // Social authentication providers
+  social: {
+    redirect: {
+      frontendBaseUrl: 'https://myapp.com',
+      allowAbsoluteReturnTo: false,
+      allowedReturnToOrigins: ['https://myapp.com'],
+    },
+    google: {
+      enabled: true,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackUrl: 'https://api.myapp.com/auth/social/google/callback',
+      scopes: ['openid', 'email', 'profile'],
+      autoLink: true,
+      allowSignup: true,
+    },
+    apple: {
+      enabled: true,
+      clientId: process.env.APPLE_CLIENT_ID || 'com.myapp.services',
+      clientSecret: process.env.APPLE_CLIENT_SECRET,
+      callbackUrl: 'https://api.myapp.com/auth/social/apple/callback',
+      scopes: ['name', 'email'],
+      autoLink: true,
+      allowSignup: true,
+    },
+    facebook: {
+      enabled: true,
+      clientId: process.env.FACEBOOK_CLIENT_ID,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+      callbackUrl: 'https://api.myapp.com/auth/social/facebook/callback',
+      scopes: ['email', 'public_profile'],
+      autoLink: true,
+      allowSignup: true,
+    },
+  },
+
+  // Email provider
+  emailProvider: new ConsoleEmailProvider(),
   // emailProvider: new NodemailerEmailProvider({
   //   transport: {
   //     host: process.env.SMTP_HOST,
-  //     port: parseInt(process.env.SMTP_PORT || '587'),
+  //     port: 587,
+  //     secure: false,
   //     auth: {
   //       user: process.env.SMTP_USER,
   //       pass: process.env.SMTP_PASS,
   //     },
   //   },
-  //   defaults: { from: 'noreply@myapp.com' },
+  //   defaults: {
+  //     from: 'My App <noreply@myapp.com>',
+  //   },
   // }),
-  emailProvider: new ConsoleEmailProvider(),
 
-  // Console provider (logs SMS to console - for testing only)
-  // For production, use:
+  // Email branding
+  email: {
+    appName: process.env.APP_NAME || 'My App',
+    companyName: process.env.COMPANY_NAME || 'My Company Inc.',
+    supportEmail: process.env.SUPPORT_EMAIL || 'support@myapp.com',
+    logoUrl: process.env.LOGO_URL || 'https://myapp.com/logo.png',
+    dashboardUrl: process.env.DASHBOARD_URL || 'https://myapp.com/dashboard',
+    brandColor: process.env.BRAND_COLOR || '#4f46e5',
+  },
+
+  // SMS provider
+  smsProvider: new ConsoleSMSProvider(),
   // smsProvider: new AWSSMSProvider({
   //   region: process.env.AWS_REGION || 'us-east-1',
   //   originationNumber: process.env.AWS_SMS_ORIGINATION_NUMBER,
   // }),
-  smsProvider: new ConsoleSMSProvider(),
 
-  signup: { enabled: true, verificationMethod: 'email' },
-  lockout: { enabled: true, maxAttempts: 5, duration: 900 },
-  session: { maxConcurrent: 5 },
-
-  // Token delivery (cookies for web, JSON for mobile)
-  tokenDelivery: {
-    method: 'hybrid',
-    cookieOptions: { secure: true, sameSite: 'strict' },
-  },
-
-  // MFA with adaptive security
-  mfa: {
-    enabled: true,
-    enforcement: 'ADAPTIVE',
-    allowedMethods: [MFAMethod.TOTP, MFAMethod.PASSKEY],
-    adaptive: {
-      triggers: ['new_device', 'new_ip', 'impossible_travel'],
-      riskLevels: {
-        low: { maxScore: 20, action: 'allow' },
-        medium: { maxScore: 50, action: 'require_mfa' },
-        high: { maxScore: 100, action: 'require_mfa' },
+  // SMS template customization
+  sms: {
+    templates: {
+      globalVariables: {
+        appName: process.env.APP_NAME || 'My App',
+        companyName: process.env.COMPANY_NAME || 'My Company Inc.',
+        supportPhone: process.env.SUPPORT_PHONE || '1-800-123-4567',
+      },
+      customTemplates: {
+        verification: {
+          content: '{{#if appName}}{{appName}}: {{/if}}Your verification code is {{code}}. Valid for {{expiryMinutes}} minutes.',
+        },
+        mfa: {
+          content: '{{#if appName}}{{appName}}: {{/if}}Your MFA code is {{code}}. Expires in {{expiryMinutes}} minutes.',
+        },
+        passwordReset: {
+          content: '{{#if appName}}{{appName}}: {{/if}}Your password reset code is {{code}}. Valid for {{expiryMinutes}} minutes.',
+        },
       },
     },
+  },
+
+  // Account lockout protection
+  lockout: {
+    enabled: true,
+    maxAttempts: 5,
+    duration: 900, // 15 minutes
+    resetOnSuccess: true,
+  },
+
+  // Session management
+  session: {
+    maxConcurrent: 5,
+    disallowMultipleSessions: false,
+    maxLifetime: '30d',
+  },
+
+  // Challenge settings
+  challenge: {
+    maxAttempts: 3,
+  },
+
+  // Audit logging
+  auditLogs: {
+    enabled: true,
+    fireAndForget: true,
   },
 
   // Lifecycle hooks
@@ -569,8 +1144,277 @@ export const authConfig: NAuthConfig = {
       console.log('New user:', user.email);
     },
   },
+};
+```
 
-  auditLogs: { enabled: true },
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript title="config/auth.config.ts"
+import { NAuthConfig, MFAMethod, createRedisStorageAdapter } from '@nauth-toolkit/core';
+import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
+import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
+
+// For production, use real providers:
+// import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+// import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
+
+export const authConfig: NAuthConfig = {
+  tablePrefix: 'nauth_',
+
+  // Redis for production (rate limits, locks, token reuse detection)
+  storageAdapter: createRedisStorageAdapter(process.env.REDIS_URL!),
+
+  jwt: {
+    algorithm: 'HS256',
+    issuer: 'com.myapp',
+    audience: ['web', 'mobile'],
+    accessToken: {
+      secret: process.env.JWT_SECRET!,
+      expiresIn: '15m',
+    },
+    refreshToken: {
+      secret: process.env.JWT_REFRESH_SECRET!,
+      expiresIn: '7d',
+      rotation: true,
+      reuseDetection: true,
+    },
+  },
+
+  // Signup with detailed verification settings
+  signup: {
+    enabled: true,
+    verificationMethod: 'both', // 'email', 'phone', or 'both'
+    allowDuplicatePhones: false,
+    emailVerification: {
+      expiresIn: 3600, // 1 hour
+      resendDelay: 60, // 1 minute between resends
+      rateLimitMax: 5, // Max emails per window
+      rateLimitWindow: 3600, // 1 hour window
+      maxAttemptsPerIP: 10, // Max verification attempts per IP
+      attemptWindow: 3600, // 1 hour window for attempts
+    },
+    phoneVerification: {
+      codeLength: 6,
+      expiresIn: 300, // 5 minutes
+      maxAttempts: 3, // Max verification attempts
+      resendDelay: 60, // 1 minute between resends
+      rateLimitMax: 5, // Max SMS per window
+      rateLimitWindow: 3600, // 1 hour window
+      maxAttemptsPerUser: 5, // Max attempts per user
+      maxAttemptsPerIP: 10, // Max attempts per IP
+      attemptWindow: 3600, // 1 hour window
+    },
+  },
+
+  // MFA with comprehensive settings
+  mfa: {
+    enabled: true,
+    enforcement: 'ADAPTIVE', // 'OPTIONAL', 'REQUIRED', or 'ADAPTIVE'
+    gracePeriod: 0, // Days before MFA becomes required
+    requireForSocialLogin: false,
+    allowedMethods: [MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.TOTP, MFAMethod.PASSKEY],
+    issuer: 'My App',
+    totp: {
+      window: 1,
+      stepSeconds: 30,
+      digits: 6,
+      algorithm: 'sha1',
+    },
+    passkey: {
+      rpName: 'My App',
+      rpId: 'myapp.com',
+      origin: ['https://myapp.com', 'https://www.myapp.com'],
+      timeout: 60000,
+      userVerification: 'preferred',
+    },
+    adaptive: {
+      triggers: ['new_device', 'new_ip', 'new_country', 'impossible_travel'],
+      riskLevels: {
+        low: { maxScore: 20, action: 'allow', notifyUser: false },
+        medium: { maxScore: 50, action: 'require_mfa', notifyUser: true },
+        high: { maxScore: 100, action: 'block_signin', notifyUser: true },
+      },
+    },
+    rememberDevices: 'user_opt_in',
+    rememberDeviceDays: 30,
+    bypassMFAForTrustedDevices: true,
+  },
+
+  // Password policy with reset settings
+  password: {
+    minLength: 8,
+    requireUppercase: true,
+    requireNumbers: true,
+    requireSpecialChars: true,
+    preventCommon: true,
+    historyCount: 5,
+    expiryDays: 0, // 0 = never expire
+    specialChars: '$#!@',
+    passwordReset: {
+      codeLength: 6,
+      expiresIn: 900, // 15 minutes
+      rateLimitMax: 3,
+      rateLimitWindow: 3600,
+      maxAttempts: 3,
+    },
+  },
+
+  // Token delivery configuration
+  tokenDelivery: {
+    method: 'hybrid', // 'json', 'cookies', or 'hybrid'
+    cookieOptions: {
+      secure: true,
+      sameSite: 'strict',
+      domain: '.myapp.com',
+    },
+  },
+
+  // Security settings
+  security: {
+    csrf: {
+      cookieName: 'nauth_csrf_token',
+      headerName: 'x-csrf-token',
+      cookieOptions: {
+        domain: '.myapp.com',
+      },
+    },
+  },
+
+  // IP geolocation (MaxMind)
+  geoLocation: {
+    maxMind: {
+      licenseKey: process.env.MAXMIND_LICENSE_KEY,
+      accountId: parseInt(process.env.MAXMIND_ACCOUNT_ID || '0', 10),
+      autoDownloadOnStartup: false,
+      editions: ['GeoLite2-City', 'GeoLite2-Country'],
+    },
+  },
+
+  // Social authentication providers
+  social: {
+    redirect: {
+      frontendBaseUrl: 'https://myapp.com',
+      allowAbsoluteReturnTo: false,
+      allowedReturnToOrigins: ['https://myapp.com'],
+    },
+    google: {
+      enabled: true,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackUrl: 'https://api.myapp.com/auth/social/google/callback',
+      scopes: ['openid', 'email', 'profile'],
+      autoLink: true,
+      allowSignup: true,
+    },
+    apple: {
+      enabled: true,
+      clientId: process.env.APPLE_CLIENT_ID || 'com.myapp.services',
+      clientSecret: process.env.APPLE_CLIENT_SECRET,
+      callbackUrl: 'https://api.myapp.com/auth/social/apple/callback',
+      scopes: ['name', 'email'],
+      autoLink: true,
+      allowSignup: true,
+    },
+    facebook: {
+      enabled: true,
+      clientId: process.env.FACEBOOK_CLIENT_ID,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+      callbackUrl: 'https://api.myapp.com/auth/social/facebook/callback',
+      scopes: ['email', 'public_profile'],
+      autoLink: true,
+      allowSignup: true,
+    },
+  },
+
+  // Email provider
+  emailProvider: new ConsoleEmailProvider(),
+  // emailProvider: new NodemailerEmailProvider({
+  //   transport: {
+  //     host: process.env.SMTP_HOST,
+  //     port: 587,
+  //     secure: false,
+  //     auth: {
+  //       user: process.env.SMTP_USER,
+  //       pass: process.env.SMTP_PASS,
+  //     },
+  //   },
+  //   defaults: {
+  //     from: 'My App <noreply@myapp.com>',
+  //   },
+  // }),
+
+  // Email branding
+  email: {
+    appName: process.env.APP_NAME || 'My App',
+    companyName: process.env.COMPANY_NAME || 'My Company Inc.',
+    supportEmail: process.env.SUPPORT_EMAIL || 'support@myapp.com',
+    logoUrl: process.env.LOGO_URL || 'https://myapp.com/logo.png',
+    dashboardUrl: process.env.DASHBOARD_URL || 'https://myapp.com/dashboard',
+    brandColor: process.env.BRAND_COLOR || '#4f46e5',
+  },
+
+  // SMS provider
+  smsProvider: new ConsoleSMSProvider(),
+  // smsProvider: new AWSSMSProvider({
+  //   region: process.env.AWS_REGION || 'us-east-1',
+  //   originationNumber: process.env.AWS_SMS_ORIGINATION_NUMBER,
+  // }),
+
+  // SMS template customization
+  sms: {
+    templates: {
+      globalVariables: {
+        appName: process.env.APP_NAME || 'My App',
+        companyName: process.env.COMPANY_NAME || 'My Company Inc.',
+        supportPhone: process.env.SUPPORT_PHONE || '1-800-123-4567',
+      },
+      customTemplates: {
+        verification: {
+          content: '{{#if appName}}{{appName}}: {{/if}}Your verification code is {{code}}. Valid for {{expiryMinutes}} minutes.',
+        },
+        mfa: {
+          content: '{{#if appName}}{{appName}}: {{/if}}Your MFA code is {{code}}. Expires in {{expiryMinutes}} minutes.',
+        },
+        passwordReset: {
+          content: '{{#if appName}}{{appName}}: {{/if}}Your password reset code is {{code}}. Valid for {{expiryMinutes}} minutes.',
+        },
+      },
+    },
+  },
+
+  // Account lockout protection
+  lockout: {
+    enabled: true,
+    maxAttempts: 5,
+    duration: 900, // 15 minutes
+    resetOnSuccess: true,
+  },
+
+  // Session management
+  session: {
+    maxConcurrent: 5,
+    disallowMultipleSessions: false,
+    maxLifetime: '30d',
+  },
+
+  // Challenge settings
+  challenge: {
+    maxAttempts: 3,
+  },
+
+  // Audit logging
+  auditLogs: {
+    enabled: true,
+    fireAndForget: true,
+  },
+
+  // Lifecycle hooks
+  hooks: {
+    afterSignup: async (user) => {
+      console.log('New user:', user.email);
+    },
+  },
 };
 ```
 
@@ -578,6 +1422,8 @@ export const authConfig: NAuthConfig = {
 </Tabs>
 
 ## Adding Features
+
+The core packages excludes optional features to keep the toolkit lightweight for features that may not be required. However, you can add these features by following the guides on Social, MFA.
 
 ### Social Login
 
@@ -663,97 +1509,6 @@ export const authConfig: NAuthConfig = {
 
 </TabItem>
 </Tabs>
-
-## Key Differences by Framework
-
-| Aspect | NestJS | Express | Fastify |
-|--------|--------|---------|---------|
-| **Bootstrap** | `AuthModule.forRoot()` | `NAuth.create()` | `NAuth.create()` |
-| **Adapter** | Automatic | `ExpressAdapter` | `FastifyAdapter` |
-| **Route protection** | `@UseGuards(AuthGuard)` | `nauth.helpers.requireAuth()` | `preHandler` + `nauth.helpers.requireAuth()` |
-| **Public routes** | `@Public()` decorator | `nauth.helpers.public()` | `nauth.helpers.public()` |
-| **Get current user** | `@CurrentUser()` decorator | `nauth.helpers.getCurrentUser()` | `nauth.helpers.getCurrentUser()` |
-| **Context propagation** | Automatic | Automatic | Use `adapter.wrapRouteHandler` on route handlers |
-
-## Troubleshooting
-
-### TypeScript IntelliSense Not Working (Express/Fastify)
-
-If you're not getting IntelliSense/autocomplete for the `nauth` instance in Express or Fastify, you need to explicitly type it:
-
-<Tabs>
-<TabItem value="express-typing" label="Express">
-
-```typescript
-import { NAuthInstance, ExpressMiddlewareType, RequestHandler } from '@nauth-toolkit/core';
-
-// Type the nauth instance explicitly
-let nauth: NAuthInstance<ExpressMiddlewareType, RequestHandler>;
-
-async function bootstrap() {
-  nauth = await NAuth.create({
-    config: authConfig,
-    dataSource,
-    adapter: new ExpressAdapter(),
-  });
-
-  // Now you'll get full IntelliSense for:
-  // nauth.authService.*
-  // nauth.middleware.*
-  // nauth.helpers.*
-  // etc.
-}
-```
-
-Or pass it as a typed parameter to your route functions:
-
-```typescript
-export function createAuthRoutes(
-  nauth: NAuthInstance<ExpressMiddlewareType, RequestHandler>
-): Router {
-  // Full IntelliSense available here
-  const router = Router();
-  // ...
-}
-```
-
-</TabItem>
-<TabItem value="fastify-typing" label="Fastify">
-
-```typescript
-import { NAuthInstance, FastifyMiddlewareType, FastifyHookHandler } from '@nauth-toolkit/core';
-
-// Type the nauth instance explicitly
-let nauth: NAuthInstance<FastifyMiddlewareType, FastifyHookHandler>;
-
-async function bootstrap() {
-  nauth = await NAuth.create({
-    config: authConfig,
-    dataSource,
-    adapter: new FastifyAdapter(),
-  });
-
-  // Now you'll get full IntelliSense
-}
-```
-
-Or in your route functions:
-
-```typescript
-export async function createAuthRoutes(
-  fastify: FastifyInstance,
-  nauth: NAuthInstance<FastifyMiddlewareType, FastifyHookHandler>,
-): Promise<void> {
-  // Full IntelliSense available here
-}
-```
-
-</TabItem>
-</Tabs>
-
-:::info Why is this needed?
-TypeScript's type inference for `NAuth.create()` is limited because the return type depends on which adapter you provide. Explicitly typing the variable helps TypeScript understand the exact shape of your `nauth` instance.
-:::
 
 ## Next Steps
 

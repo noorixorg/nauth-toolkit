@@ -3,7 +3,7 @@ title: PhoneVerificationService
 description: Phone verification service for sending SMS codes, verifying with code, and resending with rate limiting. Supports both phone number and user sub-based verification.
 keywords: [phone, verification, service, sms, code, api]
 image: /img/api-social-card.png
-sidebar_position: 6
+sidebar_position: 7
 ---
 
 import Tabs from '@theme/Tabs';

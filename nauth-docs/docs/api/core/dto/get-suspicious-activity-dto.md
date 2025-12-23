@@ -1,7 +1,7 @@
 ---
 title: GetSuspiciousActivityDTO
 description: Request DTO for getting suspicious authentication activity events with optional user filtering
-sidebar_position: 102
+sidebar_position: 31
 keywords: [dto, request, audit, suspicious, security, api]
 image: /img/api-social-card.png
 ---

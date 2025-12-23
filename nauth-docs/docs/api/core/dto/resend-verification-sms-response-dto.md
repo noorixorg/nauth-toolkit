@@ -3,7 +3,7 @@ title: ResendVerificationSMSResponseDTO
 description: Response DTO for resend verification SMS operation. Returns internal verification token ID.
 keywords: [phone, verification, sms, dto, response, token, api]
 image: /img/api-social-card.png
-sidebar_position: 26
+sidebar_position: 57
 ---
 
 import Tabs from '@theme/Tabs';

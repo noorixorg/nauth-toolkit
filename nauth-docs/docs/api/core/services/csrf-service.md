@@ -3,7 +3,7 @@ title: CsrfService
 description: CSRF token generation and validation service
 keywords: [service, csrf, security, api]
 image: /img/api-social-card.png
-sidebar_position: 8
+sidebar_position: 4
 ---
 
 import Tabs from '@theme/Tabs';

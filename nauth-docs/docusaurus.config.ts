@@ -124,7 +124,7 @@ const config: Config = {
           type: 'docSidebar',
           sidebarId: 'docsSidebar',
           position: 'left',
-          label: 'Docs',
+          label: 'Guides',
         },
         // Guides sidebar - coming soon
         // {

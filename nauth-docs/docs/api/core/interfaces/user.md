@@ -3,7 +3,7 @@ title: IUser
 description: User entity contract used across core services and database implementations
 keywords: [user, entity, interface, api]
 image: /img/api-social-card.png
-sidebar_position: 5
+sidebar_position: 10
 ---
 
 import Tabs from '@theme/Tabs';

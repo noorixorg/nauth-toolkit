@@ -3,7 +3,7 @@ title: RiskFactor
 description: Risk factor identifiers used for risk scoring, adaptive MFA, and audit logging
 keywords: [risk, factors, adaptive mfa, enum, api]
 image: /img/api-social-card.png
-sidebar_position: 3
+sidebar_position: 5
 ---
 
 import Tabs from '@theme/Tabs';

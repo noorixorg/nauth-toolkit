@@ -3,7 +3,7 @@ title: SignupDTO
 description: User registration DTO with email, password, optional username, phone, and profile fields. Includes comprehensive validation and input sanitization.
 keywords: [signup, registration, dto, authentication, request, email, password, username, phone, api]
 image: /img/api-social-card.png
-sidebar_position: 3
+sidebar_position: 72
 ---
 
 import Tabs from '@theme/Tabs';

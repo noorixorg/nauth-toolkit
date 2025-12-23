@@ -3,7 +3,7 @@ title: SetPasswordForSocialUserResponseDTO
 description: Response DTO for set password for social user operation. Returns success message.
 keywords: [social, auth, dto, response, password, api]
 image: /img/api-social-card.png
-sidebar_position: 39
+sidebar_position: 69
 ---
 
 import Tabs from '@theme/Tabs';

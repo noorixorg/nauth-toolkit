@@ -3,7 +3,7 @@ title: MFAMethod
 description: MFA method identifiers and related types used across nauth-toolkit
 keywords: [mfa, methods, enum, types, api]
 image: /img/api-social-card.png
-sidebar_position: 2
+sidebar_position: 4
 ---
 
 import Tabs from '@theme/Tabs';

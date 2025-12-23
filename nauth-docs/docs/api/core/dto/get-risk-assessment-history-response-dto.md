@@ -1,7 +1,7 @@
 ---
 title: GetRiskAssessmentHistoryResponseDTO
 description: Response DTO for risk assessment history audit events
-sidebar_position: 103
+sidebar_position: 25
 keywords: [dto, response, audit, risk, mfa, api]
 image: /img/api-social-card.png
 ---

@@ -3,7 +3,7 @@ title: LogoutDTO
 description: Logout request DTO with optional user sub and forgetMe flag. Session ID is automatically extracted from JWT context.
 keywords: [logout, dto, request, session, api]
 image: /img/api-social-card.png
-sidebar_position: 15
+sidebar_position: 48
 ---
 
 import Tabs from '@theme/Tabs';

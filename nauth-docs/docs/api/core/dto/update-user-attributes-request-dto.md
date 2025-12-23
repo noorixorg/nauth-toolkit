@@ -3,7 +3,7 @@ title: UpdateUserAttributesRequestDTO
 description: User profile update request DTO extending UserUpdateDTO with user sub. Includes all optional profile fields.
 keywords: [user, update, attributes, dto, request, uuid, api]
 image: /img/api-social-card.png
-sidebar_position: 19
+sidebar_position: 76
 ---
 
 import Tabs from '@theme/Tabs';

@@ -180,7 +180,7 @@ export class AuthController {
   // Web client endpoint (cookies)
   @Public()
   @Post('login')
-  @TokenDelivery('cookies')
+  @TokenDelivery('cookies') // Only required when tokenDelivery: 'hybrid'
   async loginWeb(@Body() dto: LoginDTO): Promise<AuthResponseDTO> {
     return await this.authService.login(dto);
   }
@@ -188,7 +188,7 @@ export class AuthController {
   // Mobile client endpoint (json)
   @Public()
   @Post('login/mobile')
-  @TokenDelivery('json')
+  @TokenDelivery('json') // Only required when tokenDelivery: 'hybrid'
   async loginMobile(@Body() dto: LoginDTO): Promise<AuthResponseDTO> {
     return await this.authService.login(dto);
   }
@@ -209,7 +209,7 @@ const router = Router();
 router.post(
   '/login',
   nauth.helpers.public(),
-  nauth.helpers.tokenDelivery('cookies'),
+  nauth.helpers.tokenDelivery('cookies'), // Only required when tokenDelivery: 'hybrid'
   async (req, res, next) => {
     try {
       const dto = Object.assign(new LoginDTO(), req.body);
@@ -225,7 +225,7 @@ router.post(
 router.post(
   '/login/mobile',
   nauth.helpers.public(),
-  nauth.helpers.tokenDelivery('json'),
+  nauth.helpers.tokenDelivery('json'), // Only required when tokenDelivery: 'hybrid'
   async (req, res, next) => {
     try {
       const dto = Object.assign(new LoginDTO(), req.body);
@@ -250,7 +250,7 @@ fastify.post(
   {
     preHandler: [
       nauth.helpers.public() as any,
-      nauth.helpers.tokenDelivery('cookies') as any
+      nauth.helpers.tokenDelivery('cookies') as any // Only required when tokenDelivery: 'hybrid'
     ]
   },
   nauth.adapter.wrapRouteHandler(async (req) => {
@@ -265,7 +265,7 @@ fastify.post(
   {
     preHandler: [
       nauth.helpers.public() as any,
-      nauth.helpers.tokenDelivery('json') as any
+      nauth.helpers.tokenDelivery('json') as any // Only required when tokenDelivery: 'hybrid'
     ]
   },
   nauth.adapter.wrapRouteHandler(async (req) => {
