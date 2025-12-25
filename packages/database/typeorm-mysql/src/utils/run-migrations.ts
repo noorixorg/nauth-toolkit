@@ -1,6 +1,7 @@
-import type { DataSource } from 'typeorm';
+import { DataSource } from 'typeorm';
 import type { NAuthConfig, NAuthLogger } from '@nauth-toolkit/core';
 import { migrations } from '../migrations';
+import { getNAuthEntities, getNAuthTransientStorageEntities } from '../entities';
 
 type TypeOrmMigration = { name: string };
 
@@ -10,10 +11,68 @@ function getMigrationsTableName(config: NAuthConfig): string {
 }
 
 /**
+ * Extracts connection configuration from consumer DataSource without touching it.
+ *
+ * @remarks
+ * This function only reads connection options and never modifies the consumer's DataSource.
+ * It supports both connection URL and individual connection parameters.
+ *
+ * @param dataSource - Consumer's DataSource instance
+ * @returns Connection configuration object
+ */
+function extractConnectionConfig(dataSource: DataSource): {
+  type: 'mysql';
+  url?: string;
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  database?: string;
+  extra?: unknown;
+} {
+  const options = dataSource.options;
+  const opts = options as {
+    url?: string;
+    host?: string;
+    port?: number;
+    username?: string;
+    password?: string;
+    database?: string;
+    extra?: unknown;
+  };
+
+  // If connection URL is provided, use it (takes precedence)
+  if (opts.url) {
+    return {
+      type: 'mysql',
+      url: opts.url,
+      extra: opts.extra,
+    };
+  }
+
+  // Otherwise, use individual connection parameters
+  return {
+    type: 'mysql',
+    host: opts.host,
+    port: opts.port,
+    username: opts.username,
+    password: opts.password,
+    database: opts.database,
+    extra: opts.extra,
+  };
+}
+
+/**
  * Run nauth-toolkit migrations for MySQL.
  *
  * @remarks
- * This is invoked automatically by the core/nestjs packages at startup.
+ * This creates a completely isolated DataSource instance for nauth migrations,
+ * ensuring zero interference with consumer migrations. The consumer's DataSource
+ * is never modified or accessed for migration purposes.
+ *
+ * @param dataSource - Consumer's DataSource (only used to extract connection config)
+ * @param logger - NAuth logger instance
+ * @param config - NAuth configuration
  */
 export async function runNAuthMigrations(
   dataSource: DataSource,
@@ -24,29 +83,45 @@ export async function runNAuthMigrations(
 
   logger.log(`[nauth-toolkit] Ensuring database schema via migrations (@nauth-toolkit/database-typeorm-mysql)...`);
 
-  const existing = Array.isArray(dataSource.options.migrations) ? dataSource.options.migrations : [];
-  const merged = [...existing, ...migrations];
+  // Extract connection config from consumer DataSource (read-only, no modifications)
+  const connectionConfig = extractConnectionConfig(dataSource);
 
-  // Inject our migrations into the DataSource options, then rebuild metadatas so TypeORM creates Migration instances.
-  // (Setting options alone is not enough after initialization; TypeORM uses `dataSource.migrations` built in buildMetadatas()).
-  (dataSource.options as { migrations?: unknown[] }).migrations = merged as unknown[];
-  (dataSource.options as { migrationsTableName?: string }).migrationsTableName = migrationsTableName;
-  await (dataSource as unknown as { buildMetadatas: () => Promise<void> }).buildMetadatas();
+  // Create a completely separate DataSource instance for nauth migrations only
+  // This ensures hard separation - consumer migrations are never touched
+  const nauthDataSource = new DataSource({
+    ...connectionConfig,
+    entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()],
+    migrations,
+    migrationsTableName,
+    synchronize: false,
+    logging: false,
+  });
 
-  logger.log(
-    `[nauth-toolkit] Injecting ${migrations.length} NAuth migration(s) into DataSource (existing runtime: ${existing.length})`,
-  );
-  logger.log('[nauth-toolkit] Checking for pending migrations...');
+  try {
+    // Initialize the isolated nauth DataSource
+    await nauthDataSource.initialize();
 
-  const executed = (await dataSource.runMigrations(
-    { transaction: 'all' } as unknown as { transaction: 'all' },
-  )) as TypeOrmMigration[];
+    logger.log(
+      `[nauth-toolkit] Running ${migrations.length} NAuth migration(s) using isolated DataSource (table: ${migrationsTableName})`,
+    );
+    logger.log('[nauth-toolkit] Checking for pending migrations...');
 
-  if (!executed.length) {
-    logger.log('[nauth-toolkit] No pending migrations.');
-    return;
+    // Run migrations on the isolated DataSource
+    const executed = (await nauthDataSource.runMigrations({
+      transaction: 'all',
+    } as unknown as { transaction: 'all' })) as TypeOrmMigration[];
+
+    if (!executed.length) {
+      logger.log('[nauth-toolkit] No pending migrations.');
+      return;
+    }
+
+    logger.log(`[nauth-toolkit] Executed ${executed.length} migration(s):`);
+    for (const m of executed) logger.log(`  ${m.name}`);
+  } finally {
+    // Always destroy the isolated DataSource to clean up connections
+    if (nauthDataSource.isInitialized) {
+      await nauthDataSource.destroy();
+    }
   }
-
-  logger.log(`[nauth-toolkit] Executed ${executed.length} migration(s):`);
-  for (const m of executed) logger.log(`  ${m.name}`);
 }

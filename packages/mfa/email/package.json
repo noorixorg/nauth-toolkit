@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/mfa-email",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "description": "Email MFA provider for nauth-toolkit",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -28,7 +28,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.25"
+    "@nauth-toolkit/core": "^0.1.26"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
