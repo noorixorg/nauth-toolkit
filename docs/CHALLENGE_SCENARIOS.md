@@ -219,13 +219,17 @@
 
 ## Special Cases
 
-### Phone Collection During Verification
+### Phone Collection and Update During Verification
 
 | Scenario                                               | Flow                                                                                    |
 | ------------------------------------------------------ | --------------------------------------------------------------------------------------- |
 | User has no phone, `verificationMethod = 'phone'`      | `VERIFY_PHONE (collect phone) → VERIFY_PHONE (verify code) → [continue]`                |
 | User has no phone, `verificationMethod = 'both'`       | `VERIFY_EMAIL → VERIFY_PHONE (collect phone) → VERIFY_PHONE (verify code) → [continue]` |
 | Social login, no phone, `verificationMethod = 'phone'` | `VERIFY_PHONE (collect phone) → VERIFY_PHONE (verify code) → SUCCESS`                   |
+| User has wrong phone, `verificationMethod = 'phone'`    | `VERIFY_PHONE (update phone) → VERIFY_PHONE (verify code) → [continue]`                 |
+| User has wrong phone, `verificationMethod = 'both'`     | `VERIFY_EMAIL → VERIFY_PHONE (update phone) → VERIFY_PHONE (verify code) → [continue]`  |
+
+**Note**: Users can update their phone number during the `VERIFY_PHONE` challenge even if they already have a phone number. The backend accepts phone updates unconditionally. The `requiresPhoneCollection` flag is only a UI hint indicating the user has no phone, but it doesn't prevent phone updates. This allows users to correct wrong numbers entered during signup.
 
 ---
 

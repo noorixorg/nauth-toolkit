@@ -583,9 +583,11 @@ describe('AuthChallengeHelperService', () => {
         ...mockUser,
         mfaEnabled: true,
         preferredMfaMethod: MFAMethod.SMS,
+        phone: '+1234567890',
       } as IUser;
       const mockChallengeSession = createMockChallengeSession('session-token-mfa', AuthChallenge.MFA_REQUIRED);
       mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
+      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue({ tokenId: 123 } as any);
 
       const result = await service.createMFAChallengeResponse(user);
 
@@ -617,9 +619,10 @@ describe('AuthChallengeHelperService', () => {
         } as IMFADevice,
       ];
       mockMFADeviceRepository.find.mockResolvedValue(mockDevices);
-      const user = { ...mockUser, mfaEnabled: true } as IUser;
+      const user = { ...mockUser, mfaEnabled: true, phone: '+1234567890' } as IUser;
       const mockChallengeSession = createMockChallengeSession('session-token-mfa', AuthChallenge.MFA_REQUIRED);
       mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
+      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue({ tokenId: 123 } as any);
 
       const result = await service.createMFAChallengeResponse(user);
 

@@ -1,18 +1,18 @@
-import { SocialAuthService } from './social-auth.service';
+import { SocialProviderRegistry } from './social-provider-registry.service';
 import { ISocialAuthProviderService } from '../interfaces/social-auth-provider.interface';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 
 /**
- * Social Auth Service Unit Tests
+ * Social Provider Registry Unit Tests
  *
  * Tests social authentication provider registry functionality.
  * Covers provider registration, lookup, and listing.
  *
  * Platform-agnostic: Uses direct instantiation, no NestJS dependencies.
  */
-describe('SocialAuthService', () => {
-  let service: SocialAuthService;
+describe('SocialProviderRegistry', () => {
+  let service: SocialProviderRegistry;
   let mockProvider1: jest.Mocked<ISocialAuthProviderService>;
   let mockProvider2: jest.Mocked<ISocialAuthProviderService>;
 
@@ -37,7 +37,7 @@ describe('SocialAuthService', () => {
     } as any;
 
     // Instantiate service directly
-    service = new SocialAuthService();
+    service = new SocialProviderRegistry();
   });
 
   afterEach(() => {

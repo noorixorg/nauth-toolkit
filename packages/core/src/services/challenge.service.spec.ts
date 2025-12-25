@@ -66,6 +66,7 @@ describe('ChallengeService', () => {
       save: jest.fn(),
       delete: jest.fn(),
       findOne: jest.fn(),
+      increment: jest.fn().mockResolvedValue(undefined),
       createQueryBuilder: jest.fn(() => mockQueryBuilder),
     } as any;
 
@@ -290,8 +291,15 @@ describe('ChallengeService', () => {
       expect(mockChallengeSessionRepository.create).not.toHaveBeenCalled();
       expect(mockChallengeSessionRepository.save).not.toHaveBeenCalled();
 
-      // Should NOT record a duplicate CHALLENGE_CREATED audit event
-      expect(mockAuditService.recordEvent).not.toHaveBeenCalled();
+      // Should record a CHALLENGE_CREATED audit event with reused: true
+      expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: expect.any(String),
+          metadata: expect.objectContaining({
+            reused: true,
+          }),
+        }),
+      );
     });
 
     it('should create new session if existing session is expired', async () => {
@@ -716,14 +724,18 @@ describe('ChallengeService', () => {
 
   describe('incrementAttempts', () => {
     it('should increment attempt counter', async () => {
-      const session = { ...mockChallengeSession, attempts: 1 } as IChallengeSession;
-      const updatedSession = { ...session, attempts: 2 };
-      mockChallengeSessionRepository.save.mockResolvedValue(updatedSession as any);
+      const session = { ...mockChallengeSession, attempts: 1, user: mockUser } as IChallengeSession;
+      const updatedSession = { ...session, attempts: 2, user: mockUser };
+      mockChallengeSessionRepository.findOne.mockResolvedValue(updatedSession as any);
 
       const result = await service.incrementAttempts(session);
 
       expect(result.attempts).toBe(2);
-      expect(mockChallengeSessionRepository.save).toHaveBeenCalledWith(session);
+      expect(mockChallengeSessionRepository.increment).toHaveBeenCalledWith({ id: session.id }, 'attempts', 1);
+      expect(mockChallengeSessionRepository.findOne).toHaveBeenCalledWith({
+        where: { id: session.id },
+        relations: ['user'],
+      });
     });
 
     it('should record audit event when max attempts exceeded', async () => {
@@ -732,8 +744,8 @@ describe('ChallengeService', () => {
         attempts: 2,
         maxAttempts: 3,
       } as IChallengeSession;
-      const updatedSession = { ...session, attempts: 3 };
-      mockChallengeSessionRepository.save.mockResolvedValue(updatedSession as any);
+      const updatedSession = { ...session, attempts: 3, user: mockUser };
+      mockChallengeSessionRepository.findOne.mockResolvedValue(updatedSession as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
       await service.incrementAttempts(session);
@@ -753,8 +765,8 @@ describe('ChallengeService', () => {
         attempts: 1,
         maxAttempts: 3,
       } as IChallengeSession;
-      const updatedSession = { ...session, attempts: 2 };
-      mockChallengeSessionRepository.save.mockResolvedValue(updatedSession as any);
+      const updatedSession = { ...session, attempts: 2, user: mockUser };
+      mockChallengeSessionRepository.findOne.mockResolvedValue(updatedSession as any);
 
       await service.incrementAttempts(session);
 
@@ -767,8 +779,8 @@ describe('ChallengeService', () => {
         attempts: 2,
         maxAttempts: 3,
       } as IChallengeSession;
-      const updatedSession = { ...session, attempts: 3 };
-      mockChallengeSessionRepository.save.mockResolvedValue(updatedSession as any);
+      const updatedSession = { ...session, attempts: 3, user: mockUser };
+      mockChallengeSessionRepository.findOne.mockResolvedValue(updatedSession as any);
       mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
       const result = await service.incrementAttempts(session);
@@ -783,8 +795,8 @@ describe('ChallengeService', () => {
         attempts: 2,
         maxAttempts: 3,
       } as IChallengeSession;
-      const updatedSession = { ...session, attempts: 3 };
-      mockChallengeSessionRepository.save.mockResolvedValue(updatedSession as any);
+      const updatedSession = { ...session, attempts: 3, user: mockUser };
+      mockChallengeSessionRepository.findOne.mockResolvedValue(updatedSession as any);
       mockAuditService.recordEvent.mockRejectedValue('String error' as any);
 
       const result = await service.incrementAttempts(session);
@@ -804,16 +816,18 @@ describe('ChallengeService', () => {
         ipAddress: '10.20.30.40',
         userAgent: 'custom-browser-agent',
       } as IChallengeSession;
-      const updatedSession = { ...session, attempts: 3 };
-      mockChallengeSessionRepository.save.mockResolvedValue(updatedSession as any);
+      const updatedSession = { ...session, attempts: 3, user: mockUser };
+      mockChallengeSessionRepository.findOne.mockResolvedValue(updatedSession as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
       await service.incrementAttempts(session);
 
+      // Client info is automatically included from ClientInfoService context, not from session
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({
-          ipAddress: '10.20.30.40',
-          userAgent: 'custom-browser-agent',
+          eventType: AuthAuditEventType.CHALLENGE_ATTEMPT_FAILED,
+          eventStatus: 'FAILURE',
+          reason: 'max_attempts_exceeded',
         }),
       );
     });
@@ -826,16 +840,18 @@ describe('ChallengeService', () => {
         ipAddress: null,
         userAgent: null,
       } as IChallengeSession;
-      const updatedSession = { ...session, attempts: 3 };
-      mockChallengeSessionRepository.save.mockResolvedValue(updatedSession as any);
+      const updatedSession = { ...session, attempts: 3, user: mockUser };
+      mockChallengeSessionRepository.findOne.mockResolvedValue(updatedSession as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
       await service.incrementAttempts(session);
 
+      // Client info is automatically included from ClientInfoService context, not from session
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({
-          ipAddress: undefined,
-          userAgent: undefined,
+          eventType: AuthAuditEventType.CHALLENGE_ATTEMPT_FAILED,
+          eventStatus: 'FAILURE',
+          reason: 'max_attempts_exceeded',
         }),
       );
     });
@@ -846,8 +862,8 @@ describe('ChallengeService', () => {
         attempts: 2,
         maxAttempts: 3,
       } as IChallengeSession;
-      const updatedSession = { ...session, attempts: 3 };
-      mockChallengeSessionRepository.save.mockResolvedValue(updatedSession as any);
+      const updatedSession = { ...session, attempts: 3, user: mockUser };
+      mockChallengeSessionRepository.findOne.mockResolvedValue(updatedSession as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
       await service.incrementAttempts(session);
@@ -868,12 +884,14 @@ describe('ChallengeService', () => {
         user: undefined,
       } as any;
       const updatedSession = { ...sessionWithoutUser, attempts: 3 };
-      mockChallengeSessionRepository.save.mockResolvedValue(updatedSession);
+      mockChallengeSessionRepository.findOne.mockResolvedValue(updatedSession);
 
-      await service.incrementAttempts(sessionWithoutUser);
+      const result = await service.incrementAttempts(sessionWithoutUser);
 
-      // Should not throw, but audit may not be recorded
-      expect(mockChallengeSessionRepository.save).toHaveBeenCalled();
+      // Should not throw, but audit should not be recorded when user is missing
+      expect(result.attempts).toBe(3);
+      expect(mockChallengeSessionRepository.increment).toHaveBeenCalled();
+      expect(mockAuditService.recordEvent).not.toHaveBeenCalled();
     });
   });
 
@@ -970,10 +988,11 @@ describe('ChallengeService', () => {
 
       await service.validateAndConsumeSession('session-token-123', AuthChallenge.VERIFY_EMAIL);
 
+      // Client info is automatically included from ClientInfoService context, not from session
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({
-          ipAddress: undefined,
-          userAgent: undefined,
+          eventType: AuthAuditEventType.CHALLENGE_COMPLETED,
+          eventStatus: 'SUCCESS',
         }),
       );
     });
@@ -1004,10 +1023,11 @@ describe('ChallengeService', () => {
 
       await service.validateAndConsumeSession('session-token-123', AuthChallenge.VERIFY_EMAIL);
 
+      // Client info is automatically included from ClientInfoService context, not from session
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({
-          ipAddress: '5.6.7.8',
-          userAgent: 'session-agent',
+          eventType: AuthAuditEventType.CHALLENGE_COMPLETED,
+          eventStatus: 'SUCCESS',
         }),
       );
     });

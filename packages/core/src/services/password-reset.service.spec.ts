@@ -182,7 +182,12 @@ describe('PasswordResetService', () => {
 
       const result = await service.requestReset(mockUser, 'sms');
 
-      expect(mockSmsProvider.sendOTP).toHaveBeenCalledWith(mockUser.phone!, expect.any(String));
+      expect(mockSmsProvider.sendOTP).toHaveBeenCalledWith(
+        mockUser.phone!,
+        expect.any(String),
+        'passwordReset',
+        expect.any(Object),
+      );
       expect(result.deliveryMedium).toBe('sms');
     });
   });

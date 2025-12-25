@@ -6,7 +6,7 @@ import { SessionService } from './session.service';
 import { AuthChallengeHelperService } from './auth-challenge-helper.service';
 import { ClientInfoService } from './client-info.service';
 import { PhoneVerificationService } from './phone-verification.service';
-import { AuthAuditService } from './auth-audit.service';
+import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { OAuthUserProfile } from '../interfaces/oauth.interface';
@@ -79,7 +79,7 @@ describe('BaseSocialAuthProviderService', () => {
   let mockChallengeHelper: jest.Mocked<AuthChallengeHelperService>;
   let mockClientInfoService: jest.Mocked<ClientInfoService>;
   let mockStateStore: jest.Mocked<ISocialAuthStateStore>;
-  let mockUserRepository: Repository<BaseUser>;
+  let mockUserRepository: jest.Mocked<Repository<BaseUser>>;
   let mockPhoneVerificationService: jest.Mocked<PhoneVerificationService>;
   let mockAuditService: jest.Mocked<AuthAuditService>;
   let mockUser: IUser;
@@ -173,7 +173,11 @@ describe('BaseSocialAuthProviderService', () => {
       setRedirectContext: jest.fn().mockResolvedValue(undefined),
       consumeRedirectContext: jest.fn().mockResolvedValue(null),
     };
-    mockUserRepository = {} as unknown as Repository<BaseUser>;
+    mockUserRepository = {
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+    } as unknown as jest.Mocked<Repository<BaseUser>>;
     mockPhoneVerificationService = {} as any;
     mockAuditService = {
       recordEvent: jest.fn(),
@@ -265,14 +269,16 @@ describe('BaseSocialAuthProviderService', () => {
   describe('handleCallback', () => {
     it('should handle OAuth callback and return auth response', async () => {
       mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
-      mockAuthService.getUserByEmail.mockResolvedValue(null);
-      mockAuthService.createSocialUser.mockResolvedValue(mockUser);
+      mockUserRepository.findOne.mockResolvedValue(null); // No existing user by email
+      mockUserRepository.create.mockReturnValue(mockUser as any);
+      mockUserRepository.save.mockResolvedValue(mockUser as any);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
       const result = await service.handleCallback('code', 'valid-state');
 
       expect(result).toBeDefined();
-      expect(mockAuthService.createSocialUser).toHaveBeenCalled();
+      expect(mockUserRepository.create).toHaveBeenCalled();
+      expect(mockUserRepository.save).toHaveBeenCalled();
       expect(mockStateStore.validateAndConsumeCsrfState).toHaveBeenCalledWith('test', 'valid-state');
     });
 
@@ -306,14 +312,16 @@ describe('BaseSocialAuthProviderService', () => {
   describe('verifyToken', () => {
     it('should verify native token and return auth response', async () => {
       mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
-      mockAuthService.getUserByEmail.mockResolvedValue(null);
-      mockAuthService.createSocialUser.mockResolvedValue(mockUser);
+      mockUserRepository.findOne.mockResolvedValue(null); // No existing user by email
+      mockUserRepository.create.mockReturnValue(mockUser as any);
+      mockUserRepository.save.mockResolvedValue(mockUser as any);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
       const result = await service.verifyToken('id-token');
 
       expect(result).toBeDefined();
-      expect(mockAuthService.createSocialUser).toHaveBeenCalled();
+      expect(mockUserRepository.create).toHaveBeenCalled();
+      expect(mockUserRepository.save).toHaveBeenCalled();
     });
 
     it('should throw error when provider is not enabled', async () => {
@@ -345,7 +353,7 @@ describe('BaseSocialAuthProviderService', () => {
 
   describe('linkAccount', () => {
     it('should link social account to existing user', async () => {
-      mockAuthService.getUserById.mockResolvedValue(mockUser);
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
@@ -357,12 +365,19 @@ describe('BaseSocialAuthProviderService', () => {
     });
 
     it('should throw error when account is already linked', async () => {
-      mockAuthService.getUserById.mockResolvedValue(mockUser);
-      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue({
-        id: 1,
-        provider: 'test',
-        providerUserId: 'test-user-id',
-      } as any);
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      // The check happens after getOAuthProfile, so we need to mock it to return an account
+      // when called with the provider name and profile.id from getOAuthProfile
+      mockSocialAuthService.findSocialAccountByProvider.mockImplementation((provider, providerUserId) => {
+        if (provider === 'test' && providerUserId === 'test-user-id') {
+          return Promise.resolve({
+            id: 1,
+            provider: 'test',
+            providerUserId: 'test-user-id',
+          } as any);
+        }
+        return Promise.resolve(null);
+      });
 
       try {
         await service.linkAccount('user-123', 'code', 'valid-state');

@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/email-nodemailer",
-  "version": "0.1.23",
+  "version": "0.1.25",
   "description": "Nodemailer email provider for nauth-toolkit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -15,7 +15,7 @@
     "build-templates": "node src/templates/mjml/build-templates.js",
     "copy-templates": "cp -r src/templates/default dist/templates/",
     "clean": "rm -rf dist *.tsbuildinfo",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
@@ -26,7 +26,7 @@
     "nodemailer": "^7.0.11"
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.23"
+    "@nauth-toolkit/core": "^0.1.25"
   },
   "devDependencies": {
     "@types/handlebars": "^4.1.0",

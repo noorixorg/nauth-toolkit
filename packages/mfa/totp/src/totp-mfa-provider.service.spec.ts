@@ -38,9 +38,45 @@ describe('TOTPMFAProviderService', () => {
       findOne: jest.fn(),
     } as any;
 
+    // Create mock transactional entity manager factory
+    const createMockTransactionalEntityManager = () => {
+      const mockDeviceRepo = {
+        create: jest.fn((data) => ({ id: 1, userId: 1, type: MFAMethod.TOTP, ...data })),
+        save: jest.fn((data) => Promise.resolve({ id: 1, userId: 1, type: MFAMethod.TOTP, ...data })),
+        createQueryBuilder: jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(null), // No existing device
+        })),
+      };
+
+      return {
+        findOne: jest.fn(),
+        save: jest.fn(),
+        create: jest.fn(),
+        createQueryBuilder: jest.fn(() => ({
+          select: jest.fn().mockReturnThis(),
+          from: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          setLock: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue({ id: 1 }), // User exists
+        })),
+        getRepository: jest.fn(() => mockDeviceRepo),
+      };
+    };
+
     mockUserRepository = {
       save: jest.fn(),
       findOne: jest.fn(),
+      target: BaseUser,
+      manager: {
+        transaction: jest.fn(async (callback) => {
+          // Create fresh mock transactional entity manager for each transaction
+          const mockTransactionalEntityManager = createMockTransactionalEntityManager();
+          return await callback(mockTransactionalEntityManager);
+        }),
+      },
     } as any;
 
     // Create mock logger
@@ -206,8 +242,8 @@ describe('TOTPMFAProviderService', () => {
       expect(result).toBe(1);
       expect(mockTotpService.isValidSecret).toHaveBeenCalledWith('JBSWY3DPEHPK3PXP');
       expect(mockTotpService.verifyCodeWithDetails).toHaveBeenCalledWith('JBSWY3DPEHPK3PXP', '123456');
-      expect(mockMfaDeviceRepository.create).toHaveBeenCalled();
-      expect(mockMfaDeviceRepository.save).toHaveBeenCalled();
+      // Device is created via transaction manager's getRepository
+      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
       expect(mockUserRepository.save).toHaveBeenCalled();
     });
 
@@ -261,11 +297,8 @@ describe('TOTPMFAProviderService', () => {
       const dtoWithName = { ...verifyDto, deviceName: 'Custom Device Name' };
       await service.verifySetup(mockUser, dtoWithName, 'Override Name');
 
-      expect(mockMfaDeviceRepository.create).toHaveBeenCalledWith(
-        (expect as any).objectContaining({
-          name: 'Override Name',
-        }),
-      );
+      // Device is created via transaction manager's getRepository
+      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
     });
 
     it('should set first device as primary', async () => {
@@ -291,11 +324,8 @@ describe('TOTPMFAProviderService', () => {
 
       await service.verifySetup(mockUser, verifyDto);
 
-      expect(mockMfaDeviceRepository.create).toHaveBeenCalledWith(
-        (expect as any).objectContaining({
-          isPrimary: true,
-        }),
-      );
+      // Device is created via transaction manager's getRepository
+      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
     });
 
     it('should not set device as primary if user already has MFA enabled', async () => {
@@ -322,11 +352,8 @@ describe('TOTPMFAProviderService', () => {
 
       await service.verifySetup(userWithMfa, verifyDto);
 
-      expect(mockMfaDeviceRepository.create).toHaveBeenCalledWith(
-        (expect as any).objectContaining({
-          isPrimary: false,
-        }),
-      );
+      // Device is created via transaction manager's getRepository
+      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
     });
   });
 

@@ -3,11 +3,7 @@ import { FacebookOAuthClient } from './facebook-oauth.client';
 import {
   AuthService,
   SocialAuthService,
-  JwtService,
-  SessionService,
-  AuthChallengeHelperService,
   ClientInfoService,
-  AuthAuditService,
   NAuthConfig,
   NAuthLogger,
   NAuthException,
@@ -15,7 +11,15 @@ import {
   ITokenVerifierService,
   PhoneVerificationService,
   ISocialAuthStateStore,
+  BaseUser,
 } from '@nauth-toolkit/core';
+import {
+  JwtService,
+  SessionService,
+  AuthChallengeHelperService,
+  AuthAuditService,
+} from '@nauth-toolkit/core/internal';
+import { Repository } from 'typeorm';
 import { VerifiedFacebookTokenProfile } from './verified-token-profile.interface';
 
 jest.mock('./facebook-oauth.client');
@@ -36,6 +40,7 @@ describe('FacebookSocialAuthService', () => {
   let mockPhoneVerificationService: jest.Mocked<PhoneVerificationService>;
   let mockTokenVerifier: jest.Mocked<ITokenVerifierService>;
   let mockOAuthClient: jest.Mocked<FacebookOAuthClient>;
+  let mockUserRepository: jest.Mocked<Repository<BaseUser>>;
 
   beforeEach(() => {
     mockLogger = {
@@ -75,6 +80,11 @@ describe('FacebookSocialAuthService', () => {
     mockClientInfoService = {} as any;
     mockAuditService = {} as any;
     mockPhoneVerificationService = {} as any;
+    mockUserRepository = {
+      findOne: jest.fn(),
+      save: jest.fn(),
+      create: jest.fn(),
+    } as any;
     mockStateStore = {
       createCsrfState: jest.fn().mockResolvedValue('generated-state'),
       validateAndConsumeCsrfState: jest.fn().mockResolvedValue(undefined),
@@ -111,8 +121,10 @@ describe('FacebookSocialAuthService', () => {
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined, // trustedDeviceService
         mockTokenVerifier,
       );
 
@@ -120,29 +132,29 @@ describe('FacebookSocialAuthService', () => {
       expect(service.providerName).toBe('facebook');
     });
 
-    it('should throw error when Facebook OAuth is not enabled', () => {
+    it('should initialize service when Facebook OAuth is not enabled (constructor does not throw)', () => {
       mockConfig.social!.facebook!.enabled = false;
 
-      try {
-        service = new FacebookSocialAuthService(
-          mockConfig,
-          mockLogger,
-          mockAuthService,
-          mockSocialAuthService,
-          mockJwtService,
-          mockSessionService,
-          mockChallengeHelper,
-          mockClientInfoService,
-          mockStateStore,
-          mockPhoneVerificationService,
-          mockAuditService,
-          mockTokenVerifier,
-        );
-        fail('Should have thrown NAuthException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.SOCIAL_CONFIG_MISSING);
-      }
+      // Constructor should not throw - it just sets oauthClient to null
+      service = new FacebookSocialAuthService(
+        mockConfig,
+        mockLogger,
+        mockAuthService,
+        mockSocialAuthService,
+        mockJwtService,
+        mockSessionService,
+        mockChallengeHelper,
+        mockClientInfoService,
+        mockStateStore,
+        mockUserRepository,
+        mockPhoneVerificationService,
+        mockAuditService,
+        undefined, // trustedDeviceService
+        mockTokenVerifier,
+      );
+
+      expect(service).toBeDefined();
+      // Methods will throw when called, but constructor doesn't
     });
   });
 
@@ -158,8 +170,10 @@ describe('FacebookSocialAuthService', () => {
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined, // trustedDeviceService
         mockTokenVerifier,
       );
     });
@@ -186,8 +200,10 @@ describe('FacebookSocialAuthService', () => {
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined, // trustedDeviceService
         mockTokenVerifier,
       );
     });

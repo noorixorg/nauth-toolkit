@@ -335,8 +335,19 @@ function VerifyEmailPage() {
 
 Phone verification may have two steps:
 
-1. Collect phone number (if not provided during signup)
+1. Collect or update phone number (if not provided during signup, or if user needs to correct it)
 2. Verify code sent to phone
+
+### Phone Collection vs. Phone Update
+
+The `VERIFY_PHONE` challenge supports two scenarios:
+
+- **Phone Collection**: User has no phone number (e.g., social signup). The `requiresPhoneCollection` flag will be `'true'`.
+- **Phone Update**: User already has a phone number but can update it during the challenge (e.g., wrong number entered during signup).
+
+**Important**: The backend accepts phone updates regardless of whether the user already has a phone number. The `requiresPhoneCollection` flag is a UI hint indicating the user has no phone, but it doesn't prevent phone updates.
+
+### Implementation
 
 Use the `requiresPhoneCollection()` helper to check if phone collection is needed:
 
@@ -346,19 +357,25 @@ import { requiresPhoneCollection, getMaskedDestination } from '@nauth-toolkit/cl
 const challenge = await client.login(email, password);
 
 if (challenge.challengeName === 'VERIFY_PHONE') {
-  if (requiresPhoneCollection(challenge)) {
-    // Step 1: Provide phone number
+  const needsPhone = requiresPhoneCollection(challenge);
+  const existingPhone = challenge.challengeParameters?.phone;
+
+  // Show phone input if:
+  // 1. User has no phone (needsPhone === true), OR
+  // 2. User wants to update their phone (provide "Change Number" option)
+  if (needsPhone || shouldUpdatePhone) {
+    // Step 1: Provide or update phone number
     const response = await client.respondToChallenge({
       session: challenge.session!,
       type: 'VERIFY_PHONE',
-      phone: '+14155551234', // E.164 format
+      phone: '+14155551234', // E.164 format - replaces existing phone if present
     });
 
-    // Response includes new session for code verification
+    // Response includes updated challenge for code verification
     challenge = response;
   }
 
-  // Step 2: Verify code (phone now exists)
+  // Step 2: Verify code (phone now exists/updated)
   const destination = getMaskedDestination(challenge);
   // Shows masked phone: "***-***-1234"
 
@@ -369,6 +386,35 @@ if (challenge.challengeName === 'VERIFY_PHONE') {
   });
 }
 ```
+
+### Recommended UI Pattern
+
+For better user experience, consider allowing phone updates even when a phone exists:
+
+```typescript
+if (challenge.challengeName === 'VERIFY_PHONE') {
+  const needsPhone = requiresPhoneCollection(challenge);
+  const maskedPhone = getMaskedDestination(challenge);
+
+  if (needsPhone) {
+    // Show: "Please enter your phone number"
+    showPhoneInput();
+  } else {
+    // Show: "Code sent to ***-***-1234"
+    // Add: "Wrong number? Change it" button
+    showCodeInput(maskedPhone);
+    showChangePhoneButton(() => {
+      // Allow user to update phone
+      showPhoneInput();
+    });
+  }
+}
+```
+
+When the user submits a phone number (either new or updated), the backend will:
+1. Update the user's phone number in the database
+2. Send a verification SMS to the new/updated phone number
+3. Return the same `VERIFY_PHONE` challenge for code verification
 
 ## Handling MFA Required
 

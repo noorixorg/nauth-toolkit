@@ -103,12 +103,11 @@ describe('SocialAuthStateStore', () => {
     await store.setRedirectContext('state-abc', { returnTo: '/auth/callback', appState: '12345', action: 'login' });
     const ctx = await store.consumeRedirectContext('state-abc');
 
-    expect(storage.set).toHaveBeenCalledWith(
-      'social:oauth_redirect:state-abc',
-      expect.any(String),
-      300,
-      undefined,
-    );
+      expect(storage.set).toHaveBeenCalledWith(
+        'social:oauth_redirect:state-abc',
+        expect.any(String),
+        300,
+      );
     expect(ctx).toEqual({ returnTo: '/auth/callback', appState: '12345', action: 'login' });
     expect(storage.del).toHaveBeenCalledWith('social:oauth_redirect:state-abc');
   });

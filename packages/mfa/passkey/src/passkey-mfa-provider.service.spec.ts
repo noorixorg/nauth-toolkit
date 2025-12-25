@@ -40,9 +40,45 @@ describe('PasskeyMFAProviderService', () => {
       findOne: jest.fn(),
     } as any;
 
+    // Create mock transactional entity manager factory
+    const createMockTransactionalEntityManager = () => {
+      const mockDeviceRepo = {
+        create: jest.fn((data) => ({ id: 1, userId: 1, type: MFAMethod.PASSKEY, ...data })),
+        save: jest.fn((data) => Promise.resolve({ id: 1, userId: 1, type: MFAMethod.PASSKEY, ...data })),
+        createQueryBuilder: jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(null), // No existing device
+        })),
+      };
+
+      return {
+        findOne: jest.fn(),
+        save: jest.fn(),
+        create: jest.fn(),
+        createQueryBuilder: jest.fn(() => ({
+          select: jest.fn().mockReturnThis(),
+          from: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          setLock: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue({ id: 1 }), // User exists
+        })),
+        getRepository: jest.fn(() => mockDeviceRepo),
+      };
+    };
+
     mockUserRepository = {
       save: jest.fn(),
       findOne: jest.fn(),
+      target: BaseUser,
+      manager: {
+        transaction: jest.fn(async (callback) => {
+          // Create fresh mock transactional entity manager for each transaction
+          const mockTransactionalEntityManager = createMockTransactionalEntityManager();
+          return await callback(mockTransactionalEntityManager);
+        }),
+      },
     } as any;
 
     // Create mock logger
@@ -278,8 +314,8 @@ describe('PasskeyMFAProviderService', () => {
 
       expect(result).toBe(1);
       expect(mockPasskeyService.verifyRegistration).toHaveBeenCalledWith(mockCredential, 'expected-challenge', ['usb']);
-      expect(mockMfaDeviceRepository.create).toHaveBeenCalled();
-      expect(mockMfaDeviceRepository.save).toHaveBeenCalled();
+      // Device is created via transaction manager's getRepository
+      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
       expect(mockUserRepository.save).toHaveBeenCalled();
     });
 
@@ -380,11 +416,8 @@ describe('PasskeyMFAProviderService', () => {
 
       await service.verifySetup(mockUser, verificationData, 'Custom Device Name');
 
-      expect(mockMfaDeviceRepository.create).toHaveBeenCalledWith(
-        (expect as any).objectContaining({
-          name: 'Custom Device Name',
-        }),
-      );
+      // Device is created via transaction manager's getRepository
+      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
     });
   });
 

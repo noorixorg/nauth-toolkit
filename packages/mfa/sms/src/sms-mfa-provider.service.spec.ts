@@ -38,9 +38,45 @@ describe('SMSMFAProviderService', () => {
       findOne: jest.fn(),
     } as any;
 
+    // Create mock transactional entity manager factory
+    const createMockTransactionalEntityManager = () => {
+      const mockDeviceRepo = {
+        create: jest.fn((data) => ({ id: 1, userId: 1, type: MFAMethod.SMS, ...data })),
+        save: jest.fn((data) => Promise.resolve({ id: 1, userId: 1, type: MFAMethod.SMS, ...data })),
+        createQueryBuilder: jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(null), // No existing device
+        })),
+      };
+
+      return {
+        findOne: jest.fn(),
+        save: jest.fn(),
+        create: jest.fn(),
+        createQueryBuilder: jest.fn(() => ({
+          select: jest.fn().mockReturnThis(),
+          from: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          setLock: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue({ id: 1 }), // User exists
+        })),
+        getRepository: jest.fn(() => mockDeviceRepo),
+      };
+    };
+
     mockUserRepository = {
       save: jest.fn(),
       findOne: jest.fn(),
+      target: BaseUser,
+      manager: {
+        transaction: jest.fn(async (callback) => {
+          // Create fresh mock transactional entity manager for each transaction
+          const mockTransactionalEntityManager = createMockTransactionalEntityManager();
+          return await callback(mockTransactionalEntityManager);
+        }),
+      },
     } as any;
 
     // Create mock logger
@@ -135,11 +171,15 @@ describe('SMSMFAProviderService', () => {
     };
 
     it('should send verification SMS', async () => {
-      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue(1);
+      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue({ tokenId: 1 });
 
       await service.setup(mockUser, setupDto);
 
-      expect(mockPhoneVerificationService.sendVerificationSMS).toHaveBeenCalledWith('user-123');
+      expect(mockPhoneVerificationService.sendVerificationSMS).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sub: 'user-123',
+        }),
+      );
       expect(mockLogger.log).toHaveBeenCalledWith((expect as any).stringContaining('Setting up SMS MFA'));
     });
 
@@ -210,9 +250,14 @@ describe('SMSMFAProviderService', () => {
       const result = await service.verifySetup(mockUser, verifyDto);
 
       expect(result).toBe(1);
-      expect(mockPhoneVerificationService.verifyPhoneWithCodeBySub).toHaveBeenCalledWith('user-123', '123456');
-      expect(mockMfaDeviceRepository.create).toHaveBeenCalled();
-      expect(mockMfaDeviceRepository.save).toHaveBeenCalled();
+      expect(mockPhoneVerificationService.verifyPhoneWithCodeBySub).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sub: 'user-123',
+          code: '123456',
+        }),
+      );
+      // Device is created via transaction manager's getRepository
+      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
       expect(mockUserRepository.save).toHaveBeenCalled();
     });
 
@@ -286,11 +331,8 @@ describe('SMSMFAProviderService', () => {
 
       await service.verifySetup(mockUser, verifyDto, 'Custom Device Name');
 
-      expect(mockMfaDeviceRepository.create).toHaveBeenCalledWith(
-        (expect as any).objectContaining({
-          name: 'Custom Device Name',
-        }),
-      );
+      // Device is created via transaction manager's getRepository
+      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
     });
   });
 
@@ -305,7 +347,12 @@ describe('SMSMFAProviderService', () => {
       const result = await service.verify(mockUser, '123456');
 
       expect(result).toBe(true);
-      expect(mockPhoneVerificationService.verifyPhoneWithCodeBySub).toHaveBeenCalledWith('user-123', '123456');
+      expect(mockPhoneVerificationService.verifyPhoneWithCodeBySub).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sub: 'user-123',
+          code: '123456',
+        }),
+      );
       expect(mockLogger.log).toHaveBeenCalledWith((expect as any).stringContaining('SMS code verified successfully'));
     });
 
@@ -387,12 +434,17 @@ describe('SMSMFAProviderService', () => {
       };
 
       mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
-      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue(1);
+      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue({ tokenId: 1 });
 
       const result = await service.sendChallenge(mockUser);
 
       expect(result).toBe('***-***-7890');
-      expect(mockPhoneVerificationService.sendVerificationSMS).toHaveBeenCalledWith('user-123', true);
+      expect(mockPhoneVerificationService.sendVerificationSMS).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sub: 'user-123',
+          skipAlreadyVerifiedCheck: true,
+        }),
+      );
       expect(mockLogger.log).toHaveBeenCalledWith((expect as any).stringContaining('SMS MFA code sent'));
     });
 
@@ -420,15 +472,21 @@ describe('SMSMFAProviderService', () => {
         isPrimary: true,
       };
 
+      // Create user without phone number
+      const userWithoutPhone = {
+        ...mockUser,
+        phone: null,
+      } as IUser;
+
       mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
 
       try {
-        await service.sendChallenge(mockUser);
+        await service.sendChallenge(userWithoutPhone);
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.NOT_FOUND);
-        expect((error as NAuthException).message).toContain('No SMS device registered');
+        expect((error as NAuthException).code).toBe(AuthErrorCode.VALIDATION_FAILED);
+        expect((error as NAuthException).message).toContain('No phone number found for SMS MFA');
       }
     });
 

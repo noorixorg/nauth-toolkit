@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/social-apple",
-  "version": "0.1.23",
+  "version": "0.1.25",
   "description": "Apple OAuth provider for nauth-toolkit",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -8,25 +8,27 @@
     ".": {
       "import": "./dist/src/index.js",
       "require": "./dist/src/index.js",
-      "types": "./dist/src/index.d.ts"
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
     },
     "./nestjs": {
       "import": "./dist/nestjs/index.js",
       "require": "./dist/nestjs/index.js",
-      "types": "./dist/nestjs/index.d.ts"
+      "types": "./dist/nestjs/index.d.ts",
+      "default": "./dist/nestjs/index.js"
     }
   },
   "scripts": {
     "build": "tsc -b",
     "clean": "rm -rf dist *.tsbuildinfo",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.23",
+    "@nauth-toolkit/core": "^0.1.25",
     "jose": "^6.0.0",
     "@nestjs/common": "^9 || ^10 || ^11"
   },

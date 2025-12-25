@@ -5,6 +5,7 @@ import { CallHandler, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { of } from 'rxjs';
 import { TOKEN_DELIVERY_KEY } from '../decorators/token-delivery.decorator';
+import { TokenDeliveryHttpService } from '../services/token-delivery-http.service';
 
 function createHttpContextMock(origin: string = 'http://web.example.com') {
   const cookiesSet: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
@@ -34,10 +35,89 @@ describe('CookieTokenInterceptor', () => {
   };
   const reflector = { get: () => undefined } as unknown as Reflector;
 
+  function createTokenDeliveryService(config: NAuthConfig, cookiesSet?: Array<{ name: string; value: string; options: Record<string, unknown> }>): TokenDeliveryHttpService {
+    return {
+      resolveEffectiveDelivery: jest.fn((req: any, routeMode?: any) => {
+        const method = config.tokenDelivery?.method || 'json';
+
+        // Validate route override against global configuration (mimicking real behavior)
+        if (routeMode === 'cookies' && method === 'json') {
+          throw new NAuthException(
+            AuthErrorCode.COOKIES_NOT_ALLOWED,
+            "Route-level cookie delivery requested, but tokenDelivery.method is 'json' (cookies disabled)",
+          );
+        }
+        if (routeMode === 'json' && method === 'cookies') {
+          throw new NAuthException(
+            AuthErrorCode.BEARER_NOT_ALLOWED,
+            "Route-level JSON delivery requested, but tokenDelivery.method is 'cookies' (JSON/Bearer tokens disabled)",
+          );
+        }
+
+        // If route mode is specified and valid, use it
+        if (routeMode) {
+          return routeMode;
+        }
+
+        // In hybrid mode, default to cookies if no origin or unknown origin
+        if (method === 'hybrid') {
+          const origin = req?.headers?.origin;
+          if (!origin || !origin.includes('example.com')) {
+            return 'cookies'; // Default to cookies for unknown origins
+          }
+          return 'json'; // Use json for known web origins
+        }
+        return method;
+      }),
+      setAuthCookies: jest.fn((res: any, tokens: any) => {
+        // Mock implementation that actually sets cookies via res.cookie
+        // Check for exp claim in tokens (mimicking real behavior)
+        if (tokens.accessToken) {
+          const match = /exp=(\d+)/.exec(tokens.accessToken);
+          if (!match) {
+            // Token missing exp claim - throw error like real implementation
+            throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'Access token missing exp claim; refusing to set cookies');
+          }
+        }
+        if (tokens.refreshToken) {
+          const match = /exp=(\d+)/.exec(tokens.refreshToken);
+          if (!match) {
+            throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'Refresh token missing exp claim; refusing to set cookies');
+          }
+        }
+
+        if (res.cookie && cookiesSet) {
+          const cookieOptions = { httpOnly: true, secure: true, sameSite: 'strict' as const, path: '/' };
+          if (tokens.accessToken) {
+            res.cookie('nauth_access_token', tokens.accessToken, { ...cookieOptions, maxAge: 900000 });
+            cookiesSet.push({ name: 'nauth_access_token', value: tokens.accessToken, options: cookieOptions });
+          }
+          if (tokens.refreshToken) {
+            res.cookie('nauth_refresh_token', tokens.refreshToken, { ...cookieOptions, maxAge: 3600000 });
+            cookiesSet.push({ name: 'nauth_refresh_token', value: tokens.refreshToken, options: cookieOptions });
+          }
+          if (tokens.deviceToken) {
+            res.cookie('nauth_device_token', tokens.deviceToken, cookieOptions);
+            cookiesSet.push({ name: 'nauth_device_token', value: tokens.deviceToken, options: cookieOptions });
+          }
+        }
+      }),
+      setCsrfCookie: jest.fn(),
+      setDeviceTokenCookie: jest.fn((res: any, deviceToken: string) => {
+        if (res.cookie && cookiesSet) {
+          const cookieOptions = { httpOnly: true, secure: true, sameSite: 'strict' as const, path: '/' };
+          res.cookie('nauth_device_token', deviceToken, cookieOptions);
+          cookiesSet.push({ name: 'nauth_device_token', value: deviceToken, options: cookieOptions });
+        }
+      }),
+    } as unknown as TokenDeliveryHttpService;
+  }
+
   it('sets cookies and removes tokens in cookie mode', (done) => {
     const config = { tokenDelivery: { method: 'cookies' } } as unknown as NAuthConfig;
-    const interceptor = new CookieTokenInterceptor(config, jwtMock as JwtService, reflector);
     const { ctx, cookiesSet } = createHttpContextMock();
+    const tokenDeliveryService = createTokenDeliveryService(config, cookiesSet);
+    const interceptor = new CookieTokenInterceptor(tokenDeliveryService, reflector);
 
     const next: CallHandler = {
       handle: () =>
@@ -62,8 +142,9 @@ describe('CookieTokenInterceptor', () => {
 
   it('is a no-op in json mode', (done) => {
     const config = { tokenDelivery: { method: 'json' } } as unknown as NAuthConfig;
-    const interceptor = new CookieTokenInterceptor(config, jwtMock as JwtService, reflector);
     const { ctx, cookiesSet } = createHttpContextMock();
+    const tokenDeliveryService = createTokenDeliveryService(config, cookiesSet);
+    const interceptor = new CookieTokenInterceptor(tokenDeliveryService, reflector);
 
     const next: CallHandler = {
       handle: () =>
@@ -85,8 +166,9 @@ describe('CookieTokenInterceptor', () => {
 
   it('does not throw for non-object responses (e.g. health checks)', (done) => {
     const config = { tokenDelivery: { method: 'cookies' } } as unknown as NAuthConfig;
-    const interceptor = new CookieTokenInterceptor(config, jwtMock as JwtService, reflector);
     const { ctx, cookiesSet } = createHttpContextMock();
+    const tokenDeliveryService = createTokenDeliveryService(config, cookiesSet);
+    const interceptor = new CookieTokenInterceptor(tokenDeliveryService, reflector);
 
     const next: CallHandler = {
       handle: () => of('Hello World!'),
@@ -101,8 +183,9 @@ describe('CookieTokenInterceptor', () => {
 
   it('in strict hybrid, defaults to cookies and strips tokens (safe default)', (done) => {
     const config = { tokenDelivery: { method: 'hybrid' } } as unknown as NAuthConfig;
-    const interceptor = new CookieTokenInterceptor(config, jwtMock as JwtService, reflector);
     const { ctx, cookiesSet } = createHttpContextMock('http://unknown-origin');
+    const tokenDeliveryService = createTokenDeliveryService(config, cookiesSet);
+    const interceptor = new CookieTokenInterceptor(tokenDeliveryService, reflector);
 
     const next: CallHandler = {
       handle: () =>
@@ -130,7 +213,8 @@ describe('CookieTokenInterceptor', () => {
     const badJwtMock: Partial<JwtService> = {
       decodeToken: () => ({}) as any,
     };
-    const interceptor = new CookieTokenInterceptor(config, badJwtMock as JwtService, reflector);
+    const tokenDeliveryService = createTokenDeliveryService(config);
+    const interceptor = new CookieTokenInterceptor(tokenDeliveryService, reflector);
     const { ctx } = createHttpContextMock();
 
     const next: CallHandler = {
@@ -159,7 +243,8 @@ describe('CookieTokenInterceptor', () => {
     const reflectorWithCookies = {
       get: (key: string) => (key === TOKEN_DELIVERY_KEY ? 'cookies' : undefined),
     } as unknown as Reflector;
-    const interceptor = new CookieTokenInterceptor(config, jwtMock as JwtService, reflectorWithCookies);
+    const tokenDeliveryService = createTokenDeliveryService(config);
+    const interceptor = new CookieTokenInterceptor(tokenDeliveryService, reflectorWithCookies);
     const { ctx } = createHttpContextMock();
 
     const next: CallHandler = {
@@ -197,7 +282,8 @@ describe('CookieTokenInterceptor', () => {
     const reflectorWithJson = {
       get: (key: string) => (key === TOKEN_DELIVERY_KEY ? 'json' : undefined),
     } as unknown as Reflector;
-    const interceptor = new CookieTokenInterceptor(config, jwtMock as JwtService, reflectorWithJson);
+    const tokenDeliveryService = createTokenDeliveryService(config);
+    const interceptor = new CookieTokenInterceptor(tokenDeliveryService, reflectorWithJson);
     const { ctx } = createHttpContextMock();
 
     const next: CallHandler = {
@@ -235,8 +321,9 @@ describe('CookieTokenInterceptor', () => {
     const reflectorWithCookies = {
       get: (key: string) => (key === TOKEN_DELIVERY_KEY ? 'cookies' : undefined),
     } as unknown as Reflector;
-    const interceptor = new CookieTokenInterceptor(config, jwtMock as JwtService, reflectorWithCookies);
     const { ctx, cookiesSet } = createHttpContextMock();
+    const tokenDeliveryService = createTokenDeliveryService(config, cookiesSet);
+    const interceptor = new CookieTokenInterceptor(tokenDeliveryService, reflectorWithCookies);
 
     const next: CallHandler = {
       handle: () =>
@@ -263,8 +350,9 @@ describe('CookieTokenInterceptor', () => {
     const reflectorWithJson = {
       get: (key: string) => (key === TOKEN_DELIVERY_KEY ? 'json' : undefined),
     } as unknown as Reflector;
-    const interceptor = new CookieTokenInterceptor(config, jwtMock as JwtService, reflectorWithJson);
     const { ctx, cookiesSet } = createHttpContextMock();
+    const tokenDeliveryService = createTokenDeliveryService(config, cookiesSet);
+    const interceptor = new CookieTokenInterceptor(tokenDeliveryService, reflectorWithJson);
 
     const next: CallHandler = {
       handle: () =>

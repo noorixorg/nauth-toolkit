@@ -16,22 +16,25 @@ describe('SMSTemplateEngineImpl', () => {
 
   beforeEach(() => {
     engine = new SMSTemplateEngineImpl();
-    testDir = join(process.cwd(), 'test-sms-templates');
+    // Use __dirname to ensure correct path resolution regardless of working directory
+    // __dirname points to the directory containing this test file
+    testDir = join(__dirname, '..', '..', 'test-sms-templates');
     if (!existsSync(testDir)) {
       mkdirSync(testDir, { recursive: true });
     }
   });
 
   afterEach(() => {
-    // Clean up test files
+    // Clean up test files (but keep directory for next test)
     if (existsSync(testDir)) {
       try {
         if (existsSync(join(testDir, 'test-template.txt.hbs'))) {
           unlinkSync(join(testDir, 'test-template.txt.hbs'));
         }
-        rmdirAsync(testDir).catch(() => {
-          // Ignore cleanup errors
-        });
+        // Don't remove the directory - let it persist for other tests
+        // rmdirAsync(testDir).catch(() => {
+        //   // Ignore cleanup errors
+        // });
       } catch {
         // Ignore cleanup errors
       }
@@ -199,6 +202,9 @@ describe('SMSTemplateEngineImpl', () => {
     });
 
     it('should register template from file path', async () => {
+      // Ensure test directory exists (recreate if needed, as it might be cleaned up)
+      // Use mkdirSync with recursive: true to ensure the directory exists
+      mkdirSync(testDir, { recursive: true });
       const filePath = join(testDir, 'test-template.txt.hbs');
       const templateContent = 'File template: {{code}} expires in {{expiryMinutes}} min.';
       writeFileSync(filePath, templateContent, 'utf-8');

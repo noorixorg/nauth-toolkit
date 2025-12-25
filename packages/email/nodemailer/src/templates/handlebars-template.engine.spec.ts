@@ -34,12 +34,14 @@ describe('HandlebarsTemplateEngine', () => {
       });
 
       const result1 = await engine.render('test', {
+        greetingName: 'John',
         firstName: 'John',
         userName: 'johndoe',
       });
       expect(result1.html).toContain('Hi John');
 
       const result2 = await engine.render('test', {
+        greetingName: 'johndoe',
         userName: 'johndoe',
       });
       expect(result2.html).toContain('Hi johndoe');
@@ -77,9 +79,10 @@ describe('HandlebarsTemplateEngine', () => {
         html: '<ul>{{#each items}}<li>{{this}}</li>{{/each}}</ul>',
       });
 
+      // Use type assertion to allow array for template rendering (runtime allows it, interface is restrictive)
       const result = await engine.render('test', {
         items: ['Item 1', 'Item 2', 'Item 3'],
-      });
+      } as any);
 
       expect(result.html).toContain('<li>Item 1</li>');
       expect(result.html).toContain('<li>Item 2</li>');

@@ -8,6 +8,7 @@
     "build": "nest build",
     "start": "nest start",
     "start:prod": "node dist/main",
+    "test": "echo 'No tests configured' && exit 0",
     "lint": "node --max-old-space-size=4096 node_modules/.bin/eslint src/**/*.ts",
     "lint:fix": "node --max-old-space-size=4096 node_modules/.bin/eslint src/**/*.ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",

@@ -3,7 +3,7 @@ import { AuthHandler } from './auth.handler';
 import { AuthService } from '../services/auth.service';
 import { JwtService, SessionService } from '../internal';
 import { NAuthConfig } from '../interfaces/config.interface';
-import { NAuthRequest } from '../platform/interfaces';
+import { NAuthRequest, NAuthResponse } from '../platform/interfaces';
 
 /**
  * Unit tests for AuthHandler
@@ -79,7 +79,7 @@ describe('AuthHandler', () => {
     };
 
     await ContextStorage.run(async () => {
-      await handler.handle(req, {} as unknown, async () => undefined);
+      await handler.handle(req, {} as NAuthResponse, async () => undefined);
     });
 
     const user = req.attributes.user as { sessionAuthMethod?: string | null };

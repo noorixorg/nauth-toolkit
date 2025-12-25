@@ -267,12 +267,27 @@ fastify.post(
 }
 ```
 
-**Phone Verification:**
+**Phone Verification (Collection/Update):**
 ```json
 {
   "session": "challenge-session-token",
   "type": "VERIFY_PHONE",
   "phone": "+1234567890"
+}
+```
+
+**Note**: The `phone` field can be used to:
+- Collect a phone number when user has none (e.g., social signup)
+- Update an existing phone number if user entered wrong number during signup
+
+After submitting phone, backend sends verification SMS and returns the same challenge for code verification.
+
+**Phone Verification (Code):**
+```json
+{
+  "session": "challenge-session-token",
+  "type": "VERIFY_PHONE",
+  "code": "123456"
 }
 ```
 

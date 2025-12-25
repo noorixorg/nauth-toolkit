@@ -111,6 +111,10 @@ function requiresPhoneCollection(challenge: AuthResponse): boolean
 
 Returns `true` if the `VERIFY_PHONE` challenge requires the user to provide a phone number first. This happens when the user doesn't have a phone number in their profile (e.g., after social login).
 
+**Important Note:**
+
+The `requiresPhoneCollection` flag is a **UI hint** indicating the user has no phone number. However, the backend **always accepts phone updates** during the `VERIFY_PHONE` challenge, even if the user already has a phone number. This allows users to correct wrong numbers entered during signup.
+
 **Example:**
 
 ```typescript
@@ -118,13 +122,33 @@ const challenge = await client.login(email, password);
 
 if (challenge.challengeName === AuthChallenge.VERIFY_PHONE) {
   if (requiresPhoneCollection(challenge)) {
-    // Show phone input form first
+    // User has no phone - show phone input form
     // After phone is collected, backend sends verification code
   } else {
-    // Phone already exists, show OTP input
+    // Phone already exists - show OTP input
+    // Optionally: Provide "Change Number" option to allow phone updates
     const destination = getMaskedDestination(challenge);
+
+    // Optional: Allow phone update even when phone exists
+    // if (userWantsToChangePhone) {
+    //   showPhoneInput(); // Backend will accept and update phone
+    // }
   }
 }
+```
+
+**Phone Update During Challenge:**
+
+Users can update their phone number during the challenge by submitting a new phone number:
+
+```typescript
+// Even if user already has a phone, they can update it:
+await client.respondToChallenge({
+  session: challenge.session!,
+  type: 'VERIFY_PHONE',
+  phone: '+1999999999', // New/corrected phone number
+});
+// Backend updates phone, sends SMS to new number, returns challenge for code verification
 ```
 
 ### `getChallengeInstructions()`

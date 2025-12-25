@@ -37,7 +37,7 @@ describe('SocialProviderRegistry', () => {
     } as any;
 
     // Instantiate service directly
-    service = new SocialAuthService();
+    service = new SocialProviderRegistry();
   });
 
   afterEach(() => {

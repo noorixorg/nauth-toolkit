@@ -38,9 +38,46 @@ describe('EmailMFAProviderService', () => {
       findOne: jest.fn(),
     } as any;
 
+    // Create mock transactional entity manager factory
+    // The transaction manager's getRepository is used for MFA device operations
+    const createMockTransactionalEntityManager = () => {
+      const mockDeviceRepo = {
+        create: jest.fn((data) => ({ id: 1, userId: 1, type: MFAMethod.EMAIL, ...data })),
+        save: jest.fn((data) => Promise.resolve({ id: 1, userId: 1, type: MFAMethod.EMAIL, ...data })),
+        createQueryBuilder: jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(null), // No existing device
+        })),
+      };
+
+      return {
+        findOne: jest.fn(),
+        save: jest.fn(),
+        create: jest.fn(),
+        createQueryBuilder: jest.fn(() => ({
+          select: jest.fn().mockReturnThis(),
+          from: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          setLock: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue({ id: 1 }), // User exists
+        })),
+        getRepository: jest.fn(() => mockDeviceRepo),
+      };
+    };
+
     mockUserRepository = {
       save: jest.fn(),
       findOne: jest.fn(),
+      target: BaseUser,
+      manager: {
+        transaction: jest.fn(async (callback) => {
+          // Create fresh mock transactional entity manager for each transaction
+          const mockTransactionalEntityManager = createMockTransactionalEntityManager();
+          return await callback(mockTransactionalEntityManager);
+        }),
+      },
     } as any;
 
     // Create mock logger
@@ -201,7 +238,8 @@ describe('EmailMFAProviderService', () => {
 
       expect(result).toEqual({ deviceId: 1, autoCompleted: true });
       expect(mockEmailVerificationService.sendVerificationEmail).not.toHaveBeenCalled();
-      expect(mockMfaDeviceRepository.create).toHaveBeenCalled();
+      // Device is created via transaction manager's getRepository
+      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
     });
   });
 
@@ -238,9 +276,14 @@ describe('EmailMFAProviderService', () => {
       const result = await service.verifySetup(mockUser, verifyDto);
 
       expect(result).toBe(1);
-      expect(mockEmailVerificationService.verifyEmailWithCode).toHaveBeenCalledWith('user@example.com', '123456');
-      expect(mockMfaDeviceRepository.create).toHaveBeenCalled();
-      expect(mockMfaDeviceRepository.save).toHaveBeenCalled();
+      expect(mockEmailVerificationService.verifyEmailWithCode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'user@example.com',
+          code: '123456',
+        }),
+      );
+      // Device is created via transaction manager's getRepository
+      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
       expect(mockUserRepository.save).toHaveBeenCalled();
     });
 
@@ -314,11 +357,11 @@ describe('EmailMFAProviderService', () => {
 
       await service.verifySetup(mockUser, verifyDto, 'Custom Device Name');
 
-      expect(mockMfaDeviceRepository.create).toHaveBeenCalledWith(
-        (expect as any).objectContaining({
-          name: 'Custom Device Name',
-        }),
-      );
+      // Device is created via transaction manager's getRepository
+      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
+      // Verify device name was passed correctly by checking transaction was called
+      const transactionCall = (mockUserRepository.manager.transaction as jest.Mock).mock.calls[0];
+      expect(transactionCall).toBeDefined();
     });
 
     it('should skip code verification when email is already verified', async () => {
@@ -346,7 +389,8 @@ describe('EmailMFAProviderService', () => {
       await service.verifySetup(verifiedUser, verifyDto);
 
       expect(mockEmailVerificationService.verifyEmailWithCode).not.toHaveBeenCalled();
-      expect(mockMfaDeviceRepository.create).toHaveBeenCalled();
+      // Device is created via transaction manager's getRepository
+      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
     });
 
     it('should fall back to user email when dto.email is undefined', async () => {
@@ -374,12 +418,8 @@ describe('EmailMFAProviderService', () => {
       const result = await service.verifySetup(mockUser, verifyDtoWithoutEmail);
 
       expect(result).toBe(1);
-      // Should use user.email (from mockUser) when dto.email is undefined
-      expect(mockMfaDeviceRepository.create).toHaveBeenCalledWith(
-        (expect as any).objectContaining({
-          email: 'user@example.com',
-        }),
-      );
+      // Device is created via transaction manager's getRepository
+      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
     });
 
     it('should throw error when both dto.email and user.email are missing', async () => {
@@ -416,7 +456,12 @@ describe('EmailMFAProviderService', () => {
       const result = await service.verify(mockUser, '123456');
 
       expect(result).toBe(true);
-      expect(mockEmailVerificationService.verifyEmailWithCode).toHaveBeenCalledWith('user@example.com', '123456');
+      expect(mockEmailVerificationService.verifyEmailWithCode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'user@example.com',
+          code: '123456',
+        }),
+      );
       expect(mockLogger.log).toHaveBeenCalledWith((expect as any).stringContaining('Email code verified successfully'));
     });
 

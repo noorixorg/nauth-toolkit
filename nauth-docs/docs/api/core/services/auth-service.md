@@ -784,7 +784,7 @@ const result = await authService.resendCode({
 
 ### respondToChallenge()
 
-Respond to authentication challenge (MFA, email verification, etc.).
+Respond to authentication challenge (MFA, email verification, phone verification, etc.).
 
 ```typescript
 async respondToChallenge(dto: RespondChallengeDTO): Promise<AuthResponseDTO>
@@ -797,6 +797,17 @@ async respondToChallenge(dto: RespondChallengeDTO): Promise<AuthResponseDTO>
 **Returns**
 
 - [`AuthResponseDTO`](../dto/auth-response-dto) - Tokens if passed, next challenge if multi-step
+
+**Phone Verification Notes:**
+
+For `VERIFY_PHONE` challenges, the `phone` field can be used to:
+- **Collect** a phone number when user has none (e.g., social signup)
+- **Update** an existing phone number if user entered wrong number during signup
+
+The backend accepts phone updates unconditionally during the challenge, regardless of whether the user already has a phone number. When a phone is provided, the backend:
+1. Updates the user's phone number in the database
+2. Sends a verification SMS to the new/updated phone number
+3. Returns the same `VERIFY_PHONE` challenge for code verification
 
 **Errors**
 

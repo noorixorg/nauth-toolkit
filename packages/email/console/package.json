@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/email-console",
-  "version": "0.1.23",
+  "version": "0.1.25",
   "description": "Console email provider for nauth-toolkit (dev/test)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -19,7 +19,7 @@
   "scripts": {
     "build": "tsc -b",
     "clean": "rm -rf dist *.tsbuildinfo",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
@@ -27,7 +27,7 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.23"
+    "@nauth-toolkit/core": "^0.1.25"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",

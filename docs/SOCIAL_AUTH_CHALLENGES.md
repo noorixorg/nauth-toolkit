@@ -47,9 +47,9 @@ AuthModule.forRoot({
 
 **Behavior for social users:**
 
-- ✅ Email is auto-verified from provider
-- ✅ User can log in immediately
-- ✅ No challenges required
+- Email is auto-verified from provider
+- User can log in immediately
+- No challenges required
 
 ---
 
@@ -66,10 +66,10 @@ AuthModule.forRoot({
 
 **Behavior for social users:**
 
-- ✅ Email is auto-verified from provider
-- ⚠️ **Phone is NOT collected during social signup**
-- ❌ User is BLOCKED with `VERIFY_PHONE` challenge
-- 📝 **User must add phone via `/auth/profile` endpoint, then verify it**
+- Email is auto-verified from provider
+- **Phone is NOT collected during social signup**
+- User is BLOCKED with `VERIFY_PHONE` challenge
+- **User must add phone via `/auth/profile` endpoint, then verify it**
 
 ---
 
@@ -86,10 +86,10 @@ AuthModule.forRoot({
 
 **Behavior for social users:**
 
-- ✅ Email is auto-verified from provider
-- ⚠️ **Phone is NOT collected during social signup**
-- ❌ User is BLOCKED with `VERIFY_EMAIL_AND_PHONE` challenge
-- 📝 **User must add phone via `/auth/profile` endpoint, then verify both**
+- Email is auto-verified from provider
+- **Phone is NOT collected during social signup**
+- User is BLOCKED with `VERIFY_EMAIL_AND_PHONE` challenge
+- **User must add phone via `/auth/profile` endpoint, then verify both**
 
 ---
 
@@ -99,46 +99,87 @@ AuthModule.forRoot({
 
 Social OAuth flows (Google, Apple, Facebook) do not provide phone numbers. When `verificationMethod: 'phone'` or `'both'`:
 
-- ❌ **Social users are BLOCKED** with `VERIFY_PHONE` challenge
-- ✅ **Challenge response includes** `requiresPhoneCollection: 'true'` parameter
-- ✅ **Frontend must show phone collection form**
-- ✅ **User adds phone via** `PUT /auth/profile` endpoint
-- ✅ **Backend sends SMS verification code**
-- ✅ **User verifies phone** with code via `POST /auth/verify-phone`
-- ✅ **User completes challenge** via `POST /auth/complete-challenge`
-- ✅ **System re-checks challenges** → all verified → tokens issued
+- **Social users are BLOCKED** with `VERIFY_PHONE` challenge
+- **Challenge response includes** `requiresPhoneCollection: 'true'` parameter
+- **Frontend must show phone collection form**
+- **User adds phone via** `POST /auth/respond-challenge` with `phone` field
+- **Backend updates user phone and sends SMS verification code automatically**
+- **User verifies phone** with code via `POST /auth/respond-challenge` with `code` field
+- **System re-checks challenges** → all verified → tokens issued
+
+### Phone Update During Challenge
+
+**Important**: Users can update their phone number during the `VERIFY_PHONE` challenge, even if they already have a phone number. This is useful when:
+
+- User entered wrong number during signup
+- User made a typo
+- User wants to use a different number
+
+The backend accepts phone updates unconditionally during the challenge. The `requiresPhoneCollection` flag is only a UI hint indicating the user has no phone, but it doesn't prevent phone updates.
+
+**Example Flow:**
+
+```typescript
+// User has wrong phone number from signup
+const challenge = await client.login(email, password);
+// challenge.challengeName === 'VERIFY_PHONE'
+// challenge.challengeParameters.phone === '+1234567890' (wrong number)
+// challenge.challengeParameters.requiresPhoneCollection === undefined (phone exists)
+
+// User can update phone during challenge:
+await client.respondToChallenge({
+  session: challenge.session!,
+  type: 'VERIFY_PHONE',
+  phone: '+1999999999', // Corrected phone number
+});
+// Backend updates phone, sends SMS to new number, returns challenge for code verification
+```
 
 ---
 
 ## Recommended Approaches
 
-### Approach 1: Separate Phone Collection (Recommended)
+### Approach 1: Unified Challenge Flow (Recommended)
 
-After social login, prompt users to add their phone number via your UI:
+Use the built-in challenge system for phone collection and verification:
 
 ```typescript
-// In your app after social login success
-// 1. Check if user has phone
-if (!user.phone) {
-  // 2. Show phone collection form
-  router.navigate(['/add-phone']);
+// After social login, if VERIFY_PHONE challenge is returned:
+const challenge = await client.socialLogin(provider, token);
+
+if (challenge.challengeName === 'VERIFY_PHONE') {
+  // Check if phone collection needed
+  if (requiresPhoneCollection(challenge)) {
+    // User has no phone - show phone input
+    showPhoneInput();
+  } else {
+    // User has phone - show code input
+    // Optionally: Allow phone update with "Change Number" button
+    showCodeInput();
+    showChangePhoneOption(); // Optional UX enhancement
+  }
+
+  // When user submits phone (new or updated):
+  const response = await client.respondToChallenge({
+    session: challenge.session!,
+    type: 'VERIFY_PHONE',
+    phone: userEnteredPhone, // Backend updates phone and sends SMS
+  });
+
+  // Then verify code:
+  await client.respondToChallenge({
+    session: response.session!,
+    type: 'VERIFY_PHONE',
+    code: userEnteredCode,
+  });
 }
-
-// 3. In your backend, add endpoint to update phone
-@Post('user/phone')
-async addPhone(@CurrentUser() user, @Body() body: { phone: string }) {
-  // Update user phone
-  await this.userService.updatePhone(user.sub, body.phone);
-
-  // Send verification SMS
-  await this.phoneVerificationService.sendVerificationSMS(user.sub);
-
-  return { message: 'Verification code sent' };
-}
-
-// 4. User verifies phone with code
-// 5. Next login will have isPhoneVerified = true
 ```
+
+**Benefits:**
+- Unified API for phone collection and updates
+- Automatic SMS sending after phone update
+- No separate endpoints needed
+- Works for both new phones and phone updates
 
 ---
 
@@ -262,7 +303,7 @@ verificationMethod: 'email'
 1. User clicks "Sign in with Google"
 2. OAuth flow completes
 3. User created with isEmailVerified = true
-4. ✅ User receives tokens immediately (no challenge)
+4. User receives tokens immediately (no challenge)
 5. User can access protected routes
 ```
 
@@ -276,7 +317,7 @@ verificationMethod: 'phone'
 1. User clicks "Sign in with Google"
 2. OAuth flow completes
 3. User created WITHOUT phone number
-4. ✅ User receives tokens immediately (no phone to verify)
+4. User receives tokens immediately (no phone to verify)
 5. User can access protected routes
 ```
 
@@ -288,12 +329,12 @@ verificationMethod: 'both'
 
 # Expected Flow
 1. User signs in with Google (has no phone)
-2. ✅ User receives tokens (no phone challenge)
+2. User receives tokens (no phone challenge)
 3. User adds phone via app UI
 4. User logs out and logs in again
-5. ⚠️ User receives VERIFY_PHONE challenge
+5. User receives VERIFY_PHONE challenge
 6. User enters verification code
-7. ✅ User receives tokens after verification
+7. User receives tokens after verification
 ```
 
 ### Test Scenario 4: Existing Password User Links Social Account
@@ -309,7 +350,7 @@ verificationMethod: 'both'
 4. User links Google account
 5. User logs out
 6. User signs in with Google
-7. ✅ User receives tokens immediately (already verified)
+7. User receives tokens immediately (already verified)
 ```
 
 ---
@@ -413,19 +454,19 @@ verificationMethod: 'both'
 
 ## Summary
 
-✅ **What's New:**
+**What's New:**
 
 - Social auth now checks for pending challenges
 - Email is auto-verified from OAuth providers
 - Phone verification works if user has a phone
 
-⚠️ **Current Limitations:**
+**Current Limitations:**
 
 - Phone numbers are NOT collected during social signup
 - No "collect phone" challenge (future enhancement)
 - Social users can bypass phone verification if they don't have a phone
 
-🎯 **Recommended:**
+**Recommended:**
 
 - Use `verificationMethod: 'email'` for social-heavy apps (default)
 - Collect phone numbers separately if needed

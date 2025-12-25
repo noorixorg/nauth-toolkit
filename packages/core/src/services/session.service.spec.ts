@@ -5,7 +5,7 @@ import { BaseSession } from '../entities';
 import { StorageAdapter } from '../interfaces/storage-adapter.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { NAuthConfig } from '../interfaces/config.interface';
-import { AuthAuditService } from './auth-audit.service';
+import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { ClientInfoService } from './client-info.service';
 
@@ -511,13 +511,14 @@ describe('SessionService', () => {
         isRevoked: false,
         expiresAt: new Date(),
         userId: 123,
+        authMethod: null,
       };
       mockSessionRepository.findOne.mockResolvedValue(lightSession as any);
 
       const result = await service.findByIdLight(123);
 
       expect(mockSessionRepository.findOne).toHaveBeenCalledWith({
-        select: ['id', 'version', 'isRevoked', 'expiresAt', 'userId'],
+        select: ['id', 'version', 'isRevoked', 'expiresAt', 'userId', 'authMethod'],
         where: { id: 123 },
       });
       expect(result).toEqual(lightSession);
@@ -538,13 +539,14 @@ describe('SessionService', () => {
         isRevoked: false,
         expiresAt: new Date(),
         userId: 123,
+        authMethod: null,
       };
       mockSessionRepository.findOne.mockResolvedValue(lightSession as any);
 
       const result = await service.findByIdLight('123');
 
       expect(mockSessionRepository.findOne).toHaveBeenCalledWith({
-        select: ['id', 'version', 'isRevoked', 'expiresAt', 'userId'],
+        select: ['id', 'version', 'isRevoked', 'expiresAt', 'userId', 'authMethod'],
         where: { id: 123 },
       });
       expect(result).toEqual(lightSession);
@@ -948,8 +950,14 @@ describe('SessionService', () => {
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({
           eventType: AuthAuditEventType.SESSION_REVOKED,
-          reason: 'Global signout',
+          eventStatus: 'INFO',
+          reason: 'Session revocation',
           description: 'All user sessions revoked (1 session(s))',
+          userId: 123,
+          metadata: expect.objectContaining({
+            revokedCount: 1,
+            sessionIds: [123],
+          }),
         }),
       );
     });

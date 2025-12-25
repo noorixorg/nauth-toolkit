@@ -8,7 +8,7 @@ import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { MFAMethod } from '../enums/mfa-method.enum';
 import { ChallengeService } from './challenge.service';
-import { AuthAuditService } from './auth-audit.service';
+import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { ClientInfoService } from './client-info.service';
 
 /**
