@@ -24,14 +24,15 @@ import { authConfig } from '../config/auth.config';
  */
 @Module({
   imports: [
-    GoogleSocialAuthModule, // 👈 IMPORTANT: Import provider modules BEFORE AuthModule.forRoot()
-    AppleSocialAuthModule, // 👈 Apple OAuth support
-    FacebookSocialAuthModule, // 👈 Facebook OAuth support
-    SMSMFAModule, // 👈 SMS MFA support (requires SMS provider configured)
-    EmailMFAModule, // 👈 Email MFA support (requires email provider configured)
-    TOTPMFAModule, // 👈 TOTP MFA support (Authenticator App)
-    PasskeyMFAModule, // 👈 Passkey MFA support (WebAuthn/FIDO2)
-    AuthModule.forRoot(authConfig), // 👈 Import core module AFTER providers so they're registered
+    // Order no longer matters: providers are discovered via tokens and registered by AuthModule on bootstrap.
+    GoogleSocialAuthModule,
+    AppleSocialAuthModule,
+    FacebookSocialAuthModule,
+    SMSMFAModule,
+    EmailMFAModule,
+    TOTPMFAModule,
+    PasskeyMFAModule,
+    AuthModule.forRoot(authConfig),
   ],
   controllers: [CustomAuthController, SocialRedirectController],
 })

@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { GoogleSocialAuthService } from '../src/google-social-auth.service';
 // Public API imports
 import {
@@ -16,7 +16,7 @@ import {
   JwtService,
   SessionService,
   AuthChallengeHelperService,
-  SocialProviderRegistry,
+  NAUTH_SOCIAL_PROVIDER_TOKEN,
   AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent()
   TrustedDeviceService,
 } from '@nauth-toolkit/core/internal';
@@ -122,28 +122,13 @@ import { TokenVerifierService as GoogleTokenVerifierService } from '../src/token
         { token: 'GOOGLE_TOKEN_VERIFIER', optional: true },
       ],
     },
+
+    // Bind to shared discovery token (registration is performed by AuthModule at app bootstrap)
+    {
+      provide: NAUTH_SOCIAL_PROVIDER_TOKEN,
+      useExisting: GoogleSocialAuthService,
+    },
   ],
   exports: [GoogleSocialAuthService],
 })
-export class GoogleSocialAuthModule implements OnModuleInit {
-  constructor(
-    private readonly googleSocialAuthService: GoogleSocialAuthService,
-    private readonly providerRegistry: SocialProviderRegistry,
-  ) {}
-
-  /**
-   * Auto-register Google provider with the SocialProviderRegistry
-   * when the module is initialized.
-   * Only registers if the provider is enabled in config.
-   */
-  onModuleInit(): void {
-    // Check if provider is enabled by checking if oauthClient was initialized
-    // Service sets oauthClient to null when disabled
-    const config = this.googleSocialAuthService['config'] as NAuthConfig;
-    const providerConfig = config.social?.google;
-    if (providerConfig?.enabled) {
-      this.providerRegistry.registerProvider(this.googleSocialAuthService);
-    }
-    // If disabled, silently skip registration - module can exist but provider won't be available
-  }
-}
+export class GoogleSocialAuthModule {}

@@ -1,5 +1,5 @@
-import { Module, DynamicModule, Global } from '@nestjs/common';
-import { APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
+import { Inject, Injectable, Module, DynamicModule, Global, OnApplicationBootstrap, Optional } from '@nestjs/common';
+import { APP_INTERCEPTOR, APP_GUARD, ModuleRef } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource, EntityMetadata, Repository } from 'typeorm';
 // Public API imports
@@ -36,6 +36,8 @@ import {
   SMSTemplateEngine,
   SMSTemplateEngineImpl,
   SocialRedirectHandler,
+  type IMFAProviderService,
+  type ISocialAuthProviderService,
 } from '@nauth-toolkit/core';
 
 // Internal API imports (for framework adapter use only)
@@ -53,6 +55,8 @@ import {
   ChallengeService,
   AuthChallengeHelperService,
   SocialProviderRegistry,
+  NAUTH_MFA_PROVIDER_TOKEN,
+  NAUTH_SOCIAL_PROVIDER_TOKEN,
   AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent() for instantiation
   PasswordResetService,
   SocialAuthStateStore,
@@ -86,6 +90,119 @@ import { CsrfGuard } from './guards/csrf.guard';
 import { CsrfService } from './services/csrf.service';
 import { TokenDeliveryHttpService } from './services/token-delivery-http.service';
 import { nauthMigrationsBootstrapProvider } from './services/migrations-bootstrap.service';
+
+// ============================================================================
+// Provider Auto-Registration (NestJS)
+// ============================================================================
+
+/**
+ * Auto-registers MFA + Social provider services into their respective registries.
+ *
+ * @remarks
+ * This runs on `OnApplicationBootstrap` to guarantee **all modules** have been instantiated,
+ * removing any dependency on the order of `imports: []` in the consumer application.
+ *
+ * Provider modules contribute providers by binding their service to the shared tokens:
+ * - `NAUTH_MFA_PROVIDER_TOKEN`
+ * - `NAUTH_SOCIAL_PROVIDER_TOKEN`
+ */
+@Injectable()
+class NAuthProviderAutoRegistrationService implements OnApplicationBootstrap {
+  constructor(
+    private readonly moduleRef: ModuleRef,
+    private readonly mfaService: MFAService,
+    private readonly socialProviderRegistry: SocialProviderRegistry,
+    // NOTE: These are provided by AuthModule. Marked optional for safe initialization in edge test contexts.
+    @Optional() @Inject('NAUTH_LOGGER') private readonly logger?: NAuthLogger,
+    @Optional() @Inject('NAUTH_CONFIG') private readonly config?: NAuthConfig,
+  ) {}
+
+  /**
+   * Runs after all modules are initialized; discovers providers and registers them.
+   */
+  onApplicationBootstrap(): void {
+    // ==========================================================================
+    // MFA Providers
+    // ==========================================================================
+    const mfaProviders = this.safeGetAllProviders<unknown>(NAUTH_MFA_PROVIDER_TOKEN);
+    let registeredMfa = 0;
+    for (const p of mfaProviders) {
+      // Only register providers that match the public contract.
+      if (!this.isMfaProvider(p)) continue;
+      if (p.isMethodAllowed()) {
+        this.mfaService.registerProvider(p);
+        registeredMfa += 1;
+      }
+    }
+
+    // ==========================================================================
+    // Social Providers
+    // ==========================================================================
+    const socialProviders = this.safeGetAllProviders<unknown>(NAUTH_SOCIAL_PROVIDER_TOKEN);
+    let registeredSocial = 0;
+    for (const p of socialProviders) {
+      if (!this.isSocialProvider(p)) continue;
+      // Follow existing behavior: register only if enabled in config.
+      const socialConfig = this.config?.social as unknown as Record<string, { enabled?: boolean }> | undefined;
+      const enabled = socialConfig?.[p.providerName]?.enabled === true;
+      if (enabled) {
+        this.socialProviderRegistry.registerProvider(p);
+        registeredSocial += 1;
+      }
+    }
+
+    if (this.logger?.isEnabled?.()) {
+      this.logger.debug(
+        `[nauth-toolkit] Auto-registered providers (NestJS): MFA=${registeredMfa}/${mfaProviders.length}, Social=${registeredSocial}/${socialProviders.length}`,
+      );
+    }
+  }
+
+  private safeGetAllProviders<T>(token: string): T[] {
+    // `ModuleRef.get()` throws if the token is unknown. We treat "not present" as empty.
+    try {
+      const resolved = this.moduleRef.get<T>(token as unknown as never, { strict: false, each: true } as never);
+      return Array.isArray(resolved) ? resolved : [resolved];
+    } catch {
+      return [];
+    }
+  }
+
+  private isMfaProvider(value: unknown): value is IMFAProviderService {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      'methodName' in value &&
+      'isMethodAllowed' in value &&
+      'setup' in value &&
+      'verifySetup' in value &&
+      'verify' in value &&
+      typeof (value as { isMethodAllowed?: unknown }).isMethodAllowed === 'function' &&
+      typeof (value as { setup?: unknown }).setup === 'function' &&
+      typeof (value as { verifySetup?: unknown }).verifySetup === 'function' &&
+      typeof (value as { verify?: unknown }).verify === 'function'
+    );
+  }
+
+  private isSocialProvider(value: unknown): value is ISocialAuthProviderService {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      'providerName' in value &&
+      'getAuthUrl' in value &&
+      'handleCallback' in value &&
+      'verifyToken' in value &&
+      'linkAccount' in value &&
+      'getUserProfileFromCallback' in value &&
+      typeof (value as { providerName?: unknown }).providerName === 'string' &&
+      typeof (value as { getAuthUrl?: unknown }).getAuthUrl === 'function' &&
+      typeof (value as { handleCallback?: unknown }).handleCallback === 'function' &&
+      typeof (value as { verifyToken?: unknown }).verifyToken === 'function' &&
+      typeof (value as { linkAccount?: unknown }).linkAccount === 'function' &&
+      typeof (value as { getUserProfileFromCallback?: unknown }).getUserProfileFromCallback === 'function'
+    );
+  }
+}
 
 /**
  * Extended NAuth Configuration (includes optional entities)
@@ -158,6 +275,9 @@ export class AuthModule {
       providers: [
         // Auto-run nauth-toolkit migrations on startup (no consumer burden)
         nauthMigrationsBootstrapProvider,
+
+        // Auto-register social + MFA provider modules at application bootstrap (order-independent)
+        NAuthProviderAutoRegistrationService,
 
         // Global guard for AsyncLocalStorage context initialization (runs FIRST)
         // Must run before other guards to ensure context is available

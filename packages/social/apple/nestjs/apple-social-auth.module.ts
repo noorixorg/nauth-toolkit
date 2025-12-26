@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { AppleSocialAuthService } from '../src/apple-social-auth.service';
 // Public API imports
 import {
@@ -18,7 +18,7 @@ import {
   JwtService,
   SessionService,
   AuthChallengeHelperService,
-  SocialProviderRegistry,
+  NAUTH_SOCIAL_PROVIDER_TOKEN,
   AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent()
   TrustedDeviceService,
 } from '@nauth-toolkit/core/internal';
@@ -126,24 +126,13 @@ import type { Repository } from 'typeorm';
         'SocialProviderSecretRepository',
       ],
     },
+
+    // Bind to shared discovery token (registration is performed by AuthModule at app bootstrap)
+    {
+      provide: NAUTH_SOCIAL_PROVIDER_TOKEN,
+      useExisting: AppleSocialAuthService,
+    },
   ],
   exports: [AppleSocialAuthService],
 })
-export class AppleSocialAuthModule implements OnModuleInit {
-  constructor(
-    private readonly appleSocialAuthService: AppleSocialAuthService,
-    private readonly providerRegistry: SocialProviderRegistry,
-  ) {}
-
-  /**
-   * Auto-register Apple provider with the SocialProviderRegistry
-   * when the module is initialized (only if enabled in config).
-   */
-  onModuleInit(): void {
-    const config = this.appleSocialAuthService['config'] as NAuthConfig; // Access protected config
-    const providerConfig = config.social?.apple;
-    if (providerConfig?.enabled) {
-      this.providerRegistry.registerProvider(this.appleSocialAuthService);
-    }
-  }
-}
+export class AppleSocialAuthModule {}

@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/sms-console",
-  "version": "0.1.26",
+  "version": "0.1.28",
   "description": "Console SMS provider for nauth-toolkit (dev/test)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.26"
+    "@nauth-toolkit/core": "^0.1.28"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",

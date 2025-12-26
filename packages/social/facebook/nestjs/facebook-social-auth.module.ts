@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { FacebookSocialAuthService } from '../src/facebook-social-auth.service';
 // Public API imports
 import {
@@ -17,7 +17,7 @@ import {
   JwtService,
   SessionService,
   AuthChallengeHelperService,
-  SocialProviderRegistry,
+  NAUTH_SOCIAL_PROVIDER_TOKEN,
   AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent()
   TrustedDeviceService,
 } from '@nauth-toolkit/core/internal';
@@ -121,24 +121,13 @@ import { Repository } from 'typeorm';
         { token: 'FACEBOOK_TOKEN_VERIFIER', optional: true },
       ],
     },
+
+    // Bind to shared discovery token (registration is performed by AuthModule at app bootstrap)
+    {
+      provide: NAUTH_SOCIAL_PROVIDER_TOKEN,
+      useExisting: FacebookSocialAuthService,
+    },
   ],
   exports: [FacebookSocialAuthService],
 })
-export class FacebookSocialAuthModule implements OnModuleInit {
-  constructor(
-    private readonly facebookSocialAuthService: FacebookSocialAuthService,
-    private readonly providerRegistry: SocialProviderRegistry,
-  ) {}
-
-  /**
-   * Auto-register Facebook provider with the SocialProviderRegistry
-   * when the module is initialized (only if enabled in config).
-   */
-  onModuleInit(): void {
-    const config = this.facebookSocialAuthService['config'] as NAuthConfig; // Access protected config
-    const providerConfig = config.social?.facebook;
-    if (providerConfig?.enabled) {
-      this.providerRegistry.registerProvider(this.facebookSocialAuthService);
-    }
-  }
-}
+export class FacebookSocialAuthModule {}

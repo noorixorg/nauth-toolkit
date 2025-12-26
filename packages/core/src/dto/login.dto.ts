@@ -1,5 +1,20 @@
-import { IsString, MinLength, MaxLength, IsOptional } from 'class-validator';
+import { IsString, MinLength, MaxLength, IsOptional, IsIn } from 'class-validator';
 import { Transform } from 'class-transformer';
+
+/**
+ * Allowed deviceType values for session + trusted-device persistence.
+ *
+ * @remarks
+ * ⚠️ SECURITY: This must remain strict. Arbitrary strings become persisted metadata
+ * and can pollute logs/audit trails.
+ *
+ * @example
+ * ```typescript
+ * // Valid values
+ * const deviceType = 'mobile';
+ * ```
+ */
+const ALLOWED_DEVICE_TYPES = ['mobile', 'desktop', 'tablet'] as const;
 
 /**
  * DTO for user login with security-focused validation
@@ -84,6 +99,7 @@ export class LoginDTO {
    */
   @IsOptional()
   @IsString({ message: 'DeviceType must be a string' })
+  @IsIn(ALLOWED_DEVICE_TYPES, { message: 'DeviceType must be one of: mobile, desktop, tablet' })
   @MaxLength(50, { message: 'DeviceType must not exceed 50 characters' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
