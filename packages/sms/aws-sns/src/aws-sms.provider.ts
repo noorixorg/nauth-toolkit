@@ -8,8 +8,14 @@ import {
 } from '@nauth-toolkit/core';
 import { AWSSMSConfig } from './aws-sms-config.interface';
 
-// Lazy-load AWS SDK types (installed as optionalDependency)
-type SNSClient = unknown;
+// ============================================================================
+// AWS SDK (lazy loaded)
+// ============================================================================
+// WHY: Keep @aws-sdk/client-sns as an optional dependency while avoiding require() per project rules.
+// The module is loaded on-demand in `sendSMS()` (async), keeping the constructor synchronous.
+type SNSClientLike = { send: (cmd: unknown) => Promise<{ MessageId?: string }> };
+type SNSClientCtor = new (config: Record<string, unknown>) => SNSClientLike;
+type PublishCommandCtor = new (input: Record<string, unknown>) => unknown;
 
 /**
  * AWS SNS SMS Provider (Platform-Agnostic)
@@ -31,12 +37,10 @@ type SNSClient = unknown;
  */
 export class AWSSMSProvider implements SMSProvider {
   private readonly logger: NAuthLogger;
-  private readonly snsClient: SNSClient;
+  private snsClient: SNSClientLike | null = null;
   private readonly config: AWSSMSConfig;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private SNSClientClass: any = null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private PublishCommandClass: any = null;
+  private snsClientClass: SNSClientCtor | null = null;
+  private publishCommandClass: PublishCommandCtor | null = null;
 
   /**
    * Optional SMS template engine for customizing message content
@@ -68,31 +72,45 @@ export class AWSSMSProvider implements SMSProvider {
       );
     }
 
-    // Lazy-load AWS SDK (optional dependency)
-    try {
-      const awsSdk = require('@aws-sdk/client-sns');
-      this.SNSClientClass = awsSdk.SNSClient;
-      this.PublishCommandClass = awsSdk.PublishCommand;
-    } catch (error) {
-      throw new NAuthException(
-        AuthErrorCode.INTERNAL_ERROR,
-        'AWS SMS Provider: Failed to load @aws-sdk/client-sns. Ensure @nauth-toolkit/sms-aws-sns is properly installed.',
-      );
+    // AWS SDK + client are initialized lazily in sendSMS() (async) to avoid require().
+    this.logger.log(`AWS SMS Provider initialized (region: ${config.region})`);
+  }
+
+  /**
+   * Lazy-initialize AWS SNS SDK and client.
+   *
+   * @throws {NAuthException} When AWS SDK cannot be loaded
+   */
+  private async ensureAwsInitialized(): Promise<void> {
+    if (this.snsClient) {
+      return;
+    }
+
+    if (!this.snsClientClass || !this.publishCommandClass) {
+      try {
+        const awsSdk = await import('@aws-sdk/client-sns');
+        this.snsClientClass = awsSdk.SNSClient as unknown as SNSClientCtor;
+        this.publishCommandClass = awsSdk.PublishCommand as unknown as PublishCommandCtor;
+      } catch {
+        throw new NAuthException(
+          AuthErrorCode.INTERNAL_ERROR,
+          'AWS SMS Provider: Failed to load @aws-sdk/client-sns. Ensure @nauth-toolkit/sms-aws-sns is properly installed.',
+        );
+      }
     }
 
     // Initialize SNS client - credentials are optional (SDK auto-discovers)
-    const clientConfig: Record<string, unknown> = { region: config.region };
+    const clientConfig: Record<string, unknown> = { region: this.config.region };
 
     // Only add credentials if explicitly provided
-    if (config.accessKeyId && config.secretAccessKey) {
+    if (this.config.accessKeyId && this.config.secretAccessKey) {
       clientConfig.credentials = {
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
+        accessKeyId: this.config.accessKeyId,
+        secretAccessKey: this.config.secretAccessKey,
       };
     }
 
-    this.snsClient = new this.SNSClientClass(clientConfig) as SNSClient;
-    this.logger.log(`AWS SMS Provider initialized (region: ${config.region})`);
+    this.snsClient = new this.snsClientClass!(clientConfig);
   }
 
   /**
@@ -221,6 +239,8 @@ export class AWSSMSProvider implements SMSProvider {
    */
   private async sendSMS(phone: string, message: string): Promise<void> {
     try {
+      await this.ensureAwsInitialized();
+
       // Build SMS attributes - always transactional for auth messages
       interface MessageAttribute {
         DataType: string;
@@ -268,14 +288,8 @@ export class AWSSMSProvider implements SMSProvider {
         };
       }
 
-      if (!this.PublishCommandClass) {
-        throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'AWS SDK not initialized');
-      }
-
-      const command = new this.PublishCommandClass(input);
-      const response = await (this.snsClient as { send: (cmd: unknown) => Promise<{ MessageId?: string }> }).send(
-        command,
-      );
+      const command = new this.publishCommandClass!(input);
+      const response = await this.snsClient!.send(command);
 
       this.logger.log(`SMS sent to ${phone} (MessageId: ${response.MessageId})`);
     } catch (error) {

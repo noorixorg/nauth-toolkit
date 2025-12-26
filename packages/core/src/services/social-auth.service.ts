@@ -25,6 +25,7 @@ import {
   SetPasswordForSocialUserDTO,
   SetPasswordForSocialUserResponseDTO,
 } from '../dto/social-auth.dto';
+import { ensureValidatedDto } from '../utils/dto-validator';
 
 /**
  * Social Auth Service
@@ -87,6 +88,7 @@ export class SocialAuthService {
    * ```
    */
   async getSocialAuthUrl(dto: GetSocialAuthUrlDTO): Promise<GetSocialAuthUrlResponseDTO> {
+    dto = await ensureValidatedDto(GetSocialAuthUrlDTO, dto);
     const { provider, state } = dto;
     const providerInstance = this.providerRegistry.getProvider(provider);
     const url = await providerInstance.getAuthUrl(state);
@@ -115,6 +117,7 @@ export class SocialAuthService {
    * ```
    */
   async handleSocialCallback(dto: HandleSocialCallbackDTO): Promise<AuthResponseDTO> {
+    dto = await ensureValidatedDto(HandleSocialCallbackDTO, dto);
     const { provider, code, state } = dto;
     const providerInstance = this.providerRegistry.getProvider(provider);
     return await providerInstance.handleCallback(code, state);
@@ -142,6 +145,7 @@ export class SocialAuthService {
    * ```
    */
   async linkSocialAccount(dto: LinkSocialAccountDTO): Promise<LinkSocialAccountResponseDTO> {
+    dto = await ensureValidatedDto(LinkSocialAccountDTO, dto);
     const { userId, provider, code, state } = dto;
     const providerInstance = this.providerRegistry.getProvider(provider);
     const result = await providerInstance.linkAccount(userId, code, state);
@@ -185,6 +189,7 @@ export class SocialAuthService {
    * ```
    */
   async getLinkedAccounts(dto: GetLinkedAccountsDTO): Promise<GetLinkedAccountsResponseDTO> {
+    dto = await ensureValidatedDto(GetLinkedAccountsDTO, dto);
     const { userId } = dto;
     const user = (await this.userRepository.findOne({ where: { sub: userId } })) as IUser | null;
     if (!user) {
@@ -220,6 +225,7 @@ export class SocialAuthService {
    * ```
    */
   async unlinkSocialAccount(dto: UnlinkSocialAccountDTO): Promise<UnlinkSocialAccountResponseDTO> {
+    dto = await ensureValidatedDto(UnlinkSocialAccountDTO, dto);
     const { userId, provider } = dto;
     const user = (await this.userRepository.findOne({ where: { sub: userId } })) as IUser | null;
     if (!user) {
@@ -288,6 +294,7 @@ export class SocialAuthService {
    * ```
    */
   async canSetPassword(dto: CanSetPasswordDTO): Promise<CanSetPasswordResponseDTO> {
+    dto = await ensureValidatedDto(CanSetPasswordDTO, dto);
     const { userId } = dto;
     const user = (await this.userRepository.findOne({ where: { sub: userId } })) as IUser | null;
     if (!user) {
@@ -313,6 +320,7 @@ export class SocialAuthService {
    * ```
    */
   async setPasswordForSocialUser(dto: SetPasswordForSocialUserDTO): Promise<SetPasswordForSocialUserResponseDTO> {
+    dto = await ensureValidatedDto(SetPasswordForSocialUserDTO, dto);
     const { userId, password } = dto;
     const user = await this.userRepository.findOne({ where: { sub: userId } });
     if (!user) {

@@ -83,7 +83,7 @@ export function createTestRoutes(dataSource: DataSource): Router {
 
       return res.json({ code: verificationToken.code });
     } catch (error) {
-      console.error('Error retrieving email code:', error);
+      // Intentionally avoid console.* per project rules (tests mode endpoint).
       return res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -150,7 +150,7 @@ export function createTestRoutes(dataSource: DataSource): Router {
 
       return res.json({ code: verificationToken.code });
     } catch (error) {
-      console.error('Error retrieving SMS code:', error);
+      // Intentionally avoid console.* per project rules (tests mode endpoint).
       return res.status(500).json({ error: 'Internal server error' });
     }
   });

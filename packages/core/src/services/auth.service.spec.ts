@@ -65,6 +65,7 @@ import {
 } from '../dto/challenge-response.dto';
 import { ChallengeType, MFAMethodType, RespondChallengeDTO } from '../dto/respond-challenge.dto';
 import { MFAMethod } from '../enums/mfa-method.enum';
+import { markDtoAsValidated } from '../utils/dto-validator';
 
 /**
  * Create a RespondChallengeDTO from the various \"challenge response\" shapes used in tests.
@@ -87,7 +88,9 @@ const createRespondChallengeDto = (data: unknown): RespondChallengeDTO => {
     mapped.method = mapped.method as unknown as MFAMethodType;
   }
 
-  return Object.assign(new RespondChallengeDTO(), mapped);
+  const dto = Object.assign(new RespondChallengeDTO(), mapped);
+  markDtoAsValidated(dto);
+  return dto;
 };
 
 /**
@@ -97,7 +100,9 @@ const createUpdateUserAttributesDto = (
   sub: string,
   data: Omit<Partial<UpdateUserAttributesRequestDTO>, 'sub'>,
 ): UpdateUserAttributesRequestDTO => {
-  return Object.assign(new UpdateUserAttributesRequestDTO(), { sub, ...data });
+  const dto = Object.assign(new UpdateUserAttributesRequestDTO(), { sub, ...data });
+  markDtoAsValidated(dto);
+  return dto;
 };
 
 /**
@@ -107,28 +112,36 @@ const createChangePasswordRequestDto = (
   sub: string,
   data: Omit<Partial<ChangePasswordRequestDTO>, 'sub'>,
 ): ChangePasswordRequestDTO => {
-  return Object.assign(new ChangePasswordRequestDTO(), { sub, ...data });
+  const dto = Object.assign(new ChangePasswordRequestDTO(), { sub, ...data });
+  markDtoAsValidated(dto);
+  return dto;
 };
 
 /**
  * Create a LogoutDTO for tests.
  */
 const createLogoutDto = (data: Partial<LogoutDTO>): LogoutDTO => {
-  return Object.assign(new LogoutDTO(), data);
+  const dto = Object.assign(new LogoutDTO(), data);
+  markDtoAsValidated(dto);
+  return dto;
 };
 
 /**
  * Create a LogoutAllDTO for tests.
  */
 const createLogoutAllDto = (data: Partial<LogoutAllDTO>): LogoutAllDTO => {
-  return Object.assign(new LogoutAllDTO(), data);
+  const dto = Object.assign(new LogoutAllDTO(), data);
+  markDtoAsValidated(dto);
+  return dto;
 };
 
 /**
  * Create a RefreshTokenDTO for tests.
  */
 const createRefreshTokenDto = (refreshToken: string): RefreshTokenDTO => {
-  return Object.assign(new RefreshTokenDTO(), { refreshToken });
+  const dto = Object.assign(new RefreshTokenDTO(), { refreshToken });
+  markDtoAsValidated(dto);
+  return dto;
 };
 
 describe('AuthService', () => {
@@ -2515,10 +2528,7 @@ describe('AuthService', () => {
       it('should add old password to history', async () => {
         await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
-        expect(mockPasswordService.addToHistory).toHaveBeenCalledWith(
-          [],
-          'hashed-password',
-        );
+        expect(mockPasswordService.addToHistory).toHaveBeenCalledWith([], 'hashed-password');
         expect(mockSessionService.revokeAllUserSessions).toHaveBeenCalledWith(mockUser.id, 'Password changed');
       });
 
@@ -2635,10 +2645,11 @@ describe('AuthService', () => {
 
         await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
 
-        expect(mockPasswordService.isPasswordInHistory).toHaveBeenCalledWith(
-          changePasswordDto.newPassword,
-          ['hashed-password', 'hash1', 'hash2'],
-        );
+        expect(mockPasswordService.isPasswordInHistory).toHaveBeenCalledWith(changePasswordDto.newPassword, [
+          'hashed-password',
+          'hash1',
+          'hash2',
+        ]);
       });
 
       it('should handle empty password history', async () => {
@@ -2743,13 +2754,10 @@ describe('AuthService', () => {
 
         const result = await service.adminSetPassword(adminSetPasswordDto);
 
-        expect(mockPasswordService.validatePassword).toHaveBeenCalledWith(
-          adminSetPasswordDto.newPassword,
-          {
-            email: mockUser.email,
-            username: mockUser.username,
-          },
-        );
+        expect(mockPasswordService.validatePassword).toHaveBeenCalledWith(adminSetPasswordDto.newPassword, {
+          email: mockUser.email,
+          username: mockUser.username,
+        });
         expect(mockPasswordService.hashPassword).toHaveBeenCalledWith(adminSetPasswordDto.newPassword);
         expect(mockUserRepository.save).toHaveBeenCalled();
         expect(mockSessionService.revokeAllUserSessions).toHaveBeenCalledWith(
@@ -2955,10 +2963,7 @@ describe('AuthService', () => {
 
         await service.adminSetPassword(adminSetPasswordDto);
 
-        expect(mockPasswordService.addToHistory).toHaveBeenCalledWith(
-          ['hash1', 'hash2'],
-          mockUser.passwordHash,
-        );
+        expect(mockPasswordService.addToHistory).toHaveBeenCalledWith(['hash1', 'hash2'], mockUser.passwordHash);
       });
     });
 
@@ -3004,7 +3009,11 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
           const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
           // Handle lookup by sub (UUID)
-          if (where && typeof where === 'object' && (where as { sub?: unknown }).sub === adminSetPasswordDto.identifier) {
+          if (
+            where &&
+            typeof where === 'object' &&
+            (where as { sub?: unknown }).sub === adminSetPasswordDto.identifier
+          ) {
             return mockUser as any;
           }
           // Handle lookup by id (for updateUserPassword internal call)
@@ -3167,8 +3176,8 @@ describe('AuthService', () => {
 
         await service.updateUserAttributes(
           createUpdateUserAttributesDto(mockUser.sub, {
-          firstName: 'John',
-          lastName: 'Doe',
+            firstName: 'John',
+            lastName: 'Doe',
           }),
         );
 
@@ -3205,7 +3214,9 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(null) // Email uniqueness check
           .mockResolvedValueOnce({ ...mockUser, email: 'newemail@example.com', isEmailVerified: false } as any);
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: 'newemail@example.com' }));
+        await service.updateUserAttributes(
+          createUpdateUserAttributesDto(mockUser.sub, { email: 'newemail@example.com' }),
+        );
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3300,7 +3311,9 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithMetadata as any) // Initial lookup by sub
           .mockResolvedValueOnce({ ...userWithMetadata, metadata: { key1: 'value1', key2: 'value2' } } as any); // Final fetch by id
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { metadata: { key2: 'value2' } }));
+        await service.updateUserAttributes(
+          createUpdateUserAttributesDto(mockUser.sub, { metadata: { key2: 'value2' } }),
+        );
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3543,7 +3556,9 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ id: 999 } as any); // Second call for email uniqueness check
 
         try {
-          await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: 'existing@example.com' }));
+          await service.updateUserAttributes(
+            createUpdateUserAttributesDto(mockUser.sub, { email: 'existing@example.com' }),
+          );
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -4911,8 +4926,8 @@ describe('AuthService', () => {
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
-        expect(error.code).toBe(AuthErrorCode.WEAK_PASSWORD);
-        expect(error.message).toContain('Password is required');
+        // DTO validation now catches this before service-level validation
+        expect(error.code).toBe(AuthErrorCode.VALIDATION_FAILED);
       }
     });
 
@@ -4945,12 +4960,8 @@ describe('AuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
       const createdUser1 = { ...mockUser, email: 'user1@example.com' };
       const createdUser2 = { ...mockUser, email: 'user2@example.com' };
-      mockUserRepository.create
-        .mockReturnValueOnce(createdUser1 as any)
-        .mockReturnValueOnce(createdUser2 as any);
-      mockUserRepository.save
-        .mockResolvedValueOnce(createdUser1 as any)
-        .mockResolvedValueOnce(createdUser2 as any);
+      mockUserRepository.create.mockReturnValueOnce(createdUser1 as any).mockReturnValueOnce(createdUser2 as any);
+      mockUserRepository.save.mockResolvedValueOnce(createdUser1 as any).mockResolvedValueOnce(createdUser2 as any);
       mockPasswordService.hashPassword
         .mockResolvedValueOnce('hashed-password-1')
         .mockResolvedValueOnce('hashed-password-2');

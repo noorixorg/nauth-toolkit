@@ -1,11 +1,10 @@
 import { MFAMethod, NAuthModuleConfig, createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
-//import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
+import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
 import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
-import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+//import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
 import { Logger } from '@nestjs/common';
 
 // AWS SES SDK imports (install: yarn add @aws-sdk/client-sesv2)
-import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
 
 // const smsConfig: AWSSMSConfig = {
 //   region: 'ap-southeast-2',
@@ -114,7 +113,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   tokenDelivery: {
-    method: 'json',
+    method: 'cookies',
     cookieOptions: {
       secure: true,
       sameSite: 'strict',
@@ -180,21 +179,21 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
 
-  //emailProvider: new ConsoleEmailProvider(),
+  emailProvider: new ConsoleEmailProvider(),
 
-  emailProvider: new NodemailerEmailProvider({
-    transport: {
-      SES: {
-        sesClient: new SESv2Client({
-          region: process.env.AWS_REGION || 'ap-southeast-2',
-        }),
-        SendEmailCommand,
-      },
-    },
-    defaults: {
-      from: 'Nauth App <noreply@noorix.com>',
-    },
-  }),
+  // emailProvider: new NodemailerEmailProvider({
+  //   transport: {
+  //     SES: {
+  //       sesClient: new SESv2Client({
+  //         region: process.env.AWS_REGION || 'ap-southeast-2',
+  //       }),
+  //       SendEmailCommand,
+  //     },
+  //   },
+  //   defaults: {
+  //     from: 'Nauth App <noreply@noorix.com>',
+  //   },
+  // }),
 
   email: {
     appName: process.env.APP_NAME || 'Nauth App',

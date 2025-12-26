@@ -22,18 +22,28 @@ export function errorHandler(error: any, _req: Request, res: Response, _next: Ne
   if (error instanceof NAuthException) {
     const statusCode = getHttpStatusCode(error.code);
     res.status(statusCode).json({
-      error: error.message,
+      statusCode,
       code: error.code,
+      message: error.message,
       details: error.details,
+      timestamp: error.timestamp,
+      path: _req.originalUrl || _req.url || 'unknown',
     });
     return;
   }
 
   // Handle other errors
-  console.error('Unhandled error:', error);
+  // ============================================================================
+  // Logging
+  // ============================================================================
+  // Intentionally avoid console.* per project rules.
+  // The enclosing app should log unhandled errors via its configured logger.
   res.status(500).json({
-    error: 'Internal server error',
-    code: 'INTERNAL_ERROR',
+    statusCode: 500,
+    code: AuthErrorCode.INTERNAL_ERROR,
+    message: 'Internal server error',
+    timestamp: new Date().toISOString(),
+    path: _req.originalUrl || _req.url || 'unknown',
   });
 }
 
@@ -85,4 +95,3 @@ function getHttpStatusCode(code: AuthErrorCode): number {
       return 500;
   }
 }
-

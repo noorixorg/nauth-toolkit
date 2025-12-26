@@ -82,10 +82,7 @@ export class TokenDeliveryHttpService {
    * @param tokens - Tokens to set
    * @throws {NAuthException} If token exp claims are missing/invalid
    */
-  setAuthCookies(
-    res: unknown,
-    tokens: { accessToken: string; refreshToken?: string; deviceToken?: string },
-  ): void {
+  setAuthCookies(res: unknown, tokens: { accessToken: string; refreshToken?: string; deviceToken?: string }): void {
     const deliveryConfig = this.config.tokenDelivery;
     const opt = deliveryConfig?.cookieOptions;
 
@@ -108,7 +105,10 @@ export class TokenDeliveryHttpService {
     if (typeof tokens.refreshToken === 'string' && tokens.refreshToken) {
       const refreshPayload = this.jwtService.decodeToken(tokens.refreshToken);
       if (!refreshPayload?.exp) {
-        throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'Refresh token missing exp claim; refusing to set cookies');
+        throw new NAuthException(
+          AuthErrorCode.TOKEN_INVALID,
+          'Refresh token missing exp claim; refusing to set cookies',
+        );
       }
       const refreshMaxAgeMs = Math.max(0, (refreshPayload.exp as number) * 1000 - Date.now());
       if (refreshMaxAgeMs <= 0) {
@@ -158,7 +158,10 @@ export class TokenDeliveryHttpService {
 
     const accessPayload = this.jwtService.decodeToken(accessToken);
     if (!accessPayload?.exp) {
-      throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'Access token missing exp claim; refusing to set CSRF cookie');
+      throw new NAuthException(
+        AuthErrorCode.TOKEN_INVALID,
+        'Access token missing exp claim; refusing to set CSRF cookie',
+      );
     }
     const accessMaxAgeMs = Math.max(0, (accessPayload.exp as number) * 1000 - Date.now());
 
@@ -203,9 +206,7 @@ export class TokenDeliveryHttpService {
     return cookieOptions;
   }
 
-  private getSetCookieFn(
-    res: unknown,
-  ): (name: string, value: string, options: Record<string, unknown>) => void {
+  private getSetCookieFn(res: unknown): (name: string, value: string, options: Record<string, unknown>) => void {
     return (name: string, value: string, options: Record<string, unknown>) => {
       const r = res as {
         cookie?: (n: string, v: string, o: unknown) => void;
@@ -223,5 +224,3 @@ export class TokenDeliveryHttpService {
     };
   }
 }
-
-

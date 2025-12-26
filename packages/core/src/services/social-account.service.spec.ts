@@ -33,9 +33,16 @@ describe('SocialAuthService', () => {
   let mockLogger: jest.Mocked<NAuthLogger>;
   let mockAuditService: jest.Mocked<InternalAuthAuditService>;
 
+  // ============================================================================
+  // Test Constants
+  // ============================================================================
+  // Use valid UUID v4 values to satisfy DTO validation (service now enforces ensureValidatedDto()).
+  const mockUserSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+  const mockOtherUserSub = 'b21b654c-2746-4168-acee-c175083a65cd';
+
   const mockUser: IUser = {
     id: 1,
-    sub: 'user-123',
+    sub: mockUserSub,
     email: 'user@example.com',
     username: 'testuser',
     phone: null,
@@ -168,7 +175,7 @@ describe('SocialAuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockSocialAccountRepository.find.mockResolvedValue(mockAccounts as any);
 
-      const result = await service.getLinkedAccounts({ userId: 'user-123' });
+      const result = await service.getLinkedAccounts({ userId: mockUserSub });
 
       expect(result).toEqual({
         accounts: [
@@ -180,9 +187,7 @@ describe('SocialAuthService', () => {
           },
         ],
       });
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
-        where: { sub: 'user-123' } as any,
-      });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: mockUserSub } as any });
       expect(mockSocialAccountRepository.find).toHaveBeenCalledWith({
         where: { userId: 1 } as any,
         order: { linkedAt: 'DESC' } as any,
@@ -193,7 +198,7 @@ describe('SocialAuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.getLinkedAccounts({ userId: 'nonexistent-user' });
+        await service.getLinkedAccounts({ userId: mockOtherUserSub });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -205,7 +210,7 @@ describe('SocialAuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockSocialAccountRepository.find.mockResolvedValue([]);
 
-      const result = await service.getLinkedAccounts({ userId: 'user-123' });
+      const result = await service.getLinkedAccounts({ userId: mockUserSub });
 
       expect(result).toEqual({ accounts: [] });
     });
@@ -215,7 +220,7 @@ describe('SocialAuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockSocialAccountRepository.find.mockResolvedValue([accountWithoutEmail] as any);
 
-      const result = await service.getLinkedAccounts({ userId: 'user-123' });
+      const result = await service.getLinkedAccounts({ userId: mockUserSub });
 
       expect(result.accounts[0].providerEmail).toBeUndefined();
     });
@@ -225,7 +230,7 @@ describe('SocialAuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockSocialAccountRepository.find.mockResolvedValue([accountWithoutLastUsed] as any);
 
-      const result = await service.getLinkedAccounts({ userId: 'user-123' });
+      const result = await service.getLinkedAccounts({ userId: mockUserSub });
 
       expect(result.accounts[0].lastUsedAt).toBeUndefined();
     });
@@ -236,7 +241,7 @@ describe('SocialAuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockSocialAccountRepository.find.mockResolvedValue([account2, account1] as any); // Repository returns sorted
 
-      const result = await service.getLinkedAccounts({ userId: 'user-123' });
+      const result = await service.getLinkedAccounts({ userId: mockUserSub });
 
       expect(result.accounts.length).toBe(2);
       expect(result.accounts[0].provider).toBe('apple'); // Most recent first
@@ -255,7 +260,7 @@ describe('SocialAuthService', () => {
       mockSocialAccountRepository.remove.mockResolvedValue(mockSocialAccount as any);
       mockSocialAccountRepository.find.mockResolvedValue([]); // No accounts left after unlink
 
-      const result = await service.unlinkSocialAccount({ userId: 'user-123', provider: 'google' });
+      const result = await service.unlinkSocialAccount({ userId: mockUserSub, provider: 'google' });
 
       expect(result).toEqual({ message: 'google account unlinked successfully' });
       expect(mockSocialAccountRepository.remove).toHaveBeenCalledWith(mockSocialAccount);
@@ -273,7 +278,7 @@ describe('SocialAuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.unlinkSocialAccount({ userId: 'nonexistent-user', provider: 'google' });
+        await service.unlinkSocialAccount({ userId: mockOtherUserSub, provider: 'google' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -286,7 +291,7 @@ describe('SocialAuthService', () => {
       mockSocialAccountRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.unlinkSocialAccount({ userId: 'user-123', provider: 'google' });
+        await service.unlinkSocialAccount({ userId: mockUserSub, provider: 'google' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -302,7 +307,7 @@ describe('SocialAuthService', () => {
       mockSocialAccountRepository.remove.mockResolvedValue(mockSocialAccount as any);
       mockSocialAccountRepository.find.mockResolvedValue([]); // No accounts left
 
-      await service.unlinkSocialAccount({ userId: 'user-123', provider: 'google' });
+      await service.unlinkSocialAccount({ userId: mockUserSub, provider: 'google' });
 
       // updateUserSocialFlags uses save() instead of update()
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
@@ -321,7 +326,7 @@ describe('SocialAuthService', () => {
       mockSocialAccountRepository.remove.mockResolvedValue(mockSocialAccount as any);
       mockSocialAccountRepository.find.mockResolvedValue([appleAccount] as any); // Apple account remains
 
-      await service.unlinkSocialAccount({ userId: 'user-123', provider: 'google' });
+      await service.unlinkSocialAccount({ userId: mockUserSub, provider: 'google' });
 
       // updateUserSocialFlags uses save() instead of update()
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
@@ -340,7 +345,7 @@ describe('SocialAuthService', () => {
       mockSocialAccountRepository.remove.mockResolvedValue(appleAccount as any);
       mockSocialAccountRepository.find.mockResolvedValue([]);
 
-      const result = await service.unlinkSocialAccount({ userId: 'user-123', provider: 'apple' });
+      const result = await service.unlinkSocialAccount({ userId: mockUserSub, provider: 'apple' });
 
       expect(result.message).toContain('apple account unlinked successfully');
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
@@ -357,7 +362,7 @@ describe('SocialAuthService', () => {
       mockSocialAccountRepository.find.mockResolvedValue([]);
       mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-      const result = await service.unlinkSocialAccount({ userId: 'user-123', provider: 'google' });
+      const result = await service.unlinkSocialAccount({ userId: mockUserSub, provider: 'google' });
 
       expect(result.message).toBeDefined(); // Should still unlink
       expect(mockLogger.error).toHaveBeenCalled();
@@ -369,7 +374,7 @@ describe('SocialAuthService', () => {
       mockSocialAccountRepository.remove.mockRejectedValue(new Error('Database error'));
 
       try {
-        await service.unlinkSocialAccount({ userId: 'user-123', provider: 'google' });
+        await service.unlinkSocialAccount({ userId: mockUserSub, provider: 'google' });
         fail('Should have thrown Error');
       } catch (error) {
         expect(error).toBeInstanceOf(Error);
@@ -383,7 +388,7 @@ describe('SocialAuthService', () => {
       mockSocialAccountRepository.remove.mockResolvedValue(mockSocialAccount as any);
       mockSocialAccountRepository.find.mockResolvedValue([]);
 
-      await service.unlinkSocialAccount({ userId: 'user-123', provider: 'google' });
+      await service.unlinkSocialAccount({ userId: mockUserSub, provider: 'google' });
 
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({
@@ -402,7 +407,7 @@ describe('SocialAuthService', () => {
       mockSocialAccountRepository.remove.mockResolvedValue(accountWithoutEmail as any);
       mockSocialAccountRepository.find.mockResolvedValue([]);
 
-      await service.unlinkSocialAccount({ userId: 'user-123', provider: 'google' });
+      await service.unlinkSocialAccount({ userId: mockUserSub, provider: 'google' });
 
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({
@@ -423,7 +428,7 @@ describe('SocialAuthService', () => {
     it('should return true for social-only user (no password hash)', async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
 
-      const result = await service.canSetPassword({ userId: 'user-123' });
+      const result = await service.canSetPassword({ userId: mockUserSub });
 
       expect(result.canSetPassword).toBe(true);
     });
@@ -431,7 +436,7 @@ describe('SocialAuthService', () => {
     it('should return false for user with password', async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUserWithPassword as any);
 
-      const result = await service.canSetPassword({ userId: 'user-123' });
+      const result = await service.canSetPassword({ userId: mockUserSub });
 
       expect(result.canSetPassword).toBe(false);
     });
@@ -439,7 +444,7 @@ describe('SocialAuthService', () => {
     it('should return false when user not found', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
-      const result = await service.canSetPassword({ userId: 'nonexistent-user' });
+      const result = await service.canSetPassword({ userId: mockOtherUserSub });
 
       expect(result.canSetPassword).toBe(false);
     });
@@ -454,12 +459,12 @@ describe('SocialAuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockAuthService.changePassword.mockResolvedValue({ success: true });
 
-      const result = await service.setPasswordForSocialUser({ userId: 'user-123', password: 'newpassword' });
+      const result = await service.setPasswordForSocialUser({ userId: mockUserSub, password: 'newpassword' });
 
       expect(result).toEqual({ message: 'Password set successfully' });
       expect(mockAuthService.changePassword).toHaveBeenCalledWith(
         expect.objectContaining({
-          sub: 'user-123',
+          sub: mockUserSub,
           oldPassword: '',
           newPassword: 'newpassword',
         }),
@@ -470,7 +475,7 @@ describe('SocialAuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.setPasswordForSocialUser({ userId: 'nonexistent-user', password: 'newpassword' });
+        await service.setPasswordForSocialUser({ userId: mockOtherUserSub, password: 'newpassword' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -482,7 +487,7 @@ describe('SocialAuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUserWithPassword as any);
 
       try {
-        await service.setPasswordForSocialUser({ userId: 'user-123', password: 'newpassword' });
+        await service.setPasswordForSocialUser({ userId: mockUserSub, password: 'newpassword' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -497,7 +502,7 @@ describe('SocialAuthService', () => {
       mockAuthService.changePassword.mockRejectedValue(new Error('Database error'));
 
       try {
-        await service.setPasswordForSocialUser({ userId: 'user-123', password: 'newpassword' });
+        await service.setPasswordForSocialUser({ userId: mockUserSub, password: 'newpassword' });
         fail('Should have thrown Error');
       } catch (error) {
         expect(error).toBeInstanceOf(Error);
@@ -750,7 +755,7 @@ describe('SocialAuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockSocialAccountRepository.find.mockResolvedValue([mockSocialAccount] as any);
 
-      const result = await serviceWithoutAudit.getLinkedAccounts({ userId: 'user-123' });
+      const result = await serviceWithoutAudit.getLinkedAccounts({ userId: mockUserSub });
 
       // Should not throw error
       expect(result).toBeDefined();

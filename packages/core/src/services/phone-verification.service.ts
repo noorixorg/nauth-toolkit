@@ -20,6 +20,7 @@ import {
 } from '../dto/verify-phone.dto';
 import { VerifyPhoneWithCodeBySubDTO } from '../dto/verify-phone-by-sub.dto';
 import * as crypto from 'crypto';
+import { ensureValidatedDto } from '../utils/dto-validator';
 
 /**
  * Phone Verification Service (Core)
@@ -63,6 +64,7 @@ export class PhoneVerificationService {
    * @throws {NAuthException} RATE_LIMIT_SMS | NOT_FOUND | PHONE_REQUIRED | ALREADY_VERIFIED | RATE_LIMIT_RESEND
    */
   async sendVerificationSMS(dto: SendVerificationSMSDTO): Promise<SendVerificationSMSResponseDTO> {
+    dto = await ensureValidatedDto(SendVerificationSMSDTO, dto);
     const { sub, skipAlreadyVerifiedCheck = true, challengeSessionId } = dto;
     const rateLimitKey = `phone-verification:${sub}`;
 
@@ -245,6 +247,7 @@ export class PhoneVerificationService {
    * @throws {NAuthException} VERIFICATION_CODE_INVALID | VERIFICATION_CODE_EXPIRED | VERIFICATION_TOO_MANY_ATTEMPTS
    */
   async verifyPhoneWithCode(dto: VerifyPhoneWithCodeDTO): Promise<VerifyPhoneResponseDTO> {
+    dto = await ensureValidatedDto(VerifyPhoneWithCodeDTO, dto);
     const { phone, code, challengeSessionId } = dto;
     // Find all unused tokens matching the code and type
     // If challengeSessionId is provided, ensure token belongs to specific session
@@ -425,6 +428,7 @@ export class PhoneVerificationService {
    * @returns Response DTO with success message
    */
   async verifyPhoneWithCodeBySub(dto: VerifyPhoneWithCodeBySubDTO): Promise<VerifyPhoneResponseDTO> {
+    dto = await ensureValidatedDto(VerifyPhoneWithCodeBySubDTO, dto);
     const { sub, code, challengeSessionId } = dto;
     // Load user to get current phone verification status
     // This ensures we have the latest state from the database
@@ -664,6 +668,7 @@ export class PhoneVerificationService {
    * @returns Response DTO with verification token ID
    */
   async resendVerificationSMS(dto: ResendVerificationSMSDTO): Promise<ResendVerificationSMSResponseDTO> {
+    dto = await ensureValidatedDto(ResendVerificationSMSDTO, dto);
     // Validate that either sub or phone is provided
     if (!dto.sub && !dto.phone) {
       throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Either sub or phone must be provided');

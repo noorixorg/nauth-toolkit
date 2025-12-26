@@ -7,6 +7,7 @@ import { NAuthLogger } from '../utils/nauth-logger';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { ClientInfoService } from './client-info.service';
+import { ensureValidatedDto } from '../utils/dto-validator';
 import { RiskFactor } from '../enums/risk-factor.enum';
 import { GetUserAuthHistoryDTO, GetUserAuthHistoryResponseDTO } from '../dto/get-user-auth-history.dto';
 import { GetEventsByTypeDTO, GetEventsByTypeResponseDTO } from '../dto/get-events-by-type.dto';
@@ -109,6 +110,7 @@ export class AuthAuditService {
    * ```
    */
   async getUserAuthHistory(request: GetUserAuthHistoryDTO): Promise<GetUserAuthHistoryResponseDTO> {
+    request = await ensureValidatedDto(GetUserAuthHistoryDTO, request);
     // Resolve userSub to userId
     const user = (await this.userRepository.findOne({ where: { sub: request.userSub } })) as IUser | null;
     if (!user) {
@@ -176,6 +178,7 @@ export class AuthAuditService {
    * ```
    */
   async getEventsByType(request: GetEventsByTypeDTO): Promise<GetEventsByTypeResponseDTO> {
+    request = await ensureValidatedDto(GetEventsByTypeDTO, request);
     const page = request.page || 1;
     const limit = request.limit || 50;
     const skip = (page - 1) * limit;
@@ -227,6 +230,7 @@ export class AuthAuditService {
    * ```
    */
   async getSuspiciousActivity(request: GetSuspiciousActivityDTO): Promise<GetSuspiciousActivityResponseDTO> {
+    request = await ensureValidatedDto(GetSuspiciousActivityDTO, request);
     const limit = request.limit || 100;
 
     const queryBuilder = this.auditRepository
@@ -274,6 +278,7 @@ export class AuthAuditService {
    * ```
    */
   async getRiskAssessmentHistory(request: GetRiskAssessmentHistoryDTO): Promise<GetRiskAssessmentHistoryResponseDTO> {
+    request = await ensureValidatedDto(GetRiskAssessmentHistoryDTO, request);
     const limit = request.limit || 100;
 
     // Resolve userSub to userId

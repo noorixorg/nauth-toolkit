@@ -42,7 +42,7 @@ describe('MFAService', () => {
 
   const mockUser: Partial<IUser> = {
     id: 1,
-    sub: 'user-uuid-123',
+    sub: 'a21b654c-2746-4168-acee-c175083a65cd',
     email: 'test@example.com',
     mfaEnabled: true,
     mfaMethods: ['totp'],
@@ -383,10 +383,10 @@ describe('MFAService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
 
-      const result = await service.getUserDevices({ sub: 'user-uuid-123' });
+      const result = await service.getUserDevices({ sub: 'a21b654c-2746-4168-acee-c175083a65cd' });
 
       expect(result).toEqual({ devices: devices as any });
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'user-uuid-123' } });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'a21b654c-2746-4168-acee-c175083a65cd' } });
       expect(mockMfaDeviceRepository.find).toHaveBeenCalledWith({
         where: { userId: 1, isActive: true },
         order: { createdAt: 'DESC' },
@@ -397,7 +397,7 @@ describe('MFAService', () => {
       mockMfaDeviceRepository.find.mockResolvedValue([]);
 
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
-      const result = await service.getUserDevices({ sub: 'user-uuid-123' });
+      const result = await service.getUserDevices({ sub: 'a21b654c-2746-4168-acee-c175083a65cd' });
 
       expect(result).toEqual({ devices: [] });
     });
@@ -427,7 +427,7 @@ describe('MFAService', () => {
       mockUserRepository.save.mockResolvedValue(userEntity as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      const result = await service.removeDevices({ userSub: 'user-uuid-123', methodType: 'totp' });
+      const result = await service.removeDevices({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
 
       expect(result.deletedCount).toBe(1);
       expect(result.mfaDisabled).toBe(false);
@@ -436,11 +436,11 @@ describe('MFAService', () => {
 
     it('should throw error when method type is invalid', async () => {
       try {
-        await service.removeDevices({ userSub: 'user-uuid-123', methodType: 'invalid' });
+        await service.removeDevices({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'invalid' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
-        expect(error.message).toContain('Invalid MFA method');
+        expect(error.message).toContain('Validation failed');
       }
     });
 
@@ -448,7 +448,7 @@ describe('MFAService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.removeDevices({ userSub: 'non-existent-user', methodType: 'totp' });
+        await service.removeDevices({ userSub: 'b21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -464,7 +464,7 @@ describe('MFAService', () => {
       mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
 
       try {
-        await service.removeDevices({ userSub: 'user-uuid-123', methodType: 'totp' });
+        await service.removeDevices({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -484,7 +484,7 @@ describe('MFAService', () => {
       mockUserRepository.save.mockResolvedValue(userEntity as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      const result = await service.removeDevices({ userSub: 'user-uuid-123', methodType: 'totp' });
+      const result = await service.removeDevices({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
 
       expect(result.mfaDisabled).toBe(true);
       expect(userEntity.mfaEnabled).toBe(false);
@@ -525,7 +525,7 @@ describe('MFAService', () => {
       mockAuditService.recordEvent.mockResolvedValue({} as any);
       mockChallengeService.createChallengeSession.mockResolvedValue({} as any);
 
-      await serviceWithEnforcement.removeDevices({ userSub: 'user-uuid-123', methodType: 'totp' });
+      await serviceWithEnforcement.removeDevices({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
 
       expect(mockChallengeService.createChallengeSession).toHaveBeenCalledWith(
         userEntity as IUser,
@@ -551,7 +551,7 @@ describe('MFAService', () => {
       mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      await service.removeDevices({ userSub: 'user-uuid-123', methodType: 'totp' });
+      await service.removeDevices({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
 
       expect(userEntity.preferredMfaMethod).toBe('sms');
       expect(mockMfaDeviceRepository.update).toHaveBeenCalledWith({ id: 2 } as any, { isPrimary: true } as any);
@@ -567,7 +567,7 @@ describe('MFAService', () => {
       mockUserRepository.save.mockResolvedValue(userEntity as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      await service.removeDevices({ userSub: 'user-uuid-123', methodType: 'totp' });
+      await service.removeDevices({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
 
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({
@@ -603,7 +603,7 @@ describe('MFAService', () => {
       mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      await service.setPreferredMethod({ userSub: 'user-uuid-123', methodType: 'sms' });
+      await service.setPreferredMethod({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'sms' });
 
       expect(mockUserRepository.update).toHaveBeenCalledWith({ id: 1 } as any, { preferredMfaMethod: 'sms' } as any);
       expect(mockMfaDeviceRepository.update).toHaveBeenCalledWith({ id: 2 } as any, { isPrimary: true } as any);
@@ -611,11 +611,11 @@ describe('MFAService', () => {
 
     it('should throw error when method type is invalid', async () => {
       try {
-        await service.setPreferredMethod({ userSub: 'user-uuid-123', methodType: 'invalid' });
+        await service.setPreferredMethod({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'invalid' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
-        expect(error.message).toContain('Invalid MFA method');
+        expect(error.message).toContain('Validation failed');
       }
     });
 
@@ -623,7 +623,7 @@ describe('MFAService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.setPreferredMethod({ userSub: 'non-existent-user', methodType: 'totp' });
+        await service.setPreferredMethod({ userSub: 'b21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -639,7 +639,7 @@ describe('MFAService', () => {
       mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
 
       try {
-        await service.setPreferredMethod({ userSub: 'user-uuid-123', methodType: 'sms' });
+        await service.setPreferredMethod({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'sms' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -661,7 +661,7 @@ describe('MFAService', () => {
       mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      await service.setPreferredMethod({ userSub: 'user-uuid-123', methodType: 'sms' });
+      await service.setPreferredMethod({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'sms' });
 
       // Should set device 2 (first SMS device) as primary
       expect(mockMfaDeviceRepository.update).toHaveBeenCalledWith({ id: 2 } as any, { isPrimary: true } as any);
@@ -683,7 +683,7 @@ describe('MFAService', () => {
       mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      await service.setPreferredMethod({ userSub: 'user-uuid-123', methodType: 'sms' });
+      await service.setPreferredMethod({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'sms' });
 
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({

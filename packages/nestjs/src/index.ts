@@ -53,6 +53,11 @@ export { TokenDelivery, TOKEN_DELIVERY_KEY, RouteDelivery } from './decorators/t
 export { NAuthHttpExceptionFilter } from './filters/nauth-http-exception.filter';
 
 /**
+ * NestJS Pipes - Validation & transformation
+ */
+export * from './pipes';
+
+/**
  * NestJS Providers - Logger adapters and utilities
  */
 export { NestJsLoggerAdapter } from './providers/nestjs-logger.adapter';

@@ -1,8 +1,7 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
-import '@fastify/cookie';
+import fastifyCookie from '@fastify/cookie';
 
 // Load environment variables BEFORE importing AppModule
 dotenv.config();
@@ -42,16 +41,20 @@ async function bootstrap() {
 
   // app.set('trust proxy', true);
 
+  // Get Fastify instance for plugin registration
+  const fastifyInstance = app.getHttpAdapter().getInstance();
+
   // Register Fastify cookie plugin for cookie-based token delivery
   // (replaces Express cookie-parser middleware)
-  await app.register(require('@fastify/cookie'));
+  // Type assertion needed due to type mismatch between NestJS Fastify adapter and plugin types
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await fastifyInstance.register(fastifyCookie as any);
 
   // ============================================================================
   // Fix DELETE endpoint body parsing
   // ============================================================================
   // Use Fastify's preParsing hook to handle DELETE requests with empty bodies
   // This is the official Fastify way to handle this scenario
-  const fastifyInstance = app.getHttpAdapter().getInstance();
   fastifyInstance.addHook('preParsing', (request, reply, payload, done) => {
     // Remove Content-Type header for DELETE requests with empty bodies
     // This prevents Fastify from expecting a JSON body when none is provided
@@ -64,15 +67,6 @@ async function bootstrap() {
     }
     done();
   });
-
-  // Enable global validation pipe for DTO validation (CRITICAL for nauth-toolkit)
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
 
   // Enable nauth-toolkit exception filter (PLATFORM-AGNOSTIC - works with Fastify!)
   // Uses ArgumentsHost abstraction - not Express-specific

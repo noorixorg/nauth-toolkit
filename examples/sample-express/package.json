@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "start": "nodemon --exec ts-node src/index.ts",
-    "test": "echo 'No tests configured' && exit 0",
+    "test": "yarn build && node --test test/*.test.js",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix"
   },

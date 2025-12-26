@@ -17,9 +17,18 @@ import {
 } from '../dto/verify-phone.dto';
 import { VerifyPhoneWithCodeBySubDTO } from '../dto/verify-phone-by-sub.dto';
 
+// ============================================================================
+// Test Constants
+// ============================================================================
+// Use valid UUID v4 values to satisfy DTO validation (service now enforces ensureValidatedDto()).
+const TEST_USER_SUB = 'a21b654c-2746-4168-acee-c175083a65cd';
+const TEST_OTHER_SUB = 'b21b654c-2746-4168-acee-c175083a65cd';
+
 // Helper to create DTOs from plain objects
 function createSendVerificationSMSDto(data: Partial<SendVerificationSMSDTO>): SendVerificationSMSDTO {
-  return Object.assign(new SendVerificationSMSDTO(), data);
+  const sub =
+    data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
+  return Object.assign(new SendVerificationSMSDTO(), { ...data, sub });
 }
 
 function createVerifyPhoneWithCodeDto(data: Partial<VerifyPhoneWithCodeDTO>): VerifyPhoneWithCodeDTO {
@@ -27,11 +36,15 @@ function createVerifyPhoneWithCodeDto(data: Partial<VerifyPhoneWithCodeDTO>): Ve
 }
 
 function createResendVerificationSMSDto(data: Partial<ResendVerificationSMSDTO>): ResendVerificationSMSDTO {
-  return Object.assign(new ResendVerificationSMSDTO(), data);
+  const sub =
+    data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
+  return Object.assign(new ResendVerificationSMSDTO(), { ...data, sub });
 }
 
 function createVerifyPhoneWithCodeBySubDto(data: Partial<VerifyPhoneWithCodeBySubDTO>): VerifyPhoneWithCodeBySubDTO {
-  return Object.assign(new VerifyPhoneWithCodeBySubDTO(), data);
+  const sub =
+    data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
+  return Object.assign(new VerifyPhoneWithCodeBySubDTO(), { ...data, sub });
 }
 
 /**
@@ -61,7 +74,7 @@ describe('PhoneVerificationService', () => {
 
   const mockUser: IUser = {
     id: 123,
-    sub: 'user-sub-123',
+    sub: TEST_USER_SUB,
     email: 'test@example.com',
     username: 'testuser',
     phone: '+1234567890',
@@ -222,7 +235,7 @@ describe('PhoneVerificationService', () => {
       const result = await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
 
       expect(mockStorageAdapter.incr).toHaveBeenCalled();
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'user-sub-123' } as any });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: TEST_USER_SUB } as any });
       expect(mockVerificationTokenRepository.save).toHaveBeenCalled();
       expect(mockSmsProvider.sendOTP).toHaveBeenCalledWith(
         '+1234567890',
@@ -374,7 +387,7 @@ describe('PhoneVerificationService', () => {
 
       await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
 
-      expect(mockStorageAdapter.del).toHaveBeenCalledWith('phone-verification:user-sub-123');
+      expect(mockStorageAdapter.del).toHaveBeenCalledWith(`phone-verification:${TEST_USER_SUB}`);
     });
 
     it('should handle SMS provider errors', async () => {
@@ -493,7 +506,8 @@ describe('PhoneVerificationService', () => {
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
-        expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_INVALID);
+        // Invalid code format is caught at DTO validation level
+        expect(error.code).toBe(AuthErrorCode.VALIDATION_FAILED);
       }
     });
 
@@ -707,7 +721,7 @@ describe('PhoneVerificationService', () => {
       const result = await service.verifyPhoneWithCodeBySub(createVerifyPhoneWithCodeBySubDto({ sub: 'user-sub-123', code: '123456' }));
 
       expect(result.message).toBe('Phone verified successfully. Please log in to continue.');
-      expect(mockUserRepository.update).toHaveBeenCalledWith({ sub: 'user-sub-123' } as any, {
+      expect(mockUserRepository.update).toHaveBeenCalledWith({ sub: TEST_USER_SUB } as any, {
         isPhoneVerified: true,
         isActive: true,
       });
@@ -748,7 +762,8 @@ describe('PhoneVerificationService', () => {
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
-        expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_INVALID);
+        // Invalid code format is caught at DTO validation level
+        expect(error.code).toBe(AuthErrorCode.VALIDATION_FAILED);
       }
     });
 
@@ -914,7 +929,7 @@ describe('PhoneVerificationService', () => {
 
       const result = await service.resendVerificationSMS(createResendVerificationSMSDto({ sub: 'user-sub-123' }));
 
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'user-sub-123' } as any });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: TEST_USER_SUB } as any });
       expect(mockSmsProvider.sendOTP).toHaveBeenCalled();
       expect(result).toEqual({ tokenId: 456 });
     });

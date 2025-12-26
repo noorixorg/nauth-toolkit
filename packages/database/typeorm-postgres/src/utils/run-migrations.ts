@@ -101,23 +101,23 @@ export async function runNAuthMigrations(
     // Initialize the isolated nauth DataSource
     await nauthDataSource.initialize();
 
-    logger.log(
+  logger.log(
       `[nauth-toolkit] Running ${migrations.length} NAuth migration(s) using isolated DataSource (table: ${migrationsTableName})`,
-    );
-    logger.log('[nauth-toolkit] Checking for pending migrations...');
+  );
+  logger.log('[nauth-toolkit] Checking for pending migrations...');
 
     // Run migrations on the isolated DataSource
     const executed = (await nauthDataSource.runMigrations({
       transaction: 'all',
     } as unknown as { transaction: 'all' })) as TypeOrmMigration[];
 
-    if (!executed.length) {
-      logger.log('[nauth-toolkit] No pending migrations.');
-      return;
-    }
+  if (!executed.length) {
+    logger.log('[nauth-toolkit] No pending migrations.');
+    return;
+  }
 
-    logger.log(`[nauth-toolkit] Executed ${executed.length} migration(s):`);
-    for (const m of executed) logger.log(`  ${m.name}`);
+  logger.log(`[nauth-toolkit] Executed ${executed.length} migration(s):`);
+  for (const m of executed) logger.log(`  ${m.name}`);
   } finally {
     // Always destroy the isolated DataSource to clean up connections
     if (nauthDataSource.isInitialized) {

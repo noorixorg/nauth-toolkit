@@ -20,6 +20,7 @@ import {
   VerifyEmailResponseDTO,
 } from '../dto/verify-email.dto';
 import * as crypto from 'crypto';
+import { ensureValidatedDto } from '../utils/dto-validator';
 
 /**
  * Email Verification Service
@@ -52,6 +53,7 @@ export class EmailVerificationService {
    * @returns Response DTO with verification token ID
    */
   async sendVerificationEmail(dto: SendVerificationEmailDTO): Promise<SendVerificationEmailResponseDTO> {
+    dto = await ensureValidatedDto(SendVerificationEmailDTO, dto);
     const { sub, baseUrl, skipAlreadyVerifiedCheck = false, challengeSessionId } = dto;
     // Get rate limit configuration from config (moved to signup.emailVerification)
     const rateLimitMax = this.config.signup?.emailVerification?.rateLimitMax || 3;
@@ -209,6 +211,7 @@ export class EmailVerificationService {
    * @returns Response DTO with success message
    */
   async verifyEmailWithCode(dto: VerifyEmailWithCodeDTO): Promise<VerifyEmailResponseDTO> {
+    dto = await ensureValidatedDto(VerifyEmailWithCodeDTO, dto);
     const { email, code, challengeSessionId } = dto;
     // ============================================================================
     // Security: Rate limit configuration
@@ -408,6 +411,7 @@ export class EmailVerificationService {
    * @returns Response DTO with success message
    */
   async verifyEmailWithToken(dto: VerifyEmailWithTokenDTO): Promise<VerifyEmailResponseDTO> {
+    dto = await ensureValidatedDto(VerifyEmailWithTokenDTO, dto);
     const { token } = dto;
     const tokenHash = this.hashToken(token);
 
@@ -486,6 +490,7 @@ export class EmailVerificationService {
    * @returns Response DTO with verification token ID
    */
   async resendVerificationEmail(dto: ResendVerificationEmailDTO): Promise<ResendVerificationEmailResponseDTO> {
+    dto = await ensureValidatedDto(ResendVerificationEmailDTO, dto);
     // Validate that either sub or email is provided
     if (!dto.sub && !dto.email) {
       throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Either sub or email must be provided');

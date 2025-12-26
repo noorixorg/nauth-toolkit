@@ -69,17 +69,27 @@ export function errorHandler(error: unknown, request: FastifyRequest, reply: Fas
     const nauthError = error as NAuthException;
     const statusCode = getHttpStatusCode(nauthError.code);
     reply.code(statusCode).send({
-      error: nauthError.message,
+      statusCode,
       code: nauthError.code,
+      message: nauthError.message,
       details: nauthError.details,
+      timestamp: nauthError.timestamp,
+      path: request.url || 'unknown',
     });
     return;
   }
 
   // Handle other errors
-  console.error('Unhandled error:', error);
+  // ============================================================================
+  // Logging
+  // ============================================================================
+  // Intentionally avoid console.* per project rules.
+  // The enclosing app should log unhandled errors via its configured logger.
   reply.code(500).send({
-    error: 'Internal server error',
-    code: 'INTERNAL_ERROR',
+    statusCode: 500,
+    code: AuthErrorCode.INTERNAL_ERROR,
+    message: 'Internal server error',
+    timestamp: new Date().toISOString(),
+    path: request.url || 'unknown',
   });
 }

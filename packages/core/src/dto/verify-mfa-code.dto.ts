@@ -15,7 +15,7 @@
  * ```
  */
 
-import { IsEnum, IsString, IsUUID, IsOptional, MaxLength, IsInt } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, MaxLength, IsInt, ValidateIf } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { MFAMethod } from '../enums/mfa-method.enum';
 
@@ -79,6 +79,18 @@ export class VerifyMFACodeDTO {
    * - For Passkey: credential object
    * - For Backup: string code
    */
+  @ValidateIf((dto: VerifyMFACodeDTO) => dto.methodName === MFAMethod.PASSKEY)
+  @IsObject({ message: 'code must be a passkey credential object for passkey method' })
+  @ValidateIf((dto: VerifyMFACodeDTO) => dto.methodName !== MFAMethod.PASSKEY)
+  @IsString({ message: 'code must be a string for this MFA method' })
+  @IsNotEmpty({ message: 'code is required' })
+  @MaxLength(2048, { message: 'code must not exceed 2048 characters' })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    return value;
+  })
   code!: string | Record<string, unknown>;
 
   /**

@@ -414,7 +414,16 @@ export function initServices(
   if (config.geoLocation?.maxMind) {
     try {
       // Try to load MaxMind module (optional peer dependency)
-      const maxMindModule = require('@maxmind/geoip2-node');
+      // IMPORTANT: initServices() is synchronous, so we provide a lazy module wrapper.
+      // This avoids require() while keeping initServices() sync.
+      const maxMindModule = {
+        Reader: {
+          open: async (dbPath: string) => {
+            const lib = await import('@maxmind/geoip2-node');
+            return await lib.Reader.open(dbPath);
+          },
+        },
+      };
       geoLocationService = new GeoLocationService(config, storageAdapter, maxMindModule, logger);
     } catch {
       // MaxMind module not installed - service remains undefined

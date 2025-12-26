@@ -507,14 +507,9 @@ export class CustomAuthController {
   @Public()
   @Post('challenge/resend')
   @HttpCode(HttpStatus.OK)
-  async resendCode(@Body() body: { session: string }): Promise<{ destination: string }> {
-    if (!body.session) {
-      throw new BadRequestException('Session is required');
-    }
-
+  async resendCode(@Body() dto: ResendCodeDTO): Promise<{ destination: string }> {
     this.logger.log('Resend verification code');
-    const dto = new ResendCodeDTO();
-    dto.session = body.session;
+    // DTO is automatically validated by NAuthValidationPipe
     return await this.authService.resendCode(dto);
   }
 

@@ -19,9 +19,18 @@ import {
   ResendVerificationEmailDTO,
 } from '../dto/verify-email.dto';
 
+// ============================================================================
+// Test Constants
+// ============================================================================
+// Use valid UUID v4 values to satisfy DTO validation (service now enforces ensureValidatedDto()).
+const TEST_USER_SUB = 'a21b654c-2746-4168-acee-c175083a65cd';
+const TEST_OTHER_SUB = 'b21b654c-2746-4168-acee-c175083a65cd';
+
 // Helper to create DTOs from plain objects
 function createSendVerificationEmailDto(data: Partial<SendVerificationEmailDTO>): SendVerificationEmailDTO {
-  return Object.assign(new SendVerificationEmailDTO(), data);
+  const sub =
+    data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
+  return Object.assign(new SendVerificationEmailDTO(), { ...data, sub });
 }
 
 function createVerifyEmailWithCodeDto(data: Partial<VerifyEmailWithCodeDTO>): VerifyEmailWithCodeDTO {
@@ -33,7 +42,9 @@ function createVerifyEmailWithTokenDto(data: Partial<VerifyEmailWithTokenDTO>): 
 }
 
 function createResendVerificationEmailDto(data: Partial<ResendVerificationEmailDTO>): ResendVerificationEmailDTO {
-  return Object.assign(new ResendVerificationEmailDTO(), data);
+  const sub =
+    data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
+  return Object.assign(new ResendVerificationEmailDTO(), { ...data, sub });
 }
 
 /**
@@ -66,7 +77,7 @@ describe('EmailVerificationService', () => {
 
   const mockUser: IUser = {
     id: 123,
-    sub: 'user-sub-123',
+    sub: TEST_USER_SUB,
     email: 'test@example.com',
     username: 'testuser',
     phone: null,
@@ -234,7 +245,7 @@ describe('EmailVerificationService', () => {
       const result = await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123', baseUrl: 'https://example.com' }));
 
       expect(mockStorageAdapter.incr).toHaveBeenCalled();
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'user-sub-123' } as any });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: TEST_USER_SUB } as any });
       expect(mockVerificationTokenRepository.save).toHaveBeenCalled();
       expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalled();
       const callArgs = mockEmailProvider.sendVerificationEmail.mock.calls[0];
@@ -373,7 +384,7 @@ describe('EmailVerificationService', () => {
 
       await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
 
-      expect(mockStorageAdapter.del).toHaveBeenCalledWith('email-verification:user-sub-123');
+      expect(mockStorageAdapter.del).toHaveBeenCalledWith(`email-verification:${TEST_USER_SUB}`);
     });
 
     it('should handle storage adapter errors gracefully', async () => {
@@ -557,7 +568,8 @@ describe('EmailVerificationService', () => {
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
-        expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_INVALID);
+        // Invalid code format is caught at DTO validation level
+        expect(error.code).toBe(AuthErrorCode.VALIDATION_FAILED);
       }
     });
 
@@ -876,7 +888,7 @@ describe('EmailVerificationService', () => {
     it('should verify email with valid token', async () => {
       // Token is hashed before lookup
       const tokenHash = 'hashed-token-abc123';
-      const token = 'abc123';
+      const token = 'a'.repeat(64);
       const tokenWithHash = {
         ...mockVerificationToken,
         token: tokenHash,
@@ -907,7 +919,8 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'invalid-token' }));
+        // Use a valid token format to reach service-level "token not found" error
+        await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'b'.repeat(64) }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -924,7 +937,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(expiredToken as any);
 
       try {
-        await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'abc123' }));
+        await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'a'.repeat(64) }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -943,7 +956,7 @@ describe('EmailVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
 
-      await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'abc123' }));
+      await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'a'.repeat(64) }));
 
       expect(mockVerificationTokenRepository.save).toHaveBeenCalledWith(
         (expect as any).objectContaining({
@@ -963,7 +976,7 @@ describe('EmailVerificationService', () => {
       mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-      const result = await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'abc123' }));
+      const result = await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'a'.repeat(64) }));
 
       expect(mockLogger.error).toHaveBeenCalled();
       expect(result.message).toBeDefined(); // Should still verify
@@ -979,7 +992,7 @@ describe('EmailVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(null); // User not found
       mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
 
-      const result = await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'abc123' }));
+      const result = await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'a'.repeat(64) }));
 
       // Should still update user and return success
       expect(result.message).toBeDefined();
@@ -995,7 +1008,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(expiredToken as any);
 
       try {
-        await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'abc123' }));
+        await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'a'.repeat(64) }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_EXPIRED);
@@ -1013,7 +1026,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(expiredToken as any);
 
       try {
-        await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'abc123' }));
+        await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'a'.repeat(64) }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_EXPIRED);
@@ -1036,7 +1049,7 @@ describe('EmailVerificationService', () => {
 
       const result = await service.resendVerificationEmail(createResendVerificationEmailDto({ sub: 'user-sub-123', baseUrl: 'https://example.com' }));
 
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'user-sub-123' } as any });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: TEST_USER_SUB } as any });
       expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalled();
       expect(result).toEqual({ tokenId: 456 });
     });
@@ -1201,7 +1214,7 @@ describe('EmailVerificationService', () => {
 
       // Should create new window
       expect(mockStorageAdapter.incr).toHaveBeenCalledWith(
-        'email-verification:user-sub-123',
+        `email-verification:${TEST_USER_SUB}`,
         3600, // Window expiry
       );
     });
@@ -1221,7 +1234,7 @@ describe('EmailVerificationService', () => {
       // When window is expired (TTL < 0 or TTL === 0), incr is called with TTL parameter
       // Check that at least one call was made with the rate limit key
       const incrCalls = mockStorageAdapter.incr.mock.calls;
-      const rateLimitCall = incrCalls.find((call) => call[0] === 'email-verification:user-sub-123');
+      const rateLimitCall = incrCalls.find((call) => call[0] === `email-verification:${TEST_USER_SUB}`);
       expect(rateLimitCall).toBeDefined();
       // When expired, second parameter should be the window (3600)
       // But if it's not passed, that's also fine - the important thing is that it works
@@ -1239,7 +1252,7 @@ describe('EmailVerificationService', () => {
 
       // Should create new window
       expect(mockStorageAdapter.incr).toHaveBeenCalledWith(
-        'email-verification:user-sub-123',
+        `email-verification:${TEST_USER_SUB}`,
         3600, // Window expiry
       );
     });

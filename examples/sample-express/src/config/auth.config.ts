@@ -138,18 +138,7 @@ export const authConfig: NAuthConfig = {
       autoLink: true,
       allowSignup: true,
     },
-    apple: {
-      enabled: true,
-      clientId: process.env.APPLE_CLIENT_ID || 'com.noorix.nauth',
-      clientSecret: process.env.APPLE_CLIENT_SECRET,
-      callbackUrl:
-        process.env.NODE_ENV === 'production'
-          ? 'https://api.angular.dev1.noorix.com/auth/social/apple/callback'
-          : 'http://localhost:3000/auth/social/apple/callback',
-      scopes: ['name', 'email'],
-      autoLink: true,
-      allowSignup: true,
-    },
+
     facebook: {
       enabled: true,
       clientId: process.env.FACEBOOK_CLIENT_ID,

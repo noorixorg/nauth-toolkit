@@ -77,7 +77,7 @@ export function createTestRoutes(fastify: FastifyInstance, dataSource: DataSourc
 
       return { code: verificationToken.code };
     } catch (error) {
-      console.error('Error retrieving email code:', error);
+      // Intentionally avoid console.* per project rules (tests mode endpoint).
       return reply.code(500).send({ error: 'Internal server error' });
     }
   });
@@ -140,7 +140,7 @@ export function createTestRoutes(fastify: FastifyInstance, dataSource: DataSourc
 
       return { code: verificationToken.code };
     } catch (error) {
-      console.error('Error retrieving SMS code:', error);
+      // Intentionally avoid console.* per project rules (tests mode endpoint).
       return reply.code(500).send({ error: 'Internal server error' });
     }
   });

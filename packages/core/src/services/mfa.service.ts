@@ -12,6 +12,7 @@ import { NAuthLogger } from '../utils/nauth-logger';
 import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { ClientInfoService } from './client-info.service';
+import { ensureValidatedDto, ensureValidatedDtoSync } from '../utils/dto-validator';
 import {
   GetAvailableMethodsDTO,
   GetAvailableMethodsResponseDTO,
@@ -142,6 +143,7 @@ export class MFAService {
    * ```
    */
   hasProvider(dto: HasProviderDTO): HasProviderResponseDTO {
+    dto = ensureValidatedDtoSync(HasProviderDTO, dto);
     return {
       hasProvider: this.providers.has(dto.methodName),
     };
@@ -183,6 +185,7 @@ export class MFAService {
    * ```
    */
   async getAvailableMethods(dto: GetAvailableMethodsDTO): Promise<GetAvailableMethodsResponseDTO> {
+    dto = await ensureValidatedDto(GetAvailableMethodsDTO, dto);
     // Look up user by sub to validate user exists
     const userEntity = await this.userRepository.findOne({ where: { sub: dto.sub } });
     if (!userEntity) {
@@ -233,6 +236,7 @@ export class MFAService {
    * ```
    */
   async verifyCode(dto: VerifyMFACodeDTO): Promise<VerifyMFACodeResponseDTO> {
+    dto = await ensureValidatedDto(VerifyMFACodeDTO, dto);
     // Look up user by sub
     const userEntity = await this.userRepository.findOne({ where: { sub: dto.sub } });
     if (!userEntity) {
@@ -277,6 +281,7 @@ export class MFAService {
    * ```
    */
   async setup(dto: SetupMFADTO): Promise<SetupMFAResponseDTO> {
+    dto = await ensureValidatedDto(SetupMFADTO, dto);
     // Look up user by sub
     const userEntity = await this.userRepository.findOne({ where: { sub: dto.sub } });
     if (!userEntity) {
@@ -304,6 +309,7 @@ export class MFAService {
    * ```
    */
   async getUserDevices(dto: GetUserDevicesDTO): Promise<GetUserDevicesResponseDTO> {
+    dto = await ensureValidatedDto(GetUserDevicesDTO, dto);
     // Look up user by sub to get internal ID
     const userEntity = await this.userRepository.findOne({ where: { sub: dto.sub } });
     if (!userEntity) {
@@ -346,6 +352,7 @@ export class MFAService {
    * ```
    */
   async getMFAStatus(dto: GetMFAStatusDTO): Promise<GetMFAStatusResponseDTO> {
+    dto = await ensureValidatedDto(GetMFAStatusDTO, dto);
     // Get user entity with MFA-related fields
     // Note: mfaExemptGrantedBy is intentionally excluded as it's sensitive admin information
     const userEntity = await this.userRepository.findOne({
@@ -433,6 +440,7 @@ export class MFAService {
    * ```
    */
   async removeDevices(dto: RemoveDevicesDTO): Promise<RemoveDevicesResponseDTO> {
+    dto = await ensureValidatedDto(RemoveDevicesDTO, dto);
     // Validate method type
     const validMethods = [MFAMethod.TOTP, MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.PASSKEY];
     const normalizedMethod = dto.methodType.toLowerCase();
@@ -624,6 +632,7 @@ export class MFAService {
    * ```
    */
   async setPreferredMethod(dto: SetPreferredMethodDTO): Promise<SetPreferredMethodResponseDTO> {
+    dto = await ensureValidatedDto(SetPreferredMethodDTO, dto);
     // Validate method type
     const validMethods = [MFAMethod.TOTP, MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.PASSKEY];
     const normalizedMethod = dto.methodType.toLowerCase();
@@ -739,6 +748,7 @@ export class MFAService {
    * ```
    */
   async setMFAExemption(dto: SetMFAExemptionDTO): Promise<SetMFAExemptionResponseDTO> {
+    dto = await ensureValidatedDto(SetMFAExemptionDTO, dto);
     // Find user by sub (external identifier)
     const userEntity = await this.userRepository.findOne({ where: { sub: dto.userSub } });
     if (!userEntity) {
@@ -846,6 +856,7 @@ export class MFAService {
    * ```
    */
   async getSetupData(dto: GetSetupDataDTO): Promise<GetSetupDataResponseDTO> {
+    dto = await ensureValidatedDto(GetSetupDataDTO, dto);
     if (!this.challengeService) {
       throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Challenge service is not available');
     }
@@ -905,6 +916,7 @@ export class MFAService {
    * ```
    */
   async getChallengeData(dto: GetChallengeDataDTO): Promise<GetChallengeDataResponseDTO> {
+    dto = await ensureValidatedDto(GetChallengeDataDTO, dto);
     if (!this.challengeService) {
       throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Challenge service is not available');
     }

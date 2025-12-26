@@ -65,6 +65,7 @@ import { MFAMethod } from '../enums/mfa-method.enum';
 import { isUUID } from 'class-validator';
 import * as crypto from 'crypto';
 import { generateSecurePassword } from '../utils/password-generator';
+import { ensureValidatedDto } from '../utils/dto-validator';
 
 /**
  * Dummy Argon2 hash for constant-time response
@@ -125,6 +126,9 @@ export class AuthService {
    * ```
    */
   async signup(dto: SignupDTO): Promise<AuthResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(SignupDTO, dto);
+
     // Get client info from request context (transparent!)
     const clientInfo = this.clientInfoService.get();
 
@@ -355,6 +359,9 @@ export class AuthService {
    * ```
    */
   async adminSignup(dto: AdminSignupDTO): Promise<AdminSignupResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(AdminSignupDTO, dto);
+
     // Get client info from request context (transparent!)
     const clientInfo = this.clientInfoService.get();
 
@@ -546,6 +553,9 @@ export class AuthService {
    * ```
    */
   async login(dto: LoginDTO): Promise<AuthResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(LoginDTO, dto);
+
     // Get client info from request context (transparent!)
     const clientInfo = this.clientInfoService.get();
     const fireAndForget = this.config.auditLogs?.fireAndForget === true;
@@ -1217,6 +1227,9 @@ export class AuthService {
    * ```
    */
   async respondToChallenge(dto: RespondChallengeDTO): Promise<AuthResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(RespondChallengeDTO, dto);
+
     const responseData = dto as ChallengeResponseData;
     const { session, type } = responseData;
     const requestTrace = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
@@ -2178,6 +2191,9 @@ export class AuthService {
    * ```
    */
   async resendCode(dto: ResendCodeDTO): Promise<ResendCodeResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(ResendCodeDTO, dto);
+
     this.logger?.debug?.(`Resending verification code: session=${dto.session}`);
 
     // Validate session (session must be valid to resend)
@@ -2509,6 +2525,9 @@ export class AuthService {
    * ```
    */
   async refreshToken(dto: RefreshTokenDTO): Promise<TokenResponse> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(RefreshTokenDTO, dto);
+
     const tokenHash = this.jwtService.hashToken(dto.refreshToken);
 
     // ============================================================================
@@ -2794,6 +2813,9 @@ export class AuthService {
    * @throws {NAuthException} If session ID is not available in request context
    */
   async logout(dto: LogoutDTO): Promise<LogoutResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(LogoutDTO, dto);
+
     // Get sessionId from context (automatically extracted from JWT token)
     const clientInfo = this.clientInfoService.get();
     let sessionId = clientInfo.sessionId;
@@ -2943,6 +2965,9 @@ export class AuthService {
    * @returns Number of sessions revoked
    */
   async logoutAll(dto: LogoutAllDTO): Promise<LogoutAllResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(LogoutAllDTO, dto);
+
     // Get user by sub to get internal id
     const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
     if (!user) {
@@ -3092,6 +3117,9 @@ export class AuthService {
    * ```
    */
   async changePassword(dto: ChangePasswordRequestDTO): Promise<ChangePasswordResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(ChangePasswordRequestDTO, dto);
+
     // Get user by sub
     const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
 
@@ -3148,6 +3176,9 @@ export class AuthService {
    * await authService.updateUserAttributes(sub, { email: 'test@example.com' });
    */
   async updateUserAttributes(dto: UpdateUserAttributesRequestDTO): Promise<UserResponseDto> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(UpdateUserAttributesRequestDTO, dto);
+
     // Find user by sub (external identifier)
     const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
     if (!user) {
@@ -3883,6 +3914,9 @@ export class AuthService {
   }
 
   async getUserById(dto: GetUserByIdDTO): Promise<UserResponseDto | null> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(GetUserByIdDTO, dto);
+
     const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
     return user ? UserResponseDto.fromEntity(user) : null;
   }
@@ -3901,6 +3935,9 @@ export class AuthService {
    * ```
    */
   async getUserByEmail(dto: GetUserByEmailDTO): Promise<UserResponseDto | null> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(GetUserByEmailDTO, dto);
+
     const where: Record<string, unknown> = dto.requireEmailVerified
       ? { email: dto.email, isEmailVerified: true }
       : { email: dto.email };
@@ -3921,6 +3958,9 @@ export class AuthService {
    * await authService.setMustChangePassword('user-uuid-123');
    */
   async setMustChangePassword(dto: SetMustChangePasswordDTO): Promise<SetMustChangePasswordResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(SetMustChangePasswordDTO, dto);
+
     const user = await this.userRepository.findOne({ where: { sub: dto.userId } });
 
     if (!user) {
@@ -3979,6 +4019,9 @@ export class AuthService {
    * ```
    */
   async adminSetPassword(dto: AdminSetPasswordDTO): Promise<AdminSetPasswordResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(AdminSetPasswordDTO, dto);
+
     this.logger?.log?.(`Admin password reset requested for identifier: ${dto.identifier}`);
     this.logger?.debug?.(
       `Reset details: { identifier: ${dto.identifier}, mustChangePassword: ${dto.mustChangePassword ?? true}, revokeSessions: ${dto.revokeSessions ?? true} }`,
@@ -4064,6 +4107,9 @@ export class AuthService {
    * @returns Delivery metadata (masked destination) when available
    */
   async forgotPassword(dto: ForgotPasswordDTO): Promise<ForgotPasswordResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(ForgotPasswordDTO, dto);
+
     const response: ForgotPasswordResponseDTO = { success: true };
 
     if (!this.passwordResetService) {
@@ -4150,6 +4196,9 @@ export class AuthService {
    * @throws {NAuthException} PASSWORD_RESET_CODE_INVALID | PASSWORD_RESET_CODE_EXPIRED | PASSWORD_RESET_MAX_ATTEMPTS
    */
   async confirmForgotPassword(dto: ConfirmForgotPasswordDTO): Promise<ConfirmForgotPasswordResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(ConfirmForgotPasswordDTO, dto);
+
     if (!this.passwordResetService) {
       throw new NAuthException(AuthErrorCode.SERVICE_UNAVAILABLE, 'Password reset is not available');
     }
