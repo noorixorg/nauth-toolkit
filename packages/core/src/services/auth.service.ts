@@ -18,6 +18,7 @@ import { MFAService } from './mfa.service';
 import { ContextStorage } from '../utils/context-storage';
 import { SignupDTO } from '../dto/signup.dto';
 import { AdminSignupDTO, AdminSignupResponseDTO } from '../dto/admin-signup.dto';
+import { AdminSignupSocialDTO, AdminSignupSocialResponseDTO } from '../dto/admin-signup-social.dto';
 import { LoginDTO } from '../dto/login.dto';
 import { ChangePasswordRequestDTO } from '../dto/change-password-request.dto';
 import { ChangePasswordResponseDTO } from '../dto/change-password-response.dto';
@@ -56,6 +57,7 @@ import { VerifyEmailWithCodeDTO, ResendVerificationEmailDTO } from '../dto/verif
 import { SendVerificationSMSDTO, ResendVerificationSMSDTO } from '../dto/verify-phone.dto';
 import { VerifyPhoneWithCodeBySubDTO } from '../dto/verify-phone-by-sub.dto';
 import { PasswordResetService } from './password-reset.service';
+import { SocialAuthService } from './social-auth.service';
 
 import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
@@ -98,6 +100,7 @@ export class AuthService {
     private readonly mfaDeviceRepository?: Repository<BaseMFADevice>, // Optional - available when MFA modules are imported
     private readonly trustedDeviceService?: TrustedDeviceService, // Optional - only available when rememberDevices is not 'never'
     private readonly passwordResetService?: PasswordResetService, // Optional - only available when configured by framework adapter
+    private readonly socialAuthService?: SocialAuthService, // Optional - only available when social auth is configured
   ) {
     this.logger?.log?.('AuthService initialized');
   }
@@ -528,6 +531,266 @@ export class AuthService {
     return {
       user: userDto,
       generatedPassword,
+    };
+  }
+
+  // ============================================================================
+  // Admin Social Signup
+  // ============================================================================
+
+  /**
+   * Administrative social user import with override capabilities
+   *
+   * Allows administrators to import existing social users from external platforms
+   * (e.g., Cognito, Auth0) into nauth with:
+   * - Bypass email/phone verification requirements
+   * - Optional password for hybrid social+password accounts
+   * - Social account linkage (provider + providerId)
+   * - Automatic user flag updates (hasSocialAuth)
+   *
+   * Use case: Migrating users from external authentication platforms while
+   * preserving their social login connections for transparent future logins.
+   *
+   * Security:
+   * - No built-in authentication - endpoint must be protected by framework adapter
+   * - All duplicate checks enforced (email, username, phone, provider+providerId)
+   * - Password policy enforced if password provided
+   * - Audit trail records admin-imported social accounts
+   *
+   * @param dto - Admin social signup DTO with social account details
+   * @returns User object and social account confirmation
+   * @throws {NAuthException} EMAIL_EXISTS | USERNAME_EXISTS | PHONE_EXISTS | SOCIAL_ACCOUNT_EXISTS | WEAK_PASSWORD
+   *
+   * @example
+   * ```typescript
+   * // Import social-only user from Cognito
+   * const result = await authService.adminSignupSocial({
+   *   email: 'user@example.com',
+   *   provider: 'google',
+   *   providerId: 'google_12345',
+   *   providerEmail: 'user@gmail.com',
+   *   socialMetadata: { sub: 'google_12345', given_name: 'John' },
+   *   isEmailVerified: true,
+   * });
+   *
+   * // Import hybrid user with password + social
+   * const result = await authService.adminSignupSocial({
+   *   email: 'user@example.com',
+   *   password: 'SecurePass123!',
+   *   provider: 'apple',
+   *   providerId: 'apple_67890',
+   *   isEmailVerified: true,
+   * });
+   * ```
+   */
+  async adminSignupSocial(dto: AdminSignupSocialDTO): Promise<AdminSignupSocialResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(AdminSignupSocialDTO, dto);
+
+    // Get client info from request context (transparent!)
+    const clientInfo = this.clientInfoService.get();
+
+    this.logger?.log?.(`Admin social signup attempt for email: ${dto.email}, provider: ${dto.provider}`);
+    this.logger?.debug?.(
+      `Admin social signup details: { email: ${dto.email}, username: ${dto.username || 'none'}, provider: ${dto.provider}, providerId: ${dto.providerId}, ip: ${clientInfo.ipAddress} }`,
+    );
+
+    // Skip signup.enabled check (admin bypass)
+
+    // Check if user already exists (email and username)
+    this.logger?.debug?.(`Checking if user exists: ${dto.email}`);
+    const existingUserByEmail = await this.userRepository.findOne({
+      where: { email: dto.email },
+    });
+
+    if (existingUserByEmail) {
+      this.logger?.warn?.(`Admin social signup failed - user already exists: ${dto.email}`);
+      throw new NAuthException(AuthErrorCode.EMAIL_EXISTS, 'User with this email already exists');
+    }
+
+    // Check for duplicate username if provided
+    if (dto.username) {
+      this.logger?.debug?.(`Checking if username exists: ${dto.username}`);
+      const existingUserByUsername = await this.userRepository.findOne({
+        where: { username: dto.username },
+      });
+
+      if (existingUserByUsername) {
+        this.logger?.warn?.(`Admin social signup failed - username already exists: ${dto.username}`);
+        throw new NAuthException(AuthErrorCode.USERNAME_EXISTS, 'Username is already taken');
+      }
+    }
+
+    // Check for duplicate phone if provided and duplicates not allowed
+    if (dto.phone && !this.config.signup?.allowDuplicatePhones) {
+      this.logger?.debug?.(`Checking if phone exists: ${dto.phone}`);
+      const existingUserByPhone = await this.userRepository.findOne({
+        where: { phone: dto.phone },
+      });
+
+      if (existingUserByPhone) {
+        this.logger?.warn?.(`Admin social signup failed - phone already exists: ${dto.phone}`);
+        throw new NAuthException(AuthErrorCode.PHONE_EXISTS, 'Phone number is already registered');
+      }
+    }
+
+    // Check for duplicate provider+providerId
+    if (!this.socialAuthService) {
+      this.logger?.error?.('SocialAuthService not available - cannot import social user');
+      throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Social authentication is not configured');
+    }
+
+    this.logger?.debug?.(`Checking if social account exists: ${dto.provider}:${dto.providerId}`);
+    const existingSocialAccount = await this.socialAuthService.findSocialAccountByProvider(
+      dto.provider,
+      dto.providerId,
+    );
+
+    if (existingSocialAccount) {
+      this.logger?.warn?.(
+        `Admin social signup failed - social account already exists: ${dto.provider}:${dto.providerId}`,
+      );
+      throw new NAuthException(AuthErrorCode.SOCIAL_ACCOUNT_EXISTS, 'This social account is already registered');
+    }
+
+    // Handle password (optional for hybrid accounts)
+    let passwordHash: string | null;
+
+    if (dto.password) {
+      // Validate password policy
+      this.logger?.debug?.('Validating password against policy');
+      const passwordValidation = await this.passwordService.validatePassword(dto.password, {
+        email: dto.email,
+        username: dto.username,
+      });
+
+      if (!passwordValidation.valid) {
+        this.logger?.warn?.(`Password validation failed for ${dto.email}: ${passwordValidation.errors.join(', ')}`);
+        throw new NAuthException(AuthErrorCode.WEAK_PASSWORD, passwordValidation.errors.join(', '), {
+          errors: passwordValidation.errors,
+        });
+      }
+
+      // Hash password
+      passwordHash = await this.passwordService.hashPassword(dto.password);
+    } else {
+      // Social-only user: no password (NULL in database)
+      passwordHash = null;
+    }
+
+    // Create user with override flags
+    this.logger?.debug?.(
+      `Creating admin social user record for: ${dto.email} || ${dto.username} || ${dto.phone} (isEmailVerified: ${dto.isEmailVerified || false}, isPhoneVerified: ${dto.isPhoneVerified || false})`,
+    );
+    const user = this.userRepository.create({
+      email: dto.email,
+      username: dto.username,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      phone: dto.phone,
+      passwordHash, // null for social-only, hashed string for hybrid accounts
+      passwordChangedAt: dto.password ? new Date() : null, // Only set if password provided
+      isEmailVerified: dto.isEmailVerified ?? false, // Use DTO value or default to false
+      isPhoneVerified: dto.isPhoneVerified ?? false, // Use DTO value or default to false
+      mustChangePassword: dto.mustChangePassword ?? false, // Use DTO value or default to false
+      isActive: true, // Always active
+      metadata: dto.metadata,
+      // hasSocialAuth and socialProviders will be updated by SocialAuthService.createOrUpdateSocialAccount()
+    });
+
+    let savedUser: IUser;
+    try {
+      savedUser = (await this.userRepository.save(user)) as unknown as IUser;
+      this.logger?.log?.(
+        `Admin social user created successfully: ${dto.email} (sub: ${savedUser.sub}, provider: ${dto.provider})`,
+      );
+
+      // Create social account linkage
+      this.logger?.debug?.(`Creating social account linkage: ${dto.provider}:${dto.providerId}`);
+      await this.socialAuthService.createOrUpdateSocialAccount(
+        savedUser.id as number,
+        dto.provider,
+        dto.providerId,
+        dto.providerEmail || null,
+        dto.socialMetadata,
+      );
+      this.logger?.log?.(`Social account linked successfully: ${dto.provider}:${dto.providerId}`);
+
+      // ============================================================================
+      // Audit: Record account creation by admin (social import)
+      // ============================================================================
+      try {
+        await this.auditService?.recordEvent({
+          userId: savedUser.id,
+          eventType: AuthAuditEventType.ACCOUNT_CREATED,
+          eventStatus: 'INFO',
+          authMethod: 'admin-social',
+          // Client info automatically included from context
+          metadata: {
+            email: savedUser.email,
+            username: savedUser.username || null,
+            createdByAdmin: true,
+            adminIdentifier: clientInfo.ipAddress || 'unknown',
+            isEmailVerified: savedUser.isEmailVerified,
+            isPhoneVerified: savedUser.isPhoneVerified,
+            mustChangePassword: savedUser.mustChangePassword,
+            provider: dto.provider,
+            providerId: dto.providerId,
+            hasPassword: !!dto.password,
+            socialImport: true,
+          },
+        });
+      } catch (auditError) {
+        // Non-blocking: Log but continue
+        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to record ACCOUNT_CREATED audit event: ${errorMessage}`, {
+          error: auditError,
+          userId: savedUser.id,
+        });
+      }
+    } catch (error: unknown) {
+      // Handle database constraint violations gracefully
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+        // PostgreSQL unique constraint violation
+        const dbError = error as { code: string; detail?: string; message?: string };
+        if (dbError.detail?.includes('email')) {
+          this.logger?.warn?.(`Admin social signup failed - email constraint violation: ${dto.email}`);
+          throw new NAuthException(AuthErrorCode.EMAIL_EXISTS, 'User with this email already exists');
+        } else if (dbError.detail?.includes('username')) {
+          this.logger?.warn?.(`Admin social signup failed - username constraint violation: ${dto.username}`);
+          throw new NAuthException(AuthErrorCode.USERNAME_EXISTS, 'Username is already taken');
+        } else if (dbError.detail?.includes('phone')) {
+          this.logger?.warn?.(`Admin social signup failed - phone constraint violation: ${dto.phone}`);
+          throw new NAuthException(AuthErrorCode.PHONE_EXISTS, 'Phone number is already registered');
+        } else if (dbError.detail?.includes('provider') && dbError.detail?.includes('providerId')) {
+          this.logger?.warn?.(
+            `Admin social signup failed - social account constraint violation: ${dto.provider}:${dto.providerId}`,
+          );
+          throw new NAuthException(AuthErrorCode.SOCIAL_ACCOUNT_EXISTS, 'This social account is already registered');
+        } else {
+          this.logger?.error?.(`Admin social signup failed - database constraint violation: ${dbError.message}`);
+          throw new NAuthException(AuthErrorCode.EMAIL_EXISTS, 'User with this information already exists', {
+            conflictType: 'unknown',
+          });
+        }
+      }
+
+      // Re-throw other database errors
+      const errorMessage = error instanceof Error ? error.message : 'Unknown database error';
+      this.logger?.error?.(`Admin social signup failed - database error: ${errorMessage}`);
+      throw error;
+    }
+
+    // No tokens, no challenge system, no verification emails - pure user creation with social linkage
+    // Return sanitized user object and social account confirmation
+    const userDto = UserResponseDto.fromEntity(savedUser);
+    return {
+      user: userDto,
+      socialAccount: {
+        provider: dto.provider,
+        providerId: dto.providerId,
+        providerEmail: dto.providerEmail || null,
+      },
     };
   }
 

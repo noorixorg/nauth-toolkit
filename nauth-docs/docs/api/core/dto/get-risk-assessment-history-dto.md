@@ -44,8 +44,8 @@ import { GetRiskAssessmentHistoryDTO } from '@nauth-toolkit/core';
 
 | Property | Type     | Required | Description                                 |
 | -------- | -------- | -------- | -------------------------------------------- |
-| `userSub` | `string` | Yes      | User identifier (UUID v4)                    |
-| `limit`  | `number` | No       | Maximum number of records to return. Default: 100 |
+| `userSub` | `string` | Yes      | User identifier (UUID v4). Trimmed and lowercased. |
+| `limit`  | `number` | No       | Maximum number of records to return. Default: 100. Max: 500 |
 
 ## Example
 

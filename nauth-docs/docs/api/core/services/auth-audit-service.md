@@ -1,6 +1,6 @@
 ---
 title: AuthAuditService
-description: Authentication audit logging and querying service
+description: Query authentication and security audit events for monitoring and investigation.
 keywords: [service, audit, logging, security, api]
 image: /img/api-social-card.png
 sidebar_position: 1
@@ -14,7 +14,7 @@ import TabItem from '@theme/TabItem';
 **Package:** `@nauth-toolkit/core`
 **Type:** Service
 
-Logs and queries authentication events for security monitoring.
+Query authentication and security audit events for monitoring and investigation.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
@@ -42,11 +42,8 @@ import { AuthAuditService } from '@nauth-toolkit/core';
 
 ## Overview
 
-Query authentication audit events for security monitoring. Event recording is handled internally by the framework.
-
-:::note
-Only query methods are available. Event recording is internal.
-:::
+Use this service to query the authentication audit trail (login attempts, MFA events, suspicious activity, and risk-assessment markers).
+Audit **event recording is internal**.
 
 ## Methods
 
@@ -62,6 +59,10 @@ async getEventsByType(dto: GetEventsByTypeDTO): Promise<GetEventsByTypeResponseD
 
 - `dto` - [`GetEventsByTypeDTO`](../dto/get-events-by-type-dto)
 
+**Errors**
+
+None.
+
 **Returns**
 
 - [`GetEventsByTypeResponseDTO`](../dto/get-events-by-type-response-dto) - Paginated audit events
@@ -76,6 +77,7 @@ const result = await this.auditService.getEventsByType({
   eventType: AuthAuditEventType.SUSPICIOUS_ACTIVITY,
   page: 1,
   limit: 100,
+  startDate: new Date('2026-01-01'),
 });
 ```
 
@@ -87,6 +89,7 @@ const result = await nauth.authAuditService.getEventsByType({
   eventType: AuthAuditEventType.SUSPICIOUS_ACTIVITY,
   page: 1,
   limit: 100,
+  startDate: new Date('2026-01-01'),
 });
 ```
 
@@ -98,6 +101,7 @@ const result = await nauth.authAuditService.getEventsByType({
   eventType: AuthAuditEventType.SUSPICIOUS_ACTIVITY,
   page: 1,
   limit: 100,
+  startDate: new Date('2026-01-01'),
 });
 ```
 
@@ -117,6 +121,14 @@ async getRiskAssessmentHistory(dto: GetRiskAssessmentHistoryDTO): Promise<GetRis
 **Parameters**
 
 - `dto` - [`GetRiskAssessmentHistoryDTO`](../dto/get-risk-assessment-history-dto)
+
+**Errors**
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with code:
+
+| Code        | When           | Details     |
+| ----------- | -------------- | ----------- |
+| `NOT_FOUND` | User not found | `undefined` |
 
 **Returns**
 
@@ -171,6 +183,14 @@ async getSuspiciousActivity(dto: GetSuspiciousActivityDTO): Promise<GetSuspiciou
 
 - `dto` - [`GetSuspiciousActivityDTO`](../dto/get-suspicious-activity-dto)
 
+**Errors**
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with code:
+
+| Code        | When           | Details     |
+| ----------- | -------------- | ----------- |
+| `NOT_FOUND` | User not found | `undefined` |
+
 **Returns**
 
 - [`GetSuspiciousActivityResponseDTO`](../dto/get-suspicious-activity-response-dto) - Array of suspicious audit events
@@ -181,10 +201,6 @@ async getSuspiciousActivity(dto: GetSuspiciousActivityDTO): Promise<GetSuspiciou
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-// All suspicious activity
-const result = await this.auditService.getSuspiciousActivity({});
-
-// For specific user
 const result = await this.auditService.getSuspiciousActivity({
   userSub: 'user-uuid',
   limit: 50,
@@ -230,9 +246,11 @@ async getUserAuthHistory(dto: GetUserAuthHistoryDTO): Promise<GetUserAuthHistory
 
 **Errors**
 
-| Code        | When           | Details               |
-| ----------- | -------------- | --------------------- |
-| `NOT_FOUND` | User not found | `{ userId?: string }` |
+Throws [`NAuthException`](../exceptions/nauth-exception) with code:
+
+| Code        | When           | Details     |
+| ----------- | -------------- | ----------- |
+| `NOT_FOUND` | User not found | `undefined` |
 
 **Returns**
 
@@ -282,7 +300,9 @@ app.get('/user/history', async (req, res) => {
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-fastify.get('/user/history', { preHandler: nauth.helpers.requireAuth() },
+fastify.get(
+  '/user/history',
+  { preHandler: nauth.helpers.requireAuth() },
   nauth.adapter.wrapRouteHandler(async () => {
     const user = nauth.helpers.getCurrentUser();
     return nauth.authAuditService.getUserAuthHistory({
@@ -290,7 +310,8 @@ fastify.get('/user/history', { preHandler: nauth.helpers.requireAuth() },
       page: 1,
       limit: 50,
     });
-  }));
+  }),
+);
 ```
 
 </TabItem>
@@ -298,8 +319,7 @@ fastify.get('/user/history', { preHandler: nauth.helpers.requireAuth() },
 
 ---
 
-
-## Related
+## Related APIs
 
 - [GetUserAuthHistoryDTO](../dto/get-user-auth-history-dto)
 - [GetEventsByTypeDTO](../dto/get-events-by-type-dto)
@@ -307,3 +327,4 @@ fastify.get('/user/history', { preHandler: nauth.helpers.requireAuth() },
 - [GetRiskAssessmentHistoryDTO](../dto/get-risk-assessment-history-dto)
 - [AuthAuditEventType](../enums/auth-audit-event-type) - Complete list of event types
 - [AuthAuditEventStatus](../enums/auth-audit-event-status) - Event status values
+- [NAuthException](../exceptions/nauth-exception) - Error type thrown by services

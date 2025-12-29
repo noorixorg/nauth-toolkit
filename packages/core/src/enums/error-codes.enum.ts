@@ -287,6 +287,14 @@ export enum AuthErrorCode {
    */
   SOCIAL_ACCOUNT_NOT_FOUND = 'SOCIAL_ACCOUNT_NOT_FOUND',
 
+  /**
+   * Social account already exists
+   *
+   * This provider+providerId combination is already registered.
+   * Used during admin social signup when importing duplicate social accounts.
+   */
+  SOCIAL_ACCOUNT_EXISTS = 'SOCIAL_ACCOUNT_EXISTS',
+
   // ============================================================================
   // Challenge Errors (CHALLENGE_*)
   // ============================================================================

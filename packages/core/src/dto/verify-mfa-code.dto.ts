@@ -15,7 +15,17 @@
  * ```
  */
 
-import { IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, MaxLength, IsInt, ValidateIf } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  IsInt,
+  ValidateIf,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { MFAMethod } from '../enums/mfa-method.enum';
 

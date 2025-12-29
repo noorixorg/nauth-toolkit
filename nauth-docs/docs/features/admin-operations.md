@@ -4,12 +4,31 @@ Administrative user management features for creating and managing user accounts 
 
 ## Overview
 
+The admin operations include two methods for administrative user creation:
+
+1. **`adminSignup()`** - Create password-based user accounts with override capabilities
+2. **`adminSignupSocial()`** - Import social users from external platforms (Cognito, Auth0) with social linkage
+
+### adminSignup() Capabilities
+
 The `adminSignup()` method allows administrators to create user accounts with capabilities not available in regular signup:
 
 - **Bypass verification requirements** - Pre-verify email/phone without sending verification codes
 - **Force password change** - Require users to change password on first login
 - **Auto-generate passwords** - Create secure temporary passwords for new accounts
 - **Skip challenge system** - Create accounts that can login immediately (if verified)
+
+### adminSignupSocial() Capabilities
+
+The `adminSignupSocial()` method is specifically designed for importing users with social login credentials:
+
+- **Import social users** - Create accounts with pre-linked social providers (Google, Apple, Facebook)
+- **Migrate from external platforms** - Seamlessly migrate users from Cognito, Auth0, or other auth providers
+- **Social-only or hybrid accounts** - Create social-only users (no password) or hybrid users (social + password)
+- **Pre-verify credentials** - Same bypass capabilities as `adminSignup()` for email/phone verification
+- **Preserve social metadata** - Store complete OAuth profile data for audit and debugging
+
+## Password-Based Admin Signup
 
 ## Security Warning
 
@@ -164,7 +183,7 @@ app.post(
   async (req, res) => {
     const result = await nauth.authService.adminSignup(req.body);
     res.json(result);
-  }
+  },
 );
 ```
 
@@ -179,7 +198,7 @@ fastify.post(
   { preHandler: requireAdminAuth }, // Protect with your admin hook
   nauth.adapter.wrapRouteHandler(async (req) => {
     return nauth.authService.adminSignup(req.body as AdminSignupDTO);
-  })
+  }),
 );
 ```
 
@@ -278,21 +297,22 @@ Admin signup enforces the same validation rules as regular signup:
 
 ## Differences from Regular Signup
 
-| Feature | Regular Signup | Admin Signup |
-|---------|---------------|--------------|
-| Signup enabled check | Enforced | Bypassed |
-| Email verification | Always false initially | Can be set to true |
-| Phone verification | Always false initially | Can be set to true |
-| Password generation | Not supported | Supported |
-| Force password change | Not supported | Supported |
-| Challenge system | Triggered if verification required | Never triggered |
-| Verification emails | Sent automatically | Never sent |
-| Response type | `AuthResponseDTO` (tokens/challenge) | `AdminSignupResponseDTO` (user only) |
-| Audit log | `authMethod: 'password'` | `authMethod: 'admin'` |
+| Feature               | Regular Signup                       | Admin Signup                         |
+| --------------------- | ------------------------------------ | ------------------------------------ |
+| Signup enabled check  | Enforced                             | Bypassed                             |
+| Email verification    | Always false initially               | Can be set to true                   |
+| Phone verification    | Always false initially               | Can be set to true                   |
+| Password generation   | Not supported                        | Supported                            |
+| Force password change | Not supported                        | Supported                            |
+| Challenge system      | Triggered if verification required   | Never triggered                      |
+| Verification emails   | Sent automatically                   | Never sent                           |
+| Response type         | `AuthResponseDTO` (tokens/challenge) | `AdminSignupResponseDTO` (user only) |
+| Audit log             | `authMethod: 'password'`             | `authMethod: 'admin'`                |
 
 ## When to Use
 
 **Use `adminSignup()` when:**
+
 - Creating accounts for existing users (e.g., migrating from another system)
 - Bulk account creation (with proper admin authentication)
 - Creating test accounts in development
@@ -300,6 +320,7 @@ Admin signup enforces the same validation rules as regular signup:
 - Creating accounts with pre-verified credentials
 
 **Use regular `signup()` when:**
+
 - Users are self-registering
 - You want standard verification flow
 - You want challenge system to handle verification
@@ -317,3 +338,232 @@ Common errors:
 
 All errors follow the standard `NAuthException` format with error codes and metadata.
 
+---
+
+## Social User Migration
+
+The `adminSignupSocial()` method is designed for importing users with existing social login credentials from external platforms (e.g., Cognito, Auth0, Firebase Auth).
+
+### Use Cases
+
+- **Platform migration** - Moving users from Cognito/Auth0 to nauth-toolkit
+- **Social account imports** - Bulk import users with social logins
+- **Hybrid account creation** - Create users with both social and password auth
+- **Pre-verified social users** - Import users with verified email from providers
+
+### Basic Social User Import
+
+Import a social-only user (no password):
+
+```typescript
+const result = await authService.adminSignupSocial({
+  email: 'user@example.com',
+  provider: 'google',
+  providerId: 'google_12345',
+  providerEmail: 'user@gmail.com',
+  isEmailVerified: true, // Trust provider's verification
+});
+
+// Returns: { user: IUser, socialAccount: { provider, providerId, providerEmail } }
+// User can login via Google OAuth
+```
+
+### Hybrid Social + Password User
+
+Create a user with both social and password authentication:
+
+```typescript
+const result = await authService.adminSignupSocial({
+  email: 'user@example.com',
+  password: 'SecurePass123!',
+  provider: 'apple',
+  providerId: 'apple_67890',
+  isEmailVerified: true,
+});
+
+// User can login via Apple OR email+password
+```
+
+### Cognito Migration Example
+
+Complete example migrating a Cognito user with Google social login:
+
+```typescript
+// Fetch user from Cognito
+const cognitoUser = await cognitoIdentityProvider.adminGetUser({
+  UserPoolId: 'us-east-1_xxx',
+  Username: 'google_12345',
+});
+
+// Extract social identity
+const googleIdentity = cognitoUser.UserAttributes.find((attr) => attr.Name === 'identities');
+const identity = JSON.parse(googleIdentity.Value)[0];
+
+// Import to nauth-toolkit
+const result = await authService.adminSignupSocial({
+  email: cognitoUser.UserAttributes.find((attr) => attr.Name === 'email')?.Value,
+  provider: identity.providerName.toLowerCase(), // 'google'
+  providerId: identity.userId, // Provider's user ID
+  providerEmail: identity.providerAttributes?.email,
+  socialMetadata: identity.providerAttributes, // Store full OAuth profile
+  isEmailVerified: cognitoUser.UserAttributes.find((attr) => attr.Name === 'email_verified')?.Value === 'true',
+  firstName: cognitoUser.UserAttributes.find((attr) => attr.Name === 'given_name')?.Value,
+  lastName: cognitoUser.UserAttributes.find((attr) => attr.Name === 'family_name')?.Value,
+});
+```
+
+### API Reference
+
+#### AdminSignupSocialDTO
+
+```typescript
+interface AdminSignupSocialDTO {
+  // Required fields
+  email: string; // User's primary email
+  provider: 'google' | 'apple' | 'facebook'; // Social provider
+  providerId: string; // Provider's unique user ID (e.g., Google sub)
+
+  // Optional social fields
+  providerEmail?: string; // Email from provider (may differ from user email)
+  socialMetadata?: Record<string, unknown>; // Full OAuth profile for audit
+
+  // Optional password (for hybrid accounts)
+  password?: string; // Min 8 chars, policy enforced
+
+  // Optional user fields
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string; // E.164 format
+  metadata?: Record<string, unknown>;
+
+  // Admin override flags
+  isEmailVerified?: boolean; // Default: false
+  isPhoneVerified?: boolean; // Default: false
+  mustChangePassword?: boolean; // Only relevant if password provided
+}
+```
+
+#### AdminSignupSocialResponseDTO
+
+```typescript
+interface AdminSignupSocialResponseDTO {
+  user: IUser; // Created user with hasSocialAuth=true, socialProviders=['google']
+  socialAccount: {
+    provider: string; // 'google'
+    providerId: string; // 'google_12345'
+    providerEmail: string | null; // 'user@gmail.com' or null
+  };
+}
+```
+
+### Security Warning
+
+Like `adminSignup()`, the `adminSignupSocial()` method has **NO built-in authentication**. **MUST** protect with admin guards.
+
+```typescript
+// ✅ SECURE - Protected
+@Post('admin/import-social-user')
+@UseGuards(AdminAuthGuard)
+async importSocialUser(@Body() dto: AdminSignupSocialDTO) {
+  return this.authService.adminSignupSocial(dto);
+}
+```
+
+### Validation Rules
+
+Additional social-specific validations:
+
+- **Social account uniqueness** - `provider + providerId` combination must be unique
+- **Email uniqueness** - Email must not already exist (same as regular signup)
+- **Username uniqueness** - Username must not already exist (if provided)
+- **Phone uniqueness** - Phone must not already exist (if duplicates not allowed)
+- **Password policy** - Password must meet strength requirements (only if provided)
+
+### Error Handling
+
+Social-specific errors:
+
+- `SOCIAL_ACCOUNT_EXISTS` - This provider + providerId combination already exists
+- `SOCIAL_CONFIG_MISSING` - Social auth not configured in your NAuth instance
+- `EMAIL_EXISTS` - Email already registered
+- `USERNAME_EXISTS` - Username already taken
+- `PHONE_EXISTS` - Phone already registered (if duplicates not allowed)
+- `WEAK_PASSWORD` - Password doesn't meet policy (only if password provided)
+
+### Framework Examples
+
+#### NestJS
+
+```typescript
+@Controller('admin')
+export class AdminController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Post('import-social-user')
+  @UseGuards(AdminAuthGuard)
+  async importSocialUser(@Body() dto: AdminSignupSocialDTO) {
+    return this.authService.adminSignupSocial(dto);
+  }
+}
+```
+
+#### Express
+
+```typescript
+app.post('/admin/import-social-user', requireAdminAuth, async (req, res) => {
+  const result = await nauth.authService.adminSignupSocial(req.body);
+  res.json(result);
+});
+```
+
+#### Fastify
+
+```typescript
+fastify.post(
+  '/admin/import-social-user',
+  { preHandler: requireAdminAuth },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    return nauth.authService.adminSignupSocial(req.body);
+  }),
+);
+```
+
+### User Flags Auto-Updated
+
+When a social account is linked via `adminSignupSocial()`, the user's flags are automatically updated:
+
+- `hasSocialAuth` - Set to `true`
+- `socialProviders` - Array of linked providers (e.g., `['google']`)
+- `hasPasswordHash` - Set to `true` only if password provided, otherwise remains `false`
+
+This ensures users can login via their social provider immediately after import.
+
+### Audit Trail
+
+All admin social imports are logged with:
+
+- `eventType: ACCOUNT_CREATED`
+- `authMethod: 'admin-social'`
+- `metadata.createdByAdmin: true`
+- `metadata.provider: 'google'`
+- `metadata.providerId: 'google_12345'`
+- `metadata.hasPassword: boolean` (true for hybrid accounts)
+- `metadata.socialImport: true`
+
+### When to Use adminSignupSocial()
+
+**Use `adminSignupSocial()` when:**
+
+- Migrating users from Cognito, Auth0, Firebase Auth
+- Bulk importing users with social logins
+- Creating hybrid accounts (social + password)
+- Importing users with provider-verified emails
+
+**Use `adminSignup()` when:**
+
+- Creating password-only accounts
+- Users don't have social login credentials
+- Generating temporary passwords
+
+---

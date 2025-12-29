@@ -1,7 +1,7 @@
 ---
 title: SocialExchangeDTO
 description: Request DTO for exchanging a social redirect exchange token into an AuthResponse
-sidebar_position: 240
+sidebar_position: 244
 keywords: [dto, social, oauth, redirect, exchange, token, api]
 image: /img/api-social-card.png
 ---
@@ -57,4 +57,10 @@ import { SocialExchangeDTO } from '@nauth-toolkit/core';
 ## Used By
 
 - [`SocialRedirectHandler`](../services/social-auth-service) - Redirect-first social login handler
+
+## Related
+
+- [`StartSocialRedirectQueryDTO`](./start-social-redirect-query-dto) - Start redirect-first flow
+- [`SocialCallbackQueryDTO`](./social-callback-query-dto) - OAuth callback query parameters
+- [`SocialCallbackFormDTO`](./social-callback-form-dto) - OAuth callback form data (Apple)
 

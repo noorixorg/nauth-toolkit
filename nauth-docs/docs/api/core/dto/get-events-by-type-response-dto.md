@@ -48,7 +48,7 @@ import { GetEventsByTypeResponseDTO } from '@nauth-toolkit/core';
 | `total`      | `number`        | Yes      | Total number of records matching query |
 | `page`       | `number`        | Yes      | Current page number                  |
 | `limit`      | `number`        | Yes      | Number of records per page           |
-| `totalPages` | `number`        | Yes      | Total number of pages                |
+| `totalPages` | `number`        | Yes      | Total number of pages (`Math.ceil(total / limit)`) |
 
 ## Example
 

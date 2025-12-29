@@ -1,19 +1,7 @@
----
-title: API Documentation Rules
----
-
-# API Documentation Rules
-
-**Purpose:** AI-ready prompt for generating consistent, Stripe-style API reference documentation.
-
----
-
-## Core Principles
-
 1. **Minimal** - No prose, no redundancy, scannable tables
 2. **Consistent** - Same structure across all pages
 3. **Practical** - Real examples, no theoretical code
-4. **Linked** - Hyperlink related APIs, never explain them inline
+4. **Linked** - Hyperlink related APIs, classes, DTO, only give one liner explainer if needed
 5. **Framework-Aware** - Use tabs for NestJS/Express/Fastify (groupId="platform")
 
 ---
@@ -173,6 +161,8 @@ async methodName(dto: InputDTO): Promise<OutputDTO>
 | ------------ | ---------- | ------------------ |
 | `ERROR_CODE` | Brief when | `{ field?: type }` |
 
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
 **Example**
 
 <Tabs groupId="platform">
@@ -203,10 +193,13 @@ app.post('/endpoint', async (req, res) => {
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-fastify.post('/endpoint', { preHandler: nauth.helpers.public() },
+fastify.post(
+  '/endpoint',
+  { preHandler: nauth.helpers.public() },
   nauth.adapter.wrapRouteHandler(async (req) => {
     return nauth.serviceName.methodName(req.body);
-  }));
+  }),
+);
 ```
 
 </TabItem>
@@ -217,56 +210,6 @@ fastify.post('/endpoint', { preHandler: nauth.helpers.public() },
 ### nextMethod()
 
 [Repeat pattern...]
-
----
-
-## Error Handling
-
-Brief error handling pattern with link to guide.
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-try {
-  await this.service.method(dto);
-} catch (error) {
-  if (error instanceof NAuthException) {
-    console.log(error.code);
-  }
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-try {
-  await nauth.service.method(dto);
-} catch (error) {
-  if (error instanceof NAuthException) {
-    res.status(error.statusCode).json(error.toJSON());
-  }
-}
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-try {
-  await nauth.service.method(dto);
-} catch (error) {
-  if (error instanceof NAuthException) {
-    reply.status(error.statusCode).send(error.toJSON());
-  }
-}
-```
-
-</TabItem>
-</Tabs>
-
-See [Error Handling Guide](/docs/concepts/error-handling).
 
 ---
 
@@ -288,6 +231,16 @@ See [Error Handling Guide](/docs/concepts/error-handling).
 - NO separate DTOs/Exceptions sections in Related APIs
 - Methods and properties in alphabetical order
 
+**For Methods with Token Delivery Modes (login, signup, respondToChallenge, etc.):**
+
+- Add a **"Response Variations by Token Delivery Mode"** table showing how response body changes based on `tokenDelivery.method`:
+  - Document JSON mode (tokens in body)
+  - Document Cookies mode (tokens removed from body, in httpOnly cookies)
+  - Document Hybrid mode (policy-driven: web=cookies, mobile=json)
+- Add a **"Possible Outcomes"** table listing all response scenarios (success, challenges, blocked)
+- Include a note: "If client checks `result.accessToken`, behavior differs by `tokenDelivery.method`. In cookies mode, tokens are NOT in the response body."
+- Show example responses for both JSON and Cookies modes
+
 ---
 
 ## Error Documentation
@@ -301,10 +254,16 @@ See [Error Handling Guide](/docs/concepts/error-handling).
 ````
 
 - Use backticks for code values
-- "When" column: brief (3-5 words)
+- "When" column: brief (3-5 words) OR explicit condition if error is conditional (e.g., "Only if `lockout.enabled = true` AND IP exceeded max attempts")
 - "Details" column: TypeScript object or `undefined`
+- Prefer method-level error clarity: include a single sentence like `Throws [NAuthException](../exceptions/nauth-exception) with the codes listed above.`
+- If `Details` includes known unions (e.g., config-driven string unions), list the exact union values (e.g., `'phone' | 'both'`) instead of `string`
+- If `Details` includes arrays (e.g., `{ errors: string[] }`), include a short example payload showing representative values (1–4 items) pulled from real code paths/tests
+- If a method delegates to helpers (e.g., state machine / challenge helper), include error codes that can be thrown by those helpers in the method's `Errors` table (developers experience these as method errors)
+- For conditional errors (only thrown if config flag is enabled), explicitly state the condition in the "When" column (e.g., "Only if `mfa.adaptive.enabled = true` AND risk exceeds threshold")
 - NO error code links in table (redundant)
 - NO exception structure examples per method
+- NO `INTERNAL_ERROR` codes - these are internal framework/database consistency errors that consumers cannot handle and should not be documented
 
 ---
 
@@ -321,38 +280,6 @@ image: /img/api-social-card.png
 sidebar_position: N
 ---
 ```
-
-**Structured Data (for key pages):**
-
-```typescript
-<head>
-  <script type="application/ld+json">
-    {JSON.stringify({
-      '@context': 'https://schema.org/',
-      '@type': 'TechArticle',
-      headline: 'Page Title',
-      description: 'Page description',
-      keywords: 'api, authentication, dto',
-    })}
-  </script>
-</head>
-```
-
-**Image Optimization:**
-
-```markdown
-![Descriptive alt text](./image.png 'Optional tooltip title')
-```
-
-**Rules:**
-
-- Description: 50-160 characters optimal for search snippets
-- Keywords: 3-8 relevant terms
-- Image: Social card for sharing (1200x630px recommended)
-- Alt text: Describe image content for accessibility and SEO
-- Use semantic HTML (headings, lists, tables)
-
----
 
 ## Formatting Rules
 
@@ -373,11 +300,14 @@ sidebar_position: N
 
 Use `bash npm2yarn` as the language identifier for package installation - the npm2yarn plugin auto-generates tabs:
 
-```markdown
-```bash npm2yarn
+`````markdown
+````bash npm2yarn
 npm install @nauth-toolkit/core
 ​```
-```
+````
+`````
+
+````
 
 This renders as npm/yarn/pnpm tabs. NEVER use `bash` alone, `npm`, or `yarn add` directly.
 
@@ -400,39 +330,6 @@ Brief message.
 :::
 ```
 
-**Tabs:**
-
-```markdown
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-Content
-</TabItem>
-<TabItem value="express" label="Express">
-Content
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-Content
-</TabItem>
-</Tabs>
-```
-
-- ALWAYS use `groupId="platform"` for framework tabs
-- ALWAYS include ALL THREE platforms: NestJS, Express, Fastify
-- Tab selection persists across pages
-- Use for imports and code examples
-- Never combine platforms (e.g., "Express/Fastify") - each gets its own tab
-
----
-
-## What NOT to Include
-
-**DTOs:**
-
-- Response examples
-- Usage code
-- Multiple request variations
-- Validation rule sections (put in table)
-- Business logic
 
 **Services:**
 
@@ -444,18 +341,12 @@ Content
 - Verbose "Throws" explanations
 - Multiple examples per method
 
-**Both:**
-
-- Excessive prose
-- "See Also" section with guides (one link in error section is enough)
-- Separate platform sections (use tabs with groupId="platform")
-
 ---
 
 ## Quality Checklist
 
 - [ ] Front matter complete (title, description, keywords, image)
-- [ ] Description 50-160 chars
+- [ ] Description 50-160 chars (SEO). Body intro 1-2 sentences (tight, non-redundant).
 - [ ] Keywords relevant (3-8 terms)
 - [ ] All info in tables (no repetition)
 - [ ] Methods alphabetical
@@ -477,3 +368,4 @@ Content
 - Overview: `docs/api/overview.md` - Framework tabs for contextual navigation
 
 **Style Inspiration:** Stripe, Twilio, AWS API docs (minimal, scannable, practical)
+````

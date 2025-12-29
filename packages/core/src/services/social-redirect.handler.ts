@@ -6,7 +6,7 @@ import { NAuthConfig } from '../interfaces/config.interface';
 import { ISocialAuthStateStore } from '../interfaces/social-auth-state-store.interface';
 import { StorageAdapter } from '../interfaces/storage-adapter.interface';
 import { NAuthCookieOptions } from '../platform/interfaces';
-import { SocialAuthService } from '../services/social-auth.service';
+import { SocialProviderRegistry } from '../services/social-provider-registry.service';
 import { CsrfService } from '../services/csrf.service';
 import {
   getAccessTokenCookieName,
@@ -48,7 +48,7 @@ export class SocialRedirectHandler {
 
   constructor(
     private readonly config: NAuthConfig,
-    private readonly socialAuthService: SocialAuthService,
+    private readonly providerRegistry: SocialProviderRegistry,
     private readonly socialStateStore: ISocialAuthStateStore,
     private readonly storage: StorageAdapter,
     private readonly logger?: NAuthLogger,
@@ -80,10 +80,9 @@ export class SocialRedirectHandler {
       delivery,
     });
 
-    const { url } = await this.socialAuthService.getSocialAuthUrl({
-      provider,
-      state: csrfState,
-    });
+    // Get provider and generate OAuth URL directly
+    const providerInstance = this.providerRegistry.getProvider(provider);
+    const url = await providerInstance.getAuthUrl(csrfState);
 
     return { redirectUrl: url };
   }
@@ -122,11 +121,9 @@ export class SocialRedirectHandler {
       throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Missing code', { field: 'code' });
     }
 
-    const authResponse = await this.socialAuthService.handleSocialCallback({
-      provider,
-      code,
-      state,
-    });
+    // Handle OAuth callback directly with provider
+    const providerInstance = this.providerRegistry.getProvider(provider);
+    const authResponse = await providerInstance.handleCallback(code, state);
 
     const effective = ctx?.delivery || this.resolveEffectiveDelivery(input.req, undefined);
 

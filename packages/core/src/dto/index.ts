@@ -1,6 +1,7 @@
 // Core Auth DTOs
 export * from './signup.dto';
 export * from './admin-signup.dto';
+export * from './admin-signup-social.dto';
 export * from './login.dto';
 export * from './change-password.dto';
 export * from './change-password-request.dto';
@@ -55,6 +56,7 @@ export * from './trust-device-response.dto';
 export * from './is-trusted-device-response.dto';
 
 export * from './social-auth.dto';
+export * from './social-redirect.dto';
 
 // Note: Social and MFA DTOs moved to their respective packages
 // - social-login.dto → @nauth-toolkit/social-*

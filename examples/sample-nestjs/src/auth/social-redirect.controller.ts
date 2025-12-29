@@ -1,12 +1,14 @@
 import { Controller, Get, Post, Param, Query, Body, Req, Redirect } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
-import { Public, SocialRedirectHandler, AuthResponseDTO } from '@nauth-toolkit/nestjs';
 import {
+  Public,
+  SocialRedirectHandler,
+  AuthResponseDTO,
   SocialCallbackFormDTO,
   SocialCallbackQueryDTO,
   SocialExchangeDTO,
   StartSocialRedirectQueryDTO,
-} from './dto/social-redirect.dto';
+} from '@nauth-toolkit/nestjs';
 
 /**
  * Social Redirect Controller (Consumer-owned)
@@ -73,8 +75,10 @@ export class SocialRedirectController {
     });
     // NOTE: `authResponse` is optional and only present for cookies+token success.
     // We intentionally avoid forcing the consumer controller to manually set cookies.
-    const authResponse = (result as unknown as { authResponse?: AuthResponseDTO }).authResponse;
-    return { url: result.redirectUrl, ...(authResponse ?? {}) };
+    if (result.authResponse) {
+      return { url: result.redirectUrl, ...result.authResponse };
+    }
+    return { url: result.redirectUrl };
   }
 
   /**
@@ -98,8 +102,10 @@ export class SocialRedirectController {
     });
     // NOTE: `authResponse` is optional and only present for cookies+token success.
     // We intentionally avoid forcing the consumer controller to manually set cookies.
-    const authResponse = (result as unknown as { authResponse?: AuthResponseDTO }).authResponse;
-    return { url: result.redirectUrl, ...(authResponse ?? {}) };
+    if (result.authResponse) {
+      return { url: result.redirectUrl, ...result.authResponse };
+    }
+    return { url: result.redirectUrl };
   }
 
   /**

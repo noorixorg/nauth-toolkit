@@ -44,13 +44,13 @@ import { GetUserAuthHistoryDTO } from '@nauth-toolkit/core';
 
 | Property      | Type                      | Required | Description                                                      |
 | ------------- | ------------------------- | -------- | ----------------------------------------------------------------- |
-| `userSub`     | `string`                  | Yes      | External user identifier (UUID v4)                               |
+| `userSub`     | `string`                  | Yes      | External user identifier (UUID v4). Trimmed and lowercased.       |
 | `page`        | `number`                  | No       | Page number (1-indexed). Default: 1                              |
-| `limit`       | `number`                  | No       | Number of records per page. Default: 50                          |
+| `limit`       | `number`                  | No       | Number of records per page. Default: 50. Max: 500.               |
 | `startDate`   | `Date`                    | No       | Filter events from this date onwards                             |
 | `endDate`     | `Date`                    | No       | Filter events up to this date                                    |
 | `eventTypes`  | [`AuthAuditEventType[]`](../enums/auth-audit-event-type)    | No       | Filter by specific event types                                   |
-| `eventStatus` | [`AuthAuditEventStatus[]`](../enums/auth-audit-event-status)  | No       | Filter by event status (SUCCESS, FAILURE, INFO, SUSPICIOUS)     |
+| `eventStatus` | [`AuthAuditEventStatus[]`](../enums/auth-audit-event-status)  | No       | Filter by event status. Allowed: `SUCCESS`, `FAILURE`, `INFO`, `SUSPICIOUS`. |
 
 ## Example
 
@@ -68,7 +68,7 @@ import { GetUserAuthHistoryDTO } from '@nauth-toolkit/core';
 
 - [AuthAuditService.getUserAuthHistory()](../services/auth-audit-service#getuserauthhistory)
 
-## Related
+## Related APIs
 
 - [AuthAuditEventType](../enums/auth-audit-event-type) - Complete list of event types
 - [AuthAuditEventStatus](../enums/auth-audit-event-status) - Event status values

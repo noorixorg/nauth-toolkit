@@ -15,14 +15,20 @@ import TabItem from '@theme/TabItem';
 NestJS guard that validates JWT tokens and protects routes from unauthorized access.
 
 :::tip Import from NestJS Package
+
 ```typescript
 import { AuthGuard } from '@nauth-toolkit/nestjs';
 ```
+
 :::
 
 ## Overview
 
 The `AuthGuard` is a NestJS CanActivate guard that extracts and validates JWT access tokens from requests. It automatically populates `req.user` with authenticated user information.
+
+:::important Exception-Based Authentication
+The `AuthGuard` **throws `NAuthException`** on authentication failures (invalid token, expired session, etc.). It does **not** return `false`. On success, it returns `true` and attaches the authenticated user to `req.user`.
+:::
 
 **Key Features:**
 
@@ -51,7 +57,7 @@ import { Controller, Get, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nauth-toolkit/nestjs';
 
 @Controller('api')
-@UseGuards(AuthGuard)  // Protect all routes in controller
+@UseGuards(AuthGuard) // Protect all routes in controller
 export class ApiController {
   @Get('/protected')
   getProtectedData() {
@@ -90,9 +96,9 @@ import { Controller, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard, Public } from '@nauth-toolkit/nestjs';
 
 @Controller('auth')
-@UseGuards(AuthGuard)  // Applied to controller
+@UseGuards(AuthGuard) // Applied to controller
 export class AuthController {
-  @Public()  // Bypass guard for this route
+  @Public() // Bypass guard for this route
   @Post('/login')
   async login(@Body() dto: LoginDTO) {
     return this.authService.login(dto);
@@ -104,7 +110,7 @@ export class AuthController {
     return this.authService.signup(dto);
   }
 
-  @Get('/profile')  // Protected - requires auth
+  @Get('/profile') // Protected - requires auth
   getProfile(@CurrentUser() user: IUser) {
     return { user };
   }
@@ -182,15 +188,15 @@ Supports both Authorization header and cookies.
 
 The guard throws `NAuthException` for various failure scenarios:
 
-| Error Code | Description | HTTP Status |
-|------------|-------------|-------------|
-| `TOKEN_INVALID` | No token provided or invalid format | 401 |
-| `TOKEN_EXPIRED` | Token has expired | 401 |
-| `SESSION_NOT_FOUND` | Session doesn't exist | 401 |
-| `SESSION_EXPIRED` | Session has expired | 401 |
-| `TOKEN_REUSE_DETECTED` | Session revoked (security violation) | 401 |
-| `USER_NOT_FOUND` | User no longer exists | 401 |
-| `ACCOUNT_DISABLED` | User account disabled | 403 |
+| Error Code             | Description                          | HTTP Status |
+| ---------------------- | ------------------------------------ | ----------- |
+| `TOKEN_INVALID`        | No token provided or invalid format  | 401         |
+| `TOKEN_EXPIRED`        | Token has expired                    | 401         |
+| `SESSION_NOT_FOUND`    | Session doesn't exist                | 401         |
+| `SESSION_EXPIRED`      | Session has expired                  | 401         |
+| `TOKEN_REUSE_DETECTED` | Session revoked (security violation) | 401         |
+| `USER_NOT_FOUND`       | User no longer exists                | 401         |
+| `ACCOUNT_DISABLED`     | User account disabled                | 403         |
 
 **Error Response Example:**
 
@@ -209,21 +215,21 @@ After successful authentication, `req.user` contains:
 
 ```typescript
 interface IUser {
-  sub: string;                    // User UUID
-  email: string;                  // Email address
-  username?: string;              // Username
-  firstName?: string;             // First name
-  lastName?: string;              // Last name
-  phone?: string;                 // Phone number
-  isEmailVerified: boolean;       // Email verification status
-  isPhoneVerified?: boolean;      // Phone verification status
-  isActive: boolean;              // Account active status
-  createdAt: Date;                // Account creation date
-  lastLoginAt?: Date;             // Last login timestamp
-  passwordChangedAt?: Date;       // Last password change
+  sub: string; // User UUID
+  email: string; // Email address
+  username?: string; // Username
+  firstName?: string; // First name
+  lastName?: string; // Last name
+  phone?: string; // Phone number
+  isEmailVerified: boolean; // Email verification status
+  isPhoneVerified?: boolean; // Phone verification status
+  isActive: boolean; // Account active status
+  createdAt: Date; // Account creation date
+  lastLoginAt?: Date; // Last login timestamp
+  passwordChangedAt?: Date; // Last password change
 
   // Authentication capabilities
-  hasPasswordHash?: boolean;      // Whether user has password set (for password-based auth)
+  hasPasswordHash?: boolean; // Whether user has password set (for password-based auth)
 
   // MFA status
   isMFAEnabled?: boolean;
@@ -265,25 +271,26 @@ The guard behavior is configured via `NAuthConfig`:
 
 Extend the guard for custom logic:
 
+:::important AuthGuard Throws Exceptions
+The `AuthGuard` **throws `NAuthException`** on authentication failures (invalid token, expired session, etc.). It does **not** return `false`. If `super.canActivate()` completes successfully, it returns `true` and the user is authenticated.
+:::
+
 ```typescript
-import { Injectable, ExecutionContext } from '@nestjs/common';
+import { Injectable, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { AuthGuard } from '@nauth-toolkit/nestjs';
 
 @Injectable()
 export class CustomAuthGuard extends AuthGuard {
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    // Call parent guard first
-    const isAuthenticated = await super.canActivate(context);
+    // Call parent guard first - this will throw NAuthException if auth fails
+    // If it returns, authentication succeeded and user is attached to request
+    await super.canActivate(context);
 
-    if (!isAuthenticated) {
-      return false;
-    }
-
-    // Custom logic
+    // Custom logic - user is guaranteed to exist here
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    // Example: Check user role
+    // Example: Check user role (add your own role field to IUser)
     if (user.role !== 'admin') {
       throw new ForbiddenException('Admin access required');
     }
@@ -292,6 +299,13 @@ export class CustomAuthGuard extends AuthGuard {
   }
 }
 ```
+
+**Key Points:**
+
+- `super.canActivate()` throws `NAuthException` on authentication failures
+- If it returns `true`, the user is authenticated and `request.user` is populated
+- Add your custom authorization logic after calling `super.canActivate()`
+- Throw `ForbiddenException` or other NestJS exceptions for authorization failures
 
 ### Per-Route Delivery Mode
 
@@ -305,13 +319,13 @@ import { AuthGuard, TokenDelivery } from '@nauth-toolkit/nestjs';
 @UseGuards(AuthGuard)
 export class ApiController {
   @Get('/mobile-endpoint')
-  @TokenDelivery('json')  // Force JSON mode for mobile
+  @TokenDelivery('json') // Force JSON mode for mobile
   getMobileData(@CurrentUser() user: IUser) {
     return { data: 'mobile data' };
   }
 
   @Get('/web-endpoint')
-  @TokenDelivery('cookies')  // Force cookie mode for web
+  @TokenDelivery('cookies') // Force cookie mode for web
   getWebData(@CurrentUser() user: IUser) {
     return { data: 'web data' };
   }
@@ -330,9 +344,7 @@ import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Injectable()
 export class MyService {
-  constructor(
-    @Inject(REQUEST) private readonly request: any
-  ) {}
+  constructor(@Inject(REQUEST) private readonly request: any) {}
 
   getCurrentUser(): IUser | undefined {
     return this.request.user;
@@ -404,4 +416,3 @@ describe('ProfileController', () => {
 - [NestJS Guards](https://docs.nestjs.com/guards) - Official NestJS documentation
 - [Token Delivery](/docs/features/token-delivery) - Token delivery modes
 - [Configuration](/docs/concepts/configuration) - Security configuration
-

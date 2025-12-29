@@ -9,11 +9,7 @@ import { AuthErrorCode } from '../enums/error-codes.enum';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { ChangePasswordRequestDTO } from '../dto/change-password-request.dto';
 import { SocialProviderRegistry } from './social-provider-registry.service';
-import { AuthResponseDTO } from '../dto/auth-response.dto';
 import {
-  GetSocialAuthUrlDTO,
-  GetSocialAuthUrlResponseDTO,
-  HandleSocialCallbackDTO,
   LinkSocialAccountDTO,
   LinkSocialAccountResponseDTO,
   GetLinkedAccountsDTO,
@@ -30,12 +26,15 @@ import { ensureValidatedDto } from '../utils/dto-validator';
 /**
  * Social Auth Service
  *
- * Complete API for social authentication (OAuth) and account management.
+ * Service for managing social authentication accounts and their relationships.
  * This service provides:
- * - OAuth authentication flows (login/signup via social providers)
  * - Social account linking/unlinking
  * - Account management for social users
  * - Password management for social-only users
+ * - Querying linked accounts
+ *
+ * **Note:** For OAuth authentication flows (login/signup), use `SocialRedirectHandler`
+ * or the frontend SDK's `loginWithSocial()` method.
  *
  * **Optional Feature:** Only available when social auth provider modules are imported.
  *
@@ -51,8 +50,8 @@ import { ensureValidatedDto } from '../utils/dto-validator';
  * // Then inject and use
  * constructor(private socialAuthService: SocialAuthService) {}
  *
- * const { url } = await this.socialAuthService.getSocialAuthUrl({ provider: 'google' });
- * const result = await this.socialAuthService.handleSocialCallback({ provider: 'google', code, state });
+ * const result = await this.socialAuthService.linkSocialAccount({ userId, provider, code, state });
+ * const accounts = await this.socialAuthService.getLinkedAccounts({ userId });
  * ```
  */
 export class SocialAuthService {
@@ -68,60 +67,6 @@ export class SocialAuthService {
   // ============================================================================
   // Social Authentication Methods
   // ============================================================================
-
-  /**
-   * Get social authentication URL
-   *
-   * Generates OAuth authorization URL for the specified provider.
-   * This is the first step in the OAuth flow - redirect user to this URL.
-   *
-   * @param dto - Request DTO containing provider and optional state
-   * @returns Response DTO with OAuth authorization URL
-   * @throws {NAuthException} SOCIAL_CONFIG_MISSING if provider not registered or configured
-   *
-   * @example
-   * ```typescript
-   * const dto = { provider: 'google', state: 'csrf-token-123' };
-   * const { url } = await socialAuthService.getSocialAuthUrl(dto);
-   * // Redirect user to url
-   * res.redirect(url);
-   * ```
-   */
-  async getSocialAuthUrl(dto: GetSocialAuthUrlDTO): Promise<GetSocialAuthUrlResponseDTO> {
-    dto = await ensureValidatedDto(GetSocialAuthUrlDTO, dto);
-    const { provider, state } = dto;
-    const providerInstance = this.providerRegistry.getProvider(provider);
-    const url = await providerInstance.getAuthUrl(state);
-    return { url };
-  }
-
-  /**
-   * Handle social authentication callback
-   *
-   * Processes OAuth callback and authenticates user (login or signup).
-   * This is called after the user is redirected back from the OAuth provider.
-   *
-   * @param dto - Request DTO containing provider, code, and state
-   * @returns Auth response (tokens or challenge if MFA/verification required)
-   * @throws {NAuthException} Various auth errors (SOCIAL_AUTH_FAILED, etc.)
-   *
-   * @example
-   * ```typescript
-   * const dto = {
-   *   provider: 'google',
-   *   code: req.query.code,
-   *   state: req.query.state
-   * };
-   * const result = await socialAuthService.handleSocialCallback(dto);
-   * // Returns tokens or challenge
-   * ```
-   */
-  async handleSocialCallback(dto: HandleSocialCallbackDTO): Promise<AuthResponseDTO> {
-    dto = await ensureValidatedDto(HandleSocialCallbackDTO, dto);
-    const { provider, code, state } = dto;
-    const providerInstance = this.providerRegistry.getProvider(provider);
-    return await providerInstance.handleCallback(code, state);
-  }
 
   /**
    * Link social account to existing authenticated user

@@ -299,14 +299,20 @@ export class AuthModule {
           provide: SocialRedirectHandler,
           useFactory: (
             config: NAuthConfig,
-            socialAuthService: SocialAuthService,
+            providerRegistry: SocialProviderRegistry,
             stateStore: SocialAuthStateStore,
             storage: StorageAdapter,
             logger: NAuthLogger,
           ) => {
-            return new SocialRedirectHandler(config, socialAuthService, stateStore, storage, logger);
+            return new SocialRedirectHandler(config, providerRegistry, stateStore, storage, logger);
           },
-          inject: ['NAUTH_CONFIG', SocialAuthService, 'SOCIAL_AUTH_STATE_STORE', 'STORAGE_ADAPTER', 'NAUTH_LOGGER'],
+          inject: [
+            'NAUTH_CONFIG',
+            SocialProviderRegistry,
+            'SOCIAL_AUTH_STATE_STORE',
+            'STORAGE_ADAPTER',
+            'NAUTH_LOGGER',
+          ],
         },
 
         // Global interceptor for cookie token delivery (no-op in JSON mode)
@@ -869,6 +875,7 @@ export class AuthModule {
             mfaDeviceRepository?: Repository<BaseMFADevice>,
             trustedDeviceService?: TrustedDeviceService,
             passwordResetService?: PasswordResetService,
+            socialAuthService?: SocialAuthService, // Optional - only available when social auth is configured
           ) => {
             return new AuthService(
               userRepository,
@@ -889,6 +896,7 @@ export class AuthModule {
               mfaDeviceRepository,
               trustedDeviceService,
               passwordResetService,
+              socialAuthService,
             );
           },
           inject: [
@@ -910,6 +918,7 @@ export class AuthModule {
             { token: 'MFADeviceRepository', optional: true },
             { token: TrustedDeviceService, optional: true },
             { token: PasswordResetService, optional: true },
+            { token: SocialAuthService, optional: true }, // Optional - only available when social auth is configured
           ],
         },
         {

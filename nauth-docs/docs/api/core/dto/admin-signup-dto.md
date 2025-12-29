@@ -46,7 +46,7 @@ import { AdminSignupDTO, AdminSignupResponseDTO } from '@nauth-toolkit/core';
 | -------------------- | ------------------------ | -------- | ------------------------------------------------------------------------------------------------ |
 | `email`              | `string`                 | Yes      | User email address. Valid email format (RFC 5322). Max 255 chars. Trimmed, lowercased.          |
 | `password`           | `string`                 | No       | User password. Required unless `generatePassword` is true. 8-128 characters. Not trimmed.        |
-| `username`           | `string`                 | No       | Optional username. 3-50 characters. Alphanumeric, underscores, and hyphens only. Trimmed.      |
+| `username`           | `string`                 | No       | Optional username. 3-255 characters. Alphanumeric, underscores, and hyphens only. Trimmed, lowercased. |
 | `firstName`          | `string`                 | No       | Optional first name. 1-100 characters. Letters, spaces, hyphens, and apostrophes only. Trimmed. |
 | `lastName`           | `string`                 | No       | Optional last name. 1-100 characters. Letters, spaces, hyphens, and apostrophes only. Trimmed.  |
 | `phone`              | `string`                 | No       | Optional phone number. E.164 format with + prefix. Max 20 chars. Example: +14155552671.          |
@@ -65,6 +65,8 @@ import { AdminSignupDTO, AdminSignupResponseDTO } from '@nauth-toolkit/core';
 
 ## Example
 
+**Request:**
+
 ```json
 {
   "email": "user@example.com",
@@ -74,6 +76,40 @@ import { AdminSignupDTO, AdminSignupResponseDTO } from '@nauth-toolkit/core';
   "lastName": "Doe",
   "isEmailVerified": true,
   "mustChangePassword": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "user": {
+    "sub": "a21b654c-2746-4168-acee-c175083a65cd",
+    "email": "user@example.com",
+    "username": "johndoe",
+    "firstName": "John",
+    "lastName": "Doe",
+    "isEmailVerified": true,
+    "isPhoneVerified": false
+  },
+  "generatedPassword": null
+}
+```
+
+**Response (with generated password):**
+
+```json
+{
+  "user": {
+    "sub": "a21b654c-2746-4168-acee-c175083a65cd",
+    "email": "user@example.com",
+    "username": "johndoe",
+    "firstName": "John",
+    "lastName": "Doe",
+    "isEmailVerified": true,
+    "isPhoneVerified": false
+  },
+  "generatedPassword": "Xk9#mP2$qR7@vN4w"
 }
 ```
 

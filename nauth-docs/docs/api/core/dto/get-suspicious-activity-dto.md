@@ -44,8 +44,8 @@ import { GetSuspiciousActivityDTO } from '@nauth-toolkit/core';
 
 | Property | Type     | Required | Description                                                      |
 | -------- | -------- | -------- | ----------------------------------------------------------------- |
-| `userSub` | `string` | No       | Optional user identifier to filter by specific user. If not provided, returns suspicious activity for all users |
-| `limit`  | `number` | No       | Maximum number of records to return. Default: 100                 |
+| `userSub` | `string` | No       | Optional user identifier (UUID v4). Trimmed and lowercased. If not provided, returns suspicious activity for all users |
+| `limit`  | `number` | No       | Maximum number of records to return. Default: 100. Max: 500       |
 
 ## Example
 

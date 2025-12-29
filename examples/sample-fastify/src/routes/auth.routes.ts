@@ -7,8 +7,6 @@ import {
   ResendCodeDTO,
   RespondChallengeDTO,
   SetMustChangePasswordDTO,
-  GetSocialAuthUrlDTO,
-  HandleSocialCallbackDTO,
   LinkSocialAccountDTO,
   GetLinkedAccountsDTO,
   UnlinkSocialAccountDTO,

@@ -38,8 +38,10 @@ import { AuthChallengeHelperService } from './auth-challenge-helper.service';
 import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { TrustedDeviceService } from './trusted-device.service';
 import { MFAService } from './mfa.service';
+import { SocialAuthService } from './social-auth.service';
 import { SignupDTO } from '../dto/signup.dto';
 import { AdminSignupDTO } from '../dto/admin-signup.dto';
+import { AdminSignupSocialDTO } from '../dto/admin-signup-social.dto';
 import { LoginDTO } from '../dto/login.dto';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
 import { ChangePasswordRequestDTO } from '../dto/change-password-request.dto';
@@ -161,6 +163,7 @@ describe('AuthService', () => {
   let mockAuditService: jest.Mocked<AuthAuditService>;
   let mockTrustedDeviceService: jest.Mocked<TrustedDeviceService>;
   let mockMfaService: jest.Mocked<MFAService>;
+  let mockSocialAuthService: jest.Mocked<SocialAuthService>;
   let mockLogger: jest.Mocked<NAuthLogger>;
   let mockConfig: NAuthConfig;
 
@@ -366,6 +369,13 @@ describe('AuthService', () => {
       }),
     } as any;
 
+    mockSocialAuthService = {
+      findSocialAccountByProvider: jest.fn(),
+      findSocialAccountByUser: jest.fn(),
+      createOrUpdateSocialAccount: jest.fn(),
+      updateUserSocialFlags: jest.fn(),
+    } as any;
+
     mockLogger = {
       log: jest.fn(),
       debug: jest.fn(),
@@ -426,6 +436,7 @@ describe('AuthService', () => {
       mockMfaDeviceRepository,
       mockTrustedDeviceService,
       undefined, // passwordResetService (not needed for most tests)
+      mockSocialAuthService,
     );
   });
 
@@ -5027,6 +5038,340 @@ describe('AuthService', () => {
 
       // Email verification service should not be called
       expect(mockEmailVerificationService.sendVerificationEmail).not.toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================================
+  // Admin Social Signup Tests
+  // ============================================================================
+  describe('adminSignupSocial()', () => {
+    const adminSignupSocialDto: AdminSignupSocialDTO = {
+      email: 'social-user@example.com',
+      provider: 'google',
+      providerId: 'google_12345',
+      providerEmail: 'user@gmail.com',
+      firstName: 'Social',
+      lastName: 'User',
+      socialMetadata: { sub: 'google_12345', given_name: 'Social' },
+    };
+
+    beforeEach(() => {
+      // Reset mocks
+      jest.clearAllMocks();
+    });
+
+    it('should create social-only user (no password) with passwordHash=null', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+      const createdUser = { ...mockUser, email: adminSignupSocialDto.email, passwordHash: null, hasSocialAuth: true };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+      mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
+
+      const result = await service.adminSignupSocial(adminSignupSocialDto);
+
+      expect(mockUserRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: adminSignupSocialDto.email,
+          passwordHash: null, // NULL for social-only users
+          passwordChangedAt: null, // Not set for social-only users
+          isActive: true,
+          isEmailVerified: false,
+          isPhoneVerified: false,
+        }),
+      );
+      expect(mockSocialAuthService.createOrUpdateSocialAccount).toHaveBeenCalledWith(
+        createdUser.id,
+        'google',
+        'google_12345',
+        'user@gmail.com',
+        adminSignupSocialDto.socialMetadata,
+      );
+      expect(result.user).toBeDefined();
+      expect(result.socialAccount.provider).toBe('google');
+      expect(result.socialAccount.providerId).toBe('google_12345');
+    });
+
+    it('should create hybrid user with password', async () => {
+      const hybridDto = { ...adminSignupSocialDto, password: 'SecurePass123!' };
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+      mockPasswordService.validatePassword.mockResolvedValue({ valid: true, errors: [] });
+      mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
+      const createdUser = { ...mockUser, email: hybridDto.email, passwordHash: 'hashed-password' };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+      mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
+
+      const result = await service.adminSignupSocial(hybridDto);
+
+      expect(mockPasswordService.validatePassword).toHaveBeenCalled();
+      expect(mockPasswordService.hashPassword).toHaveBeenCalledWith('SecurePass123!');
+      expect(mockUserRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          passwordHash: 'hashed-password',
+          passwordChangedAt: expect.any(Date), // Set for hybrid users
+        }),
+      );
+      expect(result.user).toBeDefined();
+    });
+
+    it('should override isEmailVerified to true', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+      const createdUser = { ...mockUser, email: adminSignupSocialDto.email, isEmailVerified: true };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+      mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
+
+      const result = await service.adminSignupSocial({
+        ...adminSignupSocialDto,
+        isEmailVerified: true,
+      });
+
+      expect(mockUserRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          isEmailVerified: true,
+        }),
+      );
+      expect(result.user.isEmailVerified).toBe(true);
+    });
+
+    it('should override isPhoneVerified to true', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+      const createdUser = { ...mockUser, email: adminSignupSocialDto.email, isPhoneVerified: true };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+      mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
+
+      const result = await service.adminSignupSocial({
+        ...adminSignupSocialDto,
+        isPhoneVerified: true,
+      });
+
+      expect(mockUserRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          isPhoneVerified: true,
+        }),
+      );
+      expect(result.user.isPhoneVerified).toBe(true);
+    });
+
+    it('should throw EMAIL_EXISTS if email already registered', async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser); // Email exists
+
+      await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
+      await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toMatchObject({
+        code: AuthErrorCode.EMAIL_EXISTS,
+      });
+
+      // Verify that we checked for email existence
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
+        where: { email: adminSignupSocialDto.email },
+      });
+    });
+
+    it('should throw USERNAME_EXISTS if username already taken', async () => {
+      const dtoWithUsername = { ...adminSignupSocialDto, username: 'existinguser' };
+      mockUserRepository.findOne
+        .mockResolvedValueOnce(null) // Email check passes
+        .mockResolvedValueOnce(mockUser); // Username exists
+
+      const error = await service.adminSignupSocial(dtoWithUsername).catch((e) => e);
+
+      expect(error).toBeInstanceOf(NAuthException);
+      expect(error.code).toBe(AuthErrorCode.USERNAME_EXISTS);
+    });
+
+    it('should throw PHONE_EXISTS if phone already registered and duplicates not allowed', async () => {
+      const dtoWithPhone = { ...adminSignupSocialDto, phone: '+14155552671' };
+      mockUserRepository.findOne
+        .mockResolvedValueOnce(null) // Email check passes
+        .mockResolvedValueOnce(mockUser); // Phone exists
+
+      const error = await service.adminSignupSocial(dtoWithPhone).catch((e) => e);
+
+      expect(error).toBeInstanceOf(NAuthException);
+      expect(error.code).toBe(AuthErrorCode.PHONE_EXISTS);
+    });
+
+    it('should allow duplicate phones if allowDuplicatePhones is true', async () => {
+      const dtoWithPhone = { ...adminSignupSocialDto, phone: '+14155552671' };
+      mockConfig.signup = { allowDuplicatePhones: true };
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+      const createdUser = { ...mockUser, email: dtoWithPhone.email, phone: dtoWithPhone.phone };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+      mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
+
+      const result = await service.adminSignupSocial(dtoWithPhone);
+
+      expect(mockUserRepository.findOne).toHaveBeenCalledTimes(1); // Only email check, no phone check
+      expect(result.user).toBeDefined();
+    });
+
+    it('should throw SOCIAL_ACCOUNT_EXISTS if provider+providerId already exists', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue({
+        id: 1,
+        userId: 999,
+        provider: 'google',
+        providerId: 'google_12345',
+      } as any);
+
+      await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
+      await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toMatchObject({
+        code: AuthErrorCode.SOCIAL_ACCOUNT_EXISTS,
+      });
+    });
+
+    it('should throw SOCIAL_CONFIG_MISSING if SocialAuthService not available', async () => {
+      // Create service without SocialAuthService
+      const serviceWithoutSocial = new AuthService(
+        mockUserRepository,
+        mockLoginAttemptRepository,
+        mockPasswordService,
+        mockJwtService,
+        mockSessionService,
+        mockChallengeService,
+        mockChallengeHelper,
+        mockEmailVerificationService,
+        mockClientInfoService,
+        mockAccountLockoutStorage,
+        mockConfig,
+        mockLogger,
+        mockAuditService,
+        mockPhoneVerificationService,
+        mockMfaService,
+        mockMfaDeviceRepository,
+        mockTrustedDeviceService,
+        undefined, // passwordResetService
+        undefined, // socialAuthService - not provided
+      );
+
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      await expect(serviceWithoutSocial.adminSignupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
+      await expect(serviceWithoutSocial.adminSignupSocial(adminSignupSocialDto)).rejects.toMatchObject({
+        code: AuthErrorCode.SOCIAL_CONFIG_MISSING,
+      });
+    });
+
+    it('should throw WEAK_PASSWORD if password fails validation', async () => {
+      const hybridDto = {
+        ...adminSignupSocialDto,
+        password: 'SecurePass123!', // Use a valid-format password that will pass DTO validation
+      };
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+      mockPasswordService.validatePassword.mockResolvedValue({
+        valid: false,
+        errors: ['Password must be at least 8 characters'],
+      });
+
+      await expect(service.adminSignupSocial(hybridDto)).rejects.toThrow(NAuthException);
+      await expect(service.adminSignupSocial(hybridDto)).rejects.toMatchObject({
+        code: AuthErrorCode.WEAK_PASSWORD,
+        details: { errors: ['Password must be at least 8 characters'] },
+      });
+    });
+
+    it('should record audit event with authMethod: admin-social', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+      const createdUser = { ...mockUser, email: adminSignupSocialDto.email, id: 999 };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+      mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
+
+      await service.adminSignupSocial(adminSignupSocialDto);
+
+      expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 999,
+          eventType: AuthAuditEventType.ACCOUNT_CREATED,
+          authMethod: 'admin-social',
+          metadata: expect.objectContaining({
+            createdByAdmin: true,
+            provider: 'google',
+            providerId: 'google_12345',
+            hasPassword: false,
+            socialImport: true,
+          }),
+        }),
+      );
+    });
+
+    it('should handle database constraint violations gracefully', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+      const createdUser = { ...mockUser, email: adminSignupSocialDto.email };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockRejectedValue({
+        code: '23505',
+        detail: 'Key (email)=(social-user@example.com) already exists',
+      });
+
+      await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
+      await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toMatchObject({
+        code: AuthErrorCode.EMAIL_EXISTS,
+      });
+    });
+
+    it('should handle social account constraint violations', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+      const createdUser = { ...mockUser, email: adminSignupSocialDto.email };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+      mockSocialAuthService.createOrUpdateSocialAccount.mockRejectedValue({
+        code: '23505',
+        detail: 'Key (provider, providerId)=(google, google_12345) already exists',
+      });
+
+      await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toThrow();
+    });
+
+    it('should return social account confirmation in response', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+      const createdUser = { ...mockUser, email: adminSignupSocialDto.email };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+      mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
+
+      const result = await service.adminSignupSocial(adminSignupSocialDto);
+
+      expect(result.socialAccount).toEqual({
+        provider: 'google',
+        providerId: 'google_12345',
+        providerEmail: 'user@gmail.com',
+      });
+    });
+
+    it('should handle providerEmail as null if not provided', async () => {
+      const dtoWithoutProviderEmail = { ...adminSignupSocialDto };
+      delete (dtoWithoutProviderEmail as any).providerEmail;
+
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+      const createdUser = { ...mockUser, email: dtoWithoutProviderEmail.email };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+      mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
+
+      const result = await service.adminSignupSocial(dtoWithoutProviderEmail);
+
+      expect(mockSocialAuthService.createOrUpdateSocialAccount).toHaveBeenCalledWith(
+        expect.anything(),
+        'google',
+        'google_12345',
+        null, // providerEmail should be null
+        expect.anything(),
+      );
+      expect(result.socialAccount.providerEmail).toBeNull();
     });
   });
 });

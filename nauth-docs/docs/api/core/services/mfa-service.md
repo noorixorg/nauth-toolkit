@@ -60,23 +60,34 @@ Get available MFA methods for a user. Returns all registered and allowed methods
 async getAvailableMethods(dto: GetAvailableMethodsDTO): Promise<GetAvailableMethodsResponseDTO>
 ```
 
-**Request DTO:** [GetAvailableMethodsDTO](../dto/get-available-methods-dto)
+**Parameters**
 
-| Property | Type     | Required | Description        |
-| -------- | -------- | -------- | ------------------ |
-| `sub`    | `string` | Yes      | User sub (UUID v4) |
+- `dto` - [`GetAvailableMethodsDTO`](../dto/get-available-methods-dto)
+
+**Returns**
+
+- [`GetAvailableMethodsResponseDTO`](../dto/get-available-methods-dto) - `{ availableMethods: string[] }`
 
 **Errors**
 
-| Code        | When           | Details               |
-| ----------- | -------------- | --------------------- |
-| `NOT_FOUND` | User not found | `{ userId?: string }` |
+| Code                | When                 | Details                                          |
+| ------------------- | -------------------- | ------------------------------------------------ |
+| `VALIDATION_FAILED` | DTO validation fails | `{ validationErrors: Record<string, string[]> }` |
+| `NOT_FOUND`         | User not found       | `undefined`                                      |
 
-**Response DTO:** [GetAvailableMethodsResponseDTO](../dto/get-available-methods-dto)
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
 
-| Property           | Type       | Description                     |
-| ------------------ | ---------- | ------------------------------- |
-| `availableMethods` | `string[]` | Array of available method names |
+**VALIDATION_FAILED details**
+
+When DTO validation fails, `details` includes:
+
+```json
+{
+  "validationErrors": {
+    "sub": ["User sub must be a valid UUID v4 format"]
+  }
+}
+```
 
 **Example**
 
@@ -121,32 +132,57 @@ fastify.get(
 
 ### getChallengeData()
 
-Get MFA challenge data during MFA_REQUIRED challenge. Currently only used for passkey authentication to get WebAuthn options.
+Get MFA challenge data during MFA_REQUIRED challenge. Currently only used for passkey authentication to get WebAuthn options. For passkey method, stores challenge in session metadata for verification.
 
 ```typescript
 async getChallengeData(dto: GetChallengeDataDTO): Promise<GetChallengeDataResponseDTO>
 ```
 
-**Request DTO:** [GetChallengeDataDTO](../dto/get-challenge-data-dto)
+**Parameters**
 
-| Property  | Type        | Required | Description                         |
-| --------- | ----------- | -------- | ----------------------------------- |
-| `session` | `string`    | Yes      | Challenge session token (UUID v4)   |
-| `method`  | `'passkey'` | Yes      | MFA method (currently only passkey) |
+- `dto` - [`GetChallengeDataDTO`](../dto/get-challenge-data-dto)
 
-**Response DTO:** [GetChallengeDataResponseDTO](../dto/get-challenge-data-response-dto)
+**Returns**
 
-| Property        | Type                      | Description                      |
-| --------------- | ------------------------- | -------------------------------- |
-| `challengeData` | `Record<string, unknown>` | Provider-specific challenge data |
+- [`GetChallengeDataResponseDTO`](../dto/get-challenge-data-response-dto) - `{ challengeData: Record<string, unknown> }`
 
 **Errors**
 
-| Code                        | When                             | Details |
-| --------------------------- | -------------------------------- | ------- |
-| `INVALID_CHALLENGE_SESSION` | Session token invalid or expired | `{}`    |
-| `VALIDATION_FAILED`         | Expected MFA_REQUIRED challenge  | `{}`    |
-| `INTERNAL_ERROR`            | Challenge service unavailable    | `{}`    |
+| Code                          | When                                                                                                                                    | Details                                                         |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `VALIDATION_FAILED`           | DTO validation fails, challenge not MFA_REQUIRED, no user in session, provider not registered, or method doesn't support challenge data | `{ validationErrors: Record<string, string[]> }` or `undefined` |
+| `CHALLENGE_INVALID`           | Challenge session not found or invalid                                                                                                  | `undefined`                                                     |
+| `CHALLENGE_EXPIRED`           | Challenge session expired                                                                                                               | `undefined`                                                     |
+| `CHALLENGE_ALREADY_COMPLETED` | Challenge session already completed                                                                                                     | `undefined`                                                     |
+| `CHALLENGE_MAX_ATTEMPTS`      | Maximum challenge attempts exceeded                                                                                                     | `undefined`                                                     |
+| `NOT_FOUND`                   | No MFA device registered for method                                                                                                     | `{ deviceType: 'sms' \| 'email' \| 'passkey' }`                 |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+**VALIDATION_FAILED details**
+
+When DTO validation fails, `details` includes:
+
+```json
+{
+  "validationErrors": {
+    "session": ["Session token must be a valid UUID v4 format"],
+    "method": ["Method must be: passkey"]
+  }
+}
+```
+
+When validation fails for other reasons (challenge type, user, provider not registered, method doesn't support challenge data), `details` is `undefined`.
+
+**NOT_FOUND details**
+
+When no device is registered for the method, `details` includes:
+
+```json
+{
+  "deviceType": "passkey"
+}
+```
 
 **Example**
 
@@ -203,31 +239,34 @@ Get comprehensive MFA status for a user including enabled status, configured met
 async getMFAStatus(dto: GetMFAStatusDTO): Promise<GetMFAStatusResponseDTO>
 ```
 
-**Request DTO:** [GetMFAStatusDTO](../dto/get-mfa-status-dto)
+**Parameters**
 
-| Property | Type     | Required | Description        |
-| -------- | -------- | -------- | ------------------ |
-| `sub`    | `string` | Yes      | User sub (UUID v4) |
+- `dto` - [`GetMFAStatusDTO`](../dto/get-mfa-status-dto)
 
-**Response DTO:** [GetMFAStatusResponseDTO](../dto/get-mfa-status-dto)
+**Returns**
 
-| Property             | Type                     | Description                            |
-| -------------------- | ------------------------ | -------------------------------------- |
-| `enabled`            | `boolean`                | Whether MFA is enabled                 |
-| `required`           | `boolean`                | Whether MFA is required                |
-| `configuredMethods`  | `Array<MFADeviceMethod>` | Array of configured device methods     |
-| `availableMethods`   | `Array<string>`          | Array of available method names        |
-| `hasBackupCodes`     | `boolean`                | Whether user has backup codes          |
-| `preferredMethod`    | `MFADeviceMethod?`       | Preferred MFA method (if set)          |
-| `mfaExempt`          | `boolean`                | Whether user is exempt from MFA        |
-| `mfaExemptReason`    | `string \| null`         | Reason for exemption (if exempt)       |
-| `mfaExemptGrantedAt` | `Date \| null`           | Date exemption was granted (if exempt) |
+- [`GetMFAStatusResponseDTO`](../dto/get-mfa-status-dto) - `{ enabled: boolean, required: boolean, configuredMethods: MFADeviceMethod[], availableMethods: string[], hasBackupCodes: boolean, preferredMethod?: MFADeviceMethod, mfaExempt: boolean, mfaExemptReason: string | null, mfaExemptGrantedAt: Date | null }`
 
 **Errors**
 
-| Code        | When           | Details               |
-| ----------- | -------------- | --------------------- |
-| `NOT_FOUND` | User not found | `{ userId?: string }` |
+| Code                | When                 | Details                                          |
+| ------------------- | -------------------- | ------------------------------------------------ |
+| `VALIDATION_FAILED` | DTO validation fails | `{ validationErrors: Record<string, string[]> }` |
+| `NOT_FOUND`         | User not found       | `undefined`                                      |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+**VALIDATION_FAILED details**
+
+When DTO validation fails, `details` includes:
+
+```json
+{
+  "validationErrors": {
+    "sub": ["User sub must be a valid UUID v4 format"]
+  }
+}
+```
 
 **Example**
 
@@ -278,28 +317,39 @@ Get MFA setup data during MFA_SETUP_REQUIRED challenge. Returns provider-specifi
 async getSetupData(dto: GetSetupDataDTO): Promise<GetSetupDataResponseDTO>
 ```
 
-**Request DTO:** [GetSetupDataDTO](../dto/get-setup-data-dto)
+**Parameters**
 
-| Property    | Type                      | Required | Description                       |
-| ----------- | ------------------------- | -------- | --------------------------------- |
-| `session`   | `string`                  | Yes      | Challenge session token (UUID v4) |
-| `method`    | `MFAMethod`               | Yes      | MFA method to set up              |
-| `setupData` | `Record<string, unknown>` | No       | Optional setup data               |
+- `dto` - [`GetSetupDataDTO`](../dto/get-setup-data-dto)
 
-**Response DTO:** [GetSetupDataResponseDTO](../dto/get-setup-data-response-dto)
+**Returns**
 
-| Property    | Type                      | Description                  |
-| ----------- | ------------------------- | ---------------------------- |
-| `setupData` | `Record<string, unknown>` | Provider-specific setup data |
+- [`GetSetupDataResponseDTO`](../dto/get-setup-data-dto) - `{ setupData: Record<string, unknown> }`
 
 **Errors**
 
-| Code                        | When                                  | Details |
-| --------------------------- | ------------------------------------- | ------- |
-| `INVALID_CHALLENGE_SESSION` | Session token invalid or expired      | `{}`    |
-| `VALIDATION_FAILED`         | Expected MFA_SETUP_REQUIRED challenge | `{}`    |
-| `PHONE_REQUIRED`            | SMS method requires phone number      | `{}`    |
-| `INTERNAL_ERROR`            | Challenge service unavailable         | `{}`    |
+| Code                          | When                                                                                                   | Details                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| `VALIDATION_FAILED`           | DTO validation fails, challenge not MFA_SETUP_REQUIRED, no user in session, or provider not registered | `{ validationErrors: Record<string, string[]> }` or `undefined` |
+| `CHALLENGE_INVALID`           | Challenge session not found                                                                            | `undefined`                                                     |
+| `CHALLENGE_EXPIRED`           | Challenge session expired                                                                              | `undefined`                                                     |
+| `CHALLENGE_ALREADY_COMPLETED` | Challenge session already completed                                                                    | `undefined`                                                     |
+| `CHALLENGE_MAX_ATTEMPTS`      | Maximum challenge attempts exceeded                                                                    | `undefined`                                                     |
+| `PHONE_REQUIRED`              | SMS method requires phone number                                                                       | `undefined`                                                     |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+**VALIDATION_FAILED details**
+
+When DTO validation fails, `details` includes:
+
+```json
+{
+  "validationErrors": {
+    "session": ["Session token must be a valid UUID v4 format"],
+    "method": ["Method must be one of: sms, email, totp, passkey"]
+  }
+}
+```
 
 **Example**
 
@@ -353,29 +403,40 @@ fastify.get(
 
 ### getUserDevices()
 
-Get all MFA devices for a user.
+Get all active MFA devices for a user.
 
 ```typescript
 async getUserDevices(dto: GetUserDevicesDTO): Promise<GetUserDevicesResponseDTO>
 ```
 
-**Request DTO:** [GetUserDevicesDTO](../dto/get-user-devices-dto)
+**Parameters**
 
-| Property | Type     | Required | Description        |
-| -------- | -------- | -------- | ------------------ |
-| `sub`    | `string` | Yes      | User sub (UUID v4) |
+- `dto` - [`GetUserDevicesDTO`](../dto/get-user-devices-dto)
+
+**Returns**
+
+- [`GetUserDevicesResponseDTO`](../dto/get-user-devices-dto) - `{ devices: IMFADevice[] }`
 
 **Errors**
 
-| Code        | When           | Details               |
-| ----------- | -------------- | --------------------- |
-| `NOT_FOUND` | User not found | `{ userId?: string }` |
+| Code                | When                 | Details                                          |
+| ------------------- | -------------------- | ------------------------------------------------ |
+| `VALIDATION_FAILED` | DTO validation fails | `{ validationErrors: Record<string, string[]> }` |
+| `NOT_FOUND`         | User not found       | `undefined`                                      |
 
-**Response DTO:** [GetUserDevicesResponseDTO](../dto/get-user-devices-dto)
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
 
-| Property  | Type           | Description                 |
-| --------- | -------------- | --------------------------- |
-| `devices` | `IMFADevice[]` | Array of user's MFA devices |
+**VALIDATION_FAILED details**
+
+When DTO validation fails, `details` includes:
+
+```json
+{
+  "validationErrors": {
+    "sub": ["User sub must be a valid UUID v4 format"]
+  }
+}
+```
 
 **Example**
 
@@ -427,17 +488,33 @@ Check if an MFA provider is registered.
 hasProvider(dto: HasProviderDTO): HasProviderResponseDTO
 ```
 
-**Request DTO:** [HasProviderDTO](../dto/has-provider-dto)
+**Parameters**
 
-| Property     | Type     | Required | Description          |
-| ------------ | -------- | -------- | -------------------- |
-| `methodName` | `string` | Yes      | Provider method name |
+- `dto` - [`HasProviderDTO`](../dto/has-provider-dto)
 
-**Response DTO:** [HasProviderResponseDTO](../dto/has-provider-dto)
+**Returns**
 
-| Property      | Type      | Description             |
-| ------------- | --------- | ----------------------- |
-| `hasProvider` | `boolean` | True if provider exists |
+- [`HasProviderResponseDTO`](../dto/has-provider-dto) - `{ hasProvider: boolean }`
+
+**Errors**
+
+| Code                | When                 | Details                                          |
+| ------------------- | -------------------- | ------------------------------------------------ |
+| `VALIDATION_FAILED` | DTO validation fails | `{ validationErrors: Record<string, string[]> }` |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+**VALIDATION_FAILED details**
+
+When DTO validation fails, `details` includes:
+
+```json
+{
+  "validationErrors": {
+    "methodName": ["Method name must be a string"]
+  }
+}
+```
 
 **Example**
 
@@ -485,13 +562,17 @@ Get all registered provider method names.
 listProviders(): ListProvidersResponseDTO
 ```
 
-**Request DTO:** None
+**Parameters**
 
-**Response DTO:** [ListProvidersResponseDTO](../dto/list-providers-response-dto)
+None.
 
-| Property    | Type       | Description           |
-| ----------- | ---------- | --------------------- |
-| `providers` | `string[]` | Array of method names |
+**Returns**
+
+- [`ListProvidersResponseDTO`](../dto/list-providers-response-dto) - `{ providers: string[] }`
+
+**Errors**
+
+None. This method does not throw errors.
 
 **Example**
 
@@ -533,26 +614,37 @@ Remove all MFA devices of a specific method type for a user. Automatically disab
 async removeDevices(dto: RemoveDevicesDTO): Promise<RemoveDevicesResponseDTO>
 ```
 
-**Request DTO:** [RemoveDevicesDTO](../dto/remove-devices-dto)
+**Parameters**
 
-| Property     | Type     | Required | Description               |
-| ------------ | -------- | -------- | ------------------------- |
-| `userSub`    | `string` | Yes      | User sub (UUID v4)        |
-| `methodType` | `string` | Yes      | MFA method type to remove |
+- `dto` - [`RemoveDevicesDTO`](../dto/remove-devices-dto)
 
-**Response DTO:** [RemoveDevicesResponseDTO](../dto/remove-devices-dto)
+**Returns**
 
-| Property       | Type      | Description               |
-| -------------- | --------- | ------------------------- |
-| `deletedCount` | `number`  | Number of devices deleted |
-| `mfaDisabled`  | `boolean` | Whether MFA was disabled  |
+- [`RemoveDevicesResponseDTO`](../dto/remove-devices-dto) - `{ deletedCount: number, mfaDisabled: boolean }`
 
 **Errors**
 
-| Code                | When                                    | Details               |
-| ------------------- | --------------------------------------- | --------------------- |
-| `VALIDATION_FAILED` | Invalid method type or no devices found | `{}`                  |
-| `NOT_FOUND`         | User not found                          | `{ userId?: string }` |
+| Code                | When                                                           | Details                                                         |
+| ------------------- | -------------------------------------------------------------- | --------------------------------------------------------------- |
+| `VALIDATION_FAILED` | DTO validation fails, invalid method type, or no devices found | `{ validationErrors: Record<string, string[]> }` or `undefined` |
+| `NOT_FOUND`         | User not found                                                 | `undefined`                                                     |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+**VALIDATION_FAILED details**
+
+When DTO validation fails, `details` includes:
+
+```json
+{
+  "validationErrors": {
+    "userSub": ["User sub must be a valid UUID v4 format"],
+    "methodType": ["Method type must be one of: totp, sms, email, passkey"]
+  }
+}
+```
+
+When invalid method type or no devices found, `details` is `undefined`.
 
 **Example**
 
@@ -610,28 +702,37 @@ Grant or revoke a user's exemption from multi-factor authentication requirements
 async setMFAExemption(dto: SetMFAExemptionDTO): Promise<SetMFAExemptionResponseDTO>
 ```
 
-**Request DTO:** [SetMFAExemptionDTO](../dto/set-mfa-exemption-dto)
+**Parameters**
 
-| Property    | Type             | Required | Description                              |
-| ----------- | ---------------- | -------- | ---------------------------------------- |
-| `userSub`   | `string`         | Yes      | User sub (UUID v4)                       |
-| `exempt`    | `boolean`        | Yes      | Grant (true) or revoke (false) exemption |
-| `reason`    | `string \| null` | No       | Reason for exemption change              |
-| `grantedBy` | `string \| null` | No       | Admin identifier                         |
+- `dto` - [`SetMFAExemptionDTO`](../dto/set-mfa-exemption-dto)
 
-**Response DTO:** [SetMFAExemptionResponseDTO](../dto/set-mfa-exemption-dto)
+**Returns**
 
-| Property             | Type             | Description                |
-| -------------------- | ---------------- | -------------------------- |
-| `mfaExempt`          | `boolean`        | Whether user is exempt     |
-| `mfaExemptReason`    | `string \| null` | Reason for exemption       |
-| `mfaExemptGrantedAt` | `Date \| null`   | Date exemption was granted |
+- [`SetMFAExemptionResponseDTO`](../dto/set-mfa-exemption-dto) - `{ mfaExempt: boolean, mfaExemptReason: string | null, mfaExemptGrantedAt: Date | null }`
 
 **Errors**
 
-| Code        | When           | Details               |
-| ----------- | -------------- | --------------------- |
-| `NOT_FOUND` | User not found | `{ userId?: string }` |
+| Code                | When                 | Details                                          |
+| ------------------- | -------------------- | ------------------------------------------------ |
+| `VALIDATION_FAILED` | DTO validation fails | `{ validationErrors: Record<string, string[]> }` |
+| `NOT_FOUND`         | User not found       | `undefined`                                      |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+**VALIDATION_FAILED details**
+
+When DTO validation fails, `details` includes:
+
+```json
+{
+  "validationErrors": {
+    "userSub": ["User sub must be a valid UUID v4 format"],
+    "exempt": ["Exempt must be a boolean"],
+    "reason": ["Reason must not exceed 500 characters"],
+    "grantedBy": ["Granted by must not exceed 255 characters"]
+  }
+}
+```
 
 **Example**
 
@@ -683,25 +784,37 @@ Set preferred MFA method for a user. Updates the user's preferred method and dev
 async setPreferredMethod(dto: SetPreferredMethodDTO): Promise<SetPreferredMethodResponseDTO>
 ```
 
-**Request DTO:** [SetPreferredMethodDTO](../dto/set-preferred-method-dto)
+**Parameters**
 
-| Property     | Type     | Required | Description                         |
-| ------------ | -------- | -------- | ----------------------------------- |
-| `userSub`    | `string` | Yes      | User sub (UUID v4)                  |
-| `methodType` | `string` | Yes      | MFA method type to set as preferred |
+- `dto` - [`SetPreferredMethodDTO`](../dto/set-preferred-method-dto)
 
-**Response DTO:** [SetPreferredMethodResponseDTO](../dto/set-preferred-method-dto)
+**Returns**
 
-| Property  | Type     | Description     |
-| --------- | -------- | --------------- |
-| `message` | `string` | Success message |
+- [`SetPreferredMethodResponseDTO`](../dto/set-preferred-method-dto) - `{ message: string }`
 
 **Errors**
 
-| Code                | When                                         | Details               |
-| ------------------- | -------------------------------------------- | --------------------- |
-| `VALIDATION_FAILED` | Invalid method type or method not configured | `{}`                  |
-| `NOT_FOUND`         | User not found                               | `{ userId?: string }` |
+| Code                | When                                                                | Details                                                         |
+| ------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `VALIDATION_FAILED` | DTO validation fails, invalid method type, or method not configured | `{ validationErrors: Record<string, string[]> }` or `undefined` |
+| `NOT_FOUND`         | User not found                                                      | `undefined`                                                     |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+**VALIDATION_FAILED details**
+
+When DTO validation fails, `details` includes:
+
+```json
+{
+  "validationErrors": {
+    "userSub": ["User sub must be a valid UUID v4 format"],
+    "methodType": ["Method type must be one of: totp, sms, email, passkey"]
+  }
+}
+```
+
+When invalid method type or method not configured, `details` is `undefined`.
 
 **Example**
 
@@ -756,45 +869,142 @@ fastify.put(
 
 ### setup()
 
-Setup MFA device using appropriate provider.
+Setup MFA device using appropriate provider. Returns provider-specific setup data that varies by method type.
 
 ```typescript
 async setup(dto: SetupMFADTO): Promise<SetupMFAResponseDTO>
 ```
 
-**Request DTO:** [SetupMFADTO](../dto/setup-mfa-dto)
+**Parameters**
 
-| Property     | Type                      | Required | Description                           |
-| ------------ | ------------------------- | -------- | ------------------------------------- |
-| `sub`        | `string`                  | Yes      | User sub (UUID v4)                    |
-| `methodName` | `string`                  | Yes      | MFA method name                       |
-| `setupData`  | `Record<string, unknown>` | No       | Optional provider-specific setup data |
+- `dto` - [`SetupMFADTO`](../dto/setup-mfa-dto)
 
-**Response DTO:** [SetupMFAResponseDTO](../dto/setup-mfa-dto)
+**Returns**
 
-| Property    | Type                      | Description                      |
-| ----------- | ------------------------- | -------------------------------- |
-| `setupData` | `Record<string, unknown>` | Provider-specific setup response |
+- [`SetupMFAResponseDTO`](../dto/setup-mfa-dto) - `{ setupData: Record<string, unknown> }`
+
+Response structure varies by method:
+
+**TOTP Response:**
+
+```typescript
+{
+  setupData: {
+    secret: string; // Base32-encoded TOTP secret
+    qrCode: string; // QR code as data URL (data:image/png;base64,...)
+    manualEntryKey: string; // Formatted secret for manual entry (e.g., 'ABCD EFGH IJKL MNOP')
+    issuer: string; // Issuer name from config
+    accountName: string; // Account name (typically user's email)
+  }
+}
+```
+
+**SMS Response:**
+
+```typescript
+// If phone already verified (auto-completed):
+{
+  setupData: {
+    deviceId: number;
+    autoCompleted: true;
+  }
+}
+// If phone not verified (code sent):
+{
+  setupData: {
+    maskedPhone: string; // Masked phone number (e.g., '***-***-7890')
+  }
+}
+```
+
+**Email Response:**
+
+```typescript
+// If email already verified (auto-completed):
+{
+  setupData: {
+    deviceId: number;
+    autoCompleted: true;
+  }
+}
+// If email not verified (code sent):
+{
+  setupData: {
+    maskedEmail: string; // Masked email address (e.g., 'u***r@example.com')
+  }
+}
+```
+
+**Passkey Response:**
+
+```typescript
+{
+  setupData: {
+    options: {
+      challenge: string;
+      rp: { name: string; id: string };
+      user: { id: string; name: string; displayName: string };
+      pubKeyCredParams: Array<{ type: 'public-key'; alg: number }>;
+      timeout: number;
+      attestation: 'none' | 'indirect' | 'direct';
+      authenticatorSelection?: {
+        authenticatorAttachment?: 'platform' | 'cross-platform';
+        requireResidentKey?: boolean;
+        userVerification?: 'required' | 'preferred' | 'discouraged';
+      };
+      excludeCredentials?: Array<{ id: string; type: 'public-key'; transports?: string[] }>;
+    };
+  }
+}
+```
+
+**Setup Data by Method:**
+
+- **TOTP**: No `setupData` required (or empty object `{}`)
+- **SMS**: `{ phoneNumber: string, deviceName?: string }` - Phone number in E.164 format (e.g., `'+1234567890'`)
+- **Email**: `{ email: string, deviceName?: string }` - Email address
+- **Passkey**: No `setupData` required (or empty object `{}`)
 
 **Errors**
 
-| Code                | When                    | Details |
-| ------------------- | ----------------------- | ------- |
-| `VALIDATION_FAILED` | Provider not registered | `{}`    |
+| Code                | When                                                                                                      | Details                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `VALIDATION_FAILED` | DTO validation fails, provider not registered, method not enabled, service unavailable, or email required | `{ validationErrors: Record<string, string[]> }` or `undefined` |
+| `NOT_FOUND`         | User not found                                                                                            | `undefined`                                                     |
+| `PHONE_REQUIRED`    | SMS method requires phone number                                                                          | `undefined`                                                     |
 
-**Example**
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+**VALIDATION_FAILED details**
+
+When DTO validation fails, `details` includes:
+
+```json
+{
+  "validationErrors": {
+    "sub": ["User sub must be a valid UUID v4 format"],
+    "methodName": ["Method name must be one of: totp, sms, email, passkey"]
+  }
+}
+```
+
+When provider not registered, method not enabled, service unavailable, or email required, `details` is `undefined`.
+
+**Example - TOTP Setup**
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-@Post('mfa/setup')
-async setupMFA(@CurrentUser() user: IUser, @Body() body: { method: string; setupData?: unknown }) {
-  return await this.mfaService.setup({
+@Post('mfa/setup/totp')
+async setupTOTP(@CurrentUser() user: IUser) {
+  const result = await this.mfaService.setup({
     sub: user.sub,
-    methodName: body.method,
-    setupData: body.setupData
+    methodName: 'totp',
+    // setupData not required for TOTP
   });
+  // result.setupData contains: { secret, qrCode, manualEntryKey, issuer, accountName }
+  return result;
 }
 ```
 
@@ -802,30 +1012,205 @@ async setupMFA(@CurrentUser() user: IUser, @Body() body: { method: string; setup
 <TabItem value="express" label="Express">
 
 ```typescript
-app.post('/mfa/setup', requireAuth(), async (req, res) => {
+app.post('/mfa/setup/totp', requireAuth(), async (req, res) => {
   const result = await nauth.mfaService.setup({
     sub: req.user.sub,
-    methodName: req.body.method,
-    setupData: req.body.setupData,
+    methodName: 'totp',
   });
   res.json(result);
 });
 ```
 
 </TabItem>
-
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
 fastify.post(
-  '/mfa/setup',
+  '/mfa/setup/totp',
   { preHandler: nauth.helpers.requireAuth() },
-  nauth.adapter.wrapRouteHandler(async (req, reply) => {
+  nauth.adapter.wrapRouteHandler(async () => {
     const user = nauth.helpers.getCurrentUser();
     return nauth.mfaService.setup({
       sub: user.sub,
-      methodName: req.body.method,
-      setupData: req.body.setupData,
+      methodName: 'totp',
+    });
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+**Example - SMS Setup**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Post('mfa/setup/sms')
+async setupSMS(@CurrentUser() user: IUser, @Body() body: { phoneNumber: string; deviceName?: string }) {
+  const result = await this.mfaService.setup({
+    sub: user.sub,
+    methodName: 'sms',
+    setupData: {
+      phoneNumber: body.phoneNumber, // E.164 format: '+1234567890'
+      deviceName: body.deviceName,   // Optional: 'My iPhone'
+    },
+  });
+  // If phone verified: result.setupData = { deviceId, autoCompleted: true }
+  // If phone not verified: result.setupData = { maskedPhone: '***-***-7890' }
+  return result;
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.post('/mfa/setup/sms', requireAuth(), async (req, res) => {
+  const result = await nauth.mfaService.setup({
+    sub: req.user.sub,
+    methodName: 'sms',
+    setupData: {
+      phoneNumber: req.body.phoneNumber,
+      deviceName: req.body.deviceName,
+    },
+  });
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.post(
+  '/mfa/setup/sms',
+  { preHandler: nauth.helpers.requireAuth() },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    const user = nauth.helpers.getCurrentUser();
+    return nauth.mfaService.setup({
+      sub: user.sub,
+      methodName: 'sms',
+      setupData: {
+        phoneNumber: req.body.phoneNumber,
+        deviceName: req.body.deviceName,
+      },
+    });
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+**Example - Email Setup**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Post('mfa/setup/email')
+async setupEmail(@CurrentUser() user: IUser, @Body() body: { email?: string; deviceName?: string }) {
+  const result = await this.mfaService.setup({
+    sub: user.sub,
+    methodName: 'email',
+    setupData: {
+      email: body.email || user.email, // Optional if user.email exists
+      deviceName: body.deviceName,     // Optional: 'My Email'
+    },
+  });
+  // If email verified: result.setupData = { deviceId, autoCompleted: true }
+  // If email not verified: result.setupData = { maskedEmail: 'u***r@example.com' }
+  return result;
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.post('/mfa/setup/email', requireAuth(), async (req, res) => {
+  const result = await nauth.mfaService.setup({
+    sub: req.user.sub,
+    methodName: 'email',
+    setupData: {
+      email: req.body.email || req.user.email,
+      deviceName: req.body.deviceName,
+    },
+  });
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.post(
+  '/mfa/setup/email',
+  { preHandler: nauth.helpers.requireAuth() },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    const user = nauth.helpers.getCurrentUser();
+    return nauth.mfaService.setup({
+      sub: user.sub,
+      methodName: 'email',
+      setupData: {
+        email: req.body.email || user.email,
+        deviceName: req.body.deviceName,
+      },
+    });
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+**Example - Passkey Setup**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Post('mfa/setup/passkey')
+async setupPasskey(@CurrentUser() user: IUser) {
+  const result = await this.mfaService.setup({
+    sub: user.sub,
+    methodName: 'passkey',
+    // setupData not required for Passkey
+  });
+  // result.setupData.options contains WebAuthn registration options
+  // Pass to navigator.credentials.create({ publicKey: result.setupData.options })
+  return result;
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.post('/mfa/setup/passkey', requireAuth(), async (req, res) => {
+  const result = await nauth.mfaService.setup({
+    sub: req.user.sub,
+    methodName: 'passkey',
+  });
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.post(
+  '/mfa/setup/passkey',
+  { preHandler: nauth.helpers.requireAuth() },
+  nauth.adapter.wrapRouteHandler(async () => {
+    const user = nauth.helpers.getCurrentUser();
+    return nauth.mfaService.setup({
+      sub: user.sub,
+      methodName: 'passkey',
     });
   }),
 );
@@ -844,16 +1229,16 @@ Verify MFA code using appropriate provider. Routes verification to the correct p
 async verifyCode(dto: VerifyMFACodeDTO): Promise<VerifyMFACodeResponseDTO>
 ```
 
-**Request DTO:** [VerifyMFACodeDTO](../dto/verify-mfa-code-dto)
+**Parameters**
 
-| Property     | Type                                | Required | Description                     |
-| ------------ | ----------------------------------- | -------- | ------------------------------- |
-| `sub`        | `string`                            | Yes      | User sub (UUID v4)              |
-| `methodName` | `string`                            | Yes      | MFA method name                 |
-| `code`       | `string \| Record<string, unknown>` | Yes      | Verification code or credential |
-| `deviceId`   | `number`                            | No       | Optional device ID              |
+| Property     | Type                                | Required | Description                                                                                                                                      |
+| ------------ | ----------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sub`        | `string`                            | Yes      | User sub (UUID v4)                                                                                                                               |
+| `methodName` | `string`                            | Yes      | MFA method name. Must be one of: `totp`, `sms`, `email`, `passkey`, `backup`                                                                     |
+| `code`       | `string \| Record<string, unknown>` | Yes      | Verification code or credential. For `totp`/`sms`/`email`/`backup`: string code. For `passkey`: object with `credential` and `expectedChallenge` |
+| `deviceId`   | `number`                            | No       | Optional device ID to verify against specific device                                                                                             |
 
-**Response DTO:** [VerifyMFACodeResponseDTO](../dto/verify-mfa-code-dto)
+**Returns**
 
 | Property | Type      | Description                   |
 | -------- | --------- | ----------------------------- |
@@ -861,9 +1246,13 @@ async verifyCode(dto: VerifyMFACodeDTO): Promise<VerifyMFACodeResponseDTO>
 
 **Errors**
 
-| Code                | When                                       | Details |
-| ------------------- | ------------------------------------------ | ------- |
-| `VALIDATION_FAILED` | Method not available or verification fails | `{}`    |
+| Code                             | When                                                                                   | Details                                                           |
+| -------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `VALIDATION_FAILED`              | DTO validation fails, provider not registered, or backup code verification unavailable | `{ validationErrors: Record<string, string[]> }` or `undefined`   |
+| `NOT_FOUND`                      | User not found                                                                         | `undefined`                                                       |
+| `VERIFICATION_CODE_INVALID`      | Invalid verification code (SMS/Email methods)                                          | `{ attemptsRemaining: number }` or `undefined`                    |
+| `VERIFICATION_CODE_EXPIRED`      | Verification code has expired (SMS/Email methods)                                      | `undefined`                                                       |
+| `VERIFICATION_TOO_MANY_ATTEMPTS` | Too many verification attempts (SMS/Email methods)                                     | `{ maxAttempts: number, currentAttempts: number }` or `undefined` |
 
 **Example**
 

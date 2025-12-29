@@ -13,13 +13,12 @@ import TabItem from '@theme/TabItem';
 
 This is not an exhaustive and complete guide but shows how to implement the most common authentication endpoints with DTO validation, error handling, and multi-step authentication flows.
 
-
 :::warning Accuracy and Adaptation
 The examples on this page may not compile or run accurately if directly copied. Please use this to build your own flows. Don't assume input validation and do your input santisation, and application specific logic where possible.
 :::
 
-
 For framework-specific integration details, see:
+
 - [NestJS Integration](/docs/api/nestjs/overview) - Guards, decorators, modules
 - [Express Integration](/docs/api/express/overview) - Middleware, helpers
 - [Fastify Integration](/docs/api/fastify/overview) - Hooks, context wrapping
@@ -98,10 +97,7 @@ import { FastifyInstance } from 'fastify';
 import { NAuthInstance } from '@nauth-toolkit/core';
 import { SignupDTO } from '@nauth-toolkit/core';
 
-export async function createAuthRoutes(
-  fastify: FastifyInstance,
-  nauth: NAuthInstance<any, any>,
-): Promise<void> {
+export async function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<any, any>): Promise<void> {
   fastify.post(
     '/signup',
     { preHandler: nauth.helpers.public() as any },
@@ -259,6 +255,7 @@ fastify.post(
 **Request DTO:** [`RespondChallengeDTO`](/docs/api/core/dto/respond-challenge-dto)
 
 **Email Verification:**
+
 ```json
 {
   "session": "challenge-session-token",
@@ -268,6 +265,7 @@ fastify.post(
 ```
 
 **Phone Verification (Collection/Update):**
+
 ```json
 {
   "session": "challenge-session-token",
@@ -277,12 +275,14 @@ fastify.post(
 ```
 
 **Note**: The `phone` field can be used to:
+
 - Collect a phone number when user has none (e.g., social signup)
 - Update an existing phone number if user entered wrong number during signup
 
 After submitting phone, backend sends verification SMS and returns the same challenge for code verification.
 
 **Phone Verification (Code):**
+
 ```json
 {
   "session": "challenge-session-token",
@@ -292,6 +292,7 @@ After submitting phone, backend sends verification SMS and returns the same chal
 ```
 
 **MFA Verification:**
+
 ```json
 {
   "session": "challenge-session-token",
@@ -328,9 +329,8 @@ export class AuthController {
     @Body() body: { refreshToken?: string },
     @Req() req: FastifyRequest & { cookies?: Record<string, string> },
   ): Promise<TokenResponse> {
-    const token = body?.refreshToken && body.refreshToken.trim() !== ''
-      ? body.refreshToken
-      : req?.cookies?.['nauth_refresh_token'];
+    const token =
+      body?.refreshToken && body.refreshToken.trim() !== '' ? body.refreshToken : req?.cookies?.['nauth_refresh_token'];
 
     if (!token) {
       throw new BadRequestException('Refresh token is required');
@@ -418,10 +418,7 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @Get('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(
-    @CurrentUser() user: IUser,
-    @Query('forgetMe') forgetMe?: string,
-  ): Promise<{ message: string }> {
+  async logout(@CurrentUser() user: IUser, @Query('forgetMe') forgetMe?: string): Promise<{ message: string }> {
     const dto = new LogoutDTO();
     dto.sub = user.sub;
     if (forgetMe === 'true' || forgetMe === '1') {
@@ -490,9 +487,11 @@ fastify.get(
 **Request DTO:** [`LogoutDTO`](/docs/api/core/dto/logout-dto)
 
 **Query Parameters:**
+
 - `forgetMe` (optional) - If `true`, untrusts the device
 
 **Response:**
+
 ```json
 {
   "message": "Logged out successfully"
@@ -871,6 +870,7 @@ fastify.post(
 ```
 
 **Response:**
+
 ```json
 {
   "destination": "u***r@example.com"
@@ -944,6 +944,7 @@ fastify.get(
 </Tabs>
 
 **Response:**
+
 ```json
 {
   "enabled": true,
@@ -1054,7 +1055,7 @@ export class SocialRedirectController {
     @Query() q: { code?: string; state?: string; error?: string; error_description?: string },
     @Req() req: unknown,
   ): Promise<{ url: string } & Partial<AuthResponseDTO>> {
-    const out = await this.socialRedirect.callback({
+    const result = await this.socialRedirect.callback({
       provider,
       code: q.code,
       state: q.state,
@@ -1063,8 +1064,10 @@ export class SocialRedirectController {
       req,
     });
 
-    const authResponse = (out as unknown as { authResponse?: AuthResponseDTO }).authResponse;
-    return { url: out.redirectUrl, ...(authResponse ?? {}) };
+    if (result.authResponse) {
+      return { url: result.redirectUrl, ...result.authResponse };
+    }
+    return { url: result.redirectUrl };
   }
 }
 ```
@@ -1184,4 +1187,3 @@ See [Error Handling](/docs/concepts/error-handling) for complete error handling 
 - [MFA Guide](/docs/features/mfa) - Multi-factor authentication setup
 - [Social Login](/docs/features/social-login) - OAuth integration
 - [Token Delivery](/docs/features/token-delivery) - Token delivery modes
-
