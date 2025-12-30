@@ -715,7 +715,8 @@ export class AuthService {
       mustChangePassword: dto.mustChangePassword ?? false, // Use DTO value or default to false
       isActive: true, // Always active
       metadata: dto.metadata,
-      // hasSocialAuth and socialProviders will be updated by SocialAuthService.createOrUpdateSocialAccount()
+      hasSocialAuth: true, // Set immediately since we know this is a social user
+      socialProviders: [dto.provider], // Set immediately with the provider from DTO
     });
 
     let savedUser: IUser;
@@ -735,6 +736,11 @@ export class AuthService {
         dto.socialMetadata,
       );
       this.logger?.log?.(`Social account linked successfully: ${dto.provider}:${dto.providerId}`);
+
+      // Update savedUser in memory to reflect the updated social flags (no additional query needed)
+      // updateUserSocialFlags() has already updated the DB, we just sync the in-memory object
+      savedUser.hasSocialAuth = true;
+      savedUser.socialProviders = [dto.provider];
 
       // ============================================================================
       // Audit: Record account creation by admin (social import)

@@ -35,13 +35,13 @@ The `adminSignupSocial()` method is specifically designed for importing users wi
 **IMPORTANT:** The `adminSignup()` endpoint has **NO built-in authentication**. You **MUST** protect it with your own admin authentication guard/middleware.
 
 ```typescript
-// ❌ INSECURE - No protection
+// INSECURE - No protection
 @Post('admin/signup')
 async createUser(@Body() dto: AdminSignupDTO) {
   return this.authService.adminSignup(dto);
 }
 
-// ✅ SECURE - Protected with admin guard
+// SECURE - Protected with admin guard
 @Post('admin/signup')
 @UseGuards(AdminAuthGuard) // Your own guard
 async createUser(@Body() dto: AdminSignupDTO) {
@@ -462,7 +462,7 @@ interface AdminSignupSocialResponseDTO {
 Like `adminSignup()`, the `adminSignupSocial()` method has **NO built-in authentication**. **MUST** protect with admin guards.
 
 ```typescript
-// ✅ SECURE - Protected
+// SECURE - Protected
 @Post('admin/import-social-user')
 @UseGuards(AdminAuthGuard)
 async importSocialUser(@Body() dto: AdminSignupSocialDTO) {

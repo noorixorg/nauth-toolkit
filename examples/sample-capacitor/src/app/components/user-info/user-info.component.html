@@ -1,0 +1,74 @@
+<div class="user-info-container">
+  <div class="user-info-card">
+    <h1>User Information</h1>
+
+    @if (authService.user(); as user) {
+      <div class="user-details">
+        <div class="field">
+          <label>ID:</label>
+          <span>{{ user.sub }}</span>
+        </div>
+
+        <div class="field">
+          <label>Email:</label>
+          <span>{{ user.email || 'N/A' }}</span>
+        </div>
+
+        <div class="field">
+          <label>First Name:</label>
+          <span>{{ user.firstName || 'N/A' }}</span>
+        </div>
+
+        <div class="field">
+          <label>Last Name:</label>
+          <span>{{ user.lastName || 'N/A' }}</span>
+        </div>
+
+        <div class="field">
+          <label>Phone:</label>
+          <span>{{ user.phone || 'N/A' }}</span>
+        </div>
+
+        <div class="field">
+          <label>Email Verified:</label>
+          <span>{{ user.isEmailVerified ? 'Yes' : 'No' }}</span>
+        </div>
+
+        @if (user.socialProviders && user.socialProviders.length > 0) {
+          <div class="field">
+            <label>Social Providers:</label>
+            <div class="social-accounts">
+              @for (provider of user.socialProviders; track provider) {
+                <span class="social-badge">{{ provider }}</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="actions">
+        <button
+          type="button"
+          class="btn btn-logout"
+          [disabled]="authService.isLoading()"
+          (click)="onLogout()"
+        >
+          @if (authService.isLoading()) {
+            <span>Logging out...</span>
+          } @else {
+            <span>Logout</span>
+          }
+        </button>
+      </div>
+    } @else {
+      <p class="no-user">No user data available</p>
+    }
+
+    @if (authService.error(); as error) {
+      <div class="error-message">
+        {{ error }}
+      </div>
+    }
+  </div>
+</div>
+

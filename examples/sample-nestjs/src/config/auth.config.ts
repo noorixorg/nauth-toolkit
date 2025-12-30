@@ -38,7 +38,7 @@ export const authConfig: NAuthModuleConfig = {
 
   signup: {
     enabled: true,
-    verificationMethod: 'both',
+    verificationMethod: 'email',
     allowDuplicatePhones: true,
     emailVerification: {
       expiresIn: 3600,

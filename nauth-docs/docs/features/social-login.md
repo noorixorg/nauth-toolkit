@@ -52,6 +52,7 @@ sequenceDiagram
     Note over Browser: Cookies automatically sent<br/>with subsequent requests
     Browser->>Frontend: Load /auth/callback
     Frontend->>Frontend: Guard redirects to dashboard
+    Note over Browser,Frontend: If challenge pending:<br/>Backend redirects with exchangeToken<br/>Frontend calls /auth/social/exchange<br/>to get challenge, complete it,<br/>then receives cookies
 ```
 
 </TabItem>
@@ -160,8 +161,8 @@ export const authConfig = {
   // - 'hybrid' for web + mobile (see Token Delivery Modes guide)
   tokenDelivery: {
     method: 'cookies',
-      // ...configuration for cookies
-   },
+    // ...configuration for cookies
+  },
 
   social: {
     redirect: {
@@ -197,14 +198,24 @@ export const authConfig = {
 
 ## Step 3: Implement the social routes (consumer-owned)
 
-Your backend owns four routes:
+Your backend owns routes for both web redirect-first OAuth and native mobile token verification:
 
-| Endpoint                               | Purpose                                   |
-| -------------------------------------- | ----------------------------------------- |
-| `GET /auth/social/:provider/redirect`  | Start flow (backend → provider)           |
-| `GET /auth/social/:provider/callback`  | Provider callback (Google/Facebook)       |
-| `POST /auth/social/:provider/callback` | Provider callback (Apple `form_post`)     |
-| `POST /auth/social/exchange`           | Exchange `exchangeToken` → `AuthResponse` |
+### Web Redirect-First Routes
+
+| Endpoint                               | Purpose                                                                        |
+| -------------------------------------- | ------------------------------------------------------------------------------ |
+| `GET /auth/social/:provider/redirect`  | Start flow (backend → provider)                                                |
+| `GET /auth/social/:provider/callback`  | Provider callback (Google/Facebook)                                            |
+| `POST /auth/social/:provider/callback` | Provider callback (Apple `form_post`)                                          |
+| `POST /auth/social/exchange`           | Exchange `exchangeToken` → `AuthResponse` (only needed when challenge pending) |
+
+### Native Mobile Routes
+
+| Endpoint                            | Purpose                                                                   |
+| ----------------------------------- | ------------------------------------------------------------------------- |
+| `POST /auth/social/google/verify`   | Verify native Google tokens (ID token, access token) from mobile SDK      |
+| `POST /auth/social/apple/verify`    | Verify native Apple tokens (ID token, authorization code) from mobile SDK |
+| `POST /auth/social/facebook/verify` | Verify native Facebook access token from mobile SDK                       |
 
 You delegate the logic to [`SocialRedirectHandler`](/docs/api/core/services/social-auth-service) (framework-neutral handler exported from `@nauth-toolkit/core` and re-exported by `@nauth-toolkit/nestjs`).
 
@@ -307,7 +318,80 @@ export class SocialRedirectController {
   @Public()
   @Post('exchange')
   async exchange(@Body() dto: SocialExchangeDTO): Promise<AuthResponseDTO> {
+    // Only called when challenge is pending (cookies mode) or always (JSON mode)
+    // In cookies mode with challenge: returns challenge payload, then tokens are set as cookies after challenge completion
+    // In JSON mode: always returns tokens or challenge in response body
     return await this.socialRedirect.exchange(dto.exchangeToken);
+  }
+}
+```
+
+### Native Mobile Verify Endpoints
+
+For native mobile apps (Capacitor, React Native), add verify endpoints that accept tokens from native SDKs:
+
+```typescript title="src/auth/social-redirect.controller.ts"
+import { Controller, Post, Body, Inject, BadRequestException } from '@nestjs/common';
+import { Public, AuthResponseDTO } from '@nauth-toolkit/nestjs';
+import { GoogleSocialAuthService } from '@nauth-toolkit/social-google/nestjs';
+import { AppleSocialAuthService } from '@nauth-toolkit/social-apple/nestjs';
+import { FacebookSocialAuthService } from '@nauth-toolkit/social-facebook/nestjs';
+
+@Controller('auth/social')
+export class SocialRedirectController {
+  constructor(
+    // ... existing socialRedirect handler ...
+    @Inject(GoogleSocialAuthService)
+    private readonly googleAuth?: GoogleSocialAuthService,
+    @Inject(AppleSocialAuthService)
+    private readonly appleAuth?: AppleSocialAuthService,
+    @Inject(FacebookSocialAuthService)
+    private readonly facebookAuth?: FacebookSocialAuthService,
+  ) {}
+
+  /**
+   * Verify native Google token from mobile apps
+   */
+  @Public()
+  @Post('google/verify')
+  async verifyGoogle(@Body() body: { idToken: string; accessToken?: string }): Promise<AuthResponseDTO> {
+    if (!this.googleAuth) {
+      throw new BadRequestException('Google OAuth is not configured');
+    }
+    if (!body.idToken) {
+      throw new BadRequestException('idToken is required');
+    }
+    return await this.googleAuth.verifyToken(body.idToken, body.accessToken);
+  }
+
+  /**
+   * Verify native Apple token from mobile apps
+   */
+  @Public()
+  @Post('apple/verify')
+  async verifyApple(@Body() body: { idToken: string; authorizationCode?: string }): Promise<AuthResponseDTO> {
+    if (!this.appleAuth) {
+      throw new BadRequestException('Apple OAuth is not configured');
+    }
+    if (!body.idToken) {
+      throw new BadRequestException('idToken is required');
+    }
+    return await this.appleAuth.verifyToken(body.idToken, body.authorizationCode);
+  }
+
+  /**
+   * Verify native Facebook token from mobile apps
+   */
+  @Public()
+  @Post('facebook/verify')
+  async verifyFacebook(@Body() body: { accessToken: string }): Promise<AuthResponseDTO> {
+    if (!this.facebookAuth) {
+      throw new BadRequestException('Facebook OAuth is not configured');
+    }
+    if (!body.accessToken) {
+      throw new BadRequestException('accessToken is required');
+    }
+    return await this.facebookAuth.verifyToken(body.accessToken);
   }
 }
 ```
@@ -317,7 +401,7 @@ Apple uses POST with `form_post` response mode. Ensure your NestJS setup can par
 
 - **Express (default)**: Works out of the box
 - **Fastify**: Add `@fastify/formbody` plugin to your Fastify adapter configuration
-:::
+  :::
 
 </TabItem>
 <TabItem value="express" label="Express">
@@ -332,7 +416,59 @@ Coming soon.
 </TabItem>
 </Tabs>
 
-## Step 4: Frontend integration (web)
+## Step 4: Native mobile integration
+
+For Capacitor and React Native apps, use native SDKs to get tokens and verify them directly with the backend.
+
+### Architecture
+
+Native mobile apps use a different flow than web redirect-first OAuth:
+
+1. Mobile app uses native SDK (e.g., Google Sign-In SDK, Facebook SDK) to authenticate
+2. Native SDK returns ID tokens and access tokens
+3. Mobile app sends tokens directly to backend `POST /auth/social/:provider/verify`
+4. Backend verifies tokens and returns JWT tokens in response body (JSON mode)
+
+### Flow Diagram
+
+```mermaid
+sequenceDiagram
+    participant Mobile
+    participant NativeSDK as Native SDK<br/>(Google/Facebook/Apple)
+    participant Backend
+    participant Provider as OAuth Provider<br/>(Google/Facebook/Apple)
+
+    Mobile->>NativeSDK: User taps "Sign in with Google"
+    NativeSDK->>Provider: Native OAuth flow
+    Provider-->>NativeSDK: ID token + access token
+    NativeSDK-->>Mobile: Return tokens
+    Mobile->>Backend: POST /auth/social/google/verify<br/>{ idToken, accessToken }
+    Backend->>Provider: Verify ID token
+    Provider-->>Backend: Token valid, user info
+    Backend->>Backend: Create/update user account
+    Backend->>Backend: Generate access + refresh tokens
+    Backend-->>Mobile: 200 { accessToken, refreshToken, user, ... }
+    Mobile->>Mobile: Store tokens securely
+```
+
+### Token Delivery
+
+Native mobile apps **always use JSON mode** - tokens are returned in the response body, not as cookies:
+
+- Tokens are returned directly in `AuthResponse`
+- Frontend must store tokens securely (e.g., Capacitor Preferences, React Native SecureStore)
+- No exchange endpoint needed - tokens come directly from verify endpoint
+- Challenges (MFA, verification) are returned in the same `AuthResponse` if pending
+
+### Frontend Integration
+
+Use the frontend SDK's `verifyNativeSocial()` method:
+
+- [`NAuthClient.verifyNativeSocial()`](/docs/frontend-sdk/api/nauth-client#verifynativesocial)
+
+See the [Frontend Social Authentication Guide](/docs/frontend-sdk/guides/social-auth#frontend-native-mobile) for complete mobile implementation examples.
+
+## Step 5: Frontend integration (web)
 
 ### Start the flow
 
@@ -348,7 +484,9 @@ await client.loginWithSocial('google', { returnTo: '/auth/callback', appState: '
 
 On the frontend, the backend will redirect you back to `returnTo` with:
 
-- `exchangeToken` when your deployment uses JSON delivery (or when a challenge must be returned)
+- **Cookies mode (normal)**: `appState` only - tokens are set as httpOnly cookies automatically
+- **Cookies mode (challenge pending)**: `exchangeToken` + `appState` - frontend must call `/auth/social/exchange` to get challenge, complete it, then receive cookies
+- **JSON mode**: `exchangeToken` + `appState` - frontend must always call `/auth/social/exchange` to receive tokens or challenge in response body
 - `appState` if you supplied it (optional, non-secret)
 
 If you’re using Angular, the simplest approach is the guard-only callback route:
@@ -357,11 +495,11 @@ If you’re using Angular, the simplest approach is the guard-only callback rout
 
 ## What happens in each delivery mode
 
-| Mode      | Browser receives tokens directly?             | How the frontend "finishes"                                                           |
-| --------- | --------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `cookies` | No (httpOnly cookies set on backend callback) | Redirect to your app; no extra call unless a challenge occurs                         |
-| `json`    | No                                            | Frontend calls `/auth/social/exchange` with `exchangeToken` to receive `AuthResponse` |
-| `hybrid`  | Depends on route/origin policy                | Use explicit routes + `@TokenDelivery()` for deterministic behavior                   |
+| Mode      | Browser receives tokens directly?              | How the frontend "finishes"                                                                                      |
+| --------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `cookies` | Yes (httpOnly cookies set on backend callback) | Redirect to your app; tokens are automatically set as cookies. No exchange call needed unless a challenge occurs |
+| `json`    | No                                             | Frontend calls `/auth/social/exchange` with `exchangeToken` to receive `AuthResponse`                            |
+| `hybrid`  | Depends on route/origin policy                 | Use explicit routes + `@TokenDelivery()` for deterministic behavior                                              |
 
 ::::note Session auth method
 When authentication completes successfully, the response payload includes `authMethod` (for JSON/hybrid exchange flows) and the frontend SDK stores it on the cached user as `sessionAuthMethod`. Values are `password` or the social provider name (e.g. `google`, `apple`, `facebook`).
@@ -369,9 +507,19 @@ When authentication completes successfully, the response payload includes `authM
 
 ### Challenges (MFA / verification) still apply
 
-Social login can return a challenge (example: `MFA_REQUIRED`) if you have turned on MFA for social logins (disabled by default).
+Social login can return a challenge (example: `MFA_REQUIRED`, `PHONE_VERIFICATION`) if you have turned on MFA or verification requirements for social logins.
 
-- When that happens, the backend redirects back with **`exchangeToken`** so the frontend can fetch the challenge payload via `POST /auth/social/exchange` (even if your normal mode is cookies).
+**In cookies mode:**
+
+- **Normal flow**: Tokens are set as httpOnly cookies during the callback redirect. No exchange call needed.
+- **When challenge pending**: The backend redirects back with **`exchangeToken`** instead of setting cookies. The frontend must call `POST /auth/social/exchange` to:
+  1. Receive the challenge payload (e.g., `PHONE_VERIFICATION`)
+  2. Complete the challenge (e.g., verify phone number)
+  3. Receive tokens set as httpOnly cookies after challenge completion
+
+**In JSON mode:**
+
+- Always requires `POST /auth/social/exchange` to receive tokens or challenges in the response body.
 
 ## Notes
 
@@ -426,9 +574,19 @@ Complete reference for all social login classes, DTOs, and services:
 See [Social Authentication DTOs](/docs/api/core/dto/overview#social-authentication-dtos) for the complete list with descriptions.
 :::
 
+## Web vs Native Mobile Comparison
+
+| Aspect              | Web (Redirect-First)                            | Native Mobile (Token Verify)                      |
+| ------------------- | ----------------------------------------------- | ------------------------------------------------- |
+| **Flow**            | Backend redirects to provider, then callback    | Native SDK authenticates, app sends tokens        |
+| **Endpoints**       | `/redirect`, `/callback`, `/exchange`           | `/verify`                                         |
+| **Token Delivery**  | Cookies (web) or JSON (mobile via exchange)     | JSON (always)                                     |
+| **Exchange Needed** | Only when challenge pending (cookies mode)      | Never - tokens come directly from verify endpoint |
+| **Frontend SDK**    | `loginWithSocial()`, `exchangeSocialRedirect()` | `verifyNativeSocial()`                            |
+
 ## Related
 
 - [Authentication Routes](/docs/features/routes)
 - [Token Delivery Modes](/docs/features/token-delivery)
-- [Frontend social auth guide](/docs/frontend-sdk/guides/social-auth)
+- [Frontend social auth guide](/docs/frontend-sdk/guides/social-auth) - Includes web and native mobile examples
 - [Social provider APIs](/docs/api/social/overview)

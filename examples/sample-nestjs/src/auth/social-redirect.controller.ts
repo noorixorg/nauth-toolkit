@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Body, Req, Redirect } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, Req, Redirect, Inject, BadRequestException } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import {
   Public,
@@ -9,6 +9,7 @@ import {
   SocialExchangeDTO,
   StartSocialRedirectQueryDTO,
 } from '@nauth-toolkit/nestjs';
+import { GoogleSocialAuthService } from '@nauth-toolkit/social-google/nestjs';
 
 /**
  * Social Redirect Controller (Consumer-owned)
@@ -31,7 +32,11 @@ import {
  */
 @Controller('auth/social')
 export class SocialRedirectController {
-  constructor(private readonly socialRedirect: SocialRedirectHandler) {}
+  constructor(
+    private readonly socialRedirect: SocialRedirectHandler,
+    @Inject(GoogleSocialAuthService)
+    private readonly googleAuth?: GoogleSocialAuthService,
+  ) {}
 
   /**
    * Start redirect-first social login.
@@ -115,5 +120,39 @@ export class SocialRedirectController {
   @Post('exchange')
   async exchange(@Body() dto: SocialExchangeDTO): Promise<AuthResponseDTO> {
     return await this.socialRedirect.exchange(dto.exchangeToken);
+  }
+
+  /**
+   * Verify native Google token from mobile apps (Capacitor/React Native)
+   *
+   * Mobile apps use native SDKs to get ID tokens and send them directly to backend
+   * for verification. This endpoint verifies the token and returns JWT tokens.
+   *
+   * @param body - Native token verification request
+   * @param body.idToken - Google ID token from native SDK (required)
+   * @param body.accessToken - Google access token from native SDK (optional)
+   * @returns Authentication response with JWT tokens and user info
+   *
+   * @example
+   * ```typescript
+   * POST /auth/social/google/verify
+   * {
+   *   "idToken": "eyJhbGciOiJSUzI1NiIs...",
+   *   "accessToken": "ya29.a0AfH6SMC..."
+   * }
+   * ```
+   */
+  @Public()
+  @Post('google/verify')
+  async verifyGoogle(@Body() body: { idToken: string; accessToken?: string }): Promise<AuthResponseDTO> {
+    if (!this.googleAuth) {
+      throw new BadRequestException('Google OAuth is not configured');
+    }
+
+    if (!body.idToken) {
+      throw new BadRequestException('idToken is required');
+    }
+
+    return await this.googleAuth.verifyToken(body.idToken, body.accessToken);
   }
 }
