@@ -59,7 +59,7 @@ export class SocialAuthService {
     private readonly providerRegistry: SocialProviderRegistry,
     private readonly userRepository: Repository<BaseUser>,
     private readonly socialAccountRepository: Repository<BaseSocialAccount>,
-    private readonly authService: AuthService,
+    private readonly authService: AuthService | null, // Can be null to break circular dependency
     private readonly logger: NAuthLogger,
     private readonly auditService?: AuthAuditService, // Optional - audit trail service (enabled via config.auditLogs.enabled)
   ) {}
@@ -282,6 +282,12 @@ export class SocialAuthService {
     // For social-only users, we bypass old password validation since they don't have one
     // Note: This requires type casting as ChangePasswordRequestDTO requires oldPassword, but
     // the auth service will handle the case where user has no passwordHash
+    if (!this.authService) {
+      throw new NAuthException(
+        AuthErrorCode.INTERNAL_ERROR,
+        'AuthService is not available. This is a configuration error.',
+      );
+    }
     const changePasswordDto = new ChangePasswordRequestDTO();
     changePasswordDto.sub = userId; // userId is the sub (external UUID) in this context
     changePasswordDto.oldPassword = ''; // Social-only users don't have a password

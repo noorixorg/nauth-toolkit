@@ -1,6 +1,16 @@
 import { Repository } from 'typeorm';
 import { IUser, ISession } from '../interfaces/entities.interface';
-import { BaseUser, BaseLoginAttempt, BaseMFADevice, BaseChallengeSession } from '../entities';
+import {
+  BaseUser,
+  BaseLoginAttempt,
+  BaseMFADevice,
+  BaseChallengeSession,
+  BaseVerificationToken,
+  BaseSocialAccount,
+  BaseAuthAudit,
+  BaseTrustedDevice,
+  BaseSession,
+} from '../entities';
 import { PasswordService } from './password.service';
 import { JwtService } from './jwt.service';
 import { SessionService } from './session.service';
@@ -19,6 +29,9 @@ import { ContextStorage } from '../utils/context-storage';
 import { SignupDTO } from '../dto/signup.dto';
 import { AdminSignupDTO, AdminSignupResponseDTO } from '../dto/admin-signup.dto';
 import { AdminSignupSocialDTO, AdminSignupSocialResponseDTO } from '../dto/admin-signup-social.dto';
+import { DeleteUserDTO, DeleteUserResponseDTO } from '../dto/delete-user.dto';
+import { GetUsersDTO, GetUsersResponseDTO } from '../dto/get-users.dto';
+import { DisableUserDTO, DisableUserResponseDTO } from '../dto/disable-user.dto';
 import { LoginDTO } from '../dto/login.dto';
 import { ChangePasswordRequestDTO } from '../dto/change-password-request.dto';
 import { ChangePasswordResponseDTO } from '../dto/change-password-response.dto';
@@ -101,6 +114,12 @@ export class AuthService {
     private readonly trustedDeviceService?: TrustedDeviceService, // Optional - only available when rememberDevices is not 'never'
     private readonly passwordResetService?: PasswordResetService, // Optional - only available when configured by framework adapter
     private readonly socialAuthService?: SocialAuthService, // Optional - only available when social auth is configured
+    private readonly sessionRepository?: Repository<BaseSession>, // Optional - for cascade deletion
+    private readonly verificationTokenRepository?: Repository<BaseVerificationToken>, // Optional - for cascade deletion
+    private readonly socialAccountRepository?: Repository<BaseSocialAccount>, // Optional - for cascade deletion
+    private readonly challengeSessionRepository?: Repository<BaseChallengeSession>, // Optional - for cascade deletion
+    private readonly authAuditRepository?: Repository<BaseAuthAudit>, // Optional - for cascade deletion
+    private readonly trustedDeviceRepository?: Repository<BaseTrustedDevice>, // Optional - for cascade deletion
   ) {
     this.logger?.log?.('AuthService initialized');
   }
@@ -795,6 +814,457 @@ export class AuthService {
   }
 
   // ============================================================================
+  // Admin User Management
+  // ============================================================================
+
+  /**
+   * Administrative user deletion with complete cascade cleanup
+   *
+   * HARD DELETE - Permanently removes user and ALL associated data including:
+   * - Sessions, verification tokens, MFA devices, trusted devices
+   * - Social accounts, login attempts, challenge sessions, audit logs
+   *
+   * Security:
+   * - NO built-in authentication - endpoint MUST be protected by admin guards
+   * - Records admin action in separate audit log (not deleted with user)
+   * - Irreversible operation - all data permanently removed
+   *
+   * @param dto - User sub to delete
+   * @returns Deletion confirmation with cascade counts
+   * @throws {NAuthException} USER_NOT_FOUND
+   *
+   * @example
+   * ```typescript
+   * const result = await authService.deleteUser({ sub: 'user-uuid-123' });
+   * console.log(`Deleted user: ${result.deletedUserId}`);
+   * console.log(`Deleted ${result.deletedRecords.sessions} sessions`);
+   * ```
+   */
+  async deleteUser(dto: DeleteUserDTO): Promise<DeleteUserResponseDTO> {
+    // Ensure DTO is validated
+    dto = await ensureValidatedDto(DeleteUserDTO, dto);
+
+    // Get client info for audit
+    const clientInfo = this.clientInfoService.get();
+
+    this.logger?.log?.(`Admin deleteUser initiated for sub: ${dto.sub}`);
+
+    // Find user by sub
+    const user = await this.userRepository.findOne({ where: { sub: dto.sub } });
+
+    if (!user) {
+      this.logger?.warn?.(`User not found for deletion: ${dto.sub}`);
+      throw new NAuthException(AuthErrorCode.USER_NOT_FOUND, 'User not found');
+    }
+
+    this.logger?.debug?.(`Deleting user ${user.email} (id: ${user.id}, sub: ${dto.sub})`);
+
+    // ============================================================================
+    // Explicit Cascade Deletion (to track counts)
+    // ============================================================================
+    // Even though database has CASCADE, we explicitly delete each table to track counts
+
+    // 1. Delete Sessions
+    let sessionsCount = 0;
+    if (this.sessionRepository) {
+      const result = await this.sessionRepository.delete({ userId: user.id as number });
+      sessionsCount = result.affected || 0;
+      this.logger?.debug?.(`Deleted ${sessionsCount} sessions for user ${dto.sub}`);
+    }
+
+    // 2. Delete Verification Tokens
+    let verificationTokensCount = 0;
+    if (this.verificationTokenRepository) {
+      const result = await this.verificationTokenRepository.delete({ userId: user.id as number });
+      verificationTokensCount = result.affected || 0;
+      this.logger?.debug?.(`Deleted ${verificationTokensCount} verification tokens for user ${dto.sub}`);
+    }
+
+    // 3. Delete MFA Devices
+    let mfaDevicesCount = 0;
+    if (this.mfaDeviceRepository) {
+      const result = await this.mfaDeviceRepository.delete({ userId: user.id as number });
+      mfaDevicesCount = result.affected || 0;
+      this.logger?.debug?.(`Deleted ${mfaDevicesCount} MFA devices for user ${dto.sub}`);
+    }
+
+    // 4. Delete Trusted Devices
+    let trustedDevicesCount = 0;
+    if (this.trustedDeviceRepository) {
+      const result = await this.trustedDeviceRepository.delete({ userId: user.id as number });
+      trustedDevicesCount = result.affected || 0;
+      this.logger?.debug?.(`Deleted ${trustedDevicesCount} trusted devices for user ${dto.sub}`);
+    }
+
+    // 5. Delete Social Accounts
+    let socialAccountsCount = 0;
+    if (this.socialAccountRepository) {
+      const result = await this.socialAccountRepository.delete({ userId: user.id as number });
+      socialAccountsCount = result.affected || 0;
+      this.logger?.debug?.(`Deleted ${socialAccountsCount} social accounts for user ${dto.sub}`);
+    }
+
+    // 6. Delete Login Attempts
+    let loginAttemptsCount = 0;
+    const loginAttemptResult = await this.loginAttemptRepository.delete({ userId: user.id as number });
+    loginAttemptsCount = loginAttemptResult.affected || 0;
+    this.logger?.debug?.(`Deleted ${loginAttemptsCount} login attempts for user ${dto.sub}`);
+
+    // 7. Delete Challenge Sessions
+    let challengeSessionsCount = 0;
+    if (this.challengeSessionRepository) {
+      const result = await this.challengeSessionRepository.delete({ userId: user.id as number });
+      challengeSessionsCount = result.affected || 0;
+      this.logger?.debug?.(`Deleted ${challengeSessionsCount} challenge sessions for user ${dto.sub}`);
+    }
+
+    // 8. Delete Audit Logs (user-specific)
+    let auditLogsCount = 0;
+    if (this.authAuditRepository) {
+      const result = await this.authAuditRepository.delete({ userId: user.id as number });
+      auditLogsCount = result.affected || 0;
+      this.logger?.debug?.(`Deleted ${auditLogsCount} audit logs for user ${dto.sub}`);
+    }
+
+    // 9. Delete User Record (final)
+    await this.userRepository.delete({ id: user.id });
+    this.logger?.log?.(`User deleted successfully: ${user.email} (sub: ${dto.sub})`);
+
+    // ============================================================================
+    // Record Admin Action (in separate audit log, NOT deleted with user)
+    // ============================================================================
+    try {
+      await this.auditService?.recordEvent({
+        userId: user.id,
+        eventType: AuthAuditEventType.ACCOUNT_DELETED,
+        eventStatus: 'INFO',
+        authMethod: 'admin',
+        metadata: {
+          deletedEmail: user.email,
+          deletedSub: dto.sub,
+          adminIdentifier: clientInfo.ipAddress || 'unknown',
+          deletedRecords: {
+            sessions: sessionsCount,
+            verificationTokens: verificationTokensCount,
+            mfaDevices: mfaDevicesCount,
+            trustedDevices: trustedDevicesCount,
+            socialAccounts: socialAccountsCount,
+            loginAttempts: loginAttemptsCount,
+            challengeSessions: challengeSessionsCount,
+            auditLogs: auditLogsCount,
+          },
+        },
+      });
+    } catch (auditError) {
+      // Non-blocking: Log but continue
+      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to record ACCOUNT_DELETED audit event: ${errorMessage}`);
+    }
+
+    return {
+      success: true,
+      deletedUserId: dto.sub,
+      deletedRecords: {
+        sessions: sessionsCount,
+        verificationTokens: verificationTokensCount,
+        mfaDevices: mfaDevicesCount,
+        trustedDevices: trustedDevicesCount,
+        socialAccounts: socialAccountsCount,
+        loginAttempts: loginAttemptsCount,
+        challengeSessions: challengeSessionsCount,
+        auditLogs: auditLogsCount,
+      },
+    };
+  }
+
+  /**
+   * Get paginated list of users with advanced filtering
+   *
+   * Supports pagination, boolean filters, exact match filters,
+   * date filters with operators (gt, gte, lt, lte, eq), and flexible sorting.
+   *
+   * Security:
+   * - NO built-in authentication - endpoint MUST be protected by admin guards
+   * - Returns sanitized user data (no passwordHash, secrets)
+   *
+   * @param dto - Filters, pagination, sorting
+   * @returns Paginated user list with metadata
+   *
+   * @example
+   * ```typescript
+   * const result = await authService.getUsers({
+   *   page: 1,
+   *   limit: 20,
+   *   isEmailVerified: true,
+   *   hasSocialAuth: true,
+   *   createdAt: { operator: 'gte', value: new Date('2024-01-01') },
+   *   sortBy: 'createdAt',
+   *   sortOrder: 'DESC'
+   * });
+   * ```
+   */
+  async getUsers(dto: GetUsersDTO): Promise<GetUsersResponseDTO> {
+    // Ensure DTO is validated
+    dto = await ensureValidatedDto(GetUsersDTO, dto);
+
+    this.logger?.debug?.(`Admin getUsers initiated with filters: ${JSON.stringify(dto)}`);
+
+    // ============================================================================
+    // Build Query with Filters
+    // ============================================================================
+    const qb = this.userRepository.createQueryBuilder('user');
+
+    // Apply partial match filters (email and phone) - case-insensitive
+    // Using LOWER() for cross-database compatibility (works on both MySQL and PostgreSQL)
+    if (dto.email) {
+      qb.andWhere('LOWER(user.email) LIKE LOWER(:email)', { email: `%${dto.email}%` });
+    }
+
+    if (dto.phone) {
+      qb.andWhere('LOWER(user.phone) LIKE LOWER(:phone)', { phone: `%${dto.phone}%` });
+    }
+
+    // Apply boolean filters
+    if (dto.isEmailVerified !== undefined) {
+      qb.andWhere('user.isEmailVerified = :isEmailVerified', { isEmailVerified: dto.isEmailVerified });
+    }
+
+    if (dto.isPhoneVerified !== undefined) {
+      qb.andWhere('user.isPhoneVerified = :isPhoneVerified', { isPhoneVerified: dto.isPhoneVerified });
+    }
+
+    if (dto.hasSocialAuth !== undefined) {
+      qb.andWhere('user.hasSocialAuth = :hasSocialAuth', { hasSocialAuth: dto.hasSocialAuth });
+    }
+
+    if (dto.isLocked !== undefined) {
+      qb.andWhere('user.isLocked = :isLocked', { isLocked: dto.isLocked });
+    }
+
+    if (dto.mfaEnabled !== undefined) {
+      qb.andWhere('user.mfaEnabled = :mfaEnabled', { mfaEnabled: dto.mfaEnabled });
+    }
+
+    // Apply date filters with operators
+    if (dto.createdAt) {
+      const { operator, value } = dto.createdAt;
+      if (operator === 'gt') {
+        qb.andWhere('user.createdAt > :createdAtValue', { createdAtValue: value });
+      } else if (operator === 'gte') {
+        qb.andWhere('user.createdAt >= :createdAtValue', { createdAtValue: value });
+      } else if (operator === 'lt') {
+        qb.andWhere('user.createdAt < :createdAtValue', { createdAtValue: value });
+      } else if (operator === 'lte') {
+        qb.andWhere('user.createdAt <= :createdAtValue', { createdAtValue: value });
+      } else if (operator === 'eq') {
+        qb.andWhere('user.createdAt = :createdAtValue', { createdAtValue: value });
+      }
+    }
+
+    if (dto.updatedAt) {
+      const { operator, value } = dto.updatedAt;
+      if (operator === 'gt') {
+        qb.andWhere('user.updatedAt > :updatedAtValue', { updatedAtValue: value });
+      } else if (operator === 'gte') {
+        qb.andWhere('user.updatedAt >= :updatedAtValue', { updatedAtValue: value });
+      } else if (operator === 'lt') {
+        qb.andWhere('user.updatedAt < :updatedAtValue', { updatedAtValue: value });
+      } else if (operator === 'lte') {
+        qb.andWhere('user.updatedAt <= :updatedAtValue', { updatedAtValue: value });
+      } else if (operator === 'eq') {
+        qb.andWhere('user.updatedAt = :updatedAtValue', { updatedAtValue: value });
+      }
+    }
+
+    // ============================================================================
+    // Apply Sorting
+    // ============================================================================
+    const sortBy = dto.sortBy || 'createdAt';
+    const sortOrder = dto.sortOrder || 'DESC';
+    qb.orderBy(`user.${sortBy}`, sortOrder);
+
+    // ============================================================================
+    // Apply Pagination
+    // ============================================================================
+    const page = dto.page || 1;
+    const limit = dto.limit || 10;
+    qb.skip((page - 1) * limit).take(limit);
+
+    // Execute query
+    const [users, total] = await qb.getManyAndCount();
+    this.logger?.debug?.(`Found ${users.length} users (total: ${total}) with filters`);
+
+    // Sanitize user data
+    const sanitizedUsers = users.map((user) => UserResponseDto.fromEntity(user as unknown as IUser));
+
+    return {
+      users: sanitizedUsers,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Administrative permanent account locking
+   *
+   * Sets permanent lock (lockedUntil=NULL) and immediately revokes all active sessions.
+   * Reuses existing rate-limit lock fields (isLocked, lockReason, lockedAt, lockedUntil).
+   *
+   * Permanent vs Temporary locks:
+   * - Rate limiting: lockedUntil = future date (temporary auto-unlock)
+   * - Admin disableUser: lockedUntil = NULL (permanent manual lock)
+   *
+   * Security:
+   * - NO built-in authentication - endpoint MUST be protected by admin guards
+   * - Revokes all sessions immediately (forced logout)
+   * - Records ACCOUNT_DISABLED audit event with admin identifier
+   *
+   * @param dto - User sub and optional reason
+   * @returns User object with updated lock status and revoked session count
+   * @throws {NAuthException} USER_NOT_FOUND
+   *
+   * @example
+   * ```typescript
+   * const result = await authService.disableUser({
+   *   sub: 'user-uuid-123',
+   *   reason: 'Suspicious activity detected'
+   * });
+   * console.log(`Revoked ${result.revokedSessions} sessions`);
+   * ```
+   */
+  async disableUser(dto: DisableUserDTO): Promise<DisableUserResponseDTO> {
+    // Ensure DTO is validated
+    dto = await ensureValidatedDto(DisableUserDTO, dto);
+
+    // Get client info for audit
+    const clientInfo = this.clientInfoService.get();
+
+    this.logger?.log?.(`Admin disableUser initiated for sub: ${dto.sub}`);
+
+    // Find user by sub
+    const user = await this.userRepository.findOne({ where: { sub: dto.sub } });
+
+    if (!user) {
+      this.logger?.warn?.(`User not found for disabling: ${dto.sub}`);
+      throw new NAuthException(AuthErrorCode.USER_NOT_FOUND, 'User not found');
+    }
+
+    this.logger?.debug?.(`Disabling user ${user.email} (id: ${user.id}, sub: ${dto.sub})`);
+
+    // ============================================================================
+    // Set Permanent Lock (lockedUntil = NULL)
+    // ============================================================================
+    // Use update() to ensure persistence and avoid entity state issues
+    await this.userRepository.update(
+      { id: user.id },
+      {
+        isLocked: true,
+        lockReason: dto.reason || 'Account disabled',
+        lockedAt: new Date(),
+        lockedUntil: null, // NULL = permanent lock (vs rate-limit's future date)
+      },
+    );
+
+    // Reload user to get updated entity with lock fields
+    const updatedUser = (await this.userRepository.findOne({ where: { id: user.id } })) as IUser | null;
+    if (!updatedUser) {
+      throw new NAuthException(AuthErrorCode.USER_NOT_FOUND, 'User not found after update');
+    }
+
+    this.logger?.log?.(`User locked permanently: ${updatedUser.email} (sub: ${dto.sub})`);
+
+    // ============================================================================
+    // Revoke All Sessions (force logout)
+    // ============================================================================
+    let revokedCount = 0;
+    try {
+      revokedCount = await this.sessionService.revokeAllUserSessions(updatedUser.id as number, 'Account disabled');
+      this.logger?.debug?.(`Revoked ${revokedCount} sessions for user ${dto.sub}`);
+    } catch (sessionError) {
+      // Non-blocking: Log but continue
+      const errorMessage = sessionError instanceof Error ? sessionError.message : 'Unknown error';
+      this.logger?.warn?.(`Failed to revoke sessions for user ${dto.sub}: ${errorMessage}`);
+    }
+
+    // ============================================================================
+    // Record Admin Action (ACCOUNT_DISABLED)
+    // ============================================================================
+    if (!this.auditService) {
+      this.logger?.warn?.(
+        `Audit service not available - ACCOUNT_DISABLED event not recorded for user ${dto.sub}. Enable audit logs in config.auditLogs.enabled`,
+      );
+    } else {
+      try {
+        // Get admin user ID from client info (the currently logged in user performing this action)
+        // This is extracted from the JWT token by interceptors/handlers
+        const adminUserId = (clientInfo as { userId?: number })?.userId;
+
+        // Set performedBy to the admin's user ID (who locked the account)
+        // This identifies which admin user performed the action in the audit trail
+        const performedBy = adminUserId ? String(adminUserId) : clientInfo.ipAddress || 'system';
+
+        if (adminUserId) {
+          this.logger?.debug?.(
+            `Admin user ID ${adminUserId} (currently logged in) is disabling account for user ${dto.sub}`,
+          );
+        } else {
+          this.logger?.warn?.(
+            `No admin user ID in clientInfo - performedBy will be set to IP address or 'system' for user ${dto.sub}`,
+          );
+        }
+
+        const auditResult = await this.auditService.recordEvent({
+          userId: updatedUser.id, // The user whose account is being disabled
+          eventType: AuthAuditEventType.ACCOUNT_DISABLED,
+          eventStatus: 'INFO',
+          authMethod: 'admin',
+          performedBy, // The admin user ID (currently logged in user) who performed this action
+          reason: updatedUser.lockReason || 'Account disabled',
+          description: `Account disabled by administrator. User: ${updatedUser.email} (sub: ${dto.sub}). ${revokedCount} session(s) revoked.`,
+          metadata: {
+            email: updatedUser.email,
+            userSub: dto.sub,
+            reason: updatedUser.lockReason,
+            adminIdentifier: clientInfo.ipAddress || 'unknown',
+            adminUserId: adminUserId || null,
+            revokedSessions: revokedCount,
+            lockedAt: updatedUser.lockedAt,
+            lockedUntil: updatedUser.lockedUntil,
+          },
+        });
+
+        if (auditResult) {
+          this.logger?.debug?.(`ACCOUNT_DISABLED audit event recorded successfully for user ${dto.sub}`);
+        } else {
+          this.logger?.warn?.(`ACCOUNT_DISABLED audit event returned null for user ${dto.sub}`);
+        }
+      } catch (auditError) {
+        // Non-blocking: Log but continue
+        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+        const errorStack = auditError instanceof Error ? auditError.stack : undefined;
+        this.logger?.error?.(`Failed to record ACCOUNT_DISABLED audit event: ${errorMessage}`, {
+          error: auditError,
+          errorStack,
+          userId: updatedUser.id,
+          userSub: dto.sub,
+        });
+      }
+    }
+
+    // Return sanitized user and revoked session count
+    const userDto = UserResponseDto.fromEntity(updatedUser as unknown as IUser);
+    return {
+      success: true,
+      user: userDto,
+      revokedSessions: revokedCount,
+    };
+  }
+
+  // ============================================================================
   // User Login
   // ============================================================================
   /**
@@ -978,6 +1448,93 @@ export class AuthService {
       }
 
       throw new NAuthException(AuthErrorCode.INVALID_CREDENTIALS, 'Invalid credentials');
+    }
+
+    // ============================================================================
+    // Account Lock Check (Admin Disabled / Rate Limit Lockout)
+    // ============================================================================
+    // Check if account is permanently locked (lockedUntil = NULL) or temporarily locked (lockedUntil > now)
+    if (user.isLocked) {
+      const now = new Date();
+      const isPermanentlyLocked = user.lockedUntil === null;
+      const isTemporarilyLocked = user.lockedUntil && new Date(user.lockedUntil) > now;
+
+      if (isPermanentlyLocked || isTemporarilyLocked) {
+        const lockReason = user.lockReason || 'Account is locked';
+        this.logger?.warn?.(
+          `Login blocked - account locked for user: ${user.email} (sub: ${user.sub}). Reason: ${lockReason}`,
+        );
+
+        // Record blocked login attempt
+        await this.recordLoginAttempt(dto.identifier, false, 'account_locked');
+
+        // ============================================================================
+        // Audit: Record blocked login (account locked)
+        // ============================================================================
+        if (fireAndForget) {
+          this.auditService
+            ?.recordEvent({
+              userId: user.id,
+              eventType: AuthAuditEventType.LOGIN_BLOCKED,
+              eventStatus: 'FAILURE',
+              authMethod: 'password',
+              reason: 'account_locked',
+              description: `Login blocked - account locked: ${lockReason}`,
+              metadata: {
+                lockReason: user.lockReason,
+                lockedAt: user.lockedAt,
+                lockedUntil: user.lockedUntil,
+                isPermanent: isPermanentlyLocked,
+              },
+            })
+            .catch((err) => {
+              const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+              this.logger?.error?.(`Failed to record LOGIN_BLOCKED audit event (fire-and-forget): ${errorMessage}`, {
+                error: err,
+                userId: user.id,
+                userSub: user.sub,
+              });
+            });
+        } else {
+          try {
+            await this.auditService?.recordEvent({
+              userId: user.id,
+              eventType: AuthAuditEventType.LOGIN_BLOCKED,
+              eventStatus: 'FAILURE',
+              authMethod: 'password',
+              reason: 'account_locked',
+              description: `Login blocked - account locked: ${lockReason}`,
+              metadata: {
+                lockReason: user.lockReason,
+                lockedAt: user.lockedAt,
+                lockedUntil: user.lockedUntil,
+                isPermanent: isPermanentlyLocked,
+              },
+            });
+          } catch (auditError) {
+            const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+            this.logger?.error?.(`Failed to record LOGIN_BLOCKED audit event (account locked): ${errorMessage}`, {
+              error: auditError,
+              userId: user.id,
+            });
+          }
+        }
+
+        throw new NAuthException(AuthErrorCode.ACCOUNT_LOCKED, lockReason, {
+          lockReason: user.lockReason,
+          lockedAt: user.lockedAt,
+          lockedUntil: user.lockedUntil,
+          isPermanent: isPermanentlyLocked,
+        });
+      } else {
+        // Account was temporarily locked but lock has expired - unlock it
+        this.logger?.debug?.(`Account lock expired for user: ${user.email} (sub: ${user.sub}), unlocking account`);
+        user.isLocked = false;
+        user.lockReason = null;
+        user.lockedAt = null;
+        user.lockedUntil = null;
+        await this.userRepository.save(user as unknown as BaseUser);
+      }
     }
 
     // ============================================================================
@@ -2472,7 +3029,11 @@ export class AuthService {
     switch (challengeSession.challengeName) {
       case AuthChallenge.VERIFY_EMAIL: {
         // Resend email verification
-        const resendDto = Object.assign(new ResendVerificationEmailDTO(), { sub: user.sub });
+        // Pass challengeSessionId to ensure new token is linked to this challenge session
+        const resendDto = Object.assign(new ResendVerificationEmailDTO(), {
+          sub: user.sub,
+          challengeSessionId: challengeSession.id,
+        });
         await this.emailVerificationService.resendVerificationEmail(resendDto);
         const maskedEmail = this.maskEmail(user.email);
         this.logger?.debug?.(`Email verification code resent: user=${user.sub}, email=${maskedEmail}`);
@@ -4027,6 +4588,11 @@ export class AuthService {
       'user.isEmailVerified',
       'user.isPhoneVerified',
       'user.mfaExempt', // Required for MFA exemption check in challenge flow
+      // Lock fields - required for account lock check in login flow
+      'user.isLocked',
+      'user.lockReason',
+      'user.lockedAt',
+      'user.lockedUntil',
       // The following are used for messaging/challenge determination when needed
       'user.socialProviders',
       'user.backupCodes',

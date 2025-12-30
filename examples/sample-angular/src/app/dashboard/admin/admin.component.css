@@ -1,2 +1,76 @@
 /* Admin component styles */
 
+/* Filters Accordion - Make it more distinct and clickable */
+::ng-deep .admin-filters-accordion .p-accordion-header {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+::ng-deep .admin-filters-accordion .p-accordion-header:hover {
+  background-color: #e9ecef;
+}
+
+::ng-deep .admin-filters-accordion .p-accordion-header:not(.p-disabled) .p-accordion-header-link {
+  cursor: pointer;
+}
+
+::ng-deep .admin-filters-accordion .p-accordion-header-link {
+  padding: 0.75rem 1rem;
+  font-weight: 500;
+}
+
+::ng-deep .admin-filters-accordion .p-accordion-content {
+  padding: 1rem;
+  background-color: #ffffff;
+  border: 1px solid #e9ecef;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+}
+
+/* Table scrollbar - Make it always visible and styled */
+::ng-deep .admin-users-table .p-datatable-wrapper {
+  overflow-x: scroll !important;
+  overflow-y: scroll !important;
+}
+
+::ng-deep .admin-users-table .p-datatable-scrollable-body {
+  overflow-x: scroll !important;
+  overflow-y: scroll !important;
+}
+
+/* Custom scrollbar styling for webkit browsers - Always visible */
+::ng-deep .admin-users-table .p-datatable-wrapper::-webkit-scrollbar,
+::ng-deep .admin-users-table .p-datatable-scrollable-body::-webkit-scrollbar {
+  -webkit-appearance: none;
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+
+::ng-deep .admin-users-table .p-datatable-wrapper::-webkit-scrollbar-track,
+::ng-deep .admin-users-table .p-datatable-scrollable-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 6px;
+}
+
+::ng-deep .admin-users-table .p-datatable-wrapper::-webkit-scrollbar-thumb,
+::ng-deep .admin-users-table .p-datatable-scrollable-body::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 6px;
+  border: 2px solid #f1f1f1;
+}
+
+::ng-deep .admin-users-table .p-datatable-wrapper::-webkit-scrollbar-thumb:hover,
+::ng-deep .admin-users-table .p-datatable-scrollable-body::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Firefox scrollbar styling */
+::ng-deep .admin-users-table .p-datatable-wrapper,
+::ng-deep .admin-users-table .p-datatable-scrollable-body {
+  scrollbar-width: thin;
+  scrollbar-color: #c1c1c1 #f1f1f1;
+}
+

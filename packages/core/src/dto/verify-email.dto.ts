@@ -290,6 +290,20 @@ export class ResendVerificationEmailDTO {
     return value;
   })
   baseUrl?: string;
+
+  /**
+   * Challenge session ID (internal use)
+   * Optional - used internally to link verification to specific challenge session.
+   * Provides security by ensuring codes are only valid for the session they were created for.
+   *
+   * Validation:
+   * - Must be a positive integer if provided
+   * - Optional (for backward compatibility and direct verification flows)
+   */
+  @IsOptional()
+  @IsInt({ message: 'Challenge session ID must be an integer' })
+  @Min(1, { message: 'Challenge session ID must be a positive integer' })
+  challengeSessionId?: number;
 }
 
 /**

@@ -1,8 +1,29 @@
-import { Component, OnInit, signal, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
-import { AdminService, AdminSignupRequest } from '../../services/admin.service';
-import { MessageService } from 'primeng/api';
+import {
+  Component,
+  OnInit,
+  signal,
+  computed,
+  inject,
+  ChangeDetectorRef,
+  ViewChild,
+} from '@angular/core';
+import { CommonModule, DatePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import {
+  FormBuilder,
+  FormGroup,
+  Validators,
+  ReactiveFormsModule,
+  AbstractControl,
+  ValidationErrors,
+} from '@angular/forms';
+import {
+  AdminService,
+  AdminSignupRequest,
+  User,
+  GetUsersRequest,
+} from '../../services/admin.service';
+import { MessageService, MenuItem } from 'primeng/api';
 import { CardModule } from 'primeng/card';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -12,6 +33,15 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { DialogModule } from 'primeng/dialog';
 import { MessageModule } from 'primeng/message';
 import { TooltipModule } from 'primeng/tooltip';
+import { TableModule } from 'primeng/table';
+import { PaginatorModule, PaginatorState } from 'primeng/paginator';
+import { TagModule } from 'primeng/tag';
+import { MenuModule, Menu } from 'primeng/menu';
+import { SelectModule } from 'primeng/select';
+import { DatePickerModule } from 'primeng/datepicker';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { AccordionModule } from 'primeng/accordion';
+import { ConfirmationService } from 'primeng/api';
 
 /**
  * Phone number validator
@@ -30,32 +60,12 @@ function phoneValidator(control: AbstractControl): ValidationErrors | null {
 }
 
 /**
- * Password match validator
- *
- * Validates that confirmPassword matches password
- */
-function passwordMatchValidator(control: AbstractControl): ValidationErrors | null {
-  const password = control.parent?.get('password')?.value;
-  const confirmPassword = control.value;
-  if (password && confirmPassword && password !== confirmPassword) {
-    return { passwordMismatch: true };
-  }
-  return null;
-}
-
-/**
  * Admin Component
  *
- * Administrative user management interface with capabilities to:
+ * Administrative user management interface with:
+ * - Paginated user list with advanced filtering
+ * - User actions (reset password, delete, disable, force password change)
  * - Create user accounts with override options
- * - Pre-verify email/phone
- * - Auto-generate passwords
- * - Force password change on first login
- *
- * Future features:
- * - Reset password for any user
- * - User account management
- * - Bulk operations
  *
  * @example
  * ```typescript
@@ -68,6 +78,7 @@ function passwordMatchValidator(control: AbstractControl): ValidationErrors | nu
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     ReactiveFormsModule,
     CardModule,
     ButtonModule,
@@ -78,7 +89,16 @@ function passwordMatchValidator(control: AbstractControl): ValidationErrors | nu
     DialogModule,
     MessageModule,
     TooltipModule,
+    TableModule,
+    PaginatorModule,
+    TagModule,
+    MenuModule,
+    SelectModule,
+    DatePickerModule,
+    ConfirmDialogModule,
+    AccordionModule,
   ],
+  providers: [DatePipe, ConfirmationService],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.css',
 })
@@ -99,6 +119,137 @@ export class AdminComponent implements OnInit {
   private readonly messageService = inject(MessageService);
 
   /**
+   * Confirmation service for dialogs
+   */
+  private readonly confirmationService = inject(ConfirmationService);
+
+  /**
+   * Change detector for manual change detection
+   */
+  private readonly cdr = inject(ChangeDetectorRef);
+
+  /**
+   * Date pipe for formatting
+   */
+  private readonly datePipe = new DatePipe('en-US');
+
+  // ============================================================================
+  // User List State
+  // ============================================================================
+
+  /**
+   * Users data
+   */
+  users = signal<User[]>([]);
+
+  /**
+   * Total number of users
+   */
+  total = signal(0);
+
+  /**
+   * Current page (1-indexed)
+   */
+  page = signal(1);
+
+  /**
+   * Items per page
+   */
+  limit = signal(10);
+
+  /**
+   * Loading state for user list
+   */
+  loading = signal(false);
+
+  /**
+   * Error message
+   */
+  error = signal<string | null>(null);
+
+  /**
+   * Accordion value (controls which panels are open)
+   * null = collapsed by default
+   */
+  accordionValue: number | number[] | null = null;
+
+  /**
+   * Selected user for actions
+   */
+  selectedUser = signal<User | null>(null);
+
+  /**
+   * Action menu items signal
+   */
+  actionMenuItems = signal<MenuItem[]>([]);
+
+  /**
+   * Reference to action menu
+   */
+  @ViewChild('actionMenu') actionMenu!: Menu;
+
+  /**
+   * Get action menu items for a specific user
+   * @param user - User to get menu items for
+   * @returns Array of menu items
+   */
+  getActionMenuItems(user: User): MenuItem[] {
+    return [
+      {
+        label: 'Reset Password',
+        icon: 'pi pi-key',
+        command: () => this.openResetPasswordDialog(user),
+      },
+      {
+        label: 'Force Password Change',
+        icon: 'pi pi-exclamation-triangle',
+        command: () => this.forcePasswordChange(user),
+      },
+      {
+        separator: true,
+      },
+      {
+        label: user.isLocked ? 'Enable User' : 'Disable User',
+        icon: user.isLocked ? 'pi pi-unlock' : 'pi pi-lock',
+        command: () => (user.isLocked ? this.enableUser(user) : this.disableUser(user)),
+      },
+      {
+        separator: true,
+      },
+      {
+        label: 'Delete User',
+        icon: 'pi pi-trash',
+        styleClass: 'text-red-600',
+        command: () => this.confirmDeleteUser(user),
+      },
+    ];
+  }
+
+  // ============================================================================
+  // Filter State
+  // ============================================================================
+
+  /**
+   * Filter form group
+   */
+  filterForm!: FormGroup;
+
+  /**
+   * Date filter options
+   */
+  dateOperatorOptions = [
+    { label: 'After', value: 'gt' },
+    { label: 'On or After', value: 'gte' },
+    { label: 'Before', value: 'lt' },
+    { label: 'On or Before', value: 'lte' },
+    { label: 'Exactly', value: 'eq' },
+  ];
+
+  // ============================================================================
+  // Create User Dialog State
+  // ============================================================================
+
+  /**
    * Create user form group
    */
   createUserForm!: FormGroup;
@@ -111,17 +262,17 @@ export class AdminComponent implements OnInit {
   /**
    * Loading state for form submission
    */
-  loading = signal(false);
+  createLoading = signal(false);
 
   /**
-   * Error message
+   * Error message for create user
    */
-  error = signal<string | null>(null);
+  createError = signal<string | null>(null);
 
   /**
-   * Success message
+   * Success message for create user
    */
-  success = signal<string | null>(null);
+  createSuccess = signal<string | null>(null);
 
   /**
    * Generated password from last user creation
@@ -133,17 +284,74 @@ export class AdminComponent implements OnInit {
    */
   showPasswordDialog = signal(false);
 
+  // ============================================================================
+  // Reset Password Dialog State
+  // ============================================================================
+
+  /**
+   * Reset password form
+   */
+  resetPasswordForm!: FormGroup;
+
+  /**
+   * Show reset password dialog
+   */
+  showResetPasswordDialog = signal(false);
+
+  /**
+   * Loading state for reset password
+   */
+  resetPasswordLoading = signal(false);
+
+  /**
+   * Computed pagination info
+   */
+  paginationInfo = computed(() => {
+    const current = this.page();
+    const total = this.total();
+    const start = (current - 1) * this.limit() + 1;
+    const end = Math.min(current * this.limit(), total);
+    return { start, end, total };
+  });
+
   /**
    * Initialize component
    */
   ngOnInit(): void {
-    this.initializeForm();
+    this.initializeFilterForm();
+    this.initializeCreateUserForm();
+    this.initializeResetPasswordForm();
+    // Defer initial load to next tick
+    Promise.resolve().then(() => {
+      this.loadUsers();
+    });
+  }
+
+  /**
+   * Initialize filter form
+   */
+  private initializeFilterForm(): void {
+    this.filterForm = this.fb.group({
+      email: [''],
+      phone: [''],
+      isEmailVerified: [null],
+      isPhoneVerified: [null],
+      hasSocialAuth: [null],
+      isLocked: [null],
+      mfaEnabled: [null],
+      createdAtOperator: ['gte'],
+      createdAtValue: [null],
+      updatedAtOperator: ['gte'],
+      updatedAtValue: [null],
+      sortBy: ['createdAt'],
+      sortOrder: ['DESC'],
+    });
   }
 
   /**
    * Initialize create user form
    */
-  private initializeForm(): void {
+  private initializeCreateUserForm(): void {
     this.createUserForm = this.fb.group({
       email: ['', [Validators.required, Validators.email, Validators.maxLength(255)]],
       password: ['', [Validators.minLength(8), Validators.maxLength(128)]],
@@ -184,11 +392,305 @@ export class AdminComponent implements OnInit {
       if (generatePassword) {
         passwordControl?.clearValidators();
       } else {
-        passwordControl?.setValidators([Validators.required, Validators.minLength(8), Validators.maxLength(128)]);
+        passwordControl?.setValidators([
+          Validators.required,
+          Validators.minLength(8),
+          Validators.maxLength(128),
+        ]);
       }
       passwordControl?.updateValueAndValidity();
     });
   }
+
+  /**
+   * Initialize reset password form
+   */
+  private initializeResetPasswordForm(): void {
+    this.resetPasswordForm = this.fb.group({
+      password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(128)]],
+    });
+  }
+
+  // ============================================================================
+  // User List Methods
+  // ============================================================================
+
+  /**
+   * Load users from API
+   */
+  async loadUsers(): Promise<void> {
+    this.loading.set(true);
+    this.error.set(null);
+
+    try {
+      const filterValue = this.filterForm.value;
+      const params: GetUsersRequest = {
+        page: this.page(),
+        limit: this.limit(),
+        sortBy: filterValue.sortBy || 'createdAt',
+        sortOrder: filterValue.sortOrder || 'DESC',
+      };
+
+      // Add string filters
+      if (filterValue.email) params.email = filterValue.email.trim();
+      if (filterValue.phone) params.phone = filterValue.phone.trim();
+
+      // Add boolean filters
+      if (filterValue.isEmailVerified !== null && filterValue.isEmailVerified !== '') {
+        params.isEmailVerified = filterValue.isEmailVerified === true;
+      }
+      if (filterValue.isPhoneVerified !== null && filterValue.isPhoneVerified !== '') {
+        params.isPhoneVerified = filterValue.isPhoneVerified === true;
+      }
+      if (filterValue.hasSocialAuth !== null && filterValue.hasSocialAuth !== '') {
+        params.hasSocialAuth = filterValue.hasSocialAuth === true;
+      }
+      if (filterValue.isLocked !== null && filterValue.isLocked !== '') {
+        params.isLocked = filterValue.isLocked === true;
+      }
+      if (filterValue.mfaEnabled !== null && filterValue.mfaEnabled !== '') {
+        params.mfaEnabled = filterValue.mfaEnabled === true;
+      }
+
+      // Add date filters
+      if (filterValue.createdAtValue) {
+        params.createdAt = {
+          operator: filterValue.createdAtOperator || 'gte',
+          value: filterValue.createdAtValue,
+        };
+      }
+      if (filterValue.updatedAtValue) {
+        params.updatedAt = {
+          operator: filterValue.updatedAtOperator || 'gte',
+          value: filterValue.updatedAtValue,
+        };
+      }
+
+      const response = await this.adminService.getUsers(params);
+
+      this.users.set(response.users);
+      this.total.set(response.pagination.total);
+      this.page.set(response.pagination.page);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load users';
+      this.error.set(errorMessage);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Load Users Failed',
+        detail: errorMessage,
+      });
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  /**
+   * Handle page change
+   */
+  onPageChange(event: PaginatorState): void {
+    const first = event.first ?? 0;
+    const rows = event.rows ?? this.limit();
+    const newPage = event.page !== undefined ? event.page + 1 : Math.floor(first / rows) + 1;
+    this.page.set(newPage);
+    this.limit.set(rows);
+    this.loadUsers();
+  }
+
+  /**
+   * Apply filters
+   */
+  applyFilters(): void {
+    this.page.set(1);
+    this.loadUsers();
+  }
+
+  /**
+   * Clear all filters
+   */
+  clearFilters(): void {
+    this.filterForm.reset({
+      isEmailVerified: null,
+      isPhoneVerified: null,
+      hasSocialAuth: null,
+      isLocked: null,
+      mfaEnabled: null,
+      createdAtOperator: 'gte',
+      createdAtValue: null,
+      updatedAtOperator: 'gte',
+      updatedAtValue: null,
+      sortBy: 'createdAt',
+      sortOrder: 'DESC',
+    });
+    this.page.set(1);
+    this.loadUsers();
+  }
+
+  /**
+   * Format date for display
+   */
+  /**
+   * Format user's full name from firstName and lastName
+   * @param user - User object with firstName and lastName
+   * @returns Formatted full name or '-' if no name available
+   */
+  formatName(user: { firstName?: string | null; lastName?: string | null }): string {
+    const parts: string[] = [];
+    if (user.firstName) parts.push(user.firstName);
+    if (user.lastName) parts.push(user.lastName);
+    return parts.length > 0 ? parts.join(' ') : '-';
+  }
+
+  formatDate(date: string | Date): string {
+    return this.datePipe.transform(date, 'medium') || '';
+  }
+
+  /**
+   * Show action menu for user
+   */
+  showActionMenu(event: Event, user: User): void {
+    this.selectedUser.set(user);
+    this.actionMenuItems.set(this.getActionMenuItems(user));
+    this.actionMenu.toggle(event);
+    event.stopPropagation();
+  }
+
+  // ============================================================================
+  // User Action Methods
+  // ============================================================================
+
+  /**
+   * Open reset password dialog
+   */
+  openResetPasswordDialog(user: User): void {
+    this.selectedUser.set(user);
+    this.resetPasswordForm.reset();
+    this.showResetPasswordDialog.set(true);
+  }
+
+  /**
+   * Reset password for user
+   */
+  async resetPassword(): Promise<void> {
+    if (this.resetPasswordForm.invalid) {
+      Object.keys(this.resetPasswordForm.controls).forEach((key) => {
+        this.resetPasswordForm.get(key)?.markAsTouched();
+      });
+      return;
+    }
+
+    const user = this.selectedUser();
+    if (!user) return;
+
+    this.resetPasswordLoading.set(true);
+
+    try {
+      await this.adminService.setPassword(user.email, this.resetPasswordForm.value.password);
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Password Reset',
+        detail: `Password has been reset for ${user.email}`,
+      });
+      this.showResetPasswordDialog.set(false);
+      this.selectedUser.set(null);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to reset password';
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Reset Password Failed',
+        detail: errorMessage,
+      });
+    } finally {
+      this.resetPasswordLoading.set(false);
+    }
+  }
+
+  /**
+   * Force password change on next login
+   */
+  async forcePasswordChange(user: User): Promise<void> {
+    // TODO: Implement when API is available
+    this.messageService.add({
+      severity: 'info',
+      summary: 'Coming Soon',
+      detail: 'Force password change feature will be available soon',
+    });
+  }
+
+  /**
+   * Disable user account
+   */
+  async disableUser(user: User): Promise<void> {
+    this.confirmationService.confirm({
+      message: `Are you sure you want to disable user ${user.email}? This will lock their account and revoke all active sessions.`,
+      header: 'Disable User',
+      icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: async () => {
+        try {
+          const response = await this.adminService.disableUser(user.sub);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'User Disabled',
+            detail: `User ${user.email} has been disabled. ${response.revokedSessions} session(s) revoked.`,
+          });
+          this.loadUsers();
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : 'Failed to disable user';
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Disable User Failed',
+            detail: errorMessage,
+          });
+        }
+      },
+    });
+  }
+
+  /**
+   * Enable user account
+   */
+  async enableUser(user: User): Promise<void> {
+    // TODO: Implement when API is available
+    this.messageService.add({
+      severity: 'info',
+      summary: 'Coming Soon',
+      detail: 'Enable user feature will be available soon',
+    });
+  }
+
+  /**
+   * Confirm and delete user
+   */
+  confirmDeleteUser(user: User): void {
+    this.confirmationService.confirm({
+      message: `Are you sure you want to permanently delete user ${user.email}? This action cannot be undone and will delete all associated data including sessions, tokens, and audit trails.`,
+      header: 'Delete User',
+      icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: async () => {
+        try {
+          const response = await this.adminService.deleteUser(user.sub);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'User Deleted',
+            detail: `User ${user.email} and all associated data have been permanently deleted.`,
+          });
+          this.loadUsers();
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : 'Failed to delete user';
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Delete User Failed',
+            detail: errorMessage,
+          });
+        }
+      },
+    });
+  }
+
+  // ============================================================================
+  // Create User Methods
+  // ============================================================================
 
   /**
    * Open create user dialog
@@ -200,8 +702,8 @@ export class AdminComponent implements OnInit {
       mustChangePassword: false,
       generatePassword: false,
     });
-    this.error.set(null);
-    this.success.set(null);
+    this.createError.set(null);
+    this.createSuccess.set(null);
     this.generatedPassword.set(null);
     this.showDialog.set(true);
   }
@@ -211,27 +713,24 @@ export class AdminComponent implements OnInit {
    */
   closeDialog(): void {
     this.showDialog.set(false);
-    this.error.set(null);
-    this.success.set(null);
+    this.createError.set(null);
+    this.createSuccess.set(null);
   }
 
   /**
    * Handle form submission
-   *
-   * Creates a new user account with admin privileges.
    */
   onSubmit(): void {
     if (this.createUserForm.invalid) {
-      // Mark all fields as touched to show validation errors
       Object.keys(this.createUserForm.controls).forEach((key) => {
         this.createUserForm.get(key)?.markAsTouched();
       });
       return;
     }
 
-    this.loading.set(true);
-    this.error.set(null);
-    this.success.set(null);
+    this.createLoading.set(true);
+    this.createError.set(null);
+    this.createSuccess.set(null);
     this.generatedPassword.set(null);
 
     const formValue = this.createUserForm.value;
@@ -247,7 +746,6 @@ export class AdminComponent implements OnInit {
       generatePassword: formValue.generatePassword || false,
     };
 
-    // Only include password if not generating
     if (!dto.generatePassword && formValue.password) {
       dto.password = formValue.password;
     }
@@ -255,8 +753,8 @@ export class AdminComponent implements OnInit {
     this.adminService
       .createUser(dto)
       .then((response) => {
-        this.loading.set(false);
-        this.success.set(`User ${response.user.email} created successfully`);
+        this.createLoading.set(false);
+        this.createSuccess.set(`User ${response.user.email} created successfully`);
         this.createUserForm.reset({
           isEmailVerified: false,
           isPhoneVerified: false,
@@ -264,12 +762,10 @@ export class AdminComponent implements OnInit {
           generatePassword: false,
         });
 
-        // Show generated password dialog if password was generated
         if (response.generatedPassword) {
           this.generatedPassword.set(response.generatedPassword);
           this.showPasswordDialog.set(true);
         } else {
-          // Close dialog after short delay
           setTimeout(() => {
             this.closeDialog();
           }, 2000);
@@ -280,11 +776,14 @@ export class AdminComponent implements OnInit {
           summary: 'User Created',
           detail: `User ${response.user.email} has been created successfully`,
         });
+
+        // Reload user list
+        this.loadUsers();
       })
       .catch((err: unknown) => {
-        this.loading.set(false);
+        this.createLoading.set(false);
         const errorMessage = err instanceof Error ? err.message : 'Failed to create user';
-        this.error.set(errorMessage);
+        this.createError.set(errorMessage);
         this.messageService.add({
           severity: 'error',
           summary: 'Create User Failed',
@@ -307,7 +806,7 @@ export class AdminComponent implements OnInit {
           detail: 'Generated password has been copied to clipboard',
         });
       } catch {
-        // Clipboard API not available - just close dialog
+        // Clipboard API not available
       }
     }
     this.showPasswordDialog.set(false);
@@ -324,4 +823,3 @@ export class AdminComponent implements OnInit {
     this.closeDialog();
   }
 }
-

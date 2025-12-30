@@ -1,6 +1,5 @@
 import { BaseSocialAuthProviderService } from './social-auth-base.service';
 import { AuthService } from './auth.service';
-import { SocialAuthService } from './social-auth.service';
 import { JwtService } from './jwt.service';
 import { SessionService } from './session.service';
 import { AuthChallengeHelperService } from './auth-challenge-helper.service';
@@ -15,7 +14,7 @@ import { AuthErrorCode } from '../enums/error-codes.enum';
 import { IUser } from '../interfaces/entities.interface';
 import { ISocialAuthStateStore } from '../interfaces/social-auth-state-store.interface';
 import type { Repository } from 'typeorm';
-import type { BaseUser } from '../entities';
+import type { BaseUser, BaseSocialAccount } from '../entities';
 
 /**
  * Test implementation of BaseSocialAuthProviderService
@@ -73,13 +72,13 @@ describe('BaseSocialAuthProviderService', () => {
     createSocialUser: (...args: unknown[]) => Promise<IUser>;
   };
   let mockAuthService: jest.Mocked<AuthServiceMockShape>;
-  let mockSocialAuthService: jest.Mocked<SocialAuthService>;
   let mockJwtService: jest.Mocked<JwtService>;
   let mockSessionService: jest.Mocked<SessionService>;
   let mockChallengeHelper: jest.Mocked<AuthChallengeHelperService>;
   let mockClientInfoService: jest.Mocked<ClientInfoService>;
   let mockStateStore: jest.Mocked<ISocialAuthStateStore>;
   let mockUserRepository: jest.Mocked<Repository<BaseUser>>;
+  let mockSocialAccountRepository: jest.Mocked<Repository<BaseSocialAccount>>;
   let mockPhoneVerificationService: jest.Mocked<PhoneVerificationService>;
   let mockAuditService: jest.Mocked<AuthAuditService>;
   let mockUser: IUser;
@@ -116,11 +115,6 @@ describe('BaseSocialAuthProviderService', () => {
       getUserById: jest.fn(),
       getUserByEmail: jest.fn(),
       createSocialUser: jest.fn(),
-    } as any;
-
-    mockSocialAuthService = {
-      findSocialAccountByProvider: jest.fn(),
-      createOrUpdateSocialAccount: jest.fn(),
     } as any;
 
     mockJwtService = {
@@ -177,7 +171,14 @@ describe('BaseSocialAuthProviderService', () => {
       findOne: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
+      update: jest.fn(),
     } as unknown as jest.Mocked<Repository<BaseUser>>;
+    mockSocialAccountRepository = {
+      findOne: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
+      create: jest.fn(),
+      save: jest.fn(),
+    } as unknown as jest.Mocked<Repository<BaseSocialAccount>>;
     mockPhoneVerificationService = {} as any;
     mockAuditService = {
       recordEvent: jest.fn(),
@@ -194,13 +195,13 @@ describe('BaseSocialAuthProviderService', () => {
       mockConfig,
       mockLogger,
       mockAuthService as unknown as AuthService,
-      mockSocialAuthService,
       mockJwtService,
       mockSessionService,
       mockChallengeHelper,
       mockClientInfoService,
       mockStateStore,
       mockUserRepository,
+      mockSocialAccountRepository,
       mockPhoneVerificationService,
       mockAuditService,
     );
@@ -227,13 +228,13 @@ describe('BaseSocialAuthProviderService', () => {
         mockConfig,
         mockLogger,
         mockAuthService as unknown as AuthService,
-        mockSocialAuthService,
         mockJwtService,
         mockSessionService,
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
         mockUserRepository,
+        mockSocialAccountRepository,
         mockPhoneVerificationService,
         mockAuditService,
       );
@@ -288,13 +289,13 @@ describe('BaseSocialAuthProviderService', () => {
         mockConfig,
         mockLogger,
         mockAuthService as unknown as AuthService,
-        mockSocialAuthService,
         mockJwtService,
         mockSessionService,
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
         mockUserRepository,
+        mockSocialAccountRepository,
         mockPhoneVerificationService,
         mockAuditService,
       );
@@ -330,13 +331,13 @@ describe('BaseSocialAuthProviderService', () => {
         mockConfig,
         mockLogger,
         mockAuthService as unknown as AuthService,
-        mockSocialAuthService,
         mockJwtService,
         mockSessionService,
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
         mockUserRepository,
+        mockSocialAccountRepository,
         mockPhoneVerificationService,
         mockAuditService,
       );
@@ -366,14 +367,15 @@ describe('BaseSocialAuthProviderService', () => {
 
     it('should throw error when account is already linked', async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
-      // The check happens after getOAuthProfile, so we need to mock it to return an account
+      // The check happens after getOAuthProfile, so we need to mock the repository to return an account
       // when called with the provider name and profile.id from getOAuthProfile
-      mockSocialAuthService.findSocialAccountByProvider.mockImplementation((provider, providerUserId) => {
-        if (provider === 'test' && providerUserId === 'test-user-id') {
+      mockSocialAccountRepository.findOne.mockImplementation((options: any) => {
+        if (options?.where?.provider === 'test' && options?.where?.providerId === 'test-user-id') {
           return Promise.resolve({
             id: 1,
             provider: 'test',
-            providerUserId: 'test-user-id',
+            providerId: 'test-user-id',
+            user: { id: 2 }, // Different user
           } as any);
         }
         return Promise.resolve(null);

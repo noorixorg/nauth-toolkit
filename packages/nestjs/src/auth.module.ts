@@ -876,6 +876,12 @@ export class AuthModule {
             trustedDeviceService?: TrustedDeviceService,
             passwordResetService?: PasswordResetService,
             socialAuthService?: SocialAuthService, // Optional - only available when social auth is configured
+            sessionRepository?: Repository<BaseSession>, // Optional - for cascade deletion
+            verificationTokenRepository?: Repository<BaseVerificationToken>, // Optional - for cascade deletion
+            socialAccountRepository?: Repository<BaseSocialAccount>, // Optional - for cascade deletion
+            challengeSessionRepository?: Repository<BaseChallengeSession>, // Optional - for cascade deletion
+            authAuditRepository?: Repository<BaseAuthAudit>, // Optional - for cascade deletion
+            trustedDeviceRepository?: Repository<BaseTrustedDevice>, // Optional - for cascade deletion
           ) => {
             return new AuthService(
               userRepository,
@@ -897,6 +903,12 @@ export class AuthModule {
               trustedDeviceService,
               passwordResetService,
               socialAuthService,
+              sessionRepository,
+              verificationTokenRepository,
+              socialAccountRepository,
+              challengeSessionRepository,
+              authAuditRepository,
+              trustedDeviceRepository,
             );
           },
           inject: [
@@ -919,6 +931,12 @@ export class AuthModule {
             { token: TrustedDeviceService, optional: true },
             { token: PasswordResetService, optional: true },
             { token: SocialAuthService, optional: true }, // Optional - only available when social auth is configured
+            { token: 'SessionRepository', optional: true }, // Optional - for cascade deletion
+            { token: 'VerificationTokenRepository', optional: true }, // Optional - for cascade deletion
+            { token: 'SocialAccountRepository', optional: true }, // Optional - for cascade deletion
+            { token: 'ChallengeSessionRepository', optional: true }, // Optional - for cascade deletion
+            { token: 'AuthAuditRepository', optional: true }, // Optional - for cascade deletion
+            { token: 'TrustedDeviceRepository', optional: true }, // Optional - for cascade deletion
           ],
         },
         {
@@ -981,7 +999,7 @@ export class AuthModule {
             { token: ChallengeService, optional: true },
             { token: 'NAUTH_CONFIG', optional: true },
             { token: 'NAUTH_LOGGER', optional: true },
-            { token: AuthAuditService, optional: true },
+            { token: InternalAuthAuditService, optional: true },
             { token: ClientInfoService, optional: true },
           ],
         },
@@ -991,7 +1009,6 @@ export class AuthModule {
             providerRegistry: SocialProviderRegistry,
             userRepository: Repository<BaseUser>,
             socialAccountRepository: Repository<BaseSocialAccount>,
-            authService: AuthService,
             logger: NAuthLogger,
             auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
           ) => {
@@ -999,7 +1016,7 @@ export class AuthModule {
               providerRegistry,
               userRepository,
               socialAccountRepository,
-              authService,
+              null, // Don't inject AuthService to avoid circular dependency
               logger,
               auditService,
             );
@@ -1008,7 +1025,6 @@ export class AuthModule {
             SocialProviderRegistry,
             'UserRepository',
             'SocialAccountRepository',
-            AuthService,
             'NAUTH_LOGGER',
             { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
           ],
@@ -1445,6 +1461,7 @@ export class AuthModule {
       ],
       exports: [
         AuthService,
+        SocialAuthService, // Needed by social auth provider modules
         PasswordService,
         JwtService,
         SessionService,
@@ -1480,6 +1497,7 @@ export class AuthModule {
         // WARNING: These are for INTERNAL toolkit packages ONLY, not consumer apps
         // Consumer apps should use service methods (AuthService, MFAService, etc.) instead of direct repository access
         'UserRepository',
+        'SocialAccountRepository', // Needed by social auth provider modules
         'MFADeviceRepository',
         // Needed by @nauth-toolkit/social-apple for Apple JWT client secret rotation
         'SocialProviderSecretRepository',

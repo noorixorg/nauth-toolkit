@@ -70,10 +70,16 @@ All DTOs are automatically validated by framework adapters. No manual validation
 
 | DTO                                                                | Description                  | Documentation                                                                       |
 | ------------------------------------------------------------------ | ---------------------------- | ----------------------------------------------------------------------------------- |
+| [AdminSetPasswordDTO](./admin-set-password-dto)                    | Admin password reset         | Set user password by identifier                                                     |
 | [AdminSignupDTO](./admin-signup-dto)                               | Admin user creation          | Create user with override capabilities (bypass verification, force password change) |
 | [AdminSignupSocialDTO](./admin-signup-social-dto)                  | Admin social user import     | Import social users from external platforms (Cognito, Auth0) with social linkage    |
 | [AdminSignupSocialResponseDTO](./admin-signup-social-response-dto) | Admin social import response | User object and social account confirmation                                         |
-| [AdminSetPasswordDTO](./admin-set-password-dto)                    | Admin password reset         | Set user password by identifier                                                     |
+| [DeleteUserDTO](./delete-user-dto)                                 | Admin user deletion          | Hard delete user with complete cascade cleanup                                      |
+| [DeleteUserResponseDTO](./delete-user-response-dto)                | Admin deletion response      | Deletion confirmation with cascade counts                                           |
+| [DisableUserDTO](./disable-user-dto)                               | Admin account locking        | Permanent account lock with session revocation                                      |
+| [DisableUserResponseDTO](./disable-user-response-dto)              | Admin lock response          | Lock confirmation with revoked session count                                        |
+| [GetUsersDTO](./get-users-dto)                                     | Admin user listing           | Paginated user search with advanced filtering                                       |
+| [GetUsersResponseDTO](./get-users-response-dto)                    | Admin listing response       | User list with pagination metadata                                                  |
 
 ## Password Management DTOs
 

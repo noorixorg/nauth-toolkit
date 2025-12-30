@@ -18,31 +18,344 @@
   </ng-template>
 
   <div class="p-6">
-    <p class="text-secondary-600 mb-4">
-      Administrative user management. Create user accounts with override capabilities including pre-verified
-      email/phone, auto-generated passwords, and force password change options.
-    </p>
+    <!-- Filters -->
+    <p-accordion [(value)]="accordionValue" styleClass="admin-filters-accordion">
+      <p-accordion-panel [value]="0">
+        <p-accordion-header>
+          <span>Filters</span>
+        </p-accordion-header>
+        <p-accordion-content>
+          <form [formGroup]="filterForm" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <!-- Email Filter -->
+              <div>
+                <label class="form-label-section">Email</label>
+                <input
+                  pInputText
+                  formControlName="email"
+                  placeholder="Filter by email"
+                  class="w-full"
+                />
+              </div>
 
-    <div class="space-y-2">
-      <div class="flex items-center gap-2 text-sm text-secondary-700">
-        <i class="pi pi-check-circle text-primary-600"></i>
-        <span>Create users with pre-verified email/phone</span>
+              <!-- Phone Filter -->
+              <div>
+                <label class="form-label-section">Phone</label>
+                <input
+                  pInputText
+                  formControlName="phone"
+                  placeholder="Filter by phone"
+                  class="w-full"
+                />
+              </div>
+
+              <!-- Email Verified -->
+              <div>
+                <label class="form-label-section">Email Verified</label>
+                <p-select
+                  formControlName="isEmailVerified"
+                  [options]="[
+                    { label: 'All', value: null },
+                    { label: 'Yes', value: true },
+                    { label: 'No', value: false },
+                  ]"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Select"
+                  class="w-full"
+                />
+              </div>
+
+              <!-- Phone Verified -->
+              <div>
+                <label class="form-label-section">Phone Verified</label>
+                <p-select
+                  formControlName="isPhoneVerified"
+                  [options]="[
+                    { label: 'All', value: null },
+                    { label: 'Yes', value: true },
+                    { label: 'No', value: false },
+                  ]"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Select"
+                  class="w-full"
+                />
+              </div>
+
+              <!-- Has Social Auth -->
+              <div>
+                <label class="form-label-section">Has Social Auth</label>
+                <p-select
+                  formControlName="hasSocialAuth"
+                  [options]="[
+                    { label: 'All', value: null },
+                    { label: 'Yes', value: true },
+                    { label: 'No', value: false },
+                  ]"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Select"
+                  class="w-full"
+                />
+              </div>
+
+              <!-- Is Locked -->
+              <div>
+                <label class="form-label-section">Account Status</label>
+                <p-select
+                  formControlName="isLocked"
+                  [options]="[
+                    { label: 'All', value: null },
+                    { label: 'Locked', value: true },
+                    { label: 'Active', value: false },
+                  ]"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Select"
+                  class="w-full"
+                />
+              </div>
+
+              <!-- MFA Enabled -->
+              <div>
+                <label class="form-label-section">MFA Enabled</label>
+                <p-select
+                  formControlName="mfaEnabled"
+                  [options]="[
+                    { label: 'All', value: null },
+                    { label: 'Yes', value: true },
+                    { label: 'No', value: false },
+                  ]"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Select"
+                  class="w-full"
+                />
+              </div>
+
+              <!-- Created At Filter -->
+              <div>
+                <label class="form-label-section">Created At</label>
+                <div class="flex gap-2">
+                  <p-select
+                    formControlName="createdAtOperator"
+                    [options]="dateOperatorOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    class="w-32"
+                  />
+                  <p-datepicker
+                    formControlName="createdAtValue"
+                    [readonlyInput]="true"
+                    dateFormat="yy-mm-dd"
+                    placeholder="Select date"
+                    class="flex-1"
+                    [showIcon]="true"
+                  />
+                </div>
+              </div>
+
+              <!-- Updated At Filter -->
+              <div>
+                <label class="form-label-section">Updated At</label>
+                <div class="flex gap-2">
+                  <p-select
+                    formControlName="updatedAtOperator"
+                    [options]="dateOperatorOptions"
+                    optionLabel="label"
+                    optionValue="value"
+                    class="w-32"
+                  />
+                  <p-datepicker
+                    formControlName="updatedAtValue"
+                    [readonlyInput]="true"
+                    dateFormat="yy-mm-dd"
+                    placeholder="Select date"
+                    class="flex-1"
+                    [showIcon]="true"
+                  />
+                </div>
+              </div>
+
+              <!-- Sort By -->
+              <div>
+                <label class="form-label-section">Sort By</label>
+                <p-select
+                  formControlName="sortBy"
+                  [options]="[
+                    { label: 'Created At', value: 'createdAt' },
+                    { label: 'Updated At', value: 'updatedAt' },
+                    { label: 'Email', value: 'email' },
+                    { label: 'Phone', value: 'phone' },
+                  ]"
+                  optionLabel="label"
+                  optionValue="value"
+                  class="w-full"
+                />
+              </div>
+
+              <!-- Sort Order -->
+              <div>
+                <label class="form-label-section">Sort Order</label>
+                <p-select
+                  formControlName="sortOrder"
+                  [options]="[
+                    { label: 'Descending', value: 'DESC' },
+                    { label: 'Ascending', value: 'ASC' },
+                  ]"
+                  optionLabel="label"
+                  optionValue="value"
+                  class="w-full"
+                />
+              </div>
+
+              <!-- Filter Actions -->
+              <div class="flex items-end gap-2">
+                <p-button
+                  label="Apply"
+                  icon="pi pi-filter"
+                  severity="primary"
+                  size="small"
+                  class="flex-1"
+                  (onClick)="applyFilters()"
+                />
+                <p-button
+                  label="Clear"
+                  icon="pi pi-filter-slash"
+                  severity="secondary"
+                  size="small"
+                  class="flex-1"
+                  (onClick)="clearFilters()"
+                />
+              </div>
+            </div>
+          </form>
+        </p-accordion-content>
+      </p-accordion-panel>
+    </p-accordion>
+
+    <!-- Error Message -->
+    @if (error()) {
+      <p-message severity="error" [text]="error() || ''" styleClass="w-full mb-4 mt-4" />
+    }
+
+    <!-- Table -->
+    <p-table
+      [value]="users()"
+      [loading]="loading()"
+      [paginator]="false"
+      [rowHover]="true"
+      [rows]="limit()"
+      [lazy]="true"
+      [totalRecords]="total()"
+      [scrollable]="true"
+      scrollHeight="400px"
+      responsiveLayout="scroll"
+      class="mt-4 admin-users-table"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="min-width: 12rem">Name</th>
+          <th style="min-width: 200px; max-width: 200px">Email</th>
+          <th style="min-width: 10rem" class="hide-mobile">Phone</th>
+          <th style="min-width: 6rem">Status</th>
+          <th style="min-width: 6rem" class="hide-mobile">Verified</th>
+          <th style="min-width: 6rem" class="hide-mobile">MFA</th>
+          <th style="min-width: 10rem" class="hide-mobile">Created</th>
+          <th style="min-width: 6rem">Actions</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-user>
+        <tr>
+          <td>
+            <span class="font-medium text-secondary-900">{{ formatName(user) }}</span>
+          </td>
+          <td style="max-width: 200px">
+            <span
+              class="font-medium text-secondary-900 block truncate"
+              [pTooltip]="user.email"
+              tooltipPosition="top"
+              >{{ user.email }}</span
+            >
+          </td>
+          <td class="hide-mobile">
+            <span class="text-secondary-700 font-mono text-xs">{{ user.phone || '-' }}</span>
+          </td>
+          <td>
+            @if (user.isLocked) {
+              <p-tag value="Locked" severity="danger" />
+            } @else {
+              <p-tag value="Active" severity="success" />
+            }
+          </td>
+          <td class="hide-mobile">
+            <div class="flex gap-1">
+              @if (user.isEmailVerified) {
+                <i class="pi pi-check-circle text-green-600" pTooltip="Email verified"></i>
+              } @else {
+                <i class="pi pi-times-circle text-red-600" pTooltip="Email not verified"></i>
+              }
+              @if (user.isPhoneVerified) {
+                <i class="pi pi-check-circle text-green-600" pTooltip="Phone verified"></i>
+              } @else {
+                <i class="pi pi-times-circle text-red-600" pTooltip="Phone not verified"></i>
+              }
+            </div>
+          </td>
+          <td class="hide-mobile">
+            @if (user.mfaEnabled) {
+              <i class="pi pi-shield text-primary-600" pTooltip="MFA enabled"></i>
+            } @else {
+              <span class="text-secondary-400">-</span>
+            }
+          </td>
+          <td class="hide-mobile">
+            <span class="text-secondary-700 text-sm">{{ formatDate(user.createdAt) }}</span>
+          </td>
+          <td>
+            <p-button
+              icon="pi pi-ellipsis-v"
+              [text]="true"
+              severity="secondary"
+              size="small"
+              (onClick)="showActionMenu($event, user)"
+            />
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="8" class="text-center p-6">
+            <p class="text-secondary-500">No users found</p>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+
+    <!-- Pagination -->
+    @if (total() > 0) {
+      <div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="text-sm text-secondary-600">
+          Showing {{ paginationInfo().start }} to {{ paginationInfo().end }} of
+          {{ paginationInfo().total }} entries
+        </div>
+        <p-paginator
+          [rows]="limit()"
+          [totalRecords]="total()"
+          [first]="(page() - 1) * limit()"
+          (onPageChange)="onPageChange($event)"
+          [rowsPerPageOptions]="[10, 20, 50]"
+        />
       </div>
-      <div class="flex items-center gap-2 text-sm text-secondary-700">
-        <i class="pi pi-check-circle text-primary-600"></i>
-        <span>Auto-generate secure passwords</span>
-      </div>
-      <div class="flex items-center gap-2 text-sm text-secondary-700">
-        <i class="pi pi-check-circle text-primary-600"></i>
-        <span>Force password change on first login</span>
-      </div>
-      <div class="flex items-center gap-2 text-sm text-secondary-700">
-        <i class="pi pi-clock text-secondary-500"></i>
-        <span class="text-secondary-500">Reset password for any user (coming soon)</span>
-      </div>
-    </div>
+    }
   </div>
 </p-card>
+
+<!-- Single menu instance for all users (outside table) -->
+<p-menu #actionMenu [model]="actionMenuItems()" [popup]="true" appendTo="body" />
+
+<p-confirmDialog [style]="{ width: '600px', maxWidth: '90vw' }" />
 
 <!-- Create User Dialog -->
 <p-dialog
@@ -58,14 +371,14 @@
 >
   <form [formGroup]="createUserForm" (ngSubmit)="onSubmit()" class="space-y-4">
     <!-- Error Message -->
-    @if (error(); as errorMessage) {
+    @if (createError(); as errorMessage) {
       <div class="mb-4">
         <p-message severity="error" [text]="errorMessage" styleClass="w-full" />
       </div>
     }
 
     <!-- Success Message -->
-    @if (success(); as successMessage) {
+    @if (createSuccess(); as successMessage) {
       <div class="mb-4">
         <p-message severity="success" [text]="successMessage" styleClass="w-full" />
       </div>
@@ -73,9 +386,7 @@
 
     <!-- Email Field -->
     <div class="flex flex-col gap-2">
-      <label for="email" class="form-label">
-        Email <span class="form-required">*</span>
-      </label>
+      <label for="email" class="form-label"> Email <span class="form-required">*</span> </label>
       <input
         id="email"
         type="email"
@@ -83,7 +394,9 @@
         formControlName="email"
         placeholder="user@example.com"
         maxlength="255"
-        [class.p-invalid]="createUserForm.get('email')?.invalid && createUserForm.get('email')?.touched"
+        [class.p-invalid]="
+          createUserForm.get('email')?.invalid && createUserForm.get('email')?.touched
+        "
         class="w-full"
       />
       @if (createUserForm.get('email')?.invalid && createUserForm.get('email')?.touched) {
@@ -184,9 +497,7 @@
           "
           class="w-full"
         />
-        @if (
-          createUserForm.get('firstName')?.invalid && createUserForm.get('firstName')?.touched
-        ) {
+        @if (createUserForm.get('firstName')?.invalid && createUserForm.get('firstName')?.touched) {
           <small class="p-error">
             @if (createUserForm.get('firstName')?.errors?.['maxlength']) {
               First name must not exceed 100 characters
@@ -212,9 +523,7 @@
           "
           class="w-full"
         />
-        @if (
-          createUserForm.get('lastName')?.invalid && createUserForm.get('lastName')?.touched
-        ) {
+        @if (createUserForm.get('lastName')?.invalid && createUserForm.get('lastName')?.touched) {
           <small class="p-error">
             @if (createUserForm.get('lastName')?.errors?.['maxlength']) {
               Last name must not exceed 100 characters
@@ -237,7 +546,9 @@
         placeholder="+14155552671"
         [unmask]="false"
         [autoClear]="false"
-        [class.p-invalid]="createUserForm.get('phone')?.invalid && createUserForm.get('phone')?.touched"
+        [class.p-invalid]="
+          createUserForm.get('phone')?.invalid && createUserForm.get('phone')?.touched
+        "
         styleClass="w-full"
         inputStyleClass="w-full"
       />
@@ -250,7 +561,9 @@
           }
         </small>
       }
-      <small class="text-secondary-500 text-xs">Format: +[country code][number] (e.g., +14155552671)</small>
+      <small class="text-secondary-500 text-xs"
+        >Format: +[country code][number] (e.g., +14155552671)</small
+      >
     </div>
 
     <!-- Admin Override Options -->
@@ -293,14 +606,82 @@
         severity="secondary"
         [outlined]="true"
         (onClick)="closeDialog()"
-        [disabled]="loading()"
+        [disabled]="createLoading()"
       />
       <p-button
         type="submit"
-        label="{{ loading() ? 'Creating...' : 'Create User' }}"
-        [disabled]="createUserForm.invalid || loading()"
-        [loading]="loading()"
+        label="{{ createLoading() ? 'Creating...' : 'Create User' }}"
+        [disabled]="createUserForm.invalid || createLoading()"
+        [loading]="createLoading()"
         icon="pi pi-user-plus"
+      />
+    </div>
+  </form>
+</p-dialog>
+
+<!-- Reset Password Dialog -->
+<p-dialog
+  [visible]="showResetPasswordDialog()"
+  (visibleChange)="showResetPasswordDialog.set($event)"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '550px', maxWidth: '90vw' }"
+  header="Reset Password"
+>
+  <form [formGroup]="resetPasswordForm" (ngSubmit)="resetPassword()" class="space-y-4">
+    @if (selectedUser(); as user) {
+      <p class="text-secondary-700 mb-4">
+        Reset password for <strong>{{ user.email }}</strong>
+      </p>
+    }
+
+    <!-- Password Field -->
+    <div class="flex flex-col gap-2">
+      <label for="resetPassword" class="form-label">
+        New Password <span class="form-required">*</span>
+      </label>
+      <p-password
+        id="resetPassword"
+        formControlName="password"
+        placeholder="Enter new password"
+        [toggleMask]="true"
+        [feedback]="true"
+        [class.p-invalid]="
+          resetPasswordForm.get('password')?.invalid && resetPasswordForm.get('password')?.touched
+        "
+        styleClass="w-full"
+        inputStyleClass="w-full"
+      />
+      @if (
+        resetPasswordForm.get('password')?.invalid && resetPasswordForm.get('password')?.touched
+      ) {
+        <small class="p-error">
+          @if (resetPasswordForm.get('password')?.errors?.['required']) {
+            Password is required
+          } @else if (resetPasswordForm.get('password')?.errors?.['minlength']) {
+            Password must be at least 8 characters
+          }
+        </small>
+      }
+    </div>
+
+    <!-- Submit Button -->
+    <div class="flex justify-end gap-2 pt-4">
+      <p-button
+        label="Cancel"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="showResetPasswordDialog.set(false)"
+        [disabled]="resetPasswordLoading()"
+      />
+      <p-button
+        type="submit"
+        label="{{ resetPasswordLoading() ? 'Resetting...' : 'Reset Password' }}"
+        [disabled]="resetPasswordForm.invalid || resetPasswordLoading()"
+        [loading]="resetPasswordLoading()"
+        icon="pi pi-key"
       />
     </div>
   </form>
@@ -314,14 +695,14 @@
   [closable]="true"
   [draggable]="false"
   [resizable]="false"
-  [style]="{ width: '500px', maxWidth: '90vw' }"
+  [style]="{ width: '550px', maxWidth: '90vw' }"
   header="Generated Password"
   (onHide)="closePasswordDialog()"
 >
   <div class="space-y-4">
     <p class="text-secondary-700">
-      A secure password has been generated for the new user. Please copy this password and deliver it
-      securely to the user.
+      A secure password has been generated for the new user. Please copy this password and deliver
+      it securely to the user.
     </p>
 
     <div class="bg-secondary-50 border border-secondary-200 rounded-lg p-4">
@@ -345,19 +726,16 @@
         <i class="pi pi-exclamation-triangle text-amber-600 mt-0.5"></i>
         <div class="text-sm text-amber-800">
           <p class="font-semibold mb-1">Security Warning</p>
-          <p>This password is shown only once. It will not be displayed again. Make sure to copy it
-            before closing this dialog.</p>
+          <p>
+            This password is shown only once. It will not be displayed again. Make sure to copy it
+            before closing this dialog.
+          </p>
         </div>
       </div>
     </div>
 
     <div class="flex justify-end gap-2 pt-4">
-      <p-button
-        label="I've Copied It"
-        severity="primary"
-        (onClick)="closePasswordDialog()"
-      />
+      <p-button label="I've Copied It" severity="primary" (onClick)="closePasswordDialog()" />
     </div>
   </div>
 </p-dialog>
-

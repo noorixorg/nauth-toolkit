@@ -21,6 +21,11 @@ import {
   SignupDTO,
   AdminSignupDTO,
   AdminSignupResponseDTO,
+  AdminSetPasswordDTO,
+  DeleteUserResponseDTO,
+  DisableUserResponseDTO,
+  GetUsersDTO,
+  GetUsersResponseDTO,
   LoginDTO,
   AuthResponseDTO,
   AuthGuard,
@@ -177,6 +182,79 @@ export class CustomAuthController {
     // NOTE: No @Public() decorator - endpoint should be protected by admin guard
     // This is intentionally unprotected at the framework level - users must add their own guard
     return await this.authService.adminSignup(dto);
+  }
+
+  /**
+   * Administrative password reset
+   *
+   * Allows administrators to set a new password for any user.
+   *
+   * **SECURITY WARNING:** This endpoint has NO built-in authentication.
+   * You MUST protect it with your own admin authentication guard.
+   *
+   * @param dto - Admin set password DTO
+   * @returns Success confirmation
+   */
+  @Post('admin/set-password')
+  @HttpCode(HttpStatus.OK)
+  async adminSetPassword(@Body() dto: AdminSetPasswordDTO): Promise<{ success: boolean }> {
+    this.logger.log(`Admin set password attempt for: ${dto.identifier}`);
+    await this.authService.adminSetPassword(dto);
+    return { success: true };
+  }
+
+  /**
+   * Delete user with cascade cleanup
+   *
+   * Permanently deletes user and ALL associated data including sessions, tokens, devices, etc.
+   *
+   * **SECURITY WARNING:** This endpoint has NO built-in authentication.
+   * You MUST protect it with your own admin authentication guard.
+   *
+   * @param dto - Delete user DTO with user sub
+   * @returns Deletion confirmation with cascade counts
+   */
+  @Delete('admin/users/:sub')
+  @HttpCode(HttpStatus.OK)
+  async deleteUser(@Param('sub') sub: string): Promise<DeleteUserResponseDTO> {
+    this.logger.log(`Admin delete user attempt: ${sub}`);
+    return await this.authService.deleteUser({ sub });
+  }
+
+  /**
+   * Disable user account (permanent lock)
+   *
+   * Permanently locks user account and revokes all active sessions.
+   *
+   * **SECURITY WARNING:** This endpoint has NO built-in authentication.
+   * You MUST protect it with your own admin authentication guard.
+   *
+   * @param dto - Disable user DTO with user sub and optional reason
+   * @returns Lock confirmation with revoked session count
+   */
+  @Post('admin/users/:sub/disable')
+  @HttpCode(HttpStatus.OK)
+  async disableUser(@Param('sub') sub: string, @Body() body: { reason?: string }): Promise<DisableUserResponseDTO> {
+    this.logger.log(`Admin disable user attempt: ${sub}`);
+    return await this.authService.disableUser({ sub, reason: body.reason });
+  }
+
+  /**
+   * Get paginated list of users with advanced filtering
+   *
+   * Supports filtering by email, phone, verification status, social auth, lock status, MFA, and dates.
+   *
+   * **SECURITY WARNING:** This endpoint has NO built-in authentication.
+   * You MUST protect it with your own admin authentication guard.
+   *
+   * @param query - Query parameters for filtering and pagination
+   * @returns Paginated user list with metadata
+   */
+  @Get('admin/users')
+  @HttpCode(HttpStatus.OK)
+  async getUsers(@Query() query: GetUsersDTO): Promise<GetUsersResponseDTO> {
+    this.logger.log(`Admin get users request`);
+    return await this.authService.getUsers(query);
   }
 
   /**

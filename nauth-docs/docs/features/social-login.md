@@ -160,8 +160,8 @@ export const authConfig = {
   // - 'hybrid' for web + mobile (see Token Delivery Modes guide)
   tokenDelivery: {
     method: 'cookies',
-    // ...configuration for cookies
-  },
+      // ...configuration for cookies
+   },
 
   social: {
     redirect: {
@@ -317,7 +317,7 @@ Apple uses POST with `form_post` response mode. Ensure your NestJS setup can par
 
 - **Express (default)**: Works out of the box
 - **Fastify**: Add `@fastify/formbody` plugin to your Fastify adapter configuration
-  :::
+:::
 
 </TabItem>
 <TabItem value="express" label="Express">

@@ -1,7 +1,7 @@
 ---
 title: AdminSignupSocialDTO
 description: Administrative social user import DTO for migrating users from external platforms with social account linkage
-sidebar_position: 2
+sidebar_position: 3
 keywords: [dto, admin, social, import, migration, cognito]
 image: /img/api-social-card.png
 ---

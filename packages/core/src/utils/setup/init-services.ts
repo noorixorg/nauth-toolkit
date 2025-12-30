@@ -388,6 +388,13 @@ export function initServices(
     repositories.mfaDeviceRepository,
     trustedDeviceService,
     passwordResetService,
+    undefined, // socialAuthService - will be set later
+    repositories.sessionRepository,
+    repositories.verificationTokenRepository,
+    repositories.socialAccountRepository,
+    repositories.challengeSessionRepository,
+    repositories.authAuditRepository,
+    repositories.trustedDeviceRepository || undefined,
   );
 
   // ============================================================================

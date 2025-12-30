@@ -497,15 +497,16 @@ export class EmailVerificationService {
     }
 
     if (dto.sub) {
-      return this.resendVerificationEmailBySub(dto.sub, dto.baseUrl);
+      return this.resendVerificationEmailBySub(dto.sub, dto.baseUrl, dto.challengeSessionId);
     }
 
-    return this.resendVerificationEmailByEmail(dto.email!, dto.baseUrl);
+    return this.resendVerificationEmailByEmail(dto.email!, dto.baseUrl, dto.challengeSessionId);
   }
 
   private async resendVerificationEmailBySub(
     sub: string,
     baseUrl?: string,
+    challengeSessionId?: number,
   ): Promise<ResendVerificationEmailResponseDTO> {
     // Get user by sub to get internal id
     const user = await this.userRepo.findOne({ where: { sub } });
@@ -536,11 +537,11 @@ export class EmailVerificationService {
     }
 
     // Send new verification email - use sub (external identifier)
-    // Preserve challengeSessionId from the last token to ensure verification succeeds
+    // Use provided challengeSessionId if available, otherwise preserve from last token
     const dto = Object.assign(new SendVerificationEmailDTO(), {
       sub,
       baseUrl,
-      challengeSessionId: lastToken?.challengeSessionId ?? undefined,
+      challengeSessionId: challengeSessionId ?? lastToken?.challengeSessionId ?? undefined,
     });
     return this.sendVerificationEmail(dto);
   }
@@ -548,13 +549,14 @@ export class EmailVerificationService {
   private async resendVerificationEmailByEmail(
     email: string,
     baseUrl?: string,
+    challengeSessionId?: number,
   ): Promise<ResendVerificationEmailResponseDTO> {
     const user = (await this.userRepo.findOne({ where: { email } })) as IUser | null;
     if (!user) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
 
-    return this.resendVerificationEmailBySub(user.sub, baseUrl);
+    return this.resendVerificationEmailBySub(user.sub, baseUrl, challengeSessionId);
   }
 
   /**

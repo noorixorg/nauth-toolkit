@@ -54,7 +54,6 @@ export default defineConfig({
   },
   // Enable full request/response logging for debugging
   // Set PLAYWRIGHT_DEBUG=1 to see all network requests
-  globalSetup: undefined,
   projects: [
     {
       name: 'cookies',

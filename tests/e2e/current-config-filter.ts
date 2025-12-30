@@ -1,3 +1,6 @@
+// Import reflect-metadata before any DTOs are loaded (needed for @Type decorators)
+import 'reflect-metadata';
+
 import { getConfigsForCurrentAuthConfig, type TestConfig } from './config-matrix';
 import { authConfig } from '../../examples/sample-nestjs/src/config/auth.config';
 

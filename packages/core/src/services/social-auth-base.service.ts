@@ -251,7 +251,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
         );
       }
 
-      // Create social account using service
+      // Create social account
       await this.socialAuthService.createOrUpdateSocialAccount(
         user.id as number,
         this.providerName,
@@ -453,7 +453,11 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
   }
 
   /**
-   * Create or update social account
+   * Create or update social account linkage
+   *
+   * @param user - User entity
+   * @param profile - OAuth profile from provider
+   * @protected
    */
   protected async createOrUpdateSocialAccount(user: IUser, profile: OAuthUserProfile): Promise<void> {
     await this.socialAuthService.createOrUpdateSocialAccount(
@@ -471,6 +475,66 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
   protected async createAuthResponse(user: IUser, _deviceType: 'web' | 'mobile'): Promise<AuthResponseDTO> {
     // Get actual client info from context (IP, userAgent, etc.)
     const clientInfo = this.clientInfoService.get();
+
+    // ============================================================================
+    // Account Lock Check (Admin Disabled / Rate Limit Lockout)
+    // ============================================================================
+    // Check if account is permanently locked (lockedUntil = NULL) or temporarily locked (lockedUntil > now)
+    if (user.isLocked) {
+      const now = new Date();
+      const isPermanentlyLocked = user.lockedUntil === null;
+      const isTemporarilyLocked = user.lockedUntil && new Date(user.lockedUntil) > now;
+
+      if (isPermanentlyLocked || isTemporarilyLocked) {
+        const lockReason = user.lockReason || 'Account is locked';
+        this.logger?.warn?.(
+          `Social login blocked - account locked for user: ${user.email} (sub: ${user.sub}). Reason: ${lockReason}`,
+        );
+
+        // ============================================================================
+        // Audit: Record blocked login (account locked)
+        // ============================================================================
+        try {
+          await this.auditService?.recordEvent({
+            userId: user.id,
+            eventType: AuthAuditEventType.LOGIN_BLOCKED,
+            eventStatus: 'FAILURE',
+            authMethod: this.providerName.toLowerCase(),
+            reason: 'account_locked',
+            description: `Social login blocked - account locked: ${lockReason}`,
+            metadata: {
+              provider: this.providerName.toLowerCase(),
+              lockReason: user.lockReason,
+              lockedAt: user.lockedAt,
+              lockedUntil: user.lockedUntil,
+              isPermanent: isPermanentlyLocked,
+            },
+          });
+        } catch (auditError) {
+          const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+          this.logger?.error?.(`Failed to record LOGIN_BLOCKED audit event (social, account locked): ${errorMessage}`, {
+            error: auditError,
+            userId: user.id,
+            provider: this.providerName,
+          });
+        }
+
+        throw new NAuthException(AuthErrorCode.ACCOUNT_LOCKED, lockReason, {
+          lockReason: user.lockReason,
+          lockedAt: user.lockedAt,
+          lockedUntil: user.lockedUntil,
+          isPermanent: isPermanentlyLocked,
+        });
+      } else {
+        // Account was temporarily locked but lock has expired - unlock it
+        this.logger?.debug?.(`Account lock expired for user: ${user.email} (sub: ${user.sub}), unlocking account`);
+        user.isLocked = false;
+        user.lockReason = null;
+        user.lockedAt = null;
+        user.lockedUntil = null;
+        await this.userRepository.save(user as unknown as BaseUser);
+      }
+    }
 
     // ============================================================================
     // Audit: Record login attempt for social authentication

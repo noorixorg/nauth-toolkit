@@ -422,6 +422,13 @@ export enum AuthErrorCode {
   NOT_FOUND = 'RESOURCE_NOT_FOUND',
 
   /**
+   * User not found
+   *
+   * The requested user does not exist.
+   */
+  USER_NOT_FOUND = 'USER_NOT_FOUND',
+
+  /**
    * Internal server error
    *
    * Unexpected error occurred. Details may include correlation ID.

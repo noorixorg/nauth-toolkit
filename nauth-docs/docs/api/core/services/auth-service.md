@@ -368,6 +368,261 @@ Please ensure you implement Admin authorization as required. This method does no
 
 ---
 
+### deleteUser()
+
+Hard delete user with complete cascade cleanup. Permanently removes user and ALL associated data including sessions, verification tokens, MFA devices, trusted devices, social accounts, login attempts, challenge sessions, and audit logs.
+
+```typescript
+async deleteUser(dto: DeleteUserDTO): Promise<DeleteUserResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`DeleteUserDTO`](../dto/delete-user-dto)
+
+**Returns**
+
+- [`DeleteUserResponseDTO`](../dto/delete-user-response-dto) - Deletion confirmation with cascade counts
+
+**Errors**
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
+
+| Code             | When                        | Details     |
+| ---------------- | --------------------------- | ----------- |
+| `USER_NOT_FOUND` | User with sub doesn't exist | `undefined` |
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Injectable()
+export class AdminService {
+  constructor(private readonly authService: AuthService) {}
+
+  async deleteUser(sub: string) {
+    const result = await this.authService.deleteUser({ sub });
+    console.log(`Deleted ${result.deletedRecords.sessions} sessions`);
+    return result;
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.delete('/admin/users/:sub', async (req, res) => {
+  const result = await nauth.authService.deleteUser({
+    sub: req.params.sub,
+  });
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.delete(
+  '/admin/users/:sub',
+  { preHandler: nauth.helpers.adminOnly() },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    return nauth.authService.deleteUser({ sub: req.params.sub });
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+:::warning Authorization
+Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
+:::
+
+:::danger Irreversible Operation
+This operation permanently deletes all user data and cannot be undone. All associated records (sessions, tokens, devices, etc.) are deleted from the database.
+:::
+
+---
+
+### disableUser()
+
+Administrative permanent account locking. Sets permanent lock (lockedUntil=NULL) and immediately revokes all active sessions. Reuses existing rate-limit lock fields.
+
+```typescript
+async disableUser(dto: DisableUserDTO): Promise<DisableUserResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`DisableUserDTO`](../dto/disable-user-dto)
+
+**Returns**
+
+- [`DisableUserResponseDTO`](../dto/disable-user-response-dto) - User object and revoked session count
+
+**Errors**
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
+
+| Code             | When                        | Details     |
+| ---------------- | --------------------------- | ----------- |
+| `USER_NOT_FOUND` | User with sub doesn't exist | `undefined` |
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Injectable()
+export class AdminService {
+  constructor(private readonly authService: AuthService) {}
+
+  async disableUser(sub: string, reason: string) {
+    const result = await this.authService.disableUser({ sub, reason });
+    console.log(`Revoked ${result.revokedSessions} sessions`);
+    return result;
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.post('/admin/users/:sub/disable', async (req, res) => {
+  const result = await nauth.authService.disableUser({
+    sub: req.params.sub,
+    reason: req.body.reason,
+  });
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.post(
+  '/admin/users/:sub/disable',
+  { preHandler: nauth.helpers.adminOnly() },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    return nauth.authService.disableUser({
+      sub: req.params.sub,
+      reason: req.body.reason,
+    });
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+:::note Permanent vs Temporary Locks
+Rate limiting sets temporary locks with `lockedUntil` = future date. Admin `disableUser()` sets `lockedUntil = NULL` for permanent locks.
+:::
+
+:::warning Authorization
+Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
+:::
+
+---
+
+### getUsers()
+
+Get paginated list of users with advanced filtering. Supports pagination, boolean filters, exact match filters, date filters with operators (gt, gte, lt, lte, eq), and flexible sorting.
+
+```typescript
+async getUsers(dto: GetUsersDTO): Promise<GetUsersResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`GetUsersDTO`](../dto/get-users-dto)
+
+**Returns**
+
+- [`GetUsersResponseDTO`](../dto/get-users-response-dto) - Paginated user list with metadata
+
+**Errors**
+
+This method does not throw errors. Returns empty results if no users match filters.
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Injectable()
+export class AdminService {
+  constructor(private readonly authService: AuthService) {}
+
+  async listUsers(page: number, limit: number) {
+    const result = await this.authService.getUsers({
+      page,
+      limit,
+      isEmailVerified: true,
+      sortBy: 'createdAt',
+      sortOrder: 'DESC',
+    });
+    return result;
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.get('/admin/users', async (req, res) => {
+  const result = await nauth.authService.getUsers({
+    page: parseInt(req.query.page) || 1,
+    limit: parseInt(req.query.limit) || 10,
+    email: req.query.email,
+    isEmailVerified: req.query.isEmailVerified === 'true',
+  });
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.get(
+  '/admin/users',
+  { preHandler: nauth.helpers.adminOnly() },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    return nauth.authService.getUsers({
+      page: req.query.page || 1,
+      limit: req.query.limit || 10,
+      isEmailVerified: req.query.isEmailVerified,
+      hasSocialAuth: req.query.hasSocialAuth,
+      sortBy: req.query.sortBy || 'createdAt',
+      sortOrder: req.query.sortOrder || 'DESC',
+    });
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+:::note Data Privacy
+Returns sanitized user data (no `passwordHash`, secrets, or sensitive fields). All users have access to standard `UserResponseDto` fields only.
+:::
+
+:::warning Authorization
+Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
+:::
+
+---
+
 ### changePassword()
 
 Change user's password. Requires current password verification. All user sessions are revoked on successful password change.

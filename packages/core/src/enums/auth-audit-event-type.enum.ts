@@ -283,6 +283,11 @@ export enum AuthAuditEventType {
   ACCOUNT_UNLOCKED = 'ACCOUNT_UNLOCKED',
 
   /**
+   * User account disabled by admin (permanent lock)
+   */
+  ACCOUNT_DISABLED = 'ACCOUNT_DISABLED',
+
+  /**
    * User account deleted
    */
   ACCOUNT_DELETED = 'ACCOUNT_DELETED',

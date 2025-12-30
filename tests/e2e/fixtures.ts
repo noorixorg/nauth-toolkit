@@ -17,6 +17,8 @@ type AuthFlowState = {
   userEmail: string;
   userPhone?: string;
   password: string;
+  firstName?: string;
+  lastName?: string;
   userId?: string;
   accessToken?: string;
   refreshToken?: string;
@@ -151,12 +153,31 @@ export const test = base.extend<TestFixtures>({
       // These will be reused by all subsequent tests (Signup Flow + Login Lifecycle) on this worker
       const timestamp = Date.now();
       const random = Math.floor(Math.random() * 1000000000);
+      // Generate fake first and last names for test users
+      const firstNames = ['John', 'Jane', 'Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry'];
+      const lastNames = [
+        'Smith',
+        'Johnson',
+        'Williams',
+        'Brown',
+        'Jones',
+        'Garcia',
+        'Miller',
+        'Davis',
+        'Rodriguez',
+        'Martinez',
+      ];
+      const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+      const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+
       state = {
         userEmail: `test+${timestamp}+${random}@example.com`,
         userPhone: `+1555${Math.floor(Math.random() * 10000000)
           .toString()
           .padStart(7, '0')}`, // E.164 format: +1555XXXXXXX
         password: 'SecurePass123!', // Fixed password - same for all tests in this flow
+        firstName,
+        lastName,
       };
       // Store for reuse in subsequent tests on this worker (including Login Lifecycle)
       sharedFlowState.set(stateKey, state);
@@ -651,6 +672,8 @@ export const test = base.extend<TestFixtures>({
             email,
             phone,
             password: flowState.password,
+            firstName: flowState.firstName,
+            lastName: flowState.lastName,
           },
         });
 
