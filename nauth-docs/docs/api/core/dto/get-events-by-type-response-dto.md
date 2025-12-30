@@ -1,7 +1,7 @@
 ---
 title: GetEventsByTypeResponseDTO
 description: Response DTO for paginated audit events by type
-sidebar_position: 19
+sidebar_position: 800
 keywords: [dto, response, audit, events, pagination, api]
 image: /img/api-social-card.png
 ---

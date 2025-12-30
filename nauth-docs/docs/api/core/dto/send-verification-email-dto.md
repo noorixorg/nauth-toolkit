@@ -3,7 +3,7 @@ title: SendVerificationEmailDTO
 description: Request DTO for sending email verification codes. Includes user identifier, optional base URL for verification links, and skip flag for MFA contexts.
 keywords: [email, verification, dto, request, send, code, api]
 image: /img/api-social-card.png
-sidebar_position: 61
+sidebar_position: 300
 ---
 
 import Tabs from '@theme/Tabs';

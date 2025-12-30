@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { Repository } from 'typeorm';
 import { SMSMFAProviderService } from './sms-mfa-provider.service';
 import {

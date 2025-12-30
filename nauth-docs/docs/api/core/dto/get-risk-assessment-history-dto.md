@@ -1,7 +1,7 @@
 ---
 title: GetRiskAssessmentHistoryDTO
 description: Request DTO for getting risk assessment history for adaptive MFA analysis
-sidebar_position: 24
+sidebar_position: 820
 keywords: [dto, request, audit, risk, assessment, mfa, api]
 image: /img/api-social-card.png
 ---

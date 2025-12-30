@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { TOTPService } from './totp.service';
 import { NAuthConfig, NAuthLogger, NAuthException, AuthErrorCode } from '@nauth-toolkit/core';
 import { authenticator } from 'otplib';

@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { GoogleSocialAuthService } from './google-social-auth.service';
 import { GoogleOAuthClient } from './google-oauth.client';
 import { TokenVerifierService as GoogleTokenVerifierService } from './token-verifier.service';

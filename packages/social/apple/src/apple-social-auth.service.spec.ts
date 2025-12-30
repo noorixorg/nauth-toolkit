@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { AppleSocialAuthService } from './apple-social-auth.service';
 import { AppleOAuthClient } from './apple-oauth.client';
 import {

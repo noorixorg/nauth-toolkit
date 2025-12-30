@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { PasskeyService } from './passkey.service';
 import { NAuthConfig, NAuthLogger, NAuthException, AuthErrorCode, MFAMethod, IMFADevice } from '@nauth-toolkit/core';
 import {

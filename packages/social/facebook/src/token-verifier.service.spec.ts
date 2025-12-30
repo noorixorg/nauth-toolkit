@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { TokenVerifierService } from './token-verifier.service';
 import { NAuthConfig, NAuthLogger, NAuthException, AuthErrorCode } from '@nauth-toolkit/core';
 import { VerifiedFacebookTokenProfile } from './verified-token-profile.interface';

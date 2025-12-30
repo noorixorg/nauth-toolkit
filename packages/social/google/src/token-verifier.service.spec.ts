@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { NAuthLogger, NAuthException, NAuthConfig } from '@nauth-toolkit/core';
 import { TokenVerifierService } from './token-verifier.service';
 

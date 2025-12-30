@@ -20,10 +20,13 @@ import {
   AuthService,
   SignupDTO,
   AdminSignupDTO,
+  AdminSignupSocialDTO,
+  AdminSignupSocialResponseDTO,
   AdminSignupResponseDTO,
   AdminSetPasswordDTO,
   DeleteUserResponseDTO,
   DisableUserResponseDTO,
+  EnableUserResponseDTO,
   GetUsersDTO,
   GetUsersResponseDTO,
   LoginDTO,
@@ -185,6 +188,37 @@ export class CustomAuthController {
   }
 
   /**
+   * Administrative social user import
+   *
+   * Allows administrators to import existing social users from external platforms
+   * (e.g., Cognito, Auth0) with social account linkage.
+   *
+   * **SECURITY WARNING:** This endpoint has NO built-in authentication.
+   * You MUST protect it with your own admin authentication guard.
+   *
+   * @param dto - Admin social signup DTO with provider information
+   * @returns Created user object and social account confirmation
+   *
+   * @example
+   * ```typescript
+   * POST /auth/admin/signup-social
+   * {
+   *   "email": "user@example.com",
+   *   "provider": "google",
+   *   "providerId": "google_12345",
+   *   "providerEmail": "user@gmail.com",
+   *   "isEmailVerified": true
+   * }
+   * ```
+   */
+  @Post('admin/signup-social')
+  @HttpCode(HttpStatus.CREATED)
+  async adminSignupSocial(@Body() dto: AdminSignupSocialDTO): Promise<AdminSignupSocialResponseDTO> {
+    this.logger.log(`Admin social signup attempt: ${dto.email}, provider: ${dto.provider}`);
+    return await this.authService.adminSignupSocial(dto);
+  }
+
+  /**
    * Administrative password reset
    *
    * Allows administrators to set a new password for any user.
@@ -237,6 +271,47 @@ export class CustomAuthController {
   async disableUser(@Param('sub') sub: string, @Body() body: { reason?: string }): Promise<DisableUserResponseDTO> {
     this.logger.log(`Admin disable user attempt: ${sub}`);
     return await this.authService.disableUser({ sub, reason: body.reason });
+  }
+
+  /**
+   * Force password change on next login
+   *
+   * Requires user to change their password on their next login attempt.
+   * User will receive FORCE_CHANGE_PASSWORD challenge when they try to login.
+   *
+   * **SECURITY WARNING:** This endpoint has NO built-in authentication.
+   * You MUST protect it with your own admin authentication guard.
+   *
+   * @param sub - User UUID to force password change
+   * @returns Success confirmation
+   */
+  @Post('admin/users/:sub/force-password-change')
+  @HttpCode(HttpStatus.OK)
+  async forcePasswordChange(@Param('sub') sub: string): Promise<{ success: boolean }> {
+    this.logger.log(`Admin force password change attempt: ${sub}`);
+    const dto = new SetMustChangePasswordDTO();
+    dto.userId = sub;
+    await this.authService.setMustChangePassword(dto);
+    return { success: true };
+  }
+
+  /**
+   * Enable (unlock) user account
+   *
+   * Unlocks a previously locked user account by clearing all lock fields.
+   * This reverses the effect of disableUser() or rate-limit lockouts.
+   *
+   * **SECURITY WARNING:** This endpoint has NO built-in authentication.
+   * You MUST protect it with your own admin authentication guard.
+   *
+   * @param sub - User UUID to enable
+   * @returns Unlock confirmation with updated user
+   */
+  @Post('admin/users/:sub/enable')
+  @HttpCode(HttpStatus.OK)
+  async enableUser(@Param('sub') sub: string): Promise<EnableUserResponseDTO> {
+    this.logger.log(`Admin enable user attempt: ${sub}`);
+    return await this.authService.enableUser({ sub });
   }
 
   /**

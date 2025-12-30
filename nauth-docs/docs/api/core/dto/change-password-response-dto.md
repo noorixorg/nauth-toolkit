@@ -3,7 +3,7 @@ title: ChangePasswordResponseDTO
 description: Password change response DTO with success indicator. Simple boolean response for password change operations.
 keywords: [password, change, response, dto, success, api]
 image: /img/api-social-card.png
-sidebar_position: 10
+sidebar_position: 230
 ---
 
 import Tabs from '@theme/Tabs';

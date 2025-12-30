@@ -78,6 +78,8 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [DeleteUserResponseDTO](./delete-user-response-dto)                | Admin deletion response      | Deletion confirmation with cascade counts                                           |
 | [DisableUserDTO](./disable-user-dto)                               | Admin account locking        | Permanent account lock with session revocation                                      |
 | [DisableUserResponseDTO](./disable-user-response-dto)              | Admin lock response          | Lock confirmation with revoked session count                                        |
+| [EnableUserDTO](./enable-user-dto)                                 | Admin account unlocking      | Clear lock fields and reset failed attempts                                         |
+| [EnableUserResponseDTO](./enable-user-response-dto)                | Admin unlock response        | Unlock confirmation with updated user status                                        |
 | [GetUsersDTO](./get-users-dto)                                     | Admin user listing           | Paginated user search with advanced filtering                                       |
 | [GetUsersResponseDTO](./get-users-response-dto)                    | Admin listing response       | User list with pagination metadata                                                  |
 

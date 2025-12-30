@@ -3,7 +3,7 @@ title: SetPreferredMethodDTO
 description: Request and response DTOs for setting preferred MFA method. Updates user's preferred method and device primary flags.
 keywords: [mfa, preferred, method, dto, request, response, api]
 image: /img/api-social-card.png
-sidebar_position: 70
+sidebar_position: 550
 ---
 
 import Tabs from '@theme/Tabs';

@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { Repository } from 'typeorm';
 import { EmailMFAProviderService } from './email-mfa-provider.service';
 import {

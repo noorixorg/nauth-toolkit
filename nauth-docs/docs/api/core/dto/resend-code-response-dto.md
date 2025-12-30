@@ -3,7 +3,7 @@ title: ResendCodeResponseDTO
 description: Resend code response DTO with masked destination. Returns privacy-protected email or phone where code was sent.
 keywords: [resend, code, response, dto, destination, api]
 image: /img/api-social-card.png
-sidebar_position: 53
+sidebar_position: 950
 ---
 
 import Tabs from '@theme/Tabs';

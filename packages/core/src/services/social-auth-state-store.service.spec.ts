@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { SocialAuthStateStore } from './social-auth-state-store.service';
 import { AuthErrorCode, NAuthException } from '../index';
 import type { StorageAdapter } from '../interfaces/storage-adapter.interface';

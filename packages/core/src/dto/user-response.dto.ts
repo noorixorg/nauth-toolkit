@@ -69,6 +69,12 @@ export class UserResponseDto {
   isActive!: boolean;
 
   /**
+   * Account lock status
+   * Locked accounts cannot login until unlocked
+   */
+  isLocked!: boolean;
+
+  /**
    * MFA enabled status
    */
   mfaEnabled!: boolean;
@@ -117,6 +123,7 @@ export class UserResponseDto {
     dto.isEmailVerified = user.isEmailVerified;
     dto.isPhoneVerified = user.isPhoneVerified;
     dto.isActive = user.isActive;
+    dto.isLocked = user.isLocked;
     dto.mfaEnabled = user.mfaEnabled;
     dto.socialProviders = user.socialProviders;
     dto.hasPasswordHash = !!user.passwordHash; // Check if password exists

@@ -46,6 +46,52 @@ export interface AdminSignupResponse {
 }
 
 /**
+ * Admin social signup request DTO
+ */
+export interface AdminSignupSocialRequest {
+  email: string;
+  provider: 'google' | 'apple' | 'facebook';
+  providerId: string;
+  providerEmail?: string;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  password?: string;
+  isPhoneVerified?: boolean;
+  mustChangePassword?: boolean;
+  socialMetadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Admin social signup response DTO
+ */
+export interface AdminSignupSocialResponse {
+  user: {
+    sub: string;
+    email: string;
+    username?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    phone?: string | null;
+    isEmailVerified: boolean;
+    isPhoneVerified: boolean;
+    isActive: boolean;
+    mfaEnabled: boolean;
+    socialProviders?: string[] | null;
+    hasPasswordHash: boolean;
+    createdAt: Date | string;
+    updatedAt: Date | string;
+  };
+  socialAccount: {
+    provider: string;
+    providerId: string;
+    providerEmail: string | null;
+  };
+}
+
+/**
  * User object (sanitized)
  */
 export interface User {
@@ -145,6 +191,14 @@ export interface DisableUserResponse {
   success: boolean;
   user: User;
   revokedSessions: number;
+}
+
+/**
+ * Enable user response DTO
+ */
+export interface EnableUserResponse {
+  success: boolean;
+  user: User;
 }
 
 /**
@@ -366,6 +420,84 @@ export class AdminService {
       if (error && typeof error === 'object' && 'error' in error) {
         const httpError = error as { error?: { message?: string; code?: string } };
         throw new Error(httpError.error?.message || 'Failed to set password');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Force password change on next login
+   *
+   * Requires user to change their password on their next login attempt.
+   * User will receive FORCE_CHANGE_PASSWORD challenge when they try to login.
+   *
+   * @param sub - User UUID to force password change
+   * @returns Success confirmation
+   * @throws {Error} If API call fails
+   */
+  async forcePasswordChange(sub: string): Promise<{ success: boolean }> {
+    try {
+      const response = await firstValueFrom(
+        this.http.post<{ success: boolean }>(
+          `${this.baseUrl}/users/${sub}/force-password-change`,
+          {},
+        ),
+      );
+      return response;
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'error' in error) {
+        const httpError = error as { error?: { message?: string; code?: string } };
+        throw new Error(httpError.error?.message || 'Failed to force password change');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Enable (unlock) user account
+   *
+   * Unlocks a previously locked user account by clearing all lock fields.
+   * This reverses the effect of disableUser() or rate-limit lockouts.
+   *
+   * @param sub - User UUID to enable
+   * @returns Unlock confirmation with updated user
+   * @throws {Error} If API call fails
+   */
+  async enableUser(sub: string): Promise<EnableUserResponse> {
+    try {
+      const response = await firstValueFrom(
+        this.http.post<EnableUserResponse>(`${this.baseUrl}/users/${sub}/enable`, {}),
+      );
+      return response;
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'error' in error) {
+        const httpError = error as { error?: { message?: string; code?: string } };
+        throw new Error(httpError.error?.message || 'Failed to enable user');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Import social user (admin operation)
+   *
+   * Imports existing social users from external platforms (e.g., Cognito, Auth0)
+   * with social account linkage.
+   *
+   * @param dto - Admin social signup request data
+   * @returns Created user and social account confirmation
+   * @throws {Error} If API call fails
+   */
+  async importSocialUser(dto: AdminSignupSocialRequest): Promise<AdminSignupSocialResponse> {
+    try {
+      const response = await firstValueFrom(
+        this.http.post<AdminSignupSocialResponse>(`${this.baseUrl}/signup-social`, dto),
+      );
+      return response;
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'error' in error) {
+        const httpError = error as { error?: { message?: string; code?: string } };
+        throw new Error(httpError.error?.message || 'Failed to import social user');
       }
       throw error;
     }

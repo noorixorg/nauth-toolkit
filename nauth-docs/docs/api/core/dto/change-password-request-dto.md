@@ -3,7 +3,7 @@ title: ChangePasswordRequestDTO
 description: Password change request DTO extending ChangePasswordDTO with user sub. Includes current and new password validation.
 keywords: [password, change, dto, request, uuid, api]
 image: /img/api-social-card.png
-sidebar_position: 9
+sidebar_position: 220
 ---
 
 import Tabs from '@theme/Tabs';

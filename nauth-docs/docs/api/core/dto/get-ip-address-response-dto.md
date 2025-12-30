@@ -3,7 +3,7 @@ title: GetIpAddressResponseDTO
 description: Response DTO for IP address. Returns just the client IP address from the current request context.
 keywords: [ip, address, client, response, dto, api]
 image: /img/api-social-card.png
-sidebar_position: 20
+sidebar_position: 810
 ---
 
 import Tabs from '@theme/Tabs';

@@ -3,7 +3,7 @@ title: AdminSignupDTO
 description: Admin-only user creation DTOs for creating user accounts with override capabilities including bypassing verification and auto-generating passwords.
 keywords: [admin, signup, create, user, dto, request, response, api]
 image: /img/api-social-card.png
-sidebar_position: 2
+sidebar_position: 110
 ---
 
 import Tabs from '@theme/Tabs';

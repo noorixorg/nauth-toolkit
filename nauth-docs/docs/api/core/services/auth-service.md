@@ -294,7 +294,8 @@ When password validation fails (only relevant for hybrid social+password account
 
 - Import social users with pre-linked social accounts
 - Create social-only users (no password) or hybrid users (social + password)
-- Bypass email/phone verification requirements
+- Email automatically verified (like normal social signup)
+- Bypass phone verification requirement (optional)
 - Suitable for migrating users from Cognito, Auth0, or other platforms
 - Social account (provider + providerId) must be unique
 - User flags `hasSocialAuth` and `socialProviders` automatically updated
@@ -350,13 +351,13 @@ fastify.post(
 
 ```typescript
 // Migrate Cognito user with Google social login
+// Note: Email is automatically verified for social imports (like normal social signup)
 const result = await authService.adminSignupSocial({
   email: 'user@example.com',
   provider: 'google',
   providerId: cognitoUser.identities[0].userId,
   providerEmail: cognitoUser.identities[0].providerAttributes.email,
   socialMetadata: cognitoUser.identities[0].providerAttributes,
-  isEmailVerified: cognitoUser.email_verified,
   firstName: cognitoUser.given_name,
   lastName: cognitoUser.family_name,
 });
@@ -524,6 +525,88 @@ fastify.post(
 
 :::note Permanent vs Temporary Locks
 Rate limiting sets temporary locks with `lockedUntil` = future date. Admin `disableUser()` sets `lockedUntil = NULL` for permanent locks.
+:::
+
+:::warning Authorization
+Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
+:::
+
+---
+
+### enableUser()
+
+Administrative account unlocking. Clears all lock fields (isLocked, lockReason, lockedAt, lockedUntil) and resets failed login attempts counter. Reverses the effect of disableUser() or rate-limit lockouts.
+
+```typescript
+async enableUser(dto: EnableUserDTO): Promise<EnableUserResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`EnableUserDTO`](../dto/enable-user-dto)
+
+**Returns**
+
+- [`EnableUserResponseDTO`](../dto/enable-user-response-dto) - User object with updated lock status
+
+**Errors**
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
+
+| Code             | When                        | Details     |
+| ---------------- | --------------------------- | ----------- |
+| `USER_NOT_FOUND` | User with sub doesn't exist | `undefined` |
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Injectable()
+export class AdminService {
+  constructor(private readonly authService: AuthService) {}
+
+  async enableUser(sub: string) {
+    const result = await this.authService.enableUser({ sub });
+    console.log(`User unlocked: ${result.user.email}`);
+    return result;
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.post('/admin/users/:sub/enable', async (req, res) => {
+  const result = await nauth.authService.enableUser({
+    sub: req.params.sub,
+  });
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.post(
+  '/admin/users/:sub/enable',
+  { preHandler: nauth.helpers.adminOnly() },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    return nauth.authService.enableUser({
+      sub: req.params.sub,
+    });
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+:::note Unlocking Accounts
+This method clears all lock fields including temporary rate-limit locks. Use this to unlock accounts that were locked by either `disableUser()` or automatic rate limiting.
 :::
 
 :::warning Authorization

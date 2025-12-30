@@ -6,354 +6,45 @@
           <i class="pi pi-shield dashboard-card-header-icon"></i>
           <h2 class="dashboard-card-header-text">Admin</h2>
         </div>
-        <p-button
-          label="Create User"
-          icon="pi pi-user-plus"
-          severity="primary"
-          size="small"
-          (onClick)="openCreateUserDialog()"
-        />
+        <div class="flex gap-2">
+          <p-button
+            label="Create User"
+            icon="pi pi-user-plus"
+            severity="primary"
+            size="small"
+            (onClick)="openCreateUserDialog()"
+          />
+          <p-button
+            label="Import Social User"
+            icon="pi pi-users"
+            severity="secondary"
+            [outlined]="true"
+            size="small"
+            (onClick)="openImportSocialUserDialog()"
+          />
+        </div>
       </div>
     </div>
   </ng-template>
 
   <div class="p-6">
-    <!-- Filters -->
-    <p-accordion [(value)]="accordionValue" styleClass="admin-filters-accordion">
-      <p-accordion-panel [value]="0">
-        <p-accordion-header>
-          <span>Filters</span>
-        </p-accordion-header>
-        <p-accordion-content>
-          <form [formGroup]="filterForm" class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <!-- Email Filter -->
-              <div>
-                <label class="form-label-section">Email</label>
-                <input
-                  pInputText
-                  formControlName="email"
-                  placeholder="Filter by email"
-                  class="w-full"
-                />
-              </div>
-
-              <!-- Phone Filter -->
-              <div>
-                <label class="form-label-section">Phone</label>
-                <input
-                  pInputText
-                  formControlName="phone"
-                  placeholder="Filter by phone"
-                  class="w-full"
-                />
-              </div>
-
-              <!-- Email Verified -->
-              <div>
-                <label class="form-label-section">Email Verified</label>
-                <p-select
-                  formControlName="isEmailVerified"
-                  [options]="[
-                    { label: 'All', value: null },
-                    { label: 'Yes', value: true },
-                    { label: 'No', value: false },
-                  ]"
-                  optionLabel="label"
-                  optionValue="value"
-                  placeholder="Select"
-                  class="w-full"
-                />
-              </div>
-
-              <!-- Phone Verified -->
-              <div>
-                <label class="form-label-section">Phone Verified</label>
-                <p-select
-                  formControlName="isPhoneVerified"
-                  [options]="[
-                    { label: 'All', value: null },
-                    { label: 'Yes', value: true },
-                    { label: 'No', value: false },
-                  ]"
-                  optionLabel="label"
-                  optionValue="value"
-                  placeholder="Select"
-                  class="w-full"
-                />
-              </div>
-
-              <!-- Has Social Auth -->
-              <div>
-                <label class="form-label-section">Has Social Auth</label>
-                <p-select
-                  formControlName="hasSocialAuth"
-                  [options]="[
-                    { label: 'All', value: null },
-                    { label: 'Yes', value: true },
-                    { label: 'No', value: false },
-                  ]"
-                  optionLabel="label"
-                  optionValue="value"
-                  placeholder="Select"
-                  class="w-full"
-                />
-              </div>
-
-              <!-- Is Locked -->
-              <div>
-                <label class="form-label-section">Account Status</label>
-                <p-select
-                  formControlName="isLocked"
-                  [options]="[
-                    { label: 'All', value: null },
-                    { label: 'Locked', value: true },
-                    { label: 'Active', value: false },
-                  ]"
-                  optionLabel="label"
-                  optionValue="value"
-                  placeholder="Select"
-                  class="w-full"
-                />
-              </div>
-
-              <!-- MFA Enabled -->
-              <div>
-                <label class="form-label-section">MFA Enabled</label>
-                <p-select
-                  formControlName="mfaEnabled"
-                  [options]="[
-                    { label: 'All', value: null },
-                    { label: 'Yes', value: true },
-                    { label: 'No', value: false },
-                  ]"
-                  optionLabel="label"
-                  optionValue="value"
-                  placeholder="Select"
-                  class="w-full"
-                />
-              </div>
-
-              <!-- Created At Filter -->
-              <div>
-                <label class="form-label-section">Created At</label>
-                <div class="flex gap-2">
-                  <p-select
-                    formControlName="createdAtOperator"
-                    [options]="dateOperatorOptions"
-                    optionLabel="label"
-                    optionValue="value"
-                    class="w-32"
-                  />
-                  <p-datepicker
-                    formControlName="createdAtValue"
-                    [readonlyInput]="true"
-                    dateFormat="yy-mm-dd"
-                    placeholder="Select date"
-                    class="flex-1"
-                    [showIcon]="true"
-                  />
-                </div>
-              </div>
-
-              <!-- Updated At Filter -->
-              <div>
-                <label class="form-label-section">Updated At</label>
-                <div class="flex gap-2">
-                  <p-select
-                    formControlName="updatedAtOperator"
-                    [options]="dateOperatorOptions"
-                    optionLabel="label"
-                    optionValue="value"
-                    class="w-32"
-                  />
-                  <p-datepicker
-                    formControlName="updatedAtValue"
-                    [readonlyInput]="true"
-                    dateFormat="yy-mm-dd"
-                    placeholder="Select date"
-                    class="flex-1"
-                    [showIcon]="true"
-                  />
-                </div>
-              </div>
-
-              <!-- Sort By -->
-              <div>
-                <label class="form-label-section">Sort By</label>
-                <p-select
-                  formControlName="sortBy"
-                  [options]="[
-                    { label: 'Created At', value: 'createdAt' },
-                    { label: 'Updated At', value: 'updatedAt' },
-                    { label: 'Email', value: 'email' },
-                    { label: 'Phone', value: 'phone' },
-                  ]"
-                  optionLabel="label"
-                  optionValue="value"
-                  class="w-full"
-                />
-              </div>
-
-              <!-- Sort Order -->
-              <div>
-                <label class="form-label-section">Sort Order</label>
-                <p-select
-                  formControlName="sortOrder"
-                  [options]="[
-                    { label: 'Descending', value: 'DESC' },
-                    { label: 'Ascending', value: 'ASC' },
-                  ]"
-                  optionLabel="label"
-                  optionValue="value"
-                  class="w-full"
-                />
-              </div>
-
-              <!-- Filter Actions -->
-              <div class="flex items-end gap-2">
-                <p-button
-                  label="Apply"
-                  icon="pi pi-filter"
-                  severity="primary"
-                  size="small"
-                  class="flex-1"
-                  (onClick)="applyFilters()"
-                />
-                <p-button
-                  label="Clear"
-                  icon="pi pi-filter-slash"
-                  severity="secondary"
-                  size="small"
-                  class="flex-1"
-                  (onClick)="clearFilters()"
-                />
-              </div>
-            </div>
-          </form>
-        </p-accordion-content>
-      </p-accordion-panel>
-    </p-accordion>
-
     <!-- Error Message -->
     @if (error()) {
-      <p-message severity="error" [text]="error() || ''" styleClass="w-full mb-4 mt-4" />
+      <p-message severity="error" [text]="error() || ''" styleClass="w-full mb-4" />
     }
 
-    <!-- Table -->
-    <p-table
-      [value]="users()"
+    <app-user-list
+      [users]="users()"
+      [total]="total()"
+      [page]="page()"
+      [limit]="limit()"
       [loading]="loading()"
-      [paginator]="false"
-      [rowHover]="true"
-      [rows]="limit()"
-      [lazy]="true"
-      [totalRecords]="total()"
-      [scrollable]="true"
-      scrollHeight="400px"
-      responsiveLayout="scroll"
-      class="mt-4 admin-users-table"
-    >
-      <ng-template pTemplate="header">
-        <tr>
-          <th style="min-width: 12rem">Name</th>
-          <th style="min-width: 200px; max-width: 200px">Email</th>
-          <th style="min-width: 10rem" class="hide-mobile">Phone</th>
-          <th style="min-width: 6rem">Status</th>
-          <th style="min-width: 6rem" class="hide-mobile">Verified</th>
-          <th style="min-width: 6rem" class="hide-mobile">MFA</th>
-          <th style="min-width: 10rem" class="hide-mobile">Created</th>
-          <th style="min-width: 6rem">Actions</th>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-user>
-        <tr>
-          <td>
-            <span class="font-medium text-secondary-900">{{ formatName(user) }}</span>
-          </td>
-          <td style="max-width: 200px">
-            <span
-              class="font-medium text-secondary-900 block truncate"
-              [pTooltip]="user.email"
-              tooltipPosition="top"
-              >{{ user.email }}</span
-            >
-          </td>
-          <td class="hide-mobile">
-            <span class="text-secondary-700 font-mono text-xs">{{ user.phone || '-' }}</span>
-          </td>
-          <td>
-            @if (user.isLocked) {
-              <p-tag value="Locked" severity="danger" />
-            } @else {
-              <p-tag value="Active" severity="success" />
-            }
-          </td>
-          <td class="hide-mobile">
-            <div class="flex gap-1">
-              @if (user.isEmailVerified) {
-                <i class="pi pi-check-circle text-green-600" pTooltip="Email verified"></i>
-              } @else {
-                <i class="pi pi-times-circle text-red-600" pTooltip="Email not verified"></i>
-              }
-              @if (user.isPhoneVerified) {
-                <i class="pi pi-check-circle text-green-600" pTooltip="Phone verified"></i>
-              } @else {
-                <i class="pi pi-times-circle text-red-600" pTooltip="Phone not verified"></i>
-              }
-            </div>
-          </td>
-          <td class="hide-mobile">
-            @if (user.mfaEnabled) {
-              <i class="pi pi-shield text-primary-600" pTooltip="MFA enabled"></i>
-            } @else {
-              <span class="text-secondary-400">-</span>
-            }
-          </td>
-          <td class="hide-mobile">
-            <span class="text-secondary-700 text-sm">{{ formatDate(user.createdAt) }}</span>
-          </td>
-          <td>
-            <p-button
-              icon="pi pi-ellipsis-v"
-              [text]="true"
-              severity="secondary"
-              size="small"
-              (onClick)="showActionMenu($event, user)"
-            />
-          </td>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="emptymessage">
-        <tr>
-          <td colspan="8" class="text-center p-6">
-            <p class="text-secondary-500">No users found</p>
-          </td>
-        </tr>
-      </ng-template>
-    </p-table>
-
-    <!-- Pagination -->
-    @if (total() > 0) {
-      <div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div class="text-sm text-secondary-600">
-          Showing {{ paginationInfo().start }} to {{ paginationInfo().end }} of
-          {{ paginationInfo().total }} entries
-        </div>
-        <p-paginator
-          [rows]="limit()"
-          [totalRecords]="total()"
-          [first]="(page() - 1) * limit()"
-          (onPageChange)="onPageChange($event)"
-          [rowsPerPageOptions]="[10, 20, 50]"
-        />
-      </div>
-    }
+      (pageChange)="onPageChange($event)"
+      (userAction)="handleUserAction($event)"
+      (filtersChange)="onFiltersChange($event)"
+    />
   </div>
 </p-card>
-
-<!-- Single menu instance for all users (outside table) -->
-<p-menu #actionMenu [model]="actionMenuItems()" [popup]="true" appendTo="body" />
 
 <p-confirmDialog [style]="{ width: '600px', maxWidth: '90vw' }" />
 
@@ -619,6 +310,302 @@
   </form>
 </p-dialog>
 
+<!-- Import Social User Dialog -->
+<p-dialog
+  [visible]="showImportSocialDialog()"
+  (visibleChange)="showImportSocialDialog.set($event)"
+  [modal]="true"
+  [style]="{ width: '600px' }"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  header="Import Social User"
+  (onHide)="closeImportSocialDialog()"
+>
+  <form [formGroup]="importSocialUserForm" (ngSubmit)="onSubmitImportSocial()" class="space-y-4">
+    <!-- Error Message -->
+    @if (importSocialError(); as errorMessage) {
+      <div class="mb-4">
+        <p-message severity="error" [text]="errorMessage" styleClass="w-full" />
+      </div>
+    }
+
+    <!-- Success Message -->
+    @if (importSocialSuccess(); as successMessage) {
+      <div class="mb-4">
+        <p-message severity="success" [text]="successMessage" styleClass="w-full" />
+      </div>
+    }
+
+    <!-- Email Field -->
+    <div class="flex flex-col gap-2">
+      <label for="import-email" class="form-label">
+        Email <span class="form-required">*</span>
+      </label>
+      <input
+        id="import-email"
+        type="email"
+        pInputText
+        formControlName="email"
+        placeholder="user@example.com"
+        maxlength="255"
+        [class.p-invalid]="
+          importSocialUserForm.get('email')?.invalid && importSocialUserForm.get('email')?.touched
+        "
+        class="w-full"
+      />
+      @if (
+        importSocialUserForm.get('email')?.invalid && importSocialUserForm.get('email')?.touched
+      ) {
+        <small class="p-error">
+          @if (importSocialUserForm.get('email')?.errors?.['required']) {
+            Email is required
+          } @else if (importSocialUserForm.get('email')?.errors?.['email']) {
+            Please enter a valid email address
+          } @else if (importSocialUserForm.get('email')?.errors?.['maxlength']) {
+            Email must not exceed 255 characters
+          }
+        </small>
+      }
+    </div>
+
+    <!-- Provider Selection -->
+    <div class="flex flex-col gap-2">
+      <label for="import-provider" class="form-label">
+        Provider <span class="form-required">*</span>
+      </label>
+      <p-select
+        id="import-provider"
+        formControlName="provider"
+        [options]="[
+          { label: 'Google', value: 'google' },
+          { label: 'Apple', value: 'apple' },
+          { label: 'Facebook', value: 'facebook' },
+        ]"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Select provider"
+        [class.p-invalid]="
+          importSocialUserForm.get('provider')?.invalid &&
+          importSocialUserForm.get('provider')?.touched
+        "
+        class="w-full"
+      />
+      @if (
+        importSocialUserForm.get('provider')?.invalid &&
+        importSocialUserForm.get('provider')?.touched
+      ) {
+        <small class="p-error">Provider is required</small>
+      }
+    </div>
+
+    <!-- Provider ID -->
+    <div class="flex flex-col gap-2">
+      <label for="import-providerId" class="form-label">
+        Provider ID <span class="form-required">*</span>
+      </label>
+      <input
+        id="import-providerId"
+        type="text"
+        pInputText
+        formControlName="providerId"
+        placeholder="google_12345"
+        maxlength="255"
+        [class.p-invalid]="
+          importSocialUserForm.get('providerId')?.invalid &&
+          importSocialUserForm.get('providerId')?.touched
+        "
+        class="w-full"
+      />
+      @if (
+        importSocialUserForm.get('providerId')?.invalid &&
+        importSocialUserForm.get('providerId')?.touched
+      ) {
+        <small class="p-error">
+          @if (importSocialUserForm.get('providerId')?.errors?.['required']) {
+            Provider ID is required
+          } @else if (importSocialUserForm.get('providerId')?.errors?.['maxlength']) {
+            Provider ID must not exceed 255 characters
+          }
+        </small>
+      }
+    </div>
+
+    <!-- First Name and Last Name Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="flex flex-col gap-2">
+        <label for="import-firstName" class="form-label">First Name</label>
+        <input
+          id="import-firstName"
+          type="text"
+          pInputText
+          formControlName="firstName"
+          placeholder="First name (optional)"
+          maxlength="100"
+          [class.p-invalid]="
+            importSocialUserForm.get('firstName')?.invalid &&
+            importSocialUserForm.get('firstName')?.touched
+          "
+          class="w-full"
+        />
+        @if (
+          importSocialUserForm.get('firstName')?.invalid &&
+          importSocialUserForm.get('firstName')?.touched
+        ) {
+          <small class="p-error">
+            @if (importSocialUserForm.get('firstName')?.errors?.['maxlength']) {
+              First name must not exceed 100 characters
+            } @else if (importSocialUserForm.get('firstName')?.errors?.['pattern']) {
+              First name can only contain letters, spaces, hyphens, and apostrophes
+            }
+          </small>
+        }
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="import-lastName" class="form-label">Last Name</label>
+        <input
+          id="import-lastName"
+          type="text"
+          pInputText
+          formControlName="lastName"
+          placeholder="Last name (optional)"
+          maxlength="100"
+          [class.p-invalid]="
+            importSocialUserForm.get('lastName')?.invalid &&
+            importSocialUserForm.get('lastName')?.touched
+          "
+          class="w-full"
+        />
+        @if (
+          importSocialUserForm.get('lastName')?.invalid &&
+          importSocialUserForm.get('lastName')?.touched
+        ) {
+          <small class="p-error">
+            @if (importSocialUserForm.get('lastName')?.errors?.['maxlength']) {
+              Last name must not exceed 100 characters
+            } @else if (importSocialUserForm.get('lastName')?.errors?.['pattern']) {
+              Last name can only contain letters, spaces, hyphens, and apostrophes
+            }
+          </small>
+        }
+      </div>
+    </div>
+
+    <!-- Phone Field -->
+    <div class="flex flex-col gap-2">
+      <label for="import-phone" class="form-label">Phone</label>
+      <p-inputmask
+        id="import-phone"
+        formControlName="phone"
+        mask="+99999999999999"
+        slotChar=""
+        placeholder="+14155552671"
+        [unmask]="false"
+        [autoClear]="false"
+        [class.p-invalid]="
+          importSocialUserForm.get('phone')?.invalid && importSocialUserForm.get('phone')?.touched
+        "
+      />
+      @if (
+        importSocialUserForm.get('phone')?.invalid && importSocialUserForm.get('phone')?.touched
+      ) {
+        <small class="p-error">
+          @if (importSocialUserForm.get('phone')?.errors?.['phoneFormat']) {
+            {{ importSocialUserForm.get('phone')?.errors?.['phoneFormat']?.['message'] }}
+          } @else if (importSocialUserForm.get('phone')?.errors?.['maxlength']) {
+            Phone must not exceed 20 characters
+          }
+        </small>
+      }
+      <small class="text-secondary-500 text-xs"
+        >Format: +[country code][number] (e.g., +14155552671)</small
+      >
+    </div>
+
+    <!-- Password Field (Optional for hybrid accounts) -->
+    <div class="flex flex-col gap-2">
+      <label for="import-password" class="form-label">Password (Optional)</label>
+      <p-password
+        id="import-password"
+        formControlName="password"
+        placeholder="Leave empty for social-only account"
+        [toggleMask]="true"
+        [feedback]="false"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+        [class.p-invalid]="
+          importSocialUserForm.get('password')?.invalid &&
+          importSocialUserForm.get('password')?.touched
+        "
+      />
+      @if (
+        importSocialUserForm.get('password')?.invalid &&
+        importSocialUserForm.get('password')?.touched
+      ) {
+        <small class="p-error">
+          @if (importSocialUserForm.get('password')?.errors?.['minlength']) {
+            Password must be at least 8 characters
+          } @else if (importSocialUserForm.get('password')?.errors?.['maxlength']) {
+            Password must not exceed 128 characters
+          }
+        </small>
+      }
+      <small class="text-secondary-500 text-xs">
+        Leave empty to create a social-only account (no password login). Provide a password to
+        create a hybrid account (social + password).
+      </small>
+    </div>
+
+    <!-- Admin Override Options -->
+    <div class="border-t border-secondary-200 pt-4 space-y-3">
+      <h3 class="text-sm font-semibold text-secondary-900 mb-3">Admin Options</h3>
+
+      <!-- Phone Verified -->
+      <div class="flex items-center gap-2">
+        <p-checkbox
+          formControlName="isPhoneVerified"
+          [binary]="true"
+          inputId="import-isPhoneVerified"
+        />
+        <label for="import-isPhoneVerified" class="form-label cursor-pointer">
+          Phone verified (bypass phone verification)
+        </label>
+      </div>
+
+      <!-- Force Password Change -->
+      <div class="flex items-center gap-2">
+        <p-checkbox
+          formControlName="mustChangePassword"
+          [binary]="true"
+          inputId="import-mustChangePassword"
+        />
+        <label for="import-mustChangePassword" class="form-label cursor-pointer">
+          Force password change on first login
+        </label>
+      </div>
+    </div>
+
+    <!-- Submit Button -->
+    <div class="flex justify-end gap-2 pt-4 border-t border-secondary-200">
+      <p-button
+        label="Cancel"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="closeImportSocialDialog()"
+        [disabled]="importSocialLoading()"
+      />
+      <p-button
+        type="submit"
+        label="{{ importSocialLoading() ? 'Importing...' : 'Import User' }}"
+        [disabled]="importSocialUserForm.invalid || importSocialLoading()"
+        [loading]="importSocialLoading()"
+        icon="pi pi-users"
+      />
+    </div>
+  </form>
+</p-dialog>
+
 <!-- Reset Password Dialog -->
 <p-dialog
   [visible]="showResetPasswordDialog()"
@@ -627,23 +614,21 @@
   [closable]="true"
   [draggable]="false"
   [resizable]="false"
-  [style]="{ width: '550px', maxWidth: '90vw' }"
+  [style]="{ width: '500px', maxWidth: '90vw' }"
   header="Reset Password"
+  (onHide)="closeResetPasswordDialog()"
 >
-  <form [formGroup]="resetPasswordForm" (ngSubmit)="resetPassword()" class="space-y-4">
-    @if (selectedUser(); as user) {
-      <p class="text-secondary-700 mb-4">
-        Reset password for <strong>{{ user.email }}</strong>
-      </p>
-    }
+  <form [formGroup]="resetPasswordForm" (ngSubmit)="onSubmitResetPassword()" class="space-y-4">
+    <p class="text-secondary-700 mb-4">
+      Set a new password for <strong>{{ selectedUser()?.email }}</strong>
+    </p>
 
-    <!-- Password Field -->
     <div class="flex flex-col gap-2">
-      <label for="resetPassword" class="form-label">
+      <label for="reset-password" class="form-label">
         New Password <span class="form-required">*</span>
       </label>
       <p-password
-        id="resetPassword"
+        id="reset-password"
         formControlName="password"
         placeholder="Enter new password"
         [toggleMask]="true"
@@ -662,18 +647,19 @@
             Password is required
           } @else if (resetPasswordForm.get('password')?.errors?.['minlength']) {
             Password must be at least 8 characters
+          } @else if (resetPasswordForm.get('password')?.errors?.['maxlength']) {
+            Password must not exceed 128 characters
           }
         </small>
       }
     </div>
 
-    <!-- Submit Button -->
-    <div class="flex justify-end gap-2 pt-4">
+    <div class="flex justify-end gap-2 pt-4 border-t border-secondary-200">
       <p-button
         label="Cancel"
         severity="secondary"
         [outlined]="true"
-        (onClick)="showResetPasswordDialog.set(false)"
+        (onClick)="closeResetPasswordDialog()"
         [disabled]="resetPasswordLoading()"
       />
       <p-button
@@ -685,57 +671,4 @@
       />
     </div>
   </form>
-</p-dialog>
-
-<!-- Generated Password Dialog -->
-<p-dialog
-  [visible]="showPasswordDialog()"
-  (visibleChange)="showPasswordDialog.set($event)"
-  [modal]="true"
-  [closable]="true"
-  [draggable]="false"
-  [resizable]="false"
-  [style]="{ width: '550px', maxWidth: '90vw' }"
-  header="Generated Password"
-  (onHide)="closePasswordDialog()"
->
-  <div class="space-y-4">
-    <p class="text-secondary-700">
-      A secure password has been generated for the new user. Please copy this password and deliver
-      it securely to the user.
-    </p>
-
-    <div class="bg-secondary-50 border border-secondary-200 rounded-lg p-4">
-      <div class="flex items-center justify-between gap-4">
-        <code class="text-lg font-mono text-secondary-900 flex-1 break-all">
-          {{ generatedPassword() }}
-        </code>
-        <p-button
-          icon="pi pi-copy"
-          severity="secondary"
-          [outlined]="true"
-          size="small"
-          (onClick)="copyPasswordAndClose()"
-          pTooltip="Copy password to clipboard"
-        />
-      </div>
-    </div>
-
-    <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
-      <div class="flex items-start gap-2">
-        <i class="pi pi-exclamation-triangle text-amber-600 mt-0.5"></i>
-        <div class="text-sm text-amber-800">
-          <p class="font-semibold mb-1">Security Warning</p>
-          <p>
-            This password is shown only once. It will not be displayed again. Make sure to copy it
-            before closing this dialog.
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <div class="flex justify-end gap-2 pt-4">
-      <p-button label="I've Copied It" severity="primary" (onClick)="closePasswordDialog()" />
-    </div>
-  </div>
 </p-dialog>

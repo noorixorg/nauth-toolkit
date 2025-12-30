@@ -1,7 +1,7 @@
 ---
 title: AdminSignupSocialResponseDTO
 description: Response DTO for administrative social user import containing user object and social account confirmation
-sidebar_position: 4
+sidebar_position: 130
 keywords: [dto, response, admin, social]
 image: /img/api-social-card.png
 ---

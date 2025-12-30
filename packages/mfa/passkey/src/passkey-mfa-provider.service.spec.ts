@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { Repository } from 'typeorm';
 import { PasskeyMFAProviderService } from './passkey-mfa-provider.service';
 import { PasskeyService } from './passkey.service';

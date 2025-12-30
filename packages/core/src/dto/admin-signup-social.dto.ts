@@ -7,7 +7,8 @@ import { UserResponseDto } from './user-response.dto';
  *
  * Allows administrators to import existing social users from external platforms
  * (e.g., Cognito, Auth0) into nauth with:
- * - Bypass email/phone verification requirements
+ * - Automatic email verification (like normal social signup)
+ * - Optional phone verification bypass
  * - Optional password for hybrid social+password accounts
  * - Social account linkage (provider + providerId)
  * - Automatic user flag updates (hasSocialAuth)
@@ -35,7 +36,6 @@ import { UserResponseDto } from './user-response.dto';
  *   providerId: 'google_12345',
  *   providerEmail: 'user@gmail.com',
  *   socialMetadata: { sub: 'google_12345', given_name: 'John' },
- *   isEmailVerified: true,
  * };
  *
  * // Import hybrid user with password + social
@@ -44,7 +44,6 @@ import { UserResponseDto } from './user-response.dto';
  *   password: 'SecurePass123!',
  *   provider: 'apple',
  *   providerId: 'apple_67890',
- *   isEmailVerified: true,
  * };
  * ```
  */
@@ -95,18 +94,6 @@ export class AdminSignupSocialDTO {
     return value;
   })
   firstName?: string;
-
-  /**
-   * Bypass email verification requirement
-   *
-   * If true, user's email is marked as verified without sending verification email.
-   * If false (default), user must verify email through normal flow.
-   *
-   * Default: false
-   */
-  @IsOptional()
-  @IsBoolean({ message: 'isEmailVerified must be a boolean' })
-  isEmailVerified?: boolean;
 
   /**
    * Bypass phone verification requirement

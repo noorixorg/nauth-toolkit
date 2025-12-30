@@ -3,7 +3,7 @@ title: GetClientInfoResponseDTO
 description: Response DTO for client information. Returns IP address, user agent, device info, and optional geolocation data from request context.
 keywords: [client, info, ip, user-agent, device, response, dto, api]
 image: /img/api-social-card.png
-sidebar_position: 16
+sidebar_position: 770
 ---
 
 import Tabs from '@theme/Tabs';

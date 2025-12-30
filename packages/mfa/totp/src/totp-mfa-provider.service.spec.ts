@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { Repository } from 'typeorm';
 import { TOTPMFAProviderService } from './totp-mfa-provider.service';
 import { TOTPService } from './totp.service';

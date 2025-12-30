@@ -3,7 +3,7 @@ title: GetUserByEmailDTO
 description: Request DTO for retrieving user by email address. Includes optional flag to require verified email.
 keywords: [get, user, email, dto, request, api]
 image: /img/api-social-card.png
-sidebar_position: 36
+sidebar_position: 720
 ---
 
 import Tabs from '@theme/Tabs';

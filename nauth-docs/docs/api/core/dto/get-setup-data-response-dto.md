@@ -3,7 +3,7 @@ title: GetSetupDataResponseDTO
 description: Response DTO for MFA setup data. Returns provider-specific setup information including TOTP QR codes, SMS masked phone, and Passkey WebAuthn options.
 keywords: [mfa, setup, data, response, dto, totp, qr, passkey, api]
 image: /img/api-social-card.png
-sidebar_position: 28
+sidebar_position: 510
 ---
 
 import Tabs from '@theme/Tabs';

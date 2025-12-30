@@ -3,7 +3,7 @@ title: VerifyEmailWithCodeDTO
 description: Request DTO for verifying email addresses using 6-digit verification codes. Includes email and code validation.
 keywords: [email, verification, dto, request, code, otp, api]
 image: /img/api-social-card.png
-sidebar_position: 81
+sidebar_position: 330
 ---
 
 import Tabs from '@theme/Tabs';

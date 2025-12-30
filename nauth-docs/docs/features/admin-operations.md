@@ -400,13 +400,13 @@ const googleIdentity = cognitoUser.UserAttributes.find((attr) => attr.Name === '
 const identity = JSON.parse(googleIdentity.Value)[0];
 
 // Import to nauth-toolkit
+// Note: Email is automatically verified for social imports (like normal social signup)
 const result = await authService.adminSignupSocial({
   email: cognitoUser.UserAttributes.find((attr) => attr.Name === 'email')?.Value,
   provider: identity.providerName.toLowerCase(), // 'google'
   providerId: identity.userId, // Provider's user ID
   providerEmail: identity.providerAttributes?.email,
   socialMetadata: identity.providerAttributes, // Store full OAuth profile
-  isEmailVerified: cognitoUser.UserAttributes.find((attr) => attr.Name === 'email_verified')?.Value === 'true',
   firstName: cognitoUser.UserAttributes.find((attr) => attr.Name === 'given_name')?.Value,
   lastName: cognitoUser.UserAttributes.find((attr) => attr.Name === 'family_name')?.Value,
 });
@@ -419,7 +419,7 @@ const result = await authService.adminSignupSocial({
 ```typescript
 interface AdminSignupSocialDTO {
   // Required fields
-  email: string; // User's primary email
+  email: string; // User's primary email (automatically verified for social imports)
   provider: 'google' | 'apple' | 'facebook'; // Social provider
   providerId: string; // Provider's unique user ID (e.g., Google sub)
 
@@ -438,7 +438,7 @@ interface AdminSignupSocialDTO {
   metadata?: Record<string, unknown>;
 
   // Admin override flags
-  isEmailVerified?: boolean; // Default: false
+  // Note: isEmailVerified is not part of the DTO - email is always verified for social imports
   isPhoneVerified?: boolean; // Default: false
   mustChangePassword?: boolean; // Only relevant if password provided
 }

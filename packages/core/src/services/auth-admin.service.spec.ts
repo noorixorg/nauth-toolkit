@@ -1,7 +1,7 @@
 /**
  * AuthService Admin User Management Tests
  *
- * Tests for deleteUser(), getUsers(), and disableUser() methods
+ * Tests for deleteUser(), getUsers(), disableUser(), and enableUser() methods
  */
 
 import { Repository } from 'typeorm';
@@ -23,6 +23,7 @@ import { SocialAuthService } from './social-auth.service';
 import { DeleteUserDTO } from '../dto/delete-user.dto';
 import { GetUsersDTO } from '../dto/get-users.dto';
 import { DisableUserDTO } from '../dto/disable-user.dto';
+import { EnableUserDTO } from '../dto/enable-user.dto';
 import { IUser } from '../interfaces/entities.interface';
 import {
   BaseUser,
@@ -117,6 +118,12 @@ describe('AuthService - Admin User Management', () => {
 
   const createDisableUserDto = (sub: string, reason?: string): DisableUserDTO => {
     const dto = Object.assign(new DisableUserDTO(), { sub, reason });
+    markDtoAsValidated(dto);
+    return dto;
+  };
+
+  const createEnableUserDto = (sub: string): EnableUserDTO => {
+    const dto = Object.assign(new EnableUserDTO(), { sub });
     markDtoAsValidated(dto);
     return dto;
   };
@@ -309,23 +316,31 @@ describe('AuthService - Admin User Management', () => {
 
       await service.getUsers(getUsersDto);
 
-      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('user.email = :email', { email: 'test@example.com' });
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('LOWER(user.email) LIKE LOWER(:email)', {
+        email: '%test@example.com%',
+      });
     });
   });
 
   describe('disableUser()', () => {
     it('should disable user with permanent lock (lockedUntil=NULL)', async () => {
       const disableUserDto = createDisableUserDto('user-123', 'Suspicious activity detected');
-      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
-      const lockedUser = { ...mockUser, isLocked: true, lockedUntil: null };
-      mockUserRepository.save.mockResolvedValue(lockedUser as any);
+      mockUserRepository.findOne.mockResolvedValueOnce(mockUser as any).mockResolvedValueOnce({
+        ...mockUser,
+        isLocked: true,
+        lockedUntil: null,
+        lockReason: 'Suspicious activity detected',
+        lockedAt: new Date(),
+      } as any);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockSessionService.revokeAllUserSessions.mockResolvedValue(3);
 
       const result = await service.disableUser(disableUserDto);
 
       expect(result.success).toBe(true);
       expect(result.revokedSessions).toBe(3);
-      expect(mockUserRepository.save).toHaveBeenCalledWith(
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { id: mockUser.id },
         expect.objectContaining({
           isLocked: true,
           lockReason: 'Suspicious activity detected',
@@ -341,6 +356,61 @@ describe('AuthService - Admin User Management', () => {
 
       await expect(service.disableUser(disableUserDto)).rejects.toThrow(NAuthException);
       await expect(service.disableUser(disableUserDto)).rejects.toMatchObject({
+        code: AuthErrorCode.USER_NOT_FOUND,
+      });
+    });
+  });
+
+  describe('enableUser()', () => {
+    it('should enable user by clearing all lock fields', async () => {
+      const enableUserDto = createEnableUserDto('user-123');
+      const lockedUser = {
+        ...mockUser,
+        isLocked: true,
+        lockReason: 'Suspicious activity detected',
+        lockedAt: new Date('2024-01-01'),
+        lockedUntil: null,
+        failedLoginAttempts: 5,
+      };
+      mockUserRepository.findOne
+        .mockResolvedValueOnce(lockedUser as any)
+        .mockResolvedValueOnce({
+          ...lockedUser,
+          isLocked: false,
+          lockReason: null,
+          lockedAt: null,
+          lockedUntil: null,
+          failedLoginAttempts: 0,
+        } as any);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
+
+      const result = await service.enableUser(enableUserDto);
+
+      expect(result.success).toBe(true);
+      expect(result.user.isLocked).toBe(false);
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { id: mockUser.id },
+        expect.objectContaining({
+          isLocked: false,
+          lockReason: null,
+          lockedAt: null,
+          lockedUntil: null,
+          failedLoginAttempts: 0,
+        }),
+      );
+      expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: AuthAuditEventType.ACCOUNT_ENABLED,
+        }),
+      );
+    });
+
+    it('should throw USER_NOT_FOUND if user does not exist', async () => {
+      const enableUserDto = createEnableUserDto('user-123');
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.enableUser(enableUserDto)).rejects.toThrow(NAuthException);
+      await expect(service.enableUser(enableUserDto)).rejects.toMatchObject({
         code: AuthErrorCode.USER_NOT_FOUND,
       });
     });

@@ -3,7 +3,7 @@ title: ResendVerificationSMSDTO
 description: Request DTO for resending verification SMS. Supports identification by user sub (UUID) or phone number with E.164 format.
 keywords: [phone, verification, sms, dto, request, resend, api]
 image: /img/api-social-card.png
-sidebar_position: 56
+sidebar_position: 350
 ---
 
 import Tabs from '@theme/Tabs';

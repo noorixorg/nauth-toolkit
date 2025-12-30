@@ -1,7 +1,7 @@
 ---
 title: GetUsersResponseDTO
 description: Paginated user listing response with metadata
-sidebar_position: 10
+sidebar_position: 210
 keywords: [dto, admin, list, users, response, pagination]
 image: /img/api-social-card.png
 ---

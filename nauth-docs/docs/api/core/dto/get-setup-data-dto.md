@@ -3,7 +3,7 @@ title: GetSetupDataDTO
 description: Request DTO for MFA setup data retrieval. Includes UUID session token and MFA method enum validation.
 keywords: [mfa, setup, data, dto, request, uuid, api]
 image: /img/api-social-card.png
-sidebar_position: 27
+sidebar_position: 500
 ---
 
 import Tabs from '@theme/Tabs';

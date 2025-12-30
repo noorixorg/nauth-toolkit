@@ -32,6 +32,7 @@ import { AdminSignupSocialDTO, AdminSignupSocialResponseDTO } from '../dto/admin
 import { DeleteUserDTO, DeleteUserResponseDTO } from '../dto/delete-user.dto';
 import { GetUsersDTO, GetUsersResponseDTO } from '../dto/get-users.dto';
 import { DisableUserDTO, DisableUserResponseDTO } from '../dto/disable-user.dto';
+import { EnableUserDTO, EnableUserResponseDTO } from '../dto/enable-user.dto';
 import { LoginDTO } from '../dto/login.dto';
 import { ChangePasswordRequestDTO } from '../dto/change-password-request.dto';
 import { ChangePasswordResponseDTO } from '../dto/change-password-response.dto';
@@ -583,13 +584,13 @@ export class AuthService {
    * @example
    * ```typescript
    * // Import social-only user from Cognito
+   * // Note: Email is automatically verified for social imports (like normal social signup)
    * const result = await authService.adminSignupSocial({
    *   email: 'user@example.com',
    *   provider: 'google',
    *   providerId: 'google_12345',
    *   providerEmail: 'user@gmail.com',
    *   socialMetadata: { sub: 'google_12345', given_name: 'John' },
-   *   isEmailVerified: true,
    * });
    *
    * // Import hybrid user with password + social
@@ -598,7 +599,6 @@ export class AuthService {
    *   password: 'SecurePass123!',
    *   provider: 'apple',
    *   providerId: 'apple_67890',
-   *   isEmailVerified: true,
    * });
    * ```
    */
@@ -698,8 +698,9 @@ export class AuthService {
     }
 
     // Create user with override flags
+    // Note: Email is always verified for social imports (like normal social signup)
     this.logger?.debug?.(
-      `Creating admin social user record for: ${dto.email} || ${dto.username} || ${dto.phone} (isEmailVerified: ${dto.isEmailVerified || false}, isPhoneVerified: ${dto.isPhoneVerified || false})`,
+      `Creating admin social user record for: ${dto.email} || ${dto.username} || ${dto.phone} (isEmailVerified: true [auto-verified for social], isPhoneVerified: ${dto.isPhoneVerified || false})`,
     );
     const user = this.userRepository.create({
       email: dto.email,
@@ -709,7 +710,7 @@ export class AuthService {
       phone: dto.phone,
       passwordHash, // null for social-only, hashed string for hybrid accounts
       passwordChangedAt: dto.password ? new Date() : null, // Only set if password provided
-      isEmailVerified: dto.isEmailVerified ?? false, // Use DTO value or default to false
+      isEmailVerified: true, // Always verified for social imports (like normal social signup)
       isPhoneVerified: dto.isPhoneVerified ?? false, // Use DTO value or default to false
       mustChangePassword: dto.mustChangePassword ?? false, // Use DTO value or default to false
       isActive: true, // Always active
@@ -926,12 +927,8 @@ export class AuthService {
       this.logger?.debug?.(`Deleted ${auditLogsCount} audit logs for user ${dto.sub}`);
     }
 
-    // 9. Delete User Record (final)
-    await this.userRepository.delete({ id: user.id });
-    this.logger?.log?.(`User deleted successfully: ${user.email} (sub: ${dto.sub})`);
-
     // ============================================================================
-    // Record Admin Action (in separate audit log, NOT deleted with user)
+    // Record Admin Action (BEFORE deleting user to satisfy foreign key constraint)
     // ============================================================================
     try {
       await this.auditService?.recordEvent({
@@ -960,6 +957,10 @@ export class AuthService {
       const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
       this.logger?.error?.(`Failed to record ACCOUNT_DELETED audit event: ${errorMessage}`);
     }
+
+    // 9. Delete User Record (final)
+    await this.userRepository.delete({ id: user.id });
+    this.logger?.log?.(`User deleted successfully: ${user.email} (sub: ${dto.sub})`);
 
     return {
       success: true,
@@ -1261,6 +1262,140 @@ export class AuthService {
       success: true,
       user: userDto,
       revokedSessions: revokedCount,
+    };
+  }
+
+  /**
+   * Enable (unlock) user account
+   *
+   * Unlocks a previously locked user account by clearing all lock fields.
+   * This reverses the effect of disableUser() or rate-limit lockouts.
+   *
+   * Security:
+   * - NO built-in authentication - endpoint MUST be protected by admin guards
+   * - Clears lock fields (isLocked, lockReason, lockedAt, lockedUntil)
+   * - Resets failed login attempts counter
+   * - Records ACCOUNT_ENABLED audit event with admin identifier
+   *
+   * @param dto - User sub to enable
+   * @returns User object with updated lock status
+   * @throws {NAuthException} USER_NOT_FOUND
+   *
+   * @example
+   * ```typescript
+   * const result = await authService.enableUser({
+   *   sub: 'user-uuid-123'
+   * });
+   * console.log(`User unlocked: ${result.user.email}`);
+   * ```
+   */
+  async enableUser(dto: EnableUserDTO): Promise<EnableUserResponseDTO> {
+    // Ensure DTO is validated
+    dto = await ensureValidatedDto(EnableUserDTO, dto);
+
+    // Get client info for audit
+    const clientInfo = this.clientInfoService.get();
+
+    this.logger?.log?.(`Admin enableUser initiated for sub: ${dto.sub}`);
+
+    // Find user by sub
+    const user = await this.userRepository.findOne({ where: { sub: dto.sub } });
+
+    if (!user) {
+      this.logger?.warn?.(`User not found for enabling: ${dto.sub}`);
+      throw new NAuthException(AuthErrorCode.USER_NOT_FOUND, 'User not found');
+    }
+
+    this.logger?.debug?.(`Enabling user ${user.email} (id: ${user.id}, sub: ${dto.sub})`);
+
+    // ============================================================================
+    // Clear Lock Fields (unlock account)
+    // ============================================================================
+    await this.userRepository.update(
+      { id: user.id },
+      {
+        isLocked: false,
+        lockReason: null,
+        lockedAt: null,
+        lockedUntil: null,
+        failedLoginAttempts: 0, // Reset failed attempts counter
+      },
+    );
+
+    // Reload user to get updated entity
+    const updatedUser = (await this.userRepository.findOne({ where: { id: user.id } })) as IUser | null;
+    if (!updatedUser) {
+      throw new NAuthException(AuthErrorCode.USER_NOT_FOUND, 'User not found after update');
+    }
+
+    this.logger?.log?.(`User unlocked: ${updatedUser.email} (sub: ${dto.sub})`);
+
+    // ============================================================================
+    // Record Admin Action (ACCOUNT_ENABLED)
+    // ============================================================================
+    if (!this.auditService) {
+      this.logger?.warn?.(
+        `Audit service not available - ACCOUNT_ENABLED event not recorded for user ${dto.sub}. Enable audit logs in config.auditLogs.enabled`,
+      );
+    } else {
+      try {
+        // Get admin user ID from client info (the currently logged in user performing this action)
+        const adminUserId = (clientInfo as { userId?: number })?.userId;
+
+        // Set performedBy to the admin's user ID (who unlocked the account)
+        const performedBy = adminUserId ? String(adminUserId) : clientInfo.ipAddress || 'system';
+
+        if (adminUserId) {
+          this.logger?.debug?.(
+            `Admin user ID ${adminUserId} (currently logged in) is enabling account for user ${dto.sub}`,
+          );
+        } else {
+          this.logger?.warn?.(
+            `No admin user ID in clientInfo - performedBy will be set to IP address or 'system' for user ${dto.sub}`,
+          );
+        }
+
+        const auditResult = await this.auditService.recordEvent({
+          userId: updatedUser.id,
+          eventType: AuthAuditEventType.ACCOUNT_ENABLED,
+          eventStatus: 'INFO',
+          authMethod: 'admin',
+          performedBy,
+          reason: 'admin_unlock',
+          description: 'Account unlocked by administrator',
+          metadata: {
+            userSub: dto.sub,
+            adminIdentifier: clientInfo.ipAddress || 'unknown',
+            adminUserId: adminUserId || null,
+            previousLockReason: user.lockReason,
+            previousLockedAt: user.lockedAt,
+            previousLockedUntil: user.lockedUntil,
+          },
+        });
+
+        if (auditResult) {
+          this.logger?.debug?.(`ACCOUNT_ENABLED audit event recorded successfully for user ${dto.sub}`);
+        } else {
+          this.logger?.warn?.(`ACCOUNT_ENABLED audit event returned null for user ${dto.sub}`);
+        }
+      } catch (auditError) {
+        // Non-blocking: Log but continue
+        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+        const errorStack = auditError instanceof Error ? auditError.stack : undefined;
+        this.logger?.error?.(`Failed to record ACCOUNT_ENABLED audit event: ${errorMessage}`, {
+          error: auditError,
+          errorStack,
+          userId: updatedUser.id,
+          userSub: dto.sub,
+        });
+      }
+    }
+
+    // Return sanitized user
+    const userDto = UserResponseDto.fromEntity(updatedUser as unknown as IUser);
+    return {
+      success: true,
+      user: userDto,
     };
   }
 

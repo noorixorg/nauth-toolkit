@@ -3,7 +3,7 @@ title: ResponseChallengeDTO
 description: Challenge response DTO returned when authentication requires additional verification steps. Contains challenge type, session token, and challenge parameters.
 keywords: [challenge, response, dto, verification, mfa, api]
 image: /img/api-social-card.png
-sidebar_position: 60
+sidebar_position: 470
 ---
 
 import Tabs from '@theme/Tabs';

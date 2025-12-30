@@ -94,13 +94,29 @@ export class BaseUser {
 
   /**
    * Account active status
-   * Inactive accounts cannot login
+   *
+   * Admin-controlled flag for account lifecycle management.
+   * - false = Account deactivated (soft disable, manual toggle)
+   * - true = Account enabled (default for new signups)
+   *
+   * Use case: Administrative account management, account lifecycle control
    */
   isActive!: boolean;
 
   /**
    * Account lock status
-   * Locked accounts cannot login until unlocked
+   *
+   * Security lock mechanism for temporary or permanent restrictions.
+   * - false = Account unlocked (default)
+   * - true = Account locked (blocks login)
+   *
+   * Lock types:
+   * - Permanent: lockedUntil = null (admin disableUser, requires manual unlock)
+   * - Temporary: lockedUntil = future date (rate limiting, auto-unlocks when expired)
+   *
+   * Use case: Security restrictions, rate limiting, failed login attempts
+   *
+   * See also: lockReason, lockedAt, lockedUntil
    */
   isLocked!: boolean;
 

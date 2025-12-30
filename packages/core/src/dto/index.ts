@@ -5,6 +5,7 @@ export * from './admin-signup-social.dto';
 export * from './delete-user.dto';
 export * from './get-users.dto';
 export * from './disable-user.dto';
+export * from './enable-user.dto';
 export * from './login.dto';
 export * from './change-password.dto';
 export * from './change-password-request.dto';

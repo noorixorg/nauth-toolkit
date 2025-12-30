@@ -8,8 +8,8 @@ import {
   ViewChild,
 } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import {
+  FormsModule,
   FormBuilder,
   FormGroup,
   Validators,
@@ -20,10 +20,11 @@ import {
 import {
   AdminService,
   AdminSignupRequest,
+  AdminSignupSocialRequest,
   User,
   GetUsersRequest,
 } from '../../services/admin.service';
-import { MessageService, MenuItem } from 'primeng/api';
+import { MessageService, MenuItem, ConfirmationService } from 'primeng/api';
 import { CardModule } from 'primeng/card';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -41,7 +42,7 @@ import { SelectModule } from 'primeng/select';
 import { DatePickerModule } from 'primeng/datepicker';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { AccordionModule } from 'primeng/accordion';
-import { ConfirmationService } from 'primeng/api';
+import { UserListComponent } from './user-list/user-list.component';
 
 /**
  * Phone number validator
@@ -97,6 +98,7 @@ function phoneValidator(control: AbstractControl): ValidationErrors | null {
     DatePickerModule,
     ConfirmDialogModule,
     AccordionModule,
+    UserListComponent,
   ],
   providers: [DatePipe, ConfirmationService],
   templateUrl: './admin.component.html',
@@ -274,6 +276,35 @@ export class AdminComponent implements OnInit {
    */
   createSuccess = signal<string | null>(null);
 
+  // ============================================================================
+  // Import Social User Dialog State
+  // ============================================================================
+
+  /**
+   * Import social user form group
+   */
+  importSocialUserForm!: FormGroup;
+
+  /**
+   * Dialog visibility state for import social user
+   */
+  showImportSocialDialog = signal(false);
+
+  /**
+   * Loading state for import social user form submission
+   */
+  importSocialLoading = signal(false);
+
+  /**
+   * Error message for import social user
+   */
+  importSocialError = signal<string | null>(null);
+
+  /**
+   * Success message for import social user
+   */
+  importSocialSuccess = signal<string | null>(null);
+
   /**
    * Generated password from last user creation
    */
@@ -318,8 +349,11 @@ export class AdminComponent implements OnInit {
    * Initialize component
    */
   ngOnInit(): void {
+    // Note: filterForm is now managed by user-list component
+    // We still initialize it for backward compatibility
     this.initializeFilterForm();
     this.initializeCreateUserForm();
+    this.initializeImportSocialUserForm();
     this.initializeResetPasswordForm();
     // Defer initial load to next tick
     Promise.resolve().then(() => {
@@ -399,6 +433,37 @@ export class AdminComponent implements OnInit {
         ]);
       }
       passwordControl?.updateValueAndValidity();
+    });
+  }
+
+  /**
+   * Initialize import social user form
+   */
+  private initializeImportSocialUserForm(): void {
+    this.importSocialUserForm = this.fb.group({
+      email: ['', [Validators.required, Validators.email, Validators.maxLength(255)]],
+      provider: ['google', [Validators.required]],
+      providerId: ['', [Validators.required, Validators.maxLength(255)]],
+      firstName: [
+        '',
+        [
+          Validators.minLength(1),
+          Validators.maxLength(100),
+          Validators.pattern(/^[a-zA-Z\s\-']+$/),
+        ],
+      ],
+      lastName: [
+        '',
+        [
+          Validators.minLength(1),
+          Validators.maxLength(100),
+          Validators.pattern(/^[a-zA-Z\s\-']+$/),
+        ],
+      ],
+      phone: ['', [phoneValidator, Validators.maxLength(20)]],
+      password: ['', [Validators.minLength(8), Validators.maxLength(128)]],
+      isPhoneVerified: [false],
+      mustChangePassword: [false],
     });
   }
 
@@ -497,6 +562,54 @@ export class AdminComponent implements OnInit {
   }
 
   /**
+   * Handle user action from user-list component
+   */
+  handleUserAction(event: { action: string; user: User }): void {
+    switch (event.action) {
+      case 'resetPassword':
+        this.openResetPasswordDialog(event.user);
+        break;
+      case 'forcePasswordChange':
+        this.forcePasswordChange(event.user);
+        break;
+      case 'enableUser':
+        this.enableUser(event.user);
+        break;
+      case 'disableUser':
+        this.disableUser(event.user);
+        break;
+      case 'deleteUser':
+        this.confirmDeleteUser(event.user);
+        break;
+    }
+  }
+
+  /**
+   * Handle filters change from user-list component
+   */
+  onFiltersChange(filters: GetUsersRequest): void {
+    // Update filter form with new values
+    this.filterForm.patchValue({
+      email: filters.email || '',
+      phone: filters.phone || '',
+      isEmailVerified: filters.isEmailVerified ?? null,
+      isPhoneVerified: filters.isPhoneVerified ?? null,
+      hasSocialAuth: filters.hasSocialAuth ?? null,
+      isLocked: filters.isLocked ?? null,
+      mfaEnabled: filters.mfaEnabled ?? null,
+      sortBy: filters.sortBy || 'createdAt',
+      sortOrder: filters.sortOrder || 'DESC',
+    });
+
+    // Update page and limit
+    if (filters.page) this.page.set(filters.page);
+    if (filters.limit) this.limit.set(filters.limit);
+
+    // Load users with new filters
+    this.loadUsers();
+  }
+
+  /**
    * Apply filters
    */
   applyFilters(): void {
@@ -568,9 +681,18 @@ export class AdminComponent implements OnInit {
   }
 
   /**
-   * Reset password for user
+   * Close reset password dialog
    */
-  async resetPassword(): Promise<void> {
+  closeResetPasswordDialog(): void {
+    this.showResetPasswordDialog.set(false);
+    this.selectedUser.set(null);
+    this.resetPasswordForm.reset();
+  }
+
+  /**
+   * Handle reset password form submission
+   */
+  onSubmitResetPassword(): void {
     if (this.resetPasswordForm.invalid) {
       Object.keys(this.resetPasswordForm.controls).forEach((key) => {
         this.resetPasswordForm.get(key)?.markAsTouched();
@@ -583,36 +705,57 @@ export class AdminComponent implements OnInit {
 
     this.resetPasswordLoading.set(true);
 
-    try {
-      await this.adminService.setPassword(user.email, this.resetPasswordForm.value.password);
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Password Reset',
-        detail: `Password has been reset for ${user.email}`,
+    this.adminService
+      .setPassword(user.email, this.resetPasswordForm.value.password)
+      .then(() => {
+        this.resetPasswordLoading.set(false);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Password Reset',
+          detail: `Password has been reset for ${user.email}`,
+        });
+        this.loadUsers();
+        this.closeResetPasswordDialog();
+      })
+      .catch((err: unknown) => {
+        this.resetPasswordLoading.set(false);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to reset password';
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Reset Password Failed',
+          detail: errorMessage,
+        });
       });
-      this.showResetPasswordDialog.set(false);
-      this.selectedUser.set(null);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to reset password';
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Reset Password Failed',
-        detail: errorMessage,
-      });
-    } finally {
-      this.resetPasswordLoading.set(false);
-    }
   }
 
   /**
    * Force password change on next login
    */
   async forcePasswordChange(user: User): Promise<void> {
-    // TODO: Implement when API is available
-    this.messageService.add({
-      severity: 'info',
-      summary: 'Coming Soon',
-      detail: 'Force password change feature will be available soon',
+    this.confirmationService.confirm({
+      message: `Are you sure you want to force ${user.email} to change their password on next login?`,
+      header: 'Force Password Change',
+      icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-warning',
+      accept: async () => {
+        try {
+          await this.adminService.forcePasswordChange(user.sub);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Password Change Required',
+            detail: `${user.email} will be required to change their password on next login.`,
+          });
+          this.loadUsers();
+        } catch (err: unknown) {
+          const errorMessage =
+            err instanceof Error ? err.message : 'Failed to force password change';
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Force Password Change Failed',
+            detail: errorMessage,
+          });
+        }
+      },
     });
   }
 
@@ -650,11 +793,29 @@ export class AdminComponent implements OnInit {
    * Enable user account
    */
   async enableUser(user: User): Promise<void> {
-    // TODO: Implement when API is available
-    this.messageService.add({
-      severity: 'info',
-      summary: 'Coming Soon',
-      detail: 'Enable user feature will be available soon',
+    this.confirmationService.confirm({
+      message: `Are you sure you want to enable (unlock) user ${user.email}? This will allow them to login again.`,
+      header: 'Enable User',
+      icon: 'pi pi-check-circle',
+      acceptButtonStyleClass: 'p-button-success',
+      accept: async () => {
+        try {
+          await this.adminService.enableUser(user.sub);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'User Enabled',
+            detail: `User ${user.email} has been enabled and can now login.`,
+          });
+          this.loadUsers();
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : 'Failed to enable user';
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Enable User Failed',
+            detail: errorMessage,
+          });
+        }
+      },
     });
   }
 
@@ -669,7 +830,7 @@ export class AdminComponent implements OnInit {
       acceptButtonStyleClass: 'p-button-danger',
       accept: async () => {
         try {
-          const response = await this.adminService.deleteUser(user.sub);
+          await this.adminService.deleteUser(user.sub);
           this.messageService.add({
             severity: 'success',
             summary: 'User Deleted',
@@ -715,6 +876,81 @@ export class AdminComponent implements OnInit {
     this.showDialog.set(false);
     this.createError.set(null);
     this.createSuccess.set(null);
+  }
+
+  // ============================================================================
+  // Import Social User Methods
+  // ============================================================================
+
+  /**
+   * Open import social user dialog
+   */
+  openImportSocialUserDialog(): void {
+    this.importSocialUserForm.reset({
+      provider: 'google',
+      isPhoneVerified: false,
+      mustChangePassword: false,
+    });
+    this.importSocialError.set(null);
+    this.importSocialSuccess.set(null);
+    this.showImportSocialDialog.set(true);
+  }
+
+  /**
+   * Close import social user dialog
+   */
+  closeImportSocialDialog(): void {
+    this.showImportSocialDialog.set(false);
+    this.importSocialError.set(null);
+    this.importSocialSuccess.set(null);
+  }
+
+  /**
+   * Handle import social user form submission
+   */
+  onSubmitImportSocial(): void {
+    if (this.importSocialUserForm.invalid) {
+      Object.keys(this.importSocialUserForm.controls).forEach((key) => {
+        this.importSocialUserForm.get(key)?.markAsTouched();
+      });
+      return;
+    }
+
+    this.importSocialLoading.set(true);
+    this.importSocialError.set(null);
+    this.importSocialSuccess.set(null);
+
+    const formValue = this.importSocialUserForm.value;
+    const dto: AdminSignupSocialRequest = {
+      email: formValue.email.trim().toLowerCase(),
+      provider: formValue.provider,
+      providerId: formValue.providerId.trim(),
+      firstName: formValue.firstName?.trim() || undefined,
+      lastName: formValue.lastName?.trim() || undefined,
+      phone: formValue.phone?.replace(/\s/g, '') || undefined,
+      password: formValue.password || undefined,
+      // Note: isEmailVerified is automatically set to true by backend (like normal social signup)
+      isPhoneVerified: formValue.isPhoneVerified || false,
+      mustChangePassword: formValue.mustChangePassword || false,
+    };
+
+    this.adminService
+      .importSocialUser(dto)
+      .then((response) => {
+        this.importSocialLoading.set(false);
+        this.importSocialSuccess.set(
+          `Social user ${response.user.email} imported successfully. Provider: ${response.socialAccount.provider}`,
+        );
+        this.loadUsers();
+        setTimeout(() => {
+          this.closeImportSocialDialog();
+        }, 2000);
+      })
+      .catch((err: unknown) => {
+        this.importSocialLoading.set(false);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to import social user';
+        this.importSocialError.set(errorMessage);
+      });
   }
 
   /**

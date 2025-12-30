@@ -113,6 +113,8 @@ import { AuthAuditEventType } from '@nauth-toolkit/core';
 | `ACCOUNT_DEACTIVATED` | User account deactivated                            |
 | `ACCOUNT_LOCKED`      | User account locked (security measure)              |
 | `ACCOUNT_UNLOCKED`    | User account unlocked (admin action or auto-unlock) |
+| `ACCOUNT_DISABLED`    | User account disabled by admin (permanent lock)      |
+| `ACCOUNT_ENABLED`     | User account enabled by admin (unlock)              |
 | `ACCOUNT_DELETED`     | User account deleted                                |
 
 ## Profile Update Events

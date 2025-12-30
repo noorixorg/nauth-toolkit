@@ -3,7 +3,7 @@ title: LogoutAllDTO
 description: Request DTO for logging out user from all sessions. Requires user UUID for security validation.
 keywords: [logout, all, sessions, dto, request, uuid, api]
 image: /img/api-social-card.png
-sidebar_position: 46
+sidebar_position: 30
 ---
 
 import Tabs from '@theme/Tabs';

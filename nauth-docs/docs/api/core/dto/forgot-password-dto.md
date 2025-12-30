@@ -3,7 +3,7 @@ title: ForgotPasswordDTO
 description: Account recovery DTOs for requesting and confirming password reset via code. Includes identifier validation and password reset confirmation.
 keywords: [forgot password, password reset, dto, authentication, account recovery, code, api]
 image: /img/api-social-card.png
-sidebar_position: 12
+sidebar_position: 240
 ---
 
 import Tabs from '@theme/Tabs';

@@ -1,7 +1,7 @@
 ---
 title: AdminSignupSocialDTO
 description: Administrative social user import DTO for migrating users from external platforms with social account linkage
-sidebar_position: 3
+sidebar_position: 120
 keywords: [dto, admin, social, import, migration, cognito]
 image: /img/api-social-card.png
 ---
@@ -44,9 +44,8 @@ import { AdminSignupSocialDTO } from '@nauth-toolkit/core';
 
 | Property | Type | Required | Description |
 | -------- | ---- | -------- | ----------- |
-| `email` | `string` | Yes | User email address. Valid email format, max 255 chars. Trimmed and lowercased. |
+| `email` | `string` | Yes | User email address. Valid email format, max 255 chars. Trimmed and lowercased. Automatically verified for social imports (like normal social signup). |
 | `firstName` | `string` | No | First name. 1-100 chars. Letters, spaces, hyphens, apostrophes only. |
-| `isEmailVerified` | `boolean` | No | Bypass email verification. Default: false. |
 | `isPhoneVerified` | `boolean` | No | Bypass phone verification. Default: false. |
 | `lastName` | `string` | No | Last name. 1-100 chars. Letters, spaces, hyphens, apostrophes only. |
 | `metadata` | `Record<string, unknown>` | No | Custom user metadata. |
@@ -71,10 +70,13 @@ import { AdminSignupSocialDTO } from '@nauth-toolkit/core';
     "sub": "google_12345",
     "given_name": "John",
     "picture": "https://..."
-  },
-  "isEmailVerified": true
+  }
 }
 ```
+
+:::note Email Verification
+Email is automatically verified for all social imports (like normal social signup). The `isEmailVerified` field is not required and is not part of the DTO.
+:::
 
 ## Response
 

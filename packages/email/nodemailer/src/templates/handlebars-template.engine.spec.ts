@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { HandlebarsTemplateEngine } from './handlebars-template.engine';
 import { TemplateType } from '@nauth-toolkit/core';
 

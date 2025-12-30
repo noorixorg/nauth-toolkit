@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { FacebookSocialAuthService } from './facebook-social-auth.service';
 import { FacebookOAuthClient } from './facebook-oauth.client';
 import {

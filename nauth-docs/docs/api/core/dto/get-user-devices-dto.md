@@ -3,7 +3,7 @@ title: GetUserDevicesDTO
 description: Request and response DTOs for retrieving all MFA devices configured for a user. Returns array of device objects with type, name, and status.
 keywords: [mfa, devices, dto, request, response, user, api]
 image: /img/api-social-card.png
-sidebar_position: 38
+sidebar_position: 520
 ---
 
 import Tabs from '@theme/Tabs';

@@ -1,7 +1,7 @@
 ---
 title: SocialExchangeDTO
 description: Request DTO for exchanging a social redirect exchange token into an AuthResponse
-sidebar_position: 244
+sidebar_position: 680
 keywords: [dto, social, oauth, redirect, exchange, token, api]
 image: /img/api-social-card.png
 ---

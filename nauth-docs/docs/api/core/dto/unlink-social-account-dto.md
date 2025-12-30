@@ -3,7 +3,7 @@ title: UnlinkSocialAccountDTO
 description: Request DTO for unlinking social account. Includes user identifier and provider name.
 keywords: [social, auth, dto, request, unlink, api]
 image: /img/api-social-card.png
-sidebar_position: 74
+sidebar_position: 700
 ---
 
 import Tabs from '@theme/Tabs';

@@ -3,7 +3,7 @@ title: VerifyPhoneResponseDTO
 description: Response DTO for phone verification operations. Returns success message confirming phone verification.
 keywords: [phone, verification, dto, response, success, api]
 image: /img/api-social-card.png
-sidebar_position: 86
+sidebar_position: 390
 ---
 
 import Tabs from '@theme/Tabs';
