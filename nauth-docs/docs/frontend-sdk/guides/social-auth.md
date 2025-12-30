@@ -251,9 +251,9 @@ const authResponse = await client.verifyNativeSocial({
 
 ### Platform Setup
 
-**Android**: Requires MainActivity modification for Google Sign-In. See [Capacitor Native Social Auth Guide](/docs/CAPACITOR_NATIVE_SOCIAL_AUTH) for complete setup.
+**Android**: Requires MainActivity modification for Google Sign-In. The `@capgo/capacitor-social-login` plugin requires your `MainActivity.java` to implement `ModifiedMainActivityForSocialLoginPlugin` interface and handle Google login intents. See the [plugin documentation](https://capgo.app/docs/plugins/social-login/google/android/) for complete setup.
 
-**iOS**: Requires URL schemes in Info.plist and AppDelegate.swift modifications. See [Capacitor Native Social Auth Guide](/docs/CAPACITOR_NATIVE_SOCIAL_AUTH) for complete setup.
+**iOS**: Requires URL schemes in Info.plist and AppDelegate.swift modifications. Configure URL schemes for Google and Facebook, and implement URL handling in AppDelegate. See the [plugin documentation](https://capgo.app/docs/plugins/social-login/) for complete setup.
 
 ## Related
 
@@ -263,4 +263,5 @@ const authResponse = await client.verifyNativeSocial({
 - [`NAuthClient.exchangeSocialRedirect()`](/docs/frontend-sdk/api/nauth-client#exchangesocialredirect) - Web callback
 - [`SocialLoginOptions`](../api/types/social-login-options)
 - [`socialRedirectCallbackGuard`](/docs/frontend-sdk/angular/oauth-callback-guard)
-- [Capacitor Native Social Auth Guide](/docs/CAPACITOR_NATIVE_SOCIAL_AUTH) - Complete mobile setup
+- [Social Login (backend)](/docs/features/social-login) - Backend setup including native mobile verify endpoints
+- [@capgo/capacitor-social-login](https://github.com/Cap-go/capacitor-social-login) - Plugin documentation
