@@ -135,10 +135,14 @@ export class SocialRedirectHandler {
       cookies.push(...this.buildAuthCookies(authResponse));
       cookies.push(this.buildCsrfCookie());
 
+      // Sanitize authResponse for cookies mode - remove tokens and expiries (same as signup/login)
+      // Consumer controllers should not need to know about token delivery - all handled by nauth
+      const sanitizedAuthResponse = this.sanitizeAuthResponseForCookies(authResponse);
+
       return {
         redirectUrl: this.appendQuery(frontendUrl, { appState: ctx?.appState }),
         cookies,
-        authResponse,
+        authResponse: sanitizedAuthResponse,
       };
     }
 
@@ -378,6 +382,31 @@ export class SocialRedirectHandler {
       this.logger?.debug?.('[SocialRedirectHandler] Failed to parse exchange payload', { error });
       throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Invalid exchange payload');
     }
+  }
+
+  /**
+   * Sanitize AuthResponse for cookies mode
+   *
+   * Removes tokens and expiration fields from response body when cookies mode is used.
+   * Follows same principle as signup/login endpoints - tokens delivered via httpOnly cookies,
+   * not in response body.
+   *
+   * @param authResponse - Original auth response with tokens
+   * @returns Sanitized auth response without tokens and expiries
+   */
+  private sanitizeAuthResponseForCookies(authResponse: AuthResponseDTO): AuthResponseDTO {
+    // Create a copy to avoid mutating the original
+    const sanitized: AuthResponseDTO = { ...authResponse };
+
+    // Delete tokens and expiration fields (not just set to undefined)
+    // This ensures they are completely removed from the response body
+    delete sanitized.accessToken;
+    delete sanitized.refreshToken;
+    delete sanitized.accessTokenExpiresAt;
+    delete sanitized.refreshTokenExpiresAt;
+    delete sanitized.deviceToken;
+
+    return sanitized;
   }
 }
 

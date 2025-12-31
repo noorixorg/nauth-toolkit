@@ -210,6 +210,10 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
       // Generate JWT tokens and session
       return await this.createAuthResponse(user, 'mobile');
     } catch (error) {
+      // Re-throw PRESIGNUP_FAILED errors as-is (from preSignup hook)
+      if (error instanceof NAuthException && error.code === AuthErrorCode.PRESIGNUP_FAILED) {
+        throw error;
+      }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger?.error?.(`Native token verification failed for ${this.providerName}: ${errorMessage}`);
       throw new NAuthException(AuthErrorCode.SOCIAL_TOKEN_INVALID, `Token verification failed: ${errorMessage}`);
@@ -401,6 +405,26 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
         `[SocialAuth] Creating user: email=${profile.email}, isEmailVerified=${profile.verified || false}`,
       );
 
+      // ============================================================================
+      // Lifecycle Hook: preSignup
+      // ============================================================================
+      // Execute preSignup hook before user creation
+      // Hook can throw NAuthException with PRESIGNUP_FAILED to block signup with custom message
+      // Called before createSocialUser to allow blocking signup based on OAuth profile data
+      if (this.config.hooks?.preSignup) {
+        try {
+          await this.config.hooks.preSignup(profile, 'social', this.providerName, false);
+        } catch (hookError: unknown) {
+          // If hook throws NAuthException with PRESIGNUP_FAILED, re-throw it
+          if (hookError instanceof NAuthException && hookError.code === AuthErrorCode.PRESIGNUP_FAILED) {
+            throw hookError;
+          }
+          // For other errors, wrap in PRESIGNUP_FAILED
+          const errorMessage = hookError instanceof Error ? hookError.message : 'Pre-signup validation failed';
+          throw new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, errorMessage);
+        }
+      }
+
       const savedUser = await this.createSocialUser(
         profile.email || '',
         profile.firstName,
@@ -449,6 +473,32 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
 
     const savedUser = (await this.userRepository.save(user)) as unknown as IUser;
     this.logger?.log?.(`Social user created: ${email} (sub: ${savedUser.sub})`);
+
+    // ============================================================================
+    // Lifecycle Hook: afterSignup
+    // ============================================================================
+    // Execute afterSignup hook immediately after account creation, before challenges
+    // This allows consumer apps to perform actions like:
+    // - Send welcome emails
+    // - Create user profiles in external systems
+    // - Track analytics
+    // - Initialize user data
+    //
+    // Called for both normal and social signups, with metadata indicating signup type
+    if (this.config.hooks?.afterSignup) {
+      try {
+        await this.config.hooks.afterSignup(savedUser, {
+          requiresVerification: !isEmailVerified, // Social users may need verification if email not verified by provider
+          signupType: 'social',
+          provider: socialProvider,
+        });
+      } catch (hookError: unknown) {
+        // Non-blocking: auth succeeded; hook errors should not break signup
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`afterSignup hook failed (continuing): ${errorMessage}`, { error: hookError });
+      }
+    }
+
     return savedUser;
   }
 

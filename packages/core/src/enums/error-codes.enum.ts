@@ -163,6 +163,14 @@ export enum AuthErrorCode {
    */
   SIGNUP_NOT_ALLOWED = 'SIGNUP_NOT_ALLOWED',
 
+  /**
+   * Pre-signup hook blocked the signup
+   *
+   * The preSignup hook rejected the signup attempt with a custom error message.
+   * Used for custom validation, denylists, invite-only signups, etc.
+   */
+  PRESIGNUP_FAILED = 'SIGNUP_PRESIGNUP_FAILED',
+
   // ============================================================================
   // Verification Errors (VERIFY_*)
   // ============================================================================

@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/email-nodemailer",
-  "version": "0.1.33",
+  "version": "0.1.35",
   "description": "Nodemailer email provider for nauth-toolkit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -26,7 +26,7 @@
     "nodemailer": "^7.0.11"
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.33"
+    "@nauth-toolkit/core": "^0.1.35"
   },
   "devDependencies": {
     "@types/handlebars": "^4.1.0",

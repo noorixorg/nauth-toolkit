@@ -283,6 +283,84 @@ describe('BaseSocialAuthProviderService', () => {
       expect(mockStateStore.validateAndConsumeCsrfState).toHaveBeenCalledWith('test', 'valid-state');
     });
 
+    describe('preSignup hook', () => {
+      beforeEach(() => {
+        mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.create.mockReturnValue(mockUser as any);
+        mockUserRepository.save.mockResolvedValue(mockUser as any);
+        mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
+      });
+
+      it('should execute preSignup hook before user creation for social signup', async () => {
+        const preSignupHook = jest.fn().mockResolvedValue(undefined);
+        mockConfig.hooks = {
+          preSignup: preSignupHook,
+        };
+
+        await service.handleCallback('code', 'valid-state');
+
+        expect(preSignupHook).toHaveBeenCalledTimes(1);
+        expect(preSignupHook).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: 'test-user-id',
+            email: 'user@example.com',
+            firstName: 'John',
+            lastName: 'Doe',
+            verified: true,
+          }),
+          'social',
+          'test',
+          false, // adminSignup flag
+        );
+        expect(mockUserRepository.save).toHaveBeenCalled();
+      });
+
+      it('should block social signup when preSignup hook throws PRESIGNUP_FAILED', async () => {
+        const customMessage = 'Signups from this email domain are not allowed';
+        const preSignupHook = jest
+          .fn()
+          .mockRejectedValue(new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, customMessage));
+        mockConfig.hooks = {
+          preSignup: preSignupHook,
+        };
+
+        await expect(service.handleCallback('code', 'valid-state')).rejects.toThrow(NAuthException);
+        await expect(service.handleCallback('code', 'valid-state')).rejects.toMatchObject({
+          code: AuthErrorCode.PRESIGNUP_FAILED,
+          message: customMessage,
+        });
+
+        expect(preSignupHook).toHaveBeenCalled();
+        expect(mockUserRepository.save).not.toHaveBeenCalled();
+      });
+
+      it('should wrap non-PRESIGNUP_FAILED errors in PRESIGNUP_FAILED for social signup', async () => {
+        const genericError = new Error('External validation service unavailable');
+        const preSignupHook = jest.fn().mockRejectedValue(genericError);
+        mockConfig.hooks = {
+          preSignup: preSignupHook,
+        };
+
+        await expect(service.handleCallback('code', 'valid-state')).rejects.toThrow(NAuthException);
+        await expect(service.handleCallback('code', 'valid-state')).rejects.toMatchObject({
+          code: AuthErrorCode.PRESIGNUP_FAILED,
+          message: 'External validation service unavailable',
+        });
+
+        expect(preSignupHook).toHaveBeenCalled();
+        expect(mockUserRepository.save).not.toHaveBeenCalled();
+      });
+
+      it('should allow social signup when preSignup hook is not configured', async () => {
+        mockConfig.hooks = {};
+
+        await service.handleCallback('code', 'valid-state');
+
+        expect(mockUserRepository.save).toHaveBeenCalled();
+      });
+    });
+
     it('should throw error when provider config is missing', async () => {
       mockConfig.social = undefined;
       const newService = new TestSocialAuthProviderService(
@@ -323,6 +401,90 @@ describe('BaseSocialAuthProviderService', () => {
       expect(result).toBeDefined();
       expect(mockUserRepository.create).toHaveBeenCalled();
       expect(mockUserRepository.save).toHaveBeenCalled();
+    });
+
+    describe('preSignup hook', () => {
+      beforeEach(() => {
+        mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.create.mockReturnValue(mockUser as any);
+        mockUserRepository.save.mockResolvedValue(mockUser as any);
+        mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
+      });
+
+      it('should execute preSignup hook before user creation for native token verification', async () => {
+        const preSignupHook = jest.fn().mockResolvedValue(undefined);
+        mockConfig.hooks = {
+          preSignup: preSignupHook,
+        };
+
+        await service.verifyToken('id-token');
+
+        expect(preSignupHook).toHaveBeenCalledTimes(1);
+        expect(preSignupHook).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: 'test-user-id',
+            email: 'user@example.com',
+            firstName: 'John',
+            lastName: 'Doe',
+            verified: true,
+          }),
+          'social',
+          'test',
+          false, // adminSignup flag
+        );
+        expect(mockUserRepository.save).toHaveBeenCalled();
+      });
+
+      it('should block native token signup when preSignup hook throws PRESIGNUP_FAILED', async () => {
+        const customMessage = 'Signups from this email domain are not allowed';
+        const preSignupHook = jest
+          .fn()
+          .mockRejectedValue(new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, customMessage));
+        mockConfig.hooks = {
+          preSignup: preSignupHook,
+        };
+
+        try {
+          await service.verifyToken('id-token');
+          fail('Should have thrown NAuthException');
+        } catch (error: any) {
+          expect(error).toBeInstanceOf(NAuthException);
+          expect(error.code).toBe(AuthErrorCode.PRESIGNUP_FAILED);
+          expect(error.message).toBe(customMessage);
+        }
+
+        expect(preSignupHook).toHaveBeenCalled();
+        expect(mockUserRepository.save).not.toHaveBeenCalled();
+      });
+
+      it('should wrap non-PRESIGNUP_FAILED errors in PRESIGNUP_FAILED for native token signup', async () => {
+        const genericError = new Error('External validation service unavailable');
+        const preSignupHook = jest.fn().mockRejectedValue(genericError);
+        mockConfig.hooks = {
+          preSignup: preSignupHook,
+        };
+
+        try {
+          await service.verifyToken('id-token');
+          fail('Should have thrown NAuthException');
+        } catch (error: any) {
+          expect(error).toBeInstanceOf(NAuthException);
+          expect(error.code).toBe(AuthErrorCode.PRESIGNUP_FAILED);
+          expect(error.message).toBe('External validation service unavailable');
+        }
+
+        expect(preSignupHook).toHaveBeenCalled();
+        expect(mockUserRepository.save).not.toHaveBeenCalled();
+      });
+
+      it('should allow native token signup when preSignup hook is not configured', async () => {
+        mockConfig.hooks = {};
+
+        await service.verifyToken('id-token');
+
+        expect(mockUserRepository.save).toHaveBeenCalled();
+      });
     });
 
     it('should throw error when provider is not enabled', async () => {

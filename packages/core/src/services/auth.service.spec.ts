@@ -794,9 +794,108 @@ describe('AuthService', () => {
     });
 
     describe('Lifecycle hooks', () => {
-      // NOTE: beforeSignup hook is not implemented in AuthService.signup()
-      // Only afterSignup hook is available
-      // These tests are removed as they test non-existent functionality
+      describe('preSignup hook', () => {
+        beforeEach(() => {
+          mockUserRepository.findOne.mockResolvedValue(null);
+          mockPasswordService.validatePassword.mockResolvedValue({ valid: true, errors: [] });
+          mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
+          mockUserRepository.create.mockReturnValue(mockUser as any);
+          mockUserRepository.save.mockResolvedValue(mockUser as any);
+        });
+
+        it('should execute preSignup hook before user creation for password signup', async () => {
+          const preSignupHook = jest.fn().mockResolvedValue(undefined);
+          mockConfig.hooks = {
+            preSignup: preSignupHook,
+          };
+
+          await service.signup(signupDto);
+
+          expect(preSignupHook).toHaveBeenCalledTimes(1);
+          expect(preSignupHook).toHaveBeenCalledWith(
+            expect.objectContaining({
+              email: signupDto.email,
+              password: signupDto.password,
+              username: signupDto.username,
+            }),
+            'password',
+            undefined,
+            false, // adminSignup flag
+          );
+          expect(mockUserRepository.save).toHaveBeenCalled();
+        });
+
+        it('should block signup when preSignup hook throws PRESIGNUP_FAILED', async () => {
+          const customMessage = 'This email address is not allowed to sign up';
+          const preSignupHook = jest
+            .fn()
+            .mockRejectedValue(new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, customMessage));
+          mockConfig.hooks = {
+            preSignup: preSignupHook,
+          };
+
+          try {
+            await service.signup(signupDto);
+            fail('Should have thrown NAuthException');
+          } catch (error: any) {
+            expect(error).toBeInstanceOf(NAuthException);
+            expect(error.code).toBe(AuthErrorCode.PRESIGNUP_FAILED);
+            expect(error.message).toBe(customMessage);
+          }
+
+          expect(preSignupHook).toHaveBeenCalledWith(
+            expect.objectContaining({
+              email: signupDto.email,
+              password: signupDto.password,
+              username: signupDto.username,
+            }),
+            'password',
+            undefined,
+            false, // adminSignup flag
+          );
+          expect(mockUserRepository.save).not.toHaveBeenCalled();
+        });
+
+        it('should wrap non-PRESIGNUP_FAILED errors in PRESIGNUP_FAILED', async () => {
+          const genericError = new Error('Generic validation error');
+          const preSignupHook = jest.fn().mockRejectedValue(genericError);
+          mockConfig.hooks = {
+            preSignup: preSignupHook,
+          };
+
+          try {
+            await service.signup(signupDto);
+            fail('Should have thrown NAuthException');
+          } catch (error: any) {
+            expect(error).toBeInstanceOf(NAuthException);
+            expect(error.code).toBe(AuthErrorCode.PRESIGNUP_FAILED);
+            expect(error.message).toBe('Generic validation error');
+          }
+
+          expect(preSignupHook).toHaveBeenCalled();
+          expect(mockUserRepository.save).not.toHaveBeenCalled();
+        });
+
+        it('should allow signup when preSignup hook is not configured', async () => {
+          mockConfig.hooks = {};
+
+          await service.signup(signupDto);
+
+          expect(mockUserRepository.save).toHaveBeenCalled();
+        });
+
+        it('should allow signup when preSignup hook resolves successfully', async () => {
+          const preSignupHook = jest.fn().mockResolvedValue(undefined);
+          mockConfig.hooks = {
+            preSignup: preSignupHook,
+          };
+
+          await service.signup(signupDto);
+
+          expect(preSignupHook).toHaveBeenCalled();
+          expect(mockUserRepository.save).toHaveBeenCalled();
+        });
+      });
 
       it('should execute afterSignup hook after successful signup', async () => {
         mockConfig.hooks = {
@@ -5076,7 +5175,7 @@ describe('AuthService', () => {
           passwordHash: null, // NULL for social-only users
           passwordChangedAt: null, // Not set for social-only users
           isActive: true,
-          isEmailVerified: false,
+          isEmailVerified: true, // Always true for social imports
           isPhoneVerified: false,
         }),
       );
@@ -5126,7 +5225,6 @@ describe('AuthService', () => {
 
       const result = await service.adminSignupSocial({
         ...adminSignupSocialDto,
-        isEmailVerified: true,
       });
 
       expect(mockUserRepository.create).toHaveBeenCalledWith(
@@ -5372,6 +5470,154 @@ describe('AuthService', () => {
         expect.anything(),
       );
       expect(result.socialAccount.providerEmail).toBeNull();
+    });
+
+    describe('preSignup hook', () => {
+      beforeEach(() => {
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+        const createdUser = { ...mockUser, email: adminSignupSocialDto.email, passwordHash: null, hasSocialAuth: true };
+        mockUserRepository.create.mockReturnValue(createdUser as any);
+        mockUserRepository.save.mockResolvedValue(createdUser as any);
+        mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
+      });
+
+      it('should execute preSignup hook before user creation for admin social signup', async () => {
+        const preSignupHook = jest.fn().mockResolvedValue(undefined);
+        mockConfig.hooks = {
+          preSignup: preSignupHook,
+        };
+
+        await service.adminSignupSocial(adminSignupSocialDto);
+
+        expect(preSignupHook).toHaveBeenCalledTimes(1);
+        expect(preSignupHook).toHaveBeenCalledWith(
+          expect.objectContaining({
+            email: adminSignupSocialDto.email,
+            id: adminSignupSocialDto.providerId,
+            firstName: adminSignupSocialDto.firstName,
+            lastName: adminSignupSocialDto.lastName,
+            verified: true,
+          }),
+          'social',
+          adminSignupSocialDto.provider,
+          true, // adminSignup flag
+        );
+        expect(mockUserRepository.save).toHaveBeenCalled();
+      });
+
+      it('should block admin social signup when preSignup hook throws PRESIGNUP_FAILED', async () => {
+        const customMessage = 'This email domain is not allowed';
+        const preSignupHook = jest
+          .fn()
+          .mockRejectedValue(new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, customMessage));
+        mockConfig.hooks = {
+          preSignup: preSignupHook,
+        };
+
+        await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
+        await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toMatchObject({
+          code: AuthErrorCode.PRESIGNUP_FAILED,
+          message: customMessage,
+        });
+
+        expect(preSignupHook).toHaveBeenCalled();
+        expect(mockUserRepository.save).not.toHaveBeenCalled();
+      });
+
+      it('should wrap non-PRESIGNUP_FAILED errors in PRESIGNUP_FAILED for admin social signup', async () => {
+        const genericError = new Error('External validation failed');
+        const preSignupHook = jest.fn().mockRejectedValue(genericError);
+        mockConfig.hooks = {
+          preSignup: preSignupHook,
+        };
+
+        await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
+        await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toMatchObject({
+          code: AuthErrorCode.PRESIGNUP_FAILED,
+          message: 'External validation failed',
+        });
+
+        expect(preSignupHook).toHaveBeenCalled();
+        expect(mockUserRepository.save).not.toHaveBeenCalled();
+      });
+
+      it('should allow admin social signup when preSignup hook is not configured', async () => {
+        mockConfig.hooks = {};
+
+        await service.adminSignupSocial(adminSignupSocialDto);
+
+        expect(mockUserRepository.save).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('adminSignup() preSignup hook', () => {
+    const adminSignupDto: AdminSignupDTO = {
+      email: 'admin-user@example.com',
+      password: 'SecurePassword123!',
+      username: 'adminuser',
+      isEmailVerified: true,
+    };
+
+    beforeEach(() => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockPasswordService.validatePassword.mockResolvedValue({ valid: true, errors: [] });
+      mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
+      const createdUser = { ...mockUser, email: adminSignupDto.email };
+      mockUserRepository.create.mockReturnValue(createdUser as any);
+      mockUserRepository.save.mockResolvedValue(createdUser as any);
+    });
+
+    it('should execute preSignup hook with adminSignup=true for admin signup', async () => {
+      const preSignupHook = jest.fn().mockResolvedValue(undefined);
+      mockConfig.hooks = {
+        preSignup: preSignupHook,
+      };
+
+      await service.adminSignup(adminSignupDto);
+
+      expect(preSignupHook).toHaveBeenCalledTimes(1);
+      expect(preSignupHook).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: adminSignupDto.email,
+          password: adminSignupDto.password,
+          username: adminSignupDto.username,
+        }),
+        'password',
+        undefined,
+        true, // adminSignup flag
+      );
+      expect(mockUserRepository.save).toHaveBeenCalled();
+    });
+
+    it('should block admin signup when preSignup hook throws PRESIGNUP_FAILED', async () => {
+      const customMessage = 'This email domain is not allowed for admin signup';
+      const preSignupHook = jest
+        .fn()
+        .mockRejectedValue(new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, customMessage));
+      mockConfig.hooks = {
+        preSignup: preSignupHook,
+      };
+
+      try {
+        await service.adminSignup(adminSignupDto);
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.PRESIGNUP_FAILED);
+        expect(error.message).toBe(customMessage);
+      }
+
+      expect(preSignupHook).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: adminSignupDto.email,
+        }),
+        'password',
+        undefined,
+        true, // adminSignup flag
+      );
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
     });
   });
 });

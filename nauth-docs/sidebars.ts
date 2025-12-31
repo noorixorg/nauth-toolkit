@@ -40,6 +40,7 @@ const sidebars: SidebarsConfig = {
         'concepts/error-handling',
         'features/geolocation',
         'features/admin-operations',
+        'features/lifecycle-hooks',
         'features/deployment',
       ],
     },

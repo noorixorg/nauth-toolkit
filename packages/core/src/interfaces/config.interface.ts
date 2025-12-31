@@ -1075,19 +1075,124 @@ export interface SecurityConfig {
 
 export interface LifecycleHooks {
   /**
-   * Before signup hook
+   * Pre-signup hook
    *
-   * Allows consumer applications to implement custom checks before signup proceeds
-   * (e.g., denylist, invite-only signups, external validation).
+   * Triggered before user account creation for both password and social signups.
+   * Allows consumer applications to implement custom validation, denylists, invite-only signups, etc.
    *
-   * Return `false` to block signup.
+   * For password signup: Called with SignupDTO before user is created.
+   * For social signup: Called with OAuth profile data before user is created.
+   *
+   * To block signup, throw NAuthException with AuthErrorCode.PRESIGNUP_FAILED and a custom message.
+   *
+   * @param data - Signup data (SignupDTO for password signup, OAuthUserProfile for social signup)
+   * @param signupType - Type of signup: 'password' or 'social'
+   * @param provider - Social provider name (only present for social signups)
+   * @param adminSignup - true for adminSignup/adminSignupSocial, false for regular user signup
+   * @throws {NAuthException} Throw with PRESIGNUP_FAILED to block signup with custom message
+   *
+   * @example
+   * ```typescript
+   * preSignup: async (data, signupType, provider, adminSignup) => {
+   *   // Skip validation for admin signups (optional)
+   *   if (adminSignup) {
+   *     // Admin signups bypass normal validation
+   *     return;
+   *   }
+   *
+   *   // Password signup example
+   *   if (signupType === 'password') {
+   *     const dto = data as SignupDTO;
+   *
+   *     // Check denylist
+   *     if (await denylistService.isBlocked(dto.email)) {
+   *       throw new NAuthException(
+   *         AuthErrorCode.PRESIGNUP_FAILED,
+   *         'This email address is not allowed to sign up'
+   *       );
+   *     }
+   *
+   *     // Invite-only signup
+   *     if (!await inviteService.isInvited(dto.email)) {
+   *       throw new NAuthException(
+   *         AuthErrorCode.PRESIGNUP_FAILED,
+   *         'Signup requires an invitation. Please contact support.'
+   *       );
+   *     }
+   *   }
+   *
+   *   // Social signup example
+   *   if (signupType === 'social') {
+   *     const profile = data as OAuthUserProfile;
+   *
+   *     // Block specific domains
+   *     if (profile.email?.endsWith('@blocked-domain.com')) {
+   *       throw new NAuthException(
+   *         AuthErrorCode.PRESIGNUP_FAILED,
+   *         'Signups from this email domain are not allowed'
+   *       );
+   *     }
+   *
+   *     // Custom validation
+   *     if (!await externalService.validateSignup(profile.email, provider)) {
+   *       throw new NAuthException(
+   *         AuthErrorCode.PRESIGNUP_FAILED,
+   *         'Signup validation failed. Please contact support.'
+   *       );
+   *     }
+   *   }
+   * }
+   * ```
    */
-  beforeSignup?: (dto: unknown) => Promise<void | false>;
+  preSignup?: (
+    data: unknown, // SignupDTO for password signup, OAuthUserProfile for social signup
+    signupType: 'password' | 'social',
+    provider?: string, // Only present for social signups
+    adminSignup?: boolean, // true for adminSignup/adminSignupSocial, false for regular signup
+  ) => Promise<void>;
 
   /**
    * After signup hook
+   *
+   * Triggered immediately after account creation for both normal and social signups.
+   * Called before any challenges are created, so the user account exists but may not be fully verified.
+   *
+   * @param user - The newly created user object
+   * @param metadata - Signup metadata
+   * @param metadata.requiresVerification - Whether user needs to complete verification challenges
+   * @param metadata.signupType - Type of signup: 'password' (password-based) or 'social' (OAuth provider)
+   * @param metadata.provider - Social provider name (only present for social signups)
+   *
+   * @example
+   * ```typescript
+   * afterSignup: async (user, metadata) => {
+   *   // Send welcome email
+   *   await emailService.sendWelcomeEmail(user.email);
+   *
+   *   // Create user profile in external system
+   *   await externalService.createProfile({
+   *     userId: user.sub,
+   *     email: user.email,
+   *     signupType: metadata?.signupType,
+   *   });
+   *
+   *   // Track signup analytics
+   *   analytics.track('user_signup', {
+   *     userId: user.sub,
+   *     signupType: metadata?.signupType,
+   *     provider: metadata?.provider,
+   *   });
+   * }
+   * ```
+   *
+   * NOTE: `user` parameter uses `any` type intentionally for framework-agnostic design.
+   * The actual user type varies by framework (TypeORM entity, Prisma model, Mongoose document, etc.).
+   * Consumer apps should type-cast or use type guards based on their framework's user type.
    */
-  afterSignup?: (user: any, metadata?: { requiresVerification?: boolean }) => Promise<void>;
+  afterSignup?: (
+    user: any, // Framework-agnostic: TypeORM/Prisma/Mongoose/etc. user entity
+    metadata?: { requiresVerification?: boolean; signupType?: 'password' | 'social'; provider?: string },
+  ) => Promise<void>;
 
   /**
    * Before login hook

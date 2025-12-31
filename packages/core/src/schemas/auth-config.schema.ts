@@ -219,7 +219,7 @@ export const securityConfigSchema = z.object({
 
 // Note: Functions cannot be validated by Zod, so we use z.any() for hooks
 export const lifecycleHooksSchema = z.object({
-  beforeSignup: z.any().optional(),
+  preSignup: z.any().optional(),
   afterSignup: z.any().optional(),
   beforeLogin: z.any().optional(),
   afterLogin: z.any().optional(),
