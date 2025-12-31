@@ -54,14 +54,7 @@ describe('SocialRedirectHandler', () => {
       del: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<StorageAdapter>;
 
-    handler = new SocialRedirectHandler(
-      mockConfig,
-      mockProviderRegistry,
-      mockStateStore,
-      mockStorage,
-      undefined,
-      60,
-    );
+    handler = new SocialRedirectHandler(mockConfig, mockProviderRegistry, mockStateStore, mockStorage, undefined, 60);
   });
 
   describe('callback - cookies mode sanitization', () => {
@@ -227,4 +220,3 @@ describe('SocialRedirectHandler', () => {
     });
   });
 });
-

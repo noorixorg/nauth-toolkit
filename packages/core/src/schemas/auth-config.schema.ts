@@ -218,20 +218,6 @@ export const securityConfigSchema = z.object({
 // ============================================================================
 
 // Note: Functions cannot be validated by Zod, so we use z.any() for hooks
-export const lifecycleHooksSchema = z.object({
-  preSignup: z.any().optional(),
-  afterSignup: z.any().optional(),
-  beforeLogin: z.any().optional(),
-  afterLogin: z.any().optional(),
-  afterLoginFailed: z.any().optional(),
-  beforePasswordChange: z.any().optional(),
-  afterPasswordChange: z.any().optional(),
-  beforeAccountLock: z.any().optional(),
-  afterAccountLock: z.any().optional(),
-  onAdaptiveMFATriggered: z.any().optional(),
-  onSignInBlocked: z.any().optional(),
-});
-
 // ============================================================================
 // Email Configuration Schema
 // ============================================================================
@@ -533,7 +519,6 @@ export const authConfigSchema = z
     lockout: lockoutConfigSchema.optional(),
     session: sessionConfigSchema.optional(),
     security: securityConfigSchema.optional(),
-    hooks: lifecycleHooksSchema.optional(),
     auditLogs: z
       .object({
         enabled: z.boolean().optional(),

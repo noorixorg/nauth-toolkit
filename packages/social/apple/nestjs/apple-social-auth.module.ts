@@ -21,6 +21,7 @@ import {
   NAUTH_SOCIAL_PROVIDER_TOKEN,
   AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent()
   TrustedDeviceService,
+  HookRegistryService,
 } from '@nauth-toolkit/core/internal';
 import { TokenVerifierService as AppleTokenVerifierService } from '../src/token-verifier.service';
 import type { Repository } from 'typeorm';
@@ -86,6 +87,7 @@ import type { Repository } from 'typeorm';
         phoneVerificationService?: PhoneVerificationService,
         auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
         trustedDeviceService?: TrustedDeviceService, // Optional - only available when rememberDevices is enabled
+        hookRegistry?: HookRegistryService, // Required for lifecycle hooks
         tokenVerifier?: ITokenVerifierService,
         socialProviderSecretRepository?: Repository<BaseSocialProviderSecret>,
       ) => {
@@ -103,6 +105,7 @@ import type { Repository } from 'typeorm';
           phoneVerificationService,
           auditService,
           trustedDeviceService,
+          hookRegistry,
           tokenVerifier,
           socialProviderSecretRepository,
         );
@@ -121,6 +124,7 @@ import type { Repository } from 'typeorm';
         { token: PhoneVerificationService, optional: true },
         { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
         { token: TrustedDeviceService, optional: true }, // Optional - only available when rememberDevices is enabled
+        HookRegistryService, // Required for lifecycle hooks
         { token: 'APPLE_TOKEN_VERIFIER', optional: true },
         // Required when Apple is enabled (used for DB-backed JWT client secret rotation)
         'SocialProviderSecretRepository',

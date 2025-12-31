@@ -95,7 +95,7 @@ export class AppleOAuthClient implements OAuthClient {
       const expiresIn = typeof d.expires_in === 'number' ? d.expires_in : undefined;
 
       if (!accessToken || !idToken) {
-        // ⚠️ SECURITY: We cannot proceed without an id_token (used for verified identity claims).
+        // SECURITY: We cannot proceed without an id_token (used for verified identity claims).
         throw new NAuthException(
           AuthErrorCode.SOCIAL_TOKEN_INVALID,
           'Apple token exchange returned an invalid response (missing access_token or id_token).',

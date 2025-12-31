@@ -181,28 +181,27 @@ fastify.register(nauth.routes, { prefix: '/auth' });
 
 These are the top-level keys you can provide in `NAuthConfig` / `NAuthModuleConfig`:
 
-| Option | Type | Required | Description |
-| --- | --- | --- | --- |
-| `tablePrefix` | `string` | No | Database table prefix (default: `nauth_`) |
-| `jwt` | `JwtConfig` | Yes | JWT configuration |
-| `signup` | `SignupConfig` | No | Signup + verification settings |
-| `login` | `LoginConfig` | No | Login identifier policy |
-| `password` | `PasswordConfig` | No | Password policy + password reset |
-| `lockout` | `LockoutConfig` | No | IP-based lockout settings |
-| `session` | `SessionConfig` | No | Session lifetime + concurrency |
-| `security` | `SecurityConfig` | No | CSRF + security settings |
-| `tokenDelivery` | `TokenDeliveryConfig` | No | JSON/cookies/hybrid token delivery |
-| `challenge` | `ChallengeConfig` | No | Challenge session limits |
-| `auditLogs` | `{ enabled?: boolean; fireAndForget?: boolean }` | No | Audit logging behavior |
-| `emailProvider` | `EmailProvider` | No | Email provider instance (required when email verification or MFA email is enabled) |
-| `email` | `EmailConfig` | No | Email branding + email templates |
-| `smsProvider` | `SMSProvider` | No | SMS provider instance (required when phone verification or MFA SMS is enabled) |
-| `sms` | `{ templates?: SMSTemplateConfig }` | No | SMS template configuration |
-| `social` | `SocialConfig` | No | Social provider settings |
-| `mfa` | `MFAConfig` | No | MFA configuration |
-| `geoLocation` | `GeoLocationConfig` | No | IP geolocation (MaxMind) |
-| `logger` | `LoggerService \| NAuthLoggerConfig` | No | Logger instance + PII redaction controls |
-| `hooks` | `LifecycleHooks` | No | Lifecycle hooks |
+| Option          | Type                                             | Required | Description                                                                        |
+| --------------- | ------------------------------------------------ | -------- | ---------------------------------------------------------------------------------- |
+| `tablePrefix`   | `string`                                         | No       | Database table prefix (default: `nauth_`)                                          |
+| `jwt`           | `JwtConfig`                                      | Yes      | JWT configuration                                                                  |
+| `signup`        | `SignupConfig`                                   | No       | Signup + verification settings                                                     |
+| `login`         | `LoginConfig`                                    | No       | Login identifier policy                                                            |
+| `password`      | `PasswordConfig`                                 | No       | Password policy + password reset                                                   |
+| `lockout`       | `LockoutConfig`                                  | No       | IP-based lockout settings                                                          |
+| `session`       | `SessionConfig`                                  | No       | Session lifetime + concurrency                                                     |
+| `security`      | `SecurityConfig`                                 | No       | CSRF + security settings                                                           |
+| `tokenDelivery` | `TokenDeliveryConfig`                            | No       | JSON/cookies/hybrid token delivery                                                 |
+| `challenge`     | `ChallengeConfig`                                | No       | Challenge session limits                                                           |
+| `auditLogs`     | `{ enabled?: boolean; fireAndForget?: boolean }` | No       | Audit logging behavior                                                             |
+| `emailProvider` | `EmailProvider`                                  | No       | Email provider instance (required when email verification or MFA email is enabled) |
+| `email`         | `EmailConfig`                                    | No       | Email branding + email templates                                                   |
+| `smsProvider`   | `SMSProvider`                                    | No       | SMS provider instance (required when phone verification or MFA SMS is enabled)     |
+| `sms`           | `{ templates?: SMSTemplateConfig }`              | No       | SMS template configuration                                                         |
+| `social`        | `SocialConfig`                                   | No       | Social provider settings                                                           |
+| `mfa`           | `MFAConfig`                                      | No       | MFA configuration                                                                  |
+| `geoLocation`   | `GeoLocationConfig`                              | No       | IP geolocation (MaxMind)                                                           |
+| `logger`        | `LoggerService \| NAuthLoggerConfig`             | No       | Logger instance + PII redaction controls                                           |
 
 ### JWT Configuration
 
@@ -846,37 +845,6 @@ geoLocation: {
     autoDownloadOnStartup: false,  // Download on first run
     editions: ['GeoLite2-City', 'GeoLite2-Country'],
     skipDownloads: false,  // Set true if managing files externally
-  },
-},
-```
-
-## Lifecycle Hooks
-
-React to authentication events.
-
-```typescript
-hooks: {
-  afterSignup: async (user, metadata) => {
-    // Use your application logger here (avoid console logging in production)
-    await sendWelcomeEmail(user);
-  },
-
-  afterLogin: async (user, session) => {
-    // Use your application logger here (avoid console logging in production)
-  },
-
-  afterLoginFailed: async (identifier, reason) => {
-    // Use your application logger here (avoid console logging in production)
-  },
-
-  onAdaptiveMFATriggered: async (payload) => {
-    if (payload.riskLevel === 'high') {
-      await sendSecurityAlert(payload.user.email, payload);
-    }
-  },
-
-  onSignInBlocked: async (payload) => {
-    await notifyAdmins('High-risk sign-in blocked', payload);
   },
 },
 ```

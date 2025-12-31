@@ -22,6 +22,7 @@ import {
   AuthChallengeHelperService,
   AuthAuditService, // Internal version with recordEvent()
   TrustedDeviceService,
+  HookRegistryService,
 } from '@nauth-toolkit/core/internal';
 import { Repository } from 'typeorm';
 import { GoogleOAuthClient } from './google-oauth.client';
@@ -81,6 +82,8 @@ export class GoogleSocialAuthService extends BaseSocialAuthProviderService imple
     auditService?: AuthAuditService,
     // Trusted device service (optional - only available when rememberDevices is enabled)
     trustedDeviceService?: TrustedDeviceService,
+    // Hook registry for lifecycle hooks (required)
+    hookRegistry?: HookRegistryService,
     // Google-specific token verifier (optional, fallback to TOKEN_VERIFIER)
     tokenVerifier?: ITokenVerifierService,
   ) {
@@ -98,6 +101,7 @@ export class GoogleSocialAuthService extends BaseSocialAuthProviderService imple
       phoneVerificationService,
       auditService,
       trustedDeviceService,
+      hookRegistry,
     );
 
     // Initialize Google OAuth client only if enabled

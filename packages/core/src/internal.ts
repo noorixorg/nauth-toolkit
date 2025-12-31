@@ -128,6 +128,16 @@ export { TrustedDeviceService } from './services/trusted-device.service';
 export { GeoLocationService } from './services/geo-location.service';
 
 // ============================================================================
+// Lifecycle Hooks (Internal)
+// ============================================================================
+
+/**
+ * Hook registry service for lifecycle hook management
+ * @internal
+ */
+export { HookRegistryService } from './services/hook-registry.service';
+
+// ============================================================================
 // Risk & Adaptive Security (Internal)
 // ============================================================================
 

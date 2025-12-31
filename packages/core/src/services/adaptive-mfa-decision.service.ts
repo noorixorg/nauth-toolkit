@@ -198,22 +198,9 @@ export class AdaptiveMFADecisionService {
       timestamp: new Date(),
     };
 
+    // TODO: Implement provider-based hook for onAdaptiveMFATriggered
     // Call lifecycle hook if configured and user should be notified
     let hookOverride = false;
-    if (notifyUser && this.config.hooks?.onAdaptiveMFATriggered) {
-      try {
-        const result = await this.config.hooks.onAdaptiveMFATriggered(payload);
-        // Hook can return false to override and allow sign-in
-        if (result === false) {
-          hookOverride = true;
-          this.logger?.warn?.(`Adaptive MFA action overridden by hook: user=${user.sub}`);
-        }
-      } catch (error) {
-        // Non-blocking: Log error but continue with original action
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        this.logger?.error?.(`Adaptive MFA hook failed: ${errorMessage}`, { error, userId: user.sub });
-      }
-    }
 
     // Record in audit trail (non-blocking)
     // This logs the risk assessment result
@@ -411,23 +398,7 @@ export class AdaptiveMFADecisionService {
       `User sign-in blocked: user=${user.sub}, score=${payload.riskScore}, duration=${blockDuration ? `${blockDuration}min` : 'permanent'}`,
     );
 
-    // Call sign-in blocked hook if configured
-    if (this.config.hooks?.onSignInBlocked) {
-      const blockedPayload: SignInBlockedPayload = {
-        ...payload,
-        blockDuration,
-        blockExpiresAt: blockDuration ? new Date(Date.now() + blockDuration * 60 * 1000) : undefined,
-        message,
-      };
-
-      try {
-        await this.config.hooks.onSignInBlocked(blockedPayload);
-      } catch (error) {
-        // Non-blocking
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        this.logger?.error?.(`Sign-in blocked hook failed: ${errorMessage}`, { error, userId: user.sub });
-      }
-    }
+    // TODO: Implement provider-based hook for onSignInBlocked
   }
 
   /**

@@ -72,6 +72,7 @@ import { SendVerificationSMSDTO, ResendVerificationSMSDTO } from '../dto/verify-
 import { VerifyPhoneWithCodeBySubDTO } from '../dto/verify-phone-by-sub.dto';
 import { PasswordResetService } from './password-reset.service';
 import { SocialAuthService } from './social-auth.service';
+import { HookRegistryService } from './hook-registry.service';
 
 import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
@@ -108,6 +109,7 @@ export class AuthService {
     private readonly accountLockoutStorage: AccountLockoutStorageService,
     private readonly config: NAuthConfig,
     private readonly logger: NAuthLogger,
+    private readonly hookRegistry: HookRegistryService,
     private readonly auditService?: AuthAuditService, // Optional - audit trail service (enabled via config.auditLogs.enabled)
     private readonly phoneVerificationService?: PhoneVerificationService, // Optional - only available when SMS provider is configured
     private readonly mfaService?: MFAService, // Optional - available when MFA modules are imported
@@ -225,19 +227,7 @@ export class AuthService {
     // ============================================================================
     // Execute preSignup hook before user creation
     // Hook can throw NAuthException with PRESIGNUP_FAILED to block signup with custom message
-    if (this.config.hooks?.preSignup) {
-      try {
-        await this.config.hooks.preSignup(dto, 'password', undefined, false);
-      } catch (hookError: unknown) {
-        // If hook throws NAuthException with PRESIGNUP_FAILED, re-throw it
-        if (hookError instanceof NAuthException && hookError.code === AuthErrorCode.PRESIGNUP_FAILED) {
-          throw hookError;
-        }
-        // For other errors, wrap in PRESIGNUP_FAILED
-        const errorMessage = hookError instanceof Error ? hookError.message : 'Pre-signup validation failed';
-        throw new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, errorMessage);
-      }
-    }
+    await this.hookRegistry.executePreSignup(dto, 'password', undefined, false);
 
     // Determine verification requirements based on verification method
     const verificationMethod = this.config.signup?.verificationMethod;
@@ -335,20 +325,15 @@ export class AuthService {
     // This ensures proper sequential flow: email code first, then phone code after email is verified
     // This prevents user confusion from receiving multiple codes at once
 
-    // Execute afterSignup hook if configured
-    // Called immediately after account creation, before challenges are created
-    if (this.config.hooks?.afterSignup) {
-      try {
-        await this.config.hooks.afterSignup(savedUser, {
-          requiresVerification: verificationMethod !== 'none',
-          signupType: 'password',
-        });
-      } catch (hookError: unknown) {
-        // Non-blocking: auth succeeded; hook errors should not break signup
-        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
-        this.logger?.error?.(`afterSignup hook failed (continuing): ${errorMessage}`, { error: hookError });
-      }
-    }
+    // ============================================================================
+    // Lifecycle Hook: afterSignup
+    // ============================================================================
+    // Execute afterSignup hook immediately after account creation (non-blocking)
+    await this.hookRegistry.executeAfterSignup(savedUser, {
+      requiresVerification: verificationMethod !== 'none',
+      signupType: 'password',
+      adminSignup: false,
+    });
 
     // ============================================================================
     // Challenge System: Determine if user needs to complete challenges
@@ -498,19 +483,7 @@ export class AuthService {
     // ============================================================================
     // Execute preSignup hook before user creation (admin signup)
     // Hook can throw NAuthException with PRESIGNUP_FAILED to block signup with custom message
-    if (this.config.hooks?.preSignup) {
-      try {
-        await this.config.hooks.preSignup(dto, 'password', undefined, true);
-      } catch (hookError: unknown) {
-        // If hook throws NAuthException with PRESIGNUP_FAILED, re-throw it
-        if (hookError instanceof NAuthException && hookError.code === AuthErrorCode.PRESIGNUP_FAILED) {
-          throw hookError;
-        }
-        // For other errors, wrap in PRESIGNUP_FAILED
-        const errorMessage = hookError instanceof Error ? hookError.message : 'Pre-signup validation failed';
-        throw new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, errorMessage);
-      }
-    }
+    await this.hookRegistry.executePreSignup(dto, 'password', undefined, true);
 
     // Create user with override flags
     this.logger?.debug?.(
@@ -592,6 +565,15 @@ export class AuthService {
       this.logger?.error?.(`Admin signup failed - database error: ${errorMessage}`);
       throw error;
     }
+
+    // ============================================================================
+    // Lifecycle Hook: afterSignup
+    // ============================================================================
+    // Execute afterSignup hook immediately after account creation (non-blocking)
+    await this.hookRegistry.executeAfterSignup(savedUser, {
+      signupType: 'password',
+      adminSignup: true,
+    });
 
     // No tokens, no challenge system, no verification emails - pure user creation
     // Return sanitized user object (excludes passwordHash and other sensitive fields)
@@ -750,28 +732,16 @@ export class AuthService {
     // ============================================================================
     // Execute preSignup hook before user creation (admin social signup)
     // Hook can throw NAuthException with PRESIGNUP_FAILED to block signup with custom message
-    if (this.config.hooks?.preSignup) {
-      try {
-        // Convert AdminSignupSocialDTO to OAuthUserProfile-like structure for hook
-        const profileData = {
-          email: dto.email,
-          id: dto.providerId,
-          firstName: dto.firstName,
-          lastName: dto.lastName,
-          verified: true, // Admin signup always has verified email
-          raw: dto.socialMetadata,
-        };
-        await this.config.hooks.preSignup(profileData, 'social', dto.provider, true);
-      } catch (hookError: unknown) {
-        // If hook throws NAuthException with PRESIGNUP_FAILED, re-throw it
-        if (hookError instanceof NAuthException && hookError.code === AuthErrorCode.PRESIGNUP_FAILED) {
-          throw hookError;
-        }
-        // For other errors, wrap in PRESIGNUP_FAILED
-        const errorMessage = hookError instanceof Error ? hookError.message : 'Pre-signup validation failed';
-        throw new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, errorMessage);
-      }
-    }
+    // Convert AdminSignupSocialDTO to profile-like structure for hook
+    const profileData = {
+      email: dto.email,
+      id: dto.providerId,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      verified: true, // Admin signup always has verified email
+      raw: dto.socialMetadata,
+    };
+    await this.hookRegistry.executePreSignup(profileData, 'social', dto.provider, true);
 
     // Create user with override flags
     // Note: Email is always verified for social imports (like normal social signup)
@@ -821,22 +791,12 @@ export class AuthService {
       // ============================================================================
       // Lifecycle Hook: afterSignup
       // ============================================================================
-      // Execute afterSignup hook immediately after account creation, before returning response
-      // This allows consumer apps to perform actions like welcome emails, external system sync, etc.
-      // Called for both normal and social signups, with metadata indicating signup type
-      if (this.config.hooks?.afterSignup) {
-        try {
-          await this.config.hooks.afterSignup(savedUser, {
-            requiresVerification: !savedUser.isEmailVerified || !savedUser.isPhoneVerified,
-            signupType: 'social',
-            provider: dto.provider,
-          });
-        } catch (hookError: unknown) {
-          // Non-blocking: auth succeeded; hook errors should not break signup
-          const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
-          this.logger?.error?.(`afterSignup hook failed (continuing): ${errorMessage}`, { error: hookError });
-        }
-      }
+      // Execute afterSignup hook immediately after account creation (non-blocking)
+      await this.hookRegistry.executeAfterSignup(savedUser, {
+        signupType: 'social',
+        provider: dto.provider,
+        adminSignup: true,
+      });
 
       // ============================================================================
       // Audit: Record account creation by admin (social import)
@@ -2174,17 +2134,10 @@ export class AuthService {
     }
 
     // ============================================================================
-    // Lifecycle Hook: afterLogin
+    // Lifecycle Hook: afterLogin (TODO: Implement provider-based hook)
     // ============================================================================
-    if (this.config.hooks?.afterLogin) {
-      try {
-        await this.config.hooks.afterLogin(user, session);
-      } catch (hookError: unknown) {
-        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
-        // Non-blocking: auth succeeded; hook errors should not break login
-        this.logger?.error?.(`afterLogin hook failed (continuing): ${errorMessage}`, { error: hookError });
-      }
-    }
+    // TODO: Implement provider-based hook for afterLogin
+    // await this.hookRegistry.executeAfterLogin(user, session);
 
     // ============================================================================
     // Trusted Device Token Management (Remember Device Feature)
@@ -4188,13 +4141,14 @@ export class AuthService {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
 
-    // Execute beforePasswordChange hook (use sub for external API)
-    if (this.config.hooks?.beforePasswordChange) {
-      const result = await this.config.hooks.beforePasswordChange(dto.sub, dto.oldPassword);
-      if (result === false) {
-        throw new NAuthException(AuthErrorCode.PASSWORD_CHANGE_NOT_ALLOWED, 'Password change not allowed');
-      }
-    }
+    // ============================================================================
+    // Lifecycle Hook: beforePasswordChange (TODO: Implement provider-based hook)
+    // ============================================================================
+    // TODO: Implement provider-based hook for beforePasswordChange
+    // const allowed = await this.hookRegistry.executeBeforePasswordChange(dto.sub, dto.oldPassword);
+    // if (!allowed) {
+    //   throw new NAuthException(AuthErrorCode.PASSWORD_CHANGE_NOT_ALLOWED, 'Password change not allowed');
+    // }
 
     // Verify old password
     const isValid = await this.passwordService.verifyPassword(dto.oldPassword, user.passwordHash);
@@ -4203,10 +4157,11 @@ export class AuthService {
       throw new NAuthException(AuthErrorCode.PASSWORD_INCORRECT, 'Current password is incorrect');
     }
 
-    // Execute afterPasswordChange hook (use sub for external API)
-    if (this.config.hooks?.afterPasswordChange) {
-      await this.config.hooks.afterPasswordChange(dto.sub);
-    }
+    // ============================================================================
+    // Lifecycle Hook: afterPasswordChange (TODO: Implement provider-based hook)
+    // ============================================================================
+    // TODO: Implement provider-based hook for afterPasswordChange
+    // await this.hookRegistry.executeAfterPasswordChange(dto.sub);
 
     await this.updateUserPassword({
       user,
@@ -4879,17 +4834,10 @@ export class AuthService {
     }
 
     // ============================================================================
-    // Lifecycle Hook: afterLoginFailed
+    // Lifecycle Hook: afterLoginFailed (TODO: Implement provider-based hook)
     // ============================================================================
-    if (this.config.hooks?.afterLoginFailed) {
-      try {
-        await this.config.hooks.afterLoginFailed(identifier, reason || 'unknown');
-      } catch (hookError: unknown) {
-        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
-        // Non-blocking: login already failed; do not throw
-        this.logger?.error?.(`afterLoginFailed hook failed (continuing): ${errorMessage}`, { error: hookError });
-      }
-    }
+    // TODO: Implement provider-based hook for afterLoginFailed
+    // await this.hookRegistry.executeAfterLoginFailed(identifier, reason || 'unknown');
   }
 
   /**

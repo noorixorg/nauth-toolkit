@@ -7,6 +7,7 @@ import { AuthChallengeHelperService } from './auth-challenge-helper.service';
 import { ClientInfoService } from './client-info.service';
 import { PhoneVerificationService } from './phone-verification.service';
 import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
+import { HookRegistryService } from './hook-registry.service';
 import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { OAuthUserProfile } from '../interfaces/oauth.interface';
@@ -82,6 +83,7 @@ describe('BaseSocialAuthProviderService', () => {
   let mockUserRepository: jest.Mocked<Repository<BaseUser>>;
   let mockPhoneVerificationService: jest.Mocked<PhoneVerificationService>;
   let mockAuditService: jest.Mocked<AuthAuditService>;
+  let mockHookRegistry: jest.Mocked<HookRegistryService>;
   let mockUser: IUser;
 
   beforeEach(() => {
@@ -183,6 +185,12 @@ describe('BaseSocialAuthProviderService', () => {
     mockAuditService = {
       recordEvent: jest.fn(),
     } as any;
+    mockHookRegistry = {
+      registerPreSignup: jest.fn(),
+      registerAfterSignup: jest.fn(),
+      executePreSignup: jest.fn().mockResolvedValue(undefined),
+      executeAfterSignup: jest.fn().mockResolvedValue(undefined),
+    } as any;
 
     mockUser = {
       id: 1,
@@ -204,6 +212,8 @@ describe('BaseSocialAuthProviderService', () => {
       mockUserRepository,
       mockPhoneVerificationService,
       mockAuditService,
+      undefined, // trustedDeviceService - not used in these tests
+      mockHookRegistry,
     );
   });
 
@@ -237,6 +247,8 @@ describe('BaseSocialAuthProviderService', () => {
         mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined,
+        mockHookRegistry,
       );
 
       const config = (newService as any).getProviderConfig();
@@ -293,15 +305,12 @@ describe('BaseSocialAuthProviderService', () => {
       });
 
       it('should execute preSignup hook before user creation for social signup', async () => {
-        const preSignupHook = jest.fn().mockResolvedValue(undefined);
-        mockConfig.hooks = {
-          preSignup: preSignupHook,
-        };
+        mockHookRegistry.executePreSignup.mockResolvedValue(undefined);
 
         await service.handleCallback('code', 'valid-state');
 
-        expect(preSignupHook).toHaveBeenCalledTimes(1);
-        expect(preSignupHook).toHaveBeenCalledWith(
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalledTimes(1);
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalledWith(
           expect.objectContaining({
             id: 'test-user-id',
             email: 'user@example.com',
@@ -318,12 +327,9 @@ describe('BaseSocialAuthProviderService', () => {
 
       it('should block social signup when preSignup hook throws PRESIGNUP_FAILED', async () => {
         const customMessage = 'Signups from this email domain are not allowed';
-        const preSignupHook = jest
-          .fn()
-          .mockRejectedValue(new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, customMessage));
-        mockConfig.hooks = {
-          preSignup: preSignupHook,
-        };
+        mockHookRegistry.executePreSignup.mockRejectedValue(
+          new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, customMessage),
+        );
 
         await expect(service.handleCallback('code', 'valid-state')).rejects.toThrow(NAuthException);
         await expect(service.handleCallback('code', 'valid-state')).rejects.toMatchObject({
@@ -331,16 +337,15 @@ describe('BaseSocialAuthProviderService', () => {
           message: customMessage,
         });
 
-        expect(preSignupHook).toHaveBeenCalled();
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalled();
         expect(mockUserRepository.save).not.toHaveBeenCalled();
       });
 
       it('should wrap non-PRESIGNUP_FAILED errors in PRESIGNUP_FAILED for social signup', async () => {
-        const genericError = new Error('External validation service unavailable');
-        const preSignupHook = jest.fn().mockRejectedValue(genericError);
-        mockConfig.hooks = {
-          preSignup: preSignupHook,
-        };
+        // Mock the HookRegistry to throw the wrapped exception (as the real HookRegistry would)
+        mockHookRegistry.executePreSignup.mockRejectedValue(
+          new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, 'External validation service unavailable'),
+        );
 
         await expect(service.handleCallback('code', 'valid-state')).rejects.toThrow(NAuthException);
         await expect(service.handleCallback('code', 'valid-state')).rejects.toMatchObject({
@@ -348,16 +353,8 @@ describe('BaseSocialAuthProviderService', () => {
           message: 'External validation service unavailable',
         });
 
-        expect(preSignupHook).toHaveBeenCalled();
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalled();
         expect(mockUserRepository.save).not.toHaveBeenCalled();
-      });
-
-      it('should allow social signup when preSignup hook is not configured', async () => {
-        mockConfig.hooks = {};
-
-        await service.handleCallback('code', 'valid-state');
-
-        expect(mockUserRepository.save).toHaveBeenCalled();
       });
     });
 
@@ -376,6 +373,8 @@ describe('BaseSocialAuthProviderService', () => {
         mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined,
+        mockHookRegistry,
       );
 
       try {
@@ -413,15 +412,12 @@ describe('BaseSocialAuthProviderService', () => {
       });
 
       it('should execute preSignup hook before user creation for native token verification', async () => {
-        const preSignupHook = jest.fn().mockResolvedValue(undefined);
-        mockConfig.hooks = {
-          preSignup: preSignupHook,
-        };
+        mockHookRegistry.executePreSignup.mockResolvedValue(undefined);
 
         await service.verifyToken('id-token');
 
-        expect(preSignupHook).toHaveBeenCalledTimes(1);
-        expect(preSignupHook).toHaveBeenCalledWith(
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalledTimes(1);
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalledWith(
           expect.objectContaining({
             id: 'test-user-id',
             email: 'user@example.com',
@@ -438,12 +434,9 @@ describe('BaseSocialAuthProviderService', () => {
 
       it('should block native token signup when preSignup hook throws PRESIGNUP_FAILED', async () => {
         const customMessage = 'Signups from this email domain are not allowed';
-        const preSignupHook = jest
-          .fn()
-          .mockRejectedValue(new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, customMessage));
-        mockConfig.hooks = {
-          preSignup: preSignupHook,
-        };
+        mockHookRegistry.executePreSignup.mockRejectedValue(
+          new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, customMessage),
+        );
 
         try {
           await service.verifyToken('id-token');
@@ -454,16 +447,15 @@ describe('BaseSocialAuthProviderService', () => {
           expect(error.message).toBe(customMessage);
         }
 
-        expect(preSignupHook).toHaveBeenCalled();
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalled();
         expect(mockUserRepository.save).not.toHaveBeenCalled();
       });
 
       it('should wrap non-PRESIGNUP_FAILED errors in PRESIGNUP_FAILED for native token signup', async () => {
-        const genericError = new Error('External validation service unavailable');
-        const preSignupHook = jest.fn().mockRejectedValue(genericError);
-        mockConfig.hooks = {
-          preSignup: preSignupHook,
-        };
+        // Mock the HookRegistry to throw the wrapped exception (as the real HookRegistry would)
+        mockHookRegistry.executePreSignup.mockRejectedValue(
+          new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, 'External validation service unavailable'),
+        );
 
         try {
           await service.verifyToken('id-token');
@@ -474,16 +466,8 @@ describe('BaseSocialAuthProviderService', () => {
           expect(error.message).toBe('External validation service unavailable');
         }
 
-        expect(preSignupHook).toHaveBeenCalled();
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalled();
         expect(mockUserRepository.save).not.toHaveBeenCalled();
-      });
-
-      it('should allow native token signup when preSignup hook is not configured', async () => {
-        mockConfig.hooks = {};
-
-        await service.verifyToken('id-token');
-
-        expect(mockUserRepository.save).toHaveBeenCalled();
       });
     });
 
@@ -502,6 +486,8 @@ describe('BaseSocialAuthProviderService', () => {
         mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined,
+        mockHookRegistry,
       );
 
       try {

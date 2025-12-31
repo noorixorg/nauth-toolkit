@@ -60,6 +60,7 @@ import {
   AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent() for instantiation
   PasswordResetService,
   SocialAuthStateStore,
+  HookRegistryService,
 } from '@nauth-toolkit/core/internal';
 
 // MaxMind module type (for type safety in factory)
@@ -869,6 +870,7 @@ export class AuthModule {
             accountLockoutStorage: AccountLockoutStorageService,
             nauthConfig: NAuthConfig,
             logger: NAuthLogger,
+            hookRegistry: HookRegistryService,
             auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
             phoneVerificationService?: PhoneVerificationService,
             mfaService?: MFAService,
@@ -896,6 +898,7 @@ export class AuthModule {
               accountLockoutStorage,
               nauthConfig,
               logger,
+              hookRegistry,
               auditService,
               phoneVerificationService,
               mfaService,
@@ -924,6 +927,7 @@ export class AuthModule {
             AccountLockoutStorageService,
             'NAUTH_CONFIG',
             'NAUTH_LOGGER',
+            HookRegistryService,
             { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
             { token: PhoneVerificationService, optional: true },
             { token: MFAService, optional: true }, // No circular dependency - MFAService no longer depends on AuthService
@@ -1030,6 +1034,7 @@ export class AuthModule {
           ],
         },
         ClientInfoService,
+        HookRegistryService,
         // Conditionally provide AuthAuditService based on config.auditLogs.enabled
         // Default to enabled if not specified (backward compatibility)
         //
@@ -1469,6 +1474,7 @@ export class AuthModule {
         AuthChallengeHelperService, // Needed by social auth providers
         SocialProviderRegistry, // Needed by social auth provider modules for auto-registration
         ClientInfoService,
+        HookRegistryService, // Needed by NAuthHooksModule for hook registration
         // Audit Services (conditional - only if enabled)
         // Single instance, exported under two tokens:
         //   - AuthAuditService (public API) - For consumer apps to fetch audit logs (TypeScript prevents recordEvent)

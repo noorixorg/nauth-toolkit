@@ -22,6 +22,7 @@ import {
   SocialAuthService,
   NAuthException,
   AuthErrorCode,
+  HookRegistryService,
 } from '../../index';
 // Internal API imports (for framework adapter use only)
 import {
@@ -72,6 +73,7 @@ export interface NAuthServices {
   authService: AuthService;
   socialProviderRegistry: SocialProviderRegistry;
   socialAuthService: SocialAuthService;
+  hookRegistry: HookRegistryService;
 
   // Conditional services
   auditService?: AuthAuditService;
@@ -139,6 +141,7 @@ export function initServices(
   const passwordService = new PasswordService(config.password);
   const jwtService = new JwtService(config.jwt);
   const clientInfoService = new ClientInfoService();
+  const hookRegistry = new HookRegistryService(logger);
 
   // ============================================================================
   // 2. Audit Service (Conditional)
@@ -382,6 +385,7 @@ export function initServices(
     accountLockoutStorageService,
     config,
     logger,
+    hookRegistry, // Hook registry for lifecycle hooks
     auditService,
     phoneVerificationService,
     mfaService,
@@ -457,6 +461,7 @@ export function initServices(
     authService,
     socialProviderRegistry,
     socialAuthService,
+    hookRegistry,
     auditService,
     phoneVerificationService,
     trustedDeviceService,

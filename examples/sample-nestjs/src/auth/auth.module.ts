@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CustomAuthController } from './auth.controller';
 import { SocialRedirectController } from './social-redirect.controller';
-import { AuthModule } from '@nauth-toolkit/nestjs';
+import { AuthModule, NAuthHooksModule } from '@nauth-toolkit/nestjs';
 import { GoogleSocialAuthModule } from '@nauth-toolkit/social-google/nestjs';
 import { AppleSocialAuthModule } from '@nauth-toolkit/social-apple/nestjs';
 import { FacebookSocialAuthModule } from '@nauth-toolkit/social-facebook/nestjs';
@@ -10,6 +10,7 @@ import { EmailMFAModule } from '@nauth-toolkit/mfa-email/nestjs';
 import { TOTPMFAModule } from '@nauth-toolkit/mfa-totp/nestjs';
 import { PasskeyMFAModule } from '@nauth-toolkit/mfa-passkey/nestjs';
 import { authConfig } from '../config/auth.config';
+import { PreSignupDebugHook, AfterSignupDebugHook } from './hooks';
 
 /**
  * Custom Auth Module
@@ -19,6 +20,7 @@ import { authConfig } from '../config/auth.config';
  * Just:
  * 1. Import AuthModule.forRoot(config) for core auth
  * 2. Import social provider modules you need (Google, Apple, Facebook)
+ * 3. Import NAuthHooksModule.forFeature() with your custom hooks
  *
  * That's it! No manual provider registration needed.
  */
@@ -33,6 +35,8 @@ import { authConfig } from '../config/auth.config';
     TOTPMFAModule,
     PasskeyMFAModule,
     AuthModule.forRoot(authConfig),
+    // Register lifecycle hooks - automatically discovered and registered
+    NAuthHooksModule.forFeature([PreSignupDebugHook, AfterSignupDebugHook]),
   ],
   controllers: [CustomAuthController, SocialRedirectController],
 })

@@ -234,6 +234,7 @@ export class NAuth {
       services.auditService,
       services.trustedDeviceService,
       repos.socialProviderSecretRepository,
+      services.hookRegistry,
     );
 
     // ========================================================================

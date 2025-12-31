@@ -22,6 +22,7 @@ import {
   AuthChallengeHelperService,
   AuthAuditService, // Internal version with recordEvent()
   TrustedDeviceService,
+  HookRegistryService,
 } from '@nauth-toolkit/core/internal';
 import { Repository } from 'typeorm';
 import { FacebookOAuthClient } from './facebook-oauth.client';
@@ -81,6 +82,8 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
     auditService?: AuthAuditService,
     // Trusted device service (optional - only available when rememberDevices is enabled)
     trustedDeviceService?: TrustedDeviceService,
+    // Hook registry for lifecycle hooks (required)
+    hookRegistry?: HookRegistryService,
     // Facebook-specific token verifier (optional, fallback to default)
     tokenVerifier?: ITokenVerifierService,
   ) {
@@ -98,6 +101,7 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
       phoneVerificationService,
       auditService,
       trustedDeviceService,
+      hookRegistry,
     );
 
     // Initialize Facebook OAuth client

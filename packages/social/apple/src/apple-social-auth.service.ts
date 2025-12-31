@@ -23,6 +23,7 @@ import {
   AuthChallengeHelperService,
   AuthAuditService, // Internal version with recordEvent()
   TrustedDeviceService,
+  HookRegistryService,
 } from '@nauth-toolkit/core/internal';
 import { Repository } from 'typeorm';
 import { AppleOAuthClient } from './apple-oauth.client';
@@ -92,6 +93,8 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
     auditService?: AuthAuditService,
     // Trusted device service (optional - only available when rememberDevices is enabled)
     trustedDeviceService?: TrustedDeviceService,
+    // Hook registry for lifecycle hooks (required)
+    hookRegistry?: HookRegistryService,
     // Apple-specific token verifier (optional, fallback to TOKEN_VERIFIER)
     tokenVerifier?: ITokenVerifierService,
     // Repository for storing Apple JWT client secrets (optional, for JWT rotation)
@@ -111,6 +114,7 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
       phoneVerificationService,
       auditService,
       trustedDeviceService,
+      hookRegistry,
     );
 
     // Store repository for JWT rotation

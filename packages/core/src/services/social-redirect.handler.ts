@@ -468,7 +468,7 @@ export interface SocialRedirectCallbackResult {
    * This enables frameworks with automatic cookie delivery (e.g., NestJS interceptor + `@TokenDelivery()`)
    * to set cookies without consumer code manually iterating over `cookies`.
    *
-   * ⚠️ WARNING: Do not log this value (contains tokens).
+   * WARNING: Do not log this value (contains tokens).
    */
   authResponse?: AuthResponseDTO;
 }

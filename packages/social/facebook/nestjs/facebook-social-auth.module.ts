@@ -20,6 +20,7 @@ import {
   NAUTH_SOCIAL_PROVIDER_TOKEN,
   AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent()
   TrustedDeviceService,
+  HookRegistryService,
 } from '@nauth-toolkit/core/internal';
 import { TokenVerifierService as FacebookTokenVerifierService } from '../src/token-verifier.service';
 import { Repository } from 'typeorm';
@@ -85,6 +86,7 @@ import { Repository } from 'typeorm';
         phoneVerificationService?: PhoneVerificationService,
         auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
         trustedDeviceService?: TrustedDeviceService, // Optional - only available when rememberDevices is enabled
+        hookRegistry?: HookRegistryService, // Required for lifecycle hooks
         tokenVerifier?: ITokenVerifierService,
       ) => {
         return new FacebookSocialAuthService(
@@ -101,6 +103,7 @@ import { Repository } from 'typeorm';
           phoneVerificationService,
           auditService,
           trustedDeviceService,
+          hookRegistry,
           tokenVerifier,
         );
       },
@@ -118,6 +121,7 @@ import { Repository } from 'typeorm';
         { token: PhoneVerificationService, optional: true },
         { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
         { token: TrustedDeviceService, optional: true }, // Optional - only available when rememberDevices is enabled
+        HookRegistryService, // Required for lifecycle hooks
         { token: 'FACEBOOK_TOKEN_VERIFIER', optional: true },
       ],
     },

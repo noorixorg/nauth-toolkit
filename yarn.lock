@@ -3216,7 +3216,7 @@
     "@emnapi/runtime" "^1.7.1"
     "@tybys/wasm-util" "^0.10.1"
 
-"@nauth-toolkit/core@workspace:*":
+"@nauth-toolkit/core@0.1.32", "@nauth-toolkit/core@workspace:*":
   version "0.1.32"
   resolved "https://registry.yarnpkg.com/@nauth-toolkit/core/-/core-0.1.32.tgz#f01410a9390fc900ed70aa19466f407a9794b44e"
   integrity sha512-o3kDOMtlPK7DctDgPhUgCgJclmANM76Rxqn/ImOjqP8iplm7GxUXkyB7XdcxgCBy7F2r3s2x+kpr05PsG4VF7w==

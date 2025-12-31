@@ -5,7 +5,7 @@ import { Transform } from 'class-transformer';
  * Allowed deviceType values for session + trusted-device persistence.
  *
  * @remarks
- * ⚠️ SECURITY: This must remain strict. Arbitrary strings become persisted metadata
+ * SECURITY: This must remain strict. Arbitrary strings become persisted metadata
  * and can pollute logs/audit trails.
  *
  * @example

@@ -89,6 +89,7 @@ export async function initSocialAuth(
   auditService?: AuthAuditService,
   trustedDeviceService?: TrustedDeviceService,
   socialProviderSecretRepository?: Repository<BaseSocialProviderSecret> | null,
+  hookRegistry?: import('../../services/hook-registry.service').HookRegistryService,
 ): Promise<NAuthSocialProviders> {
   const providers: NAuthSocialProviders = {};
 
@@ -128,6 +129,7 @@ export async function initSocialAuth(
         auditService,
         trustedDeviceService,
         tokenVerifier,
+        hookRegistry,
       );
 
       providers.googleAuth = googleAuth;
@@ -179,6 +181,7 @@ export async function initSocialAuth(
         trustedDeviceService,
         tokenVerifier,
         socialProviderSecretRepository || undefined,
+        hookRegistry,
       );
 
       providers.appleAuth = appleAuth;
@@ -229,6 +232,7 @@ export async function initSocialAuth(
         auditService,
         trustedDeviceService,
         tokenVerifier,
+        hookRegistry,
       );
 
       providers.facebookAuth = facebookAuth;

@@ -21,6 +21,7 @@ import { PhoneVerificationService } from './phone-verification.service';
 import { MFAService } from './mfa.service';
 import { TrustedDeviceService } from './trusted-device.service';
 import { PasswordResetService } from './password-reset.service';
+import { HookRegistryService } from './hook-registry.service';
 import { BaseLoginAttempt, BaseMFADevice, BaseUser } from '../entities';
 import { ForgotPasswordDTO } from '../dto/forgot-password.dto';
 import { LoggerService, NAuthConfig } from '../interfaces/config.interface';
@@ -48,6 +49,13 @@ describe('AuthService.forgotPassword() (social-only)', () => {
     const mockAuditService = {
       recordEvent: jest.fn().mockResolvedValue(null),
     } as unknown as AuthAuditService;
+
+    const mockHookRegistry = {
+      registerPreSignup: jest.fn(),
+      registerAfterSignup: jest.fn(),
+      executePreSignup: jest.fn().mockResolvedValue(undefined),
+      executeAfterSignup: jest.fn().mockResolvedValue(undefined),
+    } as unknown as HookRegistryService;
 
     const baseLogger: LoggerService = {
       log: jest.fn(),
@@ -94,6 +102,7 @@ describe('AuthService.forgotPassword() (social-only)', () => {
       mockAccountLockoutStorage,
       mockConfig,
       mockLogger,
+      mockHookRegistry,
       mockAuditService,
       mockPhoneVerificationService,
       mockMfaService,

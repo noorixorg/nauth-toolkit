@@ -54,6 +54,12 @@ export { AuthAuditService } from './services/auth-audit.service';
  */
 export { CsrfService } from './services/csrf.service';
 
+/**
+ * Hook Registry Service
+ * Manages registration and execution of lifecycle hooks
+ */
+export { HookRegistryService } from './services/hook-registry.service';
+
 // ============================================================================
 // Internal Services - NOT EXPORTED
 // ============================================================================

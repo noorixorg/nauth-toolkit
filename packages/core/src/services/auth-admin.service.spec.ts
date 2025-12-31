@@ -20,6 +20,7 @@ import { InternalAuthAuditService as AuthAuditService } from './auth-audit.servi
 import { TrustedDeviceService } from './trusted-device.service';
 import { MFAService } from './mfa.service';
 import { SocialAuthService } from './social-auth.service';
+import { HookRegistryService } from './hook-registry.service';
 import { DeleteUserDTO } from '../dto/delete-user.dto';
 import { GetUsersDTO } from '../dto/get-users.dto';
 import { DisableUserDTO } from '../dto/disable-user.dto';
@@ -66,6 +67,7 @@ describe('AuthService - Admin User Management', () => {
   let mockTrustedDeviceService: jest.Mocked<TrustedDeviceService>;
   let mockMfaService: jest.Mocked<MFAService>;
   let mockSocialAuthService: jest.Mocked<SocialAuthService>;
+  let mockHookRegistry: jest.Mocked<HookRegistryService>;
   let mockLogger: jest.Mocked<NAuthLogger>;
   let mockConfig: NAuthConfig;
 
@@ -188,6 +190,12 @@ describe('AuthService - Admin User Management', () => {
     mockAuditService = {
       recordEvent: jest.fn().mockResolvedValue(undefined),
     } as any;
+    mockHookRegistry = {
+      registerPreSignup: jest.fn(),
+      registerAfterSignup: jest.fn(),
+      executePreSignup: jest.fn().mockResolvedValue(undefined),
+      executeAfterSignup: jest.fn().mockResolvedValue(undefined),
+    } as any;
     mockTrustedDeviceService = {} as any;
     mockMfaService = {} as any;
     mockSocialAuthService = {} as any;
@@ -220,6 +228,7 @@ describe('AuthService - Admin User Management', () => {
       mockAccountLockoutStorage,
       mockConfig,
       mockLogger,
+      mockHookRegistry,
       mockAuditService,
       mockPhoneVerificationService,
       mockMfaService,

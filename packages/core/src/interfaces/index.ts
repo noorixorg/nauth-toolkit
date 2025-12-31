@@ -1,5 +1,6 @@
 export * from './config.interface';
 export * from './entities.interface';
+export * from './hooks.interface';
 export * from './logger.interface';
 export * from './mfa-provider.interface';
 export * from './oauth.interface';
