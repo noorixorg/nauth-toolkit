@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
 import { BaseMFADevice } from '../entities';
-import { AuthResponseDTO } from '../dto/auth-response.dto';
+import { AuthResponseDTO, toAuthResponseUser } from '../dto/auth-response.dto';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
 import { SendVerificationEmailDTO } from '../dto/verify-email.dto';
 import { SendVerificationSMSDTO } from '../dto/verify-phone.dto';
@@ -644,17 +644,7 @@ export class AuthChallengeHelperService {
       // - clientInfo.deviceToken (existing trusted device), OR
       // - deviceToken parameter passed from AuthService / state machine
       deviceToken: finalDeviceToken,
-      user: {
-        sub: user.sub,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        phone: user.phone ?? undefined,
-        isEmailVerified: user.isEmailVerified,
-        isPhoneVerified: user.isPhoneVerified ?? undefined,
-        socialProviders: user.socialProviders ?? undefined,
-        hasPasswordHash: !!user.passwordHash,
-      },
+      user: toAuthResponseUser(user),
       userSub: user.sub,
     };
 

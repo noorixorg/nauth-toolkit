@@ -55,10 +55,10 @@ sequenceDiagram
 
 ## Available Hooks
 
-| Hook            | When                 | Can Block? | Use Cases                                                  |
-| --------------- | -------------------- | ---------- | ---------------------------------------------------------- |
-| **preSignup**   | Before user creation | Yes        | Validation, domain whitelisting, invite codes              |
-| **afterSignup** | After user creation  | No         | Welcome emails, analytics, CRM sync, resource provisioning |
+| Hook           | When                 | Can Block? | Use Cases                                                  |
+| -------------- | -------------------- | ---------- | ---------------------------------------------------------- |
+| **preSignup**  | Before user creation | Yes        | Validation, domain whitelisting, invite codes              |
+| **postSignup** | After user creation  | No         | Welcome emails, analytics, CRM sync, resource provisioning |
 
 :::tip Future Hooks
 Additional hooks (afterLogin, beforePasswordChange, etc.) will follow the same pattern. The architecture is designed for extensibility.
@@ -83,10 +83,19 @@ Create a hook class that implements the hook interface:
 
 ```typescript title="src/auth/hooks/domain-validation.hook.ts"
 import { Injectable, Logger } from '@nestjs/common';
-import { PreSignupHook, IPreSignupHookProvider, NAuthException, AuthErrorCode } from '@nauth-toolkit/nestjs';
+import {
+  PreSignupHook,
+  IPreSignupHookProvider,
+  PreSignupHookData,
+  SignupDTO,
+  AdminSignupDTO,
+  OAuthUserProfile,
+  NAuthException,
+  AuthErrorCode,
+} from '@nauth-toolkit/nestjs';
 
 @Injectable()
-@PreSignupHook({ priority: 1 })
+@PreSignupHook()
 export class DomainValidationHook implements IPreSignupHookProvider {
   private readonly logger = new Logger(DomainValidationHook.name);
   private readonly allowedDomains = ['company.com', 'partner.com'];
@@ -94,15 +103,28 @@ export class DomainValidationHook implements IPreSignupHookProvider {
   /**
    * Validate email domain before signup
    */
-  async execute(userData, signupMethod, providerId, adminSignup) {
+  async execute(
+    data: PreSignupHookData,
+    signupType: 'password' | 'social',
+    provider?: string,
+    adminSignup?: boolean,
+  ): Promise<void> {
     // Skip validation for admin-initiated signups
     if (adminSignup) {
-      this.logger.log(`Skipping validation for admin signup: ${userData.email}`);
+      const email =
+        signupType === 'password' ? (data as SignupDTO | AdminSignupDTO).email : (data as OAuthUserProfile).email;
+      this.logger.log(`Skipping validation for admin signup: ${email}`);
       return;
     }
 
-    // Extract and validate domain
-    const email = userData.email;
+    // Extract email based on signup type
+    let email: string | null | undefined;
+    if (signupType === 'password') {
+      email = (data as SignupDTO | AdminSignupDTO).email;
+    } else if (signupType === 'social') {
+      email = (data as OAuthUserProfile).email;
+    }
+
     if (!email) return; // Let core validation handle missing email
 
     const domain = email.split('@')[1];
@@ -303,15 +325,38 @@ Pre-signup hooks execute **before** user creation and can **block signups** by t
 Block signups from unauthorized email domains:
 
 ```typescript
+import {
+  PreSignupHook,
+  IPreSignupHookProvider,
+  PreSignupHookData,
+  SignupDTO,
+  AdminSignupDTO,
+  OAuthUserProfile,
+  NAuthException,
+  AuthErrorCode,
+} from '@nauth-toolkit/nestjs';
+
 @Injectable()
 @PreSignupHook()
 export class DomainValidationHook implements IPreSignupHookProvider {
   private readonly allowedDomains = ['company.com', 'partner.com'];
 
-  async execute(userData, signupMethod, providerId, adminSignup) {
+  async execute(
+    data: PreSignupHookData,
+    signupType: 'password' | 'social',
+    provider?: string,
+    adminSignup?: boolean,
+  ): Promise<void> {
     if (adminSignup) return;
 
-    const domain = userData.email?.split('@')[1];
+    let email: string | null | undefined;
+    if (signupType === 'password') {
+      email = (data as SignupDTO | AdminSignupDTO).email;
+    } else if (signupType === 'social') {
+      email = (data as OAuthUserProfile).email;
+    }
+
+    const domain = email?.split('@')[1];
     if (domain && !this.allowedDomains.includes(domain)) {
       throw new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, `Domain ${domain} not allowed`);
     }
@@ -325,15 +370,43 @@ export class DomainValidationHook implements IPreSignupHookProvider {
 Require valid invite code for signups:
 
 ```typescript
+import {
+  PreSignupHook,
+  IPreSignupHookProvider,
+  PreSignupHookData,
+  SignupDTO,
+  AdminSignupDTO,
+  OAuthUserProfile,
+  NAuthException,
+  AuthErrorCode,
+} from '@nauth-toolkit/nestjs';
+
 @Injectable()
 @PreSignupHook()
 export class InviteCodeHook implements IPreSignupHookProvider {
   constructor(private readonly inviteService: InviteService) {}
 
-  async execute(userData, signupMethod, providerId, adminSignup) {
+  async execute(
+    data: PreSignupHookData,
+    signupType: 'password' | 'social',
+    provider?: string,
+    adminSignup?: boolean,
+  ): Promise<void> {
     if (adminSignup) return;
 
-    const inviteCode = userData.metadata?.inviteCode;
+    let email: string | null | undefined;
+    let inviteCode: string | undefined;
+
+    if (signupType === 'password') {
+      const dto = data as SignupDTO | AdminSignupDTO;
+      email = dto.email;
+      inviteCode = dto.metadata?.inviteCode as string | undefined;
+    } else if (signupType === 'social') {
+      const profile = data as OAuthUserProfile;
+      email = profile.email || undefined;
+      inviteCode = profile.raw?.inviteCode as string | undefined;
+    }
+
     if (!inviteCode) {
       throw new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, 'Invite code required');
     }
@@ -344,7 +417,9 @@ export class InviteCodeHook implements IPreSignupHookProvider {
     }
 
     // Mark invite as used
-    await this.inviteService.markUsed(inviteCode, userData.email);
+    if (email) {
+      await this.inviteService.markUsed(inviteCode, email);
+    }
   }
 }
 ```
@@ -355,6 +430,14 @@ export class InviteCodeHook implements IPreSignupHookProvider {
 Prevent signup abuse with custom rate limiting:
 
 ```typescript
+import {
+  PreSignupHook,
+  IPreSignupHookProvider,
+  PreSignupHookData,
+  NAuthException,
+  AuthErrorCode,
+} from '@nauth-toolkit/nestjs';
+
 @Injectable()
 @PreSignupHook()
 export class SignupRateLimitHook implements IPreSignupHookProvider {
@@ -363,7 +446,12 @@ export class SignupRateLimitHook implements IPreSignupHookProvider {
     @Inject('REQUEST') private readonly req: Request,
   ) {}
 
-  async execute(userData, signupMethod, providerId, adminSignup) {
+  async execute(
+    data: PreSignupHookData,
+    signupType: 'password' | 'social',
+    provider?: string,
+    adminSignup?: boolean,
+  ): Promise<void> {
     if (adminSignup) return;
 
     const ip = this.req.ip;
@@ -387,19 +475,45 @@ export class SignupRateLimitHook implements IPreSignupHookProvider {
 Validate against external API before allowing signup:
 
 ```typescript
+import {
+  PreSignupHook,
+  IPreSignupHookProvider,
+  PreSignupHookData,
+  SignupDTO,
+  AdminSignupDTO,
+  OAuthUserProfile,
+  NAuthException,
+  AuthErrorCode,
+} from '@nauth-toolkit/nestjs';
+
 @Injectable()
 @PreSignupHook()
 export class ExternalValidationHook implements IPreSignupHookProvider {
-  constructor(private readonly httpService: HttpService) {}
+  constructor(
+    private readonly httpService: HttpService,
+    private readonly logger: Logger,
+  ) {}
 
-  async execute(userData, signupMethod, providerId, adminSignup) {
+  async execute(
+    data: PreSignupHookData,
+    signupType: 'password' | 'social',
+    provider?: string,
+    adminSignup?: boolean,
+  ): Promise<void> {
     if (adminSignup) return;
+
+    let email: string | null | undefined;
+    if (signupType === 'password') {
+      email = (data as SignupDTO | AdminSignupDTO).email;
+    } else if (signupType === 'social') {
+      email = (data as OAuthUserProfile).email;
+    }
+
+    if (!email) return;
 
     // Check if email is disposable/temporary
     try {
-      const response = await this.httpService
-        .get(`https://api.emailvalidation.com/check?email=${userData.email}`)
-        .toPromise();
+      const response = await this.httpService.get(`https://api.emailvalidation.com/check?email=${email}`).toPromise();
 
       if (response.data.disposable) {
         throw new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, 'Temporary email addresses are not allowed');
@@ -441,9 +555,9 @@ export class DomainValidation {}
 export class InviteCodeCheck {}
 ```
 
-## After-Signup Hooks (Notifications & Integrations)
+## Post-Signup Hooks (Notifications & Integrations)
 
-After-signup hooks execute **after** successful user creation. They're **non-blocking** - errors are logged but don't affect signup.
+Post-signup hooks execute **after** successful user creation. They're **non-blocking** - errors are logged but don't affect signup.
 
 ### When They Run
 
@@ -459,19 +573,22 @@ After-signup hooks execute **after** successful user creation. They're **non-blo
 Send welcome email after signup:
 
 ```typescript
+import { Injectable, Logger } from '@nestjs/common';
+import { PostSignupHook, IPostSignupHookProvider, IUser, SignupMetadata } from '@nauth-toolkit/nestjs';
+
 @Injectable()
-@AfterSignupHook()
-export class WelcomeEmailHook implements IAfterSignupHookProvider {
+@PostSignupHook()
+export class WelcomeEmailHook implements IPostSignupHookProvider {
   private readonly logger = new Logger(WelcomeEmailHook.name);
 
   constructor(private readonly emailService: EmailService) {}
 
-  async execute(user, metadata) {
+  async execute(user: IUser, metadata?: SignupMetadata): Promise<void> {
     try {
       await this.emailService.sendWelcome({
         to: user.email,
         firstName: user.firstName,
-        signupMethod: metadata?.signupType,
+        signupType: metadata?.signupType,
       });
 
       this.logger.log(`Welcome email sent to: ${user.email}`);
@@ -489,6 +606,9 @@ export class WelcomeEmailHook implements IAfterSignupHookProvider {
 Track signup events in your analytics platform:
 
 ```typescript
+import { Injectable, Logger } from '@nestjs/common';
+import { AfterSignupHook, IAfterSignupHookProvider, IUser, SignupMetadata } from '@nauth-toolkit/nestjs';
+
 @Injectable()
 @AfterSignupHook()
 export class AnalyticsHook implements IAfterSignupHookProvider {
@@ -497,12 +617,12 @@ export class AnalyticsHook implements IAfterSignupHookProvider {
     private readonly logger: Logger,
   ) {}
 
-  async execute(user, metadata) {
+  async execute(user: IUser, metadata?: SignupMetadata): Promise<void> {
     try {
       await this.analytics.track('user_signup', {
         userId: user.sub,
         email: user.email,
-        signupMethod: metadata?.signupType,
+        signupType: metadata?.signupType,
         provider: metadata?.provider,
         timestamp: new Date().toISOString(),
       });
@@ -527,15 +647,19 @@ export class AnalyticsHook implements IAfterSignupHookProvider {
 Sync new users to your CRM:
 
 ```typescript
+import { Injectable, Logger } from '@nestjs/common';
+import { AfterSignupHook, IAfterSignupHookProvider, IUser, SignupMetadata } from '@nauth-toolkit/nestjs';
+
 @Injectable()
 @AfterSignupHook()
 export class CrmSyncHook implements IAfterSignupHookProvider {
   constructor(
     private readonly crm: CrmService,
     private readonly logger: Logger,
+    private readonly queueService: QueueService,
   ) {}
 
-  async execute(user, metadata) {
+  async execute(user: IUser, metadata?: SignupMetadata): Promise<void> {
     try {
       const contact = await this.crm.createContact({
         email: user.email,
@@ -564,6 +688,9 @@ export class CrmSyncHook implements IAfterSignupHookProvider {
 Create workspace and assign default permissions:
 
 ```typescript
+import { Injectable, Logger } from '@nestjs/common';
+import { AfterSignupHook, IAfterSignupHookProvider, IUser, SignupMetadata } from '@nauth-toolkit/nestjs';
+
 @Injectable()
 @AfterSignupHook()
 export class ProvisioningHook implements IAfterSignupHookProvider {
@@ -573,7 +700,7 @@ export class ProvisioningHook implements IAfterSignupHookProvider {
     private readonly logger: Logger,
   ) {}
 
-  async execute(user, metadata) {
+  async execute(user: IUser, metadata?: SignupMetadata): Promise<void> {
     try {
       // Create default workspace
       const workspace = await this.workspaceService.create({
@@ -600,7 +727,7 @@ export class ProvisioningHook implements IAfterSignupHookProvider {
 
 ### Error Handling
 
-After-signup hooks are non-blocking. All errors are caught and logged:
+Post-signup hooks are non-blocking. All errors are caught and logged:
 
 ```typescript
 async execute(user, metadata) {
@@ -648,7 +775,7 @@ Register multiple hooks to compose behavior:
       // Pre-signup hooks (execute in priority order)
       DomainValidationHook, // priority: 1
       InviteCodeHook, // priority: 2
-      // After-signup hooks (execute in priority order)
+      // Post-signup hooks (execute in priority order)
       WelcomeEmailHook, // priority: 1
       AnalyticsHook, // priority: 2
       CrmSyncHook, // priority: 3
@@ -673,10 +800,10 @@ export class AuthModule {}
 nauth.hookRegistry.registerPreSignup(new DomainValidationHook());
 nauth.hookRegistry.registerPreSignup(new InviteCodeHook(inviteService));
 
-// Register after-signup hooks (execute in order)
-nauth.hookRegistry.registerAfterSignup(new WelcomeEmailHook(emailService));
-nauth.hookRegistry.registerAfterSignup(new AnalyticsHook(analytics));
-nauth.hookRegistry.registerAfterSignup(new CrmSyncHook(crm));
+// Register post-signup hooks (execute in order)
+nauth.hookRegistry.registerPostSignup(new WelcomeEmailHook(emailService));
+nauth.hookRegistry.registerPostSignup(new AnalyticsHook(analytics));
+nauth.hookRegistry.registerPostSignup(new CrmSyncHook(crm));
 ```
 
 </TabItem>
@@ -687,10 +814,10 @@ nauth.hookRegistry.registerAfterSignup(new CrmSyncHook(crm));
 nauth.hookRegistry.registerPreSignup(new DomainValidationHook());
 nauth.hookRegistry.registerPreSignup(new InviteCodeHook(inviteService));
 
-// Register after-signup hooks (execute in order)
-nauth.hookRegistry.registerAfterSignup(new WelcomeEmailHook(emailService));
-nauth.hookRegistry.registerAfterSignup(new AnalyticsHook(analytics));
-nauth.hookRegistry.registerAfterSignup(new CrmSyncHook(crm));
+// Register post-signup hooks (execute in order)
+nauth.hookRegistry.registerPostSignup(new WelcomeEmailHook(emailService));
+nauth.hookRegistry.registerPostSignup(new AnalyticsHook(analytics));
+nauth.hookRegistry.registerPostSignup(new CrmSyncHook(crm));
 ```
 
 </TabItem>
@@ -867,11 +994,11 @@ Complete reference for all hook-related classes and interfaces:
 
 ### Interfaces
 
-| Interface                  | Description                 | Documentation                                                                                 |
-| -------------------------- | --------------------------- | --------------------------------------------------------------------------------------------- |
-| `IPreSignupHookProvider`   | Pre-signup hook interface   | [IPreSignupHookProvider](/docs/api/core/interfaces/hook-providers#ipreSignuphookprovider)     |
-| `IAfterSignupHookProvider` | After-signup hook interface | [IAfterSignupHookProvider](/docs/api/core/interfaces/hook-providers#iaftersignuphookprovider) |
-| `SignupMetadata`           | Signup metadata interface   | [SignupMetadata](/docs/api/core/interfaces/hook-providers#signupmetadata)                     |
+| Interface                 | Description                | Documentation                                                                               |
+| ------------------------- | -------------------------- | ------------------------------------------------------------------------------------------- |
+| `IPreSignupHookProvider`  | Pre-signup hook interface  | [IPreSignupHookProvider](/docs/api/core/interfaces/hook-providers#ipreSignuphookprovider)   |
+| `IPostSignupHookProvider` | Post-signup hook interface | [IPostSignupHookProvider](/docs/api/core/interfaces/hook-providers#ipostsignuphookprovider) |
+| `SignupMetadata`          | Signup metadata interface  | [SignupMetadata](/docs/api/core/interfaces/hook-providers#signupmetadata)                   |
 
 ### Services
 
@@ -881,11 +1008,11 @@ Complete reference for all hook-related classes and interfaces:
 
 ### NestJS Decorators
 
-| Decorator            | Description                 | Documentation                                                       |
-| -------------------- | --------------------------- | ------------------------------------------------------------------- |
-| `@PreSignupHook()`   | Pre-signup hook decorator   | [@PreSignupHook()](/docs/api/nestjs/decorators/pre-signup-hook)     |
-| `@AfterSignupHook()` | After-signup hook decorator | [@AfterSignupHook()](/docs/api/nestjs/decorators/after-signup-hook) |
-| `NAuthHooksModule`   | Hook registration module    | [NAuthHooksModule](/docs/api/nestjs/decorators/nauth-hooks-module)  |
+| Decorator           | Description                | Documentation                                                      |
+| ------------------- | -------------------------- | ------------------------------------------------------------------ |
+| `@PreSignupHook()`  | Pre-signup hook decorator  | [@PreSignupHook()](/docs/api/nestjs/decorators/pre-signup-hook)    |
+| `@PostSignupHook()` | Post-signup hook decorator | [@PostSignupHook()](/docs/api/nestjs/decorators/post-signup-hook)  |
+| `NAuthHooksModule`  | Hook registration module   | [NAuthHooksModule](/docs/api/nestjs/decorators/nauth-hooks-module) |
 
 ## Related
 

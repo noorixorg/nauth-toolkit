@@ -38,7 +38,7 @@ import { ChangePasswordRequestDTO } from '../dto/change-password-request.dto';
 import { ChangePasswordResponseDTO } from '../dto/change-password-response.dto';
 import { UpdateUserAttributesRequestDTO } from '../dto/update-user-attributes-request.dto';
 import { UserResponseDto } from '../dto/user-response.dto';
-import { AuthResponseDTO, TokenResponse } from '../dto/auth-response.dto';
+import { AuthResponseDTO, TokenResponse, toAuthResponseUser } from '../dto/auth-response.dto';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
 import {
   ChallengeResponseData,
@@ -263,7 +263,7 @@ export class AuthService {
 
     let savedUser: IUser;
     try {
-      savedUser = (await this.userRepository.save(user)) as unknown as IUser;
+      savedUser = (await this.userRepository.save(user)) as IUser;
       this.logger?.log?.(`User created successfully: ${dto.email} (sub: ${savedUser.sub})`);
 
       // ============================================================================
@@ -326,14 +326,24 @@ export class AuthService {
     // This prevents user confusion from receiving multiple codes at once
 
     // ============================================================================
-    // Lifecycle Hook: afterSignup
+    // Lifecycle Hook: postSignup
     // ============================================================================
-    // Execute afterSignup hook immediately after account creation (non-blocking)
-    await this.hookRegistry.executeAfterSignup(savedUser, {
+    // Execute postSignup hook immediately after account creation (non-blocking)
+    await this.hookRegistry.executePostSignup(savedUser, {
       requiresVerification: verificationMethod !== 'none',
       signupType: 'password',
       adminSignup: false,
     });
+
+    // ============================================================================
+    // refresh user data in case post signup hook has modified the user
+    // ============================================================================
+    const refreshedUser = await this.userRepository.findOne({
+      where: { id: savedUser.id },
+    });
+    if (refreshedUser) {
+      savedUser = refreshedUser as IUser;
+    }
 
     // ============================================================================
     // Challenge System: Determine if user needs to complete challenges
@@ -570,7 +580,7 @@ export class AuthService {
     // Lifecycle Hook: afterSignup
     // ============================================================================
     // Execute afterSignup hook immediately after account creation (non-blocking)
-    await this.hookRegistry.executeAfterSignup(savedUser, {
+    await this.hookRegistry.executePostSignup(savedUser, {
       signupType: 'password',
       adminSignup: true,
     });
@@ -792,7 +802,7 @@ export class AuthService {
       // Lifecycle Hook: afterSignup
       // ============================================================================
       // Execute afterSignup hook immediately after account creation (non-blocking)
-      await this.hookRegistry.executeAfterSignup(savedUser, {
+      await this.hookRegistry.executePostSignup(savedUser, {
         signupType: 'social',
         provider: dto.provider,
         adminSignup: true,
@@ -2189,20 +2199,8 @@ export class AuthService {
     // Note: deviceToken inclusion in response body is handled by CookieTokenInterceptor
     // which checks route-level @TokenDelivery decorator and global config
     // to decide whether to set as cookie and/or strip from body
-    const userDto = UserResponseDto.fromEntity(user);
     const authResponse: AuthResponseDTO = {
-      user: {
-        sub: userDto.sub,
-        email: userDto.email,
-        firstName: userDto.firstName,
-        lastName: userDto.lastName,
-        phone: userDto.phone ?? undefined,
-        isEmailVerified: userDto.isEmailVerified,
-        isPhoneVerified: userDto.isPhoneVerified ?? undefined,
-        socialProviders:
-          userDto.socialProviders && userDto.socialProviders.length > 0 ? userDto.socialProviders : undefined,
-        hasPasswordHash: userDto.hasPasswordHash,
-      },
+      user: toAuthResponseUser(user),
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       accessTokenExpiresAt: accessTokenValidation.payload?.exp || 0,

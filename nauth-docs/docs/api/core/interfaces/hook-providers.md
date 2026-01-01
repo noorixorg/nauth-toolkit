@@ -20,21 +20,21 @@ Provider interfaces for implementing authentication lifecycle hooks. These inter
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-import { IPreSignupHookProvider, IAfterSignupHookProvider, SignupMetadata } from '@nauth-toolkit/nestjs';
+import { IPreSignupHookProvider, IPostSignupHookProvider, SignupMetadata } from '@nauth-toolkit/nestjs';
 ```
 
 </TabItem>
 <TabItem value="express" label="Express">
 
 ```typescript
-import { IPreSignupHookProvider, IAfterSignupHookProvider, SignupMetadata } from '@nauth-toolkit/core';
+import { IPreSignupHookProvider, IPostSignupHookProvider, SignupMetadata } from '@nauth-toolkit/core';
 ```
 
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { IPreSignupHookProvider, IAfterSignupHookProvider, SignupMetadata } from '@nauth-toolkit/core';
+import { IPreSignupHookProvider, IPostSignupHookProvider, SignupMetadata } from '@nauth-toolkit/core';
 ```
 
 </TabItem>
@@ -60,9 +60,9 @@ Interface for pre-signup hooks. Executed before user creation, allows validation
 ```typescript
 interface IPreSignupHookProvider {
   execute(
-    userData: Partial<IUser>,
-    signupMethod: SignupMethod,
-    providerId?: string | null,
+    data: PreSignupHookData,
+    signupType: 'password' | 'social',
+    provider?: string,
     adminSignup?: boolean,
   ): Promise<void>;
 }
@@ -70,12 +70,12 @@ interface IPreSignupHookProvider {
 
 **Parameters**
 
-| Parameter | Type | Description |
-|---|---|---|
-| `userData` | `Partial<IUser>` | User data being created (email, firstName, lastName, etc.) |
-| `signupMethod` | `'password' \| 'social' \| 'phone' \| 'email'` | Method used for signup |
-| `providerId` | `string \| null` | Social provider ID (google, apple, facebook) if social signup, otherwise null |
-| `adminSignup` | `boolean` | Whether this is an admin-initiated signup (via adminSignup or adminSignupSocial) |
+| Parameter     | Type                     | Description                                                                                  |
+| ------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
+| `data`        | `PreSignupHookData`      | `SignupDTO` or `AdminSignupDTO` for password signup, `OAuthUserProfile` for social signup    |
+| `signupType`  | `'password' \| 'social'` | Type of signup being performed                                                               |
+| `provider`    | `string`                 | Social provider name (e.g., 'google', 'apple', 'facebook') - only present for social signups |
+| `adminSignup` | `boolean`                | Whether this is an admin-initiated signup (via `adminSignup()` or `adminSignupSocial()`)     |
 
 **Returns**
 
@@ -86,10 +86,7 @@ interface IPreSignupHookProvider {
 Throw [`NAuthException`](../exceptions/nauth-exception) with `AuthErrorCode.PRESIGNUP_FAILED` to block signup:
 
 ```typescript
-throw new NAuthException(
-  AuthErrorCode.PRESIGNUP_FAILED,
-  'Email domain not allowed'
-);
+throw new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, 'Email domain not allowed');
 ```
 
 **Example**
@@ -99,22 +96,45 @@ throw new NAuthException(
 
 ```typescript
 import { Injectable } from '@nestjs/common';
-import { PreSignupHook, IPreSignupHookProvider, NAuthException, AuthErrorCode } from '@nauth-toolkit/nestjs';
+import {
+  PreSignupHook,
+  IPreSignupHookProvider,
+  PreSignupHookData,
+  SignupDTO,
+  AdminSignupDTO,
+  OAuthUserProfile,
+  NAuthException,
+  AuthErrorCode,
+} from '@nauth-toolkit/nestjs';
 
 @Injectable()
 @PreSignupHook()
 export class DomainValidationHook implements IPreSignupHookProvider {
   private allowedDomains = ['company.com', 'partner.com'];
 
-  async execute(userData, signupMethod, providerId, adminSignup) {
+  async execute(
+    data: PreSignupHookData,
+    signupType: 'password' | 'social',
+    provider?: string,
+    adminSignup?: boolean,
+  ): Promise<void> {
     if (adminSignup) return; // Skip validation for admin signups
 
-    const domain = userData.email?.split('@')[1];
-    if (domain && !this.allowedDomains.includes(domain)) {
-      throw new NAuthException(
-        AuthErrorCode.PRESIGNUP_FAILED,
-        `Domain ${domain} not allowed`
-      );
+    let email: string | null | undefined;
+
+    if (signupType === 'password') {
+      const dto = data as SignupDTO | AdminSignupDTO;
+      email = dto.email;
+    } else if (signupType === 'social') {
+      const profile = data as OAuthUserProfile;
+      email = profile.email;
+    }
+
+    if (email) {
+      const domain = email.split('@')[1];
+      if (domain && !this.allowedDomains.includes(domain)) {
+        throw new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, `Domain ${domain} not allowed`);
+      }
     }
   }
 }
@@ -132,10 +152,7 @@ class DomainValidationHook implements IPreSignupHookProvider {
 
     const domain = userData.email?.split('@')[1];
     if (domain && !this.allowedDomains.includes(domain)) {
-      throw new NAuthException(
-        AuthErrorCode.PRESIGNUP_FAILED,
-        `Domain ${domain} not allowed`
-      );
+      throw new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, `Domain ${domain} not allowed`);
     }
   }
 }
@@ -156,10 +173,7 @@ class DomainValidationHook implements IPreSignupHookProvider {
 
     const domain = userData.email?.split('@')[1];
     if (domain && !this.allowedDomains.includes(domain)) {
-      throw new NAuthException(
-        AuthErrorCode.PRESIGNUP_FAILED,
-        `Domain ${domain} not allowed`
-      );
+      throw new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, `Domain ${domain} not allowed`);
     }
   }
 }
@@ -173,21 +187,21 @@ nauth.hookRegistry.registerPreSignup(new DomainValidationHook());
 
 ---
 
-## IAfterSignupHookProvider
+## IPostSignupHookProvider
 
-Interface for after-signup hooks. Executed after successful user creation. Non-blocking - errors are logged but don't affect signup.
+Interface for post-signup hooks. Executed after successful user creation. Non-blocking - errors are logged but don't affect signup.
 
 ```typescript
-interface IAfterSignupHookProvider {
+interface IPostSignupHookProvider {
   execute(user: IUser, metadata?: SignupMetadata): Promise<void>;
 }
 ```
 
 **Parameters**
 
-| Parameter | Type | Description |
-|---|---|---|
-| `user` | `IUser` | Newly created user entity |
+| Parameter  | Type                                | Description                        |
+| ---------- | ----------------------------------- | ---------------------------------- |
+| `user`     | `IUser`                             | Newly created user entity          |
 | `metadata` | [`SignupMetadata`](#signupmetadata) | Optional metadata about the signup |
 
 **Returns**
@@ -201,18 +215,19 @@ interface IAfterSignupHookProvider {
 
 ```typescript
 import { Injectable } from '@nestjs/common';
-import { AfterSignupHook, IAfterSignupHookProvider } from '@nauth-toolkit/nestjs';
+import { PostSignupHook, IPostSignupHookProvider, IUser, SignupMetadata } from '@nauth-toolkit/nestjs';
 
 @Injectable()
-@AfterSignupHook()
-export class WelcomeEmailHook implements IAfterSignupHookProvider {
+@PostSignupHook()
+export class WelcomeEmailHook implements IPostSignupHookProvider {
   constructor(private emailService: EmailService) {}
 
-  async execute(user, metadata) {
+  async execute(user: IUser, metadata?: SignupMetadata): Promise<void> {
     await this.emailService.sendWelcome({
       to: user.email,
       firstName: user.firstName,
-      signupMethod: metadata?.signupType,
+      signupType: metadata?.signupType,
+      provider: metadata?.provider,
     });
   }
 }
@@ -222,7 +237,7 @@ export class WelcomeEmailHook implements IAfterSignupHookProvider {
 <TabItem value="express" label="Express">
 
 ```typescript
-class WelcomeEmailHook implements IAfterSignupHookProvider {
+class WelcomeEmailHook implements IPostSignupHookProvider {
   constructor(private emailService: EmailService) {}
 
   async execute(user, metadata) {
@@ -235,14 +250,14 @@ class WelcomeEmailHook implements IAfterSignupHookProvider {
 }
 
 // Register
-nauth.hookRegistry.registerAfterSignup(new WelcomeEmailHook(emailService));
+nauth.hookRegistry.registerPostSignup(new WelcomeEmailHook(emailService));
 ```
 
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-class WelcomeEmailHook implements IAfterSignupHookProvider {
+class WelcomeEmailHook implements IPostSignupHookProvider {
   constructor(private emailService: EmailService) {}
 
   async execute(user, metadata) {
@@ -255,7 +270,7 @@ class WelcomeEmailHook implements IAfterSignupHookProvider {
 }
 
 // Register
-nauth.hookRegistry.registerAfterSignup(new WelcomeEmailHook(emailService));
+nauth.hookRegistry.registerPostSignup(new WelcomeEmailHook(emailService));
 ```
 
 </TabItem>
@@ -278,12 +293,12 @@ interface SignupMetadata {
 
 **Properties**
 
-| Property | Type | Description |
-|---|---|---|
-| `requiresVerification` | `boolean` | Whether user needs to complete verification challenge |
-| `signupType` | `'password' \| 'social'` | Type of signup performed |
-| `provider` | `string` | Social provider name (google, apple, facebook) if social signup |
-| `adminSignup` | `boolean` | Whether signup was initiated by admin |
+| Property               | Type                     | Description                                                     |
+| ---------------------- | ------------------------ | --------------------------------------------------------------- |
+| `requiresVerification` | `boolean`                | Whether user needs to complete verification challenge           |
+| `signupType`           | `'password' \| 'social'` | Type of signup performed                                        |
+| `provider`             | `string`                 | Social provider name (google, apple, facebook) if social signup |
+| `adminSignup`          | `boolean`                | Whether signup was initiated by admin                           |
 
 ---
 
@@ -291,5 +306,4 @@ interface SignupMetadata {
 
 - [HookRegistryService](../services/hook-registry-service) - Hook registration and execution
 - [NAuthException](../exceptions/nauth-exception) - Error handling
-- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete usage guide
-
+- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete usage guide

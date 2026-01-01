@@ -74,11 +74,19 @@ registerPreSignup(provider: IPreSignupHookProvider): void
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
+import { Injectable } from '@nestjs/common';
+import { PreSignupHook, IPreSignupHookProvider, PreSignupHookData } from '@nauth-toolkit/nestjs';
+
 // Use decorators - automatic registration
 @Injectable()
 @PreSignupHook()
 export class MyHook implements IPreSignupHookProvider {
-  async execute(userData, signupMethod, providerId, adminSignup) {
+  async execute(
+    data: PreSignupHookData,
+    signupType: 'password' | 'social',
+    provider?: string,
+    adminSignup?: boolean,
+  ): Promise<void> {
     // Validation logic
   }
 }
@@ -115,17 +123,17 @@ nauth.hookRegistry.registerPreSignup(new MyHook());
 
 ---
 
-### registerAfterSignup()
+### registerPostSignup()
 
-Register an after-signup hook provider. Hooks execute after successful user creation. Non-blocking - errors are logged.
+Register a post-signup hook provider. Hooks execute after successful user creation. Non-blocking - errors are logged.
 
 ```typescript
-registerAfterSignup(provider: IAfterSignupHookProvider): void
+registerPostSignup(provider: IPostSignupHookProvider): void
 ```
 
 **Parameters**
 
-- `provider` - [`IAfterSignupHookProvider`](../interfaces/hook-providers#iaftersignuphookprovider)
+- `provider` - [`IPostSignupHookProvider`](../interfaces/hook-providers#ipostsignuphookprovider)
 
 **Example**
 
@@ -135,8 +143,8 @@ registerAfterSignup(provider: IAfterSignupHookProvider): void
 ```typescript
 // Use decorators - automatic registration
 @Injectable()
-@AfterSignupHook()
-export class WelcomeEmailHook implements IAfterSignupHookProvider {
+@PostSignupHook()
+export class WelcomeEmailHook implements IPostSignupHookProvider {
   constructor(private emailService: EmailService) {}
 
   async execute(user, metadata) {
@@ -149,7 +157,7 @@ export class WelcomeEmailHook implements IAfterSignupHookProvider {
 <TabItem value="express" label="Express">
 
 ```typescript
-class WelcomeEmailHook implements IAfterSignupHookProvider {
+class WelcomeEmailHook implements IPostSignupHookProvider {
   constructor(private emailService: EmailService) {}
 
   async execute(user, metadata) {
@@ -157,14 +165,14 @@ class WelcomeEmailHook implements IAfterSignupHookProvider {
   }
 }
 
-nauth.hookRegistry.registerAfterSignup(new WelcomeEmailHook(emailService));
+nauth.hookRegistry.registerPostSignup(new WelcomeEmailHook(emailService));
 ```
 
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-class WelcomeEmailHook implements IAfterSignupHookProvider {
+class WelcomeEmailHook implements IPostSignupHookProvider {
   constructor(private emailService: EmailService) {}
 
   async execute(user, metadata) {
@@ -172,7 +180,7 @@ class WelcomeEmailHook implements IAfterSignupHookProvider {
   }
 }
 
-nauth.hookRegistry.registerAfterSignup(new WelcomeEmailHook(emailService));
+nauth.hookRegistry.registerPostSignup(new WelcomeEmailHook(emailService));
 ```
 
 </TabItem>
@@ -186,19 +194,19 @@ nauth.hookRegistry.registerAfterSignup(new WelcomeEmailHook(emailService));
 
 ```typescript
 async executePreSignup(
-  userData: Partial<IUser>,
-  signupMethod: SignupMethod,
-  providerId?: string | null,
+  data: PreSignupHookData,
+  signupType: 'password' | 'social',
+  provider?: string,
   adminSignup?: boolean,
 ): Promise<void>
 ```
 
 **Parameters**
 
-- `userData` - User data being created
-- `signupMethod` - Signup method type
-- `providerId` - Social provider ID (if applicable)
-- `adminSignup` - Whether admin-initiated
+- `data` - `SignupDTO`, `AdminSignupDTO`, or `OAuthUserProfile` depending on signup type
+- `signupType` - Type of signup ('password' or 'social')
+- `provider` - Social provider name (e.g., 'google', 'apple', 'facebook') - only for social signups
+- `adminSignup` - Whether this is an admin-initiated signup
 
 **Errors**
 
@@ -210,12 +218,12 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with code `PRESIGNUP_FA
 
 ---
 
-### executeAfterSignup()
+### executePostSignup()
 
-**Internal method.** Executes all registered after-signup hooks in order. Called automatically by AuthService. Errors are logged but don't block signup.
+**Internal method.** Executes all registered post-signup hooks in order. Called automatically by AuthService. Errors are logged but don't block signup.
 
 ```typescript
-async executeAfterSignup(user: IUser, metadata?: SignupMetadata): Promise<void>
+async executePostSignup(user: IUser, metadata?: SignupMetadata): Promise<void>
 ```
 
 **Parameters**
@@ -253,7 +261,7 @@ domainValidation.execute(); // Throws PRESIGNUP_FAILED
 inviteCodeCheck.execute(); // Skipped
 ```
 
-**After-Signup Hooks:**
+**Post-Signup Hooks:**
 
 All hooks execute regardless of errors. Errors are caught and logged:
 
@@ -274,7 +282,7 @@ analytics.execute(); // Executes normally
 - Other errors are wrapped in `PRESIGNUP_FAILED` with original message
 - First error stops execution and blocks signup
 
-**After-Signup Hooks:**
+**Post-Signup Hooks:**
 - All errors are caught and logged
 - Execution continues to next hook
 - Signup is never blocked
@@ -284,6 +292,6 @@ analytics.execute(); // Executes normally
 ## Related APIs
 
 - [IPreSignupHookProvider](../interfaces/hook-providers#ipreSignuphookprovider) - Pre-signup hook interface
-- [IAfterSignupHookProvider](../interfaces/hook-providers#iaftersignuphookprovider) - After-signup hook interface
-- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete usage guide
+- [IPostSignupHookProvider](../interfaces/hook-providers#ipostsignuphookprovider) - Post-signup hook interface
+- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete usage guide
 

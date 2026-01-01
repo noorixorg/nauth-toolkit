@@ -11,7 +11,7 @@ image: /img/api-social-card.png
 **Package:** `@nauth-toolkit/nestjs`
 **Type:** Dynamic Module
 
-NestJS module for automatic hook registration. Discovers and registers classes decorated with [`@PreSignupHook`](./pre-signup-hook) or [`@AfterSignupHook`](./after-signup-hook) at module initialization.
+NestJS module for automatic hook registration. Discovers and registers classes decorated with [`@PreSignupHook`](./pre-signup-hook) or [`@PostSignupHook`](./post-signup-hook) at module initialization.
 
 :::tip Import from NestJS Package
 ```typescript
@@ -45,7 +45,7 @@ static forFeature(hooks: Type<any>[]): DynamicModule
 
 | Parameter | Type         | Description                                                                        |
 | --------- | ------------ | ---------------------------------------------------------------------------------- |
-| `hooks`   | `Type<any>[]` | Array of hook provider classes decorated with `@PreSignupHook` or `@AfterSignupHook` |
+| `hooks`   | `Type<any>[]` | Array of hook provider classes decorated with `@PreSignupHook` or `@PostSignupHook` |
 
 **Returns**
 
@@ -207,7 +207,7 @@ export class AuthModule {}
 1. **Module Initialization**: `NAuthHooksModule.forFeature()` is called with hook classes
 2. **Hook Discovery**: On module init, the module uses `ModuleRef` to discover all providers
 3. **Metadata Check**: For each provider, checks for hook decorator metadata
-4. **Registration**: Calls `HookRegistryService.registerPreSignup()` or `registerAfterSignup()`
+4. **Registration**: Calls `HookRegistryService.registerPreSignup()` or `registerPostSignup()`
 5. **Execution**: Hooks execute in priority order during authentication flows
 
 ## Execution Order
@@ -235,9 +235,9 @@ export class InviteCodeCheck { }
 ## Related APIs
 
 - [`@PreSignupHook()`](./pre-signup-hook) - Pre-signup hook decorator
-- [`@AfterSignupHook()`](./after-signup-hook) - After-signup hook decorator
+- [`@PostSignupHook()`](./post-signup-hook) - Post-signup hook decorator
 - [`HookRegistryService`](/docs/api/core/services/hook-registry-service) - Hook registry service
 - [`IPreSignupHookProvider`](/docs/api/core/interfaces/hook-providers#ipreSignuphookprovider) - Pre-signup hook interface
-- [`IAfterSignupHookProvider`](/docs/api/core/interfaces/hook-providers#iaftersignuphookprovider) - After-signup hook interface
+- [`IPostSignupHookProvider`](/docs/api/core/interfaces/hook-providers#ipostsignuphookprovider) - Post-signup hook interface
 - [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete usage guide
 

@@ -194,7 +194,7 @@ describe('AuthService - Admin User Management', () => {
       registerPreSignup: jest.fn(),
       registerAfterSignup: jest.fn(),
       executePreSignup: jest.fn().mockResolvedValue(undefined),
-      executeAfterSignup: jest.fn().mockResolvedValue(undefined),
+      executePostSignup: jest.fn().mockResolvedValue(undefined),
     } as any;
     mockTrustedDeviceService = {} as any;
     mockMfaService = {} as any;

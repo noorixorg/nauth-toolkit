@@ -1,7 +1,7 @@
 /**
  * NAuth Hook Registration Module
  *
- * This module automatically discovers and registers hooks decorated with @PreSignupHook or @AfterSignupHook
+ * This module automatically discovers and registers hooks decorated with @PreSignupHook or @PostSignupHook
  * with the HookRegistryService. It should be imported after NAuthModule in your application.
  *
  * @example
@@ -27,7 +27,7 @@
 
 import { Module, DynamicModule, OnModuleInit, Type, Inject } from '@nestjs/common';
 import { ModuleRef, Reflector } from '@nestjs/core';
-import { HookRegistryService, IPreSignupHookProvider, IAfterSignupHookProvider } from '@nauth-toolkit/core';
+import { HookRegistryService, IPreSignupHookProvider, IPostSignupHookProvider } from '@nauth-toolkit/core';
 import { HOOK_METADATA_KEY, HookMetadata } from '../decorators/hook.decorator';
 
 /**
@@ -71,8 +71,8 @@ export class NAuthHooksModule implements OnModuleInit {
       // Register based on hook type
       if (metadata.type === 'preSignup') {
         hookRegistry.registerPreSignup(hookInstance as IPreSignupHookProvider);
-      } else if (metadata.type === 'afterSignup') {
-        hookRegistry.registerAfterSignup(hookInstance as IAfterSignupHookProvider);
+      } else if (metadata.type === 'postSignup') {
+        hookRegistry.registerPostSignup(hookInstance as IPostSignupHookProvider);
       }
     }
   }
@@ -80,7 +80,7 @@ export class NAuthHooksModule implements OnModuleInit {
   /**
    * Register hooks for a feature module
    *
-   * @param hooks - Array of hook provider classes decorated with @PreSignupHook or @AfterSignupHook
+   * @param hooks - Array of hook provider classes decorated with @PreSignupHook or @PostSignupHook
    * @returns Dynamic module configuration
    *
    * @example

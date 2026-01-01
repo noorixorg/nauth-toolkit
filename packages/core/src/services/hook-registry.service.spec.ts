@@ -5,7 +5,8 @@
  */
 
 import { HookRegistryService } from '../services/hook-registry.service';
-import { IPreSignupHookProvider, IAfterSignupHookProvider, SignupMetadata } from '../interfaces/hooks.interface';
+import { IPreSignupHookProvider, IPostSignupHookProvider, SignupMetadata } from '../interfaces/hooks.interface';
+import { IUser } from '../interfaces/entities.interface';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { LoggerProvider } from '../interfaces/logger.interface';
@@ -25,7 +26,7 @@ class MockPreSignupHook implements IPreSignupHookProvider {
   execute = jest.fn().mockResolvedValue(undefined);
 }
 
-class MockAfterSignupHook implements IAfterSignupHookProvider {
+class MockPostSignupHook implements IPostSignupHookProvider {
   execute = jest.fn().mockResolvedValue(undefined);
 }
 
@@ -72,23 +73,23 @@ describe('HookRegistryService', () => {
     });
   });
 
-  describe('registerAfterSignup', () => {
-    it('should register an after-signup hook provider', () => {
-      const hook = new MockAfterSignupHook();
+  describe('registerPostSignup', () => {
+    it('should register a post-signup hook provider', () => {
+      const hook = new MockPostSignupHook();
 
-      hookRegistry.registerAfterSignup(hook);
+      hookRegistry.registerPostSignup(hook);
 
       expect(mockLogger.debug).toHaveBeenCalledWith(
-        expect.stringContaining('Registered afterSignup hook: MockAfterSignupHook'),
+        expect.stringContaining('Registered postSignup hook: MockPostSignupHook'),
       );
     });
 
-    it('should register multiple after-signup hooks', () => {
-      const hook1 = new MockAfterSignupHook();
-      const hook2 = new MockAfterSignupHook();
+    it('should register multiple post-signup hooks', () => {
+      const hook1 = new MockPostSignupHook();
+      const hook2 = new MockPostSignupHook();
 
-      hookRegistry.registerAfterSignup(hook1);
-      hookRegistry.registerAfterSignup(hook2);
+      hookRegistry.registerPostSignup(hook1);
+      hookRegistry.registerPostSignup(hook2);
 
       expect(mockLogger.debug).toHaveBeenCalledTimes(2);
     });
@@ -212,80 +213,115 @@ describe('HookRegistryService', () => {
   // After-Signup Execution Tests
   // ============================================================================
 
-  describe('executeAfterSignup', () => {
-    it('should execute all registered after-signup hooks in order', async () => {
-      const hook1 = new MockAfterSignupHook();
-      const hook2 = new MockAfterSignupHook();
+  describe('executePostSignup', () => {
+    const createTestUser = (): IUser => ({
+      id: 1,
+      sub: 'test-sub-123',
+      email: 'test@example.com',
+      username: null,
+      phone: null,
+      firstName: null,
+      lastName: null,
+      passwordHash: null,
+      passwordChangedAt: null,
+      passwordHistory: null,
+      isEmailVerified: false,
+      isPhoneVerified: false,
+      isActive: true,
+      mustChangePassword: false,
+      isLocked: false,
+      lockReason: null,
+      lockedAt: null,
+      lockedUntil: null,
+      failedLoginAttempts: 0,
+      lastFailedLoginAt: null,
+      lastLoginAt: null,
+      lastLoginIp: null,
+      hasSocialAuth: false,
+      socialProviders: null,
+      mfaEnabled: false,
+      mfaMethods: null,
+      preferredMfaMethod: null,
+      backupCodes: null,
+      metadata: null,
+      deletedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
-      hookRegistry.registerAfterSignup(hook1);
-      hookRegistry.registerAfterSignup(hook2);
+    it('should execute all registered post-signup hooks in order', async () => {
+      const hook1 = new MockPostSignupHook();
+      const hook2 = new MockPostSignupHook();
 
-      const testUser = { id: 1, email: 'test@example.com' };
+      hookRegistry.registerPostSignup(hook1);
+      hookRegistry.registerPostSignup(hook2);
+
+      const testUser = createTestUser();
       const metadata: SignupMetadata = { requiresVerification: true, signupType: 'password' };
 
-      await hookRegistry.executeAfterSignup(testUser, metadata);
+      await hookRegistry.executePostSignup(testUser, metadata);
 
       expect(hook1.execute).toHaveBeenCalledWith(testUser, metadata);
       expect(hook2.execute).toHaveBeenCalledWith(testUser, metadata);
     });
 
     it('should pass correct metadata for password signup', async () => {
-      const hook = new MockAfterSignupHook();
-      hookRegistry.registerAfterSignup(hook);
+      const hook = new MockPostSignupHook();
+      hookRegistry.registerPostSignup(hook);
 
-      const testUser = { id: 1, email: 'test@example.com' };
+      const testUser = createTestUser();
       const metadata: SignupMetadata = { requiresVerification: true, signupType: 'password' };
 
-      await hookRegistry.executeAfterSignup(testUser, metadata);
+      await hookRegistry.executePostSignup(testUser, metadata);
 
       expect(hook.execute).toHaveBeenCalledWith(testUser, metadata);
     });
 
     it('should pass correct metadata for social signup', async () => {
-      const hook = new MockAfterSignupHook();
-      hookRegistry.registerAfterSignup(hook);
+      const hook = new MockPostSignupHook();
+      hookRegistry.registerPostSignup(hook);
 
-      const testUser = { id: 1, email: 'test@example.com' };
+      const testUser = createTestUser();
       const metadata: SignupMetadata = { requiresVerification: false, signupType: 'social', provider: 'google' };
 
-      await hookRegistry.executeAfterSignup(testUser, metadata);
+      await hookRegistry.executePostSignup(testUser, metadata);
 
       expect(hook.execute).toHaveBeenCalledWith(testUser, metadata);
     });
 
     it('should continue execution even when a hook throws an error', async () => {
-      const hook1 = new MockAfterSignupHook();
-      const hook2 = new MockAfterSignupHook();
+      const hook1 = new MockPostSignupHook();
+      const hook2 = new MockPostSignupHook();
       hook1.execute.mockRejectedValue(new Error('Hook 1 failed'));
 
-      hookRegistry.registerAfterSignup(hook1);
-      hookRegistry.registerAfterSignup(hook2);
+      hookRegistry.registerPostSignup(hook1);
+      hookRegistry.registerPostSignup(hook2);
 
-      const testUser = { id: 1, email: 'test@example.com' };
+      const testUser = createTestUser();
 
-      await expect(hookRegistry.executeAfterSignup(testUser)).resolves.not.toThrow();
+      await expect(hookRegistry.executePostSignup(testUser)).resolves.not.toThrow();
 
       expect(hook1.execute).toHaveBeenCalled();
       expect(hook2.execute).toHaveBeenCalled();
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining('afterSignup hook error'),
+        expect.stringContaining('postSignup hook error'),
         expect.objectContaining({ error: expect.any(Error) }),
       );
     });
 
     it('should do nothing when no hooks are registered', async () => {
-      const testUser = { id: 1, email: 'test@example.com' };
+      const testUser = createTestUser();
 
-      await expect(hookRegistry.executeAfterSignup(testUser)).resolves.not.toThrow();
+      await expect(hookRegistry.executePostSignup(testUser)).resolves.not.toThrow();
     });
 
     it('should work without metadata', async () => {
-      const hook = new MockAfterSignupHook();
-      hookRegistry.registerAfterSignup(hook);
+      const hook = new MockPostSignupHook();
+      hookRegistry.registerPostSignup(hook);
 
-      const testUser = { id: 1, email: 'test@example.com' };
+      const testUser = createTestUser();
 
-      await hookRegistry.executeAfterSignup(testUser);
+      await hookRegistry.executePostSignup(testUser);
 
       expect(hook.execute).toHaveBeenCalledWith(testUser, undefined);
     });
@@ -296,18 +332,53 @@ describe('HookRegistryService', () => {
   // ============================================================================
 
   describe('Integration', () => {
-    it('should allow pre-signup and after-signup hooks to coexist', async () => {
+    const createTestUser = (): IUser => ({
+      id: 1,
+      sub: 'test-sub-123',
+      email: 'test@example.com',
+      username: null,
+      phone: null,
+      firstName: null,
+      lastName: null,
+      passwordHash: null,
+      passwordChangedAt: null,
+      passwordHistory: null,
+      isEmailVerified: false,
+      isPhoneVerified: false,
+      isActive: true,
+      mustChangePassword: false,
+      isLocked: false,
+      lockReason: null,
+      lockedAt: null,
+      lockedUntil: null,
+      failedLoginAttempts: 0,
+      lastFailedLoginAt: null,
+      lastLoginAt: null,
+      lastLoginIp: null,
+      hasSocialAuth: false,
+      socialProviders: null,
+      mfaEnabled: false,
+      mfaMethods: null,
+      preferredMfaMethod: null,
+      backupCodes: null,
+      metadata: null,
+      deletedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    it('should allow pre-signup and post-signup hooks to coexist', async () => {
       const preHook = new MockPreSignupHook();
-      const afterHook = new MockAfterSignupHook();
+      const afterHook = new MockPostSignupHook();
 
       hookRegistry.registerPreSignup(preHook);
-      hookRegistry.registerAfterSignup(afterHook);
+      hookRegistry.registerPostSignup(afterHook);
 
       const testDto = { email: 'test@example.com', password: 'password123' };
-      const testUser = { id: 1, email: 'test@example.com' };
+      const testUser = createTestUser();
 
       await hookRegistry.executePreSignup(testDto, 'password', undefined, false);
-      await hookRegistry.executeAfterSignup(testUser, { requiresVerification: true, signupType: 'password' });
+      await hookRegistry.executePostSignup(testUser, { requiresVerification: true, signupType: 'password' });
 
       expect(preHook.execute).toHaveBeenCalled();
       expect(afterHook.execute).toHaveBeenCalled();

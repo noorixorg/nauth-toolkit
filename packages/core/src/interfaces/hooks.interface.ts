@@ -8,6 +8,21 @@
  * @packageDocumentation
  */
 
+import { SignupDTO } from '../dto/signup.dto';
+import { AdminSignupDTO } from '../dto/admin-signup.dto';
+import { OAuthUserProfile } from './oauth.interface';
+import { IUser } from './entities.interface';
+
+/**
+ * Union type for pre-signup hook data
+ *
+ * Represents the data passed to pre-signup hooks:
+ * - `SignupDTO` for regular password signups
+ * - `AdminSignupDTO` for admin-initiated password signups
+ * - `OAuthUserProfile` for social signups
+ */
+export type PreSignupHookData = SignupDTO | AdminSignupDTO | OAuthUserProfile;
+
 /**
  * Pre-signup hook provider interface
  *
@@ -19,79 +34,27 @@
  * - **Password signup**: Before user is created in the database
  * - **Social signup**: Before user is created (for both web redirect and native mobile flows)
  * - **Admin signup**: Before user is created (both `adminSignup` and `adminSignupSocial`)
- *
- * @example NestJS implementation
- * ```typescript
- * @Injectable()
- * export class InviteOnlyPreSignupHook implements IPreSignupHookProvider {
- *   constructor(private readonly invitationService: InvitationService) {}
- *
- *   async execute(
- *     data: unknown,
- *     signupType: 'password' | 'social',
- *     provider?: string,
- *     adminSignup?: boolean,
- *   ): Promise<void> {
- *     if (adminSignup) return; // Skip validation for admin signups
- *
- *     if (signupType === 'password') {
- *       const dto = data as SignupDTO;
- *       if (!await this.invitationService.hasValidInvite(dto.email)) {
- *         throw new NAuthException(
- *           AuthErrorCode.PRESIGNUP_FAILED,
- *           'Signup requires an invitation.'
- *         );
- *       }
- *     }
- *   }
- * }
- * ```
- *
- * @example Express implementation
- * ```typescript
- * class InviteOnlyPreSignupHook implements IPreSignupHookProvider {
- *   constructor(private invitationService: InvitationService) {}
- *
- *   async execute(
- *     data: unknown,
- *     signupType: 'password' | 'social',
- *     provider?: string,
- *     adminSignup?: boolean,
- *   ): Promise<void> {
- *     if (adminSignup) return;
- *
- *     if (signupType === 'password') {
- *       const dto = data as SignupDTO;
- *       if (!await this.invitationService.hasValidInvite(dto.email)) {
- *         throw new NAuthException(
- *           AuthErrorCode.PRESIGNUP_FAILED,
- *           'Signup requires an invitation.'
- *         );
- *       }
- *     }
- *   }
- * }
- *
- * // Register after NAuth initialization
- * const inviteHook = new InviteOnlyPreSignupHook(invitationService);
- * nauth.hookRegistry.registerPreSignup(inviteHook);
- * ```
  */
 export interface IPreSignupHookProvider {
   /**
    * Execute pre-signup validation
    *
-   * @param data - SignupDTO for password signup, OAuthUserProfile for social signup
-   * @param signupType - Type of signup
-   * @param provider - Social provider name (only for social signups)
+   * @param data - SignupDTO or AdminSignupDTO for password signup, OAuthUserProfile for social signup
+   * @param signupType - Type of signup ('password' or 'social')
+   * @param provider - Social provider name (only for social signups, e.g., 'google', 'apple', 'facebook')
    * @param adminSignup - true for admin signups, false for regular signups
    * @throws {NAuthException} with PRESIGNUP_FAILED to block signup
    */
-  execute(data: unknown, signupType: 'password' | 'social', provider?: string, adminSignup?: boolean): Promise<void>;
+  execute(
+    data: PreSignupHookData,
+    signupType: 'password' | 'social',
+    provider?: string,
+    adminSignup?: boolean,
+  ): Promise<void>;
 }
 
 /**
- * After-signup hook provider interface
+ * Post-signup hook provider interface
  *
  * Executes actions after user creation (non-blocking).
  * Errors are logged but do not affect signup.
@@ -104,69 +67,19 @@ export interface IPreSignupHookProvider {
  *
  * The hook is non-blocking. If it throws an error, the error is logged but signup continues.
  * The user account has already been created when the hook is called.
- *
- * @example NestJS implementation
- * ```typescript
- * @Injectable()
- * export class WelcomeEmailAfterSignupHook implements IAfterSignupHookProvider {
- *   constructor(
- *     private readonly emailService: EmailService,
- *     private readonly logger: Logger,
- *   ) {}
- *
- *   async execute(user: unknown, metadata?: SignupMetadata): Promise<void> {
- *     try {
- *       await this.emailService.sendWelcomeEmail(
- *         (user as any).email,
- *         {
- *           signupType: metadata?.signupType,
- *           provider: metadata?.provider,
- *         },
- *       );
- *     } catch (error) {
- *       this.logger.error(`Failed to send welcome email: ${error}`);
- *     }
- *   }
- * }
- * ```
- *
- * @example Express implementation
- * ```typescript
- * class WelcomeEmailAfterSignupHook implements IAfterSignupHookProvider {
- *   constructor(private emailService: EmailService) {}
- *
- *   async execute(user: unknown, metadata?: SignupMetadata): Promise<void> {
- *     try {
- *       await this.emailService.sendWelcomeEmail(
- *         (user as any).email,
- *         {
- *           signupType: metadata?.signupType,
- *           provider: metadata?.provider,
- *         },
- *       );
- *     } catch (error) {
- *       console.error('Failed to send welcome email:', error);
- *     }
- *   }
- * }
- *
- * // Register after NAuth initialization
- * const welcomeHook = new WelcomeEmailAfterSignupHook(emailService);
- * nauth.hookRegistry.registerAfterSignup(welcomeHook);
- * ```
  */
-export interface IAfterSignupHookProvider {
+export interface IPostSignupHookProvider {
   /**
    * Execute post-signup actions
    *
-   * @param user - Created user entity (framework-agnostic: TypeORM/Prisma/Mongoose/etc.)
-   * @param metadata - Signup metadata
+   * @param user - Created user entity (IUser interface)
+   * @param metadata - Signup metadata providing context about the signup event
    */
-  execute(user: unknown, metadata?: SignupMetadata): Promise<void>;
+  execute(user: IUser, metadata?: SignupMetadata): Promise<void>;
 }
 
 /**
- * Signup metadata passed to afterSignup hook
+ * Signup metadata passed to postSignup hook
  *
  * Provides context about the signup event.
  */

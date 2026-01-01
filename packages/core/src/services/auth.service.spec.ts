@@ -360,9 +360,9 @@ describe('AuthService', () => {
 
     mockHookRegistry = {
       registerPreSignup: jest.fn(),
-      registerAfterSignup: jest.fn(),
+      registerPostSignup: jest.fn(),
       executePreSignup: jest.fn().mockResolvedValue(undefined),
-      executeAfterSignup: jest.fn().mockResolvedValue(undefined),
+      executePostSignup: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     mockTrustedDeviceService = {
@@ -889,8 +889,8 @@ describe('AuthService', () => {
         });
       });
 
-      it('should execute afterSignup hook after successful signup', async () => {
-        mockHookRegistry.executeAfterSignup.mockResolvedValue(undefined);
+      it('should execute postSignup hook after successful signup', async () => {
+        mockHookRegistry.executePostSignup.mockResolvedValue(undefined);
         mockUserRepository.findOne.mockResolvedValue(null);
         mockPasswordService.validatePassword.mockResolvedValue({ valid: true, errors: [] });
         mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
@@ -899,7 +899,7 @@ describe('AuthService', () => {
 
         await service.signup(signupDto);
 
-        expect(mockHookRegistry.executeAfterSignup).toHaveBeenCalled();
+        expect(mockHookRegistry.executePostSignup).toHaveBeenCalled();
       });
     });
 

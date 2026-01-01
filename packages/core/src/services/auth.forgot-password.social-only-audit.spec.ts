@@ -54,7 +54,7 @@ describe('AuthService.forgotPassword() (social-only)', () => {
       registerPreSignup: jest.fn(),
       registerAfterSignup: jest.fn(),
       executePreSignup: jest.fn().mockResolvedValue(undefined),
-      executeAfterSignup: jest.fn().mockResolvedValue(undefined),
+      executePostSignup: jest.fn().mockResolvedValue(undefined),
     } as unknown as HookRegistryService;
 
     const baseLogger: LoggerService = {

@@ -1929,16 +1929,37 @@ export interface RiskLevelConfig {
  * }
  * ```
  */
+/**
+ * User information in adaptive MFA risk event payload
+ */
+export interface AdaptiveMFAUser {
+  /**
+   * User's unique identifier (UUID v4)
+   */
+  sub: string;
+
+  /**
+   * User's email address
+   */
+  email: string;
+
+  /**
+   * User's username (optional)
+   */
+  username?: string;
+
+  /**
+   * User's phone number (optional)
+   * E.164 format
+   */
+  phoneNumber?: string;
+}
+
 export interface AdaptiveMFARiskEventPayload {
   /**
    * User being authenticated
    */
-  user: {
-    sub: string;
-    email: string;
-    username?: string;
-    phoneNumber?: string;
-  };
+  user: AdaptiveMFAUser;
 
   /**
    * Risk assessment results

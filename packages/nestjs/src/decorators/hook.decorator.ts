@@ -2,7 +2,7 @@
  * NestJS Hook Decorators
  *
  * These decorators provide a declarative way to register authentication lifecycle hooks in NestJS applications.
- * Classes decorated with @PreSignupHook or @AfterSignupHook will be automatically registered with the HookRegistryService
+ * Classes decorated with @PreSignupHook or @PostSignupHook will be automatically registered with the HookRegistryService
  * when the module is initialized.
  *
  * @example
@@ -31,7 +31,7 @@ export const HOOK_METADATA_KEY = 'nauth:hook';
 /**
  * Hook types supported by NAuth
  */
-export type HookType = 'preSignup' | 'afterSignup';
+export type HookType = 'preSignup' | 'postSignup';
 
 /**
  * Metadata stored on hook provider classes
@@ -92,9 +92,9 @@ export function PreSignupHook(options: HookDecoratorOptions = {}): ClassDecorato
 }
 
 /**
- * Marks a provider as an after-signup hook
+ * Marks a provider as a post-signup hook
  *
- * After-signup hooks are executed after a user account is successfully created, allowing you to:
+ * Post-signup hooks are executed after a user account is successfully created, allowing you to:
  * - Send welcome emails or notifications
  * - Sync user data to external systems
  * - Trigger analytics events
@@ -104,27 +104,10 @@ export function PreSignupHook(options: HookDecoratorOptions = {}): ClassDecorato
  * handled by your application.
  *
  * @param options - Hook configuration options
- *
- * @example
- * ```typescript
- * @Injectable()
- * @AfterSignupHook({ priority: 1 })
- * export class WelcomeEmailHook implements IAfterSignupHookProvider {
- *   constructor(private readonly emailService: EmailService) {}
- *
- *   async execute(user, metadata) {
- *     await this.emailService.sendWelcomeEmail({
- *       to: user.email,
- *       firstName: user.firstName,
- *       signupMethod: metadata.signupMethod,
- *     });
- *   }
- * }
- * ```
  */
-export function AfterSignupHook(options: HookDecoratorOptions = {}): ClassDecorator {
+export function PostSignupHook(options: HookDecoratorOptions = {}): ClassDecorator {
   const metadata: HookMetadata = {
-    type: 'afterSignup',
+    type: 'postSignup',
     priority: options.priority ?? 100,
   };
   return SetMetadata(HOOK_METADATA_KEY, metadata);

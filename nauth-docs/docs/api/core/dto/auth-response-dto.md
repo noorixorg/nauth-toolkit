@@ -51,25 +51,12 @@ import { AuthResponseDTO } from '@nauth-toolkit/core';
 | `authMethod`             | `string`                  | Conditional | Authentication method used to create the current session (e.g., `password`, `google`, `apple`, `facebook`). Present when authentication complete. |
 | `trusted`                | `boolean`                 | Conditional | Whether device is trusted. Present when authentication complete. |
 | `deviceToken`            | `string`                  | Conditional | Device trust token (UUID v4). Present when device trusted.       |
-| `user`                   | `object`                  | Conditional | User information. Present when authentication complete.          |
+| `user`                   | [`AuthResponseUser`](../interfaces/auth-response-user) | Conditional | User information. Present when authentication complete.          |
 | `challengeName`           | [`AuthChallenge`](./auth-challenge-dto)           | Conditional | Challenge type. Present when challenge required.                 |
 | `session`                | `string`                  | Conditional | Challenge session token (UUID v4). Present when challenge required. |
 | `challengeParameters`    | `Record<string, unknown>` | Conditional | Challenge-specific parameters. Present when challenge required.  |
 | `userSub`                | `string`                  | Conditional | User identifier (UUID v4). Present in both success and challenge responses. |
 
-### user object
-
-| Property            | Type                | Description                                                      |
-| ------------------- | ------------------- | ---------------------------------------------------------------- |
-| `sub`               | `string`            | User identifier (UUID v4).                                       |
-| `email`              | `string`            | Email address.                                                   |
-| `firstName`          | `string`            | First name (optional).                                            |
-| `lastName`           | `string`            | Last name (optional).                                            |
-| `phone`              | `string`            | Phone number in E.164 format (optional).                        |
-| `isEmailVerified`    | `boolean`           | Email verification status.                                        |
-| `isPhoneVerified`    | `boolean`           | Phone verification status (optional).                            |
-| `socialProviders`    | `string[]`          | Linked social providers (optional).                              |
-| `hasPasswordHash`    | `boolean`           | Whether user has password set (optional).                        |
 
 ## Example
 
@@ -112,8 +99,40 @@ import { AuthResponseDTO } from '@nauth-toolkit/core';
 }
 ```
 
+## Related Types
+
+- [`AuthResponseUser`](../interfaces/auth-response-user) - User property interface
+- [`toAuthResponseUser()`](#toauthresponseuser) - Conversion utility function
+
 ## Used By
 
 - [AuthService.login()](../services/auth-service#login)
 - [AuthService.signup()](../services/auth-service#signup)
 - [AuthService.respondToChallenge()](../services/auth-service#respondtochallenge)
+
+---
+
+## toAuthResponseUser()
+
+Utility function to convert `IUser` entity to `AuthResponseUser` interface.
+
+```typescript
+function toAuthResponseUser(user: IUser): AuthResponseUser
+```
+
+**Parameters**
+
+- `user` - [`IUser`](../interfaces/user) entity from database
+
+**Returns**
+
+- [`AuthResponseUser`](../interfaces/auth-response-user) - Sanitized user object
+
+**Example**
+
+```typescript
+import { toAuthResponseUser, IUser } from '@nauth-toolkit/core';
+
+const user: IUser = await userRepository.findOne({ where: { sub } });
+const responseUser = toAuthResponseUser(user);
+```

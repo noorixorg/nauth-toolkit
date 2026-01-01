@@ -11,7 +11,13 @@
  * @packageDocumentation
  */
 
-import { IPreSignupHookProvider, IAfterSignupHookProvider, SignupMetadata } from '../interfaces/hooks.interface';
+import {
+  IPreSignupHookProvider,
+  IPostSignupHookProvider,
+  SignupMetadata,
+  PreSignupHookData,
+} from '../interfaces/hooks.interface';
+import { IUser } from '../interfaces/entities.interface';
 import { LoggerProvider } from '../interfaces/logger.interface';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
@@ -20,50 +26,10 @@ import { AuthErrorCode } from '../enums/error-codes.enum';
  * Hook Registry Service
  *
  * Manages registration and execution of lifecycle hooks for authentication flows.
- *
- * @example NestJS usage
- * ```typescript
- * @Module({
- *   imports: [AuthModule.forRoot(authConfig)],
- *   providers: [InviteOnlyHook, WelcomeEmailHook],
- * })
- * export class AppModule {
- *   constructor(
- *     private readonly hookRegistry: HookRegistryService,
- *     private readonly inviteHook: InviteOnlyHook,
- *     private readonly welcomeHook: WelcomeEmailHook,
- *   ) {
- *     this.hookRegistry.registerPreSignup(this.inviteHook);
- *     this.hookRegistry.registerAfterSignup(this.welcomeHook);
- *   }
- * }
- * ```
- *
- * @example Express usage
- * ```typescript
- * const nauth = await NAuth.create({ config, dataSource, adapter });
- *
- * const inviteHook = new InviteOnlyHook(invitationService);
- * nauth.hookRegistry.registerPreSignup(inviteHook);
- *
- * const welcomeHook = new WelcomeEmailHook(emailService);
- * nauth.hookRegistry.registerAfterSignup(welcomeHook);
- * ```
- *
- * @example Fastify usage
- * ```typescript
- * const nauth = await NAuth.create({ config, dataSource, adapter });
- *
- * const inviteHook = new InviteOnlyHook(invitationService);
- * nauth.hookRegistry.registerPreSignup(inviteHook);
- *
- * const welcomeHook = new WelcomeEmailHook(emailService);
- * nauth.hookRegistry.registerAfterSignup(welcomeHook);
- * ```
  */
 export class HookRegistryService {
   private readonly preSignupHooks: IPreSignupHookProvider[] = [];
-  private readonly afterSignupHooks: IAfterSignupHookProvider[] = [];
+  private readonly postSignupHooks: IPostSignupHookProvider[] = [];
 
   constructor(private readonly logger?: LoggerProvider) {}
 
@@ -78,12 +44,6 @@ export class HookRegistryService {
    * First hook to throw PRESIGNUP_FAILED will block signup.
    *
    * @param provider - Pre-signup hook provider instance
-   *
-   * @example
-   * ```typescript
-   * const inviteHook = new InviteOnlyHook(invitationService);
-   * hookRegistry.registerPreSignup(inviteHook);
-   * ```
    */
   registerPreSignup(provider: IPreSignupHookProvider): void {
     this.preSignupHooks.push(provider);
@@ -91,22 +51,16 @@ export class HookRegistryService {
   }
 
   /**
-   * Register an after-signup hook provider
+   * Register a post-signup hook provider
    *
    * Hooks are executed in registration order.
    * Hook errors are logged but do not block signup (non-blocking).
    *
-   * @param provider - After-signup hook provider instance
-   *
-   * @example
-   * ```typescript
-   * const welcomeHook = new WelcomeEmailHook(emailService);
-   * hookRegistry.registerAfterSignup(welcomeHook);
-   * ```
+   * @param provider - Post-signup hook provider instance
    */
-  registerAfterSignup(provider: IAfterSignupHookProvider): void {
-    this.afterSignupHooks.push(provider);
-    this.logger?.debug?.(`[HookRegistry] Registered afterSignup hook: ${provider.constructor.name}`);
+  registerPostSignup(provider: IPostSignupHookProvider): void {
+    this.postSignupHooks.push(provider);
+    this.logger?.debug?.(`[HookRegistry] Registered postSignup hook: ${provider.constructor.name}`);
   }
 
   // ============================================================================
@@ -120,8 +74,8 @@ export class HookRegistryService {
    * First hook to throw PRESIGNUP_FAILED will stop execution and block signup.
    *
    * @param data - SignupDTO for password signup, OAuthUserProfile for social signup
-   * @param signupType - Type of signup
-   * @param provider - Social provider name (only for social signups)
+   * @param signupType - Type of signup ('password' or 'social')
+   * @param provider - Social provider name (only for social signups, e.g., 'google', 'apple', 'facebook')
    * @param adminSignup - true for admin signups, false for regular signups
    * @throws {NAuthException} with PRESIGNUP_FAILED if any hook blocks signup
    *
@@ -129,7 +83,7 @@ export class HookRegistryService {
    * @remarks This method is called internally by AuthService and BaseSocialAuthProviderService
    */
   async executePreSignup(
-    data: unknown,
+    data: PreSignupHookData,
     signupType: 'password' | 'social',
     provider?: string,
     adminSignup?: boolean,
@@ -162,30 +116,30 @@ export class HookRegistryService {
   }
 
   /**
-   * Execute all registered after-signup hooks
+   * Execute all registered post-signup hooks
    *
    * Hooks are executed sequentially in registration order.
    * Hook errors are logged but do not stop execution (non-blocking).
    *
-   * @param user - Created user entity (framework-agnostic: TypeORM/Prisma/Mongoose/etc.)
-   * @param metadata - Signup metadata
+   * @param user - Created user entity (IUser interface)
+   * @param metadata - Signup metadata providing context about the signup event
    *
    * @internal
    * @remarks This method is called internally by AuthService and BaseSocialAuthProviderService
    */
-  async executeAfterSignup(user: unknown, metadata?: SignupMetadata): Promise<void> {
-    if (this.afterSignupHooks.length === 0) {
+  async executePostSignup(user: IUser, metadata?: SignupMetadata): Promise<void> {
+    if (this.postSignupHooks.length === 0) {
       return; // No hooks registered
     }
 
-    for (const hook of this.afterSignupHooks) {
+    for (const hook of this.postSignupHooks) {
       try {
         await hook.execute(user, metadata);
       } catch (hookError: unknown) {
         // Non-blocking: log error and continue
         const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
         this.logger?.error?.(
-          `[HookRegistry] afterSignup hook error: ${hook.constructor.name} - ${errorMessage}`,
+          `[HookRegistry] postSignup hook error: ${hook.constructor.name} - ${errorMessage}`,
           hookError instanceof Error ? { error: hookError } : undefined,
         );
       }

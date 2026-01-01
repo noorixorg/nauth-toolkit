@@ -10,7 +10,7 @@ import { EmailMFAModule } from '@nauth-toolkit/mfa-email/nestjs';
 import { TOTPMFAModule } from '@nauth-toolkit/mfa-totp/nestjs';
 import { PasskeyMFAModule } from '@nauth-toolkit/mfa-passkey/nestjs';
 import { authConfig } from '../config/auth.config';
-import { PreSignupDebugHook, AfterSignupDebugHook } from './hooks';
+import { PreSignupDebugHook, PostSignupDebugHook } from './hooks';
 
 /**
  * Custom Auth Module
@@ -36,7 +36,7 @@ import { PreSignupDebugHook, AfterSignupDebugHook } from './hooks';
     PasskeyMFAModule,
     AuthModule.forRoot(authConfig),
     // Register lifecycle hooks - automatically discovered and registered
-    NAuthHooksModule.forFeature([PreSignupDebugHook, AfterSignupDebugHook]),
+    NAuthHooksModule.forFeature([PreSignupDebugHook, PostSignupDebugHook]),
   ],
   controllers: [CustomAuthController, SocialRedirectController],
 })

@@ -7,7 +7,7 @@ import { RiskDetectionService } from './risk-detection.service';
 import { RiskScoringService } from './risk-scoring.service';
 import { ClientInfoService } from './client-info.service';
 import { ClientInfo } from '../interfaces/client-info.interface';
-import { NAuthConfig, AdaptiveMFARiskEventPayload, SignInBlockedPayload } from '../interfaces/config.interface';
+import { NAuthConfig, AdaptiveMFARiskEventPayload, AdaptiveMFAUser } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 
 /**
@@ -175,10 +175,10 @@ export class AdaptiveMFADecisionService {
     const payload: AdaptiveMFARiskEventPayload = {
       user: {
         sub: user.sub,
-        email: user.email, // Safe after validation above
+        email: user.email,
         username: user.username || undefined,
         phoneNumber: user.phone || undefined,
-      },
+      } satisfies AdaptiveMFAUser,
       riskScore,
       riskLevel: level,
       riskFactors,
@@ -200,7 +200,7 @@ export class AdaptiveMFADecisionService {
 
     // TODO: Implement provider-based hook for onAdaptiveMFATriggered
     // Call lifecycle hook if configured and user should be notified
-    let hookOverride = false;
+    const hookOverride = false;
 
     // Record in audit trail (non-blocking)
     // This logs the risk assessment result

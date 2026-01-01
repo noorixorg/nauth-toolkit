@@ -189,7 +189,7 @@ describe('BaseSocialAuthProviderService', () => {
       registerPreSignup: jest.fn(),
       registerAfterSignup: jest.fn(),
       executePreSignup: jest.fn().mockResolvedValue(undefined),
-      executeAfterSignup: jest.fn().mockResolvedValue(undefined),
+      executePostSignup: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     mockUser = {

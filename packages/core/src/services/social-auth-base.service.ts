@@ -466,7 +466,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     // After-Signup Hook: Execute post-creation actions (non-blocking)
     // ============================================================================
     if (this.hookRegistry) {
-      await this.hookRegistry.executeAfterSignup(savedUser, {
+      await this.hookRegistry.executePostSignup(savedUser, {
         requiresVerification: false, // Social signups are typically pre-verified
         signupType: 'social',
         provider: socialProvider,
