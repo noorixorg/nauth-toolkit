@@ -45,7 +45,7 @@ sequenceDiagram
         Hooks-->>Backend: Success
         Backend->>DB: Create user
         DB-->>Backend: User created
-        Backend->>Hooks: executeAfterSignup()
+        Backend->>Hooks: executePostSignup()
         Note over Hooks: Errors logged,<br/>don't block signup
         Hooks-->>Backend: Complete (non-blocking)
         Backend-->>Frontend: 200 { challengeName or tokens }
@@ -55,10 +55,11 @@ sequenceDiagram
 
 ## Available Hooks
 
-| Hook           | When                 | Can Block? | Use Cases                                                  |
-| -------------- | -------------------- | ---------- | ---------------------------------------------------------- |
-| **preSignup**  | Before user creation | Yes        | Validation, domain whitelisting, invite codes              |
-| **postSignup** | After user creation  | No         | Welcome emails, analytics, CRM sync, resource provisioning |
+| Hook                   | When                  | Can Block? | Use Cases                                                  |
+| ---------------------- | --------------------- | ---------- | ---------------------------------------------------------- |
+| **preSignup**          | Before user creation  | Yes        | Validation, domain whitelisting, invite codes              |
+| **postSignup**         | After user creation   | No         | Welcome emails, analytics, CRM sync, resource provisioning |
+| **userProfileUpdated** | After profile changes | No         | CRM sync, analytics tracking, audit logging                |
 
 :::tip Future Hooks
 Additional hooks (afterLogin, beforePasswordChange, etc.) will follow the same pattern. The architecture is designed for extensibility.
@@ -607,11 +608,11 @@ Track signup events in your analytics platform:
 
 ```typescript
 import { Injectable, Logger } from '@nestjs/common';
-import { AfterSignupHook, IAfterSignupHookProvider, IUser, SignupMetadata } from '@nauth-toolkit/nestjs';
+import { PostSignupHook, IPostSignupHookProvider, IUser, SignupMetadata } from '@nauth-toolkit/nestjs';
 
 @Injectable()
-@AfterSignupHook()
-export class AnalyticsHook implements IAfterSignupHookProvider {
+@PostSignupHook()
+export class AnalyticsHook implements IPostSignupHookProvider {
   constructor(
     private readonly analytics: AnalyticsService,
     private readonly logger: Logger,
@@ -648,11 +649,11 @@ Sync new users to your CRM:
 
 ```typescript
 import { Injectable, Logger } from '@nestjs/common';
-import { AfterSignupHook, IAfterSignupHookProvider, IUser, SignupMetadata } from '@nauth-toolkit/nestjs';
+import { PostSignupHook, IPostSignupHookProvider, IUser, SignupMetadata } from '@nauth-toolkit/nestjs';
 
 @Injectable()
-@AfterSignupHook()
-export class CrmSyncHook implements IAfterSignupHookProvider {
+@PostSignupHook()
+export class CrmSyncHook implements IPostSignupHookProvider {
   constructor(
     private readonly crm: CrmService,
     private readonly logger: Logger,
@@ -689,11 +690,11 @@ Create workspace and assign default permissions:
 
 ```typescript
 import { Injectable, Logger } from '@nestjs/common';
-import { AfterSignupHook, IAfterSignupHookProvider, IUser, SignupMetadata } from '@nauth-toolkit/nestjs';
+import { PostSignupHook, IPostSignupHookProvider, IUser, SignupMetadata } from '@nauth-toolkit/nestjs';
 
 @Injectable()
-@AfterSignupHook()
-export class ProvisioningHook implements IAfterSignupHookProvider {
+@PostSignupHook()
+export class ProvisioningHook implements IPostSignupHookProvider {
   constructor(
     private readonly workspaceService: WorkspaceService,
     private readonly permissionService: PermissionService,
@@ -758,6 +759,200 @@ async execute(user, metadata) {
 - All hooks execute regardless of errors
 - Errors are caught and logged per hook
 - Signup is never blocked
+- Next hook always executes
+
+## User Profile Updated Hooks (Change Tracking)
+
+User profile updated hooks execute **after** user profile attributes change. They're **non-blocking** - errors are logged but don't affect updates.
+
+### When Hook Fires
+
+The hook fires when these fields change:
+
+- **Core attributes:** `firstName`, `lastName`, `username`, `email`, `phone`, `metadata`
+- **Verification status:** `isEmailVerified`, `isPhoneVerified`
+
+**Excluded changes:** Password changes, account lock/unlock, login state, MFA changes, social accounts
+
+### Update Sources
+
+```typescript
+type UserProfileUpdateSource =
+  | 'user_request' // User updated via updateUserAttributes()
+  | 'admin_action' // Admin updated via updateVerifiedStatus()
+  | 'email_verification' // Email verified
+  | 'phone_verification'; // Phone verified
+```
+
+### Example: CRM Sync
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS" default>
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import {
+  UserProfileUpdatedHook,
+  IUserProfileUpdatedHookProvider,
+  UserProfileUpdatedMetadata,
+} from '@nauth-toolkit/nestjs';
+
+@Injectable()
+@UserProfileUpdatedHook()
+export class CrmSyncHook implements IUserProfileUpdatedHookProvider {
+  constructor(private crmService: CrmService) {}
+
+  async execute(metadata: UserProfileUpdatedMetadata): Promise<void> {
+    const emailChange = metadata.changedFields.find((f) => f.fieldName === 'email');
+    if (emailChange) {
+      await this.crmService.updateContact(metadata.user.sub, {
+        email: emailChange.newValue as string,
+      });
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+class CrmSyncHook {
+  async execute(metadata) {
+    const emailChange = metadata.changedFields.find((f) => f.fieldName === 'email');
+    if (emailChange) {
+      await crmService.updateContact(metadata.user.sub, {
+        email: emailChange.newValue,
+      });
+    }
+  }
+}
+
+nauth.hookRegistry.registerUserProfileUpdated(new CrmSyncHook());
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+class CrmSyncHook {
+  async execute(metadata) {
+    const emailChange = metadata.changedFields.find((f) => f.fieldName === 'email');
+    if (emailChange) {
+      await crmService.updateContact(metadata.user.sub, {
+        email: emailChange.newValue,
+      });
+    }
+  }
+}
+
+nauth.hookRegistry.registerUserProfileUpdated(new CrmSyncHook());
+```
+
+</TabItem>
+</Tabs>
+
+### Example: Analytics Tracking
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS" default>
+
+```typescript
+@Injectable()
+@UserProfileUpdatedHook()
+export class ProfileAnalyticsHook implements IUserProfileUpdatedHookProvider {
+  constructor(private analytics: AnalyticsService) {}
+
+  async execute(metadata: UserProfileUpdatedMetadata): Promise<void> {
+    await this.analytics.track({
+      userId: metadata.user.sub,
+      event: 'Profile Updated',
+      properties: {
+        changedFields: metadata.changedFields.map((f) => f.fieldName),
+        updateSource: metadata.updateSource,
+      },
+    });
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+class ProfileAnalyticsHook {
+  async execute(metadata) {
+    await analytics.track({
+      userId: metadata.user.sub,
+      event: 'Profile Updated',
+      properties: {
+        changedFields: metadata.changedFields.map((f) => f.fieldName),
+        updateSource: metadata.updateSource,
+      },
+    });
+  }
+}
+
+nauth.hookRegistry.registerUserProfileUpdated(new ProfileAnalyticsHook());
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+class ProfileAnalyticsHook {
+  async execute(metadata) {
+    await analytics.track({
+      userId: metadata.user.sub,
+      event: 'Profile Updated',
+      properties: {
+        changedFields: metadata.changedFields.map((f) => f.fieldName),
+        updateSource: metadata.updateSource,
+      },
+    });
+  }
+}
+
+nauth.hookRegistry.registerUserProfileUpdated(new ProfileAnalyticsHook());
+```
+
+</TabItem>
+</Tabs>
+
+### Change Tracking
+
+The `changedFields` array contains detailed change information:
+
+```typescript
+{
+  user: IUser,            // Updated user (complete state)
+  changedFields: [
+    {
+      fieldName: 'email',
+      oldValue: 'old@example.com',
+      newValue: 'new@example.com'
+    },
+    {
+      fieldName: 'firstName',
+      oldValue: 'Jane',
+      newValue: 'John'
+    }
+  ],
+  updateSource: 'user_request',
+  clientInfo: {
+    ipAddress: '127.0.0.1',
+    userAgent: 'Mozilla/5.0...',
+    ipCountry: 'US',
+    ipCity: 'New York'
+  }
+}
+```
+
+### Execution Behavior
+
+- All hooks execute regardless of errors
+- Errors are caught and logged per hook
+- Updates are never blocked
 - Next hook always executes
 
 ## Multiple Hooks
@@ -833,21 +1028,25 @@ interface SignupMetadata {
   signupType?: 'password' | 'social'; // How user signed up
   provider?: string; // Social provider (google, apple, facebook)
   adminSignup?: boolean; // Whether admin-initiated
+  socialMetadata?: Record<string, unknown> | null; // Raw OAuth profile data (social signups only)
+  profilePicture?: string | null; // Profile picture URL from OAuth provider (social signups only)
 }
 ```
 
 **Example: Contextual logic based on signup type:**
 
 ```typescript
-@AfterSignupHook()
-export class ContextualEmailHook implements IAfterSignupHookProvider {
+@PostSignupHook()
+export class ContextualEmailHook implements IPostSignupHookProvider {
   async execute(user, metadata) {
     if (metadata?.signupType === 'social') {
-      // Social signup
-      await this.emailService.sendSocialWelcome(
-        user.email,
-        metadata.provider, // 'google', 'apple', 'facebook'
-      );
+      // Social signup - use profile picture and social metadata
+      await this.emailService.sendSocialWelcome({
+        email: user.email,
+        provider: metadata.provider, // 'google', 'apple', 'facebook'
+        profilePicture: metadata.profilePicture, // Profile picture URL
+        locale: metadata.socialMetadata?.locale as string | undefined, // From social metadata
+      });
     } else {
       // Password signup
       if (metadata?.requiresVerification) {
@@ -860,6 +1059,39 @@ export class ContextualEmailHook implements IAfterSignupHookProvider {
     // Track admin-initiated signups separately
     if (metadata?.adminSignup) {
       await this.analytics.track('admin_created_user', { userId: user.sub });
+    }
+  }
+}
+```
+
+**Example: Using social metadata for profile setup:**
+
+```typescript
+@PostSignupHook()
+export class ProfileSetupHook implements IPostSignupHookProvider {
+  async execute(user, metadata) {
+    if (metadata?.signupType === 'social' && metadata.socialMetadata) {
+      // Extract additional data from social provider
+      const socialData = metadata.socialMetadata;
+      const locale = socialData.locale as string | undefined;
+      const timezone = socialData.timezone as string | undefined;
+
+      // Update user profile with social data
+      await this.userService.updateProfile(user.sub, {
+        locale,
+        timezone,
+        profilePictureUrl: metadata.profilePicture,
+      });
+
+      // Sync to external systems
+      await this.crmService.createContact({
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profilePicture: metadata.profilePicture,
+        source: `social_${metadata.provider}`,
+        metadata: metadata.socialMetadata, // Full OAuth profile data
+      });
     }
   }
 }
@@ -945,8 +1177,8 @@ export class InviteCodeHook implements IPreSignupHookProvider {
 For after-signup hooks, handle errors to avoid breaking signup flow:
 
 ```typescript
-@AfterSignupHook()
-export class WelcomeEmailHook implements IAfterSignupHookProvider {
+@PostSignupHook()
+export class WelcomeEmailHook implements IPostSignupHookProvider {
   async execute(user, metadata) {
     try {
       await this.emailService.sendWelcome(user.email);
@@ -994,11 +1226,13 @@ Complete reference for all hook-related classes and interfaces:
 
 ### Interfaces
 
-| Interface                 | Description                | Documentation                                                                               |
-| ------------------------- | -------------------------- | ------------------------------------------------------------------------------------------- |
-| `IPreSignupHookProvider`  | Pre-signup hook interface  | [IPreSignupHookProvider](/docs/api/core/interfaces/hook-providers#ipreSignuphookprovider)   |
-| `IPostSignupHookProvider` | Post-signup hook interface | [IPostSignupHookProvider](/docs/api/core/interfaces/hook-providers#ipostsignuphookprovider) |
-| `SignupMetadata`          | Signup metadata interface  | [SignupMetadata](/docs/api/core/interfaces/hook-providers#signupmetadata)                   |
+| Interface                         | Description                         | Documentation                                                                                                |
+| --------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `IPreSignupHookProvider`          | Pre-signup hook interface           | [IPreSignupHookProvider](/docs/api/core/interfaces/hook-providers#ipreSignuphookprovider)                    |
+| `IPostSignupHookProvider`         | Post-signup hook interface          | [IPostSignupHookProvider](/docs/api/core/interfaces/hook-providers#ipostsignuphookprovider)                  |
+| `IUserProfileUpdatedHookProvider` | User profile updated hook interface | [IUserProfileUpdatedHookProvider](/docs/api/core/interfaces/user-profile-updated-hook)                       |
+| `SignupMetadata`                  | Signup metadata interface           | [SignupMetadata](/docs/api/core/interfaces/hook-providers#signupmetadata)                                    |
+| `UserProfileUpdatedMetadata`      | Profile update metadata interface   | [UserProfileUpdatedMetadata](/docs/api/core/interfaces/user-profile-updated-hook#userprofileupdatedmetadata) |
 
 ### Services
 

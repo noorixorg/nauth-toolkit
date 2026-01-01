@@ -148,7 +148,15 @@ export class WelcomeEmailHook implements IPostSignupHookProvider {
   constructor(private emailService: EmailService) {}
 
   async execute(user, metadata) {
-    await this.emailService.sendWelcome(user.email);
+    // For social signups, include profile picture
+    if (metadata?.signupType === 'social' && metadata.profilePicture) {
+      await this.emailService.sendWelcome({
+        email: user.email,
+        profilePicture: metadata.profilePicture,
+      });
+    } else {
+      await this.emailService.sendWelcome(user.email);
+    }
   }
 }
 ```
@@ -188,6 +196,75 @@ nauth.hookRegistry.registerPostSignup(new WelcomeEmailHook(emailService));
 
 ---
 
+### registerUserProfileUpdated()
+
+Register a user profile updated hook provider. Hooks execute after profile attribute changes. Non-blocking - errors are logged.
+
+```typescript
+registerUserProfileUpdated(provider: IUserProfileUpdatedHookProvider): void
+```
+
+**Parameters**
+
+- `provider` - [`IUserProfileUpdatedHookProvider`](../interfaces/user-profile-updated-hook)
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Injectable()
+@UserProfileUpdatedHook()
+export class CrmSyncHook implements IUserProfileUpdatedHookProvider {
+  async execute(metadata: UserProfileUpdatedMetadata) {
+    const emailChange = metadata.changedFields.find((f) => f.fieldName === 'email');
+    if (emailChange) {
+      await this.crmService.updateContact(metadata.user.sub, {
+        email: emailChange.newValue,
+      });
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+class CrmSyncHook implements IUserProfileUpdatedHookProvider {
+  async execute(metadata) {
+    const emailChange = metadata.changedFields.find((f) => f.fieldName === 'email');
+    if (emailChange) {
+      await crmService.updateContact(metadata.user.sub, emailChange.newValue);
+    }
+  }
+}
+
+nauth.hookRegistry.registerUserProfileUpdated(new CrmSyncHook());
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+class CrmSyncHook implements IUserProfileUpdatedHookProvider {
+  async execute(metadata) {
+    const emailChange = metadata.changedFields.find((f) => f.fieldName === 'email');
+    if (emailChange) {
+      await crmService.updateContact(metadata.user.sub, emailChange.newValue);
+    }
+  }
+}
+
+nauth.hookRegistry.registerUserProfileUpdated(new CrmSyncHook());
+```
+
+</TabItem>
+</Tabs>
+
+---
+
 ### executePreSignup()
 
 **Internal method.** Executes all registered pre-signup hooks in order. Called automatically by AuthService.
@@ -210,8 +287,8 @@ async executePreSignup(
 
 **Errors**
 
-| Code | When | Details |
-|---|---|---|
+| Code               | When                  | Details               |
+| ------------------ | --------------------- | --------------------- |
 | `PRESIGNUP_FAILED` | Hook throws exception | `{ message: string }` |
 
 Throws [`NAuthException`](../exceptions/nauth-exception) with code `PRESIGNUP_FAILED` if any hook throws an error.
@@ -230,6 +307,20 @@ async executePostSignup(user: IUser, metadata?: SignupMetadata): Promise<void>
 
 - `user` - Created user entity
 - `metadata` - Optional signup metadata
+
+---
+
+### executeUserProfileUpdated()
+
+**Internal method.** Executes all registered user profile updated hooks in order. Called automatically by AuthService, EmailVerificationService, and PhoneVerificationService. Errors are logged but don't block updates.
+
+```typescript
+async executeUserProfileUpdated(metadata: UserProfileUpdatedMetadata): Promise<void>
+```
+
+**Parameters**
+
+- `metadata` - [`UserProfileUpdatedMetadata`](../interfaces/user-profile-updated-hook#userprofileupdatedmetadata) containing updated user and change details
 
 ---
 
@@ -273,19 +364,39 @@ welcomeEmail.execute(); // Throws error - logged, continues
 analytics.execute(); // Executes normally
 ```
 
+**User Profile Updated Hooks:**
+
+All hooks execute regardless of errors. Errors are caught and logged:
+
+```typescript
+// Hook 1: Throws error
+crmSync.execute(); // Throws error - logged, continues
+
+// Hook 2: Still executes
+analyticsTracking.execute(); // Executes normally
+```
+
 ---
 
 ## Error Handling
 
 **Pre-Signup Hooks:**
+
 - Errors with code `PRESIGNUP_FAILED` are re-thrown as-is
 - Other errors are wrapped in `PRESIGNUP_FAILED` with original message
 - First error stops execution and blocks signup
 
 **Post-Signup Hooks:**
+
 - All errors are caught and logged
 - Execution continues to next hook
 - Signup is never blocked
+
+**User Profile Updated Hooks:**
+
+- All errors are caught and logged
+- Execution continues to next hook
+- Profile updates are never blocked
 
 ---
 
@@ -293,5 +404,5 @@ analytics.execute(); // Executes normally
 
 - [IPreSignupHookProvider](../interfaces/hook-providers#ipreSignuphookprovider) - Pre-signup hook interface
 - [IPostSignupHookProvider](../interfaces/hook-providers#ipostsignuphookprovider) - Post-signup hook interface
+- [IUserProfileUpdatedHookProvider](../interfaces/user-profile-updated-hook) - User profile updated hook interface
 - [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete usage guide
-

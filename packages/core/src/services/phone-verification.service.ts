@@ -10,6 +10,7 @@ import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { NAuthLogger } from '../utils/nauth-logger';
+import { HookRegistryService } from './hook-registry.service';
 import {
   SendVerificationSMSDTO,
   SendVerificationSMSResponseDTO,
@@ -52,6 +53,7 @@ export class PhoneVerificationService {
     private readonly config: NAuthConfig,
     private readonly clientInfoService: ClientInfoService,
     private readonly logger: NAuthLogger,
+    private readonly hookRegistry: HookRegistryService,
     private readonly auditService?: AuthAuditService, // Optional - audit trail service (enabled via config.auditLogs.enabled)
   ) {}
 
@@ -418,6 +420,44 @@ export class PhoneVerificationService {
       });
     }
 
+    // ============================================================================
+    // Hook: Execute user profile updated hooks
+    // ============================================================================
+    try {
+      // Refetch user to get complete updated state
+      const updatedUser = (await this.userRepo.findOne({ where: { id: user.id } })) as IUser | null;
+      if (updatedUser) {
+        // Get client info from ClientInfoService
+        const clientInfo = this.clientInfoService.get();
+
+        // Execute hooks (non-blocking)
+        await this.hookRegistry.executeUserProfileUpdated({
+          user: updatedUser,
+          changedFields: [
+            {
+              fieldName: 'isPhoneVerified',
+              oldValue: false,
+              newValue: true,
+            },
+          ],
+          updateSource: 'phone_verification',
+          clientInfo: {
+            ipAddress: clientInfo.ipAddress,
+            userAgent: clientInfo.userAgent,
+            ipCountry: clientInfo.ipCountry,
+            ipCity: clientInfo.ipCity,
+          },
+        });
+      }
+    } catch (hookError) {
+      // Non-blocking: Log but continue
+      const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
+        error: hookError,
+        userId: user.id,
+      });
+    }
+
     return { message: 'Phone verified successfully. Please log in to continue.' };
   }
 
@@ -655,6 +695,47 @@ export class PhoneVerificationService {
         error: auditError,
         userId: user.id,
       });
+    }
+
+    // ============================================================================
+    // Hook: Execute user profile updated hooks
+    // ============================================================================
+    // Only fire hook if phone was actually verified (not already verified)
+    if (!wasPhoneVerified) {
+      try {
+        // Refetch user to get complete updated state
+        const updatedUser = (await this.userRepo.findOne({ where: { id: user.id } })) as IUser | null;
+        if (updatedUser) {
+          // Get client info from ClientInfoService
+          const clientInfo = this.clientInfoService.get();
+
+          // Execute hooks (non-blocking)
+          await this.hookRegistry.executeUserProfileUpdated({
+            user: updatedUser,
+            changedFields: [
+              {
+                fieldName: 'isPhoneVerified',
+                oldValue: false,
+                newValue: true,
+              },
+            ],
+            updateSource: 'phone_verification',
+            clientInfo: {
+              ipAddress: clientInfo.ipAddress,
+              userAgent: clientInfo.userAgent,
+              ipCountry: clientInfo.ipCountry,
+              ipCity: clientInfo.ipCity,
+            },
+          });
+        }
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
+          error: hookError,
+          userId: user.id,
+        });
+      }
     }
 
     return { message: 'Phone verified successfully. Please log in to continue.' };

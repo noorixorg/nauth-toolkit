@@ -37,6 +37,7 @@ import { LoginDTO } from '../dto/login.dto';
 import { ChangePasswordRequestDTO } from '../dto/change-password-request.dto';
 import { ChangePasswordResponseDTO } from '../dto/change-password-response.dto';
 import { UpdateUserAttributesRequestDTO } from '../dto/update-user-attributes-request.dto';
+import { UpdateVerifiedStatusRequestDTO } from '../dto/update-verified-status-request.dto';
 import { UserResponseDto } from '../dto/user-response.dto';
 import { AuthResponseDTO, TokenResponse, toAuthResponseUser } from '../dto/auth-response.dto';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
@@ -802,10 +803,18 @@ export class AuthService {
       // Lifecycle Hook: afterSignup
       // ============================================================================
       // Execute afterSignup hook immediately after account creation (non-blocking)
+      // Extract profile picture from social metadata if available
+      const profilePicture =
+        dto.socialMetadata && typeof dto.socialMetadata === 'object' && 'picture' in dto.socialMetadata
+          ? (dto.socialMetadata.picture as string | null)
+          : null;
+
       await this.hookRegistry.executePostSignup(savedUser, {
         signupType: 'social',
         provider: dto.provider,
         adminSignup: true,
+        socialMetadata: dto.socialMetadata || null,
+        profilePicture,
       });
 
       // ============================================================================
@@ -4598,6 +4607,245 @@ export class AuthService {
       const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
       this.logger?.error?.(`Failed to record profile update audit events: ${errorMessage}`, {
         error: auditError,
+        userId: user.id,
+      });
+    }
+
+    // ============================================================================
+    // Hook: Execute user profile updated hooks
+    // ============================================================================
+    try {
+      // Build changed fields array with old/new values
+      const changedFields: Array<{ fieldName: string; oldValue: unknown; newValue: unknown }> = [];
+
+      // Track all fields that were in updateFields
+      for (const fieldName of Object.keys(updateFields)) {
+        changedFields.push({
+          fieldName,
+          oldValue: (user as unknown as Record<string, unknown>)[fieldName],
+          newValue: updateFields[fieldName as keyof typeof updateFields],
+        });
+      }
+
+      // Get client info from ClientInfoService
+      const clientInfo = this.clientInfoService.get();
+
+      // Execute hooks (non-blocking)
+      await this.hookRegistry.executeUserProfileUpdated({
+        user: updatedUser,
+        changedFields,
+        updateSource: 'user_request',
+        clientInfo: {
+          ipAddress: clientInfo.ipAddress,
+          userAgent: clientInfo.userAgent,
+          ipCountry: clientInfo.ipCountry,
+          ipCity: clientInfo.ipCity,
+        },
+      });
+    } catch (hookError) {
+      // Non-blocking: Log but continue
+      const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
+        error: hookError,
+        userId: user.id,
+      });
+    }
+
+    // Return user response DTO
+    return UserResponseDto.fromEntity(updatedUser);
+  }
+
+  /**
+   * Update email and/or phone verification status.
+   *
+   * Intended for admin use cases such as migration or offline validation.
+   * Updates verification status without requiring actual verification codes.
+   *
+   * Validation:
+   * - Cannot set verified=true if email/phone doesn't exist
+   * - Can set verified=false even if email/phone doesn't exist (default state)
+   * - Only updates provided fields (partial update)
+   *
+   * Audit:
+   * - Records EMAIL_VERIFIED or PHONE_VERIFIED audit events
+   * - Includes performedBy from authenticated admin context
+   *
+   * @param dto - Request DTO containing sub and verification status flags
+   * @returns Updated user object
+   * @throws {NAuthException} If user not found or trying to verify non-existent email/phone
+   *
+   * @example
+   * ```typescript
+   * // Update email verification only
+   * await authService.updateVerifiedStatus({
+   *   sub: 'user-uuid',
+   *   isEmailVerified: true
+   * });
+   *
+   * // Update both email and phone verification
+   * await authService.updateVerifiedStatus({
+   *   sub: 'user-uuid',
+   *   isEmailVerified: true,
+   *   isPhoneVerified: false
+   * });
+   * ```
+   */
+  async updateVerifiedStatus(dto: UpdateVerifiedStatusRequestDTO): Promise<UserResponseDto> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(UpdateVerifiedStatusRequestDTO, dto);
+
+    // Find user by sub (external identifier)
+    const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
+    if (!user) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    // Validate that email exists if trying to set isEmailVerified to true
+    if (dto.isEmailVerified === true && !user.email) {
+      throw new NAuthException(
+        AuthErrorCode.VALIDATION_FAILED,
+        'Cannot set email verification to true: user does not have an email address',
+      );
+    }
+
+    // Validate that phone exists if trying to set isPhoneVerified to true
+    if (dto.isPhoneVerified === true && !user.phone) {
+      throw new NAuthException(
+        AuthErrorCode.VALIDATION_FAILED,
+        'Cannot set phone verification to true: user does not have a phone number',
+      );
+    }
+
+    // Prepare update object - only include fields that were provided
+    const updateFields: Partial<IUser> = {};
+
+    if (dto.isEmailVerified !== undefined) {
+      updateFields.isEmailVerified = dto.isEmailVerified;
+    }
+
+    if (dto.isPhoneVerified !== undefined) {
+      updateFields.isPhoneVerified = dto.isPhoneVerified;
+    }
+
+    // If no fields to update, return current user
+    if (Object.keys(updateFields).length === 0) {
+      return UserResponseDto.fromEntity(user);
+    }
+
+    // Update user - use internal id for database update
+    await this.userRepository.update(user.id, updateFields as Record<string, unknown>);
+
+    // Reload user to get updated values
+    const updatedUser = (await this.userRepository.findOne({ where: { id: user.id } })) as IUser;
+
+    if (!updatedUser) {
+      throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Failed to reload user after update');
+    }
+
+    // ============================================================================
+    // Audit: Record verification status changes
+    // ============================================================================
+    if (this.auditService) {
+      // Record email verification change if provided
+      if (dto.isEmailVerified !== undefined) {
+        try {
+          await this.auditService.recordEvent({
+            userId: user.id,
+            eventType: AuthAuditEventType.EMAIL_VERIFIED,
+            eventStatus: dto.isEmailVerified ? 'SUCCESS' : 'INFO',
+            description: dto.isEmailVerified
+              ? 'Email verification status set to verified (admin action)'
+              : 'Email verification status set to unverified (admin action)',
+            reason: 'admin_verification_update',
+            metadata: {
+              previousStatus: user.isEmailVerified,
+              newStatus: dto.isEmailVerified,
+              updateMethod: 'admin_direct',
+              // Client info automatically included from context (performedBy auto-populated)
+            },
+          });
+        } catch (auditError) {
+          // Non-blocking: Log but continue
+          const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+          this.logger?.error?.(`Failed to record EMAIL_VERIFIED audit event: ${errorMessage}`, {
+            error: auditError,
+            userId: user.id,
+          });
+        }
+      }
+
+      // Record phone verification change if provided
+      if (dto.isPhoneVerified !== undefined) {
+        try {
+          await this.auditService.recordEvent({
+            userId: user.id,
+            eventType: AuthAuditEventType.PHONE_VERIFIED,
+            eventStatus: dto.isPhoneVerified ? 'SUCCESS' : 'INFO',
+            description: dto.isPhoneVerified
+              ? 'Phone verification status set to verified (admin action)'
+              : 'Phone verification status set to unverified (admin action)',
+            reason: 'admin_verification_update',
+            metadata: {
+              previousStatus: user.isPhoneVerified,
+              newStatus: dto.isPhoneVerified,
+              updateMethod: 'admin_direct',
+              // Client info automatically included from context (performedBy auto-populated)
+            },
+          });
+        } catch (auditError) {
+          // Non-blocking: Log but continue
+          const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+          this.logger?.error?.(`Failed to record PHONE_VERIFIED audit event: ${errorMessage}`, {
+            error: auditError,
+            userId: user.id,
+          });
+        }
+      }
+    }
+
+    // ============================================================================
+    // Hook: Execute user profile updated hooks
+    // ============================================================================
+    try {
+      // Build changed fields array with old/new values
+      const changedFields: Array<{ fieldName: string; oldValue: unknown; newValue: unknown }> = [];
+
+      if (dto.isEmailVerified !== undefined) {
+        changedFields.push({
+          fieldName: 'isEmailVerified',
+          oldValue: user.isEmailVerified,
+          newValue: dto.isEmailVerified,
+        });
+      }
+
+      if (dto.isPhoneVerified !== undefined) {
+        changedFields.push({
+          fieldName: 'isPhoneVerified',
+          oldValue: user.isPhoneVerified,
+          newValue: dto.isPhoneVerified,
+        });
+      }
+
+      // Get client info from ClientInfoService
+      const clientInfo = this.clientInfoService.get();
+
+      // Execute hooks (non-blocking)
+      await this.hookRegistry.executeUserProfileUpdated({
+        user: updatedUser,
+        changedFields,
+        updateSource: 'admin_action',
+        clientInfo: {
+          ipAddress: clientInfo.ipAddress,
+          userAgent: clientInfo.userAgent,
+          ipCountry: clientInfo.ipCountry,
+          ipCity: clientInfo.ipCity,
+        },
+      });
+    } catch (hookError) {
+      // Non-blocking: Log but continue
+      const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
+        error: hookError,
         userId: user.id,
       });
     }

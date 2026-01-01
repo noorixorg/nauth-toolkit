@@ -10,6 +10,7 @@ import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { NAuthLogger } from '../utils/nauth-logger';
+import { HookRegistryService } from './hook-registry.service';
 import {
   SendVerificationEmailDTO,
   SendVerificationEmailResponseDTO,
@@ -42,6 +43,7 @@ export class EmailVerificationService {
     private readonly config: NAuthConfig,
     private readonly clientInfoService: ClientInfoService,
     private readonly logger: NAuthLogger,
+    private readonly hookRegistry: HookRegistryService,
     private readonly auditService?: AuthAuditService, // Optional - audit trail service (enabled via config.auditLogs.enabled)
   ) {}
 
@@ -397,6 +399,44 @@ export class EmailVerificationService {
       });
     }
 
+    // ============================================================================
+    // Hook: Execute user profile updated hooks
+    // ============================================================================
+    try {
+      // Refetch user to get complete updated state
+      const updatedUser = (await this.userRepo.findOne({ where: { id: user.id } })) as IUser | null;
+      if (updatedUser) {
+        // Get client info from ClientInfoService
+        const clientInfo = this.clientInfoService.get();
+
+        // Execute hooks (non-blocking)
+        await this.hookRegistry.executeUserProfileUpdated({
+          user: updatedUser,
+          changedFields: [
+            {
+              fieldName: 'isEmailVerified',
+              oldValue: false,
+              newValue: true,
+            },
+          ],
+          updateSource: 'email_verification',
+          clientInfo: {
+            ipAddress: clientInfo.ipAddress,
+            userAgent: clientInfo.userAgent,
+            ipCountry: clientInfo.ipCountry,
+            ipCity: clientInfo.ipCity,
+          },
+        });
+      }
+    } catch (hookError) {
+      // Non-blocking: Log but continue
+      const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
+        error: hookError,
+        userId: user.id,
+      });
+    }
+
     // TODO: maybe refactor to return user save user query in parent function
     return {
       message: 'Email verified successfully. Please log in to continue.',
@@ -472,6 +512,44 @@ export class EmailVerificationService {
         const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
         this.logger?.error?.(`Failed to record EMAIL_VERIFIED audit event (token-based): ${errorMessage}`, {
           error: auditError,
+          userId: user?.id,
+        });
+      }
+
+      // ============================================================================
+      // Hook: Execute user profile updated hooks
+      // ============================================================================
+      try {
+        // Refetch user to get complete updated state
+        const updatedUser = (await this.userRepo.findOne({ where: { id: user.id } })) as IUser | null;
+        if (updatedUser) {
+          // Get client info from ClientInfoService
+          const clientInfo = this.clientInfoService.get();
+
+          // Execute hooks (non-blocking)
+          await this.hookRegistry.executeUserProfileUpdated({
+            user: updatedUser,
+            changedFields: [
+              {
+                fieldName: 'isEmailVerified',
+                oldValue: false,
+                newValue: true,
+              },
+            ],
+            updateSource: 'email_verification',
+            clientInfo: {
+              ipAddress: clientInfo.ipAddress,
+              userAgent: clientInfo.userAgent,
+              ipCountry: clientInfo.ipCountry,
+              ipCity: clientInfo.ipCity,
+            },
+          });
+        }
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
+          error: hookError,
           userId: user?.id,
         });
       }

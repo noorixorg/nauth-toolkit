@@ -16,6 +16,8 @@ import {
   IPostSignupHookProvider,
   SignupMetadata,
   PreSignupHookData,
+  IUserProfileUpdatedHookProvider,
+  UserProfileUpdatedMetadata,
 } from '../interfaces/hooks.interface';
 import { IUser } from '../interfaces/entities.interface';
 import { LoggerProvider } from '../interfaces/logger.interface';
@@ -30,6 +32,7 @@ import { AuthErrorCode } from '../enums/error-codes.enum';
 export class HookRegistryService {
   private readonly preSignupHooks: IPreSignupHookProvider[] = [];
   private readonly postSignupHooks: IPostSignupHookProvider[] = [];
+  private readonly userProfileUpdatedHooks: IUserProfileUpdatedHookProvider[] = [];
 
   constructor(private readonly logger?: LoggerProvider) {}
 
@@ -61,6 +64,19 @@ export class HookRegistryService {
   registerPostSignup(provider: IPostSignupHookProvider): void {
     this.postSignupHooks.push(provider);
     this.logger?.debug?.(`[HookRegistry] Registered postSignup hook: ${provider.constructor.name}`);
+  }
+
+  /**
+   * Register a user profile updated hook provider
+   *
+   * Hooks are executed in registration order.
+   * Hook errors are logged but do not block profile updates (non-blocking).
+   *
+   * @param provider - User profile updated hook provider instance
+   */
+  registerUserProfileUpdated(provider: IUserProfileUpdatedHookProvider): void {
+    this.userProfileUpdatedHooks.push(provider);
+    this.logger?.debug?.(`[HookRegistry] Registered userProfileUpdated hook: ${provider.constructor.name}`);
   }
 
   // ============================================================================
@@ -140,6 +156,36 @@ export class HookRegistryService {
         const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
         this.logger?.error?.(
           `[HookRegistry] postSignup hook error: ${hook.constructor.name} - ${errorMessage}`,
+          hookError instanceof Error ? { error: hookError } : undefined,
+        );
+      }
+    }
+  }
+
+  /**
+   * Execute all registered user profile updated hooks
+   *
+   * Hooks are executed sequentially in registration order.
+   * Hook errors are logged but do not stop execution (non-blocking).
+   *
+   * @param metadata - Profile update context with user, changed fields, and update source
+   *
+   * @internal
+   * @remarks This method is called internally by AuthService, EmailVerificationService, and PhoneVerificationService
+   */
+  async executeUserProfileUpdated(metadata: UserProfileUpdatedMetadata): Promise<void> {
+    if (this.userProfileUpdatedHooks.length === 0) {
+      return; // No hooks registered
+    }
+
+    for (const hook of this.userProfileUpdatedHooks) {
+      try {
+        await hook.execute(metadata);
+      } catch (hookError: unknown) {
+        // Non-blocking: log error and continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(
+          `[HookRegistry] userProfileUpdated hook error: ${hook.constructor.name} - ${errorMessage}`,
           hookError instanceof Error ? { error: hookError } : undefined,
         );
       }

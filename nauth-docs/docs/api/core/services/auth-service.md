@@ -1929,6 +1929,85 @@ If the deleted device(s) were the only MFA method(s), MFA is **disabled** for th
 
 ---
 
+### updateVerifiedStatus()
+
+Update email and/or phone verification status directly. Intended for admin use cases such as migration or offline validation.
+
+**Important behaviors:**
+
+- Cannot set `isEmailVerified: true` if user does not have an email address
+- Cannot set `isPhoneVerified: true` if user does not have a phone number
+- Can set verification to `false` even if email/phone doesn't exist (default state)
+- Only updates provided fields (partial update)
+- Records audit events with `performedBy` from authenticated admin context
+
+```typescript
+async updateVerifiedStatus(dto: UpdateVerifiedStatusRequestDTO): Promise<UserResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`UpdateVerifiedStatusRequestDTO`](../dto/update-verified-status-request-dto)
+
+**Returns**
+
+- [`UserResponseDTO`](../dto/user-response-dto) - Updated user object
+
+**Errors**
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
+
+| Code                | When                                                                                                            | Details     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------- | ----------- |
+| `NOT_FOUND`         | User not found (by `sub` identifier) or user not found after update                                             | `undefined` |
+| `VALIDATION_FAILED` | Trying to set `isEmailVerified: true` when user has no email, or `isPhoneVerified: true` when user has no phone | `undefined` |
+
+**Example**
+
+```typescript
+// Update email verification only
+const updatedUser = await authService.updateVerifiedStatus({
+  sub: 'user-uuid',
+  isEmailVerified: true,
+});
+
+// Update both email and phone verification
+const updatedUser = await authService.updateVerifiedStatus({
+  sub: 'user-uuid',
+  isEmailVerified: true,
+  isPhoneVerified: false,
+});
+
+// Set verification to false (allowed even if email/phone doesn't exist)
+const updatedUser = await authService.updateVerifiedStatus({
+  sub: 'user-uuid',
+  isEmailVerified: false,
+});
+```
+
+:::info Admin Use Case
+This method is intended for administrative operations such as:
+
+- Migrating users from external systems with pre-verified emails/phones
+- Offline validation workflows
+- Manual verification status corrections
+
+The `performedBy` field in audit events is automatically populated from the authenticated admin's context.
+:::
+
+**Audit Events**
+
+- `EMAIL_VERIFIED` - When `isEmailVerified` is updated
+- `PHONE_VERIFIED` - When `isPhoneVerified` is updated
+
+Both events include metadata:
+
+- `previousStatus` - Previous verification status
+- `newStatus` - New verification status
+- `updateMethod: 'admin_direct'` - Indicates admin-initiated update
+
+---
+
 ## Error Handling
 
 All methods throw [`NAuthException`](../exceptions/nauth-exception) with structured error data.

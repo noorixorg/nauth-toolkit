@@ -1,5 +1,5 @@
 ---
-title: "@PostSignupHook()"
+title: '@PostSignupHook()'
 description: Decorator for automatic post-signup hook registration in NestJS
 sidebar_position: 5
 keywords: [decorator, hooks, lifecycle, postsignup, notifications]
@@ -14,9 +14,11 @@ image: /img/api-social-card.png
 Class decorator that automatically registers a provider as a post-signup hook. Post-signup hooks execute after successful user creation for notifications, integrations, and analytics. Non-blocking - errors are logged but don't affect signup.
 
 :::tip Import from NestJS Package
+
 ```typescript
 import { PostSignupHook } from '@nauth-toolkit/nestjs';
 ```
+
 :::
 
 ## Overview
@@ -79,10 +81,10 @@ Control execution order using the `priority` option. Lower priority values execu
 
 ```typescript
 import { Injectable } from '@nestjs/common';
-import { AfterSignupHook, IPostSignupHookProvider } from '@nauth-toolkit/nestjs';
+import { PostSignupHook, IPostSignupHookProvider } from '@nauth-toolkit/nestjs';
 
 @Injectable()
-@PostSignupHook({ priority: 1 })  // Executes first
+@PostSignupHook({ priority: 1 }) // Executes first
 export class WelcomeEmailHook implements IPostSignupHookProvider {
   async execute(user, metadata) {
     // Send welcome email
@@ -90,7 +92,7 @@ export class WelcomeEmailHook implements IPostSignupHookProvider {
 }
 
 @Injectable()
-@PostSignupHook({ priority: 2 })  // Executes second
+@PostSignupHook({ priority: 2 }) // Executes second
 export class AnalyticsHook implements IPostSignupHookProvider {
   async execute(user, metadata) {
     // Track signup event
@@ -106,7 +108,7 @@ Hooks support full NestJS dependency injection:
 
 ```typescript
 import { Injectable, Logger } from '@nestjs/common';
-import { AfterSignupHook, IPostSignupHookProvider } from '@nauth-toolkit/nestjs';
+import { PostSignupHook, IPostSignupHookProvider } from '@nauth-toolkit/nestjs';
 import { EmailService } from '../services/email.service';
 import { AnalyticsService } from '../services/analytics.service';
 import { CrmService } from '../services/crm.service';
@@ -162,14 +164,8 @@ import { WelcomeEmailHook } from './hooks/welcome-email.hook';
 import { AnalyticsHook } from './hooks/analytics.hook';
 
 @Module({
-  imports: [
-    AuthModule.forRoot(authConfig),
-    NAuthHooksModule.forFeature([
-      WelcomeEmailHook,
-      AnalyticsHook,
-    ]),
-  ],
-  providers: [EmailService, AnalyticsService],  // Hook dependencies
+  imports: [AuthModule.forRoot(authConfig), NAuthHooksModule.forFeature([WelcomeEmailHook, AnalyticsHook])],
+  providers: [EmailService, AnalyticsService], // Hook dependencies
 })
 export class CustomAuthModule {}
 ```
@@ -223,11 +219,13 @@ The `metadata` parameter provides context about the signup:
 export class ContextualEmailHook implements IPostSignupHookProvider {
   async execute(user, metadata) {
     if (metadata?.signupType === 'social') {
-      // Social signup - send different welcome message
-      await this.emailService.sendSocialWelcome(
-        user.email,
-        metadata.provider  // 'google', 'apple', 'facebook'
-      );
+      // Social signup - use profile picture and social metadata
+      await this.emailService.sendSocialWelcome({
+        email: user.email,
+        provider: metadata.provider, // 'google', 'apple', 'facebook'
+        profilePicture: metadata.profilePicture, // Profile picture URL
+        locale: metadata.socialMetadata?.locale as string | undefined, // From social metadata
+      });
     } else {
       // Password signup
       if (metadata?.requiresVerification) {
@@ -242,6 +240,42 @@ export class ContextualEmailHook implements IPostSignupHookProvider {
     // Track admin-initiated signups separately
     if (metadata?.adminSignup) {
       await this.analytics.track('admin_created_user', { userId: user.sub });
+    }
+  }
+}
+```
+
+**Using Social Metadata:**
+
+For social signups, you can access the complete OAuth profile data:
+
+```typescript
+@Injectable()
+@PostSignupHook()
+export class ProfileSetupHook implements IPostSignupHookProvider {
+  async execute(user, metadata) {
+    if (metadata?.signupType === 'social' && metadata.socialMetadata) {
+      // Extract additional data from social provider
+      const socialData = metadata.socialMetadata;
+      const locale = socialData.locale as string | undefined;
+      const timezone = socialData.timezone as string | undefined;
+
+      // Update user profile with social data
+      await this.userService.updateProfile(user.sub, {
+        locale,
+        timezone,
+        profilePictureUrl: metadata.profilePicture,
+      });
+
+      // Sync to external systems with full OAuth profile
+      await this.crmService.createContact({
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profilePicture: metadata.profilePicture,
+        source: `social_${metadata.provider}`,
+        metadata: metadata.socialMetadata, // Full OAuth profile data
+      });
     }
   }
 }
@@ -266,10 +300,7 @@ describe('WelcomeEmailHook', () => {
     };
 
     const module = await Test.createTestingModule({
-      providers: [
-        WelcomeEmailHook,
-        { provide: EmailService, useValue: mockEmailService },
-      ],
+      providers: [WelcomeEmailHook, { provide: EmailService, useValue: mockEmailService }],
     }).compile();
 
     hook = module.get(WelcomeEmailHook);
@@ -302,9 +333,7 @@ describe('WelcomeEmailHook', () => {
     };
 
     // Should not throw - errors are caught
-    await expect(
-      hook.execute(user, { signupType: 'password' })
-    ).resolves.not.toThrow();
+    await expect(hook.execute(user, { signupType: 'password' })).resolves.not.toThrow();
   });
 });
 ```
@@ -316,4 +345,3 @@ describe('WelcomeEmailHook', () => {
 - [`HookRegistryService`](/docs/api/core/services/hook-registry-service) - Hook registry service
 - [`NAuthHooksModule`](./nauth-hooks-module) - Hook registration module
 - [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete usage guide
-

@@ -13,6 +13,7 @@ export * from './change-password-response.dto';
 export * from './user-response.dto';
 export * from './user-update.dto';
 export * from './update-user-attributes-request.dto';
+export * from './update-verified-status-request.dto';
 export * from './verify-email.dto';
 export * from './verify-phone.dto';
 export * from './verify-phone-by-sub.dto';

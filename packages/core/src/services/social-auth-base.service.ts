@@ -419,6 +419,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
         profile.lastName,
         profile.verified || false,
         this.providerName,
+        profile, // Pass profile for post-signup hook metadata
       );
 
       this.logger?.log?.(
@@ -439,6 +440,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
    * @param lastName - Optional last name
    * @param isEmailVerified - Whether email is verified (default: true)
    * @param socialProvider - Initial social provider name
+   * @param profile - Optional OAuth profile for passing to post-signup hook
    * @returns Created user
    * @protected
    */
@@ -448,6 +450,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     lastName?: string | null,
     isEmailVerified: boolean = true,
     socialProvider?: string,
+    profile?: OAuthUserProfile,
   ): Promise<IUser> {
     const user = this.userRepository.create({
       email,
@@ -470,6 +473,8 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
         requiresVerification: false, // Social signups are typically pre-verified
         signupType: 'social',
         provider: socialProvider,
+        socialMetadata: profile?.raw || null,
+        profilePicture: profile?.picture || null,
       });
     }
 

@@ -228,6 +228,7 @@ export class WelcomeEmailHook implements IPostSignupHookProvider {
       firstName: user.firstName,
       signupType: metadata?.signupType,
       provider: metadata?.provider,
+      profilePicture: metadata?.profilePicture, // Available for social signups
     });
   }
 }
@@ -288,17 +289,51 @@ interface SignupMetadata {
   signupType?: 'password' | 'social';
   provider?: string;
   adminSignup?: boolean;
+  socialMetadata?: Record<string, unknown> | null;
+  profilePicture?: string | null;
 }
 ```
 
 **Properties**
 
-| Property               | Type                     | Description                                                     |
-| ---------------------- | ------------------------ | --------------------------------------------------------------- |
-| `requiresVerification` | `boolean`                | Whether user needs to complete verification challenge           |
-| `signupType`           | `'password' \| 'social'` | Type of signup performed                                        |
-| `provider`             | `string`                 | Social provider name (google, apple, facebook) if social signup |
-| `adminSignup`          | `boolean`                | Whether signup was initiated by admin                           |
+| Property               | Type                                | Description                                                                 |
+| ---------------------- | ----------------------------------- | ---------------------------------------------------------------------------- |
+| `requiresVerification` | `boolean`                           | Whether user needs to complete verification challenge                       |
+| `signupType`           | `'password' \| 'social'`            | Type of signup performed                                                    |
+| `provider`             | `string`                            | Social provider name (google, apple, facebook) if social signup              |
+| `adminSignup`          | `boolean`                           | Whether signup was initiated by admin                                       |
+| `socialMetadata`       | `Record<string, unknown> \| null`   | Raw OAuth profile data from provider (only for social signups)              |
+| `profilePicture`       | `string \| null`                     | Profile picture URL from OAuth provider (only for social signups)           |
+
+**Social Metadata**
+
+For social signups, `socialMetadata` contains the complete raw OAuth profile data stored in the social account's metadata field. This includes provider-specific fields such as:
+
+- `sub` - Provider's user identifier
+- `given_name` - First name from provider
+- `family_name` - Last name from provider
+- `picture` - Profile picture URL (also available as `profilePicture`)
+- `locale` - User's locale preference
+- Any other provider-specific fields
+
+**Example**
+
+```typescript
+// Social signup metadata
+{
+  signupType: 'social',
+  provider: 'google',
+  socialMetadata: {
+    sub: 'google_123',
+    email: 'user@gmail.com',
+    given_name: 'John',
+    family_name: 'Doe',
+    picture: 'https://lh3.googleusercontent.com/a/...',
+    locale: 'en'
+  },
+  profilePicture: 'https://lh3.googleusercontent.com/a/...'
+}
+```
 
 ---
 

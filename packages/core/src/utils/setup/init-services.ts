@@ -250,6 +250,7 @@ export function initServices(
     config,
     clientInfoService,
     logger,
+    hookRegistry,
     auditService,
   );
 
@@ -277,6 +278,7 @@ export function initServices(
       config,
       clientInfoService,
       logger,
+      hookRegistry,
       auditService,
     );
   }

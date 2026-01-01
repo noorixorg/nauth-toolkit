@@ -213,6 +213,7 @@ describe('EmailVerificationService', () => {
       mockConfig,
       mockClientInfoService,
       mockLogger,
+      {} as any, // hookRegistry (mock)
       mockAuditService,
     );
   });
@@ -445,6 +446,7 @@ describe('EmailVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        {} as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -469,6 +471,7 @@ describe('EmailVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        {} as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -851,6 +854,7 @@ describe('EmailVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        {} as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -1180,6 +1184,7 @@ describe('EmailVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        {} as any, // hookRegistry (mock)
         undefined, // No audit service
       );
 
@@ -1267,6 +1272,7 @@ describe('EmailVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        {} as any, // hookRegistry (mock)
         mockAuditService,
       );
 

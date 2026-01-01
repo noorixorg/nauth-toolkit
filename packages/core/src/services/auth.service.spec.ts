@@ -47,6 +47,7 @@ import { LoginDTO } from '../dto/login.dto';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
 import { ChangePasswordRequestDTO } from '../dto/change-password-request.dto';
 import { UpdateUserAttributesRequestDTO } from '../dto/update-user-attributes-request.dto';
+import { UpdateVerifiedStatusRequestDTO } from '../dto/update-verified-status-request.dto';
 import { LogoutDTO } from '../dto/logout.dto';
 import { LogoutAllDTO } from '../dto/logout-all.dto';
 import { RefreshTokenDTO } from '../dto/refresh-token.dto';
@@ -104,6 +105,18 @@ const createUpdateUserAttributesDto = (
   data: Omit<Partial<UpdateUserAttributesRequestDTO>, 'sub'>,
 ): UpdateUserAttributesRequestDTO => {
   const dto = Object.assign(new UpdateUserAttributesRequestDTO(), { sub, ...data });
+  markDtoAsValidated(dto);
+  return dto;
+};
+
+/**
+ * Create an UpdateVerifiedStatusRequestDTO for tests.
+ */
+const createUpdateVerifiedStatusDto = (
+  sub: string,
+  data: Omit<Partial<UpdateVerifiedStatusRequestDTO>, 'sub'>,
+): UpdateVerifiedStatusRequestDTO => {
+  const dto = Object.assign(new UpdateVerifiedStatusRequestDTO(), { sub, ...data });
   markDtoAsValidated(dto);
   return dto;
 };
@@ -3877,6 +3890,368 @@ describe('AuthService', () => {
             }),
           }),
         );
+      });
+    });
+  });
+
+  // ============================================================================
+  // updateVerifiedStatus Tests
+  // ============================================================================
+
+  describe('updateVerifiedStatus()', () => {
+    beforeEach(() => {
+      mockUserRepository.findOne.mockReset();
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
+    });
+
+    describe('Successful updates', () => {
+      it('should update email verification status to true', async () => {
+        const userWithEmail = { ...mockUser, email: 'test@example.com', isEmailVerified: false };
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithEmail as any) // Initial lookup by sub
+          .mockResolvedValueOnce({ ...userWithEmail, isEmailVerified: true } as any); // Final fetch by id
+
+        const result = await service.updateVerifiedStatus(
+          createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }),
+        );
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            isEmailVerified: true,
+          }),
+        );
+        expect(result.isEmailVerified).toBe(true);
+      });
+
+      it('should update phone verification status to true', async () => {
+        const userWithPhone = { ...mockUser, phone: '+1234567890', isPhoneVerified: false };
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithPhone as any) // Initial lookup by sub
+          .mockResolvedValueOnce({ ...userWithPhone, isPhoneVerified: true } as any); // Final fetch by id
+
+        const result = await service.updateVerifiedStatus(
+          createUpdateVerifiedStatusDto(mockUser.sub, { isPhoneVerified: true }),
+        );
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            isPhoneVerified: true,
+          }),
+        );
+        expect(result.isPhoneVerified).toBe(true);
+      });
+
+      it('should update both email and phone verification status', async () => {
+        const userWithBoth = {
+          ...mockUser,
+          email: 'test@example.com',
+          phone: '+1234567890',
+          isEmailVerified: false,
+          isPhoneVerified: false,
+        };
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithBoth as any) // Initial lookup by sub
+          .mockResolvedValueOnce({
+            ...userWithBoth,
+            isEmailVerified: true,
+            isPhoneVerified: true,
+          } as any); // Final fetch by id
+
+        const result = await service.updateVerifiedStatus(
+          createUpdateVerifiedStatusDto(mockUser.sub, {
+            isEmailVerified: true,
+            isPhoneVerified: true,
+          }),
+        );
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            isEmailVerified: true,
+            isPhoneVerified: true,
+          }),
+        );
+        expect(result.isEmailVerified).toBe(true);
+        expect(result.isPhoneVerified).toBe(true);
+      });
+
+      it('should set email verification to false even if email does not exist', async () => {
+        const userWithoutEmail = { ...mockUser, email: null, isEmailVerified: true };
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithoutEmail as any) // Initial lookup by sub
+          .mockResolvedValueOnce({ ...userWithoutEmail, isEmailVerified: false } as any); // Final fetch by id
+
+        const result = await service.updateVerifiedStatus(
+          createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: false }),
+        );
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            isEmailVerified: false,
+          }),
+        );
+        expect(result.isEmailVerified).toBe(false);
+      });
+
+      it('should set phone verification to false even if phone does not exist', async () => {
+        const userWithoutPhone = { ...mockUser, phone: null, isPhoneVerified: true };
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithoutPhone as any) // Initial lookup by sub
+          .mockResolvedValueOnce({ ...userWithoutPhone, isPhoneVerified: false } as any); // Final fetch by id
+
+        const result = await service.updateVerifiedStatus(
+          createUpdateVerifiedStatusDto(mockUser.sub, { isPhoneVerified: false }),
+        );
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            isPhoneVerified: false,
+          }),
+        );
+        expect(result.isPhoneVerified).toBe(false);
+      });
+
+      it('should only update email verification when only email is provided', async () => {
+        const userWithBoth = {
+          ...mockUser,
+          email: 'test@example.com',
+          phone: '+1234567890',
+          isEmailVerified: false,
+          isPhoneVerified: true,
+        };
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithBoth as any) // Initial lookup by sub
+          .mockResolvedValueOnce({
+            ...userWithBoth,
+            isEmailVerified: true,
+            // isPhoneVerified should remain true
+          } as any); // Final fetch by id
+
+        const result = await service.updateVerifiedStatus(
+          createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }),
+        );
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            isEmailVerified: true,
+          }),
+        );
+        // Should not include isPhoneVerified in update
+        expect(mockUserRepository.update).not.toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            isPhoneVerified: expect.anything(),
+          }),
+        );
+        expect(result.isEmailVerified).toBe(true);
+        expect(result.isPhoneVerified).toBe(true); // Should remain unchanged
+      });
+
+      it('should only update phone verification when only phone is provided', async () => {
+        const userWithBoth = {
+          ...mockUser,
+          email: 'test@example.com',
+          phone: '+1234567890',
+          isEmailVerified: true,
+          isPhoneVerified: false,
+        };
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithBoth as any) // Initial lookup by sub
+          .mockResolvedValueOnce({
+            ...userWithBoth,
+            isPhoneVerified: true,
+            // isEmailVerified should remain true
+          } as any); // Final fetch by id
+
+        const result = await service.updateVerifiedStatus(
+          createUpdateVerifiedStatusDto(mockUser.sub, { isPhoneVerified: true }),
+        );
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            isPhoneVerified: true,
+          }),
+        );
+        // Should not include isEmailVerified in update
+        expect(mockUserRepository.update).not.toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            isEmailVerified: expect.anything(),
+          }),
+        );
+        expect(result.isPhoneVerified).toBe(true);
+        expect(result.isEmailVerified).toBe(true); // Should remain unchanged
+      });
+
+      it('should return current user if no fields provided', async () => {
+        mockUserRepository.findOne.mockResolvedValueOnce(mockUser as any); // Initial lookup by sub
+
+        const result = await service.updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, {}));
+
+        expect(mockUserRepository.update).not.toHaveBeenCalled();
+        expect(result.sub).toBe(mockUser.sub);
+      });
+
+      it('should record EMAIL_VERIFIED audit event when email verification is updated', async () => {
+        const userWithEmail = { ...mockUser, email: 'test@example.com', isEmailVerified: false };
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithEmail as any) // Initial lookup by sub
+          .mockResolvedValueOnce({ ...userWithEmail, isEmailVerified: true } as any); // Final fetch by id
+
+        await service.updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }));
+
+        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+          (expect as any).objectContaining({
+            userId: mockUser.id,
+            eventType: AuthAuditEventType.EMAIL_VERIFIED,
+            eventStatus: 'SUCCESS',
+            reason: 'admin_verification_update',
+            metadata: (expect as any).objectContaining({
+              previousStatus: false,
+              newStatus: true,
+              updateMethod: 'admin_direct',
+            }),
+          }),
+        );
+      });
+
+      it('should record PHONE_VERIFIED audit event when phone verification is updated', async () => {
+        const userWithPhone = { ...mockUser, phone: '+1234567890', isPhoneVerified: false };
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithPhone as any) // Initial lookup by sub
+          .mockResolvedValueOnce({ ...userWithPhone, isPhoneVerified: true } as any); // Final fetch by id
+
+        await service.updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isPhoneVerified: true }));
+
+        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+          (expect as any).objectContaining({
+            userId: mockUser.id,
+            eventType: AuthAuditEventType.PHONE_VERIFIED,
+            eventStatus: 'SUCCESS',
+            reason: 'admin_verification_update',
+            metadata: (expect as any).objectContaining({
+              previousStatus: false,
+              newStatus: true,
+              updateMethod: 'admin_direct',
+            }),
+          }),
+        );
+      });
+
+      it('should record both audit events when both verifications are updated', async () => {
+        const userWithBoth = {
+          ...mockUser,
+          email: 'test@example.com',
+          phone: '+1234567890',
+          isEmailVerified: false,
+          isPhoneVerified: false,
+        };
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithBoth as any) // Initial lookup by sub
+          .mockResolvedValueOnce({
+            ...userWithBoth,
+            isEmailVerified: true,
+            isPhoneVerified: true,
+          } as any); // Final fetch by id
+
+        await service.updateVerifiedStatus(
+          createUpdateVerifiedStatusDto(mockUser.sub, {
+            isEmailVerified: true,
+            isPhoneVerified: true,
+          }),
+        );
+
+        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+          (expect as any).objectContaining({
+            eventType: AuthAuditEventType.EMAIL_VERIFIED,
+          }),
+        );
+        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+          (expect as any).objectContaining({
+            eventType: AuthAuditEventType.PHONE_VERIFIED,
+          }),
+        );
+      });
+    });
+
+    describe('Validation errors', () => {
+      it('should throw error when trying to verify email that does not exist', async () => {
+        const userWithoutEmail = { ...mockUser, email: null };
+        mockUserRepository.findOne.mockReset();
+        mockUserRepository.findOne.mockResolvedValueOnce(userWithoutEmail as any); // Initial lookup by sub
+
+        const error = await service
+          .updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }))
+          .catch((e) => e);
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.message).toBe('Cannot set email verification to true: user does not have an email address');
+
+        expect(mockUserRepository.update).not.toHaveBeenCalled();
+      });
+
+      it('should throw error when trying to verify phone that does not exist', async () => {
+        const userWithoutPhone = { ...mockUser, phone: null };
+        mockUserRepository.findOne.mockReset();
+        mockUserRepository.findOne.mockResolvedValueOnce(userWithoutPhone as any); // Initial lookup by sub
+
+        const error = await service
+          .updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isPhoneVerified: true }))
+          .catch((e) => e);
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.message).toBe('Cannot set phone verification to true: user does not have a phone number');
+
+        expect(mockUserRepository.update).not.toHaveBeenCalled();
+      });
+
+      it('should throw error when user not found', async () => {
+        mockUserRepository.findOne.mockReset();
+        mockUserRepository.findOne.mockResolvedValueOnce(null);
+
+        const error = await service
+          .updateVerifiedStatus(createUpdateVerifiedStatusDto('non-existent-sub', { isEmailVerified: true }))
+          .catch((e) => e);
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.message).toBe('User not found');
+
+        expect(mockUserRepository.update).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('Error handling', () => {
+      it('should handle audit service errors gracefully', async () => {
+        const userWithEmail = { ...mockUser, email: 'test@example.com', isEmailVerified: false };
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithEmail as any) // Initial lookup by sub
+          .mockResolvedValueOnce({ ...userWithEmail, isEmailVerified: true } as any); // Final fetch by id
+        mockAuditService.recordEvent.mockRejectedValue(new Error('Audit service error'));
+
+        // Should not throw, just log error
+        const result = await service.updateVerifiedStatus(
+          createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }),
+        );
+
+        expect(result.isEmailVerified).toBe(true);
+        expect(mockUserRepository.update).toHaveBeenCalled();
+      });
+
+      it('should handle reload failure gracefully', async () => {
+        const userWithEmail = { ...mockUser, email: 'test@example.com', isEmailVerified: false };
+        mockUserRepository.findOne.mockReset();
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithEmail as any) // Initial lookup by sub
+          .mockResolvedValueOnce(null); // Final fetch by id fails (after update)
+
+        const error = await service
+          .updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }))
+          .catch((e) => e);
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.message).toBe('Failed to reload user after update');
       });
     });
   });

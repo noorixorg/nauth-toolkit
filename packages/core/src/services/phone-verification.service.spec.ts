@@ -203,6 +203,7 @@ describe('PhoneVerificationService', () => {
       mockConfig,
       mockClientInfoService,
       mockLogger,
+      {} as any, // hookRegistry (mock)
       mockAuditService,
     );
   });
@@ -433,6 +434,7 @@ describe('PhoneVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        {} as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -457,6 +459,7 @@ describe('PhoneVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        {} as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -1055,6 +1058,7 @@ describe('PhoneVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        {} as any, // hookRegistry (mock)
         undefined, // No audit service
       );
 
@@ -1129,6 +1133,7 @@ describe('PhoneVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        {} as any, // hookRegistry (mock)
         mockAuditService,
       );
 

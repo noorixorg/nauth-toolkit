@@ -1251,6 +1251,7 @@ export class AuthModule {
             nauthConfig: NAuthConfig,
             clientInfoService: ClientInfoService,
             logger: NAuthLogger,
+            hookRegistry: HookRegistryService,
             auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
           ) => {
             return new EmailVerificationService(
@@ -1261,6 +1262,7 @@ export class AuthModule {
               nauthConfig,
               clientInfoService,
               logger,
+              hookRegistry,
               auditService,
             );
           },
@@ -1272,6 +1274,7 @@ export class AuthModule {
             'NAUTH_CONFIG',
             ClientInfoService,
             'NAUTH_LOGGER',
+            HookRegistryService,
             { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
           ],
         },
@@ -1383,6 +1386,7 @@ export class AuthModule {
                   nauthConfig: NAuthConfig,
                   clientInfoService: ClientInfoService,
                   logger: NAuthLogger,
+                  hookRegistry: HookRegistryService,
                   auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
                 ) => {
                   return new PhoneVerificationService(
@@ -1393,6 +1397,7 @@ export class AuthModule {
                     nauthConfig,
                     clientInfoService,
                     logger,
+                    hookRegistry,
                     auditService,
                   );
                 },
@@ -1403,8 +1408,9 @@ export class AuthModule {
                   'STORAGE_ADAPTER',
                   'NAUTH_CONFIG',
                   ClientInfoService,
-                  { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
                   'NAUTH_LOGGER',
+                  HookRegistryService,
+                  { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
                 ],
               },
             ]

@@ -5,7 +5,13 @@
  */
 
 import { HookRegistryService } from '../services/hook-registry.service';
-import { IPreSignupHookProvider, IPostSignupHookProvider, SignupMetadata } from '../interfaces/hooks.interface';
+import {
+  IPreSignupHookProvider,
+  IPostSignupHookProvider,
+  IUserProfileUpdatedHookProvider,
+  SignupMetadata,
+  UserProfileUpdatedMetadata,
+} from '../interfaces/hooks.interface';
 import { IUser } from '../interfaces/entities.interface';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
@@ -27,6 +33,10 @@ class MockPreSignupHook implements IPreSignupHookProvider {
 }
 
 class MockPostSignupHook implements IPostSignupHookProvider {
+  execute = jest.fn().mockResolvedValue(undefined);
+}
+
+class MockUserProfileUpdatedHook implements IUserProfileUpdatedHookProvider {
   execute = jest.fn().mockResolvedValue(undefined);
 }
 
@@ -282,7 +292,13 @@ describe('HookRegistryService', () => {
       hookRegistry.registerPostSignup(hook);
 
       const testUser = createTestUser();
-      const metadata: SignupMetadata = { requiresVerification: false, signupType: 'social', provider: 'google' };
+      const metadata: SignupMetadata = {
+        requiresVerification: false,
+        signupType: 'social',
+        provider: 'google',
+        socialMetadata: { sub: 'google_123', given_name: 'John', picture: 'https://example.com/pic.jpg' },
+        profilePicture: 'https://example.com/pic.jpg',
+      };
 
       await hookRegistry.executePostSignup(testUser, metadata);
 
@@ -396,6 +412,260 @@ describe('HookRegistryService', () => {
       ).resolves.not.toThrow();
 
       expect(hook.execute).toHaveBeenCalled();
+    });
+  });
+
+  // ============================================================================
+  // User Profile Updated Hook Tests
+  // ============================================================================
+
+  describe('registerUserProfileUpdated', () => {
+    it('should register a user profile updated hook provider', () => {
+      const hook = new MockUserProfileUpdatedHook();
+
+      hookRegistry.registerUserProfileUpdated(hook);
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('Registered userProfileUpdated hook: MockUserProfileUpdatedHook'),
+      );
+    });
+
+    it('should register multiple user profile updated hooks', () => {
+      const hook1 = new MockUserProfileUpdatedHook();
+      const hook2 = new MockUserProfileUpdatedHook();
+
+      hookRegistry.registerUserProfileUpdated(hook1);
+      hookRegistry.registerUserProfileUpdated(hook2);
+
+      expect(mockLogger.debug).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('executeUserProfileUpdated', () => {
+    const createTestUser = (): IUser => ({
+      id: 1,
+      sub: 'test-sub-123',
+      email: 'test@example.com',
+      username: null,
+      phone: null,
+      firstName: 'John',
+      lastName: 'Doe',
+      passwordHash: null,
+      passwordChangedAt: null,
+      passwordHistory: null,
+      isEmailVerified: true,
+      isPhoneVerified: false,
+      isActive: true,
+      mustChangePassword: false,
+      isLocked: false,
+      lockReason: null,
+      lockedAt: null,
+      lockedUntil: null,
+      failedLoginAttempts: 0,
+      lastFailedLoginAt: null,
+      lastLoginAt: null,
+      lastLoginIp: null,
+      hasSocialAuth: false,
+      socialProviders: null,
+      mfaEnabled: false,
+      mfaMethods: null,
+      preferredMfaMethod: null,
+      backupCodes: null,
+      metadata: null,
+      deletedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    it('should execute all registered user profile updated hooks in order', async () => {
+      const hook1 = new MockUserProfileUpdatedHook();
+      const hook2 = new MockUserProfileUpdatedHook();
+
+      hookRegistry.registerUserProfileUpdated(hook1);
+      hookRegistry.registerUserProfileUpdated(hook2);
+
+      const testUser = createTestUser();
+      const metadata: UserProfileUpdatedMetadata = {
+        user: testUser,
+        changedFields: [
+          {
+            fieldName: 'firstName',
+            oldValue: 'Jane',
+            newValue: 'John',
+          },
+        ],
+        updateSource: 'user_request',
+        clientInfo: {
+          ipAddress: '127.0.0.1',
+          userAgent: 'Test Agent',
+        },
+      };
+
+      await hookRegistry.executeUserProfileUpdated(metadata);
+
+      expect(hook1.execute).toHaveBeenCalledWith(metadata);
+      expect(hook2.execute).toHaveBeenCalledWith(metadata);
+    });
+
+    it('should pass correct metadata for user_request update', async () => {
+      const hook = new MockUserProfileUpdatedHook();
+      hookRegistry.registerUserProfileUpdated(hook);
+
+      const testUser = createTestUser();
+      const metadata: UserProfileUpdatedMetadata = {
+        user: testUser,
+        changedFields: [
+          {
+            fieldName: 'email',
+            oldValue: 'old@example.com',
+            newValue: 'test@example.com',
+          },
+        ],
+        updateSource: 'user_request',
+        clientInfo: {
+          ipAddress: '127.0.0.1',
+          userAgent: 'Test Agent',
+        },
+      };
+
+      await hookRegistry.executeUserProfileUpdated(metadata);
+
+      expect(hook.execute).toHaveBeenCalledWith(metadata);
+    });
+
+    it('should pass correct metadata for email_verification update', async () => {
+      const hook = new MockUserProfileUpdatedHook();
+      hookRegistry.registerUserProfileUpdated(hook);
+
+      const testUser = createTestUser();
+      const metadata: UserProfileUpdatedMetadata = {
+        user: testUser,
+        changedFields: [
+          {
+            fieldName: 'isEmailVerified',
+            oldValue: false,
+            newValue: true,
+          },
+        ],
+        updateSource: 'email_verification',
+        clientInfo: {
+          ipAddress: '127.0.0.1',
+          userAgent: 'Test Agent',
+        },
+      };
+
+      await hookRegistry.executeUserProfileUpdated(metadata);
+
+      expect(hook.execute).toHaveBeenCalledWith(metadata);
+    });
+
+    it('should pass correct metadata for phone_verification update', async () => {
+      const hook = new MockUserProfileUpdatedHook();
+      hookRegistry.registerUserProfileUpdated(hook);
+
+      const testUser = createTestUser();
+      const metadata: UserProfileUpdatedMetadata = {
+        user: testUser,
+        changedFields: [
+          {
+            fieldName: 'isPhoneVerified',
+            oldValue: false,
+            newValue: true,
+          },
+        ],
+        updateSource: 'phone_verification',
+        clientInfo: {
+          ipAddress: '127.0.0.1',
+          userAgent: 'Test Agent',
+        },
+      };
+
+      await hookRegistry.executeUserProfileUpdated(metadata);
+
+      expect(hook.execute).toHaveBeenCalledWith(metadata);
+    });
+
+    it('should pass correct metadata for admin_action update', async () => {
+      const hook = new MockUserProfileUpdatedHook();
+      hookRegistry.registerUserProfileUpdated(hook);
+
+      const testUser = createTestUser();
+      const metadata: UserProfileUpdatedMetadata = {
+        user: testUser,
+        changedFields: [
+          {
+            fieldName: 'isEmailVerified',
+            oldValue: false,
+            newValue: true,
+          },
+        ],
+        updateSource: 'admin_action',
+        performedBy: 'admin-sub-123',
+        clientInfo: {
+          ipAddress: '127.0.0.1',
+          userAgent: 'Admin Panel',
+        },
+      };
+
+      await hookRegistry.executeUserProfileUpdated(metadata);
+
+      expect(hook.execute).toHaveBeenCalledWith(metadata);
+    });
+
+    it('should continue execution even when a hook throws an error', async () => {
+      const hook1 = new MockUserProfileUpdatedHook();
+      const hook2 = new MockUserProfileUpdatedHook();
+      hook1.execute.mockRejectedValue(new Error('Hook 1 failed'));
+
+      hookRegistry.registerUserProfileUpdated(hook1);
+      hookRegistry.registerUserProfileUpdated(hook2);
+
+      const testUser = createTestUser();
+      const metadata: UserProfileUpdatedMetadata = {
+        user: testUser,
+        changedFields: [{ fieldName: 'firstName', oldValue: 'Jane', newValue: 'John' }],
+        updateSource: 'user_request',
+      };
+
+      await expect(hookRegistry.executeUserProfileUpdated(metadata)).resolves.not.toThrow();
+
+      expect(hook1.execute).toHaveBeenCalled();
+      expect(hook2.execute).toHaveBeenCalled();
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('userProfileUpdated hook error'),
+        expect.objectContaining({ error: expect.any(Error) }),
+      );
+    });
+
+    it('should do nothing when no hooks are registered', async () => {
+      const testUser = createTestUser();
+      const metadata: UserProfileUpdatedMetadata = {
+        user: testUser,
+        changedFields: [{ fieldName: 'firstName', oldValue: 'Jane', newValue: 'John' }],
+        updateSource: 'user_request',
+      };
+
+      await expect(hookRegistry.executeUserProfileUpdated(metadata)).resolves.not.toThrow();
+    });
+
+    it('should work with multiple changed fields', async () => {
+      const hook = new MockUserProfileUpdatedHook();
+      hookRegistry.registerUserProfileUpdated(hook);
+
+      const testUser = createTestUser();
+      const metadata: UserProfileUpdatedMetadata = {
+        user: testUser,
+        changedFields: [
+          { fieldName: 'firstName', oldValue: 'Jane', newValue: 'John' },
+          { fieldName: 'lastName', oldValue: 'Smith', newValue: 'Doe' },
+          { fieldName: 'email', oldValue: 'jane@example.com', newValue: 'test@example.com' },
+        ],
+        updateSource: 'user_request',
+      };
+
+      await hookRegistry.executeUserProfileUpdated(metadata);
+
+      expect(hook.execute).toHaveBeenCalledWith(metadata);
     });
   });
 });
