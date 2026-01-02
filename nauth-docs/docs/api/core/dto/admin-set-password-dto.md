@@ -3,7 +3,7 @@ title: AdminSetPasswordDTO
 description: Admin-only password reset DTOs for resetting user passwords by identifier with configurable force change and session revocation.
 keywords: [admin, password, reset, dto, request, response, api]
 image: /img/api-social-card.png
-sidebar_position: 100
+sidebar_position: 10
 ---
 
 import Tabs from '@theme/Tabs';

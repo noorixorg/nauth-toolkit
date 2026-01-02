@@ -3,7 +3,7 @@ title: VerifyPhoneBySubDTO
 description: Phone verification DTO using user sub and 6-digit code. Used when allowing duplicate phone numbers across users.
 keywords: [verify, phone, sub, dto, verification, code, uuid, api]
 image: /img/api-social-card.png
-sidebar_position: 400
+sidebar_position: 1010
 ---
 
 import Tabs from '@theme/Tabs';

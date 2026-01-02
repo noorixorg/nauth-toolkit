@@ -3,7 +3,7 @@ title: SendVerificationSMSResponseDTO
 description: Response DTO for send verification SMS operation. Returns internal verification token ID.
 keywords: [phone, verification, sms, dto, response, token, api]
 image: /img/api-social-card.png
-sidebar_position: 380
+sidebar_position: 760
 ---
 
 import Tabs from '@theme/Tabs';

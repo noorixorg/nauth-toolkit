@@ -58,6 +58,10 @@ import {
   GetSetupDataDTO,
   GetSetupDataResponseDTO,
   TokenDelivery,
+  GetUserSessionsDTO,
+  GetUserSessionsResponseDTO,
+  LogoutSessionDTO,
+  LogoutSessionResponseDTO,
 } from '@nauth-toolkit/nestjs';
 
 /**
@@ -315,6 +319,84 @@ export class CustomAuthController {
   }
 
   /**
+   * Admin: Get user's active sessions
+   *
+   * Returns a list of all active sessions for any user.
+   * Administrators can view session information for any user by providing their sub.
+   *
+   * **SECURITY WARNING:** This endpoint has NO built-in authentication.
+   * You MUST protect it with your own admin authentication guard.
+   *
+   * @param sub - User UUID to get sessions for
+   * @returns List of active sessions with metadata
+   *
+   * @example
+   * ```typescript
+   * GET /auth/admin/users/:sub/sessions
+   * // Returns: { sessions: [{ sessionId, deviceInfo, ipAddress, lastActivity }] }
+   * ```
+   */
+  @Get('admin/users/:sub/sessions')
+  @HttpCode(HttpStatus.OK)
+  async adminGetUserSessions(@Param('sub') sub: string): Promise<GetUserSessionsResponseDTO> {
+    this.logger.log(`Admin get sessions for user: ${sub}`);
+    const dto = new GetUserSessionsDTO();
+    dto.sub = sub;
+    const result = await this.authService.getUserSessions(dto);
+    this.logger.log(`Retrieved ${result.sessions.length} session(s) for user: ${sub}`);
+    return result;
+  }
+
+  /**
+   * Admin: Force logout all sessions for a user
+   *
+   * Administratively revokes all active sessions for any user across all devices.
+   * Optionally revokes all trusted devices if forgetDevices flag is set.
+   *
+   * Useful for security scenarios:
+   * - Account compromise suspected
+   * - User requested account reset
+   * - Administrative security action
+   *
+   * **SECURITY WARNING:** This endpoint has NO built-in authentication.
+   * You MUST protect it with your own admin authentication guard.
+   *
+   * @param sub - User UUID to logout
+   * @param body - Optional forgetDevices flag
+   * @returns Number of sessions revoked
+   *
+   * @example
+   * ```typescript
+   * POST /auth/admin/users/:sub/logout-all
+   * { "forgetDevices": true }
+   * // Returns: { revokedCount: 3 }
+   * ```
+   */
+  @Post('admin/users/:sub/logout-all')
+  @HttpCode(HttpStatus.OK)
+  async adminLogoutAll(
+    @Param('sub') sub: string,
+    @Body() body?: { forgetDevices?: boolean },
+  ): Promise<{ message: string; revokedCount: number }> {
+    this.logger.log(`Admin force logout all sessions for user: ${sub}`);
+    const dto = new LogoutAllDTO();
+    dto.sub = sub;
+    if (body?.forgetDevices !== undefined) {
+      dto.forgetDevices = body.forgetDevices;
+    }
+    const result = await this.authService.logoutAll(dto);
+    const message = body?.forgetDevices
+      ? `All sessions and trusted devices revoked for user (${result.revokedCount} session(s))`
+      : `All sessions revoked for user (${result.revokedCount} session(s))`;
+    this.logger.log(`Admin: Revoked ${result.revokedCount} session(s) for user: ${sub}`);
+
+    return {
+      message,
+      revokedCount: result.revokedCount,
+    };
+  }
+
+  /**
    * Get paginated list of users with advanced filtering
    *
    * Supports filtering by email, phone, verification status, social auth, lock status, MFA, and dates.
@@ -528,6 +610,72 @@ export class CustomAuthController {
       message,
       revokedCount: result.revokedCount,
     };
+  }
+
+  /**
+   * Get user's active sessions
+   *
+   * Returns a list of all active sessions for the authenticated user across all devices.
+   * Includes session metadata like device info, IP address, location, and last activity.
+   * Current session is marked with `isCurrent: true`.
+   *
+   * Requires authentication - user must be logged in.
+   *
+   * @param user - Current user (from JWT)
+   * @returns List of active sessions with metadata
+   *
+   * @example
+   * ```typescript
+   * GET /auth/sessions
+   * // Returns: { sessions: [{ sessionId, deviceInfo, ipAddress, lastActivity, isCurrent }] }
+   * ```
+   */
+  @UseGuards(AuthGuard)
+  @Get('sessions')
+  @HttpCode(HttpStatus.OK)
+  async getUserSessions(@CurrentUser() user: IUser): Promise<GetUserSessionsResponseDTO> {
+    const dto = new GetUserSessionsDTO();
+    dto.sub = user.sub;
+    const result = await this.authService.getUserSessions(dto);
+    this.logger.log(`Retrieved ${result.sessions.length} session(s) for user: ${user.email}`);
+    return result;
+  }
+
+  /**
+   * Logout from specific session
+   *
+   * Revokes a specific session by session ID. User can only logout their own sessions.
+   * Session ownership is verified automatically.
+   *
+   * Useful for "sign out from device" functionality in user dashboards.
+   *
+   * Requires authentication - user must be logged in.
+   *
+   * @param user - Current user (from JWT)
+   * @param sessionId - Session ID to revoke
+   * @returns Success confirmation
+   *
+   * @example
+   * ```typescript
+   * DELETE /auth/sessions/123
+   * // Returns: { success: true, wasCurrentSession: false }
+   * ```
+   */
+  @UseGuards(AuthGuard)
+  @Delete('sessions/:sessionId')
+  @HttpCode(HttpStatus.OK)
+  async logoutSession(
+    @CurrentUser() user: IUser,
+    @Param('sessionId') sessionId: string,
+  ): Promise<LogoutSessionResponseDTO> {
+    const dto = new LogoutSessionDTO();
+    dto.sub = user.sub;
+    dto.sessionId = sessionId;
+    const result = await this.authService.logoutSession(dto);
+    this.logger.log(
+      `Session ${sessionId} revoked for user: ${user.email} (current: ${result.wasCurrentSession})`,
+    );
+    return result;
   }
 
   /**

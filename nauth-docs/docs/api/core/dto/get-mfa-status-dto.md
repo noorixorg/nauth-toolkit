@@ -3,7 +3,7 @@ title: GetMFAStatusDTO
 description: Request and response DTOs for retrieving comprehensive MFA status including enabled status, configured methods, available methods, backup codes, and exemption information.
 keywords: [mfa, status, dto, request, response, enabled, methods, api]
 image: /img/api-social-card.png
-sidebar_position: 490
+sidebar_position: 320
 ---
 
 import Tabs from '@theme/Tabs';

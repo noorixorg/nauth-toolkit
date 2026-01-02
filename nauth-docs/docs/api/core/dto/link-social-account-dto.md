@@ -3,7 +3,7 @@ title: LinkSocialAccountDTO
 description: Request DTO for linking social account to existing user. Includes user ID, provider, authorization code, and state.
 keywords: [social, auth, oauth, dto, request, link, api]
 image: /img/api-social-card.png
-sidebar_position: 620
+sidebar_position: 520
 ---
 
 import Tabs from '@theme/Tabs';

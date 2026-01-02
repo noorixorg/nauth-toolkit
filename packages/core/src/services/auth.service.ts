@@ -2502,13 +2502,39 @@ export class AuthService {
   // ============================================================================
 
   /**
-   * Logout user (revoke session)
+   * Logout user from current session
    *
-   * Session ID is automatically extracted from the JWT token context (via ClientInfoService), similar to how IP address and user agent are handled.
+   * Revokes the current authenticated session. Session ID is automatically extracted
+   * from the JWT token context (via ClientInfoService), similar to how IP address
+   * and user agent are handled.
    *
-   * @param dto - Logout options (forgetMe flag)
+   * Usage Pattern:
+   * - **User-context only**: This method operates on the current authenticated session
+   * - Session ID is transparently extracted from JWT token in request context
+   * - User can only logout their own current session (not other sessions)
+   * - For logging out other sessions, use logoutSession() or logoutAll()
+   *
+   * Security:
+   * - Requires authentication - session ID must be present in request context
+   * - Endpoint MUST be protected by authentication guards
+   * - User cannot specify which session to logout (always current session)
+   * - Optional sub validation for additional security
+   *
+   * @param dto - Logout options (optional sub for validation, optional forgetMe flag)
    * @returns Success status
-   * @throws {NAuthException} If session ID is not available in request context
+   * @throws {NAuthException} SESSION_NOT_FOUND if session ID not found in request context
+   *
+   * @example
+   * ```typescript
+   * @UseGuards(AuthGuard)
+   * @Get('logout')
+   * async logout(@CurrentUser() user: IUser, @Query('forgetMe') forgetMe?: string) {
+   *   const dto = new LogoutDTO();
+   *   dto.sub = user.sub; // Optional validation
+   *   dto.forgetMe = forgetMe === 'true';
+   *   return this.authService.logout(dto);
+   * }
+   * ```
    */
   async logout(dto: LogoutDTO): Promise<LogoutResponseDTO> {
     // Ensure DTO is validated (supports direct usage without framework validation)
@@ -2622,8 +2648,43 @@ export class AuthService {
 
   /**
    * Global signout (revoke all user sessions)
-   * @param sub - External user identifier (sub/UUID)
+   *
+   * Revokes all active sessions for a user across all devices.
+   * Optionally revokes all trusted devices if forgetDevices flag is set.
+   *
+   * Usage Patterns:
+   * - **User-initiated**: User logs out from all their own sessions (protected endpoint, user provides their own sub)
+   * - **Admin-initiated**: Admin force-logs out any user (admin-protected endpoint, admin provides target user's sub)
+   *
+   * Security:
+   * - Requires explicit sub parameter
+   * - NO built-in authentication - endpoint MUST be protected by guards
+   * - For user endpoints: Extract sub from authenticated user context (@CurrentUser)
+   * - For admin endpoints: Accept sub from route parameter and protect with admin guards
+   *
+   * @param dto - User sub and optional forgetDevices flag
    * @returns Number of sessions revoked
+   * @throws {NAuthException} NOT_FOUND if user not found
+   *
+   * @example User-initiated (user context)
+   * ```typescript
+   * // Controller extracts sub from authenticated user
+   * @UseGuards(AuthGuard)
+   * @Post('logout/all')
+   * async logoutAll(@CurrentUser() user: IUser, @Body() body: { forgetDevices?: boolean }) {
+   *   return this.authService.logoutAll({ sub: user.sub, forgetDevices: body.forgetDevices });
+   * }
+   * ```
+   *
+   * @example Admin-initiated (admin manages any user)
+   * ```typescript
+   * // Admin provides target user's sub
+   * @UseGuards(AuthGuard, AdminGuard)
+   * @Post('admin/users/:sub/logout-all')
+   * async adminLogoutAll(@Param('sub') sub: string, @Body() body: { forgetDevices?: boolean }) {
+   *   return this.authService.logoutAll({ sub, forgetDevices: body.forgetDevices });
+   * }
+   * ```
    */
   async logoutAll(dto: LogoutAllDTO): Promise<LogoutAllResponseDTO> {
     // Ensure DTO is validated (supports direct usage without framework validation)
@@ -2758,15 +2819,38 @@ export class AuthService {
    *
    * Returns session details including authentication method (password, social, admin).
    * For social logins, check session metadata for the specific OAuth provider.
+   * Current session (if called from authenticated context) is marked with isCurrent=true.
+   *
+   * Usage Patterns:
+   * - **User viewing own sessions**: User views their active sessions (protected endpoint, user provides their own sub)
+   * - **Admin viewing any user's sessions**: Admin views any user's sessions (admin-protected endpoint, admin provides target user's sub)
+   *
+   * Security:
+   * - Requires explicit sub parameter
+   * - NO built-in authentication - endpoint MUST be protected by guards
+   * - For user endpoints: Extract sub from authenticated user context (@CurrentUser)
+   * - For admin endpoints: Accept sub from route parameter and protect with admin guards
    *
    * @param dto - Contains user sub
-   * @returns Array of sessions with device info and auth method
-   * @throws {NAuthException} If user not found
+   * @returns Array of sessions with device info, auth method, and isCurrent flag
+   * @throws {NAuthException} NOT_FOUND if user not found
    *
-   * @example
+   * @example User viewing own sessions
    * ```typescript
-   * const sessions = await authService.getUserSessions({ sub: 'user-uuid-123' });
-   * // sessions.sessions = [{ sessionId: '123', authMethod: 'password', authProvider: null, ... }, ...]
+   * @UseGuards(AuthGuard)
+   * @Get('sessions')
+   * async getSessions(@CurrentUser() user: IUser) {
+   *   return this.authService.getUserSessions({ sub: user.sub });
+   * }
+   * ```
+   *
+   * @example Admin viewing any user's sessions
+   * ```typescript
+   * @UseGuards(AuthGuard, AdminGuard)
+   * @Get('admin/users/:sub/sessions')
+   * async adminGetSessions(@Param('sub') sub: string) {
+   *   return this.authService.getUserSessions({ sub });
+   * }
    * ```
    */
   async getUserSessions(dto: GetUserSessionsDTO): Promise<GetUserSessionsResponseDTO> {
@@ -2834,21 +2918,43 @@ export class AuthService {
   /**
    * Logout a specific session by ID
    *
-   * Security: Validates session belongs to requesting user.
-   * Clears cookies if logging out current session.
+   * Revokes a specific session for a user. Validates session belongs to requesting user.
+   * Automatically clears cookies if logging out the current session.
+   * Useful for "sign out from device" functionality in user dashboards.
+   *
+   * Usage Patterns:
+   * - **User logging out own session**: User revokes specific session (protected endpoint, user provides their own sub)
+   * - **Admin revoking any user's session**: Admin revokes specific session for any user (admin-protected endpoint, admin provides target user's sub)
+   *
+   * Security:
+   * - Requires explicit sub parameter
+   * - Validates session belongs to user (prevents unauthorized session revocation)
+   * - NO built-in authentication - endpoint MUST be protected by guards
+   * - For user endpoints: Extract sub from authenticated user context (@CurrentUser)
+   * - For admin endpoints: Accept sub from route parameter and protect with admin guards
    *
    * @param dto - Contains sessionId and user sub
-   * @returns Success status
-   * @throws {NAuthException} If user not found, session not found, or session doesn't belong to user
+   * @returns Success status and whether it was the current session
+   * @throws {NAuthException} NOT_FOUND if user not found
+   * @throws {NAuthException} SESSION_NOT_FOUND if session not found
+   * @throws {NAuthException} FORBIDDEN if session doesn't belong to user
    *
-   * @example
+   * @example User logging out own session
    * ```typescript
-   * const result = await authService.logoutSession({
-   *   sub: 'user-uuid-123',
-   *   sessionId: '456'
-   * });
-   * // result.success === true
-   * // result.wasCurrentSession === false
+   * @UseGuards(AuthGuard)
+   * @Delete('sessions/:sessionId')
+   * async logoutSession(@CurrentUser() user: IUser, @Param('sessionId') sessionId: string) {
+   *   return this.authService.logoutSession({ sub: user.sub, sessionId });
+   * }
+   * ```
+   *
+   * @example Admin revoking any user's session (if needed)
+   * ```typescript
+   * @UseGuards(AuthGuard, AdminGuard)
+   * @Delete('admin/users/:sub/sessions/:sessionId')
+   * async adminRevokeSession(@Param('sub') sub: string, @Param('sessionId') sessionId: string) {
+   *   return this.authService.logoutSession({ sub, sessionId });
+   * }
    * ```
    */
   async logoutSession(dto: LogoutSessionDTO): Promise<LogoutSessionResponseDTO> {

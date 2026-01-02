@@ -3,7 +3,7 @@ title: GetAvailableMethodsDTO
 description: Request and response DTOs for retrieving available MFA methods that can be set up for a user. Returns array of registered provider method names.
 keywords: [mfa, methods, available, dto, request, response, api]
 image: /img/api-social-card.png
-sidebar_position: 480
+sidebar_position: 220
 ---
 
 import Tabs from '@theme/Tabs';

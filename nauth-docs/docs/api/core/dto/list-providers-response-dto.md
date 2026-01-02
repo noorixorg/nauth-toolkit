@@ -3,7 +3,7 @@ title: ListProvidersResponseDTO
 description: Response DTO for listing all registered MFA provider method names. Returns array of available provider names.
 keywords: [mfa, providers, list, dto, response, api]
 image: /img/api-social-card.png
-sidebar_position: 930
+sidebar_position: 540
 ---
 
 import Tabs from '@theme/Tabs';

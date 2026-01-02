@@ -3,7 +3,7 @@ title: ResendVerificationEmailDTO
 description: Request DTO for resending verification emails. Supports identification by user sub (UUID) or email address with optional base URL.
 keywords: [email, verification, dto, request, resend, api]
 image: /img/api-social-card.png
-sidebar_position: 280
+sidebar_position: 660
 ---
 
 import Tabs from '@theme/Tabs';

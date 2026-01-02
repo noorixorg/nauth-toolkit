@@ -3,7 +3,7 @@ title: SendVerificationEmailResponseDTO
 description: Response DTO for send verification email operation. Returns internal verification token ID.
 keywords: [email, verification, dto, response, token, api]
 image: /img/api-social-card.png
-sidebar_position: 310
+sidebar_position: 740
 ---
 
 import Tabs from '@theme/Tabs';

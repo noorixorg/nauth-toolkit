@@ -3,7 +3,7 @@ title: VerifyMFACodeDTO
 description: Request and response DTOs for verifying MFA code. Supports TOTP, SMS, Email, Passkey, and Backup codes with optional device ID.
 keywords: [mfa, verify, code, dto, request, response, totp, sms, passkey, api]
 image: /img/api-social-card.png
-sidebar_position: 570
+sidebar_position: 1000
 ---
 
 import Tabs from '@theme/Tabs';

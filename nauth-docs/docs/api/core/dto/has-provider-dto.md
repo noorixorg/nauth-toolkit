@@ -3,7 +3,7 @@ title: HasProviderDTO
 description: Request and response DTOs for checking if an MFA provider is registered. Returns boolean indicating provider availability.
 keywords: [mfa, provider, check, dto, request, response, api]
 image: /img/api-social-card.png
-sidebar_position: 920
+sidebar_position: 500
 ---
 
 import Tabs from '@theme/Tabs';

@@ -80,6 +80,7 @@ import { DTOName } from '@nauth-toolkit/core';
 - NO usage code examples (belong in service docs)
 - NO multiple request variations (one complete example)
 - Properties table includes ALL info: type, required, validation, description
+- **ALPHABETICAL ORDER REQUIRED**: When creating new DTO files, `sidebar_position` MUST be set to maintain strict alphabetical order. Check existing files to determine correct position.
 
 ---
 
@@ -229,7 +230,8 @@ fastify.post(
 - NO multiple examples per method
 - NO verbose error explanations (table only)
 - NO separate DTOs/Exceptions sections in Related APIs
-- Methods and properties in alphabetical order
+- **ALPHABETICAL ORDER REQUIRED**: Methods MUST be listed in strict alphabetical order. When adding new methods, place them in the correct alphabetical position.
+- Properties in alphabetical order
 
 **For Methods with Token Delivery Modes (login, signup, respondToChallenge, etc.):**
 
@@ -343,13 +345,37 @@ Brief message.
 
 ---
 
+## Alphabetical Sorting Requirements
+
+**CRITICAL**: All documentation MUST maintain strict alphabetical order:
+
+1. **DTO Files**: When creating new DTO documentation files, the `sidebar_position` in front matter MUST be set to maintain alphabetical order relative to existing files. Check existing DTO files to determine the correct position.
+
+2. **Service Methods**: All methods in service documentation MUST be listed in strict alphabetical order. When adding new methods, place them in the correct alphabetical position within the Methods section.
+
+3. **DTO Properties**: Properties within DTO documentation tables MUST be listed in alphabetical order.
+
+4. **Verification**: Before committing, verify alphabetical order by:
+   - Checking file names are alphabetically sorted
+   - Checking `sidebar_position` values reflect alphabetical order
+   - Checking method order in service documentation
+
+**Example**: If adding `getUserSessionsDTO`:
+- Check existing files: `get-user-devices-dto.md` (position 520), `get-users-dto.md` (position 200)
+- Alphabetically: `get-user-devices` < `get-user-sessions` < `get-users`
+- Set `sidebar_position: 521` (between 520 and next position)
+
+---
+
 ## Quality Checklist
 
 - [ ] Front matter complete (title, description, keywords, image)
 - [ ] Description 50-160 chars (SEO). Body intro 1-2 sentences (tight, non-redundant).
 - [ ] Keywords relevant (3-8 terms)
 - [ ] All info in tables (no repetition)
-- [ ] Methods alphabetical
+- [ ] **Methods in strict alphabetical order**
+- [ ] **DTO files have correct `sidebar_position` for alphabetical order**
+- [ ] **DTO properties in alphabetical order**
 - [ ] One example per item
 - [ ] Tabs for platform code with `groupId="platform"`
 - [ ] Images have alt text

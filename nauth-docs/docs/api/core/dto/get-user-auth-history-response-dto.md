@@ -1,7 +1,7 @@
 ---
 title: GetUserAuthHistoryResponseDTO
 description: Response DTO for paginated user authentication history
-sidebar_position: 890
+sidebar_position: 420
 keywords: [dto, response, audit, history, pagination, api]
 image: /img/api-social-card.png
 ---

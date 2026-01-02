@@ -3,7 +3,7 @@ title: GetUserByIdDTO
 description: Request DTO for retrieving user by UUID identifier. Includes UUID v4 format validation and sanitization.
 keywords: [get, user, dto, request, uuid, api]
 image: /img/api-social-card.png
-sidebar_position: 730
+sidebar_position: 440
 ---
 
 import Tabs from '@theme/Tabs';

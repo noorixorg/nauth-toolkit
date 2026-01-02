@@ -3,7 +3,7 @@ title: UpdateVerifiedStatusRequestDTO
 description: Request DTO for updating email and/or phone verification status. Intended for admin use cases such as migration or offline validation.
 keywords: [user, update, verification, verified, email, phone, dto, request, uuid, api, admin]
 image: /img/api-social-card.png
-sidebar_position: 741
+sidebar_position: 930
 ---
 
 import Tabs from '@theme/Tabs';

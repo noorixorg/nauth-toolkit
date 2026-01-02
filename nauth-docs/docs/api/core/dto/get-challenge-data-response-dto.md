@@ -3,7 +3,7 @@ title: GetChallengeDataResponseDTO
 description: Response DTO for MFA challenge data. Currently only used for passkey method to return WebAuthn public key options.
 keywords: [mfa, challenge, data, response, dto, passkey, webauthn, api]
 image: /img/api-social-card.png
-sidebar_position: 450
+sidebar_position: 240
 ---
 
 import Tabs from '@theme/Tabs';

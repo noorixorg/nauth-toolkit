@@ -1,7 +1,7 @@
 ---
 title: GetUserAuthHistoryDTO
 description: Request DTO for getting paginated user authentication history with filtering options
-sidebar_position: 880
+sidebar_position: 410
 keywords: [dto, request, audit, history, authentication, api]
 image: /img/api-social-card.png
 ---

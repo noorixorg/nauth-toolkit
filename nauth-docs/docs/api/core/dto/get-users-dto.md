@@ -1,7 +1,7 @@
 ---
 title: GetUsersDTO
 description: Paginated user listing request with advanced filtering and sorting
-sidebar_position: 200
+sidebar_position: 480
 keywords: [dto, admin, list, users, pagination, filter]
 image: /img/api-social-card.png
 ---

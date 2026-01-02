@@ -3,7 +3,7 @@ title: RemoveDevicesDTO
 description: Request and response DTOs for removing MFA devices by method type. Automatically disables MFA if this was the last device.
 keywords: [mfa, devices, remove, delete, dto, request, response, api]
 image: /img/api-social-card.png
-sidebar_position: 530
+sidebar_position: 630
 ---
 
 import Tabs from '@theme/Tabs';

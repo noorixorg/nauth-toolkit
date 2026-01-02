@@ -1,7 +1,7 @@
 ---
 title: StartSocialRedirectQueryDTO
 description: Query DTO for starting redirect-first social login flow
-sidebar_position: 690
+sidebar_position: 880
 keywords: [dto, social, oauth, redirect, query, start, api]
 image: /img/api-social-card.png
 ---

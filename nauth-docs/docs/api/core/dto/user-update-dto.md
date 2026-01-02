@@ -3,7 +3,7 @@ title: UserUpdateDTO
 description: User profile update DTO with optional fields for username, name, email, phone, metadata, and MFA preferences. Includes comprehensive validation.
 keywords: [user, update, profile, dto, request, username, email, phone, api]
 image: /img/api-social-card.png
-sidebar_position: 760
+sidebar_position: 950
 ---
 
 import Tabs from '@theme/Tabs';

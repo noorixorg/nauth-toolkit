@@ -3,7 +3,7 @@ title: GetDeviceTokenResponseDTO
 description: Response DTO for device token. Returns device token from the current request context for trusted device feature.
 keywords: [device, token, trusted, response, dto, api]
 image: /img/api-social-card.png
-sidebar_position: 780
+sidebar_position: 260
 ---
 
 import Tabs from '@theme/Tabs';

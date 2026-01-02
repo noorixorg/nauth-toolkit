@@ -3,7 +3,7 @@ title: RefreshTokenDTO
 description: Refresh token DTO for generating new access tokens. Validates JWT refresh token length and format.
 keywords: [refresh, token, jwt, dto, authentication, request, api]
 image: /img/api-social-card.png
-sidebar_position: 70
+sidebar_position: 620
 ---
 
 import Tabs from '@theme/Tabs';

@@ -3,7 +3,7 @@ title: ErrorResponseDTO
 description: Standardized error response DTO with error code, message, details, and timestamp. Used for all authentication error responses.
 keywords: [error, response, dto, exception, api]
 image: /img/api-social-card.png
-sidebar_position: 910
+sidebar_position: 200
 ---
 
 import Tabs from '@theme/Tabs';

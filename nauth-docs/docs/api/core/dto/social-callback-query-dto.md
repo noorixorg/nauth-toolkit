@@ -1,7 +1,7 @@
 ---
 title: SocialCallbackQueryDTO
 description: Query DTO for OAuth callbacks via GET query parameters
-sidebar_position: 670
+sidebar_position: 860
 keywords: [dto, social, oauth, redirect, callback, query, api]
 image: /img/api-social-card.png
 ---

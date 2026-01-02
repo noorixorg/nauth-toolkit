@@ -615,97 +615,6 @@ Please ensure you implement Admin authorization as required. This method does no
 
 ---
 
-### getUsers()
-
-Get paginated list of users with advanced filtering. Supports pagination, boolean filters, exact match filters, date filters with operators (gt, gte, lt, lte, eq), and flexible sorting.
-
-```typescript
-async getUsers(dto: GetUsersDTO): Promise<GetUsersResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`GetUsersDTO`](../dto/get-users-dto)
-
-**Returns**
-
-- [`GetUsersResponseDTO`](../dto/get-users-response-dto) - Paginated user list with metadata
-
-**Errors**
-
-This method does not throw errors. Returns empty results if no users match filters.
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-@Injectable()
-export class AdminService {
-  constructor(private readonly authService: AuthService) {}
-
-  async listUsers(page: number, limit: number) {
-    const result = await this.authService.getUsers({
-      page,
-      limit,
-      isEmailVerified: true,
-      sortBy: 'createdAt',
-      sortOrder: 'DESC',
-    });
-    return result;
-  }
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-app.get('/admin/users', async (req, res) => {
-  const result = await nauth.authService.getUsers({
-    page: parseInt(req.query.page) || 1,
-    limit: parseInt(req.query.limit) || 10,
-    email: req.query.email,
-    isEmailVerified: req.query.isEmailVerified === 'true',
-  });
-  res.json(result);
-});
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-fastify.get(
-  '/admin/users',
-  { preHandler: nauth.helpers.adminOnly() },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return nauth.authService.getUsers({
-      page: req.query.page || 1,
-      limit: req.query.limit || 10,
-      isEmailVerified: req.query.isEmailVerified,
-      hasSocialAuth: req.query.hasSocialAuth,
-      sortBy: req.query.sortBy || 'createdAt',
-      sortOrder: req.query.sortOrder || 'DESC',
-    });
-  }),
-);
-```
-
-</TabItem>
-</Tabs>
-
-:::note Data Privacy
-Returns sanitized user data (no `passwordHash`, secrets, or sensitive fields). All users have access to standard `UserResponseDto` fields only.
-:::
-
-:::warning Authorization
-Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
-:::
-
----
-
 ### changePassword()
 
 Change user's password. Requires current password verification. All user sessions are revoked on successful password change.
@@ -1156,6 +1065,176 @@ const user = await nauth.authService.getUserForAuthContext('user-uuid-123');
 
 ---
 
+### getUserSessions()
+
+Get all active sessions for a user. Returns session details including device info, location, authentication method, and timestamps. Current session is marked with `isCurrent: true`.
+
+```typescript
+async getUserSessions(dto: GetUserSessionsDTO): Promise<GetUserSessionsResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`GetUserSessionsDTO`](../dto/get-user-sessions-dto) - Contains user `sub` identifier
+
+**Returns**
+
+- [`GetUserSessionsResponseDTO`](../dto/get-user-sessions-response-dto) - Array of sessions with device info, location, auth method, and `isCurrent` flag
+
+**Behavior**
+
+- Returns all active sessions for the specified user
+- Current session (if called from authenticated context) is marked with `isCurrent: true`
+- Includes device information (name, type, platform, browser) when available
+- Includes location information (IP address, country, city) when available
+- Includes authentication method (password, social, admin) and OAuth provider for social logins
+
+**Errors**
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
+
+| Code        | When           | Details     |
+| ----------- | -------------- | ----------- |
+| `NOT_FOUND` | User not found | `undefined` |
+
+:::warning Authentication Required
+This method requires authentication. For user endpoints, extract `sub` from authenticated user context. For admin endpoints, protect with admin guards and accept `sub` from route parameter.
+:::
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@UseGuards(AuthGuard)
+@Get('sessions')
+async getSessions(@CurrentUser() user: IUser) {
+  return this.authService.getUserSessions({ sub: user.sub });
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.get('/sessions', nauth.helpers.requireAuth(), async (req, res) => {
+  const user = nauth.helpers.getCurrentUser();
+  const result = await nauth.authService.getUserSessions({ sub: user.sub });
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.get(
+  '/sessions',
+  { preHandler: nauth.helpers.requireAuth() },
+  nauth.adapter.wrapRouteHandler(async () => {
+    const user = nauth.helpers.getCurrentUser();
+    return nauth.authService.getUserSessions({ sub: user.sub });
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+### getUsers()
+
+Get paginated list of users with advanced filtering. Supports pagination, boolean filters, exact match filters, date filters with operators (gt, gte, lt, lte, eq), and flexible sorting.
+
+```typescript
+async getUsers(dto: GetUsersDTO): Promise<GetUsersResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`GetUsersDTO`](../dto/get-users-dto)
+
+**Returns**
+
+- [`GetUsersResponseDTO`](../dto/get-users-response-dto) - Paginated user list with metadata
+
+**Errors**
+
+This method does not throw errors. Returns empty results if no users match filters.
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Injectable()
+export class AdminService {
+  constructor(private readonly authService: AuthService) {}
+
+  async listUsers(page: number, limit: number) {
+    const result = await this.authService.getUsers({
+      page,
+      limit,
+      isEmailVerified: true,
+      sortBy: 'createdAt',
+      sortOrder: 'DESC',
+    });
+    return result;
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.get('/admin/users', async (req, res) => {
+  const result = await nauth.authService.getUsers({
+    page: parseInt(req.query.page) || 1,
+    limit: parseInt(req.query.limit) || 10,
+    email: req.query.email,
+    isEmailVerified: req.query.isEmailVerified === 'true',
+  });
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.get(
+  '/admin/users',
+  { preHandler: nauth.helpers.adminOnly() },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    return nauth.authService.getUsers({
+      page: req.query.page || 1,
+      limit: req.query.limit || 10,
+      isEmailVerified: req.query.isEmailVerified,
+      hasSocialAuth: req.query.hasSocialAuth,
+      sortBy: req.query.sortBy || 'createdAt',
+      sortOrder: req.query.sortOrder || 'DESC',
+    });
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+:::note Data Privacy
+Returns sanitized user data (no `passwordHash`, secrets, or sensitive fields). All users have access to standard `UserResponseDto` fields only.
+:::
+
+:::warning Authorization
+Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
+:::
+
+---
+
 ### isTrustedDevice()
 
 Check whether the **current device** is trusted (eligible for trusted-device MFA bypass). Requires an authenticated session (sessionId must be present in request context).
@@ -1463,6 +1542,11 @@ async logoutAll(dto: LogoutAllDTO): Promise<LogoutAllResponseDTO>
 - Returns the count of revoked sessions
 - Device revocation errors are non-blocking (logged but operation continues)
 
+**Usage Patterns**
+
+- **User-initiated**: User logs out from all their own sessions (protected endpoint, user provides their own sub)
+- **Admin-initiated**: Admin force-logs out any user (admin-protected endpoint, admin provides target user's sub)
+
 **Errors**
 
 Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
@@ -1472,24 +1556,208 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed b
 | `NOT_FOUND` | User not found | `undefined` |
 
 :::warning Authentication Required
-This method requires the user to be authenticated. The endpoint is protected and cannot be called publicly. The `sub` field must be provided and should match the authenticated user's JWT token.
+This method requires authentication. For user endpoints, extract `sub` from authenticated user context. For admin endpoints, protect with admin guards and accept `sub` from route parameter.
 :::
 
 **Example**
 
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
 ```typescript
-// Revoke all sessions but keep devices trusted
-const result = await authService.logoutAll({
-  sub: 'a21b654c-2746-4168-acee-c175083a65cd',
-  forgetDevices: false,
+// User-initiated (user context)
+@UseGuards(AuthGuard)
+@Post('logout/all')
+async logoutAll(@CurrentUser() user: IUser, @Body() body: { forgetDevices?: boolean }) {
+  return this.authService.logoutAll({ sub: user.sub, forgetDevices: body.forgetDevices });
+}
+
+// Admin-initiated (admin manages any user)
+@UseGuards(AuthGuard, AdminGuard)
+@Post('admin/users/:sub/logout-all')
+async adminLogoutAll(@Param('sub') sub: string, @Body() body: { forgetDevices?: boolean }) {
+  return this.authService.logoutAll({ sub, forgetDevices: body.forgetDevices });
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+// User-initiated
+app.post('/logout/all', nauth.helpers.requireAuth(), async (req, res) => {
+  const user = nauth.helpers.getCurrentUser();
+  const result = await nauth.authService.logoutAll({
+    sub: user.sub,
+    forgetDevices: req.body.forgetDevices,
+  });
+  res.json(result);
 });
 
-// Revoke all sessions AND all trusted devices
-const result2 = await authService.logoutAll({
-  sub: 'a21b654c-2746-4168-acee-c175083a65cd',
-  forgetDevices: true,
+// Admin-initiated
+app.post('/admin/users/:sub/logout-all', nauth.helpers.requireAuth(), requireAdmin, async (req, res) => {
+  const result = await nauth.authService.logoutAll({
+    sub: req.params.sub,
+    forgetDevices: req.body.forgetDevices,
+  });
+  res.json(result);
 });
 ```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+// User-initiated
+fastify.post(
+  '/logout/all',
+  { preHandler: nauth.helpers.requireAuth() },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    const user = nauth.helpers.getCurrentUser();
+    return nauth.authService.logoutAll({
+      sub: user.sub,
+      forgetDevices: req.body.forgetDevices,
+    });
+  }),
+);
+
+// Admin-initiated
+fastify.post(
+  '/admin/users/:sub/logout-all',
+  { preHandler: [nauth.helpers.requireAuth(), requireAdmin] },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    return nauth.authService.logoutAll({
+      sub: req.params.sub,
+      forgetDevices: req.body.forgetDevices,
+    });
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+### logoutSession()
+
+Logout from a specific session by session ID. Validates session ownership for security. Automatically clears cookies if logging out the current session.
+
+```typescript
+async logoutSession(dto: LogoutSessionDTO): Promise<LogoutSessionResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`LogoutSessionDTO`](../dto/logout-session-dto) - Contains `sessionId` and user `sub` identifier
+
+**Returns**
+
+- [`LogoutSessionResponseDTO`](../dto/logout-session-response-dto) - `{ success: boolean, wasCurrentSession: boolean }`
+
+**Behavior**
+
+- Revokes the specified session for the user
+- Validates session belongs to user (prevents unauthorized session revocation)
+- Automatically clears cookies if the revoked session was the current session
+- Returns `wasCurrentSession: true` if the revoked session was the current session
+
+**Usage Patterns**
+
+- **User logging out own session**: User revokes specific session (protected endpoint, user provides their own sub)
+- **Admin revoking any user's session**: Admin revokes specific session for any user (admin-protected endpoint, admin provides target user's sub)
+
+**Errors**
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
+
+| Code                | When                            | Details     |
+| ------------------- | ------------------------------- | ----------- |
+| `NOT_FOUND`         | User not found                  | `undefined` |
+| `SESSION_NOT_FOUND` | Session not found               | `undefined` |
+| `FORBIDDEN`         | Session does not belong to user | `undefined` |
+
+:::warning Authentication Required
+This method requires authentication. For user endpoints, extract `sub` from authenticated user context. For admin endpoints, protect with admin guards and accept `sub` from route parameter. Session ownership is validated automatically.
+:::
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+// User logging out own session
+@UseGuards(AuthGuard)
+@Delete('sessions/:sessionId')
+async logoutSession(@CurrentUser() user: IUser, @Param('sessionId') sessionId: string) {
+  return this.authService.logoutSession({ sub: user.sub, sessionId });
+}
+
+// Admin revoking any user's session
+@UseGuards(AuthGuard, AdminGuard)
+@Delete('admin/users/:sub/sessions/:sessionId')
+async adminRevokeSession(@Param('sub') sub: string, @Param('sessionId') sessionId: string) {
+  return this.authService.logoutSession({ sub, sessionId });
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+// User logging out own session
+app.delete('/sessions/:sessionId', nauth.helpers.requireAuth(), async (req, res) => {
+  const user = nauth.helpers.getCurrentUser();
+  const result = await nauth.authService.logoutSession({
+    sub: user.sub,
+    sessionId: req.params.sessionId,
+  });
+  res.json(result);
+});
+
+// Admin revoking any user's session
+app.delete('/admin/users/:sub/sessions/:sessionId', nauth.helpers.requireAuth(), requireAdmin, async (req, res) => {
+  const result = await nauth.authService.logoutSession({
+    sub: req.params.sub,
+    sessionId: req.params.sessionId,
+  });
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+// User logging out own session
+fastify.delete(
+  '/sessions/:sessionId',
+  { preHandler: nauth.helpers.requireAuth() },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    const user = nauth.helpers.getCurrentUser();
+    return nauth.authService.logoutSession({
+      sub: user.sub,
+      sessionId: req.params.sessionId,
+    });
+  }),
+);
+
+// Admin revoking any user's session
+fastify.delete(
+  '/admin/users/:sub/sessions/:sessionId',
+  { preHandler: [nauth.helpers.requireAuth(), requireAdmin] },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    return nauth.authService.logoutSession({
+      sub: req.params.sub,
+      sessionId: req.params.sessionId,
+    });
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
 
 ---
 
