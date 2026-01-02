@@ -58,6 +58,10 @@ import { LogoutDTO } from '../dto/logout.dto';
 import { LogoutResponseDTO } from '../dto/logout-response.dto';
 import { LogoutAllDTO } from '../dto/logout-all.dto';
 import { LogoutAllResponseDTO } from '../dto/logout-all-response.dto';
+import { GetUserSessionsDTO } from '../dto/get-user-sessions.dto';
+import { GetUserSessionsResponseDTO, UserSessionInfo } from '../dto/get-user-sessions-response.dto';
+import { LogoutSessionDTO } from '../dto/logout-session.dto';
+import { LogoutSessionResponseDTO } from '../dto/logout-session-response.dto';
 import { RefreshTokenDTO } from '../dto/refresh-token.dto';
 import { ResendCodeDTO } from '../dto/resend-code.dto';
 import { ResendCodeResponseDTO } from '../dto/resend-code-response.dto';
@@ -68,18 +72,18 @@ import { ForgotPasswordDTO, ForgotPasswordResponseDTO } from '../dto/forgot-pass
 import { ConfirmForgotPasswordDTO, ConfirmForgotPasswordResponseDTO } from '../dto/confirm-forgot-password.dto';
 import { TrustDeviceResponseDTO } from '../dto/trust-device-response.dto';
 import { IsTrustedDeviceResponseDTO } from '../dto/is-trusted-device-response.dto';
-import { VerifyEmailWithCodeDTO, ResendVerificationEmailDTO } from '../dto/verify-email.dto';
+import { ResendVerificationEmailDTO } from '../dto/verify-email.dto';
 import { SendVerificationSMSDTO, ResendVerificationSMSDTO } from '../dto/verify-phone.dto';
-import { VerifyPhoneWithCodeBySubDTO } from '../dto/verify-phone-by-sub.dto';
 import { PasswordResetService } from './password-reset.service';
 import { SocialAuthService } from './social-auth.service';
 import { HookRegistryService } from './hook-registry.service';
+import { AuthServiceInternalHelpers } from './auth-service-internal-helpers';
+import { UserService } from './user.service';
 
 import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
-import { MFAMethod } from '../enums/mfa-method.enum';
 import { isUUID } from 'class-validator';
 import * as crypto from 'crypto';
 import { generateSecurePassword } from '../utils/password-generator';
@@ -97,6 +101,9 @@ const DUMMY_ARGON2_HASH =
   '$argon2id$v=19$m=65536,t=3,p=4$RFVNTVlfU0FMVF9GT1JfVElNSU5H$dummyhashfordummyhashfordummyhash1234567890';
 
 export class AuthService {
+  private readonly helpers: AuthServiceInternalHelpers;
+  private readonly userService: UserService;
+
   constructor(
     private readonly userRepository: Repository<BaseUser>,
     private readonly loginAttemptRepository: Repository<BaseLoginAttempt>,
@@ -125,6 +132,41 @@ export class AuthService {
     private readonly authAuditRepository?: Repository<BaseAuthAudit>, // Optional - for cascade deletion
     private readonly trustedDeviceRepository?: Repository<BaseTrustedDevice>, // Optional - for cascade deletion
   ) {
+    // Initialize internal helpers with only needed dependencies
+    this.helpers = new AuthServiceInternalHelpers(
+      userRepository,
+      loginAttemptRepository,
+      emailVerificationService,
+      phoneVerificationService,
+      challengeService,
+      challengeHelper,
+      clientInfoService,
+      sessionService,
+      accountLockoutStorage,
+      config,
+      logger,
+    );
+
+    // Initialize UserService for user data management
+    this.userService = new UserService(
+      userRepository,
+      loginAttemptRepository,
+      sessionService,
+      config,
+      logger,
+      mfaDeviceRepository,
+      auditService,
+      hookRegistry,
+      clientInfoService,
+      sessionRepository,
+      verificationTokenRepository,
+      socialAccountRepository,
+      challengeSessionRepository,
+      authAuditRepository,
+      trustedDeviceRepository,
+      this.helpers, // Pass helpers for validateUniquenessConstraints
+    );
+
     this.logger?.log?.('AuthService initialized');
   }
 
@@ -923,140 +965,7 @@ export class AuthService {
    * ```
    */
   async deleteUser(dto: DeleteUserDTO): Promise<DeleteUserResponseDTO> {
-    // Ensure DTO is validated
-    dto = await ensureValidatedDto(DeleteUserDTO, dto);
-
-    // Get client info for audit
-    const clientInfo = this.clientInfoService.get();
-
-    this.logger?.log?.(`Admin deleteUser initiated for sub: ${dto.sub}`);
-
-    // Find user by sub
-    const user = await this.userRepository.findOne({ where: { sub: dto.sub } });
-
-    if (!user) {
-      this.logger?.warn?.(`User not found for deletion: ${dto.sub}`);
-      throw new NAuthException(AuthErrorCode.USER_NOT_FOUND, 'User not found');
-    }
-
-    this.logger?.debug?.(`Deleting user ${user.email} (id: ${user.id}, sub: ${dto.sub})`);
-
-    // ============================================================================
-    // Explicit Cascade Deletion (to track counts)
-    // ============================================================================
-    // Even though database has CASCADE, we explicitly delete each table to track counts
-
-    // 1. Delete Sessions
-    let sessionsCount = 0;
-    if (this.sessionRepository) {
-      const result = await this.sessionRepository.delete({ userId: user.id as number });
-      sessionsCount = result.affected || 0;
-      this.logger?.debug?.(`Deleted ${sessionsCount} sessions for user ${dto.sub}`);
-    }
-
-    // 2. Delete Verification Tokens
-    let verificationTokensCount = 0;
-    if (this.verificationTokenRepository) {
-      const result = await this.verificationTokenRepository.delete({ userId: user.id as number });
-      verificationTokensCount = result.affected || 0;
-      this.logger?.debug?.(`Deleted ${verificationTokensCount} verification tokens for user ${dto.sub}`);
-    }
-
-    // 3. Delete MFA Devices
-    let mfaDevicesCount = 0;
-    if (this.mfaDeviceRepository) {
-      const result = await this.mfaDeviceRepository.delete({ userId: user.id as number });
-      mfaDevicesCount = result.affected || 0;
-      this.logger?.debug?.(`Deleted ${mfaDevicesCount} MFA devices for user ${dto.sub}`);
-    }
-
-    // 4. Delete Trusted Devices
-    let trustedDevicesCount = 0;
-    if (this.trustedDeviceRepository) {
-      const result = await this.trustedDeviceRepository.delete({ userId: user.id as number });
-      trustedDevicesCount = result.affected || 0;
-      this.logger?.debug?.(`Deleted ${trustedDevicesCount} trusted devices for user ${dto.sub}`);
-    }
-
-    // 5. Delete Social Accounts
-    let socialAccountsCount = 0;
-    if (this.socialAccountRepository) {
-      const result = await this.socialAccountRepository.delete({ userId: user.id as number });
-      socialAccountsCount = result.affected || 0;
-      this.logger?.debug?.(`Deleted ${socialAccountsCount} social accounts for user ${dto.sub}`);
-    }
-
-    // 6. Delete Login Attempts
-    let loginAttemptsCount = 0;
-    const loginAttemptResult = await this.loginAttemptRepository.delete({ userId: user.id as number });
-    loginAttemptsCount = loginAttemptResult.affected || 0;
-    this.logger?.debug?.(`Deleted ${loginAttemptsCount} login attempts for user ${dto.sub}`);
-
-    // 7. Delete Challenge Sessions
-    let challengeSessionsCount = 0;
-    if (this.challengeSessionRepository) {
-      const result = await this.challengeSessionRepository.delete({ userId: user.id as number });
-      challengeSessionsCount = result.affected || 0;
-      this.logger?.debug?.(`Deleted ${challengeSessionsCount} challenge sessions for user ${dto.sub}`);
-    }
-
-    // 8. Delete Audit Logs (user-specific)
-    let auditLogsCount = 0;
-    if (this.authAuditRepository) {
-      const result = await this.authAuditRepository.delete({ userId: user.id as number });
-      auditLogsCount = result.affected || 0;
-      this.logger?.debug?.(`Deleted ${auditLogsCount} audit logs for user ${dto.sub}`);
-    }
-
-    // ============================================================================
-    // Record Admin Action (BEFORE deleting user to satisfy foreign key constraint)
-    // ============================================================================
-    try {
-      await this.auditService?.recordEvent({
-        userId: user.id,
-        eventType: AuthAuditEventType.ACCOUNT_DELETED,
-        eventStatus: 'INFO',
-        authMethod: 'admin',
-        metadata: {
-          deletedEmail: user.email,
-          deletedSub: dto.sub,
-          adminIdentifier: clientInfo.ipAddress || 'unknown',
-          deletedRecords: {
-            sessions: sessionsCount,
-            verificationTokens: verificationTokensCount,
-            mfaDevices: mfaDevicesCount,
-            trustedDevices: trustedDevicesCount,
-            socialAccounts: socialAccountsCount,
-            loginAttempts: loginAttemptsCount,
-            challengeSessions: challengeSessionsCount,
-            auditLogs: auditLogsCount,
-          },
-        },
-      });
-    } catch (auditError) {
-      // Non-blocking: Log but continue
-      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-      this.logger?.error?.(`Failed to record ACCOUNT_DELETED audit event: ${errorMessage}`);
-    }
-
-    // 9. Delete User Record (final)
-    await this.userRepository.delete({ id: user.id });
-    this.logger?.log?.(`User deleted successfully: ${user.email} (sub: ${dto.sub})`);
-
-    return {
-      success: true,
-      deletedUserId: dto.sub,
-      deletedRecords: {
-        sessions: sessionsCount,
-        verificationTokens: verificationTokensCount,
-        mfaDevices: mfaDevicesCount,
-        trustedDevices: trustedDevicesCount,
-        socialAccounts: socialAccountsCount,
-        loginAttempts: loginAttemptsCount,
-        challengeSessions: challengeSessionsCount,
-        auditLogs: auditLogsCount,
-      },
-    };
+    return await this.userService.deleteUser(dto);
   }
 
   /**
@@ -1086,108 +995,7 @@ export class AuthService {
    * ```
    */
   async getUsers(dto: GetUsersDTO): Promise<GetUsersResponseDTO> {
-    // Ensure DTO is validated
-    dto = await ensureValidatedDto(GetUsersDTO, dto);
-
-    this.logger?.debug?.(`Admin getUsers initiated with filters: ${JSON.stringify(dto)}`);
-
-    // ============================================================================
-    // Build Query with Filters
-    // ============================================================================
-    const qb = this.userRepository.createQueryBuilder('user');
-
-    // Apply partial match filters (email and phone) - case-insensitive
-    // Using LOWER() for cross-database compatibility (works on both MySQL and PostgreSQL)
-    if (dto.email) {
-      qb.andWhere('LOWER(user.email) LIKE LOWER(:email)', { email: `%${dto.email}%` });
-    }
-
-    if (dto.phone) {
-      qb.andWhere('LOWER(user.phone) LIKE LOWER(:phone)', { phone: `%${dto.phone}%` });
-    }
-
-    // Apply boolean filters
-    if (dto.isEmailVerified !== undefined) {
-      qb.andWhere('user.isEmailVerified = :isEmailVerified', { isEmailVerified: dto.isEmailVerified });
-    }
-
-    if (dto.isPhoneVerified !== undefined) {
-      qb.andWhere('user.isPhoneVerified = :isPhoneVerified', { isPhoneVerified: dto.isPhoneVerified });
-    }
-
-    if (dto.hasSocialAuth !== undefined) {
-      qb.andWhere('user.hasSocialAuth = :hasSocialAuth', { hasSocialAuth: dto.hasSocialAuth });
-    }
-
-    if (dto.isLocked !== undefined) {
-      qb.andWhere('user.isLocked = :isLocked', { isLocked: dto.isLocked });
-    }
-
-    if (dto.mfaEnabled !== undefined) {
-      qb.andWhere('user.mfaEnabled = :mfaEnabled', { mfaEnabled: dto.mfaEnabled });
-    }
-
-    // Apply date filters with operators
-    if (dto.createdAt) {
-      const { operator, value } = dto.createdAt;
-      if (operator === 'gt') {
-        qb.andWhere('user.createdAt > :createdAtValue', { createdAtValue: value });
-      } else if (operator === 'gte') {
-        qb.andWhere('user.createdAt >= :createdAtValue', { createdAtValue: value });
-      } else if (operator === 'lt') {
-        qb.andWhere('user.createdAt < :createdAtValue', { createdAtValue: value });
-      } else if (operator === 'lte') {
-        qb.andWhere('user.createdAt <= :createdAtValue', { createdAtValue: value });
-      } else if (operator === 'eq') {
-        qb.andWhere('user.createdAt = :createdAtValue', { createdAtValue: value });
-      }
-    }
-
-    if (dto.updatedAt) {
-      const { operator, value } = dto.updatedAt;
-      if (operator === 'gt') {
-        qb.andWhere('user.updatedAt > :updatedAtValue', { updatedAtValue: value });
-      } else if (operator === 'gte') {
-        qb.andWhere('user.updatedAt >= :updatedAtValue', { updatedAtValue: value });
-      } else if (operator === 'lt') {
-        qb.andWhere('user.updatedAt < :updatedAtValue', { updatedAtValue: value });
-      } else if (operator === 'lte') {
-        qb.andWhere('user.updatedAt <= :updatedAtValue', { updatedAtValue: value });
-      } else if (operator === 'eq') {
-        qb.andWhere('user.updatedAt = :updatedAtValue', { updatedAtValue: value });
-      }
-    }
-
-    // ============================================================================
-    // Apply Sorting
-    // ============================================================================
-    const sortBy = dto.sortBy || 'createdAt';
-    const sortOrder = dto.sortOrder || 'DESC';
-    qb.orderBy(`user.${sortBy}`, sortOrder);
-
-    // ============================================================================
-    // Apply Pagination
-    // ============================================================================
-    const page = dto.page || 1;
-    const limit = dto.limit || 10;
-    qb.skip((page - 1) * limit).take(limit);
-
-    // Execute query
-    const [users, total] = await qb.getManyAndCount();
-    this.logger?.debug?.(`Found ${users.length} users (total: ${total}) with filters`);
-
-    // Sanitize user data
-    const sanitizedUsers = users.map((user) => UserResponseDto.fromEntity(user as unknown as IUser));
-
-    return {
-      users: sanitizedUsers,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    return await this.userService.getUsers(dto);
   }
 
   /**
@@ -1219,131 +1027,7 @@ export class AuthService {
    * ```
    */
   async disableUser(dto: DisableUserDTO): Promise<DisableUserResponseDTO> {
-    // Ensure DTO is validated
-    dto = await ensureValidatedDto(DisableUserDTO, dto);
-
-    // Get client info for audit
-    const clientInfo = this.clientInfoService.get();
-
-    this.logger?.log?.(`Admin disableUser initiated for sub: ${dto.sub}`);
-
-    // Find user by sub
-    const user = await this.userRepository.findOne({ where: { sub: dto.sub } });
-
-    if (!user) {
-      this.logger?.warn?.(`User not found for disabling: ${dto.sub}`);
-      throw new NAuthException(AuthErrorCode.USER_NOT_FOUND, 'User not found');
-    }
-
-    this.logger?.debug?.(`Disabling user ${user.email} (id: ${user.id}, sub: ${dto.sub})`);
-
-    // ============================================================================
-    // Set Permanent Lock (lockedUntil = NULL)
-    // ============================================================================
-    // Use update() to ensure persistence and avoid entity state issues
-    await this.userRepository.update(
-      { id: user.id },
-      {
-        isLocked: true,
-        lockReason: dto.reason || 'Account disabled',
-        lockedAt: new Date(),
-        lockedUntil: null, // NULL = permanent lock (vs rate-limit's future date)
-      },
-    );
-
-    // Reload user to get updated entity with lock fields
-    const updatedUser = (await this.userRepository.findOne({ where: { id: user.id } })) as IUser | null;
-    if (!updatedUser) {
-      throw new NAuthException(AuthErrorCode.USER_NOT_FOUND, 'User not found after update');
-    }
-
-    this.logger?.log?.(`User locked permanently: ${updatedUser.email} (sub: ${dto.sub})`);
-
-    // ============================================================================
-    // Revoke All Sessions (force logout)
-    // ============================================================================
-    let revokedCount = 0;
-    try {
-      revokedCount = await this.sessionService.revokeAllUserSessions(updatedUser.id as number, 'Account disabled');
-      this.logger?.debug?.(`Revoked ${revokedCount} sessions for user ${dto.sub}`);
-    } catch (sessionError) {
-      // Non-blocking: Log but continue
-      const errorMessage = sessionError instanceof Error ? sessionError.message : 'Unknown error';
-      this.logger?.warn?.(`Failed to revoke sessions for user ${dto.sub}: ${errorMessage}`);
-    }
-
-    // ============================================================================
-    // Record Admin Action (ACCOUNT_DISABLED)
-    // ============================================================================
-    if (!this.auditService) {
-      this.logger?.warn?.(
-        `Audit service not available - ACCOUNT_DISABLED event not recorded for user ${dto.sub}. Enable audit logs in config.auditLogs.enabled`,
-      );
-    } else {
-      try {
-        // Get admin user ID from client info (the currently logged in user performing this action)
-        // This is extracted from the JWT token by interceptors/handlers
-        const adminUserId = (clientInfo as { userId?: number })?.userId;
-
-        // Set performedBy to the admin's user ID (who locked the account)
-        // This identifies which admin user performed the action in the audit trail
-        const performedBy = adminUserId ? String(adminUserId) : clientInfo.ipAddress || 'system';
-
-        if (adminUserId) {
-          this.logger?.debug?.(
-            `Admin user ID ${adminUserId} (currently logged in) is disabling account for user ${dto.sub}`,
-          );
-        } else {
-          this.logger?.warn?.(
-            `No admin user ID in clientInfo - performedBy will be set to IP address or 'system' for user ${dto.sub}`,
-          );
-        }
-
-        const auditResult = await this.auditService.recordEvent({
-          userId: updatedUser.id, // The user whose account is being disabled
-          eventType: AuthAuditEventType.ACCOUNT_DISABLED,
-          eventStatus: 'INFO',
-          authMethod: 'admin',
-          performedBy, // The admin user ID (currently logged in user) who performed this action
-          reason: updatedUser.lockReason || 'Account disabled',
-          description: `Account disabled by administrator. User: ${updatedUser.email} (sub: ${dto.sub}). ${revokedCount} session(s) revoked.`,
-          metadata: {
-            email: updatedUser.email,
-            userSub: dto.sub,
-            reason: updatedUser.lockReason,
-            adminIdentifier: clientInfo.ipAddress || 'unknown',
-            adminUserId: adminUserId || null,
-            revokedSessions: revokedCount,
-            lockedAt: updatedUser.lockedAt,
-            lockedUntil: updatedUser.lockedUntil,
-          },
-        });
-
-        if (auditResult) {
-          this.logger?.debug?.(`ACCOUNT_DISABLED audit event recorded successfully for user ${dto.sub}`);
-        } else {
-          this.logger?.warn?.(`ACCOUNT_DISABLED audit event returned null for user ${dto.sub}`);
-        }
-      } catch (auditError) {
-        // Non-blocking: Log but continue
-        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-        const errorStack = auditError instanceof Error ? auditError.stack : undefined;
-        this.logger?.error?.(`Failed to record ACCOUNT_DISABLED audit event: ${errorMessage}`, {
-          error: auditError,
-          errorStack,
-          userId: updatedUser.id,
-          userSub: dto.sub,
-        });
-      }
-    }
-
-    // Return sanitized user and revoked session count
-    const userDto = UserResponseDto.fromEntity(updatedUser as unknown as IUser);
-    return {
-      success: true,
-      user: userDto,
-      revokedSessions: revokedCount,
-    };
+    return await this.userService.disableUser(dto);
   }
 
   /**
@@ -1371,113 +1055,7 @@ export class AuthService {
    * ```
    */
   async enableUser(dto: EnableUserDTO): Promise<EnableUserResponseDTO> {
-    // Ensure DTO is validated
-    dto = await ensureValidatedDto(EnableUserDTO, dto);
-
-    // Get client info for audit
-    const clientInfo = this.clientInfoService.get();
-
-    this.logger?.log?.(`Admin enableUser initiated for sub: ${dto.sub}`);
-
-    // Find user by sub
-    const user = await this.userRepository.findOne({ where: { sub: dto.sub } });
-
-    if (!user) {
-      this.logger?.warn?.(`User not found for enabling: ${dto.sub}`);
-      throw new NAuthException(AuthErrorCode.USER_NOT_FOUND, 'User not found');
-    }
-
-    this.logger?.debug?.(`Enabling user ${user.email} (id: ${user.id}, sub: ${dto.sub})`);
-
-    // ============================================================================
-    // Clear Lock Fields (unlock account)
-    // ============================================================================
-    await this.userRepository.update(
-      { id: user.id },
-      {
-        isLocked: false,
-        lockReason: null,
-        lockedAt: null,
-        lockedUntil: null,
-        failedLoginAttempts: 0, // Reset failed attempts counter
-      },
-    );
-
-    // Reload user to get updated entity
-    const updatedUser = (await this.userRepository.findOne({ where: { id: user.id } })) as IUser | null;
-    if (!updatedUser) {
-      throw new NAuthException(AuthErrorCode.USER_NOT_FOUND, 'User not found after update');
-    }
-
-    this.logger?.log?.(`User unlocked: ${updatedUser.email} (sub: ${dto.sub})`);
-
-    // ============================================================================
-    // Record Admin Action (ACCOUNT_ENABLED)
-    // ============================================================================
-    if (!this.auditService) {
-      this.logger?.warn?.(
-        `Audit service not available - ACCOUNT_ENABLED event not recorded for user ${dto.sub}. Enable audit logs in config.auditLogs.enabled`,
-      );
-    } else {
-      try {
-        // Get admin user ID from client info (the currently logged in user performing this action)
-        const adminUserId = (clientInfo as { userId?: number })?.userId;
-
-        // Set performedBy to the admin's user ID (who unlocked the account)
-        const performedBy = adminUserId ? String(adminUserId) : clientInfo.ipAddress || 'system';
-
-        if (adminUserId) {
-          this.logger?.debug?.(
-            `Admin user ID ${adminUserId} (currently logged in) is enabling account for user ${dto.sub}`,
-          );
-        } else {
-          this.logger?.warn?.(
-            `No admin user ID in clientInfo - performedBy will be set to IP address or 'system' for user ${dto.sub}`,
-          );
-        }
-
-        const auditResult = await this.auditService.recordEvent({
-          userId: updatedUser.id,
-          eventType: AuthAuditEventType.ACCOUNT_ENABLED,
-          eventStatus: 'INFO',
-          authMethod: 'admin',
-          performedBy,
-          reason: 'admin_unlock',
-          description: 'Account unlocked by administrator',
-          metadata: {
-            userSub: dto.sub,
-            adminIdentifier: clientInfo.ipAddress || 'unknown',
-            adminUserId: adminUserId || null,
-            previousLockReason: user.lockReason,
-            previousLockedAt: user.lockedAt,
-            previousLockedUntil: user.lockedUntil,
-          },
-        });
-
-        if (auditResult) {
-          this.logger?.debug?.(`ACCOUNT_ENABLED audit event recorded successfully for user ${dto.sub}`);
-        } else {
-          this.logger?.warn?.(`ACCOUNT_ENABLED audit event returned null for user ${dto.sub}`);
-        }
-      } catch (auditError) {
-        // Non-blocking: Log but continue
-        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-        const errorStack = auditError instanceof Error ? auditError.stack : undefined;
-        this.logger?.error?.(`Failed to record ACCOUNT_ENABLED audit event: ${errorMessage}`, {
-          error: auditError,
-          errorStack,
-          userId: updatedUser.id,
-          userSub: dto.sub,
-        });
-      }
-    }
-
-    // Return sanitized user
-    const userDto = UserResponseDto.fromEntity(updatedUser as unknown as IUser);
-    return {
-      success: true,
-      user: userDto,
-    };
+    return await this.userService.enableUser(dto);
   }
 
   // ============================================================================
@@ -1524,7 +1102,7 @@ export class AuthService {
         const isLocked = await this.accountLockoutStorage.isAccountLocked(ipAddress);
         if (isLocked) {
           this.logger?.warn?.(`Login blocked - IP locked: ${ipAddress}`);
-          await this.recordLoginAttempt(dto.identifier, false, 'ip_locked');
+          await this.helpers.recordLoginAttempt(dto.identifier, false, 'ip_locked');
 
           // ============================================================================
           // Audit: Record blocked login (IP locked)
@@ -1578,12 +1156,12 @@ export class AuthService {
     const identifierType = this.config.login?.identifierType;
     if (identifierType) {
       this.logger?.debug?.(`Validating identifier type for: ${dto.identifier}, allowed type: ${identifierType}`);
-      const isValidIdentifier = this.validateIdentifierType(dto.identifier, identifierType);
+      const isValidIdentifier = this.helpers.validateIdentifierType(dto.identifier, identifierType);
       if (!isValidIdentifier) {
         this.logger?.warn?.(
           `Login rejected - identifier type mismatch. Identifier: ${dto.identifier}, Required: ${identifierType}`,
         );
-        await this.handleFailedLogin(dto.identifier, 'identifier_type_mismatch');
+        await this.helpers.handleFailedLogin(dto.identifier, 'identifier_type_mismatch');
         throw new NAuthException(
           AuthErrorCode.INVALID_CREDENTIALS,
           `Login with this identifier type is not allowed. Expected: ${identifierType}`,
@@ -1593,7 +1171,7 @@ export class AuthService {
 
     // Find user by email, username, or phone (filtered by identifierType config)
     this.logger?.debug?.(`Finding user by identifier: ${dto.identifier}`);
-    const user = await this.findUserByIdentifier(dto.identifier, identifierType);
+    const user = await this.helpers.findUserByIdentifier(dto.identifier, identifierType);
 
     // SECURITY CRITICAL: Always hash password even when user doesn't exist
     // This ensures constant-time response to prevent user enumeration via timing attacks
@@ -1606,7 +1184,7 @@ export class AuthService {
     // Now check all conditions AFTER password verification (constant time achieved)
     if (!user || !user.passwordHash || !isPasswordValid) {
       this.logger?.warn?.(`Login failed - invalid credentials for: ${dto.identifier}`);
-      await this.handleFailedLogin(dto.identifier, 'invalid_credentials');
+      await this.helpers.handleFailedLogin(dto.identifier, 'invalid_credentials');
 
       // ============================================================================
       // Audit: Record failed login
@@ -1682,7 +1260,7 @@ export class AuthService {
         );
 
         // Record blocked login attempt
-        await this.recordLoginAttempt(dto.identifier, false, 'account_locked');
+        await this.helpers.recordLoginAttempt(dto.identifier, false, 'account_locked');
 
         // ============================================================================
         // Audit: Record blocked login (account locked)
@@ -1839,7 +1417,7 @@ export class AuthService {
       this.logger?.warn?.(
         `Login blocked - pending challenge: ${response.challengeName} for ${dto.identifier} (sub: ${user.sub})`,
       );
-      await this.recordLoginAttempt(
+      await this.helpers.recordLoginAttempt(
         dto.identifier,
         false,
         reasonMap[response.challengeName] || 'challenge_required',
@@ -1857,7 +1435,7 @@ export class AuthService {
       );
 
       // Record successful login attempt
-      await this.recordLoginAttempt(dto.identifier, true, undefined, user.id);
+      await this.helpers.recordLoginAttempt(dto.identifier, true, undefined, user.id);
       this.logger?.log?.(`Login successful for: ${dto.identifier} (sub: ${user.sub}) from ${clientInfo.ipAddress}`);
 
       // Update user last login info
@@ -2006,7 +1584,7 @@ export class AuthService {
     // Check if user is active (should never happen with new signups, but keep for legacy accounts)
     if (!user.isActive) {
       this.logger?.warn?.(`Login failed - account inactive: ${dto.identifier} (sub: ${user.sub})`);
-      await this.recordLoginAttempt(dto.identifier, false, 'account_inactive', user.id);
+      await this.helpers.recordLoginAttempt(dto.identifier, false, 'account_inactive', user.id);
 
       // ============================================================================
       // Audit: Record blocked login (account inactive)
@@ -2107,7 +1685,7 @@ export class AuthService {
     });
 
     // Record successful login attempt - use internal id
-    await this.recordLoginAttempt(dto.identifier, true, undefined, user.id);
+    await this.helpers.recordLoginAttempt(dto.identifier, true, undefined, user.id);
     this.logger?.log?.(`Login successful for: ${dto.identifier} (sub: ${user.sub}) from ${clientInfo.ipAddress}`);
 
     // ============================================================================
@@ -2259,933 +1837,52 @@ export class AuthService {
     const challengeSession = await this.challengeService.validateSession(session);
 
     // Validate response matches expected challenge
-    this.validateChallengeTypeMatch(challengeSession.challengeName, type);
+    this.helpers.validateChallengeTypeMatch(challengeSession.challengeName, type);
 
     // Validate parameters for this challenge type
     // TODO: Later check if we can use classvalidator to replicate the logic of DTO validation centrally
-    this.validateChallengeParams(type, responseData);
+    this.helpers.validateChallengeParams(type, responseData);
 
     // Handle challenge based on type
     switch (type) {
       case 'VERIFY_EMAIL':
-        return await this.handleVerifyEmail(challengeSession, (responseData as VerifyEmailResponse).code);
+        return await this.helpers.handleVerifyEmail(challengeSession, (responseData as VerifyEmailResponse).code);
 
       case 'VERIFY_PHONE':
-        return await this.handleVerifyPhone(
+        return await this.helpers.handleVerifyPhone(
           challengeSession,
           responseData as VerifyPhoneResponse | CollectPhoneResponse,
         );
 
       case 'MFA_REQUIRED':
-        return await this.handleMFAVerification(
+        return await this.helpers.handleMFAVerification(
           challengeSession,
           responseData as VerifyMFACodeResponse | VerifyMFAPasskeyResponse,
+          this.mfaService,
+          this.trustedDeviceService,
+          this.auditService,
         );
 
       case 'FORCE_CHANGE_PASSWORD':
-        return await this.handleForceChangePassword(
+        return await this.helpers.handleForceChangePassword(
           challengeSession,
           (responseData as ForceChangePasswordResponse).newPassword,
+          this.passwordService,
+          this.auditService,
         );
 
       case 'MFA_SETUP_REQUIRED':
-        return await this.handleMFASetup(challengeSession, responseData as MFASetupResponse);
+        return await this.helpers.handleMFASetup(
+          challengeSession,
+          responseData as MFASetupResponse,
+          this.mfaService,
+          this.auditService,
+        );
 
       default:
         throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, `Unknown challenge type: ${type}`);
     }
   }
-
-  /**
-   * Validate that response type matches expected challenge type
-   */
-  private validateChallengeTypeMatch(expected: string, provided: string): void {
-    if (expected !== provided) {
-      throw new NAuthException(
-        AuthErrorCode.VALIDATION_FAILED,
-        `Challenge type mismatch: expected ${expected}, got ${provided}`,
-      );
-    }
-  }
-
-  /**
-   * Validate parameters for challenge type
-   *
-   * Service-level validation ensures Express/other frameworks get same validation as NestJS.
-   * This is critical for non-DTO-based applications.
-   */
-  private validateChallengeParams(type: string, data: ChallengeResponseData): void {
-    switch (type) {
-      case 'VERIFY_EMAIL': {
-        const response = data as VerifyEmailResponse;
-        if (!response.code || typeof response.code !== 'string') {
-          throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Verification code is required', { field: 'code' });
-        }
-        break;
-      }
-
-      case 'VERIFY_PHONE': {
-        const response = data as VerifyPhoneResponse | CollectPhoneResponse;
-        const hasCode = 'code' in response && response.code;
-        const hasPhone = 'phone' in response && response.phone;
-
-        if (!hasCode && !hasPhone) {
-          throw new NAuthException(
-            AuthErrorCode.VALIDATION_FAILED,
-            'Either phone number or verification code is required',
-            { fields: ['phone', 'code'] },
-          );
-        }
-        break;
-      }
-
-      case 'MFA_REQUIRED': {
-        const response = data as VerifyMFACodeResponse | VerifyMFAPasskeyResponse;
-        if (!response.method) {
-          throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'MFA method is required', { field: 'method' });
-        }
-
-        if (response.method === 'passkey') {
-          const passkeyResponse = response as VerifyMFAPasskeyResponse;
-          if (!passkeyResponse.credential) {
-            throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Passkey credential is required', {
-              field: 'credential',
-            });
-          }
-        } else {
-          const codeResponse = response as VerifyMFACodeResponse;
-          if (!codeResponse.code || typeof codeResponse.code !== 'string') {
-            throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'MFA code is required', { field: 'code' });
-          }
-        }
-        break;
-      }
-
-      case 'FORCE_CHANGE_PASSWORD': {
-        const response = data as ForceChangePasswordResponse;
-        if (!response.newPassword || typeof response.newPassword !== 'string') {
-          throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'New password is required', {
-            field: 'newPassword',
-          });
-        }
-        break;
-      }
-
-      case 'MFA_SETUP_REQUIRED': {
-        const response = data as MFASetupResponse;
-        if (!response.method) {
-          throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'MFA setup method is required', {
-            field: 'method',
-          });
-        }
-        if (!response.setupData || typeof response.setupData !== 'object') {
-          throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'MFA setup data is required', {
-            field: 'setupData',
-          });
-        }
-        break;
-      }
-    }
-  }
-
-  /**
-   * Handle VERIFY_EMAIL challenge
-   */
-  private async handleVerifyEmail(
-    challengeSession: BaseChallengeSession & { user?: BaseUser },
-    code: string,
-  ): Promise<AuthResponseDTO> {
-    const user = challengeSession.user;
-    if (!user) {
-      throw new NAuthException(AuthErrorCode.CHALLENGE_INVALID, 'User not found in challenge session');
-    }
-
-    this.logger?.log?.(`Verifying email for user: ${user.sub}`);
-
-    // Verify email with code, ensuring it belongs to this specific challenge session
-    const verifyDto = Object.assign(new VerifyEmailWithCodeDTO(), {
-      email: user.email,
-      code,
-      challengeSessionId: challengeSession.id, // Link verification to this specific session
-    });
-    const result = await this.emailVerificationService.verifyEmailWithCode(verifyDto);
-    const isVerified = result.message === 'Email verified successfully. Please log in to continue.';
-
-    if (!isVerified) {
-      // Increment attempts but don't consume session
-      await this.challengeService.incrementAttempts(challengeSession);
-      throw new NAuthException(AuthErrorCode.VERIFICATION_CODE_INVALID, 'Invalid verification code');
-    }
-
-    // Consume challenge session
-    await this.challengeService.validateAndConsumeSession(challengeSession.sessionToken, AuthChallenge.VERIFY_EMAIL);
-
-    // Reload user to get updated emailVerified flag
-    const updatedUser = await this.userRepository.findOne({ where: { sub: user.sub } });
-    if (!updatedUser) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found after email verification');
-    }
-
-    // Get client info
-    const clientInfo = this.clientInfoService.get();
-
-    // Read auth context from challenge session metadata
-    const authMethod = (challengeSession.metadata?.authMethod as string) || 'password';
-    const authProvider = challengeSession.metadata?.authProvider as string | undefined;
-    const isSocialLogin = authMethod === 'social';
-
-    // Check for next challenges
-    const response = await this.challengeHelper.determineAuthResponse({
-      user: updatedUser as unknown as IUser,
-      config: this.config,
-      deviceToken: clientInfo.deviceToken,
-      isSocialLogin,
-      skipMFAVerification: false,
-      authProvider,
-    });
-
-    if (response.challengeName) {
-      this.logger?.log?.(`Additional challenge required: ${response.challengeName}`);
-    } else {
-      this.logger?.log?.(`Email verified, auth completed for: ${user.email}`);
-    }
-
-    return response;
-  }
-
-  /**
-   * Handle VERIFY_PHONE challenge
-   */
-  private async handleVerifyPhone(
-    challengeSession: BaseChallengeSession & { user?: BaseUser },
-    data: VerifyPhoneResponse | CollectPhoneResponse,
-  ): Promise<AuthResponseDTO> {
-    const user = challengeSession.user;
-    if (!user) {
-      throw new NAuthException(AuthErrorCode.CHALLENGE_INVALID, 'User not found in challenge session');
-    }
-
-    // Check if this is phone collection (first step) or verification (second step)
-    if ('phone' in data && data.phone) {
-      // Phone collection step
-      const phone = data.phone;
-
-      this.logger?.log?.(`Collecting phone number for user: ${user.sub}`);
-
-      // Validate phone format (E.164 format: +[country][number])
-      const phoneRegex = /^\+[1-9]\d{1,14}$/;
-      if (!phoneRegex.test(phone)) {
-        throw new NAuthException(
-          AuthErrorCode.INVALID_PHONE_FORMAT,
-          'Invalid phone number format. Use E.164 format (e.g., +1234567890)',
-        );
-      }
-
-      // Update user phone number
-      await this.userRepository.update({ sub: user.sub }, { phone });
-
-      this.logger?.log?.(`Phone number added for user ${user.sub}: ${phone}`);
-
-      // Send verification SMS to the newly added phone
-      let smsError: string | undefined;
-      if (this.phoneVerificationService) {
-        this.logger?.log?.(`Sending verification SMS to newly added phone: ${phone}`);
-        try {
-          const smsDto = Object.assign(new SendVerificationSMSDTO(), {
-            sub: user.sub,
-            skipAlreadyVerifiedCheck: false, // Explicitly set to false for phone verification (not MFA)
-            challengeSessionId: challengeSession.id, // Link SMS code to this challenge session
-          });
-          await this.phoneVerificationService.sendVerificationSMS(smsDto);
-          this.logger?.log?.(`Verification SMS sent successfully to: ${phone}`);
-        } catch (error: unknown) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          this.logger?.error?.(`Failed to send verification SMS to ${phone}: ${errorMessage}`);
-          smsError = errorMessage;
-        }
-      } else {
-        this.logger?.warn?.(
-          `Phone verification SMS not sent - PhoneVerificationService not available. ` +
-            'Phone verification requires an SMS provider to be configured.',
-        );
-      }
-
-      // DO NOT consume the challenge session yet - user still needs to verify the code
-      // Preserve auth context from original challenge session
-      const authMethod = (challengeSession.metadata?.authMethod as string) || 'password';
-      const authProvider = challengeSession.metadata?.authProvider as string | undefined;
-
-      // Return same challenge with updated phone in parameters
-      // Skip auto-send since SMS was already sent above during phone collection
-      const challengeResponse = await this.challengeHelper.createChallengeResponse(
-        { ...user, phone },
-        AuthChallenge.VERIFY_PHONE,
-        this.config,
-        authMethod as 'password' | 'social',
-        authProvider,
-        true, // skipAutoSend = true (SMS already sent during phone collection)
-      );
-
-      // Include SMS error in challenge parameters if SMS failed
-      if (smsError) {
-        challengeResponse.challengeParameters = challengeResponse.challengeParameters || {};
-        challengeResponse.challengeParameters.smsError = smsError;
-      }
-
-      return challengeResponse;
-    } else {
-      // Phone verification step (code provided)
-      const code = (data as VerifyPhoneResponse).code;
-
-      this.logger?.log?.(`Verifying phone for user: ${user.sub}`);
-
-      // Check if phone is set
-      if (!user.phone) {
-        throw new NAuthException(
-          AuthErrorCode.VALIDATION_FAILED,
-          'Phone number not yet provided. Submit phone number first.',
-        );
-      }
-
-      // Verify phone with code, ensuring it belongs to this specific challenge session
-      const verifyDto = Object.assign(new VerifyPhoneWithCodeBySubDTO(), {
-        sub: user.sub,
-        code,
-        challengeSessionId: challengeSession.id, // Link verification to this specific session
-      });
-      const result = await this.phoneVerificationService!.verifyPhoneWithCodeBySub(verifyDto);
-      const isVerified = result.message === 'Phone verified successfully. Please log in to continue.';
-
-      if (!isVerified) {
-        // Increment attempts but don't consume session
-        await this.challengeService.incrementAttempts(challengeSession);
-        throw new NAuthException(AuthErrorCode.VERIFICATION_CODE_INVALID, 'Invalid verification code');
-      }
-
-      // Consume challenge session
-      await this.challengeService.validateAndConsumeSession(challengeSession.sessionToken, AuthChallenge.VERIFY_PHONE);
-
-      // Reload user to get updated phoneVerified flag
-      const updatedUser = await this.userRepository.findOne({ where: { sub: user.sub } });
-      if (!updatedUser) {
-        throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found after phone verification');
-      }
-
-      // Get client info
-      const clientInfo = this.clientInfoService.get();
-
-      // Read auth context from challenge session metadata
-      const authMethod = (challengeSession.metadata?.authMethod as string) || 'password';
-      const authProvider = challengeSession.metadata?.authProvider as string | undefined;
-      const isSocialLogin = authMethod === 'social';
-
-      // Check for next challenges
-      const response = await this.challengeHelper.determineAuthResponse({
-        user: updatedUser as unknown as IUser,
-        config: this.config,
-        deviceToken: clientInfo.deviceToken,
-        isSocialLogin,
-        skipMFAVerification: false,
-        authProvider,
-      });
-
-      if (response.challengeName) {
-        this.logger?.log?.(`Additional challenge required: ${response.challengeName}`);
-      } else {
-        this.logger?.log?.(`Phone verified, auth completed for: ${user.email}`);
-
-        // ============================================================================
-        // Audit: Record successful login after phone verification
-        // ============================================================================
-        const fireAndForget = this.config.auditLogs?.fireAndForget !== false;
-        if (fireAndForget) {
-          this.auditService
-            ?.recordEvent({
-              userId: user.id,
-              eventType: AuthAuditEventType.LOGIN_SUCCESS,
-              eventStatus: 'SUCCESS',
-              authMethod: isSocialLogin ? authProvider || 'social' : 'password',
-              metadata: {
-                completedAfterPhoneVerification: true,
-              },
-            })
-            .catch((err) => {
-              const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-              this.logger?.error?.(
-                `Failed to record LOGIN_SUCCESS audit event after phone verification (fire-and-forget): ${errorMessage}`,
-                {
-                  error: err,
-                  userId: user.id,
-                  userSub: user.sub,
-                },
-              );
-            });
-        } else {
-          try {
-            await this.auditService?.recordEvent({
-              userId: user.id,
-              eventType: AuthAuditEventType.LOGIN_SUCCESS,
-              eventStatus: 'SUCCESS',
-              authMethod: isSocialLogin ? authProvider || 'social' : 'password',
-              metadata: {
-                completedAfterPhoneVerification: true,
-              },
-            });
-          } catch (auditError) {
-            const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-            this.logger?.error?.(
-              `Failed to record LOGIN_SUCCESS audit event after phone verification: ${errorMessage}`,
-              {
-                error: auditError,
-                userId: user.id,
-              },
-            );
-          }
-        }
-      }
-
-      return response;
-    }
-  }
-
-  /**
-   * Handle MFA_REQUIRED challenge
-   */
-  private async handleMFAVerification(
-    challengeSession: BaseChallengeSession & { user?: BaseUser },
-    data: VerifyMFACodeResponse | VerifyMFAPasskeyResponse,
-  ): Promise<AuthResponseDTO> {
-    const user = challengeSession.user;
-    if (!user) {
-      throw new NAuthException(AuthErrorCode.CHALLENGE_INVALID, 'User not found in challenge session');
-    }
-
-    const method = data.method;
-
-    this.logger?.log?.(`MFA verification attempt: method=${method}, user=${user.sub}`);
-
-    // Check if MFAService is available
-    if (!this.mfaService) {
-      throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'MFA service is not available');
-    }
-
-    // Get client info
-    const clientInfo = this.clientInfoService.get();
-
-    // Verify MFA based on method
-    let isValid = false;
-
-    if (method === 'passkey') {
-      const passkeyData = data as VerifyMFAPasskeyResponse;
-      const credential = passkeyData.credential;
-
-      // Get expected challenge from session metadata
-      const expectedChallenge = challengeSession.metadata?.passkeyChallenge;
-      if (!expectedChallenge) {
-        throw new NAuthException(AuthErrorCode.CHALLENGE_INVALID, 'No passkey challenge found in session');
-      }
-
-      // Verify passkey via MFAService
-      const wrappedCredential = { credential, expectedChallenge };
-      const verifyResult = await this.mfaService.verifyCode({
-        sub: user.sub,
-        methodName: MFAMethod.PASSKEY,
-        code: wrappedCredential,
-      });
-      isValid = verifyResult.valid;
-    } else {
-      const codeData = data as VerifyMFACodeResponse;
-      const code = codeData.code;
-
-      // Verify code via MFAService (handles totp, sms, and backup)
-      const verifyResult = await this.mfaService.verifyCode({
-        sub: user.sub,
-        methodName: method,
-        code,
-      });
-      isValid = verifyResult.valid;
-    }
-
-    if (!isValid) {
-      this.logger?.warn?.(`MFA verification failed for user: ${user.sub}`);
-
-      // Audit: Record MFA verification failure
-      if (this.config.auditLogs?.fireAndForget) {
-        this.auditService
-          ?.recordEvent({
-            userId: user.id,
-            eventType: AuthAuditEventType.MFA_VERIFICATION_FAILED,
-            eventStatus: 'FAILURE',
-            challengeSessionId: challengeSession.id,
-            authMethod: method,
-            metadata: { mfaMethod: method },
-          })
-          .catch((err) => {
-            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-            this.logger?.error?.(
-              `Failed to record MFA_VERIFICATION_FAILED audit event (fire-and-forget): ${errorMessage}`,
-              {
-                error: err,
-                userId: user.id,
-                userSub: user.sub,
-              },
-            );
-          });
-      } else {
-        try {
-          await this.auditService?.recordEvent({
-            userId: user.id,
-            eventType: AuthAuditEventType.MFA_VERIFICATION_FAILED,
-            eventStatus: 'FAILURE',
-            challengeSessionId: challengeSession.id,
-            authMethod: method,
-            metadata: { mfaMethod: method },
-          });
-        } catch (auditError) {
-          const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-          this.logger?.error?.(`Failed to record MFA_VERIFICATION_FAILED audit event: ${errorMessage}`, {
-            error: auditError,
-            userId: user.id,
-          });
-        }
-      }
-
-      // Increment challenge attempts (session not consumed, so user can retry)
-      await this.challengeService.incrementAttempts(challengeSession);
-
-      throw new NAuthException(AuthErrorCode.VERIFICATION_CODE_INVALID, 'Invalid MFA code');
-    }
-
-    this.logger?.log?.(`MFA verified successfully for user: ${user.sub}`);
-
-    // Audit: Record MFA verification success
-    if (this.config.auditLogs?.fireAndForget) {
-      this.auditService
-        ?.recordEvent({
-          userId: user.id,
-          eventType: AuthAuditEventType.MFA_VERIFICATION_SUCCESS,
-          eventStatus: 'SUCCESS',
-          challengeSessionId: challengeSession.id,
-          authMethod: method,
-          metadata: { mfaMethod: method },
-        })
-        .catch((err) => {
-          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-          this.logger?.error?.(
-            `Failed to record MFA_VERIFICATION_SUCCESS audit event (fire-and-forget): ${errorMessage}`,
-            {
-              error: err,
-              userId: user.id,
-              userSub: user.sub,
-            },
-          );
-        });
-    } else {
-      try {
-        await this.auditService?.recordEvent({
-          userId: user.id,
-          eventType: AuthAuditEventType.MFA_VERIFICATION_SUCCESS,
-          eventStatus: 'SUCCESS',
-          challengeSessionId: challengeSession.id,
-          authMethod: method,
-          metadata: { mfaMethod: method },
-        });
-      } catch (auditError) {
-        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-        this.logger?.error?.(`Failed to record MFA_VERIFICATION_SUCCESS audit event: ${errorMessage}`, {
-          error: auditError,
-          userId: user.id,
-        });
-      }
-    }
-
-    // Store MFA method in challenge session metadata for CHALLENGE_COMPLETED audit event
-    await this.challengeService.updateMetadata(challengeSession.sessionToken, {
-      mfaMethod: method,
-    });
-
-    // Only consume the session AFTER successful verification
-    await this.challengeService.validateAndConsumeSession(challengeSession.sessionToken, AuthChallenge.MFA_REQUIRED);
-
-    // Read auth context from challenge session metadata
-    const authMethod = (challengeSession.metadata?.authMethod as string) || 'password';
-    const authProvider = challengeSession.metadata?.authProvider as string | undefined;
-    const isSocialLogin = authMethod === 'social';
-
-    // ============================================================================
-    // Trusted Device Token Management (Remember Device Feature)
-    // ============================================================================
-    // NOTE:
-    // - We only create / update trusted device tokens AFTER MFA has been successfully
-    //   verified to avoid trusting devices that haven't completed full auth.
-    // - For 'always' mode, this mirrors the behavior in the primary login flow.
-    let deviceToken = clientInfo.deviceToken as string | undefined;
-    let isTrustedDevice = false;
-
-    if (this.trustedDeviceService && this.config.mfa?.rememberDevices && this.config.mfa.rememberDevices !== 'never') {
-      const rememberMode = this.config.mfa.rememberDevices;
-
-      // If a device token is already present, check if it's trusted
-      if (deviceToken) {
-        try {
-          isTrustedDevice = await this.trustedDeviceService.isDeviceTrusted(deviceToken, user.id);
-          if (isTrustedDevice) {
-            this.logger?.debug?.(
-              `MFA flow: existing trusted device token detected for user ${user.sub} (token reused)`,
-            );
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          this.logger?.warn?.(
-            `MFA flow: failed to validate existing trusted device token for user ${user.sub}: ${errorMessage}`,
-            { error },
-          );
-        }
-      }
-
-      // Auto-trust mode: create device token automatically if not already trusted
-      if (rememberMode === 'always' && !isTrustedDevice) {
-        try {
-          deviceToken = await this.trustedDeviceService.createTrustedDevice(
-            user.id,
-            clientInfo.deviceName,
-            clientInfo.deviceType,
-            clientInfo.ipAddress,
-            clientInfo.userAgent,
-            clientInfo.platform,
-            clientInfo.browser,
-          );
-          isTrustedDevice = true;
-          this.logger?.debug?.(
-            `MFA flow: auto-created trusted device token for user ${user.sub} (rememberDevices='always')`,
-          );
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          this.logger?.warn?.(`MFA flow: failed to create trusted device token for user ${user.sub}: ${errorMessage}`, {
-            error,
-          });
-        }
-      }
-    }
-
-    // Check for next challenges (MFA is usually the last challenge)
-    const response = await this.challengeHelper.determineAuthResponse({
-      user,
-      config: this.config,
-      deviceToken,
-      isSocialLogin,
-      skipMFAVerification: true, // Already verified
-      authProvider,
-    });
-
-    // Propagate trusted device metadata into response so that:
-    // - CookieTokenInterceptor can set the nauth_device_token cookie (cookies mode)
-    // - Mobile clients in JSON mode can store the device token securely
-    if (isTrustedDevice) {
-      response.trusted = response.trusted ?? true;
-    }
-    if (deviceToken && !response.deviceToken) {
-      response.deviceToken = deviceToken;
-    }
-
-    if (response.challengeName) {
-      this.logger?.log?.(`Additional challenge required: ${response.challengeName}`);
-    } else {
-      this.logger?.log?.(`MFA verified, auth completed for: ${user.email}`);
-
-      // ============================================================================
-      // Audit: Record successful login after MFA completion
-      // ============================================================================
-      const fireAndForget = this.config.auditLogs?.fireAndForget !== false;
-      if (fireAndForget) {
-        this.auditService
-          ?.recordEvent({
-            userId: user.id,
-            eventType: AuthAuditEventType.LOGIN_SUCCESS,
-            eventStatus: 'SUCCESS',
-            authMethod: isSocialLogin ? authProvider || 'social' : 'password',
-            metadata: {
-              completedAfterMFA: true,
-            },
-          })
-          .catch((err) => {
-            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-            this.logger?.error?.(
-              `Failed to record LOGIN_SUCCESS audit event after MFA (fire-and-forget): ${errorMessage}`,
-              {
-                error: err,
-                userId: user.id,
-                userSub: user.sub,
-              },
-            );
-          });
-      } else {
-        try {
-          await this.auditService?.recordEvent({
-            userId: user.id,
-            eventType: AuthAuditEventType.LOGIN_SUCCESS,
-            eventStatus: 'SUCCESS',
-            authMethod: isSocialLogin ? authProvider || 'social' : 'password',
-            metadata: {
-              completedAfterMFA: true,
-            },
-          });
-        } catch (auditError) {
-          const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-          this.logger?.error?.(`Failed to record LOGIN_SUCCESS audit event after MFA: ${errorMessage}`, {
-            error: auditError,
-            userId: user.id,
-          });
-        }
-      }
-    }
-
-    return response;
-  }
-
-  /**
-   * Handle FORCE_CHANGE_PASSWORD challenge
-   */
-  private async handleForceChangePassword(
-    challengeSession: BaseChallengeSession & { user?: BaseUser },
-    newPassword: string,
-  ): Promise<AuthResponseDTO> {
-    const user = challengeSession.user;
-    if (!user) {
-      throw new NAuthException(AuthErrorCode.CHALLENGE_INVALID, 'User not found in challenge session');
-    }
-
-    this.logger?.log?.(`Changing password for user: ${user.sub}`);
-
-    await this.updateUserPassword({
-      user,
-      newPassword,
-      mustChangePassword: false,
-      revokeSessions: true,
-      revokeReason: 'Password changed (force change password)',
-      audit: {
-        eventType: AuthAuditEventType.PASSWORD_CHANGED,
-        eventStatus: 'SUCCESS',
-        reason: 'force_change_password',
-        description: 'Password changed due to FORCE_CHANGE_PASSWORD challenge',
-      },
-    });
-
-    // Consume challenge session
-    await this.challengeService.validateAndConsumeSession(
-      challengeSession.sessionToken,
-      AuthChallenge.FORCE_CHANGE_PASSWORD,
-    );
-
-    // Reload user from database to get updated mustChangePassword flag
-    const updatedUser = await this.userRepository.findOne({ where: { sub: user.sub } });
-    if (!updatedUser) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found after password update');
-    }
-
-    // Get client info
-    const clientInfo = this.clientInfoService.get();
-
-    // Read auth context from challenge session metadata
-    const authMethod = (challengeSession.metadata?.authMethod as string) || 'password';
-    const authProvider = challengeSession.metadata?.authProvider as string | undefined;
-    const isSocialLogin = authMethod === 'social';
-
-    // Check for next challenges
-    const response = await this.challengeHelper.determineAuthResponse({
-      user: updatedUser as unknown as IUser,
-      config: this.config,
-      deviceToken: clientInfo.deviceToken,
-      isSocialLogin,
-      skipMFAVerification: false,
-      authProvider,
-    });
-
-    if (response.challengeName) {
-      this.logger?.log?.(`Additional challenge required: ${response.challengeName}`);
-    } else {
-      this.logger?.log?.(`Password changed, auth completed for: ${user.email}`);
-
-      // ============================================================================
-      // Audit: Record successful login after password change
-      // ============================================================================
-      const fireAndForget = this.config.auditLogs?.fireAndForget !== false;
-      if (fireAndForget) {
-        this.auditService
-          ?.recordEvent({
-            userId: user.id,
-            eventType: AuthAuditEventType.LOGIN_SUCCESS,
-            eventStatus: 'SUCCESS',
-            authMethod: isSocialLogin ? authProvider || 'social' : 'password',
-            metadata: {
-              completedAfterPasswordChange: true,
-            },
-          })
-          .catch((err) => {
-            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-            this.logger?.error?.(
-              `Failed to record LOGIN_SUCCESS audit event after password change (fire-and-forget): ${errorMessage}`,
-              {
-                error: err,
-                userId: user.id,
-                userSub: user.sub,
-              },
-            );
-          });
-      } else {
-        try {
-          await this.auditService?.recordEvent({
-            userId: user.id,
-            eventType: AuthAuditEventType.LOGIN_SUCCESS,
-            eventStatus: 'SUCCESS',
-            authMethod: isSocialLogin ? authProvider || 'social' : 'password',
-            metadata: {
-              completedAfterPasswordChange: true,
-            },
-          });
-        } catch (auditError) {
-          const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-          this.logger?.error?.(`Failed to record LOGIN_SUCCESS audit event after password change: ${errorMessage}`, {
-            error: auditError,
-            userId: user.id,
-          });
-        }
-      }
-    }
-
-    return response;
-  }
-
-  /**
-   * Handle MFA_SETUP_REQUIRED challenge
-   */
-  private async handleMFASetup(
-    challengeSession: BaseChallengeSession & { user?: BaseUser },
-    data: MFASetupResponse,
-  ): Promise<AuthResponseDTO> {
-    const user = challengeSession.user;
-    if (!user) {
-      throw new NAuthException(AuthErrorCode.CHALLENGE_INVALID, 'User not found in challenge session');
-    }
-
-    const method = data.method;
-    const setupData = data.setupData;
-
-    const requestTrace = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    this.logger?.log?.(`[${requestTrace}] MFA setup attempt: method=${method}, user=${user.sub}`);
-
-    // Check if MFAService is available
-    if (!this.mfaService) {
-      throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'MFA service is not available');
-    }
-
-    // Get provider
-    const provider = this.mfaService.getProvider(method);
-
-    // Verify setup based on method
-    let deviceId: number;
-
-    try {
-      deviceId = await provider.verifySetup(user, setupData);
-      this.logger?.log?.(`MFA device setup completed: method=${method}, deviceId=${deviceId}`);
-    } catch (error) {
-      this.logger?.warn?.(`MFA setup verification failed: method=${method}, user=${user.sub}`);
-
-      // Increment attempts but don't consume session
-      await this.challengeService.incrementAttempts(challengeSession);
-
-      // Re-throw the error
-      throw error;
-    }
-
-    // Store MFA method in challenge session metadata for CHALLENGE_COMPLETED audit event
-    await this.challengeService.updateMetadata(challengeSession.sessionToken, {
-      mfaMethod: method,
-    });
-
-    // Consume challenge session
-    await this.challengeService.validateAndConsumeSession(
-      challengeSession.sessionToken,
-      AuthChallenge.MFA_SETUP_REQUIRED,
-    );
-
-    // Reload user from database to get updated mfaEnabled flag
-    const updatedUser = await this.userRepository.findOne({ where: { sub: user.sub } });
-    if (!updatedUser) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found after MFA setup');
-    }
-
-    // Get client info
-    const clientInfo = this.clientInfoService.get();
-
-    // Check for next challenges with updated user data
-    // Skip MFA verification because device was already verified during setup
-    const response = await this.challengeHelper.determineAuthResponse({
-      user: updatedUser as unknown as IUser,
-      config: this.config,
-      deviceToken: clientInfo.deviceToken,
-      isSocialLogin: false,
-      skipMFAVerification: true, // Device already verified during setup
-    });
-
-    if (response.challengeName) {
-      this.logger?.log?.(`Additional challenge required: ${response.challengeName}`);
-    } else {
-      this.logger?.log?.(`MFA setup completed, auth completed for: ${user.email}`);
-
-      // ============================================================================
-      // Audit: Record successful login after MFA setup
-      // ============================================================================
-      const fireAndForget = this.config.auditLogs?.fireAndForget !== false;
-      if (fireAndForget) {
-        this.auditService
-          ?.recordEvent({
-            userId: user.id,
-            eventType: AuthAuditEventType.LOGIN_SUCCESS,
-            eventStatus: 'SUCCESS',
-            authMethod: 'password',
-            metadata: {
-              completedAfterMFASetup: true,
-            },
-          })
-          .catch((err) => {
-            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-            this.logger?.error?.(
-              `Failed to record LOGIN_SUCCESS audit event after MFA setup (fire-and-forget): ${errorMessage}`,
-              {
-                error: err,
-                userId: user.id,
-                userSub: user.sub,
-              },
-            );
-          });
-      } else {
-        try {
-          await this.auditService?.recordEvent({
-            userId: user.id,
-            eventType: AuthAuditEventType.LOGIN_SUCCESS,
-            eventStatus: 'SUCCESS',
-            authMethod: 'password',
-            metadata: {
-              completedAfterMFASetup: true,
-            },
-          });
-        } catch (auditError) {
-          const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-          this.logger?.error?.(`Failed to record LOGIN_SUCCESS audit event after MFA setup: ${errorMessage}`, {
-            error: auditError,
-            userId: user.id,
-          });
-        }
-      }
-    }
-
-    return response;
-  }
-
-  // ============================================================================
-  // Challenge Helper Methods
-  // ============================================================================
 
   /**
    * Resend verification code for current challenge
@@ -3197,13 +1894,13 @@ export class AuthService {
    *
    * Rate limits are enforced internally by the verification services.
    *
-   * @param session - Challenge session token
+   * @param dto - Resend code request with challenge session token
    * @returns Destination info (masked email/phone)
    * @throws {NAuthException} INVALID_CHALLENGE_SESSION | RATE_LIMIT_* | VALIDATION_FAILED
    *
    * @example
    * ```typescript
-   * const result = await authService.resendCode(session);
+   * const result = await authService.resendCode({ session: 'challenge-token' });
    * // Returns: { destination: 'u***r@example.com' }
    * ```
    */
@@ -3232,7 +1929,7 @@ export class AuthService {
           challengeSessionId: challengeSession.id,
         });
         await this.emailVerificationService.resendVerificationEmail(resendDto);
-        const maskedEmail = this.maskEmail(user.email);
+        const maskedEmail = this.helpers.maskEmail(user.email);
         this.logger?.debug?.(`Email verification code resent: user=${user.sub}, email=${maskedEmail}`);
         return { destination: maskedEmail };
       }
@@ -3253,7 +1950,7 @@ export class AuthService {
         // Resend SMS verification
         const resendDto = Object.assign(new ResendVerificationSMSDTO(), { sub: user.sub });
         await this.phoneVerificationService.resendVerificationSMS(resendDto);
-        const maskedPhone = this.maskPhone(user.phone);
+        const maskedPhone = this.helpers.maskPhone(user.phone);
         this.logger?.debug?.(`Phone verification code resent: user=${user.sub}, phone=${maskedPhone}`);
         return { destination: maskedPhone };
       }
@@ -3284,7 +1981,7 @@ export class AuthService {
             await this.phoneVerificationService.sendVerificationSMS(smsDto);
             this.logger?.debug?.(`SMS MFA code resent: user=${user.sub}`);
             // Get masked phone from user or device
-            const maskedPhone = user.phone ? this.maskPhone(user.phone) : '***-***-****';
+            const maskedPhone = user.phone ? this.helpers.maskPhone(user.phone) : '***-***-****';
             return { destination: maskedPhone };
           }
 
@@ -3296,7 +1993,7 @@ export class AuthService {
             });
             await this.emailVerificationService.resendVerificationEmail(emailDto);
             this.logger?.debug?.(`Email MFA code resent: user=${user.sub}`);
-            const maskedEmail = user.email ? this.maskEmail(user.email) : 'u***r@example.com';
+            const maskedEmail = user.email ? this.helpers.maskEmail(user.email) : 'u***r@example.com';
             return { destination: maskedEmail };
           }
 
@@ -3333,26 +2030,6 @@ export class AuthService {
           `Cannot resend code for challenge type '${challengeSession.challengeName}'`,
         );
     }
-  }
-
-  /**
-   * Mask email for display (helper method)
-   */
-  private maskEmail(email: string): string {
-    const [localPart, domain] = email.split('@');
-    if (localPart.length <= 2) {
-      return `${localPart[0]}***@${domain}`;
-    }
-    return `${localPart[0]}***${localPart[localPart.length - 1]}@${domain}`;
-  }
-
-  /**
-   * Mask phone number for display (helper method)
-   */
-  private maskPhone(phone: string): string {
-    const digits = phone.replace(/\D/g, '');
-    const lastFour = digits.slice(-4);
-    return `***-***-${lastFour}`;
   }
 
   /**
@@ -3936,48 +2613,11 @@ export class AuthService {
     // ============================================================================
     const response = this.clientInfoService.getResponse();
     if (response && this.config.tokenDelivery?.method !== 'json') {
-      this.clearAuthCookies(response, dto.forgetMe ?? false);
+      this.helpers.clearAuthCookies(response, dto.forgetMe ?? false);
       this.logger?.debug?.('Auth cookies cleared automatically on logout');
     }
 
     return { success: true };
-  }
-
-  /**
-   * Clear authentication cookies from response
-   *
-   * @param response - HTTP response object with clearCookie method
-   * @param forgetDevice - Whether to also clear device token cookie
-   * @private
-   */
-  private clearAuthCookies(
-    response: { clearCookie?: (name: string, options?: unknown) => void },
-    forgetDevice: boolean,
-  ): void {
-    if (!response.clearCookie) {
-      return; // Response doesn't support cookie clearing (shouldn't happen)
-    }
-
-    const cookieOptions = this.config.tokenDelivery?.cookieOptions || {};
-    const prefix = this.config.tokenDelivery?.cookieNamePrefix || 'nauth';
-
-    // Clear access and refresh tokens
-    response.clearCookie(`${prefix}_access_token`, cookieOptions);
-    response.clearCookie(`${prefix}_refresh_token`, cookieOptions);
-
-    // Clear CSRF token cookie (httpOnly: false, so it can be cleared)
-    // Use the same cookie options but with httpOnly: false to match how it was set
-    const csrfCookieOptions = {
-      ...cookieOptions,
-      httpOnly: false, // CSRF token cookie is not httpOnly
-    };
-    const csrfCookieName = this.config.security?.csrf?.cookieName || `${prefix}_csrf_token`;
-    response.clearCookie(csrfCookieName, csrfCookieOptions);
-
-    // Clear device token if forgetting device
-    if (forgetDevice) {
-      response.clearCookie(`${prefix}_device_token`, cookieOptions);
-    }
   }
 
   /**
@@ -4106,11 +2746,186 @@ export class AuthService {
     if (response && this.config.tokenDelivery?.method !== 'json') {
       // Clear auth cookies
       // If forgetDevices is true, also clear device token cookie
-      this.clearAuthCookies(response, dto.forgetDevices ?? false);
+      this.helpers.clearAuthCookies(response, dto.forgetDevices ?? false);
       this.logger?.debug?.('Auth cookies cleared automatically on global logout');
     }
 
     return { revokedCount };
+  }
+
+  /**
+   * Get all active sessions for a user
+   *
+   * Returns session details including authentication method (password, social, admin).
+   * For social logins, check session metadata for the specific OAuth provider.
+   *
+   * @param dto - Contains user sub
+   * @returns Array of sessions with device info and auth method
+   * @throws {NAuthException} If user not found
+   *
+   * @example
+   * ```typescript
+   * const sessions = await authService.getUserSessions({ sub: 'user-uuid-123' });
+   * // sessions.sessions = [{ sessionId: '123', authMethod: 'password', authProvider: null, ... }, ...]
+   * ```
+   */
+  async getUserSessions(dto: GetUserSessionsDTO): Promise<GetUserSessionsResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(GetUserSessionsDTO, dto);
+
+    // Get user by sub to get internal id
+    const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
+    if (!user) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    // Get current session ID from context (if available)
+    const clientInfo = this.clientInfoService.get();
+    const currentSessionId = clientInfo.sessionId ? String(clientInfo.sessionId) : null;
+
+    // Get all active sessions for user
+    const sessions = await this.sessionService.findUserSessions(user.id);
+
+    // Map sessions to response format
+    const sessionInfos: UserSessionInfo[] = sessions.map((session) => {
+      // Determine auth method and provider
+      let authMethod: string | null = session.authMethod || null;
+      let authProvider: string | null = null;
+
+      // If authMethod is 'social' or starts with 'admin-', extract provider from metadata
+      if (authMethod === 'social' || authMethod?.startsWith('admin-')) {
+        // Check metadata for provider information
+        const metadata = session.metadata || {};
+        authProvider = (metadata.authProvider as string) || (metadata.provider as string) || null;
+
+        // If no provider in metadata but authMethod contains it (e.g., 'google', 'facebook')
+        if (!authProvider && authMethod && authMethod !== 'social' && !authMethod.startsWith('admin-')) {
+          authProvider = authMethod;
+          authMethod = 'social';
+        }
+      }
+
+      // Determine if this is the current session
+      const isCurrent = currentSessionId !== null && String(session.id) === currentSessionId;
+
+      return {
+        sessionId: String(session.id),
+        deviceId: session.deviceId,
+        deviceName: session.deviceName,
+        deviceType: session.deviceType,
+        platform: session.platform,
+        browser: session.browser,
+        ipAddress: session.ipAddress,
+        ipCountry: session.ipCountry,
+        ipCity: session.ipCity,
+        lastActivityAt: session.lastActivityAt || session.createdAt,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+        isRemembered: session.isRemembered,
+        isCurrent,
+        authMethod,
+        authProvider,
+      };
+    });
+
+    return { sessions: sessionInfos };
+  }
+
+  /**
+   * Logout a specific session by ID
+   *
+   * Security: Validates session belongs to requesting user.
+   * Clears cookies if logging out current session.
+   *
+   * @param dto - Contains sessionId and user sub
+   * @returns Success status
+   * @throws {NAuthException} If user not found, session not found, or session doesn't belong to user
+   *
+   * @example
+   * ```typescript
+   * const result = await authService.logoutSession({
+   *   sub: 'user-uuid-123',
+   *   sessionId: '456'
+   * });
+   * // result.success === true
+   * // result.wasCurrentSession === false
+   * ```
+   */
+  async logoutSession(dto: LogoutSessionDTO): Promise<LogoutSessionResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(LogoutSessionDTO, dto);
+
+    // Get user by sub to get internal id
+    const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
+    if (!user) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    // Parse session ID (can be string or number)
+    const sessionId = typeof dto.sessionId === 'string' ? parseInt(dto.sessionId, 10) : dto.sessionId;
+    if (isNaN(sessionId)) {
+      throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Invalid session ID');
+    }
+
+    // Get session to verify ownership
+    const session = await this.sessionService.findById(sessionId);
+    if (!session) {
+      throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found');
+    }
+
+    // Verify session belongs to user
+    if (session.userId !== user.id) {
+      throw new NAuthException(AuthErrorCode.FORBIDDEN, 'Session does not belong to user');
+    }
+
+    // Check if this is the current session
+    const clientInfo = this.clientInfoService.get();
+    const currentSessionId = clientInfo.sessionId ? parseInt(String(clientInfo.sessionId), 10) : null;
+    const wasCurrentSession = currentSessionId !== null && sessionId === currentSessionId;
+
+    // Revoke the session
+    await this.sessionService.revokeSession(sessionId, 'User requested logout', {
+      requestedBy: dto.sub,
+      wasCurrentSession,
+    });
+
+    // Clear cookies if this was the current session
+    if (wasCurrentSession) {
+      const response = this.clientInfoService.getResponse();
+      if (response && this.config.tokenDelivery?.method !== 'json') {
+        this.helpers.clearAuthCookies(response, false);
+        this.logger?.debug?.('Auth cookies cleared automatically on session logout');
+      }
+    }
+
+    // Record audit event
+    if (this.auditService) {
+      try {
+        await this.auditService.recordEvent({
+          userId: user.id,
+          eventType: AuthAuditEventType.SESSION_REVOKED,
+          eventStatus: 'INFO',
+          reason: 'user_requested',
+          description: `Session revoked by user request${wasCurrentSession ? ' (current session)' : ''}`,
+          metadata: {
+            sessionId,
+            wasCurrentSession,
+          },
+        });
+      } catch (auditError) {
+        // Non-blocking: Log but continue
+        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to record SESSION_REVOKED audit event: ${errorMessage}`, {
+          error: auditError,
+          userId: user.id,
+        });
+      }
+    }
+
+    return {
+      success: true,
+      wasCurrentSession,
+    };
   }
 
   // ============================================================================
@@ -4170,17 +2985,21 @@ export class AuthService {
     // TODO: Implement provider-based hook for afterPasswordChange
     // await this.hookRegistry.executeAfterPasswordChange(dto.sub);
 
-    await this.updateUserPassword({
-      user,
-      newPassword: dto.newPassword,
-      mustChangePassword: false,
-      revokeSessions: true,
-      revokeReason: 'Password changed',
-      audit: {
-        eventType: AuthAuditEventType.PASSWORD_CHANGED,
-        eventStatus: 'SUCCESS',
+    await this.helpers.updateUserPassword(
+      {
+        user,
+        newPassword: dto.newPassword,
+        mustChangePassword: false,
+        revokeSessions: true,
+        revokeReason: 'Password changed',
+        audit: {
+          eventType: AuthAuditEventType.PASSWORD_CHANGED,
+          eventStatus: 'SUCCESS',
+        },
       },
-    });
+      this.passwordService,
+      this.auditService,
+    );
 
     return { success: true };
   }
@@ -4190,469 +3009,15 @@ export class AuthService {
    *
    * Updates user fields (name, email, phone, username, metadata) and enforces unique constraints and verification rules.
    *
-   * @param sub - User sub/UUID
-   * @param updateData - User fields to update
+   * @param dto - UpdateUserAttributesRequestDTO containing sub and fields to update
    * @returns Updated user object
    * @throws {NAuthException} If user not found or unique constraint violated
    *
    * @example
-   * await authService.updateUserAttributes(sub, { email: 'test@example.com' });
+   * await authService.updateUserAttributes({ sub: 'user-uuid', email: 'test@example.com' });
    */
   async updateUserAttributes(dto: UpdateUserAttributesRequestDTO): Promise<UserResponseDto> {
-    // Ensure DTO is validated (supports direct usage without framework validation)
-    dto = await ensureValidatedDto(UpdateUserAttributesRequestDTO, dto);
-
-    // Find user by sub (external identifier)
-    const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
-    if (!user) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
-    }
-
-    // Check for uniqueness constraints - use internal id
-    await this.validateUniquenessConstraints(user.id, dto);
-
-    // Prepare update object
-    const updateFields: Partial<IUser> = {};
-
-    // Update basic fields if provided
-    if (dto.firstName !== undefined) {
-      updateFields.firstName = dto.firstName;
-    }
-    if (dto.lastName !== undefined) {
-      updateFields.lastName = dto.lastName;
-    }
-    if (dto.username !== undefined) {
-      updateFields.username = dto.username;
-    }
-    if (dto.email !== undefined) {
-      const oldEmail = user.email;
-      updateFields.email = dto.email;
-      // Reset email verification if email changed (unless retainVerification is true)
-      if (dto.email !== user.email) {
-        if (!dto.retainVerification) {
-          updateFields.isEmailVerified = false;
-        } else {
-          // Explicitly retain current verification status
-          updateFields.isEmailVerified = user.isEmailVerified;
-        }
-
-        // ============================================================================
-        // MFA Device Management: Handle Email MFA devices when email changes
-        // ============================================================================
-        // When email address changes, Email MFA devices become invalid.
-        // We deactivate them and check if user has any other active MFA devices.
-        // If Email was the only MFA method, user will need to set up MFA again.
-        // This happens automatically via challenge system at next login.
-        if (oldEmail && this.mfaDeviceRepository) {
-          try {
-            // Find all Email MFA devices (email field may be null in legacy devices)
-            const emailDevices = (await this.mfaDeviceRepository.find({
-              where: {
-                userId: user.id,
-                type: MFAMethod.EMAIL,
-                isActive: true,
-              },
-            } as Record<string, unknown>)) as unknown as Array<Record<string, unknown>>;
-
-            if (emailDevices.length > 0) {
-              this.logger?.log?.(
-                `Deleting ${emailDevices.length} Email MFA device(s) for user ${user.sub} due to email address change (old: ${oldEmail}, new: ${dto.email})`,
-              );
-
-              // Delete all Email devices (can't be reactivated with old email)
-              for (const device of emailDevices) {
-                const deviceId = (device as Record<string, unknown>).id as number;
-                await this.mfaDeviceRepository.delete(deviceId);
-              }
-
-              // Record audit event for removed Email MFA devices
-              if (this.auditService) {
-                try {
-                  await this.auditService.recordEvent({
-                    userId: user.id,
-                    eventType: AuthAuditEventType.MFA_DEVICE_REMOVED,
-                    eventStatus: 'INFO',
-                    reason: 'email_changed',
-                    description: `Email MFA device(s) removed due to email address change (${oldEmail} → ${dto.email})`,
-                    metadata: {
-                      method: MFAMethod.EMAIL,
-                      deletedCount: emailDevices.length,
-                      oldEmail,
-                      newEmail: dto.email,
-                      reason: 'email_address_changed_requires_reverification',
-                    },
-                  });
-                } catch (auditError) {
-                  const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-                  this.logger?.error?.(
-                    `Failed to record MFA_DEVICE_REMOVED audit event for email change: ${errorMessage}`,
-                    { error: auditError, userId: user.id },
-                  );
-                }
-              }
-
-              // Check if user has any other active MFA devices
-              const allActiveDevices = (await this.mfaDeviceRepository.find({
-                where: {
-                  userId: user.id,
-                  isActive: true,
-                },
-              } as Record<string, unknown>)) as unknown as Array<Record<string, unknown>>;
-
-              // If no active devices remain and user had MFA enabled, disable MFA
-              if (allActiveDevices.length === 0 && user.mfaEnabled) {
-                updateFields.mfaEnabled = false;
-                updateFields.mfaMethods = [];
-                updateFields.preferredMfaMethod = null;
-                this.logger?.log?.(
-                  `MFA disabled for user ${user.sub} - no active MFA devices remaining after email change`,
-                );
-              } else {
-                this.logger?.log?.(
-                  `User ${user.sub} still has ${allActiveDevices.length} active MFA device(s) - MFA remains enabled`,
-                );
-              }
-            }
-          } catch (error: unknown) {
-            // Log error but don't fail the email update
-            // This handles cases where MFA module is not imported (mfaDeviceRepository might not be available)
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            this.logger?.warn?.(
-              `Failed to handle MFA device deactivation during email change for user ${user.sub}: ${errorMessage}`,
-            );
-          }
-        }
-      }
-    }
-    if (dto.phone !== undefined) {
-      const oldPhone = user.phone;
-      updateFields.phone = dto.phone;
-      // Reset phone verification if phone changed (unless retainVerification is true)
-      if (dto.phone !== user.phone) {
-        if (!dto.retainVerification) {
-          updateFields.isPhoneVerified = false;
-        } else {
-          // Explicitly retain current verification status
-          updateFields.isPhoneVerified = user.isPhoneVerified;
-        }
-
-        // ============================================================================
-        // MFA Device Management: Handle SMS MFA devices when phone changes
-        // ============================================================================
-        // When phone number changes, SMS MFA devices become invalid.
-        // We delete them and check if user has any other active MFA devices.
-        // If SMS was the only MFA method, user will need to set up MFA again.
-        // This happens automatically via challenge system at next login.
-        if (oldPhone && this.mfaDeviceRepository) {
-          try {
-            // Find all SMS MFA devices (SMS MFA is tied to user.phone, not device phoneNumber)
-            const smsDevices = (await this.mfaDeviceRepository.find({
-              where: {
-                userId: user.id,
-                type: MFAMethod.SMS,
-                isActive: true,
-              },
-            } as Record<string, unknown>)) as unknown as Array<Record<string, unknown>>;
-
-            if (smsDevices.length > 0) {
-              this.logger?.log?.(
-                `Deleting ${smsDevices.length} SMS MFA device(s) for user ${user.sub} due to phone number change (old: ${oldPhone}, new: ${dto.phone})`,
-              );
-
-              // Delete all SMS devices (can't be reactivated with old phone number)
-              for (const device of smsDevices) {
-                const deviceId = (device as Record<string, unknown>).id as number;
-                await this.mfaDeviceRepository.delete(deviceId);
-              }
-
-              // Record audit event for removed SMS MFA devices
-              if (this.auditService) {
-                try {
-                  await this.auditService.recordEvent({
-                    userId: user.id,
-                    eventType: AuthAuditEventType.MFA_DEVICE_REMOVED,
-                    eventStatus: 'INFO',
-                    reason: 'phone_changed',
-                    description: `SMS MFA device(s) removed due to phone number change (${oldPhone} → ${dto.phone})`,
-                    metadata: {
-                      method: MFAMethod.SMS,
-                      deletedCount: smsDevices.length,
-                      oldPhone,
-                      newPhone: dto.phone,
-                      reason: 'phone_number_changed_requires_reverification',
-                    },
-                  });
-                } catch (auditError) {
-                  const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-                  this.logger?.error?.(
-                    `Failed to record MFA_DEVICE_REMOVED audit event for phone change: ${errorMessage}`,
-                    { error: auditError, userId: user.id },
-                  );
-                }
-              }
-
-              // Check if user has any other active MFA devices
-              const allActiveDevices = (await this.mfaDeviceRepository.find({
-                where: {
-                  userId: user.id,
-                  isActive: true,
-                },
-              } as Record<string, unknown>)) as unknown as Array<Record<string, unknown>>;
-
-              // If no active devices remain and user had MFA enabled, disable MFA
-              if (allActiveDevices.length === 0 && user.mfaEnabled) {
-                updateFields.mfaEnabled = false;
-                updateFields.mfaMethods = [];
-                updateFields.preferredMfaMethod = null;
-                this.logger?.log?.(
-                  `MFA disabled for user ${user.sub} - no active MFA devices remaining after phone change`,
-                );
-              } else {
-                this.logger?.log?.(
-                  `User ${user.sub} still has ${allActiveDevices.length} active MFA device(s) - MFA remains enabled`,
-                );
-              }
-            }
-          } catch (error: unknown) {
-            // Log error but don't fail the phone update
-            // This handles cases where MFA module is not imported (mfaDeviceRepository might not be available)
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            this.logger?.warn?.(
-              `Failed to handle MFA device deactivation during phone change for user ${user.sub}: ${errorMessage}`,
-            );
-          }
-        }
-      }
-    }
-
-    // Handle preferred MFA method
-    if (dto.preferredMfaMethod !== undefined) {
-      updateFields.preferredMfaMethod = dto.preferredMfaMethod as string | null;
-    }
-
-    // Handle metadata merge
-    if (dto.metadata !== undefined) {
-      const existingMetadata = user.metadata || {};
-      updateFields.metadata = { ...existingMetadata, ...dto.metadata };
-    }
-
-    // Update user in database - use internal id for update query
-    await this.userRepository.update(user.id, updateFields as Record<string, unknown>);
-
-    // Fetch updated user - use internal id
-    const updatedUser = (await this.userRepository.findOne({ where: { id: user.id } })) as IUser | null;
-    if (!updatedUser) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found after update');
-    }
-
-    // ============================================================================
-    // Audit: Record profile and attribute updates
-    // ============================================================================
-    try {
-      // Client info (ipAddress, userAgent) automatically extracted from ClientInfoService
-      // Note: ClientInfoService is used transparently by SessionService and AuditService
-      const updatedFieldNames = Object.keys(updateFields);
-
-      // Build field changes map with before/after values
-      const fieldChanges: Record<string, unknown> = {};
-
-      // Capture before/after values for each updated field
-      if (dto.firstName !== undefined && dto.firstName !== user.firstName) {
-        fieldChanges.firstName = {
-          before: user.firstName ?? null,
-          after: dto.firstName ?? null,
-        };
-      }
-
-      if (dto.lastName !== undefined && dto.lastName !== user.lastName) {
-        fieldChanges.lastName = {
-          before: user.lastName ?? null,
-          after: dto.lastName ?? null,
-        };
-      }
-
-      if (dto.username !== undefined && dto.username !== user.username) {
-        fieldChanges.username = {
-          before: user.username ?? null,
-          after: dto.username ?? null,
-        };
-      }
-
-      // Note: email and phone are tracked separately with specific audit events,
-      // but we include them in fieldChanges for completeness
-      if (dto.email !== undefined && dto.email !== user.email) {
-        fieldChanges.email = {
-          before: user.email ?? null,
-          after: dto.email ?? null,
-        };
-      }
-
-      if (dto.phone !== undefined && dto.phone !== user.phone) {
-        fieldChanges.phone = {
-          before: user.phone ?? null,
-          after: dto.phone ?? null,
-        };
-      }
-
-      if (dto.preferredMfaMethod !== undefined && dto.preferredMfaMethod !== user.preferredMfaMethod) {
-        fieldChanges.preferredMfaMethod = {
-          before: user.preferredMfaMethod ?? null,
-          after: dto.preferredMfaMethod ?? null,
-        };
-      }
-
-      // Handle metadata changes (merged, so track what was added/changed)
-      if (dto.metadata !== undefined) {
-        const oldMetadata = user.metadata || {};
-        const newMetadata = { ...oldMetadata, ...dto.metadata };
-        const metadataChanges: Record<string, { before: unknown; after: unknown }> = {};
-
-        // Track all keys in new metadata
-        const allKeys = new Set([...Object.keys(oldMetadata), ...Object.keys(dto.metadata)]);
-
-        for (const key of allKeys) {
-          const oldValue = oldMetadata[key];
-          const newValue = newMetadata[key];
-
-          // Only track if value actually changed
-          if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
-            metadataChanges[key] = {
-              before: oldValue ?? null,
-              after: newValue ?? null,
-            };
-          }
-        }
-
-        if (Object.keys(metadataChanges).length > 0) {
-          fieldChanges.metadata = metadataChanges;
-        }
-      }
-
-      // Track verification status changes if email/phone changed
-      if (dto.email !== undefined && dto.email !== user.email) {
-        const emailVerificationChanged = !dto.retainVerification && updateFields.isEmailVerified === false;
-        if (emailVerificationChanged) {
-          fieldChanges.isEmailVerified = {
-            before: user.isEmailVerified,
-            after: false,
-          };
-        }
-      }
-
-      if (dto.phone !== undefined && dto.phone !== user.phone) {
-        const phoneVerificationChanged = !dto.retainVerification && updateFields.isPhoneVerified === false;
-        if (phoneVerificationChanged) {
-          fieldChanges.isPhoneVerified = {
-            before: user.isPhoneVerified,
-            after: false,
-          };
-        }
-      }
-
-      // Record general profile update with field changes
-      await this.auditService?.recordEvent({
-        userId: user.id,
-        eventType: AuthAuditEventType.PROFILE_UPDATED,
-        eventStatus: 'INFO',
-        metadata: {
-          // Client info automatically included from context
-          updatedFields: updatedFieldNames,
-          fieldChanges: Object.keys(fieldChanges).length > 0 ? fieldChanges : undefined,
-        },
-      });
-
-      // Record specific field changes
-      if (dto.email !== undefined && dto.email !== user.email) {
-        await this.auditService?.recordEvent({
-          userId: user.id,
-          eventType: AuthAuditEventType.EMAIL_CHANGED,
-          eventStatus: 'INFO',
-          metadata: {
-            // Client info automatically included from context
-            oldEmail: user.email,
-            newEmail: dto.email,
-            retainVerification: dto.retainVerification || false,
-          },
-        });
-      }
-
-      if (dto.phone !== undefined && dto.phone !== user.phone) {
-        await this.auditService?.recordEvent({
-          userId: user.id,
-          eventType: AuthAuditEventType.PHONE_CHANGED,
-          eventStatus: 'INFO',
-          metadata: {
-            // Client info automatically included from context
-            oldPhone: user.phone,
-            newPhone: dto.phone,
-            retainVerification: dto.retainVerification || false,
-          },
-        });
-      }
-
-      if (dto.username !== undefined && dto.username !== user.username) {
-        await this.auditService?.recordEvent({
-          userId: user.id,
-          eventType: AuthAuditEventType.USERNAME_CHANGED,
-          eventStatus: 'INFO',
-          metadata: {
-            // Client info automatically included from context
-            oldUsername: user.username,
-            newUsername: dto.username,
-          },
-        });
-      }
-    } catch (auditError) {
-      // Non-blocking: Log but continue
-      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-      this.logger?.error?.(`Failed to record profile update audit events: ${errorMessage}`, {
-        error: auditError,
-        userId: user.id,
-      });
-    }
-
-    // ============================================================================
-    // Hook: Execute user profile updated hooks
-    // ============================================================================
-    try {
-      // Build changed fields array with old/new values
-      const changedFields: Array<{ fieldName: string; oldValue: unknown; newValue: unknown }> = [];
-
-      // Track all fields that were in updateFields
-      for (const fieldName of Object.keys(updateFields)) {
-        changedFields.push({
-          fieldName,
-          oldValue: (user as unknown as Record<string, unknown>)[fieldName],
-          newValue: updateFields[fieldName as keyof typeof updateFields],
-        });
-      }
-
-      // Get client info from ClientInfoService
-      const clientInfo = this.clientInfoService.get();
-
-      // Execute hooks (non-blocking)
-      await this.hookRegistry.executeUserProfileUpdated({
-        user: updatedUser,
-        changedFields,
-        updateSource: 'user_request',
-        clientInfo: {
-          ipAddress: clientInfo.ipAddress,
-          userAgent: clientInfo.userAgent,
-          ipCountry: clientInfo.ipCountry,
-          ipCity: clientInfo.ipCity,
-        },
-      });
-    } catch (hookError) {
-      // Non-blocking: Log but continue
-      const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
-      this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
-        error: hookError,
-        userId: user.id,
-      });
-    }
-
-    // Return user response DTO
-    return UserResponseDto.fromEntity(updatedUser);
+    return await this.userService.updateUserAttributes(dto);
   }
 
   /**
@@ -4691,430 +3056,14 @@ export class AuthService {
    * ```
    */
   async updateVerifiedStatus(dto: UpdateVerifiedStatusRequestDTO): Promise<UserResponseDto> {
-    // Ensure DTO is validated (supports direct usage without framework validation)
-    dto = await ensureValidatedDto(UpdateVerifiedStatusRequestDTO, dto);
-
-    // Find user by sub (external identifier)
-    const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
-    if (!user) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
-    }
-
-    // Validate that email exists if trying to set isEmailVerified to true
-    if (dto.isEmailVerified === true && !user.email) {
-      throw new NAuthException(
-        AuthErrorCode.VALIDATION_FAILED,
-        'Cannot set email verification to true: user does not have an email address',
-      );
-    }
-
-    // Validate that phone exists if trying to set isPhoneVerified to true
-    if (dto.isPhoneVerified === true && !user.phone) {
-      throw new NAuthException(
-        AuthErrorCode.VALIDATION_FAILED,
-        'Cannot set phone verification to true: user does not have a phone number',
-      );
-    }
-
-    // Prepare update object - only include fields that were provided
-    const updateFields: Partial<IUser> = {};
-
-    if (dto.isEmailVerified !== undefined) {
-      updateFields.isEmailVerified = dto.isEmailVerified;
-    }
-
-    if (dto.isPhoneVerified !== undefined) {
-      updateFields.isPhoneVerified = dto.isPhoneVerified;
-    }
-
-    // If no fields to update, return current user
-    if (Object.keys(updateFields).length === 0) {
-      return UserResponseDto.fromEntity(user);
-    }
-
-    // Update user - use internal id for database update
-    await this.userRepository.update(user.id, updateFields as Record<string, unknown>);
-
-    // Reload user to get updated values
-    const updatedUser = (await this.userRepository.findOne({ where: { id: user.id } })) as IUser;
-
-    if (!updatedUser) {
-      throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Failed to reload user after update');
-    }
-
-    // ============================================================================
-    // Audit: Record verification status changes
-    // ============================================================================
-    if (this.auditService) {
-      // Record email verification change if provided
-      if (dto.isEmailVerified !== undefined) {
-        try {
-          await this.auditService.recordEvent({
-            userId: user.id,
-            eventType: AuthAuditEventType.EMAIL_VERIFIED,
-            eventStatus: dto.isEmailVerified ? 'SUCCESS' : 'INFO',
-            description: dto.isEmailVerified
-              ? 'Email verification status set to verified (admin action)'
-              : 'Email verification status set to unverified (admin action)',
-            reason: 'admin_verification_update',
-            metadata: {
-              previousStatus: user.isEmailVerified,
-              newStatus: dto.isEmailVerified,
-              updateMethod: 'admin_direct',
-              // Client info automatically included from context (performedBy auto-populated)
-            },
-          });
-        } catch (auditError) {
-          // Non-blocking: Log but continue
-          const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-          this.logger?.error?.(`Failed to record EMAIL_VERIFIED audit event: ${errorMessage}`, {
-            error: auditError,
-            userId: user.id,
-          });
-        }
-      }
-
-      // Record phone verification change if provided
-      if (dto.isPhoneVerified !== undefined) {
-        try {
-          await this.auditService.recordEvent({
-            userId: user.id,
-            eventType: AuthAuditEventType.PHONE_VERIFIED,
-            eventStatus: dto.isPhoneVerified ? 'SUCCESS' : 'INFO',
-            description: dto.isPhoneVerified
-              ? 'Phone verification status set to verified (admin action)'
-              : 'Phone verification status set to unverified (admin action)',
-            reason: 'admin_verification_update',
-            metadata: {
-              previousStatus: user.isPhoneVerified,
-              newStatus: dto.isPhoneVerified,
-              updateMethod: 'admin_direct',
-              // Client info automatically included from context (performedBy auto-populated)
-            },
-          });
-        } catch (auditError) {
-          // Non-blocking: Log but continue
-          const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-          this.logger?.error?.(`Failed to record PHONE_VERIFIED audit event: ${errorMessage}`, {
-            error: auditError,
-            userId: user.id,
-          });
-        }
-      }
-    }
-
-    // ============================================================================
-    // Hook: Execute user profile updated hooks
-    // ============================================================================
-    try {
-      // Build changed fields array with old/new values
-      const changedFields: Array<{ fieldName: string; oldValue: unknown; newValue: unknown }> = [];
-
-      if (dto.isEmailVerified !== undefined) {
-        changedFields.push({
-          fieldName: 'isEmailVerified',
-          oldValue: user.isEmailVerified,
-          newValue: dto.isEmailVerified,
-        });
-      }
-
-      if (dto.isPhoneVerified !== undefined) {
-        changedFields.push({
-          fieldName: 'isPhoneVerified',
-          oldValue: user.isPhoneVerified,
-          newValue: dto.isPhoneVerified,
-        });
-      }
-
-      // Get client info from ClientInfoService
-      const clientInfo = this.clientInfoService.get();
-
-      // Execute hooks (non-blocking)
-      await this.hookRegistry.executeUserProfileUpdated({
-        user: updatedUser,
-        changedFields,
-        updateSource: 'admin_action',
-        clientInfo: {
-          ipAddress: clientInfo.ipAddress,
-          userAgent: clientInfo.userAgent,
-          ipCountry: clientInfo.ipCountry,
-          ipCity: clientInfo.ipCity,
-        },
-      });
-    } catch (hookError) {
-      // Non-blocking: Log but continue
-      const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
-      this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
-        error: hookError,
-        userId: user.id,
-      });
-    }
-
-    // Return user response DTO
-    return UserResponseDto.fromEntity(updatedUser);
-  }
-
-  /**
-   * Ensures email, phone, and username are unique for other users before update.
-   *
-   * Throws if another user already has the specified email, phone, or username.
-   *
-   * @param userId - Internal numeric user ID (excluded from check)
-   * @param updateData - User fields to check for uniqueness
-   * @throws {NAuthException} If a unique constraint is violated for email, phone, or username
-   *
-   * @example
-   * ```typescript
-   * await authService.validateUniquenessConstraints(1, { email: "test@example.com" });
-   * ```
-   */
-  private async validateUniquenessConstraints(
-    userId: number,
-    updateData: UpdateUserAttributesRequestDTO,
-  ): Promise<void> {
-    const conflicts: string[] = [];
-
-    // Check email uniqueness
-    if (updateData.email) {
-      const existingUser = await this.userRepository.findOne({
-        where: { email: updateData.email },
-      });
-      if (existingUser && existingUser.id !== userId) {
-        conflicts.push('Email already exists');
-      }
-    }
-
-    // Check phone uniqueness
-    if (updateData.phone) {
-      const existingUser = await this.userRepository.findOne({
-        where: { phone: updateData.phone },
-      });
-      if (existingUser && existingUser.id !== userId) {
-        conflicts.push('Phone number already exists');
-      }
-    }
-
-    // Check username uniqueness
-    if (updateData.username) {
-      const existingUser = await this.userRepository.findOne({
-        where: { username: updateData.username },
-      });
-      if (existingUser && existingUser.id !== userId) {
-        conflicts.push('Username already exists');
-      }
-    }
-
-    if (conflicts.length > 0) {
-      throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, conflicts.join(', '), {
-        conflicts,
-      });
-    }
+    return await this.userService.updateVerifiedStatus(dto);
   }
 
   // ============================================================================
   // Helper Methods
   // ============================================================================
-
-  /**
-   * Checks if the login identifier matches the specified allowed type.
-   *
-   * Determines if the given identifier is a valid email, username, phone, or allowed hybrid,
-   * according to the configured identifier type restriction.
-   *
-   * @param identifier - The login identifier to check (email, username, or phone)
-   * @param allowedType - The permitted identifier type ('email', 'username', 'phone', or 'email_or_username')
-   * @returns True if the identifier conforms to the allowed type, otherwise false
-   *
-   * @example
-   * ```typescript
-   * // Email check
-   * const valid = this.validateIdentifierType('user@example.com', 'email'); // true
-   *
-   * // Username check
-   * const valid = this.validateIdentifierType('johndoe', 'username'); // true
-   * ```
-   */
-  private validateIdentifierType(
-    identifier: string,
-    allowedType: 'email' | 'username' | 'phone' | 'email_or_username',
-  ): boolean {
-    // Check if identifier is an email (contains @)
-    const isEmail = identifier.includes('@');
-    // Check if identifier looks like a phone (starts with + and contains digits)
-    const isPhone = /^\+[1-9]\d{1,14}$/.test(identifier.trim());
-    // If not email or phone, assume it's a username
-    const isUsername = !isEmail && !isPhone;
-
-    switch (allowedType) {
-      case 'email':
-        return isEmail;
-      case 'username':
-        return isUsername;
-      case 'phone':
-        return isPhone;
-      case 'email_or_username':
-        return isEmail || isUsername;
-      default:
-        return true; // No restriction
-    }
-  }
-
-  /**
-   * Retrieves a user entity by login identifier.
-   *
-   * Performs a lookup for a user by email, username, or phone number.
-   * The search respects the identifierType restriction when provided, limiting which fields are queried.
-   *
-   * @param identifier - Login credential (email, username, or phone)
-   * @param identifierType - Restricts search to a specific identifier type ('email', 'username', 'phone', or 'email_or_username')
-   * @returns The user entity if found, otherwise null
-   *
-   * @example
-   * ```typescript
-   * const user = await this.findUserByIdentifier('user@example.com');
-   * const user2 = await this.findUserByIdentifier('johndoe', 'username');
-   * ```
-   */
-  private async findUserByIdentifier(
-    identifier: string,
-    identifierType?: 'email' | 'username' | 'phone' | 'email_or_username',
-  ): Promise<IUser | null> {
-    const queryBuilder = this.userRepository.createQueryBuilder('user');
-
-    // Build query based on identifier type restriction
-    if (!identifierType) {
-      // No restriction - search all fields
-      queryBuilder
-        .where('user.email = :identifier', { identifier })
-        .orWhere('user.username = :identifier', { identifier })
-        .orWhere('user.phone = :identifier', { identifier });
-    } else {
-      // Apply restriction based on identifier type
-      switch (identifierType) {
-        case 'email':
-          queryBuilder.where('user.email = :identifier', { identifier });
-          break;
-        case 'username':
-          queryBuilder.where('user.username = :identifier', { identifier });
-          break;
-        case 'phone':
-          queryBuilder.where('user.phone = :identifier', { identifier });
-          break;
-        case 'email_or_username':
-          queryBuilder
-            .where('user.email = :identifier', { identifier })
-            .orWhere('user.username = :identifier', { identifier });
-          break;
-      }
-    }
-
-    // Select only columns required for login checks and response shaping to reduce row size
-    queryBuilder.select([
-      'user.id',
-      'user.sub',
-      'user.email',
-      'user.firstName',
-      'user.lastName',
-      'user.username',
-      'user.phone',
-      'user.passwordHash',
-      'user.passwordChangedAt',
-      'user.mustChangePassword',
-      'user.isActive',
-      'user.mfaEnabled',
-      'user.preferredMfaMethod',
-      'user.isEmailVerified',
-      'user.isPhoneVerified',
-      'user.mfaExempt', // Required for MFA exemption check in challenge flow
-      // Lock fields - required for account lock check in login flow
-      'user.isLocked',
-      'user.lockReason',
-      'user.lockedAt',
-      'user.lockedUntil',
-      // The following are used for messaging/challenge determination when needed
-      'user.socialProviders',
-      'user.backupCodes',
-    ]);
-
-    return (await queryBuilder.getOne()) as IUser | null;
-  }
-
-  /**
-   * Handles a failed login by recording the attempt, applying IP-based lockout policy,
-   * and invoking relevant hooks.
-   *
-   * @param identifier - User identifier (email/username/phone)
-   * @param reason - Optional reason for failure
-   * @returns Promise<void>
-   *
-   * @example
-   * ```typescript
-   * await authService.handleFailedLogin('user@example.com', 'invalid_credentials');
-   * ```
-   */
-  private async handleFailedLogin(identifier: string, reason?: string): Promise<void> {
-    // Get client IP address for lockout tracking
-    const clientInfo = this.clientInfoService.get();
-    const ipAddress = clientInfo.ipAddress;
-
-    // Record failed attempt
-    await this.recordLoginAttempt(identifier, false, reason);
-
-    // Increment IP-based lockout counter if enabled
-    if (this.config.lockout?.enabled && ipAddress) {
-      const attempts = await this.accountLockoutStorage.recordFailedAttempt(ipAddress);
-
-      // Lock IP if max attempts reached
-      if (attempts >= (this.config.lockout.maxAttempts || 5)) {
-        await this.accountLockoutStorage.lockIpAddress(
-          ipAddress,
-          this.config.lockout.duration || 900, // 15 minutes default
-          'Too many failed login attempts from this IP',
-        );
-
-        // // Execute hook with IP address
-        // if (this.config.hooks?.afterAccountLock) {
-        //   await this.config.hooks.afterAccountLock(identifier, 'Too many failed attempts from IP', clientInfo);
-        // }
-      }
-    }
-
-    // ============================================================================
-    // Lifecycle Hook: afterLoginFailed (TODO: Implement provider-based hook)
-    // ============================================================================
-    // TODO: Implement provider-based hook for afterLoginFailed
-    // await this.hookRegistry.executeAfterLoginFailed(identifier, reason || 'unknown');
-  }
-
-  /**
-   * Records a login attempt with client context.
-   *
-   * @param email - User's email address
-   * @param success - True if login succeeded, false if failed
-   * @param failureReason - Optional reason for failure
-   * @param userId - Optional internal user ID (only for successful logins)
-   * @returns Promise<void>
-   */
-  private async recordLoginAttempt(
-    email: string,
-    success: boolean,
-    failureReason?: string,
-    userId?: number,
-  ): Promise<void> {
-    // Get client info from context
-    const clientInfo = this.clientInfoService.get();
-
-    const attempt = this.loginAttemptRepository.create({
-      email,
-      userId, // Internal user ID (integer)
-      ipAddress: clientInfo.ipAddress,
-      userAgent: clientInfo.userAgent,
-      success,
-      failureReason,
-    });
-
-    await this.loginAttemptRepository.save(attempt);
-  }
+  // NOTE: Private helper methods have been moved to AuthServiceInternalHelpers
+  // Use this.helpers.methodName() to access them
 
   /**
    * Get user for authentication context
@@ -5137,72 +3086,38 @@ export class AuthService {
    * ```
    */
   async getUserForAuthContext(sub: string): Promise<IUser> {
-    // Load user with all fields including passwordHash (needed to compute hasPasswordHash)
-    // NOTE: We need to load passwordHash before @AfterLoad hook deletes it
-    // The hook computes hasPasswordHash but deletes passwordHash, so we check it first
-    const user = await this.userRepository.findOne({
-      where: { sub },
-    });
-
-    if (!user) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
-    }
-
-    if (!user.isActive) {
-      throw new NAuthException(AuthErrorCode.ACCOUNT_INACTIVE, 'Account is not active');
-    }
-
-    // CRITICAL: The @AfterLoad hook computes hasPasswordHash but doesn't delete passwordHash anymore
-    // Use the computed value from the hook, or compute it from passwordHash if hook didn't run
-    const userWithPassword = user as IUser & { passwordHash?: string | null };
-    const hasPasswordHash =
-      user.hasPasswordHash !== undefined ? user.hasPasswordHash : Boolean(userWithPassword.passwordHash);
-
-    // Create safe user object without sensitive fields
-    const safeUser = {
-      ...user,
-      hasPasswordHash,
-    } as IUser;
-
-    // Remove sensitive fields (passwordHash may already be deleted by @AfterLoad hook, but ensure it's gone)
-    delete (safeUser as unknown as { passwordHash?: string | null }).passwordHash;
-    delete (safeUser as unknown as { totpSecret?: string | null }).totpSecret;
-    delete (safeUser as unknown as { backupCodes?: string[] | null }).backupCodes;
-    delete (safeUser as unknown as { passwordHistory?: string[] | null }).passwordHistory;
-
-    return safeUser;
+    return await this.userService.getUserForAuthContext(sub);
   }
 
+  /**
+   * Get user by external identifier (sub/UUID).
+   *
+   * @param dto - GetUserByIdDTO containing sub
+   * @returns User response DTO or null if not found
+   *
+   * @example
+   * ```typescript
+   * const user = await authService.getUserById({ sub: 'user-uuid' });
+   * ```
+   */
   async getUserById(dto: GetUserByIdDTO): Promise<UserResponseDto | null> {
-    // Ensure DTO is validated (supports direct usage without framework validation)
-    dto = await ensureValidatedDto(GetUserByIdDTO, dto);
-
-    const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
-    return user ? UserResponseDto.fromEntity(user) : null;
+    return await this.userService.getUserById(dto);
   }
 
   /**
    * Get user by email address.
    *
-   * @param email - User email
-   * @param requireEmailVerified - Only return user if email is verified (default: false)
-   * @returns User entity or null
+   * @param dto - GetUserByEmailDTO containing email and optional requireEmailVerified
+   * @returns User response DTO or null if not found
    * @internal - For use by social auth providers
    *
    * @example
    * ```typescript
-   * const user = await authService.getUserByEmail('user@example.com', true);
+   * const user = await authService.getUserByEmail({ email: 'user@example.com', requireEmailVerified: true });
    * ```
    */
   async getUserByEmail(dto: GetUserByEmailDTO): Promise<UserResponseDto | null> {
-    // Ensure DTO is validated (supports direct usage without framework validation)
-    dto = await ensureValidatedDto(GetUserByEmailDTO, dto);
-
-    const where: Record<string, unknown> = dto.requireEmailVerified
-      ? { email: dto.email, isEmailVerified: true }
-      : { email: dto.email };
-    const user = (await this.userRepository.findOne({ where })) as IUser | null;
-    return user ? UserResponseDto.fromEntity(user) : null;
+    return await this.userService.getUserByEmail(dto);
   }
 
   /**
@@ -5210,40 +3125,17 @@ export class AuthService {
    *
    * Throws if user not found or has no password set (e.g. social login only).
    *
-   * @param userId - User's sub identifier
-   * @returns Resolves when flag is set
+   * @param dto - SetMustChangePasswordDTO containing userId (sub)
+   * @returns Success response
    * @throws {NAuthException} If user is not found or cannot change password
    *
    * @example
-   * await authService.setMustChangePassword('user-uuid-123');
+   * ```typescript
+   * await authService.setMustChangePassword({ userId: 'user-uuid-123' });
+   * ```
    */
   async setMustChangePassword(dto: SetMustChangePasswordDTO): Promise<SetMustChangePasswordResponseDTO> {
-    // Ensure DTO is validated (supports direct usage without framework validation)
-    dto = await ensureValidatedDto(SetMustChangePasswordDTO, dto);
-
-    const user = await this.userRepository.findOne({ where: { sub: dto.userId } });
-
-    if (!user) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
-    }
-
-    //  CRITICAL PROTECTION: Only allow for users with password authentication
-    // Pure social users cannot be forced to change password
-    if (!user.passwordHash) {
-      this.logger?.warn?.(
-        `Cannot force password change for user ${dto.userId} - user doesn't have a password (pure social signup)`,
-      );
-      throw new NAuthException(
-        AuthErrorCode.PASSWORD_CHANGE_NOT_ALLOWED,
-        'Password change not available. This account uses social authentication only and has no password.',
-      );
-    }
-
-    await this.userRepository.update({ sub: dto.userId }, { mustChangePassword: true });
-
-    this.logger?.log?.(`Must-change-password flag set for user: ${dto.userId}`);
-
-    return { success: true };
+    return await this.userService.setMustChangePassword(dto);
   }
 
   /**
@@ -5303,7 +3195,7 @@ export class AuthService {
     // If not found by sub, try by identifier (email, username, phone)
     if (!user) {
       this.logger?.debug?.(`Searching by identifier (email/username/phone): ${dto.identifier}`);
-      user = await this.findUserByIdentifier(dto.identifier);
+      user = await this.helpers.findUserByIdentifier(dto.identifier);
     }
 
     if (!user) {
@@ -5315,26 +3207,30 @@ export class AuthService {
     const revokeSessions = dto.revokeSessions !== false;
     const wasSocialOnly = !user.passwordHash;
 
-    const { sessionsRevoked } = await this.updateUserPassword({
-      user,
-      newPassword: dto.newPassword,
-      mustChangePassword,
-      revokeSessions,
-      revokeReason: 'Password reset by administrator',
-      audit: {
-        eventType: AuthAuditEventType.PASSWORD_RESET_COMPLETED,
-        eventStatus: 'SUCCESS',
-        reason: 'admin_reset',
-        description: 'Password reset by administrator',
-        metadata: {
-          identifier: dto.identifier,
-          mustChangePassword,
-          // WHY: Admins can set the first password for social-only accounts so users can login via either route later.
-          // This flag helps downstream observability without exposing anything to clients.
-          wasSocialOnly,
+    const { sessionsRevoked } = await this.helpers.updateUserPassword(
+      {
+        user,
+        newPassword: dto.newPassword,
+        mustChangePassword,
+        revokeSessions,
+        revokeReason: 'Password reset by administrator',
+        audit: {
+          eventType: AuthAuditEventType.PASSWORD_RESET_COMPLETED,
+          eventStatus: 'SUCCESS',
+          reason: 'admin_reset',
+          description: 'Password reset by administrator',
+          metadata: {
+            identifier: dto.identifier,
+            mustChangePassword,
+            // WHY: Admins can set the first password for social-only accounts so users can login via either route later.
+            // This flag helps downstream observability without exposing anything to clients.
+            wasSocialOnly,
+          },
         },
       },
-    });
+      this.passwordService,
+      this.auditService,
+    );
 
     // ============================================================================
     // Return Response
@@ -5381,13 +3277,13 @@ export class AuthService {
     // Respect identifier type restrictions (if configured)
     if (
       this.config.login?.identifierType &&
-      !this.validateIdentifierType(dto.identifier, this.config.login.identifierType)
+      !this.helpers.validateIdentifierType(dto.identifier, this.config.login.identifierType)
     ) {
       // Non-enumerating: return success without sending
       return response;
     }
 
-    const user = await this.findUserByIdentifier(dto.identifier, this.config.login?.identifierType);
+    const user = await this.helpers.findUserByIdentifier(dto.identifier, this.config.login?.identifierType);
     if (!user) {
       return response; // Non-enumerating
     }
@@ -5463,158 +3359,35 @@ export class AuthService {
       throw new NAuthException(AuthErrorCode.SERVICE_UNAVAILABLE, 'Password reset is not available');
     }
 
-    const user = await this.findUserByIdentifier(dto.identifier, this.config.login?.identifierType);
+    const user = await this.helpers.findUserByIdentifier(dto.identifier, this.config.login?.identifierType);
     if (!user) {
       // Non-enumerating: treat as invalid code
       throw new NAuthException(AuthErrorCode.PASSWORD_RESET_CODE_INVALID, 'Invalid password reset code');
     }
 
-    const { sessionsRevoked: _sessionsRevoked } = await this.updateUserPassword({
-      user,
-      newPassword: dto.newPassword,
-      mustChangePassword: false,
-      revokeSessions: true,
-      revokeReason: 'Password reset',
-      beforePersist: async () => {
-        // Consume code (throws if invalid/expired/too many attempts)
-        await this.passwordResetService!.consumeValidCode(user, dto.code);
+    const { sessionsRevoked: _sessionsRevoked } = await this.helpers.updateUserPassword(
+      {
+        user,
+        newPassword: dto.newPassword,
+        mustChangePassword: false,
+        revokeSessions: true,
+        revokeReason: 'Password reset',
+        beforePersist: async () => {
+          // Consume code (throws if invalid/expired/too many attempts)
+          await this.passwordResetService!.consumeValidCode(user, dto.code);
+        },
+        audit: {
+          eventType: AuthAuditEventType.PASSWORD_RESET_COMPLETED,
+          eventStatus: 'SUCCESS',
+          authMethod: 'password',
+          description: 'Password reset completed by user',
+          reason: 'forgot_password',
+        },
       },
-      audit: {
-        eventType: AuthAuditEventType.PASSWORD_RESET_COMPLETED,
-        eventStatus: 'SUCCESS',
-        authMethod: 'password',
-        description: 'Password reset completed by user',
-        reason: 'forgot_password',
-      },
-    });
+      this.passwordService,
+      this.auditService,
+    );
 
     return { success: true, mustChangePassword: false };
-  }
-
-  // ============================================================================
-  // Internal Password Update Orchestration (Single Source of Truth)
-  // ============================================================================
-
-  /**
-   * Centralized password update flow used by:
-   * - changePassword()
-   * - confirmForgotPassword()
-   * - adminSetPassword()
-   * - FORCE_CHANGE_PASSWORD challenge handler
-   *
-   * WHY:
-   * - Prevent logic drift between different password-changing entrypoints
-   * - Ensure consistent validation, history enforcement, persistence, session revocation, and audit trails
-   *
-   * @param params - Password update parameters
-   * @returns Sessions revoked count (0 when not revoked)
-   * @throws {NAuthException} WEAK_PASSWORD | PASSWORD_REUSED | NOT_FOUND
-   */
-  private async updateUserPassword(params: {
-    user: IUser;
-    newPassword: string;
-    mustChangePassword: boolean;
-    revokeSessions: boolean;
-    revokeReason: string;
-    beforePersist?: () => Promise<void>;
-    audit?: {
-      eventType: AuthAuditEventType;
-      eventStatus: 'SUCCESS' | 'FAILURE' | 'INFO' | 'SUSPICIOUS';
-      reason?: string;
-      description?: string;
-      authMethod?: string;
-      metadata?: Record<string, unknown>;
-    };
-  }): Promise<{ sessionsRevoked: number }> {
-    const { user, newPassword, mustChangePassword, revokeSessions, revokeReason, beforePersist, audit } = params;
-
-    // ============================================================================
-    // Load full user entity (important for passwordHistory serialization + reuse checks)
-    // ============================================================================
-    // WHY: Some call sites use a slim projection (e.g., findUserByIdentifier) which may omit passwordHistory.
-    const userEntity = (await this.userRepository.findOne({ where: { id: user.id } })) as IUser | null;
-    if (!userEntity) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
-    }
-
-    // ============================================================================
-    // Validate new password + history
-    // ============================================================================
-    const validation = await this.passwordService.validatePassword(newPassword, {
-      email: userEntity.email,
-      username: userEntity.username || undefined,
-    });
-    if (!validation.valid) {
-      throw new NAuthException(AuthErrorCode.WEAK_PASSWORD, validation.errors.join(', '), {
-        errors: validation.errors,
-      });
-    }
-
-    if (this.config.password?.historyCount) {
-      const historyToCheck = userEntity.passwordHistory || [];
-      const allPreviousPasswords = userEntity.passwordHash
-        ? [userEntity.passwordHash, ...historyToCheck]
-        : historyToCheck;
-      const isReused = await this.passwordService.isPasswordInHistory(newPassword, allPreviousPasswords);
-      if (isReused) {
-        throw new NAuthException(AuthErrorCode.PASSWORD_REUSED, 'Cannot reuse a recent password');
-      }
-    }
-
-    // Hook point for flows that must prove possession of a reset code before persisting (forgot-password confirm)
-    if (beforePersist) {
-      await beforePersist();
-    }
-
-    // ============================================================================
-    // Persist password update
-    // ============================================================================
-    const newHash = await this.passwordService.hashPassword(newPassword);
-    const newHistory = userEntity.passwordHash
-      ? this.passwordService.addToHistory(userEntity.passwordHistory || [], userEntity.passwordHash)
-      : userEntity.passwordHistory || [];
-
-    userEntity.passwordHash = newHash;
-    userEntity.passwordChangedAt = new Date();
-    userEntity.passwordHistory = newHistory;
-    userEntity.mustChangePassword = mustChangePassword;
-    await this.userRepository.save(userEntity as unknown as BaseUser);
-
-    // ============================================================================
-    // Session revocation
-    // ============================================================================
-    let sessionsRevoked = 0;
-    if (revokeSessions) {
-      sessionsRevoked = await this.sessionService.revokeAllUserSessions(userEntity.id, revokeReason);
-    }
-
-    // ============================================================================
-    // Audit
-    // ============================================================================
-    if (audit) {
-      try {
-        await this.auditService?.recordEvent({
-          userId: userEntity.id,
-          eventType: audit.eventType,
-          eventStatus: audit.eventStatus,
-          reason: audit.reason,
-          description: audit.description,
-          authMethod: audit.authMethod,
-          metadata: {
-            ...audit.metadata,
-            mustChangePassword,
-            sessionsRevoked,
-          },
-        });
-      } catch (auditError) {
-        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-        this.logger?.error?.(`Failed to record ${audit.eventType} audit event: ${errorMessage}`, {
-          error: auditError,
-          userId: userEntity.id,
-        });
-      }
-    }
-
-    return { sessionsRevoked };
   }
 }

@@ -30,7 +30,24 @@ import { IUser } from '../interfaces/entities.interface';
 
 describe('AuthService.forgotPassword() (social-only)', () => {
   it('allows social-only account to request reset code (first-password flow)', async () => {
-    const mockUserRepository = {} as unknown as Repository<BaseUser>;
+    const socialOnlyUser: IUser = {
+      id: 2,
+      sub: 'social-only-sub',
+      email: 'social@example.com',
+      passwordHash: null,
+      isEmailVerified: true,
+    } as unknown as IUser;
+
+    const mockQueryBuilder = {
+      where: jest.fn().mockReturnThis(),
+      orWhere: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(socialOnlyUser),
+    };
+
+    const mockUserRepository = {
+      createQueryBuilder: jest.fn(() => mockQueryBuilder),
+    } as unknown as Repository<BaseUser>;
     const mockLoginAttemptRepository = {} as unknown as Repository<BaseLoginAttempt>;
     const mockMfaDeviceRepository = {} as unknown as Repository<BaseMFADevice>;
 
@@ -110,18 +127,6 @@ describe('AuthService.forgotPassword() (social-only)', () => {
       mockTrustedDeviceService,
       mockPasswordResetService,
     );
-
-    const socialOnlyUser: IUser = {
-      id: 2,
-      sub: 'social-only-sub',
-      email: 'social@example.com',
-      passwordHash: null,
-      isEmailVerified: true,
-    } as unknown as IUser;
-
-    // Avoid mocking TypeORM query builders: override the private lookup method.
-    (service as unknown as { findUserByIdentifier: (id: string) => Promise<IUser | null> }).findUserByIdentifier =
-      jest.fn().mockResolvedValue(socialOnlyUser);
 
     const dto = Object.assign(new ForgotPasswordDTO(), { identifier: 'social@example.com' });
     const res = await service.forgotPassword(dto);
