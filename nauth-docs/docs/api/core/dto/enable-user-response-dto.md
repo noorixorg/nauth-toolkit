@@ -72,3 +72,4 @@ import { EnableUserResponseDTO } from '@nauth-toolkit/core';
 
 - [AuthService.enableUser()](../services/auth-service#enableuser)
 
+
