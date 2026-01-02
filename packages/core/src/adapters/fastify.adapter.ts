@@ -159,6 +159,14 @@ export class FastifyAdapter implements NAuthAdapter {
     return async (request: FastifyRequest, reply: FastifyReply): Promise<T | void> => {
       this.ensureAttributes(request);
 
+      // ============================================================================
+      // Expose raw request on reply for response helpers (redirect cookie recipe)
+      // ============================================================================
+      // Fastify reply does not reliably expose its request object. We attach it so the
+      // response wrapper can read `__nauthCookieRecipe` stashed by SocialRedirectHandler
+      // and apply cookies before sending a redirect.
+      (reply as unknown as Record<string, unknown>).__nauthRequest = request as unknown;
+
       const nauthReq = new FastifyRequestWrapper(request);
       const nauthRes = new FastifyResponseWrapper(reply);
 
@@ -308,6 +316,36 @@ class FastifyResponseWrapper implements NAuthResponse {
   }
 
   public redirect(url: string, status?: number): void {
+    // ============================================================================
+    // SocialRedirectHandler cookie recipe support (Fastify)
+    // ============================================================================
+    // SocialRedirectHandler stashes a cookie recipe on the request object:
+    //   (request as any).__nauthCookieRecipe = [{ name, value, options }, ...]
+    //
+    // We apply it here so consumers can simply call `res.redirect(...)`.
+    try {
+      const rawRequest = (this.reply as unknown as Record<string, unknown>).__nauthRequest as
+        | Record<string, unknown>
+        | undefined;
+      const recipe = rawRequest?.__nauthCookieRecipe;
+      const replyWithCookies = this.reply as FastifyReplyWithCookies;
+      if (Array.isArray(recipe) && typeof replyWithCookies.setCookie === 'function') {
+        for (const c of recipe) {
+          const cookie = c as { name?: unknown; value?: unknown; options?: unknown };
+          if (typeof cookie.name === 'string' && typeof cookie.value === 'string') {
+            replyWithCookies.setCookie(
+              cookie.name,
+              cookie.value,
+              this.convertCookieOptions(cookie.options as NAuthCookieOptions | undefined),
+            );
+          }
+        }
+        delete (rawRequest as Record<string, unknown>).__nauthCookieRecipe;
+      }
+    } catch {
+      // Non-blocking: redirects must still work even if cookie setting fails
+    }
+
     if (status) {
       this.reply.redirect(status, url);
     } else {

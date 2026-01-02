@@ -135,8 +135,20 @@ export class SocialRedirectHandler {
       cookies.push(...this.buildAuthCookies(authResponse));
       cookies.push(this.buildCsrfCookie());
 
+      // ============================================================================
+      // NestJS/Express/Fastify "magic": stash cookie recipe on the request object
+      // ============================================================================
+      // Why:
+      // - Consumers often implement redirect routes that return only `{ url }` (NestJS @Redirect())
+      // - In cookies mode we MUST NOT send tokens in the response body
+      // - Therefore, token-based cookie interceptors can't rely on `accessToken` being present
+      //
+      // This recipe lets framework adapters set cookies automatically without requiring
+      // consumers to manually loop `cookies` and set them on the response.
+      (input.req as unknown as Record<string, unknown>).__nauthCookieRecipe = cookies;
+
       // Sanitize authResponse for cookies mode - remove tokens and expiries (same as signup/login)
-      // Consumer controllers should not need to know about token delivery - all handled by nauth
+      // Consumer apps must never see tokens in response body when using cookies delivery.
       const sanitizedAuthResponse = this.sanitizeAuthResponseForCookies(authResponse);
 
       return {

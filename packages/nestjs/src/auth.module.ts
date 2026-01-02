@@ -140,21 +140,28 @@ class NAuthProviderAutoRegistrationService implements OnApplicationBootstrap {
     // Social Providers
     // ==========================================================================
     const socialProviders = this.safeGetAllProviders<unknown>(NAUTH_SOCIAL_PROVIDER_TOKEN);
+    let validSocialProviders = 0;
     let registeredSocial = 0;
+    const socialConfig = this.config?.social as unknown as Record<string, { enabled?: boolean }> | undefined;
+
     for (const p of socialProviders) {
       if (!this.isSocialProvider(p)) continue;
+      validSocialProviders += 1;
       // Follow existing behavior: register only if enabled in config.
-      const socialConfig = this.config?.social as unknown as Record<string, { enabled?: boolean }> | undefined;
       const enabled = socialConfig?.[p.providerName]?.enabled === true;
       if (enabled) {
         this.socialProviderRegistry.registerProvider(p);
         registeredSocial += 1;
+      } else if (this.logger?.isEnabled?.()) {
+        this.logger.debug(
+          `[nauth-toolkit] Social provider '${p.providerName}' found but not enabled in config (social.${p.providerName}.enabled !== true)`,
+        );
       }
     }
 
     if (this.logger?.isEnabled?.()) {
       this.logger.debug(
-        `[nauth-toolkit] Auto-registered providers (NestJS): MFA=${registeredMfa}/${mfaProviders.length}, Social=${registeredSocial}/${socialProviders.length}`,
+        `[nauth-toolkit] Auto-registered providers (NestJS): MFA=${registeredMfa}/${mfaProviders.length}, Social=${registeredSocial}/${validSocialProviders} (${socialProviders.length} total from DI)`,
       );
     }
   }

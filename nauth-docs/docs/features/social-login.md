@@ -281,11 +281,6 @@ export class SocialRedirectController {
       req,
     });
 
-    // In cookies mode, `authResponse` is returned only on token-success.
-    // NestJS interceptor sets cookies; tokens are stripped from response body.
-    if (result.authResponse) {
-      return { url: result.redirectUrl, ...result.authResponse };
-    }
     return { url: result.redirectUrl };
   }
 
@@ -309,9 +304,6 @@ export class SocialRedirectController {
       req,
     });
 
-    if (result.authResponse) {
-      return { url: result.redirectUrl, ...result.authResponse };
-    }
     return { url: result.redirectUrl };
   }
 
@@ -332,7 +324,7 @@ For native mobile apps (Capacitor, React Native), add verify endpoints that acce
 
 ```typescript title="src/auth/social-redirect.controller.ts"
 import { Controller, Post, Body, Inject, BadRequestException } from '@nestjs/common';
-import { Public, AuthResponseDTO } from '@nauth-toolkit/nestjs';
+import { Public, AuthResponseDTO, VerifyTokenDTO } from '@nauth-toolkit/nestjs';
 import { GoogleSocialAuthService } from '@nauth-toolkit/social-google/nestjs';
 import { AppleSocialAuthService } from '@nauth-toolkit/social-apple/nestjs';
 import { FacebookSocialAuthService } from '@nauth-toolkit/social-facebook/nestjs';
@@ -351,47 +343,47 @@ export class SocialRedirectController {
 
   /**
    * Verify native Google token from mobile apps
+   *
+   * @param dto - [VerifyTokenDTO](/docs/api/core/dto/verify-token-dto) containing idToken, optional accessToken, and profileData
+   * @returns [AuthResponseDTO](/docs/api/core/dto/auth-response-dto) with JWT tokens and user info
    */
   @Public()
   @Post('google/verify')
-  async verifyGoogle(@Body() body: { idToken: string; accessToken?: string }): Promise<AuthResponseDTO> {
+  async verifyGoogle(@Body() dto: VerifyTokenDTO): Promise<AuthResponseDTO> {
     if (!this.googleAuth) {
       throw new BadRequestException('Google OAuth is not configured');
     }
-    if (!body.idToken) {
-      throw new BadRequestException('idToken is required');
-    }
-    return await this.googleAuth.verifyToken(body.idToken, body.accessToken);
+    return await this.googleAuth.verifyToken(dto);
   }
 
   /**
    * Verify native Apple token from mobile apps
+   *
+   * @param dto - [VerifyTokenDTO](/docs/api/core/dto/verify-token-dto) containing idToken, optional accessToken, and profileData
+   * @returns [AuthResponseDTO](/docs/api/core/dto/auth-response-dto) with JWT tokens and user info
    */
   @Public()
   @Post('apple/verify')
-  async verifyApple(@Body() body: { idToken: string; authorizationCode?: string }): Promise<AuthResponseDTO> {
+  async verifyApple(@Body() dto: VerifyTokenDTO): Promise<AuthResponseDTO> {
     if (!this.appleAuth) {
       throw new BadRequestException('Apple OAuth is not configured');
     }
-    if (!body.idToken) {
-      throw new BadRequestException('idToken is required');
-    }
-    return await this.appleAuth.verifyToken(body.idToken, body.authorizationCode);
+    return await this.appleAuth.verifyToken(dto);
   }
 
   /**
    * Verify native Facebook token from mobile apps
+   *
+   * @param dto - [VerifyTokenDTO](/docs/api/core/dto/verify-token-dto) containing idToken, optional accessToken, and profileData
+   * @returns [AuthResponseDTO](/docs/api/core/dto/auth-response-dto) with JWT tokens and user info
    */
   @Public()
   @Post('facebook/verify')
-  async verifyFacebook(@Body() body: { accessToken: string }): Promise<AuthResponseDTO> {
+  async verifyFacebook(@Body() dto: VerifyTokenDTO): Promise<AuthResponseDTO> {
     if (!this.facebookAuth) {
       throw new BadRequestException('Facebook OAuth is not configured');
     }
-    if (!body.accessToken) {
-      throw new BadRequestException('accessToken is required');
-    }
-    return await this.facebookAuth.verifyToken(body.accessToken);
+    return await this.facebookAuth.verifyToken(dto);
   }
 }
 ```
@@ -551,6 +543,8 @@ Complete reference for all social login classes, DTOs, and services:
 | `SocialCallbackQueryDTO`              | OAuth callback query parameters (GET)        | [SocialCallbackQueryDTO](/docs/api/core/dto/social-callback-query-dto)                              |
 | `SocialCallbackFormDTO`               | OAuth callback form data (POST for Apple)    | [SocialCallbackFormDTO](/docs/api/core/dto/social-callback-form-dto)                                |
 | `SocialExchangeDTO`                   | Exchange token request (redirect-first flow) | [SocialExchangeDTO](/docs/api/core/dto/social-exchange-dto)                                         |
+| `HandleCallbackDTO`                   | OAuth callback request (code and state)      | [HandleCallbackDTO](/docs/api/core/dto/handle-callback-dto)                                         |
+| `VerifyTokenDTO`                      | Native mobile token verification request     | [VerifyTokenDTO](/docs/api/core/dto/verify-token-dto)                                               |
 | `CanSetPasswordDTO`                   | Check if social user can set password        | [CanSetPasswordDTO](/docs/api/core/dto/can-set-password-dto)                                        |
 | `CanSetPasswordResponseDTO`           | Can set password response                    | [CanSetPasswordResponseDTO](/docs/api/core/dto/can-set-password-response-dto)                       |
 | `GetLinkedAccountsDTO`                | Get user's linked social accounts            | [GetLinkedAccountsDTO](/docs/api/core/dto/get-linked-accounts-dto)                                  |

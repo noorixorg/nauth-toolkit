@@ -59,6 +59,38 @@ export class CookieTokenInterceptor implements NestInterceptor {
     return next.handle().pipe(
       map((data: unknown) => {
         // ============================================================================
+        // SocialRedirectHandler cookie recipe support (cookies mode)
+        // ============================================================================
+        // Social redirect endpoints often return only `{ url }` (NestJS @Redirect()).
+        // In cookies mode, the core handler sanitizes tokens out of the response body,
+        // so we cannot rely on `accessToken` being present to set cookies.
+        //
+        // SocialRedirectHandler stashes a cookie recipe on the request object:
+        //   (req as any).__nauthCookieRecipe = [{ name, value, options }, ...]
+        //
+        // We apply it here and keep the response body token-free.
+        if (effective === 'cookies') {
+          const recipe = (req as Record<string, unknown>).__nauthCookieRecipe;
+          if (Array.isArray(recipe)) {
+            for (const c of recipe) {
+              const cookie = c as { name?: unknown; value?: unknown; options?: unknown };
+              if (typeof cookie.name === 'string' && typeof cookie.value === 'string') {
+                // TokenDeliveryHttpService already supports both Express (`res.cookie`) and Fastify (`res.setCookie`)
+                // response shapes via getSetCookieFn().
+                // We reuse its cookie-setting compatibility by calling res.cookie / res.setCookie directly.
+                if (typeof res.cookie === 'function') {
+                  res.cookie(cookie.name, cookie.value, cookie.options);
+                } else if (typeof res.setCookie === 'function') {
+                  res.setCookie(cookie.name, cookie.value, cookie.options);
+                }
+              }
+            }
+            // One-time use: prevent accidental double-application
+            delete (req as Record<string, unknown>).__nauthCookieRecipe;
+          }
+        }
+
+        // ============================================================================
         // Safety: Only process object responses
         // ============================================================================
         // Some consumer endpoints (e.g. health checks) legitimately return primitives
