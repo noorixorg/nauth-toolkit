@@ -1,17 +1,17 @@
-# IUserProfileUpdatedHookProvider
+# IUserProfileUpdatedHook
 
 Post-hook interface for tracking user profile attribute changes.
 
 ## Overview
 
-The `IUserProfileUpdatedHookProvider` interface enables external systems to react when user profile attributes change. This includes core attributes (firstName, lastName, username, email, phone, metadata) and verification status (isEmailVerified, isPhoneVerified).
+The `IUserProfileUpdatedHook` interface enables external systems to react when user profile attributes change. This includes core attributes (firstName, lastName, username, email, phone, metadata) and verification status (isEmailVerified, isPhoneVerified).
 
 The hook is **non-blocking** - errors are logged but do not affect the update operation.
 
 ## Interface
 
 ```typescript
-interface IUserProfileUpdatedHookProvider {
+interface IUserProfileUpdatedHook {
   execute(metadata: UserProfileUpdatedMetadata): Promise<void>;
 }
 ```
@@ -85,9 +85,9 @@ type UserProfileUpdateSource =
 ## Example
 
 ```typescript
-import { IUserProfileUpdatedHookProvider, UserProfileUpdatedMetadata } from '@nauth-toolkit/core';
+import { IUserProfileUpdatedHook, UserProfileUpdatedMetadata } from '@nauth-toolkit/core';
 
-export class CrmSyncHook implements IUserProfileUpdatedHookProvider {
+export class CrmSyncHook implements IUserProfileUpdatedHook {
   async execute(metadata: UserProfileUpdatedMetadata): Promise<void> {
     // Sync email changes to CRM
     const emailChange = metadata.changedFields.find(f => f.fieldName === 'email');

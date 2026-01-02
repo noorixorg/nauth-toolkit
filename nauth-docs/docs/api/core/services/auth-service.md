@@ -2134,7 +2134,7 @@ Update user profile information (firstName, lastName, username, email, phone, me
 - When `email` changes: Email verification is reset (unless `retainVerification: true`), and all Email MFA devices are deleted
 - When `phone` changes: Phone verification is reset (unless `retainVerification: true`), and all SMS MFA devices are deleted
 - If deleted MFA devices were the only active methods, MFA is automatically disabled
-- Metadata is merged with existing metadata (not replaced)
+- Metadata is merged with existing metadata (set key to `null` to delete)
 
 ```typescript
 async updateUserAttributes(dto: UpdateUserAttributesRequestDTO): Promise<UserResponseDTO>
@@ -2170,11 +2170,40 @@ When uniqueness constraints are violated, `details` includes a `conflicts` array
 **Example**
 
 ```typescript
+// Update basic profile fields
 const updatedUser = await authService.updateUserAttributes({
   sub: 'a21b654c-2746-4168-acee-c175083a65cd',
   username: 'newusername',
   firstName: 'John',
   lastName: 'Doe',
+});
+
+// Add or update metadata
+await authService.updateUserAttributes({
+  sub: 'user-uuid',
+  metadata: {
+    department: 'Engineering',
+    role: 'Senior Developer',
+  },
+});
+
+// Delete metadata keys by setting to null
+await authService.updateUserAttributes({
+  sub: 'user-uuid',
+  metadata: {
+    temporaryField: null,
+    oldKey: null,
+  },
+});
+
+// Mix profile updates with metadata operations
+await authService.updateUserAttributes({
+  sub: 'user-uuid',
+  firstName: 'Jane',
+  metadata: {
+    department: 'Product',
+    oldDepartment: null,
+  },
 });
 ```
 

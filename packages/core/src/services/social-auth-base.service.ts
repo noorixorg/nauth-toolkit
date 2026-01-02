@@ -14,11 +14,12 @@ import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { NAuthConfig, SocialProviderConfig } from '../interfaces/config.interface';
 import { ISocialAuthStateStore } from '../interfaces/social-auth-state-store.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
-import { AuthResponseDTO } from '../dto';
+import { AuthResponseDTO, HandleCallbackDTO, VerifyTokenDTO } from '../dto';
 import { OAuthUserProfile } from '../interfaces/oauth.interface';
 import { ISocialAuthProviderService } from '../interfaces/social-auth-provider.interface';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
+import { ensureValidatedDto } from '../utils/dto-validator';
 
 /**
  * Base Social Auth Provider Service
@@ -145,8 +146,24 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
    *
    * Uses the provider-specific getOAuthProfile method and then handles
    * user creation, session management, and token generation.
+   *
+   * @param dto - HandleCallbackDTO containing code and state
+   * @returns AuthResponseDTO with tokens and user data
+   * @throws {NAuthException} SOCIAL_CONFIG_MISSING if provider not configured
+   * @throws {NAuthException} SOCIAL_TOKEN_INVALID if OAuth flow fails
+   *
+   * @example
+   * ```typescript
+   * const response = await googleService.handleCallback({
+   *   code: 'auth_code_from_google',
+   *   state: 'csrf_state_token'
+   * });
+   * ```
    */
-  async handleCallback(code: string, state: string): Promise<AuthResponseDTO> {
+  async handleCallback(dto: HandleCallbackDTO): Promise<AuthResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(HandleCallbackDTO, dto);
+
     const providerConfig = this.getProviderConfig();
     if (!providerConfig) {
       throw new NAuthException(
@@ -156,11 +173,11 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     }
 
     // Validate state (basic CSRF protection)
-    await this.validateState(state);
+    await this.validateState(dto.state);
 
     try {
       // Get user profile from provider
-      const profile = await this.getOAuthProfile(code, state);
+      const profile = await this.getOAuthProfile(dto.code, dto.state);
       this.logger?.log?.(`[SocialAuth] ${this.providerName} callback verified (secure): ${profile.email}`);
 
       // Find or create user
@@ -184,12 +201,38 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
 
   /**
    * Verify social authentication token from native mobile apps
+   *
+   * Used when mobile apps use native SDKs (Google Sign-In, Sign in with Apple, etc.)
+   * to obtain ID tokens that need backend verification.
+   *
+   * @param dto - VerifyTokenDTO containing idToken, optional accessToken, and profileData
+   * @returns AuthResponseDTO with tokens and user data
+   * @throws {NAuthException} SOCIAL_CONFIG_MISSING if provider not configured
+   * @throws {NAuthException} SOCIAL_TOKEN_INVALID if token verification fails
+   * @throws {NAuthException} PRESIGNUP_FAILED if pre-signup hook rejects user
+   *
+   * @example
+   * ```typescript
+   * // Google Sign-In from iOS/Android
+   * const response = await googleService.verifyToken({
+   *   idToken: 'eyJhbGciOiJSUzI1NiIs...',
+   *   accessToken: 'ya29.a0AfH6SM...'
+   * });
+   *
+   * // Sign in with Apple from iOS
+   * const response = await appleService.verifyToken({
+   *   idToken: 'eyJraWQiOiJlWGF1bm...',
+   *   profileData: {
+   *     name: { firstName: 'John', lastName: 'Doe' },
+   *     email: 'user@privaterelay.appleid.com'
+   *   }
+   * });
+   * ```
    */
-  async verifyToken(
-    idToken: string,
-    accessToken?: string,
-    profileData?: Record<string, unknown>,
-  ): Promise<AuthResponseDTO> {
+  async verifyToken(dto: VerifyTokenDTO): Promise<AuthResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(VerifyTokenDTO, dto);
+
     const providerConfig = this.getProviderConfig();
     if (!providerConfig || providerConfig.enabled !== true) {
       throw new NAuthException(
@@ -200,7 +243,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
 
     try {
       // Verify token and get profile
-      const profile = await this.verifyNativeToken(idToken, accessToken, profileData);
+      const profile = await this.verifyNativeToken(dto.idToken, dto.accessToken, dto.profileData);
 
       // Find or create user
       const user = await this.findOrCreateUser(profile, providerConfig);
@@ -331,9 +374,14 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
    * Get OAuth user profile from callback
    *
    * Alias for getOAuthProfile for interface compliance.
+   * Delegates to the protected getOAuthProfile method.
+   *
+   * @param dto - HandleCallbackDTO containing code and state
+   * @returns OAuth user profile
+   * @protected
    */
-  async getUserProfileFromCallback(code: string, state: string): Promise<OAuthUserProfile> {
-    return this.getOAuthProfile(code, state);
+  async getUserProfileFromCallback(dto: HandleCallbackDTO): Promise<OAuthUserProfile> {
+    return this.getOAuthProfile(dto.code, dto.state);
   }
 
   // ============================================================================

@@ -1,7 +1,7 @@
 /**
  * NAuth Hook Registration Module
  *
- * This module automatically discovers and registers hooks decorated with @PreSignupHook or @PostSignupHook
+ * This module automatically discovers and registers hooks decorated with @PreSignupHook, @PostSignupHook, or @UserProfileUpdatedHook
  * with the HookRegistryService. It should be imported after NAuthModule in your application.
  *
  * @example
@@ -11,6 +11,7 @@
  * import { NAuthHooksModule } from '@nauth-toolkit/nestjs';
  * import { DomainValidationHook } from './hooks/domain-validation.hook';
  * import { WelcomeEmailHook } from './hooks/welcome-email.hook';
+ * import { CrmSyncHook } from './hooks/crm-sync.hook';
  *
  * @Module({
  *   imports: [
@@ -18,6 +19,7 @@
  *     NAuthHooksModule.forFeature([
  *       DomainValidationHook,
  *       WelcomeEmailHook,
+ *       CrmSyncHook,
  *     ]),
  *   ],
  * })
@@ -27,7 +29,12 @@
 
 import { Module, DynamicModule, OnModuleInit, Type, Inject } from '@nestjs/common';
 import { ModuleRef, Reflector } from '@nestjs/core';
-import { HookRegistryService, IPreSignupHookProvider, IPostSignupHookProvider } from '@nauth-toolkit/core';
+import {
+  HookRegistryService,
+  IPreSignupHookProvider,
+  IPostSignupHookProvider,
+  IUserProfileUpdatedHook,
+} from '@nauth-toolkit/core';
 import { HOOK_METADATA_KEY, HookMetadata } from '../decorators/hook.decorator';
 
 /**
@@ -73,6 +80,8 @@ export class NAuthHooksModule implements OnModuleInit {
         hookRegistry.registerPreSignup(hookInstance as IPreSignupHookProvider);
       } else if (metadata.type === 'postSignup') {
         hookRegistry.registerPostSignup(hookInstance as IPostSignupHookProvider);
+      } else if (metadata.type === 'userProfileUpdated') {
+        hookRegistry.registerUserProfileUpdated(hookInstance as IUserProfileUpdatedHook);
       }
     }
   }
@@ -80,7 +89,7 @@ export class NAuthHooksModule implements OnModuleInit {
   /**
    * Register hooks for a feature module
    *
-   * @param hooks - Array of hook provider classes decorated with @PreSignupHook or @PostSignupHook
+   * @param hooks - Array of hook provider classes decorated with @PreSignupHook, @PostSignupHook, or @UserProfileUpdatedHook
    * @returns Dynamic module configuration
    *
    * @example
@@ -90,6 +99,7 @@ export class NAuthHooksModule implements OnModuleInit {
    *     NAuthHooksModule.forFeature([
    *       DomainValidationHook,
    *       WelcomeEmailHook,
+   *       CrmSyncHook,
    *     ]),
    *   ],
    * })

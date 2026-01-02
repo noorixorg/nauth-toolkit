@@ -216,7 +216,7 @@ export interface UserProfileUpdatedMetadata {
 }
 
 /**
- * User profile updated hook provider interface
+ * User profile updated hook interface
  *
  * Executes actions after user profile attributes change (non-blocking).
  * Errors are logged but do not affect the update operation.
@@ -238,7 +238,7 @@ export interface UserProfileUpdatedMetadata {
  *
  * @example
  * ```typescript
- * export class CrmSyncHook implements IUserProfileUpdatedHookProvider {
+ * export class CrmSyncHook implements IUserProfileUpdatedHook {
  *   async execute(metadata: UserProfileUpdatedMetadata): Promise<void> {
  *     // Sync to CRM when email changes
  *     const emailChange = metadata.changedFields.find(f => f.fieldName === 'email');
@@ -251,7 +251,7 @@ export interface UserProfileUpdatedMetadata {
  * }
  * ```
  */
-export interface IUserProfileUpdatedHookProvider {
+export interface IUserProfileUpdatedHook {
   /**
    * Execute user profile updated actions
    *

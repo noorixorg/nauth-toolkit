@@ -31,7 +31,7 @@ export const HOOK_METADATA_KEY = 'nauth:hook';
 /**
  * Hook types supported by NAuth
  */
-export type HookType = 'preSignup' | 'postSignup';
+export type HookType = 'preSignup' | 'postSignup' | 'userProfileUpdated';
 
 /**
  * Metadata stored on hook provider classes
@@ -108,6 +108,47 @@ export function PreSignupHook(options: HookDecoratorOptions = {}): ClassDecorato
 export function PostSignupHook(options: HookDecoratorOptions = {}): ClassDecorator {
   const metadata: HookMetadata = {
     type: 'postSignup',
+    priority: options.priority ?? 100,
+  };
+  return SetMetadata(HOOK_METADATA_KEY, metadata);
+}
+
+/**
+ * Marks a provider as a user profile updated hook
+ *
+ * User profile updated hooks are executed after user profile attributes change, allowing you to:
+ * - Sync profile changes to CRM systems
+ * - Send notifications about profile updates
+ * - Trigger analytics events for profile changes
+ * - Update cached user data in external services
+ *
+ * These hooks cannot block profile updates (changes are already saved) but errors are logged and can be
+ * handled by your application.
+ *
+ * @param options - Hook configuration options
+ *
+ * @example
+ * ```typescript
+ * @Injectable()
+ * @UserProfileUpdatedHook({ priority: 1 })
+ * export class CrmSyncHook implements IUserProfileUpdatedHook {
+ *   constructor(private readonly crmService: CrmService) {}
+ *
+ *   async execute(metadata: UserProfileUpdatedMetadata) {
+ *     // Sync email changes to CRM
+ *     const emailChange = metadata.changedFields.find(f => f.fieldName === 'email');
+ *     if (emailChange) {
+ *       await this.crmService.updateContact(metadata.user.sub, {
+ *         email: emailChange.newValue
+ *       });
+ *     }
+ *   }
+ * }
+ * ```
+ */
+export function UserProfileUpdatedHook(options: HookDecoratorOptions = {}): ClassDecorator {
+  const metadata: HookMetadata = {
+    type: 'userProfileUpdated',
     priority: options.priority ?? 100,
   };
   return SetMetadata(HOOK_METADATA_KEY, metadata);

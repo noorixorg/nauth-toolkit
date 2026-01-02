@@ -162,10 +162,30 @@ export class UserUpdateDTO {
   /**
    * Optional metadata update (custom fields)
    *
+   * Behavior:
+   * - Existing metadata is merged with new values
+   * - To delete a metadata key, set it to null
+   * - To update a value, provide the new value
+   * - To add a new key, include it in the object
+   *
    * Security:
    * - Validated in service layer if used
    * - Max depth/size limits should be enforced
-   * - Existing metadata merged with new values
+   *
+   * @example
+   * ```typescript
+   * // Add or update keys
+   * await authService.updateUserAttributes({
+   *   sub: 'user-123',
+   *   metadata: { newKey: 'value', existingKey: 'updated' }
+   * });
+   *
+   * // Delete a key by setting it to null
+   * await authService.updateUserAttributes({
+   *   sub: 'user-123',
+   *   metadata: { keyToDelete: null }
+   * });
+   * ```
    */
   @IsOptional()
   metadata?: Record<string, unknown>;

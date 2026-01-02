@@ -8,7 +8,7 @@ import { HookRegistryService } from '../services/hook-registry.service';
 import {
   IPreSignupHookProvider,
   IPostSignupHookProvider,
-  IUserProfileUpdatedHookProvider,
+  IUserProfileUpdatedHook,
   SignupMetadata,
   UserProfileUpdatedMetadata,
 } from '../interfaces/hooks.interface';
@@ -36,7 +36,7 @@ class MockPostSignupHook implements IPostSignupHookProvider {
   execute = jest.fn().mockResolvedValue(undefined);
 }
 
-class MockUserProfileUpdatedHook implements IUserProfileUpdatedHookProvider {
+class MockUserProfileUpdatedHook implements IUserProfileUpdatedHook {
   execute = jest.fn().mockResolvedValue(undefined);
 }
 

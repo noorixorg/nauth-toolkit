@@ -123,7 +123,7 @@ export class SocialRedirectHandler {
 
     // Handle OAuth callback directly with provider
     const providerInstance = this.providerRegistry.getProvider(provider);
-    const authResponse = await providerInstance.handleCallback(code, state);
+    const authResponse = await providerInstance.handleCallback({ code, state });
 
     const effective = ctx?.delivery || this.resolveEffectiveDelivery(input.req, undefined);
 

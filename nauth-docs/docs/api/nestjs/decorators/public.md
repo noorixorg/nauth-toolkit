@@ -1,7 +1,7 @@
 ---
 title: "@Public()"
 description: Mark routes as public to bypass authentication
-sidebar_position: 3
+sidebar_position: 6
 ---
 
 # @Public()

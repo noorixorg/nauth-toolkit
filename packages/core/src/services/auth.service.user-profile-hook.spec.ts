@@ -7,7 +7,7 @@
 import { Repository } from 'typeorm';
 import { AuthService } from './auth.service';
 import { HookRegistryService } from './hook-registry.service';
-import { IUserProfileUpdatedHookProvider, UserProfileUpdatedMetadata } from '../interfaces/hooks.interface';
+import { IUserProfileUpdatedHook, UserProfileUpdatedMetadata } from '../interfaces/hooks.interface';
 import { BaseUser } from '../entities';
 import { IUser } from '../interfaces/entities.interface';
 
@@ -15,7 +15,7 @@ import { IUser } from '../interfaces/entities.interface';
 // Mock Implementations
 // ============================================================================
 
-class MockUserProfileUpdatedHook implements IUserProfileUpdatedHookProvider {
+class MockUserProfileUpdatedHook implements IUserProfileUpdatedHook {
   execute = jest.fn().mockResolvedValue(undefined);
 }
 

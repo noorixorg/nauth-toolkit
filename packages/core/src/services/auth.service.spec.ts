@@ -3891,6 +3891,113 @@ describe('AuthService', () => {
           }),
         );
       });
+
+      it('should merge new metadata with existing metadata', async () => {
+        const userWithMetadata = { ...mockUser, metadata: { existing: 'value1', keep: 'value2' } };
+        mockUserRepository.findOne.mockReset();
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithMetadata as any)
+          .mockResolvedValueOnce({ ...userWithMetadata, metadata: { existing: 'updated', keep: 'value2', new: 'value3' } } as any);
+
+        await service.updateUserAttributes(
+          createUpdateUserAttributesDto(mockUser.sub, {
+            metadata: { existing: 'updated', new: 'value3' },
+          }),
+        );
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            metadata: {
+              existing: 'updated',
+              keep: 'value2',
+              new: 'value3',
+            },
+          }),
+        );
+      });
+
+      it('should delete metadata keys when set to null', async () => {
+        const userWithMetadata = { ...mockUser, metadata: { key1: 'value1', key2: 'value2', key3: 'value3' } };
+        mockUserRepository.findOne.mockReset();
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithMetadata as any)
+          .mockResolvedValueOnce({ ...userWithMetadata, metadata: { key2: 'value2' } } as any);
+
+        await service.updateUserAttributes(
+          createUpdateUserAttributesDto(mockUser.sub, {
+            metadata: { key1: null, key3: null },
+          }),
+        );
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            metadata: {
+              key2: 'value2',
+              // key1 and key3 should be deleted
+            },
+          }),
+        );
+
+        const updateCall = mockUserRepository.update.mock.calls[0][1] as any;
+        expect(updateCall.metadata).not.toHaveProperty('key1');
+        expect(updateCall.metadata).not.toHaveProperty('key3');
+        expect(updateCall.metadata).toHaveProperty('key2', 'value2');
+      });
+
+      it('should allow mixing metadata updates and deletions', async () => {
+        const userWithMetadata = { ...mockUser, metadata: { delete: 'old', update: 'old', keep: 'value' } };
+        mockUserRepository.findOne.mockReset();
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithMetadata as any)
+          .mockResolvedValueOnce({ ...userWithMetadata, metadata: { update: 'new', keep: 'value', add: 'new' } } as any);
+
+        await service.updateUserAttributes(
+          createUpdateUserAttributesDto(mockUser.sub, {
+            metadata: { delete: null, update: 'new', add: 'new' },
+          }),
+        );
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            metadata: {
+              update: 'new',
+              keep: 'value',
+              add: 'new',
+              // 'delete' key should be removed
+            },
+          }),
+        );
+
+        const updateCall = mockUserRepository.update.mock.calls[0][1] as any;
+        expect(updateCall.metadata).not.toHaveProperty('delete');
+        expect(updateCall.metadata).toHaveProperty('update', 'new');
+        expect(updateCall.metadata).toHaveProperty('keep', 'value');
+        expect(updateCall.metadata).toHaveProperty('add', 'new');
+      });
+
+      it('should handle deleting all metadata keys', async () => {
+        const userWithMetadata = { ...mockUser, metadata: { key1: 'value1', key2: 'value2' } };
+        mockUserRepository.findOne.mockReset();
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(userWithMetadata as any)
+          .mockResolvedValueOnce({ ...userWithMetadata, metadata: {} } as any);
+
+        await service.updateUserAttributes(
+          createUpdateUserAttributesDto(mockUser.sub, {
+            metadata: { key1: null, key2: null },
+          }),
+        );
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            metadata: {},
+          }),
+        );
+      });
     });
   });
 

@@ -1,7 +1,7 @@
 ---
 title: '@PostSignupHook()'
 description: Decorator for automatic post-signup hook registration in NestJS
-sidebar_position: 5
+sidebar_position: 4
 keywords: [decorator, hooks, lifecycle, postsignup, notifications]
 image: /img/api-social-card.png
 ---

@@ -8,6 +8,7 @@ import {
   SocialCallbackQueryDTO,
   SocialExchangeDTO,
   StartSocialRedirectQueryDTO,
+  VerifyTokenDTO,
 } from '@nauth-toolkit/nestjs';
 import { GoogleSocialAuthService } from '@nauth-toolkit/social-google/nestjs';
 
@@ -128,9 +129,7 @@ export class SocialRedirectController {
    * Mobile apps use native SDKs to get ID tokens and send them directly to backend
    * for verification. This endpoint verifies the token and returns JWT tokens.
    *
-   * @param body - Native token verification request
-   * @param body.idToken - Google ID token from native SDK (required)
-   * @param body.accessToken - Google access token from native SDK (optional)
+   * @param dto - VerifyTokenDTO containing idToken, optional accessToken, and profileData
    * @returns Authentication response with JWT tokens and user info
    *
    * @example
@@ -144,15 +143,11 @@ export class SocialRedirectController {
    */
   @Public()
   @Post('google/verify')
-  async verifyGoogle(@Body() body: { idToken: string; accessToken?: string }): Promise<AuthResponseDTO> {
+  async verifyGoogle(@Body() dto: VerifyTokenDTO): Promise<AuthResponseDTO> {
     if (!this.googleAuth) {
       throw new BadRequestException('Google OAuth is not configured');
     }
 
-    if (!body.idToken) {
-      throw new BadRequestException('idToken is required');
-    }
-
-    return await this.googleAuth.verifyToken(body.idToken, body.accessToken);
+    return await this.googleAuth.verifyToken(dto);
   }
 }

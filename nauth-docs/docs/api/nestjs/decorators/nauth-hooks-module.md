@@ -1,7 +1,7 @@
 ---
 title: "NAuthHooksModule"
 description: NestJS module for automatic lifecycle hook registration
-sidebar_position: 6
+sidebar_position: 3
 keywords: [module, hooks, lifecycle, nestjs, registration]
 image: /img/api-social-card.png
 ---
@@ -237,7 +237,7 @@ export class InviteCodeCheck { }
 - [`@PreSignupHook()`](./pre-signup-hook) - Pre-signup hook decorator
 - [`@PostSignupHook()`](./post-signup-hook) - Post-signup hook decorator
 - [`HookRegistryService`](/docs/api/core/services/hook-registry-service) - Hook registry service
-- [`IPreSignupHookProvider`](/docs/api/core/interfaces/hook-providers#ipreSignuphookprovider) - Pre-signup hook interface
+- [`IPreSignupHookProvider`](/docs/api/core/interfaces/hook-providers#ipresignuphookprovider) - Pre-signup hook interface
 - [`IPostSignupHookProvider`](/docs/api/core/interfaces/hook-providers#ipostsignuphookprovider) - Post-signup hook interface
 - [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete usage guide
 

@@ -791,15 +791,11 @@ type UserProfileUpdateSource =
 
 ```typescript
 import { Injectable } from '@nestjs/common';
-import {
-  UserProfileUpdatedHook,
-  IUserProfileUpdatedHookProvider,
-  UserProfileUpdatedMetadata,
-} from '@nauth-toolkit/nestjs';
+import { UserProfileUpdatedHook, IUserProfileUpdatedHook, UserProfileUpdatedMetadata } from '@nauth-toolkit/nestjs';
 
 @Injectable()
 @UserProfileUpdatedHook()
-export class CrmSyncHook implements IUserProfileUpdatedHookProvider {
+export class CrmSyncHook implements IUserProfileUpdatedHook {
   constructor(private crmService: CrmService) {}
 
   async execute(metadata: UserProfileUpdatedMetadata): Promise<void> {
@@ -860,7 +856,7 @@ nauth.hookRegistry.registerUserProfileUpdated(new CrmSyncHook());
 ```typescript
 @Injectable()
 @UserProfileUpdatedHook()
-export class ProfileAnalyticsHook implements IUserProfileUpdatedHookProvider {
+export class ProfileAnalyticsHook implements IUserProfileUpdatedHook {
   constructor(private analytics: AnalyticsService) {}
 
   async execute(metadata: UserProfileUpdatedMetadata): Promise<void> {
@@ -1226,13 +1222,13 @@ Complete reference for all hook-related classes and interfaces:
 
 ### Interfaces
 
-| Interface                         | Description                         | Documentation                                                                                                |
-| --------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `IPreSignupHookProvider`          | Pre-signup hook interface           | [IPreSignupHookProvider](/docs/api/core/interfaces/hook-providers#ipreSignuphookprovider)                    |
-| `IPostSignupHookProvider`         | Post-signup hook interface          | [IPostSignupHookProvider](/docs/api/core/interfaces/hook-providers#ipostsignuphookprovider)                  |
-| `IUserProfileUpdatedHookProvider` | User profile updated hook interface | [IUserProfileUpdatedHookProvider](/docs/api/core/interfaces/user-profile-updated-hook)                       |
-| `SignupMetadata`                  | Signup metadata interface           | [SignupMetadata](/docs/api/core/interfaces/hook-providers#signupmetadata)                                    |
-| `UserProfileUpdatedMetadata`      | Profile update metadata interface   | [UserProfileUpdatedMetadata](/docs/api/core/interfaces/user-profile-updated-hook#userprofileupdatedmetadata) |
+| Interface                    | Description                         | Documentation                                                                                                |
+| ---------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `IPreSignupHookProvider`     | Pre-signup hook interface           | [IPreSignupHookProvider](/docs/api/core/interfaces/hook-providers#ipresignuphookprovider)                    |
+| `IPostSignupHookProvider`    | Post-signup hook interface          | [IPostSignupHookProvider](/docs/api/core/interfaces/hook-providers#ipostsignuphookprovider)                  |
+| `IUserProfileUpdatedHook`    | User profile updated hook interface | [IUserProfileUpdatedHook](/docs/api/core/interfaces/user-profile-updated-hook)                               |
+| `SignupMetadata`             | Signup metadata interface           | [SignupMetadata](/docs/api/core/interfaces/hook-providers#signupmetadata)                                    |
+| `UserProfileUpdatedMetadata` | Profile update metadata interface   | [UserProfileUpdatedMetadata](/docs/api/core/interfaces/user-profile-updated-hook#userprofileupdatedmetadata) |
 
 ### Services
 
@@ -1242,11 +1238,12 @@ Complete reference for all hook-related classes and interfaces:
 
 ### NestJS Decorators
 
-| Decorator           | Description                | Documentation                                                      |
-| ------------------- | -------------------------- | ------------------------------------------------------------------ |
-| `@PreSignupHook()`  | Pre-signup hook decorator  | [@PreSignupHook()](/docs/api/nestjs/decorators/pre-signup-hook)    |
-| `@PostSignupHook()` | Post-signup hook decorator | [@PostSignupHook()](/docs/api/nestjs/decorators/post-signup-hook)  |
-| `NAuthHooksModule`  | Hook registration module   | [NAuthHooksModule](/docs/api/nestjs/decorators/nauth-hooks-module) |
+| Decorator                   | Description                         | Documentation                                                                      |
+| --------------------------- | ----------------------------------- | ---------------------------------------------------------------------------------- |
+| `@PostSignupHook()`         | Post-signup hook decorator          | [@PostSignupHook()](/docs/api/nestjs/decorators/post-signup-hook)                  |
+| `@PreSignupHook()`          | Pre-signup hook decorator           | [@PreSignupHook()](/docs/api/nestjs/decorators/pre-signup-hook)                    |
+| `@UserProfileUpdatedHook()` | User profile updated hook decorator | [@UserProfileUpdatedHook()](/docs/api/nestjs/decorators/user-profile-updated-hook) |
+| `NAuthHooksModule`          | Hook registration module            | [NAuthHooksModule](/docs/api/nestjs/decorators/nauth-hooks-module)                 |
 
 ## Related
 

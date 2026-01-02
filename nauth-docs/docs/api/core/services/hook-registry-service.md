@@ -66,7 +66,7 @@ registerPreSignup(provider: IPreSignupHookProvider): void
 
 **Parameters**
 
-- `provider` - [`IPreSignupHookProvider`](../interfaces/hook-providers#ipreSignuphookprovider)
+- `provider` - [`IPreSignupHookProvider`](../interfaces/hook-providers#ipresignuphookprovider)
 
 **Example**
 
@@ -201,12 +201,12 @@ nauth.hookRegistry.registerPostSignup(new WelcomeEmailHook(emailService));
 Register a user profile updated hook provider. Hooks execute after profile attribute changes. Non-blocking - errors are logged.
 
 ```typescript
-registerUserProfileUpdated(provider: IUserProfileUpdatedHookProvider): void
+registerUserProfileUpdated(provider: IUserProfileUpdatedHook): void
 ```
 
 **Parameters**
 
-- `provider` - [`IUserProfileUpdatedHookProvider`](../interfaces/user-profile-updated-hook)
+- `provider` - [`IUserProfileUpdatedHook`](../interfaces/user-profile-updated-hook)
 
 **Example**
 
@@ -216,7 +216,7 @@ registerUserProfileUpdated(provider: IUserProfileUpdatedHookProvider): void
 ```typescript
 @Injectable()
 @UserProfileUpdatedHook()
-export class CrmSyncHook implements IUserProfileUpdatedHookProvider {
+export class CrmSyncHook implements IUserProfileUpdatedHook {
   async execute(metadata: UserProfileUpdatedMetadata) {
     const emailChange = metadata.changedFields.find((f) => f.fieldName === 'email');
     if (emailChange) {
@@ -232,7 +232,7 @@ export class CrmSyncHook implements IUserProfileUpdatedHookProvider {
 <TabItem value="express" label="Express">
 
 ```typescript
-class CrmSyncHook implements IUserProfileUpdatedHookProvider {
+class CrmSyncHook implements IUserProfileUpdatedHook {
   async execute(metadata) {
     const emailChange = metadata.changedFields.find((f) => f.fieldName === 'email');
     if (emailChange) {
@@ -248,7 +248,7 @@ nauth.hookRegistry.registerUserProfileUpdated(new CrmSyncHook());
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-class CrmSyncHook implements IUserProfileUpdatedHookProvider {
+class CrmSyncHook implements IUserProfileUpdatedHook {
   async execute(metadata) {
     const emailChange = metadata.changedFields.find((f) => f.fieldName === 'email');
     if (emailChange) {
@@ -402,7 +402,7 @@ analyticsTracking.execute(); // Executes normally
 
 ## Related APIs
 
-- [IPreSignupHookProvider](../interfaces/hook-providers#ipreSignuphookprovider) - Pre-signup hook interface
+- [IPreSignupHookProvider](../interfaces/hook-providers#ipresignuphookprovider) - Pre-signup hook interface
 - [IPostSignupHookProvider](../interfaces/hook-providers#ipostsignuphookprovider) - Post-signup hook interface
-- [IUserProfileUpdatedHookProvider](../interfaces/user-profile-updated-hook) - User profile updated hook interface
+- [IUserProfileUpdatedHook](../interfaces/user-profile-updated-hook) - User profile updated hook interface
 - [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete usage guide

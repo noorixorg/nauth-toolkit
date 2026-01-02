@@ -46,7 +46,12 @@ export { CurrentUser } from './decorators/current-user.decorator';
 export { Public, IS_PUBLIC_KEY } from './decorators/public.decorator';
 export { ClientInfo } from './decorators/client-info.decorator';
 export { TokenDelivery, TOKEN_DELIVERY_KEY, RouteDelivery } from './decorators/token-delivery.decorator';
-export { PreSignupHook, PostSignupHook, HookDecoratorOptions } from './decorators/hook.decorator';
+export {
+  PreSignupHook,
+  PostSignupHook,
+  UserProfileUpdatedHook,
+  HookDecoratorOptions,
+} from './decorators/hook.decorator';
 
 /**
  * NestJS Hook System - Lifecycle hook registration

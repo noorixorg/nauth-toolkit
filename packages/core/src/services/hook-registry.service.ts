@@ -16,7 +16,7 @@ import {
   IPostSignupHookProvider,
   SignupMetadata,
   PreSignupHookData,
-  IUserProfileUpdatedHookProvider,
+  IUserProfileUpdatedHook,
   UserProfileUpdatedMetadata,
 } from '../interfaces/hooks.interface';
 import { IUser } from '../interfaces/entities.interface';
@@ -32,7 +32,7 @@ import { AuthErrorCode } from '../enums/error-codes.enum';
 export class HookRegistryService {
   private readonly preSignupHooks: IPreSignupHookProvider[] = [];
   private readonly postSignupHooks: IPostSignupHookProvider[] = [];
-  private readonly userProfileUpdatedHooks: IUserProfileUpdatedHookProvider[] = [];
+  private readonly userProfileUpdatedHooks: IUserProfileUpdatedHook[] = [];
 
   constructor(private readonly logger?: LoggerProvider) {}
 
@@ -67,14 +67,14 @@ export class HookRegistryService {
   }
 
   /**
-   * Register a user profile updated hook provider
+   * Register a user profile updated hook
    *
    * Hooks are executed in registration order.
    * Hook errors are logged but do not block profile updates (non-blocking).
    *
-   * @param provider - User profile updated hook provider instance
+   * @param provider - User profile updated hook instance
    */
-  registerUserProfileUpdated(provider: IUserProfileUpdatedHookProvider): void {
+  registerUserProfileUpdated(provider: IUserProfileUpdatedHook): void {
     this.userProfileUpdatedHooks.push(provider);
     this.logger?.debug?.(`[HookRegistry] Registered userProfileUpdated hook: ${provider.constructor.name}`);
   }

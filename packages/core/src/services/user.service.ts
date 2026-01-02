@@ -584,9 +584,19 @@ export class UserService {
     }
 
     // Handle metadata merge
+    // Keys set to null will be deleted from metadata
     if (dto.metadata !== undefined) {
       const existingMetadata = user.metadata || {};
-      updateFields.metadata = { ...existingMetadata, ...dto.metadata };
+      const mergedMetadata = { ...existingMetadata, ...dto.metadata };
+
+      // Remove keys that are explicitly set to null
+      Object.keys(mergedMetadata).forEach((key) => {
+        if (mergedMetadata[key] === null) {
+          delete mergedMetadata[key];
+        }
+      });
+
+      updateFields.metadata = mergedMetadata;
     }
 
     // Update user in database - use internal id for update query
@@ -654,24 +664,34 @@ export class UserService {
         };
       }
 
-      // Handle metadata changes (merged, so track what was added/changed)
+      // Handle metadata changes (merged, so track what was added/changed/deleted)
+      // Note: Keys set to null in dto.metadata are deleted from final metadata
       if (dto.metadata !== undefined) {
         const oldMetadata = user.metadata || {};
-        const newMetadata = { ...oldMetadata, ...dto.metadata };
+        const mergedMetadata = { ...oldMetadata, ...dto.metadata };
+
+        // Remove keys that are explicitly set to null (deletion operation)
+        Object.keys(mergedMetadata).forEach((key) => {
+          if (mergedMetadata[key] === null) {
+            delete mergedMetadata[key];
+          }
+        });
+
+        const newMetadata = mergedMetadata;
         const metadataChanges: Record<string, { before: unknown; after: unknown }> = {};
 
-        // Track all keys in new metadata
+        // Track all keys that exist in either old or new metadata
         const allKeys = new Set([...Object.keys(oldMetadata), ...Object.keys(dto.metadata)]);
 
         for (const key of allKeys) {
           const oldValue = oldMetadata[key];
           const newValue = newMetadata[key];
 
-          // Only track if value actually changed
+          // Track changes, additions, and deletions
           if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
             metadataChanges[key] = {
               before: oldValue ?? null,
-              after: newValue ?? null,
+              after: newValue ?? null, // Will be null for deleted keys
             };
           }
         }
