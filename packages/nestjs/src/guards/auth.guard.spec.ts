@@ -42,7 +42,7 @@ const mockAuthService = {
   getUserForAuthContext: jest.fn().mockResolvedValue({ sub: 'sub-1', isActive: true }),
 } as unknown as AuthService;
 
-function createGuard(config: Partial<NAuthConfig> = {}): AuthGuard {
+async function createGuard(config: Partial<NAuthConfig> = {}): Promise<AuthGuard> {
   const baseConfig: NAuthConfig = {
     jwt: {
       accessToken: { expiresIn: '15m' },
@@ -51,7 +51,18 @@ function createGuard(config: Partial<NAuthConfig> = {}): AuthGuard {
     ...config,
   } as unknown as NAuthConfig;
 
-  return new AuthGuard(mockReflector, mockJwtService, mockSessionService, mockAuthService, baseConfig);
+  const module: TestingModule = await Test.createTestingModule({
+    providers: [
+      AuthGuard,
+      { provide: Reflector, useValue: mockReflector },
+      { provide: JwtService, useValue: mockJwtService },
+      { provide: SessionService, useValue: mockSessionService },
+      { provide: AuthService, useValue: mockAuthService },
+      { provide: 'NAUTH_CONFIG', useValue: baseConfig },
+    ],
+  }).compile();
+
+  return module.get(AuthGuard);
 }
 
 function createHttpContext({
@@ -85,7 +96,7 @@ describe('AuthGuard token source enforcement', () => {
   });
 
   it('rejects cookies in JSON mode', async () => {
-    const guard = createGuard({ tokenDelivery: { method: 'json' } });
+    const guard = await createGuard({ tokenDelivery: { method: 'json' } });
     const ctx = createHttpContext({ cookies: { nauth_access_token: 'abc' } });
     try {
       await guard.canActivate(ctx as any);
@@ -97,7 +108,7 @@ describe('AuthGuard token source enforcement', () => {
   });
 
   it('rejects bearer tokens in cookies mode', async () => {
-    const guard = createGuard({ tokenDelivery: { method: 'cookies' } });
+    const guard = await createGuard({ tokenDelivery: { method: 'cookies' } });
     const ctx = createHttpContext({ headers: { authorization: 'Bearer abc' } });
     try {
       await guard.canActivate(ctx as any);
@@ -109,7 +120,7 @@ describe('AuthGuard token source enforcement', () => {
   });
 
   it('accepts cookies in cookies mode', async () => {
-    const guard = createGuard({ tokenDelivery: { method: 'cookies' } });
+    const guard = await createGuard({ tokenDelivery: { method: 'cookies' } });
     const ctx = createHttpContext({ cookies: { nauth_access_token: 'abc' } });
     // jwtService.validateAccessToken is mocked to succeed
     const result = await guard.canActivate(ctx as any);
@@ -117,7 +128,7 @@ describe('AuthGuard token source enforcement', () => {
   });
 
   it('prefers cookies over bearer in hybrid mode', async () => {
-    const guard = createGuard({ tokenDelivery: { method: 'hybrid' } });
+    const guard = await createGuard({ tokenDelivery: { method: 'hybrid' } });
     const ctx = createHttpContext({
       headers: { authorization: 'Bearer headerToken' },
       cookies: { nauth_access_token: 'cookieToken' },

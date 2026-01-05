@@ -33,18 +33,31 @@ import { getNAuthContextStore } from './nauth-context.guard';
  */
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(
-    private readonly reflector: Reflector,
-    private readonly jwtService: JwtService,
-    private readonly sessionService: SessionService,
-    private readonly authService: AuthService,
-    @Inject('NAUTH_CONFIG')
-    private readonly config: NAuthConfig,
-  ) {}
+  // ============================================================================
+  // Dependency Injection (property-based)
+  // ============================================================================
+  // WHY:
+  // - Consumers often extend AuthGuard to add custom behavior
+  // - Constructor injection forces subclasses to repeat all dependencies and pass them to `super(...)`
+  // - Property injection keeps the base constructor parameterless while still using NestJS DI
+  @Inject(Reflector)
+  private readonly _reflector!: Reflector;
+
+  @Inject(JwtService)
+  private readonly _jwtService!: JwtService;
+
+  @Inject(SessionService)
+  private readonly _sessionService!: SessionService;
+
+  @Inject(AuthService)
+  private readonly _authService!: AuthService;
+
+  @Inject('NAUTH_CONFIG')
+  private readonly config!: NAuthConfig;
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Check if route is public
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+    const isPublic = this._reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
@@ -63,7 +76,7 @@ export class AuthGuard implements CanActivate {
     }
 
     // Validate token
-    const validation = await this.jwtService.validateAccessToken(token);
+    const validation = await this._jwtService.validateAccessToken(token);
 
     if (!validation.valid) {
       throw new NAuthException(AuthErrorCode.TOKEN_INVALID, validation.error || 'Invalid token');
@@ -75,7 +88,7 @@ export class AuthGuard implements CanActivate {
 
     // Check if session is revoked
     const sessionId = validation.payload!.sessionId;
-    const session = await this.sessionService.findByIdLight(sessionId);
+    const session = await this._sessionService.findByIdLight(sessionId);
 
     if (!session) {
       throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found');
@@ -110,8 +123,8 @@ export class AuthGuard implements CanActivate {
     }
 
     return ContextStorage.enterStore(store, async () => {
-      const user = await this.authService.getUserForAuthContext(validation.payload!.sub);
-
+      const user = await this._authService.getUserForAuthContext(validation.payload!.sub);
+      //
       // ============================================================================
       // Session-scoped auth method propagation
       // ============================================================================
@@ -123,7 +136,7 @@ export class AuthGuard implements CanActivate {
 
       // SECURITY CRITICAL: Re-check session hasn't been modified (optimistic locking)
       // Prevents TOCTOU (Time-of-Check-Time-of-Use) vulnerabilities
-      const revalidated = await this.sessionService.findByIdLight(sessionId);
+      const revalidated = await this._sessionService.findByIdLight(sessionId);
       if (!revalidated || revalidated.version !== initialVersion || revalidated.isRevoked) {
         throw new NAuthException(
           AuthErrorCode.TOKEN_INVALID,
@@ -179,7 +192,7 @@ export class AuthGuard implements CanActivate {
     const cookieToken: string | undefined = request.cookies?.[accessTokenCookieName];
 
     // Resolve per-request delivery. Route override > hybrid policy > method fallback
-    const routeMode = this.reflector.get<RouteDelivery>(TOKEN_DELIVERY_KEY, context.getHandler());
+    const routeMode = this._reflector.get<RouteDelivery>(TOKEN_DELIVERY_KEY, context.getHandler());
 
     let effective: 'cookies' | 'json' = 'json';
     if (routeMode) {

@@ -412,11 +412,9 @@ inventory.express.helpers.forEach((helper, idx) => {
   console.log(`  ${filename}`);
 });
 
-  console.log('\nSkeleton generation complete!');
+console.log('\nSkeleton generation complete!');
 console.log('\nNext steps:');
 console.log('  1. Review generated skeletons');
 console.log('  2. Fill in method signatures and descriptions');
 console.log('  3. Add cross-reference links');
 console.log('  4. Add usage examples');
-
-
