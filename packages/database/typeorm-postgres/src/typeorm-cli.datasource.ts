@@ -21,8 +21,3 @@ export default new DataSource({
   synchronize: false,
   logging: false,
 });
-
-
-
-
-

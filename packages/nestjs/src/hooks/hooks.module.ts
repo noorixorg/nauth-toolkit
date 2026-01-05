@@ -38,6 +38,11 @@ import {
 import { HOOK_METADATA_KEY, HookMetadata } from '../decorators/hook.decorator';
 
 /**
+ * Union type for all hook provider classes
+ */
+type HookProviderClass = Type<IPreSignupHookProvider> | Type<IPostSignupHookProvider> | Type<IUserProfileUpdatedHook>;
+
+/**
  * Module for automatic hook registration
  *
  * This module scans provided hook classes for decorator metadata and automatically
@@ -46,7 +51,7 @@ import { HOOK_METADATA_KEY, HookMetadata } from '../decorators/hook.decorator';
 @Module({})
 export class NAuthHooksModule implements OnModuleInit {
   constructor(
-    @Inject('NAUTH_HOOKS') private readonly hookClasses: Type<any>[],
+    @Inject('NAUTH_HOOKS') private readonly hookClasses: HookProviderClass[],
     private readonly moduleRef: ModuleRef,
     private readonly reflector: Reflector,
   ) {}
@@ -77,11 +82,11 @@ export class NAuthHooksModule implements OnModuleInit {
 
       // Register based on hook type
       if (metadata.type === 'preSignup') {
-        hookRegistry.registerPreSignup(hookInstance as IPreSignupHookProvider);
+        hookRegistry.registerPreSignup(hookInstance as unknown as IPreSignupHookProvider);
       } else if (metadata.type === 'postSignup') {
-        hookRegistry.registerPostSignup(hookInstance as IPostSignupHookProvider);
+        hookRegistry.registerPostSignup(hookInstance as unknown as IPostSignupHookProvider);
       } else if (metadata.type === 'userProfileUpdated') {
-        hookRegistry.registerUserProfileUpdated(hookInstance as IUserProfileUpdatedHook);
+        hookRegistry.registerUserProfileUpdated(hookInstance as unknown as IUserProfileUpdatedHook);
       }
     }
   }
@@ -106,7 +111,7 @@ export class NAuthHooksModule implements OnModuleInit {
    * export class AuthModule {}
    * ```
    */
-  static forFeature(hooks: Type<any>[]): DynamicModule {
+  static forFeature(hooks: HookProviderClass[]): DynamicModule {
     return {
       module: NAuthHooksModule,
       imports: [], // AuthModule must be imported before this module in the consumer's module

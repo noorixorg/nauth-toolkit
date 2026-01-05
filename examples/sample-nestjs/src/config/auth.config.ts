@@ -133,6 +133,7 @@ export const authConfig: NAuthModuleConfig = {
     maxMind: {
       licenseKey: process.env.MAXMIND_LICENSE_KEY,
       accountId: parseInt(process.env.MAXMIND_ACCOUNT_ID || '0', 10),
+      dbPath: './maxmind',
       autoDownloadOnStartup: false,
       editions: ['GeoLite2-City', 'GeoLite2-Country'],
     },

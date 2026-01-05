@@ -61,7 +61,7 @@ export const socialRedirectCallbackGuard: CanActivateFn = async (): Promise<bool
     // Without this, sync guards (`authGuard`) can immediately redirect to /login because
     // `currentUser` is still null even though cookies were set successfully.
     try {
-      await auth.getProfilePromise();
+      await auth.getProfile();
     } catch {
       const errorUrl = config.redirects?.oauthError || '/login';
       window.location.replace(errorUrl);
@@ -73,7 +73,7 @@ export const socialRedirectCallbackGuard: CanActivateFn = async (): Promise<bool
   }
 
   // Exchange token and route accordingly
-  const response = await auth.exchangeSocialRedirectPromise(exchangeToken);
+  const response = await auth.exchangeSocialRedirect(exchangeToken);
   if (response.challengeName) {
     const challengeBase = config.redirects?.challengeBase || '/auth/challenge';
     const challengeRoute = response.challengeName.toLowerCase().replace(/_/g, '-');

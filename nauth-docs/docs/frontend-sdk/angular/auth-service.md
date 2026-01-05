@@ -2,7 +2,7 @@
 title: AuthService
 description: Angular service for authentication operations
 sidebar_position: 2
-keywords: [angular, service, authentication, observable]
+keywords: [angular, service, authentication, promise, async, await]
 image: /img/api-social-card.png
 ---
 
@@ -11,7 +11,7 @@ image: /img/api-social-card.png
 **Package:** `@nauth-toolkit/client/angular`
 **Type:** Injectable Service
 
-Angular wrapper around NAuthClient that exposes authentication methods as Observables and maintains reactive state.
+Angular wrapper around NAuthClient that provides promise-based authentication methods and maintains reactive state.
 
 ```typescript
 import { AuthService } from '@nauth-toolkit/client/angular';
@@ -22,7 +22,7 @@ import { AuthService } from '@nauth-toolkit/client/angular';
 AuthService wraps the core NAuthClient and provides:
 
 - Reactive state via BehaviorSubjects (`currentUser$`, `isAuthenticated$`, `challenge$`)
-- All NAuthClient methods wrapped to return Observables
+- All NAuthClient methods returning Promises for clean async/await syntax
 - Automatic state synchronization on auth state changes
 - Direct access to underlying client when needed
 
@@ -58,7 +58,7 @@ AuthService is provided in root. No manual provider configuration needed.
 Authenticate with email and password.
 
 ```typescript
-login(identifier: string, password: string): Observable<AuthResponse>
+async login(identifier: string, password: string): Promise<AuthResponse>
 ```
 
 **Parameters**
@@ -70,13 +70,15 @@ login(identifier: string, password: string): Observable<AuthResponse>
 
 **Returns**
 
-- `Observable<[AuthResponse](../api/types/auth-response)>` - Emits auth result or challenge
+- `Promise<[AuthResponse](../api/types/auth-response)>` - Auth result or challenge
 
 **Example**
 
 ```typescript
-this.auth.login('user@example.com', 'password').subscribe({
-  next: (response) => {
+async handleLogin() {
+  try {
+    const response = await this.auth.login('user@example.com', 'password');
+
     if (response.challengeName) {
       // Handle challenge
       this.router.navigate(['/challenge', response.challengeName]);
@@ -84,9 +86,10 @@ this.auth.login('user@example.com', 'password').subscribe({
       // Login successful
       this.router.navigate(['/dashboard']);
     }
-  },
-  error: (err) => (this.error = err.message),
-});
+  } catch (err) {
+    this.error = err.message;
+  }
+}
 ```
 
 ---
@@ -96,12 +99,12 @@ this.auth.login('user@example.com', 'password').subscribe({
 Register a new user.
 
 ```typescript
-signup(payload: SignupRequest): Observable<AuthResponse>
+async signup(payload: SignupRequest): Promise<AuthResponse>
 ```
 
 **Returns**
 
-- `Observable<[AuthResponse](../api/types/auth-response)>` - Emits auth result or challenge
+- `Promise<[AuthResponse](../api/types/auth-response)>` - Auth result or challenge
 
 **Parameters**
 
@@ -116,32 +119,34 @@ signup(payload: SignupRequest): Observable<AuthResponse>
 **Example**
 
 ```typescript
-this.auth
-  .signup({
-    email: 'new@example.com',
-    password: 'SecurePass123!',
-    firstName: 'John',
-    lastName: 'Doe',
-    phone: '+14155551234',
-  })
-  .subscribe({
-    next: (response) => {
-      // Usually returns VERIFY_EMAIL challenge
-      if (response.challengeName === 'VERIFY_EMAIL') {
-        this.router.navigate(['/verify-email']);
-      }
-    },
-  });
+async handleSignup() {
+  try {
+    const response = await this.auth.signup({
+      email: 'new@example.com',
+      password: 'SecurePass123!',
+      firstName: 'John',
+      lastName: 'Doe',
+      phone: '+14155551234',
+    });
+
+    // Usually returns VERIFY_EMAIL challenge
+    if (response.challengeName === 'VERIFY_EMAIL') {
+      this.router.navigate(['/verify-email']);
+    }
+  } catch (err) {
+    this.error = err.message;
+  }
+}
 ```
 
 ---
 
 ### logout()
 
-End current session. Uses GET request to avoid CSRF token issues.
+End current session.
 
 ```typescript
-logout(forgetDevice?: boolean): Observable<void>
+async logout(forgetDevice?: boolean): Promise<void>
 ```
 
 **Parameters**
@@ -150,6 +155,14 @@ logout(forgetDevice?: boolean): Observable<void>
 | -------------- | --------- | ------------------------------------- |
 | `forgetDevice` | `boolean` | Remove device trust. Default: `false` |
 
+**Example**
+
+```typescript
+await this.auth.logout();
+// or
+await this.auth.logout(true); // Forget device
+```
+
 ---
 
 ### logoutAll()
@@ -157,7 +170,7 @@ logout(forgetDevice?: boolean): Observable<void>
 End all sessions for current user across all devices.
 
 ```typescript
-logoutAll(forgetDevices?: boolean): Observable<{ revokedCount: number }>
+async logoutAll(forgetDevices?: boolean): Promise<{ revokedCount: number }>
 ```
 
 **Parameters**
@@ -180,14 +193,12 @@ This method requires the user to be authenticated. The endpoint is protected and
 
 ```typescript
 // Revoke all sessions but keep devices trusted
-this.auth.logoutAll().subscribe((result) => {
-  console.log(`Revoked ${result.revokedCount} sessions`);
-});
+const result = await this.auth.logoutAll();
+console.log(`Revoked ${result.revokedCount} sessions`);
 
 // Revoke all sessions AND all trusted devices
-this.auth.logoutAll(true).subscribe((result) => {
-  console.log(`Revoked ${result.revokedCount} sessions and all trusted devices`);
-});
+const result2 = await this.auth.logoutAll(true);
+console.log(`Revoked ${result2.revokedCount} sessions and all trusted devices`);
 ```
 
 ---
@@ -197,7 +208,7 @@ this.auth.logoutAll(true).subscribe((result) => {
 Complete any authentication challenge.
 
 ```typescript
-respondToChallenge(response: ChallengeResponse): Observable<AuthResponse>
+async respondToChallenge(response: ChallengeResponse): Promise<AuthResponse>
 ```
 
 **Parameters**
@@ -206,7 +217,7 @@ respondToChallenge(response: ChallengeResponse): Observable<AuthResponse>
 
 **Returns**
 
-- `Observable<[AuthResponse](../api/types/auth-response)>` - Next challenge or authentication success
+- `Promise<[AuthResponse](../api/types/auth-response)>` - Next challenge or authentication success
 
 **SDK Validation**
 
@@ -215,38 +226,41 @@ The SDK performs client-side validation before sending requests. For TOTP setup,
 **Example - Email Verification**
 
 ```typescript
-this.auth
-  .respondToChallenge({
-    session: this.challengeSession,
-    type: 'VERIFY_EMAIL',
-    code: '123456',
-  })
-  .subscribe({
-    next: (response) => {
-      if (response.challengeName) {
-        // Next challenge
-        this.handleChallenge(response);
-      } else {
-        // Complete
-        this.router.navigate(['/dashboard']);
-      }
-    },
-  });
+async verifyEmail(code: string) {
+  try {
+    const response = await this.auth.respondToChallenge({
+      session: this.challengeSession,
+      type: 'VERIFY_EMAIL',
+      code,
+    });
+
+    if (response.challengeName) {
+      // Next challenge
+      this.handleChallenge(response);
+    } else {
+      // Complete
+      this.router.navigate(['/dashboard']);
+    }
+  } catch (err) {
+    this.error = err.message;
+  }
+}
 ```
 
 **Example - TOTP Setup (requires both secret and code)**
 
 ```typescript
-// IMPORTANT: TOTP setup requires both secret (from getSetupData) and code (from user)
-this.auth.getSetupData(session, 'totp').subscribe((setupResponse) => {
-  const secret = setupResponse.setupData.secret;
+async setupTotp() {
+  try {
+    // Get setup data first
+    const setupResponse = await this.auth.getSetupData(session, 'totp');
+    const secret = setupResponse.setupData.secret;
 
-  // Display QR code to user
-  this.qrCode = setupResponse.setupData.qrCode;
+    // Display QR code to user
+    this.qrCode = setupResponse.setupData.qrCode;
 
-  // When user enters verification code:
-  this.auth
-    .respondToChallenge({
+    // When user enters verification code:
+    const response = await this.auth.respondToChallenge({
       session,
       type: 'MFA_SETUP_REQUIRED',
       method: 'totp',
@@ -254,25 +268,22 @@ this.auth.getSetupData(session, 'totp').subscribe((setupResponse) => {
         secret, // Required: from getSetupData
         code: this.userEnteredCode, // Required: from user's authenticator app
       },
-    })
-    .subscribe({
-      next: (response) => {
-        if (response.challengeName) {
-          // Progressive challenge (e.g., email verification next)
-          this.router.navigate(['/challenge', response.challengeName]);
-        } else {
-          // Setup complete, user authenticated
-          this.router.navigate(['/dashboard']);
-        }
-      },
-      error: (err) => {
-        // SDK validation error if secret or code is missing
-        if (err instanceof NAuthClientError && err.isCode(NAuthErrorCode.VALIDATION_FAILED)) {
-          console.error('TOTP setup validation failed:', err.message);
-        }
-      },
     });
-});
+
+    if (response.challengeName) {
+      // Progressive challenge (e.g., email verification next)
+      this.router.navigate(['/challenge', response.challengeName]);
+    } else {
+      // Setup complete, user authenticated
+      this.router.navigate(['/dashboard']);
+    }
+  } catch (err) {
+    // SDK validation error if secret or code is missing
+    if (err instanceof NAuthClientError && err.isCode(NAuthErrorCode.VALIDATION_FAILED)) {
+      console.error('TOTP setup validation failed:', err.message);
+    }
+  }
+}
 ```
 
 ---
@@ -282,7 +293,14 @@ this.auth.getSetupData(session, 'totp').subscribe((setupResponse) => {
 Resend verification code.
 
 ```typescript
-resendCode(session: string): Observable<{ destination: string }>
+async resendCode(session: string): Promise<{ destination: string }>
+```
+
+**Example**
+
+```typescript
+const result = await this.auth.resendCode(this.challengeSession);
+console.log('Code sent to:', result.destination);
 ```
 
 ---
@@ -292,18 +310,19 @@ resendCode(session: string): Observable<{ destination: string }>
 Get MFA setup data during MFA_SETUP_REQUIRED challenge.
 
 ```typescript
-getSetupData(session: string, method: string): Observable<GetSetupDataResponse>
+async getSetupData(session: string, method: string): Promise<GetSetupDataResponse>
 ```
 
 **Returns**
 
-- `Observable<[GetSetupDataResponse](../api/types/get-setup-data-response)>` - Method-specific setup data
+- `Promise<[GetSetupDataResponse](../api/types/get-setup-data-response)>` - Method-specific setup data
 
 **Example - TOTP Setup**
 
 ```typescript
-// Get TOTP setup data (QR code, secret, manual entry key)
-this.auth.getSetupData(session, 'totp').subscribe((response) => {
+async initTotpSetup() {
+  // Get TOTP setup data (QR code, secret, manual entry key)
+  const response = await this.auth.getSetupData(session, 'totp');
   const setupData = response.setupData;
   // setupData contains:
   // {
@@ -320,34 +339,33 @@ this.auth.getSetupData(session, 'totp').subscribe((response) => {
 
   // Store secret for later use in respondToChallenge
   this.secret = setupData.secret;
-});
+}
 
 // Later, when user enters verification code:
-this.auth
-  .respondToChallenge({
-    session,
-    type: 'MFA_SETUP_REQUIRED',
-    method: 'totp',
-    setupData: {
-      secret: this.secret, // Required: from getSetupData
-      code: this.userEnteredCode, // Required: from user's authenticator app
-    },
-  })
-  .subscribe({
-    next: (response) => {
-      if (response.challengeName) {
-        // Another challenge required
-        this.router.navigate(['/challenge', response.challengeName]);
-      } else {
-        // Setup complete
-        this.router.navigate(['/dashboard']);
-      }
-    },
-    error: (err) => {
-      // Handle error (e.g., invalid code, missing secret)
-      console.error('TOTP setup failed:', err);
-    },
-  });
+async completeTotpSetup(userCode: string) {
+  try {
+    const response = await this.auth.respondToChallenge({
+      session,
+      type: 'MFA_SETUP_REQUIRED',
+      method: 'totp',
+      setupData: {
+        secret: this.secret, // Required: from getSetupData
+        code: userCode, // Required: from user's authenticator app
+      },
+    });
+
+    if (response.challengeName) {
+      // Another challenge required
+      this.router.navigate(['/challenge', response.challengeName]);
+    } else {
+      // Setup complete
+      this.router.navigate(['/dashboard']);
+    }
+  } catch (err) {
+    // Handle error (e.g., invalid code, missing secret)
+    console.error('TOTP setup failed:', err);
+  }
+}
 ```
 
 ---
@@ -357,7 +375,13 @@ this.auth
 Get challenge data for MFA verification.
 
 ```typescript
-getChallengeData(session: string, method: string): Observable<unknown>
+async getChallengeData(session: string, method: string): Promise<GetChallengeDataResponse>
+```
+
+**Example**
+
+```typescript
+const challengeData = await this.auth.getChallengeData(session, 'passkey');
 ```
 
 ---
@@ -367,7 +391,13 @@ getChallengeData(session: string, method: string): Observable<unknown>
 Clear stored challenge session.
 
 ```typescript
-clearChallenge(): Observable<void>
+async clearChallenge(): Promise<void>
+```
+
+**Example**
+
+```typescript
+await this.auth.clearChallenge();
 ```
 
 ---
@@ -377,23 +407,7 @@ clearChallenge(): Observable<void>
 Fetch current user profile from server.
 
 ```typescript
-getProfile(): Observable<AuthUser>
-```
-
-**Returns**
-
-- `Observable<[AuthUser](../api/types/auth-user)>`
-
----
-
-### getProfilePromise()
-
-Fetch current user profile from server (promise-based).
-
-Returns a promise instead of an Observable, matching the core NAuthClient API. Useful for async/await patterns in guards and interceptors.
-
-```typescript
-getProfilePromise(): Promise<AuthUser>
+async getProfile(): Promise<AuthUser>
 ```
 
 **Returns**
@@ -403,8 +417,8 @@ getProfilePromise(): Promise<AuthUser>
 **Example**
 
 ```typescript
-// In a route guard
-const user = await auth.getProfilePromise();
+const user = await this.auth.getProfile();
+console.log('User:', user);
 ```
 
 ---
@@ -414,7 +428,7 @@ const user = await auth.getProfilePromise();
 Update user profile.
 
 ```typescript
-updateProfile(updates: UpdateProfileRequest): Observable<AuthUser>
+async updateProfile(updates: UpdateProfileRequest): Promise<AuthUser>
 ```
 
 **Parameters**
@@ -423,7 +437,17 @@ updateProfile(updates: UpdateProfileRequest): Observable<AuthUser>
 
 **Returns**
 
-- `Observable<[AuthUser](../api/types/auth-user)>`
+- `Promise<[AuthUser](../api/types/auth-user)>`
+
+**Example**
+
+```typescript
+const user = await this.auth.updateProfile({
+  firstName: 'John',
+  lastName: 'Doe',
+});
+console.log('Updated:', user);
+```
 
 ---
 
@@ -432,7 +456,13 @@ updateProfile(updates: UpdateProfileRequest): Observable<AuthUser>
 Change user password.
 
 ```typescript
-changePassword(oldPassword: string, newPassword: string): Observable<void>
+async changePassword(oldPassword: string, newPassword: string): Promise<void>
+```
+
+**Example**
+
+```typescript
+await this.auth.changePassword('oldPass123', 'newPass456!');
 ```
 
 ---
@@ -442,12 +472,19 @@ changePassword(oldPassword: string, newPassword: string): Observable<void>
 Get user's MFA status.
 
 ```typescript
-getMfaStatus(): Observable<MFAStatus>
+async getMfaStatus(): Promise<MFAStatus>
 ```
 
 **Returns**
 
-- `Observable<[MFAStatus](../api/types/mfa-status)>`
+- `Promise<[MFAStatus](../api/types/mfa-status)>`
+
+**Example**
+
+```typescript
+const status = await this.auth.getMfaStatus();
+console.log('MFA enabled:', status.enabled);
+```
 
 ---
 
@@ -456,13 +493,13 @@ getMfaStatus(): Observable<MFAStatus>
 Start redirect-first web social login (performs browser navigation).
 
 ```typescript
-loginWithSocial(provider: SocialProvider, options?: SocialLoginOptions): Promise<void>
+async loginWithSocial(provider: SocialProvider, options?: SocialLoginOptions): Promise<void>
 ```
 
 **Example**
 
 ```typescript
-this.auth.loginWithSocial('google', { returnTo: '/auth/callback', appState: '12345' });
+await this.auth.loginWithSocial('google', { returnTo: '/auth/callback', appState: '12345' });
 ```
 
 ---
@@ -472,36 +509,18 @@ this.auth.loginWithSocial('google', { returnTo: '/auth/callback', appState: '123
 Exchange `exchangeToken` (from callback URL) into an auth result.
 
 ```typescript
-exchangeSocialRedirect(exchangeToken: string): Observable<AuthResponse>
+async exchangeSocialRedirect(exchangeToken: string): Promise<AuthResponse>
 ```
-
----
-
-### exchangeSocialRedirectPromise()
-
-Exchange `exchangeToken` (from callback URL) into an auth result (promise-based).
-
-Returns a promise instead of an Observable, matching the core NAuthClient API. Useful for async/await patterns in guards and interceptors.
-
-```typescript
-exchangeSocialRedirectPromise(exchangeToken: string): Promise<AuthResponse>
-```
-
-**Parameters**
-
-| Parameter       | Type     | Description                    |
-| --------------- | -------- | ------------------------------ |
-| `exchangeToken` | `string` | One-time exchange token from callback URL |
-
-**Returns**
-
-- `Promise<[AuthResponse](../api/types/auth-response)>`
 
 **Example**
 
 ```typescript
-// In a route guard
-const response = await auth.exchangeSocialRedirectPromise(exchangeToken);
+const response = await this.auth.exchangeSocialRedirect(exchangeToken);
+if (response.challengeName) {
+  // Handle challenge
+} else {
+  // Login successful
+}
 ```
 
 ---
@@ -511,30 +530,32 @@ const response = await auth.exchangeSocialRedirectPromise(exchangeToken);
 Verify native social token (mobile).
 
 ```typescript
-verifyNativeSocial(request: SocialVerifyRequest): Observable<AuthResponse>
+async verifyNativeSocial(request: SocialVerifyRequest): Promise<AuthResponse>
 ```
-
----
-
-### refreshTokensPromise()
-
-Refresh tokens (promise-based).
-
-Returns a promise instead of an Observable, matching the core NAuthClient API. Useful for async/await patterns in guards and interceptors.
-
-```typescript
-refreshTokensPromise(): Promise<TokenResponse>
-```
-
-**Returns**
-
-- `Promise<[TokenResponse](../api/types/token-response)>`
 
 **Example**
 
 ```typescript
-// In an interceptor
-const tokens = await auth.refreshTokensPromise();
+const result = await this.auth.verifyNativeSocial({
+  provider: 'google',
+  idToken: nativeIdToken,
+});
+```
+
+---
+
+### refresh()
+
+Refresh tokens.
+
+```typescript
+async refresh(): Promise<TokenResponse>
+```
+
+**Example**
+
+```typescript
+const tokens = await this.auth.refresh();
 ```
 
 ---
@@ -544,7 +565,7 @@ const tokens = await auth.refreshTokensPromise();
 Get underlying NAuthClient instance for advanced operations.
 
 :::warning Deprecated
-This method is deprecated. Use promise-based methods (`getProfilePromise()`, `exchangeSocialRedirectPromise()`, `refreshTokensPromise()`) instead of accessing the client directly. The `getClient()` method is kept for backward compatibility only and may be removed in a future version.
+This method is deprecated. Use the direct promise-based methods on AuthService instead. The `getClient()` method is kept for backward compatibility only and may be removed in a future version.
 :::
 
 ```typescript
@@ -554,12 +575,12 @@ getClient(): NAuthClient
 **Example**
 
 ```typescript
-// Deprecated - use promise-based methods instead
+// Deprecated - use direct methods instead
 const client = this.auth.getClient();
 await client.getProfile();
 
-// Preferred - use promise-based methods
-await auth.getProfilePromise();
+// Preferred - use direct methods
+await this.auth.getProfile();
 ```
 
 ---
@@ -620,7 +641,7 @@ export class ChallengeRouterComponent implements OnInit {
 }
 ```
 
-### Form with Error Handling
+### Form with Error Handling (Async/Await)
 
 ```typescript
 @Component({
@@ -651,27 +672,26 @@ export class LoginComponent {
     private router: Router,
   ) {}
 
-  submit(): void {
+  async submit() {
     if (this.form.invalid) return;
 
     this.loading = true;
     this.error = '';
 
-    const { email, password } = this.form.value;
-    this.auth.login(email!, password!).subscribe({
-      next: (res) => {
-        this.loading = false;
-        if (res.challengeName) {
-          this.router.navigate(['/challenge']);
-        } else {
-          this.router.navigate(['/dashboard']);
-        }
-      },
-      error: (err) => {
-        this.loading = false;
-        this.error = err.message;
-      },
-    });
+    try {
+      const { email, password } = this.form.value;
+      const res = await this.auth.login(email!, password!);
+
+      if (res.challengeName) {
+        this.router.navigate(['/challenge']);
+      } else {
+        this.router.navigate(['/dashboard']);
+      }
+    } catch (err) {
+      this.error = err.message;
+    } finally {
+      this.loading = false;
+    }
   }
 }
 ```

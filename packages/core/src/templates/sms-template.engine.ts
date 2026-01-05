@@ -52,7 +52,6 @@ export class SMSTemplateEngineImpl implements ISMSTemplateEngine {
   /**
    * Logger instance for error reporting
    */
-  // @ts-ignore - Logger is reserved for future error reporting
   private readonly logger?: NAuthLogger;
 
   /**

@@ -1,6 +1,41 @@
 import { OAuthClient, OAuthConfig, OAuthUserProfile, NAuthException, AuthErrorCode } from '@nauth-toolkit/core';
 
 /**
+ * Facebook token exchange response
+ */
+interface FacebookTokenResponse {
+  access_token: string;
+  expires_in?: number;
+  token_type?: string;
+}
+
+/**
+ * Facebook error response
+ */
+interface FacebookErrorResponse {
+  error?: {
+    message?: string;
+    type?: string;
+    code?: number;
+  };
+}
+
+/**
+ * Facebook user profile response
+ */
+interface FacebookUserProfileResponse {
+  id: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  picture?: {
+    data?: {
+      url?: string;
+    };
+  };
+}
+
+/**
  * Facebook OAuth Client Implementation (Platform-Agnostic)
  *
  * Handles OAuth flow with Facebook's Graph API
@@ -66,14 +101,14 @@ export class FacebookOAuthClient implements OAuthClient {
       const tokenResponse = await fetch(url);
 
       if (!tokenResponse.ok) {
-        const errorData = (await tokenResponse.json()) as any;
+        const errorData = (await tokenResponse.json()) as FacebookErrorResponse;
         throw new NAuthException(
           AuthErrorCode.SOCIAL_TOKEN_INVALID,
           `Token exchange failed: ${errorData.error?.message || 'Unknown error'}`,
         );
       }
 
-      const data = (await tokenResponse.json()) as any;
+      const data = (await tokenResponse.json()) as FacebookTokenResponse;
 
       return {
         accessToken: data.access_token,
@@ -122,14 +157,14 @@ export class FacebookOAuthClient implements OAuthClient {
         if (response.status === 401) {
           throw new NAuthException(AuthErrorCode.SOCIAL_TOKEN_INVALID, 'Invalid or expired access token');
         }
-        const errorData = (await response.json()) as any;
+        const errorData = (await response.json()) as FacebookErrorResponse;
         throw new NAuthException(
           AuthErrorCode.INTERNAL_ERROR,
           `Facebook API call failed: ${errorData.error?.message || response.statusText}`,
         );
       }
 
-      const data = (await response.json()) as any;
+      const data = (await response.json()) as FacebookUserProfileResponse;
 
       // CRITICAL: Require email from Facebook for signup
       if (!data.email) {
@@ -148,7 +183,7 @@ export class FacebookOAuthClient implements OAuthClient {
         lastName: data.last_name || null,
         picture: data.picture?.data?.url || null,
         verified: true, // Email is verified if provided by Facebook
-        raw: data,
+        raw: data as unknown as Record<string, unknown>,
       };
     } catch (error) {
       if (error instanceof Error) {

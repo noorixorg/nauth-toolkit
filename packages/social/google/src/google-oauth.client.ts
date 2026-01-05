@@ -1,6 +1,36 @@
 import { OAuthClient, OAuthConfig, OAuthUserProfile, NAuthException, AuthErrorCode } from '@nauth-toolkit/core';
 
 /**
+ * Google token exchange response
+ */
+interface GoogleTokenResponse {
+  access_token: string;
+  refresh_token?: string;
+  expires_in?: number;
+  token_type?: string;
+}
+
+/**
+ * Google error response
+ */
+interface GoogleErrorResponse {
+  error?: string;
+  error_description?: string;
+}
+
+/**
+ * Google user profile response
+ */
+interface GoogleUserProfileResponse {
+  id: string;
+  email?: string;
+  verified_email?: boolean;
+  given_name?: string;
+  family_name?: string;
+  picture?: string;
+}
+
+/**
  * Google OAuth Client Implementation (Platform-Agnostic)
  *
  * Handles OAuth flow with Google's OpenID Connect API
@@ -71,14 +101,14 @@ export class GoogleOAuthClient implements OAuthClient {
       });
 
       if (!response.ok) {
-        const errorData = (await response.json()) as any;
+        const errorData = (await response.json()) as GoogleErrorResponse;
         throw new NAuthException(
           AuthErrorCode.SOCIAL_TOKEN_INVALID,
           `Token exchange failed: ${errorData.error_description || errorData.error}`,
         );
       }
 
-      const data = (await response.json()) as any;
+      const data = (await response.json()) as GoogleTokenResponse;
 
       return {
         accessToken: data.access_token,
@@ -125,7 +155,7 @@ export class GoogleOAuthClient implements OAuthClient {
         );
       }
 
-      const data = (await response.json()) as any;
+      const data = (await response.json()) as GoogleUserProfileResponse;
 
       // Map Google's response to our standardized format
       return {
@@ -135,7 +165,7 @@ export class GoogleOAuthClient implements OAuthClient {
         lastName: data.family_name || null,
         picture: data.picture || null,
         verified: data.verified_email || false,
-        raw: data,
+        raw: data as unknown as Record<string, unknown>,
       };
     } catch (error) {
       if (error instanceof Error) {

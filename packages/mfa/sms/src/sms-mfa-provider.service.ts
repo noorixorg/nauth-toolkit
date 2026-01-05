@@ -12,9 +12,10 @@ import {
   MFAMethod,
   SendVerificationSMSDTO,
   VerifyPhoneWithCodeBySubDTO,
+  ClientInfoService,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
-import { BaseMFAProviderService } from '@nauth-toolkit/core/internal';
+import { BaseMFAProviderService, ChallengeService, AuthAuditService } from '@nauth-toolkit/core/internal';
 import { SetupSMSMFADTO, VerifySMSMFASetupDTO } from './dto/mfa.dto';
 
 /**
@@ -49,9 +50,9 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
     logger: NAuthLogger,
     passwordService: unknown,
     private readonly phoneVerificationService?: PhoneVerificationService,
-    challengeService?: unknown, // ChallengeService (optional)
-    auditService?: unknown, // AuthAuditService (optional)
-    clientInfoService?: unknown, // ClientInfoService (optional)
+    challengeService?: ChallengeService,
+    auditService?: AuthAuditService,
+    clientInfoService?: ClientInfoService,
   ) {
     super(
       mfaDeviceRepository,
@@ -59,9 +60,9 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
       config,
       logger,
       passwordService,
-      challengeService as any,
-      auditService as any,
-      clientInfoService as any,
+      challengeService,
+      auditService,
+      clientInfoService,
     );
   }
 
@@ -334,7 +335,8 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
 
       // For unexpected errors, log and return false (generic failure)
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorCode = (error as any)?.code || 'UNKNOWN';
+      const errorCode =
+        (error && typeof error === 'object' && 'code' in error ? String(error.code) : undefined) || 'UNKNOWN';
       this.logger?.warn?.(
         `SMS code verification failed for user: ${user.sub}, code: ${smsCode}, error: ${errorCode} - ${errorMessage}`,
       );

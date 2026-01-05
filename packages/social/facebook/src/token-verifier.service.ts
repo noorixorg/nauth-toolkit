@@ -2,6 +2,28 @@ import { NAuthConfig, NAuthLogger, NAuthException, AuthErrorCode, ITokenVerifier
 import { VerifiedFacebookTokenProfile } from './verified-token-profile.interface';
 
 /**
+ * Facebook debug token response
+ */
+interface FacebookDebugTokenResponse {
+  data?: {
+    is_valid?: boolean;
+    app_id?: string;
+    user_id?: string;
+  };
+}
+
+/**
+ * Facebook user profile response
+ */
+interface FacebookUserProfileResponse {
+  id: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  picture?: string | { data?: { url?: string } };
+}
+
+/**
  * Token Verifier Service for Facebook OAuth (Platform-Agnostic)
  *
  * Handles secure verification of Facebook access tokens via Graph API.
@@ -64,7 +86,7 @@ export class TokenVerifierService implements ITokenVerifierService {
         throw new NAuthException(AuthErrorCode.SOCIAL_TOKEN_INVALID, 'Facebook token validation failed');
       }
 
-      const debugData = (await debugResponse.json()) as any;
+      const debugData = (await debugResponse.json()) as FacebookDebugTokenResponse;
 
       // Check if token is valid
       if (!debugData.data || !debugData.data.is_valid) {
@@ -84,16 +106,26 @@ export class TokenVerifierService implements ITokenVerifierService {
         throw new NAuthException(AuthErrorCode.SOCIAL_TOKEN_INVALID, 'Failed to fetch Facebook user profile');
       }
 
-      const profile = (await profileResponse.json()) as any;
+      const profile = (await profileResponse.json()) as FacebookUserProfileResponse;
 
       this.logger?.log?.(`[TokenVerifier] Facebook token verified (secure): ${profile.email || profile.id}`);
+
+      // Handle picture field - it can be a string or an object with data.url
+      let picture: { data: { url: string } } | undefined;
+      if (typeof profile.picture === 'string') {
+        // If picture is a string URL, wrap it in the expected structure
+        picture = { data: { url: profile.picture } };
+      } else if (profile.picture?.data?.url) {
+        // If picture is an object with data.url, use it as-is
+        picture = { data: { url: profile.picture.data.url } };
+      }
 
       return {
         id: profile.id,
         email: profile.email,
         first_name: profile.first_name,
         last_name: profile.last_name,
-        picture: profile.picture,
+        picture,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

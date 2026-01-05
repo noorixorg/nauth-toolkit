@@ -101,28 +101,25 @@ export class DashboardComponent {
    *
    * Logs out the user and navigates to login page.
    */
-  onLogout(): void {
+  async onLogout(): Promise<void> {
     if (this.isLoggingOut()) {
       return;
     }
 
     this.isLoggingOut.set(true);
-    this.auth.logout().subscribe({
-      next: () => {
-        this.router.navigate(['/login']);
-      },
-      error: (_err: unknown) => {
-        this.messageService.add({
-          severity: 'warn',
-          summary: 'Sign Out',
-          detail: 'Signed out locally. Session may have already expired.',
-        });
-        this.router.navigate(['/login']);
-      },
-      complete: () => {
-        this.isLoggingOut.set(false);
-      },
-    });
+    try {
+      await this.auth.logout();
+      await this.router.navigate(['/login']);
+    } catch (_err: unknown) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Sign Out',
+        detail: 'Signed out locally. Session may have already expired.',
+      });
+      await this.router.navigate(['/login']);
+    } finally {
+      this.isLoggingOut.set(false);
+    }
   }
 
   /**
@@ -130,28 +127,25 @@ export class DashboardComponent {
    *
    * Logs out and removes device trust token.
    */
-  onLogoutForgetDevice(): void {
+  async onLogoutForgetDevice(): Promise<void> {
     if (this.isLoggingOut()) {
       return;
     }
 
     this.isLoggingOut.set(true);
-    this.auth.logout(true).subscribe({
-      next: () => {
-        this.router.navigate(['/login']);
-      },
-      error: (_err: unknown) => {
-        this.messageService.add({
-          severity: 'warn',
-          summary: 'Sign Out',
-          detail: 'Signed out locally. Device trust may not have been revoked.',
-        });
-        this.router.navigate(['/login']);
-      },
-      complete: () => {
-        this.isLoggingOut.set(false);
-      },
-    });
+    try {
+      await this.auth.logout(true);
+      await this.router.navigate(['/login']);
+    } catch (_err: unknown) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Sign Out',
+        detail: 'Signed out locally. Device trust may not have been revoked.',
+      });
+      await this.router.navigate(['/login']);
+    } finally {
+      this.isLoggingOut.set(false);
+    }
   }
 
   /**
@@ -159,27 +153,24 @@ export class DashboardComponent {
    *
    * Revokes all sessions for the user.
    */
-  onLogoutAll(): void {
+  async onLogoutAll(): Promise<void> {
     if (this.isLoggingOut()) {
       return;
     }
 
     this.isLoggingOut.set(true);
-    this.auth.logoutAll().subscribe({
-      next: (_result) => {
-        this.router.navigate(['/login']);
-      },
-      error: (_err: unknown) => {
-        this.messageService.add({
-          severity: 'warn',
-          summary: 'Global Sign Out',
-          detail: 'Signed out locally. Some sessions may not have been revoked.',
-        });
-        this.router.navigate(['/login']);
-      },
-      complete: () => {
-        this.isLoggingOut.set(false);
-      },
-    });
+    try {
+      await this.auth.logoutAll();
+      await this.router.navigate(['/login']);
+    } catch (_err: unknown) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Global Sign Out',
+        detail: 'Signed out locally. Some sessions may not have been revoked.',
+      });
+      await this.router.navigate(['/login']);
+    } finally {
+      this.isLoggingOut.set(false);
+    }
   }
 }

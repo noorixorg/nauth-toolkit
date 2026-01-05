@@ -96,7 +96,7 @@ export class ForgotPasswordComponent implements OnInit {
    * Requests password reset code for the provided identifier.
    * On success, navigates to confirm forgot password page.
    */
-  onSubmit(): void {
+  async onSubmit(): Promise<void> {
     if (this.forgotPasswordForm.invalid) {
       // Mark all fields as touched to show validation errors
       Object.keys(this.forgotPasswordForm.controls).forEach((key) => {
@@ -113,52 +113,49 @@ export class ForgotPasswordComponent implements OnInit {
 
     const { identifier } = this.forgotPasswordForm.value;
 
-    this.auth.forgotPassword(identifier).subscribe({
-      next: async (response) => {
-        this.loading.set(false);
+    try {
+      const response = await this.auth.forgotPassword(identifier);
 
-        // Store identifier in session storage for confirm step
-        sessionStorage.setItem('forgotPasswordIdentifier', identifier);
+      // Store identifier in session storage for confirm step
+      sessionStorage.setItem('forgotPasswordIdentifier', identifier);
 
-        // If we have delivery info, show success message
-        if (response.destination) {
-          this.destination.set(response.destination);
-          this.deliveryMedium.set(response.deliveryMedium || 'email');
-          this.success.set(
-            `If an account exists, a password reset code has been sent to ${response.destination}`,
-          );
-        } else {
-          // Non-enumerating response - still show generic success
-          this.success.set(
-            'If an account exists, a password reset code has been sent to your registered email or phone.',
-          );
-        }
-
-        // Show verification code toast in simulation mode
-        await this.verificationCodeService.showPasswordResetCode(
-          identifier,
-          response.deliveryMedium,
+      // If we have delivery info, show success message
+      if (response.destination) {
+        this.destination.set(response.destination);
+        this.deliveryMedium.set(response.deliveryMedium || 'email');
+        this.success.set(
+          `If an account exists, a password reset code has been sent to ${response.destination}`,
         );
+      } else {
+        // Non-enumerating response - still show generic success
+        this.success.set(
+          'If an account exists, a password reset code has been sent to your registered email or phone.',
+        );
+      }
 
-        // Navigate to confirm page after a short delay
-        setTimeout(() => {
-          this.router.navigate(['/forgot-password/confirm']);
-        }, 2000);
-      },
-      error: (err: unknown) => {
-        this.loading.set(false);
+      // Show verification code toast in simulation mode
+      await this.verificationCodeService.showPasswordResetCode(
+        identifier,
+        response.deliveryMedium,
+      );
 
-        // Handle rate limit errors specifically
-        if (
-          err instanceof NAuthClientError &&
-          err.code === NAuthErrorCode.RATE_LIMIT_PASSWORD_RESET
-        ) {
-          this.error.set('Too many reset requests. Please try again later.');
-        } else {
-          this.handleError(err);
-        }
-      },
-    });
+      // Navigate to confirm page after a short delay
+      setTimeout(() => {
+        this.router.navigate(['/forgot-password/confirm']);
+      }, 2000);
+    } catch (err: unknown) {
+      // Handle rate limit errors specifically
+      if (
+        err instanceof NAuthClientError &&
+        err.code === NAuthErrorCode.RATE_LIMIT_PASSWORD_RESET
+      ) {
+        this.error.set('Too many reset requests. Please try again later.');
+      } else {
+        this.handleError(err);
+      }
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   /**

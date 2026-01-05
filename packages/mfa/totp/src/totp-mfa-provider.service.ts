@@ -9,9 +9,10 @@ import {
   NAuthException,
   AuthErrorCode,
   MFAMethod,
+  ClientInfoService,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
-import { BaseMFAProviderService } from '@nauth-toolkit/core/internal';
+import { BaseMFAProviderService, ChallengeService, AuthAuditService } from '@nauth-toolkit/core/internal';
 import { TOTPService } from './totp.service';
 import { SetupTOTPResponseDTO, VerifyTOTPSetupDTO } from './dto/mfa.dto';
 
@@ -45,9 +46,9 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
     logger: NAuthLogger,
     passwordService: unknown,
     private readonly totpService: TOTPService,
-    challengeService?: unknown, // ChallengeService (optional)
-    auditService?: unknown, // AuthAuditService (optional)
-    clientInfoService?: unknown, // ClientInfoService (optional)
+    challengeService?: ChallengeService,
+    auditService?: AuthAuditService,
+    clientInfoService?: ClientInfoService,
   ) {
     super(
       mfaDeviceRepository,
@@ -55,9 +56,9 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
       config,
       logger,
       passwordService,
-      challengeService as any,
-      auditService as any,
-      clientInfoService as any,
+      challengeService,
+      auditService,
+      clientInfoService,
     );
   }
 

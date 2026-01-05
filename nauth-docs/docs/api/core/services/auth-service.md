@@ -2305,6 +2305,164 @@ Both events include metadata:
 
 ---
 
+### validateAccessToken()
+
+Validate JWT access token and decode payload. Returns validation result with decoded payload if valid, or error information if invalid.
+
+```typescript
+async validateAccessToken(dto: ValidateAccessTokenDTO): Promise<ValidateAccessTokenResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`ValidateAccessTokenDTO`](../dto/validate-access-token-dto)
+
+**Returns**
+
+- [`ValidateAccessTokenResponseDTO`](../dto/validate-access-token-response-dto) - Validation result with optional payload and error information
+
+**Behavior**
+
+- Verifies token signature using configured secret/public key
+- Validates expiration timestamp
+- Ensures token type is 'access' (not refresh)
+- Checks issuer and audience claims
+- Returns decoded payload if valid
+- Returns error information if invalid
+
+**Use Cases**
+
+- Manual token validation in consumer applications
+- Token introspection for debugging
+- Custom authorization logic requiring token payload
+- API gateway token validation
+- Microservice authentication
+
+**Errors**
+
+This method does not throw errors. All validation failures are returned in the response DTO with `valid: false` and appropriate `error` and `errorType` fields.
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Injectable()
+export class TokenService {
+  constructor(private readonly authService: AuthService) {}
+
+  async validateToken(token: string) {
+    const result = await this.authService.validateAccessToken({
+      accessToken: token,
+    });
+
+    if (result.valid) {
+      console.log('User ID:', result.payload.sub);
+      console.log('Session ID:', result.payload.sessionId);
+      console.log('Expires at:', new Date(result.payload.exp * 1000));
+      return result.payload;
+    } else {
+      console.error('Validation failed:', result.error);
+      console.error('Error type:', result.errorType);
+      return null;
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.post('/validate-token', async (req, res) => {
+  const result = await nauth.authService.validateAccessToken({
+    accessToken: req.body.token,
+  });
+
+  if (result.valid) {
+    res.json({
+      valid: true,
+      userId: result.payload.sub,
+      email: result.payload.email,
+      sessionId: result.payload.sessionId,
+    });
+  } else {
+    res.status(401).json({
+      valid: false,
+      error: result.error,
+      errorType: result.errorType,
+    });
+  }
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.post(
+  '/validate-token',
+  { preHandler: nauth.helpers.public() },
+  nauth.adapter.wrapRouteHandler(async (req, reply) => {
+    const result = await nauth.authService.validateAccessToken({
+      accessToken: req.body.token,
+    });
+
+    if (result.valid) {
+      return {
+        valid: true,
+        userId: result.payload.sub,
+        email: result.payload.email,
+        sessionId: result.payload.sessionId,
+      };
+    } else {
+      reply.status(401);
+      return {
+        valid: false,
+        error: result.error,
+        errorType: result.errorType,
+      };
+    }
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+**Response Examples**
+
+Valid token:
+
+```json
+{
+  "valid": true,
+  "payload": {
+    "sub": "a21b654c-2746-4168-acee-c175083a65cd",
+    "email": "user@example.com",
+    "type": "access",
+    "sessionId": "session-uuid-123",
+    "iat": 1704067200,
+    "exp": 1704070800,
+    "iss": "nauth-toolkit",
+    "aud": "my-app"
+  }
+}
+```
+
+Invalid token:
+
+```json
+{
+  "valid": false,
+  "error": "Token expired",
+  "errorType": "expired"
+}
+```
+
+---
+
 ## Error Handling
 
 All methods throw [`NAuthException`](../exceptions/nauth-exception) with structured error data.

@@ -120,7 +120,7 @@ export class PasskeyService {
     this.logger?.log?.(`Passkey registration options generated for: ${userEmail}`);
 
     return {
-      options: options as any,
+      options: options as unknown as SetupPasskeyResponseDTO['options'],
     };
   }
 
@@ -188,7 +188,8 @@ export class PasskeyService {
 
     // Extract credential ID - Use the ID from frontend directly for consistency
     // This ensures it matches exactly what the browser will send during authentication
-    const frontendCredentialId = (credential as any).id || (credential as any).rawId;
+    const credentialWithId = credential as RegistrationResponseJSON & { id?: string; rawId?: string };
+    const frontendCredentialId = credentialWithId.id || credentialWithId.rawId;
 
     // Fallback to SimpleWebAuthn's extracted ID if frontend ID not available
     let storedCredentialId: string;
@@ -264,7 +265,7 @@ export class PasskeyService {
     this.logger?.log?.('Passkey authentication options generated');
 
     return {
-      options: options as any,
+      options: options as unknown as GetPasskeyChallengeResponseDTO['options'],
     };
   }
 
@@ -325,7 +326,7 @@ export class PasskeyService {
           credentialPublicKey: new Uint8Array(publicKeyBuffer),
           counter: device.counter,
           transports: (device.transports as AuthenticatorTransportFuture[]) || undefined,
-        } as any,
+        } as unknown as Parameters<typeof verifyAuthenticationResponse>[0]['authenticator'],
         requireUserVerification: passkeyConfig.userVerification === 'required',
       });
     } catch (error) {

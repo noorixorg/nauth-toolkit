@@ -12,9 +12,10 @@ import {
   MFAMethod,
   SendVerificationEmailDTO,
   VerifyEmailWithCodeDTO,
+  ClientInfoService,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
-import { BaseMFAProviderService } from '@nauth-toolkit/core/internal';
+import { BaseMFAProviderService, ChallengeService, AuthAuditService } from '@nauth-toolkit/core/internal';
 import { SetupEmailMFADTO, VerifyEmailMFASetupDTO } from './dto/mfa.dto';
 
 /**
@@ -48,9 +49,9 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
     logger: NAuthLogger,
     passwordService: unknown,
     private readonly emailVerificationService?: EmailVerificationService,
-    challengeService?: unknown, // ChallengeService (optional)
-    auditService?: unknown, // AuthAuditService (optional)
-    clientInfoService?: unknown, // ClientInfoService (optional)
+    challengeService?: ChallengeService,
+    auditService?: AuthAuditService,
+    clientInfoService?: ClientInfoService,
   ) {
     super(
       mfaDeviceRepository,
@@ -58,9 +59,9 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
       config,
       logger,
       passwordService,
-      challengeService as any,
-      auditService as any,
-      clientInfoService as any,
+      challengeService,
+      auditService,
+      clientInfoService,
     );
   }
 
@@ -337,7 +338,8 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
 
       // For unexpected errors, log and return false (generic failure)
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorCode = (error as any)?.code || 'UNKNOWN';
+      const errorCode =
+        (error && typeof error === 'object' && 'code' in error ? String(error.code) : undefined) || 'UNKNOWN';
       this.logger?.warn?.(
         `Email code verification failed for user: ${user.sub}, code: ${emailCode}, error: ${errorCode} - ${errorMessage}`,
       );

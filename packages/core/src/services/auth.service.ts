@@ -74,6 +74,8 @@ import { TrustDeviceResponseDTO } from '../dto/trust-device-response.dto';
 import { IsTrustedDeviceResponseDTO } from '../dto/is-trusted-device-response.dto';
 import { ResendVerificationEmailDTO } from '../dto/verify-email.dto';
 import { SendVerificationSMSDTO, ResendVerificationSMSDTO } from '../dto/verify-phone.dto';
+import { ValidateAccessTokenDTO } from '../dto/validate-access-token.dto';
+import { ValidateAccessTokenResponseDTO } from '../dto/validate-access-token-response.dto';
 import { PasswordResetService } from './password-reset.service';
 import { SocialAuthService } from './social-auth.service';
 import { HookRegistryService } from './hook-registry.service';
@@ -3163,6 +3165,55 @@ export class AuthService {
    */
   async updateVerifiedStatus(dto: UpdateVerifiedStatusRequestDTO): Promise<UserResponseDto> {
     return await this.userService.updateVerifiedStatus(dto);
+  }
+
+  /**
+   * Validate JWT access token
+   *
+   * Validates JWT access token signature, expiration, and format.
+   * Returns decoded payload if valid, or error information if invalid.
+   *
+   * Use cases:
+   * - Manual token validation in consumer applications
+   * - Token introspection for debugging
+   * - Custom authorization logic requiring token payload
+   * - API gateway token validation
+   *
+   * Security:
+   * - Verifies token signature using configured secret/public key
+   * - Validates expiration timestamp
+   * - Ensures token type is 'access'
+   * - Checks issuer and audience claims
+   *
+   * @param dto - ValidateAccessTokenDTO containing access token
+   * @returns ValidateAccessTokenResponseDTO with validation result and optional payload
+   *
+   * @example
+   * ```typescript
+   * const result = await authService.validateAccessToken({
+   *   accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+   * });
+   *
+   * if (result.valid) {
+   *   console.log('User ID:', result.payload.sub);
+   *   console.log('Session ID:', result.payload.sessionId);
+   * } else {
+   *   console.error('Validation failed:', result.error, result.errorType);
+   * }
+   * ```
+   */
+  async validateAccessToken(dto: ValidateAccessTokenDTO): Promise<ValidateAccessTokenResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(ValidateAccessTokenDTO, dto);
+
+    const result = await this.jwtService.validateAccessToken(dto.accessToken);
+
+    return {
+      valid: result.valid,
+      payload: result.payload,
+      error: result.error,
+      errorType: result.errorType,
+    };
   }
 
   // ============================================================================

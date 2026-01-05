@@ -552,30 +552,15 @@ export class ProfileComponent implements OnInit {
 
     try {
       const { oldPassword, newPassword } = this.changePasswordForm.value;
-      this.auth.changePassword(oldPassword, newPassword).subscribe({
-        next: () => {
-          this.changingPassword.set(false);
-          this.success.set('Password changed successfully');
-          this.closeChangePasswordDialog();
+      await this.auth.changePassword(oldPassword, newPassword);
+      this.success.set('Password changed successfully');
+      this.closeChangePasswordDialog();
 
-          // Clear success message after 3 seconds
-          setTimeout(() => {
-            this.success.set(null);
-          }, 3000);
-        },
-        error: (err: unknown) => {
-          this.changingPassword.set(false);
-          if (err instanceof NAuthClientError) {
-            this.error.set(err.message);
-          } else if (err instanceof Error) {
-            this.error.set(err.message || 'Failed to change password');
-          } else {
-            this.error.set('Failed to change password');
-          }
-        },
-      });
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        this.success.set(null);
+      }, 3000);
     } catch (err: unknown) {
-      this.changingPassword.set(false);
       if (err instanceof NAuthClientError) {
         this.error.set(err.message);
       } else if (err instanceof Error) {
@@ -583,6 +568,8 @@ export class ProfileComponent implements OnInit {
       } else {
         this.error.set('Failed to change password');
       }
+    } finally {
+      this.changingPassword.set(false);
     }
   }
 }

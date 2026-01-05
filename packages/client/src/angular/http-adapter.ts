@@ -79,6 +79,3 @@ export class AngularHttpAdapter implements HttpAdapter {
     }
   }
 }
-
-
-

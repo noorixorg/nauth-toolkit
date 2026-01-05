@@ -113,7 +113,7 @@ export class LoginComponent implements OnInit {
    * Authenticates user and navigates to dashboard on success.
    * Handles challenge responses (MFA, email verification, etc.).
    */
-  onSubmit(): void {
+  async onSubmit(): Promise<void> {
     if (this.loginForm.invalid) {
       // Mark all fields as touched to show validation errors
       Object.keys(this.loginForm.controls).forEach((key) => {
@@ -127,17 +127,15 @@ export class LoginComponent implements OnInit {
 
     const { email, password } = this.loginForm.value;
 
-    this.auth.login(email, password).subscribe({
-      next: async (response: AuthResponse) => {
-        this.loading.set(false);
-        // Universal handler for login, challenges, and redirects
-        await this.orchestrator.handleAuthResponse(response);
-      },
-      error: (err: unknown) => {
-        this.loading.set(false);
-        this.handleError(err);
-      },
-    });
+    try {
+      const response: AuthResponse = await this.auth.login(email, password);
+      // Universal handler for login, challenges, and redirects
+      await this.orchestrator.handleAuthResponse(response);
+    } catch (err: unknown) {
+      this.handleError(err);
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   /**
@@ -147,14 +145,16 @@ export class LoginComponent implements OnInit {
    *
    * @param provider - Social provider (google, apple, facebook)
    */
-  onSocialLogin(provider: SocialProvider): void {
+  async onSocialLogin(provider: SocialProvider): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
 
-    this.auth.loginWithSocial(provider, { returnTo: '/auth/callback' }).catch((err: unknown) => {
+    try {
+      await this.auth.loginWithSocial(provider, { returnTo: '/auth/callback' });
+    } catch (err: unknown) {
       this.loading.set(false);
       this.handleError(err);
-    });
+    }
   }
 
   /**

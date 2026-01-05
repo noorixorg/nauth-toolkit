@@ -1,5 +1,5 @@
 import { Inject, Injectable, Optional, inject } from '@angular/core';
-import { BehaviorSubject, from, Observable, Subject } from 'rxjs';
+import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { NAUTH_CLIENT_CONFIG } from './tokens';
 import { AngularHttpAdapter } from './http-adapter';
@@ -18,11 +18,11 @@ import { SocialProvider, SocialLoginOptions, LinkedAccountsResponse, SocialVerif
 import { AuditHistoryResponse } from '../types/audit.types';
 
 /**
- * Angular wrapper around NAuthClient that exposes Observables for auth state.
+ * Angular wrapper around NAuthClient that provides promise-based auth methods and reactive state.
  *
  * This service provides:
  * - Reactive state (currentUser$, isAuthenticated$, challenge$)
- * - All core auth methods as Observables (login, signup, logout, refresh)
+ * - All core auth methods as Promises (login, signup, logout, refresh)
  * - Profile management (getProfile, updateProfile, changePassword)
  * - Challenge flow methods (respondToChallenge, resendCode)
  * - MFA management (getMfaStatus, setupMfaDevice, etc.)
@@ -38,15 +38,15 @@ import { AuditHistoryResponse } from '../types/audit.types';
  * this.auth.currentUser$.subscribe(user => ...);
  * this.auth.isAuthenticated$.subscribe(isAuth => ...);
  *
- * // Auth operations
- * this.auth.login(email, password).subscribe(response => ...);
+ * // Auth operations with async/await
+ * const response = await this.auth.login(email, password);
  *
  * // Profile management
- * this.auth.changePassword(oldPassword, newPassword).subscribe(() => ...);
- * this.auth.updateProfile({ firstName: 'John' }).subscribe(user => ...);
+ * await this.auth.changePassword(oldPassword, newPassword);
+ * const user = await this.auth.updateProfile({ firstName: 'John' });
  *
  * // MFA operations
- * this.auth.getMfaStatus().subscribe(status => ...);
+ * const status = await this.auth.getMfaStatus();
  * ```
  */
 @Injectable({
@@ -171,51 +171,83 @@ export class AuthService {
   }
 
   // ============================================================================
-  // Core Auth Methods (Observable wrappers)
+  // Core Auth Methods
   // ============================================================================
 
   /**
    * Login with identifier and password.
+   *
+   * @param identifier - User email or username
+   * @param password - User password
+   * @returns Promise with auth response or challenge
+   *
+   * @example
+   * ```typescript
+   * const response = await this.auth.login('user@example.com', 'password');
+   * if (response.challengeName) {
+   *   // Handle challenge
+   * } else {
+   *   // Login successful
+   * }
+   * ```
    */
-  login(identifier: string, password: string): Observable<AuthResponse> {
-    return from(this.client.login(identifier, password).then((res) => this.updateChallengeState(res)));
+  async login(identifier: string, password: string): Promise<AuthResponse> {
+    const res = await this.client.login(identifier, password);
+    return this.updateChallengeState(res);
   }
 
   /**
    * Signup with credentials.
+   *
+   * @param payload - Signup request payload
+   * @returns Promise with auth response or challenge
+   *
+   * @example
+   * ```typescript
+   * const response = await this.auth.signup({
+   *   email: 'new@example.com',
+   *   password: 'SecurePass123!',
+   *   firstName: 'John',
+   * });
+   * ```
    */
-  signup(payload: Parameters<NAuthClient['signup']>[0]): Observable<AuthResponse> {
-    return from(this.client.signup(payload).then((res) => this.updateChallengeState(res)));
+  async signup(payload: Parameters<NAuthClient['signup']>[0]): Promise<AuthResponse> {
+    const res = await this.client.signup(payload);
+    return this.updateChallengeState(res);
   }
 
   /**
    * Logout current session.
+   *
+   * @param forgetDevice - If true, removes device trust
+   *
+   * @example
+   * ```typescript
+   * await this.auth.logout();
+   * ```
    */
-  logout(forgetDevice?: boolean): Observable<void> {
-    return from(
-      this.client.logout(forgetDevice).then(() => {
-        this.challengeSubject.next(null);
-        // Explicitly update auth state after logout
-        this.currentUserSubject.next(null);
-        this.isAuthenticatedSubject.next(false);
+  async logout(forgetDevice?: boolean): Promise<void> {
+    await this.client.logout(forgetDevice);
+    this.challengeSubject.next(null);
+    // Explicitly update auth state after logout
+    this.currentUserSubject.next(null);
+    this.isAuthenticatedSubject.next(false);
 
-        // Clear CSRF token cookie if in cookies mode
-        // Note: Backend should clear httpOnly cookies, but we clear non-httpOnly ones
-        if (this.config.tokenDelivery === 'cookies' && typeof document !== 'undefined') {
-          const csrfCookieName = this.config.csrf?.cookieName ?? 'nauth_csrf_token';
-          // Extract domain from baseUrl if possible
-          try {
-            const url = new URL(this.config.baseUrl);
-            document.cookie = `${csrfCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${url.hostname}`;
-            // Also try without domain (for localhost)
-            document.cookie = `${csrfCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
-          } catch {
-            // Fallback if baseUrl parsing fails
-            document.cookie = `${csrfCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
-          }
-        }
-      }),
-    );
+    // Clear CSRF token cookie if in cookies mode
+    // Note: Backend should clear httpOnly cookies, but we clear non-httpOnly ones
+    if (this.config.tokenDelivery === 'cookies' && typeof document !== 'undefined') {
+      const csrfCookieName = this.config.csrf?.cookieName ?? 'nauth_csrf_token';
+      // Extract domain from baseUrl if possible
+      try {
+        const url = new URL(this.config.baseUrl);
+        document.cookie = `${csrfCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${url.hostname}`;
+        // Also try without domain (for localhost)
+        document.cookie = `${csrfCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+      } catch {
+        // Fallback if baseUrl parsing fails
+        document.cookie = `${csrfCookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+      }
+    }
   }
 
   /**
@@ -225,41 +257,34 @@ export class AuthService {
    * Optionally revokes all trusted devices if forgetDevices is true.
    *
    * @param forgetDevices - If true, also revokes all trusted devices (default: false)
-   * @returns Observable with number of sessions revoked
+   * @returns Promise with number of sessions revoked
+   *
+   * @example
+   * ```typescript
+   * const result = await this.auth.logoutAll();
+   * console.log(`Revoked ${result.revokedCount} sessions`);
+   * ```
    */
-  logoutAll(forgetDevices?: boolean): Observable<{ revokedCount: number }> {
-    return from(
-      this.client.logoutAll(forgetDevices).then((res) => {
-        this.challengeSubject.next(null);
-        // Explicitly update auth state after logout
-        this.currentUserSubject.next(null);
-        this.isAuthenticatedSubject.next(false);
-        return res;
-      }),
-    );
+  async logoutAll(forgetDevices?: boolean): Promise<{ revokedCount: number }> {
+    const res = await this.client.logoutAll(forgetDevices);
+    this.challengeSubject.next(null);
+    // Explicitly update auth state after logout
+    this.currentUserSubject.next(null);
+    this.isAuthenticatedSubject.next(false);
+    return res;
   }
 
   /**
    * Refresh tokens.
-   */
-  refresh(): Observable<TokenResponse> {
-    return from(this.client.refreshTokens());
-  }
-
-  /**
-   * Refresh tokens (promise-based).
    *
-   * Returns a promise instead of an Observable, matching the core NAuthClient API.
-   * Useful for async/await patterns in guards and interceptors.
-   *
-   * @returns Promise of TokenResponse
+   * @returns Promise with new tokens
    *
    * @example
    * ```typescript
-   * const tokens = await auth.refreshTokensPromise();
+   * const tokens = await this.auth.refresh();
    * ```
    */
-  refreshTokensPromise(): Promise<TokenResponse> {
+  async refresh(): Promise<TokenResponse> {
     return this.client.refreshTokens();
   }
 
@@ -269,20 +294,38 @@ export class AuthService {
 
   /**
    * Request a password reset code (forgot password).
+   *
+   * @param identifier - User email, username, or phone
+   * @returns Promise with password reset response
+   *
+   * @example
+   * ```typescript
+   * await this.auth.forgotPassword('user@example.com');
+   * ```
    */
-  forgotPassword(identifier: string): Observable<ForgotPasswordResponse> {
-    return from(this.client.forgotPassword(identifier));
+  async forgotPassword(identifier: string): Promise<ForgotPasswordResponse> {
+    return this.client.forgotPassword(identifier);
   }
 
   /**
    * Confirm a password reset code and set a new password.
+   *
+   * @param identifier - User email, username, or phone
+   * @param code - One-time reset code
+   * @param newPassword - New password
+   * @returns Promise with confirmation response
+   *
+   * @example
+   * ```typescript
+   * await this.auth.confirmForgotPassword('user@example.com', '123456', 'NewPass123!');
+   * ```
    */
-  confirmForgotPassword(
+  async confirmForgotPassword(
     identifier: string,
     code: string,
     newPassword: string,
-  ): Observable<ConfirmForgotPasswordResponse> {
-    return from(this.client.confirmForgotPassword(identifier, code, newPassword));
+  ): Promise<ConfirmForgotPasswordResponse> {
+    return this.client.confirmForgotPassword(identifier, code, newPassword);
   }
 
   /**
@@ -290,27 +333,29 @@ export class AuthService {
    *
    * @param oldPassword - Current password
    * @param newPassword - New password (must meet requirements)
-   * @returns Observable that completes when password is changed
+   * @returns Promise that resolves when password is changed
    *
    * @example
    * ```typescript
-   * this.auth.changePassword('oldPassword123', 'newSecurePassword456!').subscribe({
-   *   next: () => console.log('Password changed successfully'),
-   *   error: (err) => console.error('Failed to change password:', err)
-   * });
+   * await this.auth.changePassword('oldPassword123', 'newSecurePassword456!');
    * ```
    */
-  changePassword(oldPassword: string, newPassword: string): Observable<void> {
-    return from(this.client.changePassword(oldPassword, newPassword));
+  async changePassword(oldPassword: string, newPassword: string): Promise<void> {
+    return this.client.changePassword(oldPassword, newPassword);
   }
 
   /**
    * Request password change (must change on next login).
    *
-   * @returns Observable that completes when request is sent
+   * @returns Promise that resolves when request is sent
+   *
+   * @example
+   * ```typescript
+   * await this.auth.requestPasswordChange();
+   * ```
    */
-  requestPasswordChange(): Observable<void> {
-    return from(this.client.requestPasswordChange());
+  async requestPasswordChange(): Promise<void> {
+    return this.client.requestPasswordChange();
   }
 
   // ============================================================================
@@ -320,67 +365,38 @@ export class AuthService {
   /**
    * Get current user profile.
    *
-   * @returns Observable of current user profile
-   *
-   * @example
-   * ```typescript
-   * this.auth.getProfile().subscribe(user => {
-   *   console.log('User profile:', user);
-   * });
-   * ```
-   */
-  getProfile(): Observable<AuthUser> {
-    return from(
-      this.client.getProfile().then((user) => {
-        // Update local state when profile is fetched
-        this.currentUserSubject.next(user);
-        return user;
-      }),
-    );
-  }
-
-  /**
-   * Get current user profile (promise-based).
-   *
-   * Returns a promise instead of an Observable, matching the core NAuthClient API.
-   * Useful for async/await patterns in guards and interceptors.
-   *
    * @returns Promise of current user profile
    *
    * @example
    * ```typescript
-   * const user = await auth.getProfilePromise();
+   * const user = await this.auth.getProfile();
+   * console.log('User profile:', user);
    * ```
    */
-  getProfilePromise(): Promise<AuthUser> {
-    return this.client.getProfile().then((user) => {
-      // Update local state when profile is fetched
-      this.currentUserSubject.next(user);
-      return user;
-    });
+  async getProfile(): Promise<AuthUser> {
+    const user = await this.client.getProfile();
+    // Update local state when profile is fetched
+    this.currentUserSubject.next(user);
+    return user;
   }
 
   /**
    * Update user profile.
    *
    * @param updates - Profile fields to update
-   * @returns Observable of updated user profile
+   * @returns Promise of updated user profile
    *
    * @example
    * ```typescript
-   * this.auth.updateProfile({ firstName: 'John', lastName: 'Doe' }).subscribe(user => {
-   *   console.log('Profile updated:', user);
-   * });
+   * const user = await this.auth.updateProfile({ firstName: 'John', lastName: 'Doe' });
+   * console.log('Profile updated:', user);
    * ```
    */
-  updateProfile(updates: UpdateProfileRequest): Observable<AuthUser> {
-    return from(
-      this.client.updateProfile(updates).then((user) => {
-        // Update local state when profile is updated
-        this.currentUserSubject.next(user);
-        return user;
-      }),
-    );
+  async updateProfile(updates: UpdateProfileRequest): Promise<AuthUser> {
+    const user = await this.client.updateProfile(updates);
+    // Update local state when profile is updated
+    this.currentUserSubject.next(user);
+    return user;
   }
 
   // ============================================================================
@@ -389,16 +405,38 @@ export class AuthService {
 
   /**
    * Respond to a challenge (VERIFY_EMAIL, VERIFY_PHONE, MFA_REQUIRED, etc.).
+   *
+   * @param response - Challenge response data
+   * @returns Promise with auth response or next challenge
+   *
+   * @example
+   * ```typescript
+   * const result = await this.auth.respondToChallenge({
+   *   session: challengeSession,
+   *   type: 'VERIFY_EMAIL',
+   *   code: '123456',
+   * });
+   * ```
    */
-  respondToChallenge(response: ChallengeResponse): Observable<AuthResponse> {
-    return from(this.client.respondToChallenge(response).then((res) => this.updateChallengeState(res)));
+  async respondToChallenge(response: ChallengeResponse): Promise<AuthResponse> {
+    const res = await this.client.respondToChallenge(response);
+    return this.updateChallengeState(res);
   }
 
   /**
    * Resend challenge code.
+   *
+   * @param session - Challenge session token
+   * @returns Promise with destination information
+   *
+   * @example
+   * ```typescript
+   * const result = await this.auth.resendCode(session);
+   * console.log('Code sent to:', result.destination);
+   * ```
    */
-  resendCode(session: string): Observable<{ destination: string }> {
-    return from(this.client.resendCode(session));
+  async resendCode(session: string): Promise<{ destination: string }> {
+    return this.client.resendCode(session);
   }
 
   /**
@@ -412,10 +450,16 @@ export class AuthService {
    *
    * @param session - Challenge session token
    * @param method - MFA method to set up
-   * @returns Observable of setup data response
+   * @returns Promise of setup data response
+   *
+   * @example
+   * ```typescript
+   * const setupData = await this.auth.getSetupData(session, 'totp');
+   * console.log('QR Code:', setupData.setupData.qrCode);
+   * ```
    */
-  getSetupData(session: string, method: string): Observable<GetSetupDataResponse> {
-    return from(this.client.getSetupData(session, method as Parameters<NAuthClient['getSetupData']>[1]));
+  async getSetupData(session: string, method: string): Promise<GetSetupDataResponse> {
+    return this.client.getSetupData(session, method as Parameters<NAuthClient['getSetupData']>[1]);
   }
 
   /**
@@ -423,21 +467,30 @@ export class AuthService {
    *
    * @param session - Challenge session token
    * @param method - Challenge method
-   * @returns Observable of challenge data response
+   * @returns Promise of challenge data response
+   *
+   * @example
+   * ```typescript
+   * const challengeData = await this.auth.getChallengeData(session, 'passkey');
+   * ```
    */
-  getChallengeData(session: string, method: string): Observable<GetChallengeDataResponse> {
-    return from(this.client.getChallengeData(session, method as Parameters<NAuthClient['getChallengeData']>[1]));
+  async getChallengeData(session: string, method: string): Promise<GetChallengeDataResponse> {
+    return this.client.getChallengeData(session, method as Parameters<NAuthClient['getChallengeData']>[1]);
   }
 
   /**
    * Clear stored challenge (when navigating away from challenge flow).
+   *
+   * @returns Promise that resolves when challenge is cleared
+   *
+   * @example
+   * ```typescript
+   * await this.auth.clearChallenge();
+   * ```
    */
-  clearChallenge(): Observable<void> {
-    return from(
-      this.client.clearStoredChallenge().then(() => {
-        this.challengeSubject.next(null);
-      }),
-    );
+  async clearChallenge(): Promise<void> {
+    await this.client.clearStoredChallenge();
+    this.challengeSubject.next(null);
   }
 
   // ============================================================================
@@ -447,8 +500,17 @@ export class AuthService {
   /**
    * Initiate social OAuth login flow.
    * Redirects the browser to backend `/auth/social/:provider/redirect`.
+   *
+   * @param provider - Social provider ('google', 'apple', 'facebook')
+   * @param options - Optional redirect options
+   * @returns Promise that resolves when redirect starts
+   *
+   * @example
+   * ```typescript
+   * await this.auth.loginWithSocial('google', { returnTo: '/auth/callback' });
+   * ```
    */
-  loginWithSocial(provider: SocialProvider, options?: SocialLoginOptions): Promise<void> {
+  async loginWithSocial(provider: SocialProvider, options?: SocialLoginOptions): Promise<void> {
     return this.client.loginWithSocial(provider, options);
   }
 
@@ -459,47 +521,50 @@ export class AuthService {
    * with `exchangeToken` instead of setting cookies.
    *
    * @param exchangeToken - One-time exchange token from the callback URL
-   * @returns Observable of AuthResponse
-   */
-  exchangeSocialRedirect(exchangeToken: string): Observable<AuthResponse> {
-    return from(this.client.exchangeSocialRedirect(exchangeToken).then((res) => this.updateChallengeState(res)));
-  }
-
-  /**
-   * Exchange an exchangeToken (from redirect callback URL) into an AuthResponse (promise-based).
-   *
-   * Returns a promise instead of an Observable, matching the core NAuthClient API.
-   * Useful for async/await patterns in guards and interceptors.
-   *
-   * @param exchangeToken - One-time exchange token from the callback URL
    * @returns Promise of AuthResponse
    *
    * @example
    * ```typescript
-   * const response = await auth.exchangeSocialRedirectPromise(exchangeToken);
+   * const response = await this.auth.exchangeSocialRedirect(exchangeToken);
    * ```
    */
-  exchangeSocialRedirectPromise(exchangeToken: string): Promise<AuthResponse> {
-    return this.client.exchangeSocialRedirect(exchangeToken).then((res) => this.updateChallengeState(res));
+  async exchangeSocialRedirect(exchangeToken: string): Promise<AuthResponse> {
+    const res = await this.client.exchangeSocialRedirect(exchangeToken);
+    return this.updateChallengeState(res);
   }
 
   /**
    * Verify native social token (mobile).
    *
    * @param request - Social verification request with provider and token
-   * @returns Observable of AuthResponse
+   * @returns Promise of AuthResponse
+   *
+   * @example
+   * ```typescript
+   * const result = await this.auth.verifyNativeSocial({
+   *   provider: 'google',
+   *   idToken: nativeIdToken,
+   * });
+   * ```
    */
-  verifyNativeSocial(request: SocialVerifyRequest): Observable<AuthResponse> {
-    return from(this.client.verifyNativeSocial(request).then((res) => this.updateChallengeState(res)));
+  async verifyNativeSocial(request: SocialVerifyRequest): Promise<AuthResponse> {
+    const res = await this.client.verifyNativeSocial(request);
+    return this.updateChallengeState(res);
   }
 
   /**
    * Get linked social accounts.
    *
-   * @returns Observable of linked accounts response
+   * @returns Promise of linked accounts response
+   *
+   * @example
+   * ```typescript
+   * const accounts = await this.auth.getLinkedAccounts();
+   * console.log('Linked providers:', accounts.providers);
+   * ```
    */
-  getLinkedAccounts(): Observable<LinkedAccountsResponse> {
-    return from(this.client.getLinkedAccounts());
+  async getLinkedAccounts(): Promise<LinkedAccountsResponse> {
+    return this.client.getLinkedAccounts();
   }
 
   /**
@@ -508,20 +573,30 @@ export class AuthService {
    * @param provider - Social provider to link
    * @param code - OAuth authorization code
    * @param state - OAuth state parameter
-   * @returns Observable with success message
+   * @returns Promise with success message
+   *
+   * @example
+   * ```typescript
+   * await this.auth.linkSocialAccount('google', code, state);
+   * ```
    */
-  linkSocialAccount(provider: string, code: string, state: string): Observable<{ message: string }> {
-    return from(this.client.linkSocialAccount(provider, code, state));
+  async linkSocialAccount(provider: string, code: string, state: string): Promise<{ message: string }> {
+    return this.client.linkSocialAccount(provider, code, state);
   }
 
   /**
    * Unlink social account.
    *
    * @param provider - Social provider to unlink
-   * @returns Observable with success message
+   * @returns Promise with success message
+   *
+   * @example
+   * ```typescript
+   * await this.auth.unlinkSocialAccount('google');
+   * ```
    */
-  unlinkSocialAccount(provider: string): Observable<{ message: string }> {
-    return from(this.client.unlinkSocialAccount(provider));
+  async unlinkSocialAccount(provider: string): Promise<{ message: string }> {
+    return this.client.unlinkSocialAccount(provider);
   }
 
   // ============================================================================
@@ -531,29 +606,45 @@ export class AuthService {
   /**
    * Get MFA status for the current user.
    *
-   * @returns Observable of MFA status
+   * @returns Promise of MFA status
+   *
+   * @example
+   * ```typescript
+   * const status = await this.auth.getMfaStatus();
+   * console.log('MFA enabled:', status.enabled);
+   * ```
    */
-  getMfaStatus(): Observable<MFAStatus> {
-    return from(this.client.getMfaStatus());
+  async getMfaStatus(): Promise<MFAStatus> {
+    return this.client.getMfaStatus();
   }
 
   /**
    * Get MFA devices for the current user.
    *
-   * @returns Observable of MFA devices array
+   * @returns Promise of MFA devices array
+   *
+   * @example
+   * ```typescript
+   * const devices = await this.auth.getMfaDevices();
+   * ```
    */
-  getMfaDevices(): Observable<MFADevice[]> {
-    return from(this.client.getMfaDevices() as Promise<MFADevice[]>);
+  async getMfaDevices(): Promise<MFADevice[]> {
+    return this.client.getMfaDevices() as Promise<MFADevice[]>;
   }
 
   /**
    * Setup MFA device (authenticated user).
    *
    * @param method - MFA method to set up
-   * @returns Observable of setup data
+   * @returns Promise of setup data
+   *
+   * @example
+   * ```typescript
+   * const setupData = await this.auth.setupMfaDevice('totp');
+   * ```
    */
-  setupMfaDevice(method: string): Observable<unknown> {
-    return from(this.client.setupMfaDevice(method));
+  async setupMfaDevice(method: string): Promise<unknown> {
+    return this.client.setupMfaDevice(method);
   }
 
   /**
@@ -562,43 +653,64 @@ export class AuthService {
    * @param method - MFA method
    * @param setupData - Setup data from setupMfaDevice
    * @param deviceName - Optional device name
-   * @returns Observable with device ID
+   * @returns Promise with device ID
+   *
+   * @example
+   * ```typescript
+   * const result = await this.auth.verifyMfaSetup('totp', { code: '123456' }, 'My Phone');
+   * ```
    */
-  verifyMfaSetup(
+  async verifyMfaSetup(
     method: string,
     setupData: Record<string, unknown>,
     deviceName?: string,
-  ): Observable<{ deviceId: number }> {
-    return from(this.client.verifyMfaSetup(method, setupData, deviceName));
+  ): Promise<{ deviceId: number }> {
+    return this.client.verifyMfaSetup(method, setupData, deviceName);
   }
 
   /**
    * Remove MFA device.
    *
    * @param method - MFA method to remove
-   * @returns Observable with success message
+   * @returns Promise with success message
+   *
+   * @example
+   * ```typescript
+   * await this.auth.removeMfaDevice('sms');
+   * ```
    */
-  removeMfaDevice(method: string): Observable<{ message: string }> {
-    return from(this.client.removeMfaDevice(method));
+  async removeMfaDevice(method: string): Promise<{ message: string }> {
+    return this.client.removeMfaDevice(method);
   }
 
   /**
    * Set preferred MFA method.
    *
    * @param method - Device method to set as preferred ('totp', 'sms', 'email', or 'passkey')
-   * @returns Observable with success message
+   * @returns Promise with success message
+   *
+   * @example
+   * ```typescript
+   * await this.auth.setPreferredMfaMethod('totp');
+   * ```
    */
-  setPreferredMfaMethod(method: 'totp' | 'sms' | 'email' | 'passkey'): Observable<{ message: string }> {
-    return from(this.client.setPreferredMfaMethod(method));
+  async setPreferredMfaMethod(method: 'totp' | 'sms' | 'email' | 'passkey'): Promise<{ message: string }> {
+    return this.client.setPreferredMfaMethod(method);
   }
 
   /**
    * Generate backup codes.
    *
-   * @returns Observable of backup codes array
+   * @returns Promise of backup codes array
+   *
+   * @example
+   * ```typescript
+   * const codes = await this.auth.generateBackupCodes();
+   * console.log('Backup codes:', codes);
+   * ```
    */
-  generateBackupCodes(): Observable<string[]> {
-    return from(this.client.generateBackupCodes());
+  async generateBackupCodes(): Promise<string[]> {
+    return this.client.generateBackupCodes();
   }
 
   /**
@@ -606,10 +718,15 @@ export class AuthService {
    *
    * @param exempt - Whether to exempt user from MFA
    * @param reason - Optional reason for exemption
-   * @returns Observable that completes when exemption is set
+   * @returns Promise that resolves when exemption is set
+   *
+   * @example
+   * ```typescript
+   * await this.auth.setMfaExemption(true, 'Test account');
+   * ```
    */
-  setMfaExemption(exempt: boolean, reason?: string): Observable<void> {
-    return from(this.client.setMfaExemption(exempt, reason));
+  async setMfaExemption(exempt: boolean, reason?: string): Promise<void> {
+    return this.client.setMfaExemption(exempt, reason);
   }
 
   // ============================================================================
@@ -619,19 +736,33 @@ export class AuthService {
   /**
    * Trust current device.
    *
-   * @returns Observable with device token
+   * @returns Promise with device token
+   *
+   * @example
+   * ```typescript
+   * const result = await this.auth.trustDevice();
+   * console.log('Device trusted:', result.deviceToken);
+   * ```
    */
-  trustDevice(): Observable<{ deviceToken: string }> {
-    return from(this.client.trustDevice());
+  async trustDevice(): Promise<{ deviceToken: string }> {
+    return this.client.trustDevice();
   }
 
   /**
    * Check if the current device is trusted.
    *
-   * @returns Observable with trusted status
+   * @returns Promise with trusted status
+   *
+   * @example
+   * ```typescript
+   * const result = await this.auth.isTrustedDevice();
+   * if (result.trusted) {
+   *   console.log('This device is trusted');
+   * }
+   * ```
    */
-  isTrustedDevice(): Observable<{ trusted: boolean }> {
-    return from(this.client.isTrustedDevice());
+  async isTrustedDevice(): Promise<{ trusted: boolean }> {
+    return this.client.isTrustedDevice();
   }
 
   // ============================================================================
@@ -642,17 +773,20 @@ export class AuthService {
    * Get paginated audit history for the current user.
    *
    * @param params - Query parameters for filtering and pagination
-   * @returns Observable of audit history response
+   * @returns Promise of audit history response
    *
    * @example
    * ```typescript
-   * this.auth.getAuditHistory({ page: 1, limit: 20, eventType: 'LOGIN_SUCCESS' }).subscribe(history => {
-   *   console.log('Audit history:', history);
+   * const history = await this.auth.getAuditHistory({
+   *   page: 1,
+   *   limit: 20,
+   *   eventType: 'LOGIN_SUCCESS'
    * });
+   * console.log('Audit history:', history);
    * ```
    */
-  getAuditHistory(params?: Record<string, string | number | boolean>): Observable<AuditHistoryResponse> {
-    return from(this.client.getAuditHistory(params));
+  async getAuditHistory(params?: Record<string, string | number | boolean>): Promise<AuditHistoryResponse> {
+    return this.client.getAuditHistory(params);
   }
 
   // ============================================================================
@@ -662,7 +796,7 @@ export class AuthService {
   /**
    * Expose underlying NAuthClient for advanced scenarios.
    *
-   * @deprecated All core functionality is now exposed directly on AuthService as Observables.
+   * @deprecated All core functionality is now exposed directly on AuthService as Promises.
    * Use the direct methods on AuthService instead (e.g., `auth.changePassword()` instead of `auth.getClient().changePassword()`).
    * This method is kept for backward compatibility only and may be removed in a future version.
    *
@@ -673,8 +807,8 @@ export class AuthService {
    * // Deprecated - use direct methods instead
    * const status = await this.auth.getClient().getMfaStatus();
    *
-   * // Preferred - use Observable-based methods
-   * this.auth.getMfaStatus().subscribe(status => ...);
+   * // Preferred - use direct methods
+   * const status = await this.auth.getMfaStatus();
    * ```
    */
   getClient(): NAuthClient {

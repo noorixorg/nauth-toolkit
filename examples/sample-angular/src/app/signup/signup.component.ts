@@ -183,7 +183,7 @@ export class SignupComponent implements OnInit {
    * Registers user and navigates to dashboard on success.
    * Handles challenge responses (email/phone verification, etc.).
    */
-  onSubmit(): void {
+  async onSubmit(): Promise<void> {
     if (this.signupForm.invalid) {
       // Mark all fields as touched to show validation errors
       Object.keys(this.signupForm.controls).forEach((key) => {
@@ -201,8 +201,8 @@ export class SignupComponent implements OnInit {
     const formattedPhone = phone ? phone.replace(/[\s_]/g, '') : undefined;
     const normalizedEmail = email.trim().toLowerCase();
 
-    this.auth
-      .signup({
+    try {
+      const response: AuthResponse = await this.auth.signup({
         email: normalizedEmail,
         password,
         firstName: firstName.trim(),
@@ -211,18 +211,14 @@ export class SignupComponent implements OnInit {
         metadata: {
           invite_code: '92837984372',
         },
-      })
-      .subscribe({
-        next: async (response: AuthResponse) => {
-          this.loading.set(false);
-          // Universal handler for signup, challenges, and redirects
-          await this.orchestrator.handleAuthResponse(response);
-        },
-        error: (err: unknown) => {
-          this.loading.set(false);
-          this.handleError(err);
-        },
       });
+      // Universal handler for signup, challenges, and redirects
+      await this.orchestrator.handleAuthResponse(response);
+    } catch (err: unknown) {
+      this.handleError(err);
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   /**
@@ -232,14 +228,16 @@ export class SignupComponent implements OnInit {
    *
    * @param provider - Social provider (google, apple, facebook)
    */
-  onSocialSignup(provider: SocialProvider): void {
+  async onSocialSignup(provider: SocialProvider): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
 
-    this.auth.loginWithSocial(provider, { returnTo: '/auth/callback' }).catch((err: unknown) => {
+    try {
+      await this.auth.loginWithSocial(provider, { returnTo: '/auth/callback' });
+    } catch (err: unknown) {
       this.loading.set(false);
       this.handleError(err);
-    });
+    }
   }
 
   /**

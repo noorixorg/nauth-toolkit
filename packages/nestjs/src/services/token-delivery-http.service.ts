@@ -83,9 +83,6 @@ export class TokenDeliveryHttpService {
    * @throws {NAuthException} If token exp claims are missing/invalid
    */
   setAuthCookies(res: unknown, tokens: { accessToken: string; refreshToken?: string; deviceToken?: string }): void {
-    const deliveryConfig = this.config.tokenDelivery;
-    const opt = deliveryConfig?.cookieOptions;
-
     const cookieOptions = this.buildCookieOptions();
     const setCookie = this.getSetCookieFn(res);
 

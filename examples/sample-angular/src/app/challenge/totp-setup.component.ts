@@ -206,7 +206,7 @@ export class TotpSetupComponent implements OnInit, AfterViewInit, OnDestroy {
           this.loading.set(false);
           return;
         }
-        const resp = await this.auth.getSetupData(session, 'totp').toPromise();
+        const resp = await this.auth.getSetupData(session, 'totp');
         if (!resp) {
           throw new Error('Failed to get TOTP setup data');
         }
@@ -281,7 +281,7 @@ export class TotpSetupComponent implements OnInit, AfterViewInit, OnDestroy {
           },
         };
 
-        const authResponse = await this.auth.respondToChallenge(response).toPromise();
+        const authResponse = await this.auth.respondToChallenge(response);
         if (!authResponse) {
           throw new Error('Failed to complete TOTP setup');
         }

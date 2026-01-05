@@ -179,7 +179,7 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
           throw new Error('Invalid challenge session');
         }
 
-        const setupResult = await this.auth.getSetupData(challenge.session, method).toPromise();
+        const setupResult = await this.auth.getSetupData(challenge.session, method);
         if (!setupResult) {
           throw new Error('Failed to get setup data');
         }
@@ -301,7 +301,7 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
         },
       };
 
-      const authResponse = await this.auth.respondToChallenge(setupResponse).toPromise();
+      const authResponse = await this.auth.respondToChallenge(setupResponse);
       if (!authResponse) {
         throw new Error('Failed to complete MFA setup');
       }

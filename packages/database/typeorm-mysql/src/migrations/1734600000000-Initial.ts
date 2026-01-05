@@ -67,13 +67,23 @@ export class Initial1734600000000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE \`nauth_trusted_devices\` DROP FOREIGN KEY \`FK_6b1ebaf31bc726f6c40020a0d2a\``);
+    await queryRunner.query(
+      `ALTER TABLE \`nauth_trusted_devices\` DROP FOREIGN KEY \`FK_6b1ebaf31bc726f6c40020a0d2a\``,
+    );
     await queryRunner.query(`ALTER TABLE \`nauth_auth_audit\` DROP FOREIGN KEY \`FK_af799e756285b8639985dd09f50\``);
     await queryRunner.query(`ALTER TABLE \`nauth_mfa_devices\` DROP FOREIGN KEY \`FK_7850b00d043a63657522249b816\``);
-    await queryRunner.query(`ALTER TABLE \`nauth_social_accounts\` DROP FOREIGN KEY \`FK_bcf231c8bee2c37f7713dcbcb8a\``);
-    await queryRunner.query(`ALTER TABLE \`nauth_verification_tokens\` DROP FOREIGN KEY \`FK_5e34b085fd0bc42216849e53aa3\``);
-    await queryRunner.query(`ALTER TABLE \`nauth_verification_tokens\` DROP FOREIGN KEY \`FK_8ff39e7ffb5e4ffb734ee9e57c5\``);
-    await queryRunner.query(`ALTER TABLE \`nauth_challenge_sessions\` DROP FOREIGN KEY \`FK_6fc21f5b74c04518123ad1287cb\``);
+    await queryRunner.query(
+      `ALTER TABLE \`nauth_social_accounts\` DROP FOREIGN KEY \`FK_bcf231c8bee2c37f7713dcbcb8a\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`nauth_verification_tokens\` DROP FOREIGN KEY \`FK_5e34b085fd0bc42216849e53aa3\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`nauth_verification_tokens\` DROP FOREIGN KEY \`FK_8ff39e7ffb5e4ffb734ee9e57c5\``,
+    );
+    await queryRunner.query(
+      `ALTER TABLE \`nauth_challenge_sessions\` DROP FOREIGN KEY \`FK_6fc21f5b74c04518123ad1287cb\``,
+    );
     await queryRunner.query(`ALTER TABLE \`nauth_login_attempts\` DROP FOREIGN KEY \`FK_21b1aa08d1cb4c6c5dda7f6fac0\``);
     await queryRunner.query(`ALTER TABLE \`nauth_sessions\` DROP FOREIGN KEY \`FK_29a306abd7483eb7e50bfea13d8\``);
     await queryRunner.query(`DROP INDEX \`IDX_24b2bef3e4cfafcecc2ad09df4\` ON \`nauth_storage_locks\``);
@@ -144,8 +154,3 @@ export class Initial1734600000000 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE \`nauth_users\``);
   }
 }
-
-
-
-
-

@@ -136,7 +136,7 @@ export class ConfirmForgotPasswordComponent implements OnInit {
    * Confirms password reset with code and new password.
    * Redirects to login on success.
    */
-  onSubmit(): void {
+  async onSubmit(): Promise<void> {
     if (this.confirmForm.invalid) {
       // Mark all fields as touched to show validation errors
       Object.keys(this.confirmForm.controls).forEach((key) => {
@@ -159,41 +159,38 @@ export class ConfirmForgotPasswordComponent implements OnInit {
 
     const { code, newPassword } = this.confirmForm.value;
 
-    this.auth.confirmForgotPassword(identifier, code, newPassword).subscribe({
-      next: () => {
-        this.loading.set(false);
+    try {
+      await this.auth.confirmForgotPassword(identifier, code, newPassword);
 
-        // Clear session storage
-        sessionStorage.removeItem('forgotPasswordIdentifier');
+      // Clear session storage
+      sessionStorage.removeItem('forgotPasswordIdentifier');
 
-        // Redirect to login with success message
-        this.router.navigate(['/login'], {
-          queryParams: { passwordReset: 'success' },
-        });
-      },
-      error: (err: unknown) => {
-        this.loading.set(false);
-
-        // Handle specific error codes
-        if (err instanceof NAuthClientError) {
-          if (err.code === NAuthErrorCode.PASSWORD_RESET_CODE_INVALID) {
-            this.error.set('Invalid reset code. Please check and try again.');
-          } else if (err.code === NAuthErrorCode.PASSWORD_RESET_CODE_EXPIRED) {
-            this.error.set('Reset code has expired. Please request a new one.');
-          } else if (err.code === NAuthErrorCode.PASSWORD_RESET_MAX_ATTEMPTS) {
-            this.error.set('Too many failed attempts. Please request a new reset code.');
-          } else if (err.code === NAuthErrorCode.WEAK_PASSWORD) {
-            this.error.set('Password does not meet security requirements.');
-          } else if (err.code === NAuthErrorCode.PASSWORD_REUSED) {
-            this.error.set('You cannot reuse a recent password. Please choose a different one.');
-          } else {
-            this.handleError(err);
-          }
+      // Redirect to login with success message
+      await this.router.navigate(['/login'], {
+        queryParams: { passwordReset: 'success' },
+      });
+    } catch (err: unknown) {
+      // Handle specific error codes
+      if (err instanceof NAuthClientError) {
+        if (err.code === NAuthErrorCode.PASSWORD_RESET_CODE_INVALID) {
+          this.error.set('Invalid reset code. Please check and try again.');
+        } else if (err.code === NAuthErrorCode.PASSWORD_RESET_CODE_EXPIRED) {
+          this.error.set('Reset code has expired. Please request a new one.');
+        } else if (err.code === NAuthErrorCode.PASSWORD_RESET_MAX_ATTEMPTS) {
+          this.error.set('Too many failed attempts. Please request a new reset code.');
+        } else if (err.code === NAuthErrorCode.WEAK_PASSWORD) {
+          this.error.set('Password does not meet security requirements.');
+        } else if (err.code === NAuthErrorCode.PASSWORD_REUSED) {
+          this.error.set('You cannot reuse a recent password. Please choose a different one.');
         } else {
           this.handleError(err);
         }
-      },
-    });
+      } else {
+        this.handleError(err);
+      }
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   /**

@@ -87,7 +87,7 @@ export function getRepositories(dataSource: DataSource): {
           'nauth_social_provider_secrets',
           true, // Required for Apple JWT rotation
         );
-      } catch (error) {
+      } catch {
         // If entity not found, log detailed error and rethrow
         const availableTables = dataSource.entityMetadatas.map((m) => m.tableName).join(', ');
         const availableNames = dataSource.entityMetadatas

@@ -10,9 +10,10 @@ import {
   NAuthException,
   AuthErrorCode,
   MFAMethod,
+  ClientInfoService,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
-import { BaseMFAProviderService } from '@nauth-toolkit/core/internal';
+import { BaseMFAProviderService, ChallengeService, AuthAuditService } from '@nauth-toolkit/core/internal';
 import { PasskeyService } from './passkey.service';
 import { SetupPasskeyResponseDTO, VerifyPasskeySetupDTO, GetPasskeyChallengeResponseDTO } from './dto/mfa.dto';
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/types';
@@ -53,9 +54,9 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
     logger: NAuthLogger,
     passwordService: unknown,
     private readonly passkeyService: PasskeyService,
-    challengeService?: unknown, // ChallengeService (optional)
-    auditService?: unknown, // AuthAuditService (optional)
-    clientInfoService?: unknown, // ClientInfoService (optional)
+    challengeService?: ChallengeService,
+    auditService?: AuthAuditService,
+    clientInfoService?: ClientInfoService,
   ) {
     super(
       mfaDeviceRepository,
@@ -63,9 +64,9 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
       config,
       logger,
       passwordService,
-      challengeService as any,
-      auditService as any,
-      clientInfoService as any,
+      challengeService,
+      auditService,
+      clientInfoService,
     );
   }
 

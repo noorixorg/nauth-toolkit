@@ -386,7 +386,7 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
 
         if (challenge.challengeName === AuthChallenge.MFA_SETUP_REQUIRED) {
           // Load registration options for setup
-          const response = await this.auth.getSetupData(session, 'passkey').toPromise();
+          const response = await this.auth.getSetupData(session, 'passkey');
           if (!response) {
             throw new Error('Failed to get passkey setup data');
           }
@@ -394,7 +394,7 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
           this.challengeData.set(null);
         } else if (challenge.challengeName === AuthChallenge.MFA_REQUIRED) {
           // Load authentication options for verification
-          const response = await this.auth.getChallengeData(session, 'passkey').toPromise();
+          const response = await this.auth.getChallengeData(session, 'passkey');
           if (!response) {
             throw new Error('Failed to get passkey challenge data');
           }
@@ -531,7 +531,7 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
             },
           };
 
-          const authResponse = await this.auth.respondToChallenge(setupResponse).toPromise();
+          const authResponse = await this.auth.respondToChallenge(setupResponse);
           if (!authResponse) {
             throw new Error('Failed to complete passkey setup');
           }
@@ -554,7 +554,7 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
           credential: credential as Record<string, unknown>,
         };
 
-        const authResponse = await this.auth.respondToChallenge(verifyResponse).toPromise();
+        const authResponse = await this.auth.respondToChallenge(verifyResponse);
         if (!authResponse) {
           throw new Error('Failed to complete passkey verification');
         }
