@@ -116,7 +116,7 @@ export const authConfig: NAuthModuleConfig = {
     method: 'cookies',
     cookieOptions: {
       secure: true,
-      sameSite: 'strict',
+      sameSite: 'none',
       domain: '.angular.dev1.noorix.com',
     },
   },
