@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import { NAuthClientConfig } from '../types/config.types';
+import { NAuthClientConfig } from '@nauth-toolkit/client';
 
 /**
  * Injection token for providing NAuthClientConfig in Angular apps.

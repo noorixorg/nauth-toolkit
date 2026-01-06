@@ -5,7 +5,7 @@ import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { Subject, takeUntil } from 'rxjs';
 
-import { AuthService, AuthResponse } from '@nauth-toolkit/client/angular';
+import { AuthService, AuthResponse } from '@nauth-toolkit/client-angular/standalone';
 import {
   AuthChallenge,
   MFAMethod,

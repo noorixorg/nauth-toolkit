@@ -84,7 +84,7 @@ The Angular `AuthService` exposes events as RxJS Observables, making it easy to 
 ### Available Observables
 
 ```typescript
-import { AuthService } from '@nauth-toolkit/client/angular';
+import { AuthService } from '@nauth-toolkit/client-angular';
 
 // All authentication events
 authEvents$: Observable<AuthEvent>
@@ -98,7 +98,7 @@ authError$: Observable<AuthEvent>       // Only error events
 
 ```typescript
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { AuthService } from '@nauth-toolkit/client/angular';
+import { AuthService } from '@nauth-toolkit/client-angular';
 import { Subscription } from 'rxjs';
 
 @Component({

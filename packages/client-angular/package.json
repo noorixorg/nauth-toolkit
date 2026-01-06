@@ -1,0 +1,52 @@
+{
+  "name": "@nauth-toolkit/client-angular",
+  "version": "0.1.54",
+  "description": "Angular adapter for nauth-toolkit client SDK",
+  "keywords": [
+    "nauth",
+    "authentication",
+    "angular",
+    "auth",
+    "jwt",
+    "oauth",
+    "mfa"
+  ],
+  "author": "nauth-toolkit",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorix/nauth-toolkit"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
+  },
+  "peerDependencies": {
+    "@angular/common": ">=17.0.0",
+    "@angular/core": ">=17.0.0",
+    "@nauth-toolkit/client": "^0.1.54",
+    "rxjs": "^7.0.0 || ^8.0.0"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/common": "^17.3.12",
+    "@angular/compiler": "^17.3.12",
+    "@angular/compiler-cli": "^17.3.12",
+    "@angular/core": "^17.3.12",
+    "@angular/platform-browser": "^17.3.12",
+    "@angular/platform-browser-dynamic": "^17.3.12",
+    "@angular/router": "^17.3.12",
+    "ng-packagr": "^17.0.0",
+    "rxjs": "~7.8.0",
+    "typescript": "~5.3.3"
+  },
+  "scripts": {
+    "build": "ng-packagr -p ng-package.json",
+    "clean": "rm -rf dist"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

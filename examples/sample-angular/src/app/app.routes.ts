@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, socialRedirectCallbackGuard } from '@nauth-toolkit/client/angular';
+import { authGuard, socialRedirectCallbackGuard } from '@nauth-toolkit/client-angular/standalone';
 import { challengeRouteGuard } from './guards/challenge-route.guard';
 
 /**

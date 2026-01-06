@@ -8,7 +8,7 @@ image: /img/api-social-card.png
 
 # Social Redirect Callback Guard
 
-**Package:** `@nauth-toolkit/client/angular`
+**Package:** `@nauth-toolkit/client-angular`
 **Type:** Route Guard
 
 Drop-in route guard for the redirect-first social flow. It supports:
@@ -17,7 +17,7 @@ Drop-in route guard for the redirect-first social flow. It supports:
 - JSON/hybrid (and cookies-with-challenge): backend redirects back with `exchangeToken`; guard exchanges it and redirects
 
 ```typescript
-import { socialRedirectCallbackGuard } from '@nauth-toolkit/client/angular';
+import { socialRedirectCallbackGuard } from '@nauth-toolkit/client-angular';
 ```
 
 ## Overview
@@ -33,7 +33,7 @@ The `socialRedirectCallbackGuard` eliminates the need to write custom callback l
 ```typescript
 // app.routes.ts
 import { Routes } from '@angular/router';
-import { socialRedirectCallbackGuard } from '@nauth-toolkit/client/angular';
+import { socialRedirectCallbackGuard } from '@nauth-toolkit/client-angular';
 
 export const routes: Routes = [
   {
@@ -68,7 +68,7 @@ Configure redirect URLs using the unified `NAUTH_CLIENT_CONFIG`:
 ```typescript
 // app.config.ts
 import { ApplicationConfig } from '@angular/core';
-import { NAUTH_CLIENT_CONFIG, type NAuthClientConfig } from '@nauth-toolkit/client/angular';
+import { NAUTH_CLIENT_CONFIG, type NAuthClientConfig } from '@nauth-toolkit/client-angular';
 
 export const appConfig: ApplicationConfig = {
   providers: [

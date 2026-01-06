@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, signal, computed, inject, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { AuthService, NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client/angular';
+import { AuthService, NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client-angular/standalone';
 import {
   NAuthClientConfig,
   NAuthClientError,

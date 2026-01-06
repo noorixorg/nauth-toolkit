@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthService, NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client/angular';
+import { AuthService, NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client-angular/standalone';
 import { AuthChallenge, AuthResponse, MFAMethod, NAuthClientConfig } from '@nauth-toolkit/client';
 
 /**

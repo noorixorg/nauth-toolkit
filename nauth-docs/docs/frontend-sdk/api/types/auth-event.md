@@ -150,7 +150,7 @@ function handleAuthEvent(event: AuthEvent): void {
 
 ```typescript
 import { Component, OnInit } from '@angular/core';
-import { AuthService } from '@nauth-toolkit/client/angular';
+import { AuthService } from '@nauth-toolkit/client-angular';
 import { AuthEvent } from '@nauth-toolkit/client';
 
 @Component({ /* ... */ })

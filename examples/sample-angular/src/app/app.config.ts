@@ -9,7 +9,9 @@ import {
   NAUTH_CLIENT_CONFIG,
   type NAuthClientConfig,
   authInterceptor,
-} from '@nauth-toolkit/client/angular';
+  AuthService,
+  AngularHttpAdapter,
+} from '@nauth-toolkit/client-angular/standalone';
 import { environment } from '../environments/environment';
 
 import { routes } from './app.routes';
@@ -93,6 +95,8 @@ export const appConfig: ApplicationConfig = {
         },
       } satisfies NAuthClientConfig,
     },
+    AngularHttpAdapter,
+    AuthService,
     provideHttpClient(withInterceptors([authInterceptor])),
   ],
 };

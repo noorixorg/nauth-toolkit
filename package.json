@@ -7,6 +7,7 @@
     "packages/core",
     "packages/nestjs",
     "packages/client",
+    "packages/client-angular",
     "packages/database/*",
     "packages/email/*",
     "packages/sms/*",

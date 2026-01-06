@@ -8,7 +8,7 @@ import {
   AbstractControl,
   ValidationErrors,
 } from '@angular/forms';
-import { AuthService, AuthResponse, SocialProvider } from '@nauth-toolkit/client/angular';
+import { AuthService, AuthResponse, SocialProvider } from '@nauth-toolkit/client-angular/standalone';
 import { NAuthClientError } from '@nauth-toolkit/client';
 import { InputTextModule } from 'primeng/inputtext';
 import { AutoFocusModule } from 'primeng/autofocus';

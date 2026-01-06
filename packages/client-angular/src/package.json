@@ -1,0 +1,11 @@
+{
+  "name": "@nauth-toolkit/client-angular",
+  "ngPackage": {
+    "$schema": "../ng-package.schema.json",
+    "dest": "../dist",
+    "lib": {
+      "entryFile": "public-api.ts"
+    }
+  }
+}
+

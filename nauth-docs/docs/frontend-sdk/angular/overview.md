@@ -11,21 +11,30 @@ import TabItem from '@theme/TabItem';
 
 # Angular Integration
 
-**Package:** `@nauth-toolkit/client/angular`
-**Supports:** Angular 17+
+**Package:** `@nauth-toolkit/client-angular`
+**Supports:** Angular 17+ (both NgModule and Standalone)
 
-The Angular adapter provides:
+The Angular adapter provides a single package with two entry points:
 
-- **AuthService** - Injectable wrapper around NAuthClient with Observables
-- **authInterceptor** - HTTP interceptor for auth headers, CSRF, and token refresh
-- **authGuard** - Route guard for protected routes
-- **NAuthModule** - NgModule for non-standalone apps
+- **`@nauth-toolkit/client-angular`** - NgModule-based apps
+- **`@nauth-toolkit/client-angular/standalone`** - Standalone components
+
+## Features
+
+- **Dual Entry Points** - Choose based on your app architecture (NgModule or Standalone)
+- **AuthService** - Injectable wrapper around NAuthClient with RxJS Observables
+- **HTTP Interceptor** - Automatic token refresh, CSRF handling, session management
+- **Route Guards** - Protect routes with authentication checks
+- **NAuthModule** - Easy setup for NgModule-based apps with `forRoot()`
+- **Forward Compatible** - Built with Angular 17, works with Angular 17+
 
 ## Installation
 
 ```bash npm2yarn
-npm install @nauth-toolkit/client
+npm install @nauth-toolkit/client @nauth-toolkit/client-angular
 ```
+
+> **Note:** You need both packages - `@nauth-toolkit/client` (core) and `@nauth-toolkit/client-angular` (Angular adapter).
 
 ## Quick Start
 
@@ -34,25 +43,28 @@ npm install @nauth-toolkit/client
 
 ```typescript
 // app.config.ts
-import { ApplicationConfig, inject } from '@angular/core';
-import { Router, provideRouter } from '@angular/router';
+import { ApplicationConfig } from '@angular/core';
+import { provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { NAUTH_CLIENT_CONFIG, authInterceptor } from '@nauth-toolkit/client/angular';
+import {
+  NAUTH_CLIENT_CONFIG,
+  AuthService,
+  AngularHttpAdapter,
+  authInterceptor,
+} from '@nauth-toolkit/client-angular/standalone';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
     {
       provide: NAUTH_CLIENT_CONFIG,
-      useFactory: () => {
-        const router = inject(Router);
-        return {
-          baseUrl: 'https://api.example.com/auth',
-          tokenDelivery: 'cookies',
-          onSessionExpired: () => router.navigate(['/login']),
-        };
+      useValue: {
+        baseUrl: 'https://api.example.com/auth',
+        tokenDelivery: 'cookies',
       },
     },
+    AngularHttpAdapter,
+    AuthService,
     provideHttpClient(withInterceptors([authInterceptor])),
   ],
 };
@@ -74,23 +86,16 @@ bootstrapApplication(AppComponent, appConfig);
 // app.module.ts
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
-import { Router } from '@angular/router';
-import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
-import { NAuthModule, AuthInterceptor, NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client/angular';
+import { NAuthModule } from '@nauth-toolkit/client-angular';
 
 @NgModule({
-  imports: [BrowserModule, HttpClientModule],
-  providers: [
-    {
-      provide: NAUTH_CLIENT_CONFIG,
-      useFactory: (router: Router) => ({
-        baseUrl: 'https://api.example.com/auth',
-        tokenDelivery: 'cookies',
-        onSessionExpired: () => router.navigate(['/login']),
-      }),
-      deps: [Router],
-    },
-    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
+  declarations: [AppComponent],
+  imports: [
+    BrowserModule,
+    NAuthModule.forRoot({
+      baseUrl: 'https://api.example.com/auth',
+      tokenDelivery: 'cookies',
+    }),
   ],
   bootstrap: [AppComponent],
 })
@@ -102,10 +107,13 @@ export class AppModule {}
 
 ## Route Protection
 
+<Tabs groupId="angular-routes">
+<TabItem value="standalone-routes" label="Standalone">
+
 ```typescript
 // app.routes.ts
 import { Routes } from '@angular/router';
-import { authGuard } from '@nauth-toolkit/client/angular';
+import { authGuard } from '@nauth-toolkit/client-angular/standalone';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -117,9 +125,41 @@ export const routes: Routes = [
 ];
 ```
 
+</TabItem>
+<TabItem value="ngmodule-routes" label="NgModule">
+
+```typescript
+// app-routing.module.ts
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { AuthGuard } from '@nauth-toolkit/client-angular';
+
+const routes: Routes = [
+  { path: 'login', component: LoginComponent },
+  {
+    path: 'dashboard',
+    component: DashboardComponent,
+    canActivate: [AuthGuard],
+  },
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule],
+  providers: [AuthGuard],
+})
+export class AppRoutingModule {}
+```
+
+</TabItem>
+</Tabs>
+
 ## Storage Configuration
 
-For JSON token delivery mode, configure a storage adapter in `NAUTH_CLIENT_CONFIG`:
+For JSON token delivery mode, configure a storage adapter:
+
+<Tabs groupId="angular-storage">
+<TabItem value="standalone-storage" label="Standalone">
 
 ```typescript
 import { BrowserStorage } from '@nauth-toolkit/client';
@@ -128,22 +168,40 @@ export const appConfig: ApplicationConfig = {
   providers: [
     {
       provide: NAUTH_CLIENT_CONFIG,
-      useFactory: () => {
-        const router = inject(Router);
-        return {
-          baseUrl: 'https://api.example.com/auth',
-          tokenDelivery: 'json', // JSON mode requires storage
-          storage: new BrowserStorage('localStorage'), // Default for web apps
-          // Or use sessionStorage: new BrowserStorage('sessionStorage')
-          // Or custom adapter: new MyCustomStorage()
-          onSessionExpired: () => router.navigate(['/login']),
-        };
+      useValue: {
+        baseUrl: 'https://api.example.com/auth',
+        tokenDelivery: 'json', // JSON mode requires storage
+        storage: new BrowserStorage('localStorage'), // Default for web
       },
     },
+    AngularHttpAdapter,
+    AuthService,
     provideHttpClient(withInterceptors([authInterceptor])),
   ],
 };
 ```
+
+</TabItem>
+<TabItem value="ngmodule-storage" label="NgModule">
+
+```typescript
+import { BrowserStorage } from '@nauth-toolkit/client';
+
+@NgModule({
+  imports: [
+    BrowserModule,
+    NAuthModule.forRoot({
+      baseUrl: 'https://api.example.com/auth',
+      tokenDelivery: 'json',
+      storage: new BrowserStorage('localStorage'),
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+</TabItem>
+</Tabs>
 
 **Storage Options:**
 
@@ -160,8 +218,9 @@ See [`NAuthStorageAdapter`](../api/types/nauth-storage-adapter) for interface de
 
 ```typescript
 import { Component } from '@angular/core';
-import { AuthService } from '@nauth-toolkit/client/angular';
-import { AuthResponse } from '@nauth-toolkit/client';
+import { Router } from '@angular/router';
+import { AuthService } from '@nauth-toolkit/client-angular';
+// Or for standalone: '@nauth-toolkit/client-angular/standalone'
 
 @Component({
   selector: 'app-login',
@@ -172,47 +231,62 @@ import { AuthResponse } from '@nauth-toolkit/client';
       <button type="submit">Login</button>
     </form>
 
-    @if (currentUser$ | async; as user) {
-      <p>Welcome, {{ user.email }}</p>
+    @if (auth.isAuthenticated()) {
+      <p>Welcome, {{ auth.currentUser?.email }}</p>
     }
   `,
 })
 export class LoginComponent {
   email = '';
   password = '';
-  currentUser$ = this.auth.currentUser$;
 
   constructor(
-    private auth: AuthService,
+    public auth: AuthService,
     private router: Router,
   ) {}
 
-  login(): void {
-    this.auth.login(this.email, this.password).subscribe({
-      next: (response: AuthResponse) => {
-        if (response.challengeName) {
-          this.router.navigate(['/verify', response.challengeName.toLowerCase()]);
-        } else {
-          this.router.navigate(['/dashboard']);
-        }
-      },
-      error: (err) => console.error('Login failed:', err.message),
-    });
+  async login(): Promise<void> {
+    try {
+      const response = await this.auth.login(this.email, this.password);
+      if (response.challengeName) {
+        this.router.navigate(['/verify', response.challengeName.toLowerCase()]);
+      } else {
+        this.router.navigate(['/dashboard']);
+      }
+    } catch (error) {
+      console.error('Login failed:', error);
+    }
   }
 }
 ```
 
 ## Package Exports
 
-| Export                | Description                          |
-| --------------------- | ------------------------------------ |
-| `NAUTH_CLIENT_CONFIG` | Injection token for configuration    |
-| `AuthService`         | Main service wrapping NAuthClient    |
-| `authInterceptor`     | Functional interceptor (Angular 17+) |
-| `AuthInterceptor`     | Class interceptor (NgModule)         |
-| `authGuard`           | Functional route guard               |
-| `AuthGuard`           | Class route guard (NgModule)         |
-| `NAuthModule`         | NgModule with `forRoot()`            |
+### Default Export (`@nauth-toolkit/client-angular`)
+
+For NgModule-based applications:
+
+| Export                 | Description                       |
+| ---------------------- | --------------------------------- |
+| `NAUTH_CLIENT_CONFIG`  | Injection token for configuration |
+| `NAuthModule`          | NgModule with `forRoot()`         |
+| `AuthService`          | Main service wrapping NAuthClient |
+| `AngularHttpAdapter`   | HTTP client adapter               |
+| `AuthInterceptorClass` | Class-based HTTP interceptor      |
+| `AuthGuard`            | Class-based route guard           |
+
+### Standalone Export (`@nauth-toolkit/client-angular/standalone`)
+
+For standalone component applications:
+
+| Export                        | Description                       |
+| ----------------------------- | --------------------------------- |
+| `NAUTH_CLIENT_CONFIG`         | Injection token for configuration |
+| `AuthService`                 | Main service wrapping NAuthClient |
+| `AngularHttpAdapter`          | HTTP client adapter               |
+| `authInterceptor`             | Functional HTTP interceptor       |
+| `authGuard`                   | Functional route guard            |
+| `socialRedirectCallbackGuard` | OAuth callback guard              |
 
 ## Related Documentation
 

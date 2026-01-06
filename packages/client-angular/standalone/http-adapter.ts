@@ -1,9 +1,7 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { HttpAdapter, HttpRequest, HttpResponse } from '../core/http-adapter';
-import { NAuthClientError } from '../core/errors';
-import { NAuthErrorCode } from '../types/error.types';
+import { HttpAdapter, HttpRequest, HttpResponse, NAuthClientError, NAuthErrorCode } from '@nauth-toolkit/client';
 
 /**
  * HTTP adapter for Angular using HttpClient.
@@ -25,9 +23,9 @@ import { NAuthErrorCode } from '../types/error.types';
  * constructor(private auth: AuthService) {}
  * ```
  */
-@Injectable({ providedIn: 'root' })
+@Injectable()
 export class AngularHttpAdapter implements HttpAdapter {
-  private readonly http = inject(HttpClient);
+  constructor(private readonly http: HttpClient) {}
 
   /**
    * Execute HTTP request using Angular's HttpClient.

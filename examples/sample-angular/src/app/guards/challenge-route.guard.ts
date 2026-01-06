@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, ActivatedRouteSnapshot, Router, UrlTree } from '@angular/router';
-import { AuthService } from '@nauth-toolkit/client/angular';
+import { AuthService } from '@nauth-toolkit/client-angular/standalone';
 import { MFAMethod } from '@nauth-toolkit/client';
 import { ChallengeOrchestratorService } from '../services/challenge-orchestrator.service';
 

@@ -1,7 +1,7 @@
 import { Component, signal, effect, OnInit, OnDestroy, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { AuthService, AuthResponse } from '@nauth-toolkit/client/angular';
+import { AuthService, AuthResponse } from '@nauth-toolkit/client-angular/standalone';
 import { AuthChallenge, getMFAMethod } from '@nauth-toolkit/client';
 import { Subscription, filter } from 'rxjs';
 import { SimulatedVerificationCodeService } from './services/simulated-verification-code.service';

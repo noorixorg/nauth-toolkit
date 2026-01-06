@@ -173,7 +173,7 @@ bootstrap();
 import { ApplicationConfig, inject } from '@angular/core';
 import { Router, provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { NAUTH_CLIENT_CONFIG, authInterceptor } from '@nauth-toolkit/client/angular';
+import { NAUTH_CLIENT_CONFIG, authInterceptor } from '@nauth-toolkit/client-angular';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -366,7 +366,7 @@ function handleChallenge(response: AuthResponse): void {
 ```typescript
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthService } from '@nauth-toolkit/client/angular';
+import { AuthService } from '@nauth-toolkit/client-angular';
 
 @Component({
   selector: 'app-login',
@@ -507,7 +507,7 @@ Use the built-in [`authGuard`](../angular/guards) for automatic route protection
 ```typescript
 // app.routes.ts
 import { Routes } from '@angular/router';
-import { authGuard } from '@nauth-toolkit/client/angular';
+import { authGuard } from '@nauth-toolkit/client-angular';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -531,7 +531,7 @@ Or implement a custom guard with additional logic:
 // custom-auth.guard.ts
 import { inject } from '@angular/core';
 import { Router, CanActivateFn } from '@angular/router';
-import { AuthService } from '@nauth-toolkit/client/angular';
+import { AuthService } from '@nauth-toolkit/client-angular';
 
 export const customAuthGuard: CanActivateFn = (route, state) => {
   const auth = inject(AuthService);

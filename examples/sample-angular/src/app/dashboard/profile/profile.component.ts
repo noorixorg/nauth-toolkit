@@ -1,7 +1,7 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { AuthService, AuthUser } from '@nauth-toolkit/client/angular';
+import { AuthService, AuthUser } from '@nauth-toolkit/client-angular/standalone';
 import { NAuthClientError, NAuthErrorCode, SocialProvider } from '@nauth-toolkit/client';
 import { CardModule } from 'primeng/card';
 import { InplaceModule } from 'primeng/inplace';

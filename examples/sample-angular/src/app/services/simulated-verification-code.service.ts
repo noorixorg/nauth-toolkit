@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { MessageService } from 'primeng/api';
-import { AuthResponse } from '@nauth-toolkit/client/angular';
+import { AuthResponse } from '@nauth-toolkit/client-angular/standalone';
 import { AuthChallenge, getMFAMethod } from '@nauth-toolkit/client';
 import { environment } from '../../environments/environment';
 

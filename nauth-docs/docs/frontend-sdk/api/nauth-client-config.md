@@ -219,7 +219,7 @@ For Angular applications, use a simple configuration object without factory meth
 
 ```typescript
 import { ApplicationConfig } from '@angular/core';
-import { NAUTH_CLIENT_CONFIG, type NAuthClientConfig } from '@nauth-toolkit/client/angular';
+import { NAUTH_CLIENT_CONFIG, type NAuthClientConfig } from '@nauth-toolkit/client-angular';
 import { environment } from '../environments/environment';
 
 export const appConfig: ApplicationConfig = {
@@ -246,7 +246,7 @@ The `socialRedirectCallbackGuard` and `authInterceptor` automatically use the re
 
 ```typescript
 import { Routes } from '@angular/router';
-import { authGuard, socialRedirectCallbackGuard } from '@nauth-toolkit/client/angular';
+import { authGuard, socialRedirectCallbackGuard } from '@nauth-toolkit/client-angular';
 
 export const routes: Routes = [
   {

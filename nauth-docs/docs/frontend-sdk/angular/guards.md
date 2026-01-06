@@ -11,7 +11,7 @@ import TabItem from '@theme/TabItem';
 
 # Route Guards
 
-**Package:** `@nauth-toolkit/client/angular`
+**Package:** `@nauth-toolkit/client-angular`
 
 Route guards for protecting routes based on authentication.
 
@@ -30,7 +30,7 @@ Route guards for protecting routes based on authentication.
 ```typescript
 // app.routes.ts
 import { Routes } from '@angular/router';
-import { authGuard } from '@nauth-toolkit/client/angular';
+import { authGuard } from '@nauth-toolkit/client-angular';
 
 export const routes: Routes = [
   // Public routes
@@ -58,7 +58,7 @@ export const routes: Routes = [
 // app-routing.module.ts
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { AuthGuard } from '@nauth-toolkit/client/angular';
+import { AuthGuard } from '@nauth-toolkit/client-angular';
 
 const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -94,7 +94,7 @@ canActivate: [authGuard]; //  Wrong - passes the factory itself
 :::
 
 ```typescript
-import { authGuard } from '@nauth-toolkit/client/angular';
+import { authGuard } from '@nauth-toolkit/client-angular';
 
 const routes: Routes = [
   {

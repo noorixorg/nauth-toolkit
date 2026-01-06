@@ -106,7 +106,7 @@ async function verifyPasskey(): Promise<void> {
 ```typescript
 import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthService } from '@nauth-toolkit/client/angular';
+import { AuthService } from '@nauth-toolkit/client-angular';
 
 @Component({
   selector: 'app-mfa-verify',

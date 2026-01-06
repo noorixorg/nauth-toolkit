@@ -38,7 +38,7 @@ See [NAuthClientConfig](./api/nauth-client-config) for complete interface.
 ```typescript
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client/angular';
+import { NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client-angular';
 
 export const appConfig = {
   providers: [

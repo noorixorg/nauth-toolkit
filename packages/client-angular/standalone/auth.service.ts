@@ -1,21 +1,29 @@
-import { Inject, Injectable, Optional, inject } from '@angular/core';
+import { Inject, Injectable, Optional } from '@angular/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { NAUTH_CLIENT_CONFIG } from './tokens';
 import { AngularHttpAdapter } from './http-adapter';
-import { NAuthClient } from '../core/client';
-import { NAuthClientConfig } from '../types/config.types';
-import { ChallengeResponse, AuthResponse, TokenResponse } from '../types/auth.types';
 import {
+  NAuthClient,
+  NAuthClientConfig,
+  ChallengeResponse,
+  AuthResponse,
+  TokenResponse,
   AuthUser,
   ConfirmForgotPasswordResponse,
   ForgotPasswordResponse,
   UpdateProfileRequest,
-} from '../types/user.types';
-import { GetChallengeDataResponse, GetSetupDataResponse, MFAStatus, MFADevice } from '../types/mfa.types';
-import { AuthEvent } from '../core/events';
-import { SocialProvider, SocialLoginOptions, LinkedAccountsResponse, SocialVerifyRequest } from '../types/social.types';
-import { AuditHistoryResponse } from '../types/audit.types';
+  GetChallengeDataResponse,
+  GetSetupDataResponse,
+  MFAStatus,
+  MFADevice,
+  AuthEvent,
+  SocialProvider,
+  SocialLoginOptions,
+  LinkedAccountsResponse,
+  SocialVerifyRequest,
+  AuditHistoryResponse,
+} from '@nauth-toolkit/client';
 
 /**
  * Angular wrapper around NAuthClient that provides promise-based auth methods and reactive state.
@@ -49,9 +57,7 @@ import { AuditHistoryResponse } from '../types/audit.types';
  * const status = await this.auth.getMfaStatus();
  * ```
  */
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable()
 export class AuthService {
   private readonly client: NAuthClient;
   private readonly config: NAuthClientConfig;
@@ -62,24 +68,26 @@ export class AuthService {
   private initialized = false;
 
   /**
-   * @param config - Injected client configuration
-   *
-   * Note: AngularHttpAdapter is automatically injected via Angular DI.
-   * This ensures all requests go through Angular's HttpClient and interceptors.
+   * @param config - Injected client configuration (required)
+   * @param httpAdapter - Angular HTTP adapter for making requests (required)
    */
-  constructor(@Optional() @Inject(NAUTH_CLIENT_CONFIG) config?: NAuthClientConfig) {
-    if (!config) {
-      throw new Error('NAUTH_CLIENT_CONFIG is required to initialize AuthService');
-    }
-
+  constructor(
+    @Inject(NAUTH_CLIENT_CONFIG) config: NAuthClientConfig,
+    httpAdapter: AngularHttpAdapter,
+  ) {
     this.config = config;
 
-    // Auto-inject AngularHttpAdapter (or use provided one)
-    const httpAdapter = config.httpAdapter ?? inject(AngularHttpAdapter);
+    // Use provided httpAdapter (from config or injected)
+    const adapter = config.httpAdapter ?? httpAdapter;
+    if (!adapter) {
+      throw new Error(
+        'HttpAdapter not found. Either provide httpAdapter in NAUTH_CLIENT_CONFIG or ensure HttpClient is available.',
+      );
+    }
 
     this.client = new NAuthClient({
       ...config,
-      httpAdapter, // Automatically use Angular's HttpClient
+      httpAdapter: adapter,
       onAuthStateChange: (user) => {
         this.currentUserSubject.next(user);
         this.isAuthenticatedSubject.next(Boolean(user));

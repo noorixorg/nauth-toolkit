@@ -22,9 +22,22 @@ The SDK is optional. Advanced users can integrate directly with backend APIs for
 
 ## Installation
 
+<Tabs groupId="platform">
+<TabItem value="vanilla" label="Vanilla JS/TS">
+
 ```bash npm2yarn
 npm install @nauth-toolkit/client
 ```
+
+</TabItem>
+<TabItem value="angular" label="Angular">
+
+```bash npm2yarn
+npm install @nauth-toolkit/client @nauth-toolkit/client-angular
+```
+
+</TabItem>
+</Tabs>
 
 ## Quick Start
 
@@ -49,25 +62,44 @@ See [NAuthClient API](./api/nauth-client) and [Configuration](./configuration) f
 </TabItem>
 <TabItem value="angular" label="Angular">
 
+**NgModule:**
+
 ```typescript
-import { inject } from '@angular/core';
-import { Router } from '@angular/router';
-import { NAUTH_CLIENT_CONFIG, authInterceptor } from '@nauth-toolkit/client/angular';
+import { NAuthModule } from '@nauth-toolkit/client-angular';
+
+@NgModule({
+  imports: [
+    NAuthModule.forRoot({
+      baseUrl: 'https://api.example.com/auth',
+      tokenDelivery: 'cookies',
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+**Standalone:**
+
+```typescript
+import {
+  NAUTH_CLIENT_CONFIG,
+  AuthService,
+  AngularHttpAdapter,
+  authInterceptor,
+} from '@nauth-toolkit/client-angular/standalone';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 
 export const appConfig = {
   providers: [
     {
       provide: NAUTH_CLIENT_CONFIG,
-      useFactory: () => {
-        const router = inject(Router);
-        return {
-          baseUrl: 'https://api.example.com/auth',
-          tokenDelivery: 'cookies',
-          onSessionExpired: () => router.navigate(['/login']),
-        };
+      useValue: {
+        baseUrl: 'https://api.example.com/auth',
+        tokenDelivery: 'cookies',
       },
     },
+    AngularHttpAdapter,
+    AuthService,
     provideHttpClient(withInterceptors([authInterceptor])),
   ],
 };
@@ -106,10 +138,11 @@ chooses ONE mode (`cookies` or `json`) based on the platform.
 
 ## Package Structure
 
-| Entry Point                     | Description                                         |
-| ------------------------------- | --------------------------------------------------- |
-| `@nauth-toolkit/client`         | Core SDK (NAuthClient, types, storage)              |
-| `@nauth-toolkit/client/angular` | Angular bindings (AuthService, interceptor, guards) |
+| Entry Point                                | Description                            |
+| ------------------------------------------ | -------------------------------------- |
+| `@nauth-toolkit/client`                    | Core SDK (NAuthClient, types, storage) |
+| `@nauth-toolkit/client-angular`            | Angular NgModule bindings              |
+| `@nauth-toolkit/client-angular/standalone` | Angular Standalone bindings            |
 
 ## Documentation
 

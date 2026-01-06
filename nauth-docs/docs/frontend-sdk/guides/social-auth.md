@@ -58,7 +58,7 @@ Options: [`SocialLoginOptions`](../api/types/social-login-options)
 ```typescript
 // app.routes.ts
 import { Routes } from '@angular/router';
-import { socialRedirectCallbackGuard } from '@nauth-toolkit/client/angular';
+import { socialRedirectCallbackGuard } from '@nauth-toolkit/client-angular';
 
 export const routes: Routes = [
   {

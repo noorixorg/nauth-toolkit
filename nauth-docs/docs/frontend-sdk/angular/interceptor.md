@@ -11,7 +11,7 @@ import TabItem from '@theme/TabItem';
 
 # HTTP Interceptor
 
-**Package:** `@nauth-toolkit/client/angular`
+**Package:** `@nauth-toolkit/client-angular`
 
 HTTP interceptor that handles authentication headers, CSRF tokens, and automatic token refresh.
 
@@ -23,7 +23,7 @@ HTTP interceptor that handles authentication headers, CSRF tokens, and automatic
 ```typescript
 // app.config.ts
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { authInterceptor } from '@nauth-toolkit/client/angular';
+import { authInterceptor } from '@nauth-toolkit/client-angular';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -38,7 +38,7 @@ export const appConfig: ApplicationConfig = {
 ```typescript
 // app.module.ts
 import { HTTP_INTERCEPTORS } from '@angular/common/http';
-import { AuthInterceptor } from '@nauth-toolkit/client/angular';
+import { AuthInterceptor } from '@nauth-toolkit/client-angular';
 
 @NgModule({
   providers: [

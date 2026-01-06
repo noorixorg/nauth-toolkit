@@ -8,13 +8,13 @@ image: /img/api-social-card.png
 
 # AuthService
 
-**Package:** `@nauth-toolkit/client/angular`
+**Package:** `@nauth-toolkit/client-angular`
 **Type:** Injectable Service
 
 Angular wrapper around NAuthClient that provides promise-based authentication methods and maintains reactive state.
 
 ```typescript
-import { AuthService } from '@nauth-toolkit/client/angular';
+import { AuthService } from '@nauth-toolkit/client-angular';
 ```
 
 ## Overview
