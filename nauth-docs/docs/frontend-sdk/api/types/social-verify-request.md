@@ -1,7 +1,7 @@
 ---
 title: SocialVerifyRequest
 description: Request payload for verifying native social tokens (mobile apps)
-sidebar_position: 260
+sidebar_position: 310
 keywords: [social, native, mobile, verify, request, dto, api]
 image: /img/api-social-card.png
 ---

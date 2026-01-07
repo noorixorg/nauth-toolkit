@@ -10,10 +10,10 @@ This directory contains the authentication configuration for the sample app.
 
 The `authConfig` object contains all available configuration options for nauth-toolkit with:
 
-- ✅ **Default values** for all optional settings
-- ✅ **Inline comments** explaining each option
-- ✅ **Type safety** with TypeScript
-- ✅ **Easy testing** - just modify values and restart
+- - **Default values** for all optional settings
+- - **Inline comments** explaining each option
+- - **Type safety** with TypeScript
+- - **Easy testing** - just modify values and restart
 
 ## Quick Testing Examples
 

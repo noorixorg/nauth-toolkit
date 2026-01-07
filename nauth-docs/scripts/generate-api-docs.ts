@@ -355,7 +355,7 @@ async function main() {
 
       const content = generateServiceDoc(service, pkg);
       fs.writeFileSync(path.join(serviceDir, filename), content);
-      console.log(`  ✓ Generated ${filename}`);
+      console.log(`  Generated ${filename}`);
     }
 
     // Generate DTO docs
@@ -372,7 +372,7 @@ async function main() {
 
       const content = generateDTODoc(dto, pkg);
       fs.writeFileSync(path.join(dtoDir, filename), content);
-      console.log(`  ✓ Generated ${filename}`);
+      console.log(`  Generated ${filename}`);
     }
   }
 

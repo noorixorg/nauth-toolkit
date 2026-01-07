@@ -46,16 +46,16 @@ This is a critical security vulnerability where there's a time gap between check
 Timeline Without Optimistic Locking:
 ─────────────────────────────────────────────────────────────────
 Request A (Legitimate User):
-├─ 10:00:00.000 → Check session: isRevoked = false ✅
+├─ 10:00:00.000 → Check session: isRevoked = false -
 ├─ 10:00:00.050 → Validate user permissions
-├─ 10:00:00.100 → Process request → Access granted ✅
+├─ 10:00:00.100 → Process request → Access granted -
 └─ Result: User gets access
 
 Request B (Attacker - Concurrent):
-├─ 10:00:00.010 → Check session: isRevoked = false ✅
+├─ 10:00:00.010 → Check session: isRevoked = false -
 ├─ 10:00:00.020 → ATTACK: Admin revokes session (sets isRevoked = true)
 ├─ 10:00:00.050 → Validate user permissions
-├─ 10:00:00.100 → Process request → Access granted ✅ (WRONG!)
+├─ 10:00:00.100 → Process request → Access granted - (WRONG!)
 └─ Result: Attacker gets access even though session was revoked!
 ```
 
@@ -67,18 +67,18 @@ Request B (Attacker - Concurrent):
 Timeline With Optimistic Locking:
 ─────────────────────────────────────────────────────────────────
 Request A (Legitimate User):
-├─ 10:00:00.000 → Get session: version = 5, isRevoked = false ✅
+├─ 10:00:00.000 → Get session: version = 5, isRevoked = false -
 ├─ 10:00:00.050 → Validate permissions
-├─ 10:00:00.100 → Re-check: version = 5, isRevoked = false ✅
-└─ Result: Access granted ✅
+├─ 10:00:00.100 → Re-check: version = 5, isRevoked = false -
+└─ Result: Access granted -
 
 Request B (Attacker - Concurrent):
-├─ 10:00:00.010 → Get session: version = 5, isRevoked = false ✅
+├─ 10:00:00.010 → Get session: version = 5, isRevoked = false -
 ├─ 10:00:00.020 → ATTACK: Admin revokes session
 │                 → version increments: 5 → 6, isRevoked = true
 ├─ 10:00:00.050 → Validate permissions
-├─ 10:00:00.100 → Re-check: version = 6 ❌ (was 5!)
-└─ Result: 401 Unauthorized - "Session was modified" ✅ BLOCKED!
+├─ 10:00:00.100 → Re-check: version = 6 - (was 5!)
+└─ Result: 401 Unauthorized - "Session was modified" - BLOCKED!
 ```
 
 **The Defense**: Even though Request B passed the initial check, the re-validation at the end detected that `version` changed from `5` to `6`, indicating the session was modified during the request.
@@ -127,7 +127,7 @@ export class Session {
 ### The Guard's Double-Check Pattern
 
 ```typescript
-// ✅ SECURE: Double-check with version comparison
+// - SECURE: Double-check with version comparison
 const initial = await findById(sessionId);
 // ... do validation work ...
 const revalidated = await findById(sessionId);
@@ -142,16 +142,16 @@ if (revalidated.version !== initial.version) {
 
 **Optimistic Locking Advantages:**
 
-- ✅ No database locks (better performance)
-- ✅ Detects race conditions automatically
-- ✅ Works across multiple servers/containers
-- ✅ Simple to implement
+- - No database locks (better performance)
+- - Detects race conditions automatically
+- - Works across multiple servers/containers
+- - Simple to implement
 
 **Trade-offs:**
 
-- ⚠️ Requires re-reading the record (one extra query)
-- ⚠️ Can fail on legitimate concurrent updates (needs retry logic)
-- ⚠️ Must avoid version increments for non-security updates (like activity tracking)
+- WARNING: Requires re-reading the record (one extra query)
+- WARNING: Can fail on legitimate concurrent updates (needs retry logic)
+- WARNING: Must avoid version increments for non-security updates (like activity tracking)
 
 ## Why We Removed updateActivity()
 
@@ -164,9 +164,9 @@ We removed `updateActivity()` from the auth guard because:
 
 **The rule**: Only update session for security-critical operations:
 
-- ✅ Token rotation → version increments (security-critical)
-- ✅ Session revocation → version increments (security-critical)
-- ❌ Activity tracking → removed (not security-critical)
+- - Token rotation → version increments (security-critical)
+- - Session revocation → version increments (security-critical)
+- - Activity tracking → removed (not security-critical)
 
 ## Summary
 
@@ -176,8 +176,8 @@ The `version` field provides **optimistic locking** to prevent **TOCTOU (Time-of
 
 **Important:** Optimistic locking with version fields **only applies to Session entities stored in the database**. It works identically regardless of which storage adapter (Memory, Database, or Redis) you choose, because:
 
-1. ✅ **Sessions are always stored in the database** (never in Redis/Memory)
-2. ✅ **Version checking only touches database sessions**
-3. ✅ **Storage adapters handle different data** (rate limits, locks, used tokens) which use atomic operations instead of version fields
+1. - **Sessions are always stored in the database** (never in Redis/Memory)
+2. - **Version checking only touches database sessions**
+3. - **Storage adapters handle different data** (rate limits, locks, used tokens) which use atomic operations instead of version fields
 
 **See `STORAGE_ADAPTERS_VS_SESSIONS.md` for detailed explanation.**

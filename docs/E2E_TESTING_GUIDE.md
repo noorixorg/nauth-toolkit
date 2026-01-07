@@ -14,7 +14,7 @@ Complete guide to the Playwright E2E testing system for nauth-toolkit.
 ## Quick Start
 
 ```bash
-# ⚠️ IMPORTANT: Run all commands from the PROJECT ROOT directory
+# WARNING: IMPORTANT: Run all commands from the PROJECT ROOT directory
 cd /path/to/nauth-toolkit
 
 # 1. Install dependencies
@@ -577,11 +577,11 @@ export const TEST_CONFIGS: TestConfig[] = [
 **Solution**: Always run Playwright commands from the **project root**:
 
 ```bash
-# ✅ CORRECT: From project root
+# - CORRECT: From project root
 cd /path/to/nauth-toolkit
 npx playwright test --project cookies
 
-# ❌ WRONG: From tests/e2e/ subdirectory
+# - WRONG: From tests/e2e/ subdirectory
 cd tests/e2e
 npx playwright test --project cookies  # ERROR: Projects not found
 ```

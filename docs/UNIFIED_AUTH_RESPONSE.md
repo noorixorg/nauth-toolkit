@@ -73,9 +73,9 @@ type AuthResponseDTO = AuthSuccessResponse | AuthChallengeResponse;
 
 This ensures that:
 
-- ✅ A response has **either** tokens **or** a challenge, never both
-- ✅ TypeScript can discriminate between the two cases
-- ✅ Frontend code can handle both scenarios cleanly
+- - A response has **either** tokens **or** a challenge, never both
+- - TypeScript can discriminate between the two cases
+- - Frontend code can handle both scenarios cleanly
 
 **Frontend Type Guard:**
 
@@ -165,7 +165,7 @@ Response: AuthResponseDTO (always success, never challenge)
 
 ### 6. Challenge Completion (Unified Endpoint)
 
-**✨ NEW in v0.1.0:** Single endpoint for all challenge completions
+** NEW in v0.1.0:** Single endpoint for all challenge completions
 
 ```typescript
 POST /auth/respond-challenge
@@ -505,13 +505,13 @@ class AuthService {
 
 ## Summary
 
-✅ **One response format** for all authentication operations (success AND challenges)
-✅ **Discriminated union** ensures type safety (tokens XOR challenge)
-✅ **Simpler frontend code** with unified handling
-✅ **Better encapsulation** in the nauth-toolkit library
-✅ **Consistent timestamps** across all endpoints
-✅ **Same developer experience** regardless of auth method
-✅ **Challenge chaining** handled transparently
-✅ **HTTP 200 for challenges** follows industry standards
+- **One response format** for all authentication operations (success AND challenges)
+- **Discriminated union** ensures type safety (tokens XOR challenge)
+- **Simpler frontend code** with unified handling
+- **Better encapsulation** in the nauth-toolkit library
+- **Consistent timestamps** across all endpoints
+- **Same developer experience** regardless of auth method
+- **Challenge chaining** handled transparently
+- **HTTP 200 for challenges** follows industry standards
 
 This design follows the principle of **least surprise** - the consumer app has a consistent interface regardless of how authentication happens under the hood.

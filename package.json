@@ -21,8 +21,8 @@
     "@nauth-toolkit/core": "0.1.32"
   },
   "scripts": {
-    "preinstall": "node -e \"if(!process.env.npm_execpath||process.env.npm_execpath.includes('npm')){console.error('\\n❌ ERROR: This monorepo requires Yarn, not npm!\\nPlease use: yarn install\\n');process.exit(1)}\"",
-    "postinstall": "node -e \"const fs=require('fs');const path=require('path');const coreDist=path.join(__dirname,'packages/core/dist');if(!fs.existsSync(coreDist)||!fs.existsSync(path.join(coreDist,'index.js'))){console.log('🔨 Building @nauth-toolkit/core...');require('child_process').execSync('yarn workspace @nauth-toolkit/core build',{stdio:'inherit'});}\"",
+    "preinstall": "node -e \"if(!process.env.npm_execpath||process.env.npm_execpath.includes('npm')){console.error('\\nERROR: This monorepo requires Yarn, not npm!\\nPlease use: yarn install\\n');process.exit(1)}\"",
+    "postinstall": "node -e \"const fs=require('fs');const path=require('path');const coreDist=path.join(__dirname,'packages/core/dist');if(!fs.existsSync(coreDist)||!fs.existsSync(path.join(coreDist,'index.js'))){console.log('Building @nauth-toolkit/core...');require('child_process').execSync('yarn workspace @nauth-toolkit/core build',{stdio:'inherit'});}\"",
     "build": "yarn workspace @nauth-toolkit/core clean && yarn workspace @nauth-toolkit/core build",
     "build:all": "yarn clean && yarn build:core && yarn build:deps && yarn build:nestjs && yarn build:client && yarn build:client-angular && yarn build:providers",
     "build:core": "yarn workspace @nauth-toolkit/core build",

@@ -4,20 +4,20 @@
 
 ---
 
-## 🔥 Critical Hot Paths & Optimizations
+##  Critical Hot Paths & Optimizations
 
 ### Login Flow: 4-8 queries → **3-4 queries (optimized)**
 
 | Step               | Current         | Optimization                               | Savings              |
 | ------------------ | --------------- | ------------------------------------------ | -------------------- |
-| 1. User lookup     | 1 query         | ✅ **Cache user profile** (60s TTL)        | -1 query (cache hit) |
-| 2. Password verify | 200-300ms       | ⚠️ **Cannot optimize** (security-critical) | -                    |
-| 3. Lockout check   | Storage adapter | ✅ Already optimized                       | -                    |
-| 4. Trusted device  | 1 query         | ✅ Already optimized (storage adapter)     | -                    |
-| 5. MFA devices     | 1 query         | ✅ **Cache device list** (120s TTL)        | -1 query             |
-| 6. Adaptive MFA    | 4-7 queries     | ✅ **Cache risk assessment** (120s TTL)    | -4 to -7 queries     |
-| 7. Session create  | 1 query         | ⚠️ **Cannot optimize** (required)          | -                    |
-| 8. Audit log       | Async           | ✅ Already non-blocking                    | -                    |
+| 1. User lookup     | 1 query         | - **Cache user profile** (60s TTL)        | -1 query (cache hit) |
+| 2. Password verify | 200-300ms       | WARNING: **Cannot optimize** (security-critical) | -                    |
+| 3. Lockout check   | Storage adapter | - Already optimized                       | -                    |
+| 4. Trusted device  | 1 query         | - Already optimized (storage adapter)     | -                    |
+| 5. MFA devices     | 1 query         | - **Cache device list** (120s TTL)        | -1 query             |
+| 6. Adaptive MFA    | 4-7 queries     | - **Cache risk assessment** (120s TTL)    | -4 to -7 queries     |
+| 7. Session create  | 1 query         | WARNING: **Cannot optimize** (required)          | -                    |
+| 8. Audit log       | Async           | - Already non-blocking                    | -                    |
 
 **Before:** 200-400ms (8-10 queries)
 **After:** 200-250ms (3-4 queries, ~70% query reduction)
@@ -30,11 +30,11 @@
 
 | Step              | Current         | Optimization                        | Savings                  |
 | ----------------- | --------------- | ----------------------------------- | ------------------------ |
-| 1. Session lookup | 1 query         | ✅ **Hybrid storage** (Redis cache) | -1 query (95% cache hit) |
-| 2. Lock acquire   | Storage adapter | ✅ Already optimized                | -                        |
-| 3. Reuse check    | Storage adapter | ✅ Already optimized                | -                        |
-| 4. User lookup    | 1 query         | ✅ **Cache user profile** (60s TTL) | -1 query (cache hit)     |
-| 5. Session update | 1 query         | ⚠️ **Cannot optimize** (required)   | -                        |
+| 1. Session lookup | 1 query         | - **Hybrid storage** (Redis cache) | -1 query (95% cache hit) |
+| 2. Lock acquire   | Storage adapter | - Already optimized                | -                        |
+| 3. Reuse check    | Storage adapter | - Already optimized                | -                        |
+| 4. User lookup    | 1 query         | - **Cache user profile** (60s TTL) | -1 query (cache hit)     |
+| 5. Session update | 1 query         | WARNING: **Cannot optimize** (required)   | -                        |
 
 **Before:** 50-150ms (4 queries)
 **After:** 10-50ms (2 queries, 50% query reduction)
@@ -65,7 +65,7 @@
 
 ---
 
-## ⚡ Performance Bottlenecks
+##  Performance Bottlenecks
 
 ### 1. Password Expiry Check - 2 Redundant Queries
 
@@ -280,9 +280,9 @@ async updateUser(userId: number, updates: Partial<IUser>) {
 
 ---
 
-## 🎯 Safe Caching Opportunities
+##  Safe Caching Opportunities
 
-### ✅ Safe to Cache (Short TTL)
+### - Safe to Cache (Short TTL)
 
 | Data Type             | Key Pattern                             | TTL              | Invalidation         |
 | --------------------- | --------------------------------------- | ---------------- | -------------------- |
@@ -307,7 +307,7 @@ if (!user) {
 
 ---
 
-### ❌ DO NOT Cache (Volatile/Security-Critical)
+### - DO NOT Cache (Volatile/Security-Critical)
 
 | Data Type           | Reason                                       |
 | ------------------- | -------------------------------------------- |
@@ -319,20 +319,20 @@ if (!user) {
 
 ---
 
-## 📊 Session Storage Strategy
+##  Session Storage Strategy
 
 ### Current: Database Sessions
 
 **Pros:**
 
-- ✅ Persistent (survives server restart)
-- ✅ Works with long sessions (30+ days)
-- ✅ No data loss risk
+- - Persistent (survives server restart)
+- - Works with long sessions (30+ days)
+- - No data loss risk
 
 **Cons:**
 
-- ❌ Slower than Redis (50-100ms vs 1-5ms)
-- ❌ Database load increases with active users
+- - Slower than Redis (50-100ms vs 1-5ms)
+- - Database load increases with active users
 
 ---
 
@@ -386,10 +386,10 @@ async findSession(sessionId): Promise<Session> {
 
 **Benefits:**
 
-- ✅ Fast reads (Redis cache hit: 95%+)
-- ✅ No data loss (database is source of truth)
-- ✅ Redis restart = cache miss, not data loss
-- ✅ Works with long sessions
+- - Fast reads (Redis cache hit: 95%+)
+- - No data loss (database is source of truth)
+- - Redis restart = cache miss, not data loss
+- - Works with long sessions
 
 **Configuration:**
 
@@ -403,7 +403,7 @@ session: {
 
 ---
 
-## 🔧 Database Optimizations
+##  Database Optimizations
 
 ### 1. Connection Pooling (Critical)
 
@@ -433,11 +433,11 @@ TypeOrmModule.forRoot({
 **Remove Unnecessary Indexes:**
 
 ```typescript
-// ❌ Remove if not used for search
+// - Remove if not used for search
 @Index(['firstName'])
 @Index(['lastName'])
 
-// ✅ Keep essential indexes only
+// - Keep essential indexes only
 @Index(['email'])           // Unique, used for lookup
 @Index(['sub'])             // Unique, used for JWT
 @Index(['isActive'])        // Used for filtering
@@ -470,9 +470,9 @@ CREATE TABLE nauth_auth_audit_2025_02 PARTITION OF nauth_auth_audit
 
 **Benefits:**
 
-- ✅ Fast queries (scans only relevant partition)
-- ✅ Easy archival (drop old partitions)
-- ✅ Automatic routing
+- - Fast queries (scans only relevant partition)
+- - Easy archival (drop old partitions)
+- - Automatic routing
 
 **Automation:**
 
@@ -509,7 +509,7 @@ SELECT * FROM nauth_sessions WHERE user_id = 123 AND is_revoked = false;
 
 ---
 
-## 🚀 Redis Configuration
+##  Redis Configuration
 
 ### Production-Ready Redis Setup
 
@@ -537,7 +537,7 @@ const redisClient = createCluster({
 
 ---
 
-## 📈 Load Testing Recommendations
+##  Load Testing Recommendations
 
 ### Target Metrics
 
@@ -561,13 +561,13 @@ k6 run --vus 500 --duration 2m adaptive-mfa-test.js
 
 ---
 
-## 🎯 Quick Wins (Implementation Priority)
+##  Quick Wins (Implementation Priority)
 
 ### Immediate (1 day) - Zero Code Changes
 
-1. ✅ **Connection pooling** - Add to TypeORM config (config change only)
-2. ✅ **Session cleanup cron** - Schedule hourly cleanup (add @Cron decorator)
-3. ✅ **Remove unnecessary indexes** - firstName, lastName (migration only)
+1. - **Connection pooling** - Add to TypeORM config (config change only)
+2. - **Session cleanup cron** - Schedule hourly cleanup (add @Cron decorator)
+3. - **Remove unnecessary indexes** - firstName, lastName (migration only)
 
 **Expected Impact:** 15-20% reduction in database load
 
@@ -575,10 +575,10 @@ k6 run --vus 500 --duration 2m adaptive-mfa-test.js
 
 ### Short-term (1 week) - Simple Caching
 
-4. ✅ **Cache user profiles** - 60s TTL (highest impact)
-5. ✅ **Cache MFA device list** - 120s TTL
-6. ✅ **Cache risk assessments** - 120s TTL (if adaptive MFA enabled)
-7. ✅ **Optimize password expiry check** - Remove duplicate query
+4. - **Cache user profiles** - 60s TTL (highest impact)
+5. - **Cache MFA device list** - 120s TTL
+6. - **Cache risk assessments** - 120s TTL (if adaptive MFA enabled)
+7. - **Optimize password expiry check** - Remove duplicate query
 
 **Expected Impact:** 40-50% reduction in query count
 
@@ -586,15 +586,15 @@ k6 run --vus 500 --duration 2m adaptive-mfa-test.js
 
 ### Medium-term (2-4 weeks) - Infrastructure Changes
 
-8. ✅ **Hybrid session storage** - Redis cache + DB persistence
-9. ✅ **Audit log partitioning** - Monthly partitions (PostgreSQL only)
-10. ✅ **Denormalized user data** - Optional (complex trade-offs)
+8. - **Hybrid session storage** - Redis cache + DB persistence
+9. - **Audit log partitioning** - Monthly partitions (PostgreSQL only)
+10. - **Denormalized user data** - Optional (complex trade-offs)
 
 **Expected Impact:** 60-70% reduction in database load
 
 ---
 
-## 🔍 Monitoring Essentials
+##  Monitoring Essentials
 
 ### Key Metrics to Track
 
@@ -653,7 +653,7 @@ redis-cli INFO memory
 
 ---
 
-## 🎯 Summary: Expected Performance
+##  Summary: Expected Performance
 
 ### Before Optimizations (Baseline)
 

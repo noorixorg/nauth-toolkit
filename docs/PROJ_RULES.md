@@ -5,8 +5,8 @@ Don't do console.log() in backend projects use project logger module. Frontend i
 
 ## Package Manager
 
-- ✅ **ALWAYS use Yarn** (never npm or pnpm)
-- ✅ Commands: `yarn install`, `yarn workspace <name> <command>`
+- - **ALWAYS use Yarn** (never npm or pnpm)
+- - Commands: `yarn install`, `yarn workspace <name> <command>`
 
 ## Error Handling
 
@@ -19,30 +19,30 @@ Don't do console.log() in backend projects use project logger module. Frontend i
 
 ### JSDoc - MANDATORY for ALL:
 
-- ✅ **Every class** - description, @example
-- ✅ **Every public method** - description, @param, @returns, @throws
-- ✅ **Every interface** - description, property comments
-- ✅ **Every enum/constant** - description
+- - **Every class** - description, @example
+- - **Every public method** - description, @param, @returns, @throws
+- - **Every interface** - description, property comments
+- - **Every enum/constant** - description
 
 ### Inline Comments - REQUIRED:
 
-- ✅ Complex logic - explain WHY, not WHAT
-- ✅ Security-critical sections - add warnings
-- ✅ Section headers with `// ============`
+- - Complex logic - explain WHY, not WHAT
+- - Security-critical sections - add warnings
+- - Section headers with `// ============`
 
 ## Code Quality
 
 ### Type Safety:
 
-- ✅ **ZERO `any` types** - use `unknown` if needed
-- ✅ **Explicit return types** on all functions
-- ✅ **Full TypeScript strict mode**
+- - **ZERO `any` types** - use `unknown` if needed
+- - **Explicit return types** on all functions
+- - **Full TypeScript strict mode**
 
 ### Testing:
 
-- ✅ **Unit tests** for all services (\*.spec.ts)
-- ✅ **80%+ coverage** minimum
-- ✅ **Run tests** before completion: `yarn test`
+- - **Unit tests** for all services (\*.spec.ts)
+- - **80%+ coverage** minimum
+- - **Run tests** before completion: `yarn test`
 - Any new methods or files added must implement testing
 
 ## Pre-Completion Checklist
@@ -104,7 +104,7 @@ yarn workspace @nauth-toolkit/core lint
 // Explain WHY this is needed (not what it does)
 const result = complexOperation();
 
-// ⚠️ WARNING: Security-critical operation
+// WARNING: WARNING: Security-critical operation
 await validateToken(token);
 ```
 

@@ -233,7 +233,7 @@ The central registry provides:
       codeLength: 8,
     },
 
-    // Adaptive MFA (Risk-Based) ✅ IMPLEMENTED
+    // Adaptive MFA (Risk-Based) - IMPLEMENTED
     adaptive: {
       triggers: ['new_device', 'new_ip', 'new_country', 'impossible_travel', 'suspicious_activity'],
       riskWeights: {
@@ -280,7 +280,7 @@ The central registry provides:
   - **Exception:** If the device is trusted (via `rememberDevices: 'always'` or `user_opt_in` + `/trust-device`) **and** `bypassMFAForTrustedDevices: true`, MFA can be skipped on that device.
 - Suitable for enterprise / high-assurance applications.
 
-#### ADAPTIVE ✅ **IMPLEMENTED**
+#### ADAPTIVE - **IMPLEMENTED**
 
 - **Risk-Based MFA**: Conditionally requires MFA based on risk assessment
 - **Risk Factors Detected**:
@@ -705,9 +705,9 @@ MFA integrates seamlessly with the existing challenge-response system:
 }
 ```
 
-## Adaptive MFA (Risk-Based Authentication) ✅ **IMPLEMENTED**
+## Adaptive MFA (Risk-Based Authentication) - **IMPLEMENTED**
 
-**Status:** ✅ Complete and production-ready
+**Status:** - Complete and production-ready
 
 ### Overview
 
@@ -1079,15 +1079,15 @@ yarn typeorm migration:run
 
 The MFA implementation in `nauth-toolkit` provides:
 
-- ✅ Multiple authentication methods (TOTP, SMS, Passkey)
-- ✅ Flexible enforcement policies
-- ✅ Backup codes for recovery
-- ✅ Comprehensive device management
-- ✅ Integration with existing challenge system
-- ✅ Security best practices
-- ✅ Extensible architecture for future enhancements
-- ⚠️ Test coverage needs improvement
-- ⚠️ TOTP secret encryption pending
-- ⚠️ Adaptive MFA pending implementation
+- - Multiple authentication methods (TOTP, SMS, Passkey)
+- - Flexible enforcement policies
+- - Backup codes for recovery
+- - Comprehensive device management
+- - Integration with existing challenge system
+- - Security best practices
+- - Extensible architecture for future enhancements
+- WARNING: Test coverage needs improvement
+- WARNING: TOTP secret encryption pending
+- WARNING: Adaptive MFA pending implementation
 
 For questions or issues, refer to the main repository documentation or open an issue on GitHub.

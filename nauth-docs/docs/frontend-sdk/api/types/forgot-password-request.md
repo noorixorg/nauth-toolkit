@@ -1,7 +1,7 @@
 ---
 title: ForgotPasswordRequest
 description: Request payload for starting account recovery with a password reset code
-sidebar_position: 111
+sidebar_position: 150
 keywords: [password, reset, forgot, request, dto, api]
 image: /img/api-social-card.png
 ---

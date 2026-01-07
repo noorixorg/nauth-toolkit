@@ -49,11 +49,11 @@ await engine.registerTemplateFromFile(TemplateType.WELCOME, 'my-welcome-template
 
 ## Why This is Better
 
-- ✅ **Subject in file** - One file instead of three per template
-- ✅ **`.hbs` or `.html`** - Both work (`.hbs` is just a naming convention)
-- ✅ **Easy to customize** - Replace files, not code
-- ✅ **Full control** - Use any HTML/CSS
-- ✅ **Powerful** - Loops, conditionals, helpers
+- - **Subject in file** - One file instead of three per template
+- - **`.hbs` or `.html`** - Both work (`.hbs` is just a naming convention)
+- - **Easy to customize** - Replace files, not code
+- - **Full control** - Use any HTML/CSS
+- - **Powerful** - Loops, conditionals, helpers
 
 ## Files Per Template
 
@@ -74,7 +74,7 @@ await engine.registerTemplateFromFile(TemplateType.WELCOME, 'my-welcome-template
 
 ```html
 ---
-subject: Welcome to {{appName}} 🎉
+subject: Welcome to {{appName}} 
 ---
 
 

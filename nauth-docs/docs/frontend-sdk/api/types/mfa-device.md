@@ -1,7 +1,7 @@
 ---
 title: MFADevice
 description: MFA device information returned from device listing endpoints
-sidebar_position: 160
+sidebar_position: 210
 keywords: [mfa, device, information, response, api]
 image: /img/api-social-card.png
 ---

@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/email-console",
-  "version": "0.1.58",
+  "version": "0.1.59",
   "description": "Console email provider for nauth-toolkit (dev/test)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -27,7 +27,7 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.58"
+    "@nauth-toolkit/core": "^0.1.59"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",

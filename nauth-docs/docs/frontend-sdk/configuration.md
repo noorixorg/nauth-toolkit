@@ -199,6 +199,60 @@ const client = new NAuthClient({
 
 ## Callbacks
 
+### onAuthResponse
+
+Custom handler for all authentication responses. Overrides automatic navigation. Perfect for dialog-based flows:
+
+```typescript
+{
+  onAuthResponse: (response, context) => {
+    // context.source: 'login' | 'signup' | 'social' | 'challenge'
+
+    if (response.challengeName) {
+      // Handle challenge (dialog, modal, or custom navigation)
+      dialog.open(ChallengeComponent, {
+        data: { challenge: response, source: context.source }
+      });
+    } else if (response.user) {
+      // Authentication complete
+      router.navigate(['/dashboard']);
+    }
+  },
+}
+```
+
+**When to use:**
+- Dialog/modal-based challenge flows
+- Custom navigation logic
+- Complex UI state management
+
+:::note
+When `onAuthResponse` is provided, the SDK skips automatic navigation. You control all routing.
+:::
+
+### navigationHandler
+
+Custom navigation function. Use your framework's router instead of `window.location`:
+
+```typescript
+{
+  navigationHandler: (url: string) => {
+    // Angular
+    inject(Router).navigateByUrl(url);
+
+    // React Router
+    navigate(url);
+
+    // Vue Router
+    router.push(url);
+  },
+}
+```
+
+**Default behavior:**
+- Guards: `window.location.replace(url)`
+- Other contexts: `window.location.href = url`
+
 ### onSessionExpired
 
 Called when refresh fails (401 after refresh attempt):
@@ -369,11 +423,45 @@ Enable debug logging:
 ## Full Configuration Example
 
 ```typescript
+import { AuthChallenge } from '@nauth-toolkit/client';
+
 const client = new NAuthClient({
   // Required
   baseUrl: 'https://api.example.com/auth',
   tokenDelivery: 'cookies',
-  onSessionExpired: () => window.location.replace('/login'),
+
+  // Challenge navigation
+  redirects: {
+    success: '/dashboard',
+    sessionExpired: '/login',
+    oauthError: '/login',
+    challengeBase: '/auth/challenge',
+
+    // Optional: Custom routes
+    challengeRoutes: {
+      [AuthChallenge.MFA_REQUIRED]: '/auth/mfa',
+    },
+
+    // Optional: Single route mode
+    // useSingleChallengeRoute: true,
+
+    // Optional: MFA-specific routes
+    mfaRoutes: {
+      passkey: '/auth/passkey',
+      selector: '/auth/choose-mfa',
+      default: '/auth/verify-code',
+    },
+  },
+
+  // Optional: Custom navigation
+  navigationHandler: (url) => inject(Router).navigateByUrl(url),
+
+  // Optional: Dialog-based flow
+  // onAuthResponse: (response, context) => {
+  //   if (response.challengeName) {
+  //     dialog.open(ChallengeComponent, { data: response });
+  //   }
+  // },
 
   // CSRF (for cookies mode)
   csrf: {
@@ -410,5 +498,6 @@ const client = new NAuthClient({
 ## Related Documentation
 
 - [NAuthClientConfig API](./api/nauth-client-config) - Full reference
+- [Challenge Handling](./guides/challenge-handling) - Challenge navigation and routing
 - [Token Management](./token-management) - Token handling
 - [Getting Started](./guides/getting-started) - Setup guide

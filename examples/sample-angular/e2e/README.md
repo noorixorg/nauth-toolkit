@@ -44,7 +44,7 @@ node run-scenario.js signup-both-verification --ui --headed
 - `signup-basic`
 - `signup-email-verification`
 - `signup-phone-verification`
-- `signup-both-verification` ⭐
+- `signup-both-verification` 
 - `signup-mfa-required-sms`
 - `signup-mfa-required-totp`
 - `signup-mfa-optional-totp`

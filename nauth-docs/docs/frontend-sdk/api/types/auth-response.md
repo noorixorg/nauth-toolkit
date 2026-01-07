@@ -1,7 +1,7 @@
 ---
 title: AuthResponse
 description: Unified authentication response containing user tokens or challenge data
-sidebar_position: 60
+sidebar_position: 70
 keywords: [response, authentication, challenge, tokens, api]
 image: /img/api-social-card.png
 ---

@@ -1,6 +1,6 @@
 # Database Architecture
 
-## 🎯 **Design Decision: Database-Specific Entity Packages**
+##  **Design Decision: Database-Specific Entity Packages**
 
 The `nauth-toolkit` supports multiple databases (PostgreSQL, MySQL) by providing **separate entity packages** for each database type. Each package contains TypeORM entities with database-specific column types.
 
@@ -8,7 +8,7 @@ The `nauth-toolkit` supports multiple databases (PostgreSQL, MySQL) by providing
 
 TypeORM decorators are **compile-time metadata** and require static literal values. Runtime adapters cannot be used in decorator definitions, so we use separate entity packages with hardcoded column types for each database.
 
-## 🏗️ **Architecture**
+##  **Architecture**
 
 ### **Core Components:**
 
@@ -51,20 +51,20 @@ export class User extends BaseUser {
 }
 ```
 
-## 📊 **Database Compatibility Matrix**
+##  **Database Compatibility Matrix**
 
 | Feature | PostgreSQL | MySQL | SQLite | MSSQL |
 |---------|------------|-------|--------|-------|
-| **UUID Generation** | ✅ Native (`pgcrypto`) | ⚠️ Node.js crypto | ⚠️ Node.js crypto | ⚠️ Node.js crypto |
+| **UUID Generation** | - Native (`pgcrypto`) | WARNING: Node.js crypto | WARNING: Node.js crypto | WARNING: Node.js crypto |
 | **UUID Column Type** | `uuid` | `char(36)` | `text` | `uniqueidentifier` |
 | **JSON Storage** | `jsonb` (binary) | `json` | `text` | `nvarchar(max)` |
 | **Array Storage** | `text[]` (native) | `json` | `text` | `nvarchar(max)` |
 | **Boolean Type** | `boolean` | `tinyint(1)` | `integer` | `bit` |
 | **Timestamp** | `timestamp` | `datetime` | `text` | `datetime2` |
 
-## 🔧 **Implementation Status**
+##  **Implementation Status**
 
-### **✅ Completed:**
+### **- Completed:**
 - PostgreSQL entity package with native UUID, JSONB, array support
 - MySQL entity package with char(36) UUID, JSON, and proper type mappings
 - Base entity classes in core with all business logic
@@ -76,7 +76,7 @@ export class User extends BaseUser {
 - MSSQL entity package (for enterprise)
 - Migration scripts between database types
 
-## 💡 **Benefits**
+##  **Benefits**
 
 1. **No Code Duplication** - Field definitions in base classes, only decorators differ
 2. **Type Safety** - Full TypeScript support, compile-time checking
@@ -84,7 +84,7 @@ export class User extends BaseUser {
 4. **Clear Separation** - Business logic in core, database specifics in packages
 5. **Easy to Extend** - Add new databases by creating a new entity package
 
-## 📋 **Usage**
+##  **Usage**
 
 ```typescript
 // Install the appropriate database package
@@ -95,6 +95,6 @@ import { getNAuthEntities } from '@nauth-toolkit/database-typeorm-postgres';
 
 TypeOrmModule.forRoot({
   type: 'postgres',
-  entities: getNAuthEntities(), // ✅ All entities with correct column types
+  entities: getNAuthEntities(), // - All entities with correct column types
 })
 ```

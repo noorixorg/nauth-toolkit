@@ -2,7 +2,7 @@
 
 Complete example of integrating `@nauth-toolkit/core` into a NestJS application.
 
-## 🚀 Quick Start (5 Minutes)
+##  Quick Start (5 Minutes)
 
 ### 1. Install & Setup
 
@@ -25,18 +25,18 @@ Visit: http://localhost:3000
 
 ---
 
-## 📦 What's Inside
+##  What's Inside
 
 This sample app demonstrates:
 
-- ✅ Basic NestJS 11 setup
-- ✅ PostgreSQL connection with TypeORM
-- ✅ Local `@nauth-toolkit/core` integration (workspace package)
+- - Basic NestJS 11 setup
+- - PostgreSQL connection with TypeORM
+- - Local `@nauth-toolkit/core` integration (workspace package)
 - ⏳ Auth endpoints (coming soon via AuthModule)
 
 ---
 
-## 🔧 Current Setup
+##  Current Setup
 
 ### Environment Variables (Important!)
 
@@ -127,7 +127,7 @@ TypeOrmModule.forRoot({
 
 ---
 
-## 🎯 How to Integrate nauth-toolkit
+##  How to Integrate nauth-toolkit
 
 ### Option A: Using AuthModule (Recommended - Coming Soon)
 
@@ -150,7 +150,7 @@ import { AuthModule } from '@nauth-toolkit/core';
       synchronize: true, // Creates tables automatically
     }),
 
-    // 🎉 ONE LINE - Everything is configured!
+    //  ONE LINE - Everything is configured!
     AuthModule.forRoot({
       jwt: {
         algorithm: 'HS256',
@@ -179,16 +179,16 @@ export class AppModule {}
 
 **That's it!** The `AuthModule` will:
 
-- ✅ Create database tables automatically (`nauth_users`, `nauth_sessions`, etc.)
-- ✅ Provide pre-built controllers with all endpoints:
+- - Create database tables automatically (`nauth_users`, `nauth_sessions`, etc.)
+- - Provide pre-built controllers with all endpoints:
   - `POST /auth/signup`
   - `POST /auth/login`
   - `POST /auth/refresh`
   - `GET /auth/logout`
   - `POST /auth/password/reset`
   - `GET /auth/me` (get current user)
-- ✅ Add guards (`@UseGuards(AuthGuard)`)
-- ✅ Add decorators (`@CurrentUser()`, `@Public()`)
+- - Add guards (`@UseGuards(AuthGuard)`)
+- - Add decorators (`@CurrentUser()`, `@Public()`)
 
 ### Option B: Manual Integration (Current - For Testing)
 
@@ -224,7 +224,7 @@ curl http://localhost:3000/test-nauth
 
 ---
 
-## 🗄️ Database Tables
+##  Database Tables
 
 When `AuthModule` is integrated, it will automatically create these tables:
 
@@ -286,7 +286,7 @@ createdAt       timestamp
 
 ---
 
-## 🛡️ Using Guards in Your Controllers
+##  Using Guards in Your Controllers
 
 After `AuthModule` is integrated:
 
@@ -315,7 +315,7 @@ export class ApiController {
 
 ---
 
-## 📡 API Endpoints (Auto-Generated)
+##  API Endpoints (Auto-Generated)
 
 Once `AuthModule` is integrated, you get these endpoints automatically:
 
@@ -367,7 +367,7 @@ Body: { token: "...", newPassword: "..." }
 
 ---
 
-## 🔄 Development Workflow
+##  Development Workflow
 
 ### Testing Local Package Changes
 
@@ -419,7 +419,7 @@ curl http://localhost:3000/auth/me \
 
 ---
 
-## 🎨 Configuration Options
+##  Configuration Options
 
 Full configuration available in `AuthModule.forRoot()`:
 
@@ -479,7 +479,7 @@ AuthModule.forRoot({
 
 ---
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### Database Connection Failed
 
@@ -522,11 +522,11 @@ npx typeorm migration:run
 
 ---
 
-## 📚 What's Next?
+##  What's Next?
 
 ### Current Status: Phase 1 (~40% Complete)
 
-✅ **Done:**
+- **Done:**
 
 - Password hashing (Argon2id)
 - JWT generation & validation
@@ -534,7 +534,7 @@ npx typeorm migration:run
 - Services (PasswordService, JwtService)
 - Unit tests (32 passing)
 
-🚧 **In Progress:**
+ **In Progress:**
 
 - AuthModule (will provide auto-registration)
 - Database entities (User, Session, etc.)
@@ -579,7 +579,7 @@ All endpoints, guards, and decorators are ready to use.
 
 ---
 
-## 🎓 Learning Resources
+##  Learning Resources
 
 - **Main README:** `/README.md` - Project overview
 - **Requirements:** `/docs/NESTJS_AUTH_TOOLKIT_REQUIREMENTS.md` - Full specifications
@@ -588,7 +588,7 @@ All endpoints, guards, and decorators are ready to use.
 
 ---
 
-## 💡 Tips
+##  Tips
 
 ### Generate Strong Secrets
 
@@ -616,7 +616,7 @@ import { ConfigModule } from '@nestjs/config';
 
 ---
 
-## 📝 Current Sample App Structure
+##  Current Sample App Structure
 
 ```
 sample-app/
@@ -633,6 +633,6 @@ sample-app/
 
 ---
 
-**🎉 Ready to use!** Start the app and visit http://localhost:3000/test-nauth to see nauth-toolkit in action.
+** Ready to use!** Start the app and visit http://localhost:3000/test-nauth to see nauth-toolkit in action.
 
-Once `AuthModule` is complete, just add one import and you'll have a complete auth system! 🚀
+Once `AuthModule` is complete, just add one import and you'll have a complete auth system! 

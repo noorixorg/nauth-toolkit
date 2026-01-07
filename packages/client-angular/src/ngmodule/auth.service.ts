@@ -178,6 +178,22 @@ export class AuthService {
     return this.challengeSubject.value;
   }
 
+  /**
+   * Get challenge router for manual navigation control.
+   * Useful for guards that need to handle errors or build custom URLs.
+   *
+   * @returns ChallengeRouter instance
+   *
+   * @example
+   * ```typescript
+   * const router = this.auth.getChallengeRouter();
+   * await router.navigateToError('oauth');
+   * ```
+   */
+  getChallengeRouter() {
+    return this.client.getChallengeRouter();
+  }
+
   // ============================================================================
   // Core Auth Methods
   // ============================================================================

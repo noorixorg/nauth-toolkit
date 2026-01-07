@@ -4,6 +4,7 @@ import { NAUTH_CLIENT_CONFIG } from './tokens';
 import { AuthService } from './auth.service';
 import { AngularHttpAdapter } from './http-adapter';
 import { AuthInterceptorClass } from './auth.interceptor.class';
+import { AuthGuard } from '../lib/auth.guard';
 import { NAuthClientConfig } from '@nauth-toolkit/client';
 
 /**
@@ -53,6 +54,8 @@ export class NAuthModule {
           useClass: AuthInterceptorClass,
           multi: true,
         },
+        // Provide AuthGuard so it has access to NAUTH_CLIENT_CONFIG
+        AuthGuard,
       ],
     };
   }

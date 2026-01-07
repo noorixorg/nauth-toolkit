@@ -6,14 +6,14 @@
 
 The nauth-toolkit currently uses **in-memory storage** for rate limiting, which has implications for different deployment scenarios:
 
-#### ✅ **Single ECS Task (1 Container)**
+#### - **Single ECS Task (1 Container)**
 
 - **Status**: WORKS
 - Rate limiting enforced correctly
 - Trade-off: Data lost on container restart (rate limits reset)
 - **Acceptable for**: Small-scale deployments
 
-#### ⚠️ **Multiple ECS Tasks (2+ Containers)**
+#### WARNING: **Multiple ECS Tasks (2+ Containers)**
 
 - **Status**: PARTIAL PROTECTION
 - Rate limiting enforced **per-container**, not globally
@@ -29,10 +29,10 @@ The nauth-toolkit currently uses **in-memory storage** for rate limiting, which 
 
 ### What's Stored in Database (Persistent):
 
-1. User sessions (valid across containers ✅)
-2. Login attempts (logged to database ✅)
-3. Verification tokens (in database ✅)
-4. Challenge sessions (in database ✅)
+1. User sessions (valid across containers -)
+2. Login attempts (logged to database -)
+3. Verification tokens (in database -)
+4. Challenge sessions (in database -)
 
 ## Recommendations by Deployment Type
 
@@ -149,6 +149,6 @@ export class RedisStorageAdapter implements StorageAdapter {
 
 | Deployment          | Rate Limiting            | Status                |
 | ------------------- | ------------------------ | --------------------- |
-| Single ECS Task     | Enforced (per-container) | ✅ Works              |
-| Multi-Container ECS | Enforced (per-container) | ⚠️ Partial protection |
-| Production (Redis)  | Enforced (global)        | 🚧 TODO               |
+| Single ECS Task     | Enforced (per-container) | - Works              |
+| Multi-Container ECS | Enforced (per-container) | WARNING: Partial protection |
+| Production (Redis)  | Enforced (global)        |  TODO               |

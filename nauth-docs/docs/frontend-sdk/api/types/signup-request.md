@@ -1,7 +1,7 @@
 ---
 title: SignupRequest
 description: User registration request with email, password, and optional profile fields
-sidebar_position: 230
+sidebar_position: 290
 keywords: [signup, registration, request, dto, api]
 image: /img/api-social-card.png
 ---

@@ -59,10 +59,10 @@ export class SocialRedirectController {
 
 The provider services (`GoogleSocialAuthService`, `AppleSocialAuthService`, `FacebookSocialAuthService`) already implement:
 
-- ✅ ID token verification with provider's public keys
-- ✅ User creation/update
-- ✅ Social account linking
-- ✅ JWT token generation
+- - ID token verification with provider's public keys
+- - User creation/update
+- - Social account linking
+- - JWT token generation
 
 You just need to expose the `verifyToken()` method as an HTTP endpoint.
 
@@ -491,7 +491,7 @@ Place your Firebase `google-services.json` in `android/app/`
 
 **2. Modify MainActivity.java (CRITICAL for Google Sign-In):**
 
-⚠️ **REQUIRED**: Without this modification, Google Sign-In will NOT work on Android.
+WARNING: **REQUIRED**: Without this modification, Google Sign-In will NOT work on Android.
 
 Edit `android/app/src/main/java/com/yourapp/MainActivity.java`:
 
@@ -636,8 +636,8 @@ dependencies {
 
 ### Phase 1: Backend (Consumer App)
 
-1. ✅ Provider services already have `verifyToken()` methods (no changes needed to core library)
-2. ✅ Token verification is already implemented in provider services
+1. - Provider services already have `verifyToken()` methods (no changes needed to core library)
+2. - Token verification is already implemented in provider services
 3. Add `POST /auth/social/:provider/verify` endpoint to your controller (see example above)
 4. Inject provider services (`GoogleSocialAuthService`, etc.) in your controller
 
@@ -669,11 +669,11 @@ dependencies {
 
 **[@capgo/capacitor-social-login](https://github.com/Cap-go/capacitor-social-login)** is the recommended plugin for native social authentication in Capacitor apps. It provides:
 
-- ✅ Unified API for Google, Apple, and Facebook
-- ✅ Works on both iOS and Android
-- ✅ Native SDK integration (no web views)
-- ✅ TypeScript support
-- ✅ Active maintenance
+- - Unified API for Google, Apple, and Facebook
+- - Works on both iOS and Android
+- - Native SDK integration (no web views)
+- - TypeScript support
+- - Active maintenance
 
 ## References
 

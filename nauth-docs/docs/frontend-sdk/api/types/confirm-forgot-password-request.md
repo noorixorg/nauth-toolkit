@@ -1,7 +1,7 @@
 ---
 title: ConfirmForgotPasswordRequest
 description: Request payload for confirming a password reset code and setting a new password
-sidebar_position: 113
+sidebar_position: 130
 keywords: [password, reset, confirm, request, dto, api]
 image: /img/api-social-card.png
 ---

@@ -156,7 +156,7 @@ Custom templates are **validated at startup** to ensure required parameters are 
 
 ```html
 ---
-subject: Welcome to {{appName}} 🎉
+subject: Welcome to {{appName}} 
 ---
 
 

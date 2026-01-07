@@ -1,17 +1,17 @@
 # Challenge System Architecture
 
-**Status:** ✅ IMPLEMENTED - Unified API Complete (v0.1.0)
+**Status:** - IMPLEMENTED - Unified API Complete (v0.1.0)
 
 ## Implementation Update (v0.1.0)
 
 As of v0.1.0, the challenge system has been **fully unified** with a single `respondToChallenge` endpoint:
 
-- ✅ **Unified API**: Single endpoint handles all challenge types via discriminated union
-- ✅ **Service Simplification**: Reduced from 3 services to 2 (internal helpers separate from public API)
-- ✅ **Automatic Cookie Clearing**: Logout now automatically clears cookies via response context
-- ✅ **Helper Methods Merged**: `getSetupData()`, `getChallengeData()`, `resendCode()` now in `AuthService`
-- ✅ **Frontend Cleanup**: Unified API calls, removed legacy methods
-- ✅ **Type Safety**: Discriminated unions for compile-time validation
+- - **Unified API**: Single endpoint handles all challenge types via discriminated union
+- - **Service Simplification**: Reduced from 3 services to 2 (internal helpers separate from public API)
+- - **Automatic Cookie Clearing**: Logout now automatically clears cookies via response context
+- - **Helper Methods Merged**: `getSetupData()`, `getChallengeData()`, `resendCode()` now in `AuthService`
+- - **Frontend Cleanup**: Unified API calls, removed legacy methods
+- - **Type Safety**: Discriminated unions for compile-time validation
 
 See **ARCHITECTURE.md** → "Challenge System Architecture" section for complete implementation details.
 
@@ -21,7 +21,7 @@ See **ARCHITECTURE.md** → "Challenge System Architecture" section for complete
 
 ### TL;DR
 
-**Current approach is CORRECT** ✅ - Challenges are **response states**, not errors. This matches AWS Cognito's design and industry best practices.
+**Current approach is CORRECT** - - Challenges are **response states**, not errors. This matches AWS Cognito's design and industry best practices.
 
 ---
 
@@ -126,13 +126,13 @@ const response = await cognito.initiateAuth({
 
 ## Industry Comparison
 
-### 1. AWS Cognito ✅
+### 1. AWS Cognito -
 
 - **Challenges = Response states** (HTTP 200)
 - Returns `ChallengeName` instead of tokens
 - Frontend checks for `ChallengeName` presence
 
-### 2. Auth0 ✅
+### 2. Auth0 -
 
 - **MFA challenges = Response states** (HTTP 200)
 - Returns `mfa_token` and `challenge_type`
@@ -145,13 +145,13 @@ const response = await cognito.initiateAuth({
 }
 ```
 
-### 3. Firebase Auth ✅
+### 3. Firebase Auth -
 
 - **Multi-step flows = Response states**
 - `signInWithPhoneNumber` returns `ConfirmationResult` (not error)
 - User calls `confirmationResult.confirm(code)` to continue
 
-### 4. Okta ✅
+### 4. Okta -
 
 - **Factor challenges = Response states** (HTTP 200)
 - Returns `status: 'MFA_REQUIRED'` with `stateToken`
@@ -161,7 +161,7 @@ const response = await cognito.initiateAuth({
 
 ## Why Challenges Should NOT Be Errors
 
-### ❌ Problems with Throwing Errors
+### - Problems with Throwing Errors
 
 ```typescript
 // BAD: If challenges were errors
@@ -182,13 +182,13 @@ try {
 
 **Issues:**
 
-1. ❌ **Semantic confusion** - Challenges aren't failures, they're required steps
-2. ❌ **Error logs pollution** - Normal flows show up as errors in monitoring
-3. ❌ **Mixed error handling** - Can't distinguish real errors from flow states
-4. ❌ **Try-catch abuse** - Using exceptions for control flow (anti-pattern)
-5. ❌ **Poor DX** - Developers expect `catch` for failures, not normal flow
+1. - **Semantic confusion** - Challenges aren't failures, they're required steps
+2. - **Error logs pollution** - Normal flows show up as errors in monitoring
+3. - **Mixed error handling** - Can't distinguish real errors from flow states
+4. - **Try-catch abuse** - Using exceptions for control flow (anti-pattern)
+5. - **Poor DX** - Developers expect `catch` for failures, not normal flow
 
-### ✅ Benefits of Current Approach (Response States)
+### - Benefits of Current Approach (Response States)
 
 ```typescript
 // GOOD: Current approach
@@ -205,11 +205,11 @@ if (response.challengeName) {
 
 **Benefits:**
 
-1. ✅ **Semantic clarity** - Challenges are continuation states, not failures
-2. ✅ **Clean logs** - No false-positive errors in monitoring
-3. ✅ **Clear control flow** - No try-catch for expected behavior
-4. ✅ **Better DX** - Intuitive: check for challenge, handle accordingly
-5. ✅ **Type safety** - Discriminated union: has `challengeName` XOR has `accessToken`
+1. - **Semantic clarity** - Challenges are continuation states, not failures
+2. - **Clean logs** - No false-positive errors in monitoring
+3. - **Clear control flow** - No try-catch for expected behavior
+4. - **Better DX** - Intuitive: check for challenge, handle accordingly
+5. - **Type safety** - Discriminated union: has `challengeName` XOR has `accessToken`
 
 ---
 
@@ -304,8 +304,8 @@ Authentication is a **state machine**, not a single transaction:
              ▼
 ┌──────────────────────────────────────────┐
 │ 2. Verify Identity                       │
-│    - Passport valid ✓                    │
-│    - Name matches ✓                      │
+│    - Passport valid -                    │
+│    - Name matches -                      │
 └────────────┬─────────────────────────────┘
              │
              ▼
@@ -398,19 +398,19 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 
 ## Common Misconceptions
 
-### ❌ Misconception 1: "Challenges Block Success"
+### - Misconception 1: "Challenges Block Success"
 
 **Wrong thinking:** "If authentication isn't complete, it's an error"
 
 **Correct thinking:** "Authentication is a multi-step process. Challenges are intermediate steps."
 
-### ❌ Misconception 2: "HTTP 200 Means Complete Success"
+### - Misconception 2: "HTTP 200 Means Complete Success"
 
 **Wrong thinking:** "HTTP 200 should only return when everything is done"
 
 **Correct thinking:** "HTTP 200 means the request was processed successfully. Challenges are a valid, successful response indicating 'next steps required'."
 
-### ❌ Misconception 3: "Frontend Should Handle Challenges in Catch Block"
+### - Misconception 3: "Frontend Should Handle Challenges in Catch Block"
 
 **Wrong thinking:**
 
@@ -454,27 +454,27 @@ if (response.challengeName) {
 
 ## Recommendation: Keep Current Approach
 
-### Verdict: ✅ Current implementation is CORRECT
+### Verdict: - Current implementation is CORRECT
 
 **Reasons:**
 
-1. ✅ Matches AWS Cognito (industry standard)
-2. ✅ Matches Auth0, Okta, Firebase
-3. ✅ Semantic clarity (challenges ≠ errors)
-4. ✅ Clean logs and monitoring
-5. ✅ Better DX for consumers
-6. ✅ Proper HTTP semantics
-7. ✅ Type-safe discriminated unions
+1. - Matches AWS Cognito (industry standard)
+2. - Matches Auth0, Okta, Firebase
+3. - Semantic clarity (challenges ≠ errors)
+4. - Clean logs and monitoring
+5. - Better DX for consumers
+6. - Proper HTTP semantics
+7. - Type-safe discriminated unions
 
 ### Don't Change To Errors
 
 **Why not:**
 
-1. ❌ Goes against industry standards
-2. ❌ Confuses normal flow with failures
-3. ❌ Pollutes error logs
-4. ❌ Worse developer experience
-5. ❌ Breaks semantic HTTP status codes
+1. - Goes against industry standards
+2. - Confuses normal flow with failures
+3. - Pollutes error logs
+4. - Worse developer experience
+5. - Breaks semantic HTTP status codes
 
 ---
 
@@ -532,7 +532,7 @@ interface AuthChallengeResponse {
 
 This analysis complements the error handling strategy document:
 
-1. **Challenges** → Response states (HTTP 200) ✅
+1. **Challenges** → Response states (HTTP 200) -
 2. **Validation errors** → Should include error codes (HTTP 400)
 3. **Rate limits** → Should include retry metadata (HTTP 429)
 4. **Auth failures** → Clear error messages (HTTP 401)
@@ -549,7 +549,7 @@ The current challenge system architecture is **architecturally sound** and follo
 
 Focus implementation efforts on:
 
-1. ✅ Error code system (separate concern)
-2. ✅ Better error metadata (retry-after, field names)
-3. ✅ Frontend error handler utilities
-4. ⚠️ Consider discriminated union for v2.0 (optional enhancement)
+1. - Error code system (separate concern)
+2. - Better error metadata (retry-after, field names)
+3. - Frontend error handler utilities
+4. WARNING: Consider discriminated union for v2.0 (optional enhancement)

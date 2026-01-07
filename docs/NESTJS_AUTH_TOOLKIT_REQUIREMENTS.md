@@ -40,82 +40,82 @@
 
 ## Implementation Status Summary
 
-### ✅ **COMPLETE** Features
+### - **COMPLETE** Features
 
 **Core Authentication:**
 
-- ✅ Email/password authentication
-- ✅ JWT tokens (access & refresh) with HS256/HS384/HS512/RS256/RS384/RS512
-- ✅ Session management with device tracking
-- ✅ Password policies (complexity, history, expiry)
-- ✅ Account lockout after failed attempts
-- ✅ Password reset flow
+- - Email/password authentication
+- - JWT tokens (access & refresh) with HS256/HS384/HS512/RS256/RS384/RS512
+- - Session management with device tracking
+- - Password policies (complexity, history, expiry)
+- - Account lockout after failed attempts
+- - Password reset flow
 
 **Verification:**
 
-- ✅ Email verification with rate limiting
-- ✅ Phone/SMS verification with rate limiting
-- ✅ Challenge-based verification flow
+- - Email verification with rate limiting
+- - Phone/SMS verification with rate limiting
+- - Challenge-based verification flow
 
 **Social Login:**
 
-- ✅ Google OAuth integration
-- ✅ Apple Sign-In with JWT verification
-- ✅ Facebook OAuth integration
-- ✅ Social account linking
+- - Google OAuth integration
+- - Apple Sign-In with JWT verification
+- - Facebook OAuth integration
+- - Social account linking
 
 **Multi-Factor Authentication:**
 
-- ✅ TOTP (Time-based One-Time Password)
-- ✅ SMS-based MFA
-- ✅ Passkey/WebAuthn support
-- ✅ Backup codes generation
-- ✅ MFA device management
-- ✅ Adaptive MFA (risk-based authentication)
+- - TOTP (Time-based One-Time Password)
+- - SMS-based MFA
+- - Passkey/WebAuthn support
+- - Backup codes generation
+- - MFA device management
+- - Adaptive MFA (risk-based authentication)
 
 **Session Management:**
 
-- ✅ Device tracking (deviceId, deviceName, deviceType)
-- ✅ IP tracking (ipAddress, ipCountry, ipCity)
-- ✅ User agent tracking (platform, browser)
-- ✅ MaxMind GeoIP2 integration (optional)
-- ✅ Single session mode
-- ✅ Max concurrent sessions enforcement
-- ✅ Remember device feature (trusted devices)
+- - Device tracking (deviceId, deviceName, deviceType)
+- - IP tracking (ipAddress, ipCountry, ipCity)
+- - User agent tracking (platform, browser)
+- - MaxMind GeoIP2 integration (optional)
+- - Single session mode
+- - Max concurrent sessions enforcement
+- - Remember device feature (trusted devices)
 
 **Security:**
 
-- ✅ Storage adapters (Memory, Database, Redis with cluster support)
-- ✅ Distributed locks for token refresh
-- ✅ Token reuse detection
-- ✅ Comprehensive audit logging
-- ✅ Rate limiting (per-IP, per-user, per-endpoint)
-- ✅ CSRF protection (cookie-based token delivery)
-- ✅ Cookie name prefixing (configurable)
+- - Storage adapters (Memory, Database, Redis with cluster support)
+- - Distributed locks for token refresh
+- - Token reuse detection
+- - Comprehensive audit logging
+- - Rate limiting (per-IP, per-user, per-endpoint)
+- - CSRF protection (cookie-based token delivery)
+- - Cookie name prefixing (configurable)
 
-### 🔄 **PARTIAL** Features
+###  **PARTIAL** Features
 
 **Session Management:**
 
-- ✅ Basic device/IP/geolocation tracking
-- 🔜 Session notifications (new device login alerts)
-- 🔜 Advanced concurrent session policies (BLOCK_NEW mode)
+- - Basic device/IP/geolocation tracking
+-  Session notifications (new device login alerts)
+-  Advanced concurrent session policies (BLOCK_NEW mode)
 
 **Security:**
 
-- ✅ Basic rate limiting
-- 🔜 Advanced rate limiting (sliding window, adaptive)
-- 🔜 Security headers enforcement (CSP, HSTS, etc.)
+- - Basic rate limiting
+-  Advanced rate limiting (sliding window, adaptive)
+-  Security headers enforcement (CSP, HSTS, etc.)
 
-### ❌ **PLANNED** Features
+### - **PLANNED** Features
 
 **Developer Experience:**
 
-- ❌ CLI tool for user management
-- ❌ CLI tool for migrations
-- ❌ Testing utilities package
-- ❌ Documentation site
-- ❌ Additional example applications
+- - CLI tool for user management
+- - CLI tool for migrations
+- - Testing utilities package
+- - Documentation site
+- - Additional example applications
 
 ---
 
@@ -157,73 +157,73 @@
 
 ## Detailed Roadmap
 
-### Phase 1: Core Foundation ✅ **COMPLETE**
+### Phase 1: Core Foundation - **COMPLETE**
 
 **Status:** Fully implemented and production-ready
 
 **Implemented:**
 
-- ✅ Email/password authentication
-- ✅ JWT access & refresh tokens
-- ✅ Session management with device tracking
-- ✅ Password policies (complexity, history, expiry)
-- ✅ Account lockout after failed attempts
-- ✅ Password reset flow
-- ✅ Password expiry enforcement
-- ✅ Login identifier type filtering
-- ✅ User management (CRUD operations)
+- - Email/password authentication
+- - JWT access & refresh tokens
+- - Session management with device tracking
+- - Password policies (complexity, history, expiry)
+- - Account lockout after failed attempts
+- - Password reset flow
+- - Password expiry enforcement
+- - Login identifier type filtering
+- - User management (CRUD operations)
 
 ---
 
-### Phase 2: Verification System ✅ **COMPLETE**
+### Phase 2: Verification System - **COMPLETE**
 
 **Status:** Fully implemented and production-ready
 
 **Implemented:**
 
-- ✅ Email verification with rate limiting
-- ✅ Phone/SMS verification with rate limiting
-- ✅ Challenge-based verification flow
-- ✅ Verification code generation and validation
-- ✅ Resend cooldown mechanisms
-- ✅ Configurable code length and expiry
+- - Email verification with rate limiting
+- - Phone/SMS verification with rate limiting
+- - Challenge-based verification flow
+- - Verification code generation and validation
+- - Resend cooldown mechanisms
+- - Configurable code length and expiry
 
 ---
 
-### Phase 3: Social Login ✅ **COMPLETE**
+### Phase 3: Social Login - **COMPLETE**
 
 **Status:** Fully implemented and production-ready
 
 **Implemented:**
 
-- ✅ Google OAuth integration
-- ✅ Apple Sign-In with JWT verification
-- ✅ Facebook OAuth integration
-- ✅ Cryptographic token verification
-- ✅ Social account linking
-- ✅ Email/phone collection for social users
+- - Google OAuth integration
+- - Apple Sign-In with JWT verification
+- - Facebook OAuth integration
+- - Cryptographic token verification
+- - Social account linking
+- - Email/phone collection for social users
 
 ---
 
-### Phase 4: Multi-Factor Authentication ✅ **COMPLETE**
+### Phase 4: Multi-Factor Authentication - **COMPLETE**
 
 **Status:** Fully implemented and production-ready
 
 **Implemented:**
 
-- ✅ TOTP (Time-based One-Time Password)
-- ✅ SMS-based MFA
-- ✅ Passkey/WebAuthn support
-- ✅ Backup codes generation
-- ✅ MFA device management
-- ✅ Preferred MFA method selection
-- ✅ MFA setup during signup/login
+- - TOTP (Time-based One-Time Password)
+- - SMS-based MFA
+- - Passkey/WebAuthn support
+- - Backup codes generation
+- - MFA device management
+- - Preferred MFA method selection
+- - MFA setup during signup/login
 
 ---
 
-### Phase 5: Advanced Session Management 🔄 **MOSTLY COMPLETE**
+### Phase 5: Advanced Session Management  **MOSTLY COMPLETE**
 
-**✅ Completed:**
+**- Completed:**
 
 - Basic device tracking (deviceId, deviceName, deviceType)
 - IP tracking (ipAddress, ipCountry, ipCity, ipIsp)
@@ -234,7 +234,7 @@
 - Adaptive MFA (risk-based authentication)
 - Remember device feature
 
-**🔜 Remaining:**
+** Remaining:**
 
 - Session notifications (email/SMS on new device login)
 - Advanced concurrent session policies (BLOCK_NEW mode)
@@ -242,9 +242,9 @@
 
 ---
 
-### Phase 6: Security Features 🔄 **MOSTLY COMPLETE**
+### Phase 6: Security Features  **MOSTLY COMPLETE**
 
-**✅ Completed:**
+**- Completed:**
 
 - All three storage adapters (Memory, Database, Redis with cluster support)
 - Distributed locks for token refresh
@@ -255,14 +255,14 @@
 - Optimistic locking for sessions
 - CSRF protection (cookie-based token delivery)
 
-**🔜 Remaining:**
+** Remaining:**
 
 - Advanced rate limiting (sliding window, adaptive)
 - Security headers enforcement (CSP, HSTS, X-Frame-Options)
 
 ---
 
-### Phase 7: Developer Experience ❌ **NOT STARTED**
+### Phase 7: Developer Experience - **NOT STARTED**
 
 **Planned:**
 
@@ -342,7 +342,7 @@ const authService = new AuthService(
 
 ## Security Features
 
-**✅ Implemented:**
+**- Implemented:**
 
 - Argon2id password hashing
 - **JWT with HS256** - Default symmetric key algorithm (configurable to HS384, HS512, RS256, RS384, RS512)
@@ -359,7 +359,7 @@ const authService = new AuthService(
 - **Platform-Agnostic Architecture** - Core works with any framework
 - **AsyncLocalStorage** - Native Node.js context management (no `nestjs-cls` dependency)
 
-**🔜 Planned:**
+** Planned:**
 
 - Advanced rate limiting (sliding window, adaptive)
 - Security headers enforcement
@@ -394,11 +394,11 @@ const authService = new AuthService(
 
 ---
 
-## 🏗️ Platform-Agnostic Architecture (v0.1.0)
+##  Platform-Agnostic Architecture (v0.1.0)
 
 ### Major Changes
 
-**✅ Core Package Now Platform-Agnostic:**
+**- Core Package Now Platform-Agnostic:**
 
 - Removed all NestJS dependencies from `@nauth-toolkit/core`
 - All services are plain TypeScript classes
@@ -406,26 +406,26 @@ const authService = new AuthService(
 - Uses `AsyncLocalStorage` for context (not `nestjs-cls`)
 - Default JWT algorithm: HS256 - symmetric key (HMAC-SHA256)
 
-**✅ New NestJS Adapter Package:**
+**- New NestJS Adapter Package:**
 
 - `@nauth-toolkit/nestjs` - NestJS-specific integrations
 - Re-exports all core functionality for backward compatibility
 - Provides `AuthModule`, guards, interceptors, decorators
 - Uses factory providers to instantiate core services
 
-**✅ Provider Packages with `/nestjs` Subpaths:**
+**- Provider Packages with `/nestjs` Subpaths:**
 
 - Social providers: `@nauth-toolkit/social-google/nestjs`
 - MFA providers: `@nauth-toolkit/mfa-totp/nestjs`
 - Core services remain platform-agnostic
 
-**✅ Migration Path:**
+**- Migration Path:**
 
 - NestJS apps: Change `@nauth-toolkit/core` → `@nauth-toolkit/nestjs`
 - Provider modules: Add `/nestjs` subpath (e.g., `@nauth-toolkit/social-google/nestjs`)
 - No code changes required for service usage (backward compatible)
 
-**✅ Future Framework Support:**
+**- Future Framework Support:**
 
 - Core can now be used directly with Express, Fastify, Koa, etc.
 - Framework adapters can be added as separate packages or subpaths

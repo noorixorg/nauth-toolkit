@@ -1,8 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { AuthService, AuthResponse, SocialProvider } from '@nauth-toolkit/client-angular/standalone';
-import { NAuthClientError } from '@nauth-toolkit/client';
+import { AuthService, SocialProvider } from '@nauth-toolkit/client-angular/standalone';
 import { InputTextModule } from 'primeng/inputtext';
 import { AutoFocusModule } from 'primeng/autofocus';
 import { PasswordModule } from 'primeng/password';
@@ -10,8 +9,6 @@ import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { DividerModule } from 'primeng/divider';
 import { CommonModule } from '@angular/common';
-import { ChallengeOrchestratorService } from '../services/challenge-orchestrator.service';
-import { SimulatedVerificationCodeService } from '../services/simulated-verification-code.service';
 import { handleAuthError } from '../utils/error-handler.util';
 
 /**
@@ -68,15 +65,12 @@ export class LoginComponent implements OnInit {
    * @param auth - Auth service for authentication
    * @param router - Router for navigation
    * @param route - Activated route for query params
-   * @param orchestrator - Challenge orchestrator service
    */
   constructor(
     private readonly fb: FormBuilder,
     private readonly auth: AuthService,
     private readonly router: Router,
     private readonly route: ActivatedRoute,
-    private readonly orchestrator: ChallengeOrchestratorService,
-    private readonly verificationCodeService: SimulatedVerificationCodeService,
   ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
@@ -110,8 +104,7 @@ export class LoginComponent implements OnInit {
   /**
    * Handle form submission
    *
-   * Authenticates user and navigates to dashboard on success.
-   * Handles challenge responses (MFA, email verification, etc.).
+   * Authenticates user - SDK handles navigation automatically to dashboard or challenges.
    */
   async onSubmit(): Promise<void> {
     if (this.loginForm.invalid) {
@@ -128,9 +121,8 @@ export class LoginComponent implements OnInit {
     const { email, password } = this.loginForm.value;
 
     try {
-      const response: AuthResponse = await this.auth.login(email, password);
-      // Universal handler for login, challenges, and redirects
-      await this.orchestrator.handleAuthResponse(response);
+      // SDK automatically navigates to challenge or success route
+      await this.auth.login(email, password);
     } catch (err: unknown) {
       this.handleError(err);
     } finally {

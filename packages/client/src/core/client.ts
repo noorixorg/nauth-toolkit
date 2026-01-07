@@ -31,6 +31,7 @@ import {
   UpdateProfileRequest,
 } from '../types/user.types';
 import { AuditHistoryResponse } from '../types/audit.types';
+import { ChallengeRouter } from './challenge-router';
 
 const USER_KEY = 'nauth_user';
 const CHALLENGE_KEY = 'nauth_challenge_session';
@@ -54,6 +55,7 @@ export class NAuthClient {
   private readonly config: ResolvedNAuthClientConfig;
   private readonly tokenManager: TokenManager;
   private readonly eventEmitter: EventEmitter;
+  private readonly challengeRouter: ChallengeRouter;
   private currentUser: AuthUser | null = null;
 
   /**
@@ -67,6 +69,7 @@ export class NAuthClient {
     this.config = resolveConfig({ ...userConfig, storage }, defaultAdapter);
     this.tokenManager = new TokenManager(storage);
     this.eventEmitter = new EventEmitter();
+    this.challengeRouter = new ChallengeRouter(this.config);
     if (hasWindow()) {
       window.addEventListener('storage', this.handleStorageEvent);
     }
@@ -102,6 +105,9 @@ export class NAuthClient {
         this.eventEmitter.emit(successEvent);
       }
 
+      // Auto-handle navigation
+      await this.challengeRouter.handleAuthResponse(response, { source: 'login' });
+
       return response;
     } catch (error) {
       const authError =
@@ -130,6 +136,9 @@ export class NAuthClient {
       } else {
         this.eventEmitter.emit({ type: 'auth:success', data: response, timestamp: Date.now() });
       }
+
+      // Auto-handle navigation
+      await this.challengeRouter.handleAuthResponse(response, { source: 'signup' });
 
       return response;
     } catch (error) {
@@ -289,6 +298,9 @@ export class NAuthClient {
         const successEvent = { type: 'auth:success' as const, data: result, timestamp: Date.now() };
         this.eventEmitter.emit(successEvent);
       }
+
+      // Auto-handle navigation
+      await this.challengeRouter.handleAuthResponse(result, { source: 'challenge' });
 
       return result;
     } catch (error) {
@@ -586,6 +598,10 @@ export class NAuthClient {
     }
     const result = await this.post<AuthResponse>(this.config.endpoints.socialExchange, { exchangeToken: token });
     await this.handleAuthResponse(result);
+
+    // Auto-handle navigation
+    await this.challengeRouter.handleAuthResponse(result, { source: 'social' });
+
     return result;
   }
 
@@ -1028,4 +1044,20 @@ export class NAuthClient {
         });
     }
   };
+
+  /**
+   * Get challenge router for manual navigation control.
+   * Useful for guards that need to handle errors or build custom URLs.
+   *
+   * @returns ChallengeRouter instance
+   *
+   * @example
+   * ```typescript
+   * const router = client.getChallengeRouter();
+   * await router.navigateToError('oauth');
+   * ```
+   */
+  getChallengeRouter(): ChallengeRouter {
+    return this.challengeRouter;
+  }
 }

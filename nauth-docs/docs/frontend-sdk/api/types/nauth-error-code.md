@@ -1,7 +1,7 @@
 ---
 title: NAuthErrorCode
 description: Enum of standardized authentication error codes
-sidebar_position: 210
+sidebar_position: 250
 keywords: [error, code, enum, api]
 image: /img/api-social-card.png
 ---

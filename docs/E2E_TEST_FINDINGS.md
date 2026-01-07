@@ -10,21 +10,21 @@ Comprehensive testing revealed bugs, configuration constraints, and E2E test iss
 
 ## Test Results by Configuration
 
-### ✅ PASSING Configurations
+### - PASSING Configurations
 
 #### 1. Email-Only + MFA OPTIONAL + Cookies
 
 - **Config:** `verificationMethod: 'none'`, `mfaEnforcement: 'OPTIONAL'`, `gracePeriod: 7`, `tokenDelivery: 'cookies'`
-- **Status:** ✅ All tests pass (5/5)
+- **Status:** - All tests pass (5/5)
 - **Flow:** Signup → Login → Refresh → Logout
 - **Notes:** Users can login immediately without MFA setup
 
-### ⚠️ UNTESTABLE Configurations (Current Limitations)
+### WARNING: UNTESTABLE Configurations (Current Limitations)
 
 #### 2. Email-Only + MFA ADAPTIVE/REQUIRED + No Grace Period
 
 - **Config:** `verificationMethod: 'none'`, `mfaEnforcement: 'ADAPTIVE'|'REQUIRED'`, `gracePeriod: 0`
-- **Status:** ⚠️ Cannot be fully tested with SMS-only MFA
+- **Status:** WARNING: Cannot be fully tested with SMS-only MFA
 - **Reason:** Email-only users have no phone number → Cannot set up SMS MFA
 - **Flow:** Signup → MFA_SETUP_REQUIRED challenge → **BLOCKED** (no phone for SMS)
 - **Workaround:** Test skips MFA setup step for email-only configurations
@@ -128,23 +128,23 @@ The new architecture uses a single `respondToChallenge()` endpoint for all chall
 
 | Verification | MFA Enforcement   | Grace Period | MFA Setup Timing         | Testable with SMS-only?     |
 | ------------ | ----------------- | ------------ | ------------------------ | --------------------------- |
-| `none`       | OPTIONAL          | Any          | Optional (user choice)   | ✅ Yes                      |
-| `none`       | REQUIRED          | > 0          | After grace period       | ✅ Yes (grace allows login) |
-| `none`       | REQUIRED          | 0            | Immediately at signup    | ⚠️ No (no phone for SMS)    |
-| `none`       | ADAPTIVE          | > 0          | After grace period       | ✅ Yes (grace allows login) |
-| `none`       | ADAPTIVE          | 0            | Immediately at signup    | ⚠️ No (no phone for SMS)    |
-| `email`      | REQUIRED/ADAPTIVE | 0            | After email verification | ⚠️ No (no phone for SMS)    |
-| `phone`      | REQUIRED/ADAPTIVE | 0            | After phone verification | ✅ Yes (phone available)    |
-| `both`       | REQUIRED/ADAPTIVE | 0            | After both verifications | ✅ Yes (phone available)    |
+| `none`       | OPTIONAL          | Any          | Optional (user choice)   | - Yes                      |
+| `none`       | REQUIRED          | > 0          | After grace period       | - Yes (grace allows login) |
+| `none`       | REQUIRED          | 0            | Immediately at signup    | WARNING: No (no phone for SMS)    |
+| `none`       | ADAPTIVE          | > 0          | After grace period       | - Yes (grace allows login) |
+| `none`       | ADAPTIVE          | 0            | Immediately at signup    | WARNING: No (no phone for SMS)    |
+| `email`      | REQUIRED/ADAPTIVE | 0            | After email verification | WARNING: No (no phone for SMS)    |
+| `phone`      | REQUIRED/ADAPTIVE | 0            | After phone verification | - Yes (phone available)    |
+| `both`       | REQUIRED/ADAPTIVE | 0            | After both verifications | - Yes (phone available)    |
 
 ## Recommendations
 
 ### For Testing
 
-1. ✅ Test email-only configs with `mfaEnforcement: 'OPTIONAL'`
-2. ✅ Test phone/both configs with `mfaEnforcement: 'REQUIRED'|'ADAPTIVE'`
-3. 🔄 Future: Implement TOTP provider testing for email-only + REQUIRED MFA
-4. 🔄 Future: Implement Passkey provider testing
+1. - Test email-only configs with `mfaEnforcement: 'OPTIONAL'`
+2. - Test phone/both configs with `mfaEnforcement: 'REQUIRED'|'ADAPTIVE'`
+3.  Future: Implement TOTP provider testing for email-only + REQUIRED MFA
+4.  Future: Implement Passkey provider testing
 
 ### For Production
 
@@ -201,11 +201,11 @@ The new architecture uses a single `respondToChallenge()` endpoint for all chall
 
 The E2E test suite successfully validates:
 
-- ✅ Basic authentication flows (signup, login, logout)
-- ✅ Cookie-based and JSON token delivery
-- ✅ Optional MFA scenarios
-- ✅ Unified challenge API integration
-- ✅ Email and phone verification flows (when enabled)
+- - Basic authentication flows (signup, login, logout)
+- - Cookie-based and JSON token delivery
+- - Optional MFA scenarios
+- - Unified challenge API integration
+- - Email and phone verification flows (when enabled)
 
 **Coverage:** Core flows work correctly. Main gap is testing REQUIRED/ADAPTIVE MFA for email-only users without phone verification.
 

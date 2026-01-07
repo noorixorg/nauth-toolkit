@@ -233,13 +233,13 @@ If using JSON mode:
 
 **Before:**
 ```typescript
-// ❌ Old way (insecure - client-controlled)
+// - Old way (insecure - client-controlled)
 login({ email, password, deviceId: 'client-generated-id' });
 ```
 
 **After:**
 ```typescript
-// ✅ New way (secure - server-controlled)
+// - New way (secure - server-controlled)
 login({ email, password, rememberMe: true });
 // Device token automatically generated and stored
 ```

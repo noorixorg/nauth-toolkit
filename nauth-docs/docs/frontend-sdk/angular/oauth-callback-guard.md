@@ -1,6 +1,6 @@
 ---
 title: Social Redirect Callback Guard
-description: Drop-in route guard for handling redirect-first web social login callbacks
+description: Drop-in route guard for handling web social login callbacks
 sidebar_position: 50
 keywords: [social, oauth, guard, redirect, callback, route, angular]
 image: /img/api-social-card.png
@@ -11,10 +11,7 @@ image: /img/api-social-card.png
 **Package:** `@nauth-toolkit/client-angular`
 **Type:** Route Guard
 
-Drop-in route guard for the redirect-first social flow. It supports:
-
-- Cookies mode: backend sets cookies before redirecting back; guard redirects to `redirects.success`
-- JSON/hybrid (and cookies-with-challenge): backend redirects back with `exchangeToken`; guard exchanges it and redirects
+Drop-in route guard for the redirect-first social flow. Handles OAuth callbacks and automatically navigates based on configuration.
 
 ```typescript
 import { socialRedirectCallbackGuard } from '@nauth-toolkit/client-angular';
@@ -22,55 +19,50 @@ import { socialRedirectCallbackGuard } from '@nauth-toolkit/client-angular';
 
 ## Overview
 
-The `socialRedirectCallbackGuard` eliminates the need to write custom callback logic. Add it to your callback route and it handles:
+The `socialRedirectCallbackGuard` handles:
 
-- Detecting `exchangeToken` or provider errors in the callback URL
-- Completing authentication via backend exchange (`POST /auth/social/exchange`)
-- Redirecting to success/challenge/error pages
+- Detecting `exchangeToken` or `error` parameters in callback URL
+- Exchanging the token via `POST /auth/social/exchange`
+- **Automatic navigation** to success, challenge, or error routes based on `redirects` config
+- Challenge routing using the same configuration as regular login/signup
 
 ## Basic Usage
 
 ```typescript
 // app.routes.ts
-import { Routes } from '@angular/router';
 import { socialRedirectCallbackGuard } from '@nauth-toolkit/client-angular';
 
 export const routes: Routes = [
   {
     path: 'auth/callback',
     canActivate: [socialRedirectCallbackGuard],
-    children: [], // Guard-only callback route
+    children: [], // Guard-only route
   },
   {
-    path: 'home',
-    component: HomeComponent,
+    path: 'dashboard',
+    component: DashboardComponent,
   },
+  // Challenge routes (if using separate routes pattern)
   {
-    path: 'auth/challenge/:type',
-    component: ChallengeComponent,
+    path: 'auth/challenge',
+    children: [
+      { path: 'verify-email', component: VerifyEmailComponent },
+      { path: 'mfa-required', component: MfaComponent },
+    ],
   },
 ];
 ```
 
-## Default Behavior
+## Configuration
 
-| Scenario                  | Redirect                          |
-| ------------------------- | --------------------------------- |
-| Authentication successful | `/` (root)                        |
-| Challenge required        | `/auth/challenge/:challengeName`  |
-| OAuth error               | `/login`                          |
-| Not an OAuth callback     | Redirect to `redirects.success`   |
-
-## Custom Configuration
-
-Configure redirect URLs using the unified `NAUTH_CLIENT_CONFIG`:
+The guard uses `NAUTH_CLIENT_CONFIG` for all navigation. Configure once, works everywhere:
 
 ```typescript
 // app.config.ts
-import { ApplicationConfig } from '@angular/core';
-import { NAUTH_CLIENT_CONFIG, type NAuthClientConfig } from '@nauth-toolkit/client-angular';
+import { NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client-angular';
+import { AuthChallenge } from '@nauth-toolkit/client';
 
-export const appConfig: ApplicationConfig = {
+export const appConfig = {
   providers: [
     {
       provide: NAUTH_CLIENT_CONFIG,
@@ -78,52 +70,160 @@ export const appConfig: ApplicationConfig = {
         baseUrl: 'https://api.example.com/auth',
         tokenDelivery: 'cookies',
         redirects: {
-          success: '/home', // Common redirect for all successful auth
-          challengeBase: '/auth/verify',
+          success: '/dashboard',
+          sessionExpired: '/login',
           oauthError: '/login?error=oauth',
+          challengeBase: '/auth/challenge',
+
+          // Optional: Custom challenge routes
+          challengeRoutes: {
+            [AuthChallenge.VERIFY_EMAIL]: '/verify',
+            [AuthChallenge.MFA_REQUIRED]: '/2fa',
+          },
+
+          // Optional: Single route mode
+          // useSingleChallengeRoute: true,
+        },
       },
-      } satisfies NAuthClientConfig,
     },
   ],
 };
 ```
 
-## Configuration Options
+## Navigation Patterns
 
-The guard uses `NAUTH_CLIENT_CONFIG.redirects` for routing:
+### Pattern 1: Separate Routes (Default)
 
-| Property        | Type     | Default           | Description                                             |
-| --------------- | -------- | ----------------- | ------------------------------------------------------- |
-| `success`       | `string` | `'/'`             | Redirect URL on successful authentication (login, signup, or OAuth) |
-| `challengeBase` | `string` | `'/auth/challenge'` | Base URL for challenge routes (challenge type appended) |
-| `oauthError`    | `string` | `'/login'`        | Redirect URL on OAuth error                             |
+```typescript
+redirects: {
+  success: '/dashboard',
+  challengeBase: '/auth/challenge',
+}
 
-## How It Works
+// Guard navigates to:
+// - /auth/challenge/verify-email
+// - /auth/challenge/mfa-required
+// - /dashboard (no challenge)
+```
+
+### Pattern 2: Single Route with Query Param
+
+```typescript
+redirects: {
+  success: '/dashboard',
+  challengeBase: '/auth/challenge',
+  useSingleChallengeRoute: true,
+}
+
+// Guard navigates to:
+// - /auth/challenge?challenge=VERIFY_EMAIL
+// - /auth/challenge?challenge=MFA_REQUIRED
+// - /dashboard (no challenge)
+```
+
+### Pattern 3: Custom Routes
+
+```typescript
+redirects: {
+  success: '/home',
+  challengeRoutes: {
+    [AuthChallenge.VERIFY_EMAIL]: '/verify-email',
+    [AuthChallenge.MFA_REQUIRED]: '/two-factor',
+  },
+}
+
+// Guard navigates to custom routes
+```
+
+### Pattern 4: Dialog-Based
+
+```typescript
+onAuthResponse: (response, context) => {
+  if (context.source === 'social' && response.challengeName) {
+    // Show challenge in dialog
+    dialog.open(ChallengeDialogComponent, { data: response });
+  } else if (response.user) {
+    router.navigate(['/dashboard']);
+  }
+}
+
+// Guard triggers onAuthResponse instead of navigation
+```
+
+## Flow Diagram
 
 ```mermaid
 sequenceDiagram
-    participant OAuth as OAuth Provider
-    participant Backend as NAuth Backend
-    participant App as Your App
+    participant User
+    participant App
     participant Guard as socialRedirectCallbackGuard
+    participant SDK
+    participant Backend
 
-    OAuth->>Backend: Callback (provider -> backend)
-    Backend->>App: 302 Redirect<br/>/auth/callback?exchangeToken=...
+    User->>App: Login with Google
+    App->>SDK: loginWithSocial('google')
+    SDK->>Backend: GET /social/google/redirect
+    Backend->>User: Redirect to Google
+    User->>Backend: OAuth callback
+    Backend->>App: Redirect to /auth/callback?exchangeToken=...
     App->>Guard: canActivate()
-    Guard->>Guard: Detect exchangeToken
-    Guard->>Backend: POST /auth/social/exchange
-    Backend-->>Guard: AuthResponse
+    Guard->>SDK: exchangeSocialRedirect(token)
+    SDK->>Backend: POST /social/exchange
+    Backend-->>SDK: AuthResponse
 
-    alt No Challenge
-        Guard->>App: Navigate to success URL (from config.redirects.success)
-    else Challenge Required
-        Guard->>App: Navigate to /auth/challenge/:type
+    alt Challenge Required
+        SDK->>Guard: Navigate to challenge route
+        Guard->>App: /auth/challenge/verify-email
+    else No Challenge
+        SDK->>Guard: Navigate to success route
+        Guard->>App: /dashboard
     end
 ```
 
+## Initiating Social Login
+
+```typescript
+// login.component.ts
+@Component({
+  selector: 'app-login',
+  template: `
+    <button (click)="onGoogleLogin()">Login with Google</button>
+    <button (click)="onAppleLogin()">Login with Apple</button>
+  `,
+})
+export class LoginComponent {
+  constructor(private auth: AuthService) {}
+
+  async onGoogleLogin() {
+    await this.auth.loginWithSocial('google', {
+      returnTo: '/auth/callback',
+    });
+    // SDK redirects to Google
+    // Google redirects back to /auth/callback
+    // Guard handles the rest
+  }
+
+  async onAppleLogin() {
+    await this.auth.loginWithSocial('apple', {
+      returnTo: '/auth/callback',
+    });
+  }
+}
+```
+
+## Error Handling
+
+The guard automatically handles OAuth errors:
+
+| Parameter          | Guard Action                                    |
+| ------------------ | ----------------------------------------------- |
+| `?error=...`       | Navigate to `redirects.oauthError` (default: `/login`) |
+| `?exchangeToken=...` | Exchange token and navigate based on result   |
+| No parameters      | Navigate to `redirects.success` (hydrate mode) |
+
 ## Event Integration
 
-The guard works seamlessly with the [AuthService observables](./auth-service#observables):
+Listen to OAuth events in your app component:
 
 ```typescript
 @Component({
@@ -134,22 +234,54 @@ export class AppComponent implements OnInit {
   constructor(private auth: AuthService) {}
 
   ngOnInit(): void {
-    // Listen to OAuth completion
-    this.auth.authEvents$.pipe(filter((e) => e.type === 'oauth:completed')).subscribe((event) => {
-      const response = event.data as AuthResponse;
-      this.toastr.success(`Welcome, ${response.user?.firstName}!`);
-    });
+    // OAuth completed successfully
+    this.auth.authEvents$
+      .pipe(filter((e) => e.type === 'oauth:completed'))
+      .subscribe((event) => {
+        const response = event.data as AuthResponse;
+        this.toastr.success(`Welcome, ${response.user?.firstName}!`);
+      });
 
-    // Listen to OAuth errors
-    this.auth.authError$.subscribe((event) => {
-      this.toastr.error(event.data.message);
-    });
+    // OAuth error
+    this.auth.authError$
+      .pipe(filter((e) => e.data.code === 'OAUTH_ERROR'))
+      .subscribe((event) => {
+        this.toastr.error('Social login failed. Please try again.');
+      });
+
+    // Challenge detected
+    this.auth.authEvents$
+      .pipe(filter((e) => e.type === 'auth:challenge'))
+      .subscribe((event) => {
+        console.log('Challenge required:', event.data.challengeName);
+      });
   }
 }
 ```
 
+## Configuration Options
+
+| Property                   | Type      | Default              | Description                                    |
+| -------------------------- | --------- | -------------------- | ---------------------------------------------- |
+| `redirects.success`        | `string`  | `'/'`                | Success route (no challenge)                   |
+| `redirects.oauthError`     | `string`  | `'/login'`           | OAuth error route                              |
+| `redirects.challengeBase`  | `string`  | `'/auth/challenge'`  | Challenge base path                            |
+| `redirects.challengeRoutes` | `object`  | `undefined`          | Custom routes per challenge type               |
+| `redirects.useSingleChallengeRoute` | `boolean` | `false`      | Use query param mode                           |
+| `onAuthResponse`           | `function` | `undefined`          | Custom handler (disables auto-navigation)      |
+
+## Key Points
+
+1. **Always needed**: Even with dialog-based navigation, you need this guard on `/auth/callback`
+2. **Automatic navigation**: Guard uses same `redirects` config as login/signup
+3. **No manual code**: Just configure `redirects`, guard handles everything
+4. **Challenge support**: Full support for email verification, MFA, and all challenge types
+5. **Error handling**: Automatic redirect to `oauthError` route on OAuth failures
+
 ## Related
 
-- [Social Authentication Guide](/docs/frontend-sdk/guides/social-auth) - Complete social auth guide
-- [`NAuthClient.loginWithSocial()`](../api/nauth-client#loginwithsocial) - Initiate OAuth flow
-- [`NAuthClientConfig`](../api/nauth-client-config#redirect-urls) - Configuration with redirect URLs
+- [Challenge Handling Guide](/docs/frontend-sdk/guides/challenge-handling) - Complete challenge flow
+- [Social Authentication Guide](/docs/frontend-sdk/guides/social-auth) - Social auth setup
+- [`NAuthClient.loginWithSocial()`](../api/nauth-client#loginwithsocial) - Initiate OAuth
+- [`NAuthClientConfig`](../api/nauth-client-config) - Configuration reference
+- [AuthService](./auth-service) - Angular service with observables

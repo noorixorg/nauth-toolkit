@@ -4,7 +4,7 @@ Quick guide to set up SMS providers in your nauth-toolkit application.
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Option 1: Console Provider (Development)
 
@@ -81,7 +81,7 @@ export class AppModule {}
 
 ---
 
-## 📱 Complete `.env` Example
+##  Complete `.env` Example
 
 ```bash
 # ============================================================================
@@ -158,7 +158,7 @@ SIGNUP_VERIFICATION_METHOD=email
 
 ---
 
-## 🛠️ Configuration in `auth.config.ts`
+##  Configuration in `auth.config.ts`
 
 ```typescript
 import { AuthModule, createSMSProvider } from '@nauth-toolkit/core';
@@ -195,7 +195,7 @@ export class AppModule {}
 
 ---
 
-## 📞 Testing Phone Verification
+##  Testing Phone Verification
 
 ### 1. Send Verification SMS
 
@@ -241,7 +241,7 @@ curl -X POST http://localhost:3000/auth/verify-phone/resend \
 
 ---
 
-## 🔒 AWS SNS Setup (Step-by-Step)
+##  AWS SNS Setup (Step-by-Step)
 
 ### 1. Create AWS Account
 Visit https://aws.amazon.com/ and sign up
@@ -288,7 +288,7 @@ Use nauth-toolkit endpoints to send test verification SMS.
 
 ---
 
-## 💰 AWS Pricing Reference
+##  AWS Pricing Reference
 
 | Region | Per SMS | Long Code | Toll-Free |
 |--------|---------|-----------|-----------|
@@ -303,7 +303,7 @@ Use nauth-toolkit endpoints to send test verification SMS.
 
 ---
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### "Cannot find module '@aws-sdk/client-sns'"
 
@@ -340,7 +340,7 @@ Then check CloudWatch: AWS Console → CloudWatch → Log groups → `sns/`
 
 ---
 
-## 📚 Documentation
+##  Documentation
 
 - **Full SMS Configuration Guide:** `/docs/SMS_CONFIGURATION_GUIDE.md`
 - **AWS SNS Documentation:** https://docs.aws.amazon.com/sns/latest/dg/sns-mobile-phone-number-as-subscriber.html
@@ -348,12 +348,12 @@ Then check CloudWatch: AWS Console → CloudWatch → Log groups → `sns/`
 
 ---
 
-**🎉 You're ready to send production SMS with nauth-toolkit!**
+** You're ready to send production SMS with nauth-toolkit!**
 
 For production deployments, always:
-- ✅ Use AWS SNS (not console provider)
-- ✅ Set spend limits
-- ✅ Enable delivery logs
-- ✅ Monitor CloudWatch metrics
-- ✅ Implement rate limiting (already built-in!)
+- - Use AWS SNS (not console provider)
+- - Set spend limits
+- - Enable delivery logs
+- - Monitor CloudWatch metrics
+- - Implement rate limiting (already built-in!)
 

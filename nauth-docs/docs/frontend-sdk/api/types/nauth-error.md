@@ -1,7 +1,7 @@
 ---
 title: NAuthError
 description: Interface for structured authentication errors
-sidebar_position: 200
+sidebar_position: 260
 keywords: [error, interface, api]
 image: /img/api-social-card.png
 ---

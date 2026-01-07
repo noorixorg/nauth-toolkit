@@ -60,6 +60,103 @@ export interface NAuthEndpoints {
 }
 
 /**
+ * Context provided to onAuthResponse callback.
+ */
+export interface AuthResponseContext {
+  /** Source of the auth operation */
+  source: 'login' | 'signup' | 'social' | 'challenge' | 'refresh';
+
+  /** OAuth provider (if source is 'social') */
+  provider?: string;
+
+  /** Whether this was triggered from a guard */
+  fromGuard?: boolean;
+}
+
+/**
+ * MFA-specific route configuration.
+ * Only applies when challenge type is MFA_REQUIRED.
+ */
+export interface MfaRoutesConfig {
+  /** Route for passkey verification (when preferredMethod is 'passkey') */
+  passkey?: string;
+  /** Route for MFA method selector (when multiple methods available) */
+  selector?: string;
+  /** Default route for other MFA methods (sms, email, totp) */
+  default?: string;
+}
+
+/**
+ * Redirect URLs configuration for authentication flows.
+ * Provides platform-agnostic routing configuration for all authentication scenarios.
+ */
+export interface NAuthRedirectsConfig {
+  /**
+   * URL to redirect to after successful authentication (login, signup, or OAuth).
+   * @default '/'
+   */
+  success?: string;
+
+  /**
+   * URL to redirect to when session expires (refresh fails with 401).
+   * @default '/login'
+   */
+  sessionExpired?: string;
+
+  /**
+   * URL to redirect to when OAuth authentication fails.
+   * @default '/login'
+   */
+  oauthError?: string;
+
+  /**
+   * Base URL for challenge routes (email verification, MFA, etc.).
+   * The challenge type will be appended (e.g., '/auth/challenge/verify-email').
+   * @default '/auth/challenge'
+   */
+  challengeBase?: string;
+
+  /**
+   * Custom route for each challenge type.
+   * When specified, overrides default route construction.
+   *
+   * @example
+   * ```typescript
+   * challengeRoutes: {
+   *   [AuthChallenge.MFA_REQUIRED]: '/auth/mfa',
+   *   [AuthChallenge.VERIFY_EMAIL]: '/verify',
+   * }
+   * ```
+   */
+  challengeRoutes?: Partial<Record<AuthChallenge, string>>;
+
+  /**
+   * Custom routes for MFA-specific flows.
+   * Allows fine-grained control over MFA navigation.
+   * Only applies when challenge type is MFA_REQUIRED.
+   *
+   * @example
+   * ```typescript
+   * mfaRoutes: {
+   *   passkey: '/auth/passkey',
+   *   selector: '/auth/choose-method',
+   *   default: '/auth/verify-code',
+   * }
+   * ```
+   */
+  mfaRoutes?: MfaRoutesConfig;
+
+  /**
+   * Use single route with query parameter.
+   * When true: /auth/challenge?challenge=VERIFY_EMAIL
+   * When false: /auth/challenge/verify-email
+   *
+   * @default false
+   */
+  useSingleChallengeRoute?: boolean;
+}
+
+/**
  * Client configuration.
  */
 export interface NAuthClientConfig {
@@ -110,35 +207,45 @@ export interface NAuthClientConfig {
   timeout?: number;
 
   /**
+   * Custom handler called after auth operations complete.
+   *
+   * If provided, SDK will NOT auto-navigate. Instead, it calls this
+   * function with the auth response, allowing apps to handle navigation
+   * or show dialogs.
+   *
+   * @example Dialog-based app
+   * ```typescript
+   * onAuthResponse: (response, context) => {
+   *   if (response.challengeName) {
+   *     this.dialog.open(ChallengeDialogComponent, { data: response });
+   *   } else {
+   *     this.router.navigate(['/dashboard']);
+   *   }
+   * }
+   * ```
+   */
+  onAuthResponse?: (response: AuthResponse, context: AuthResponseContext) => void | Promise<void>;
+
+  /**
+   * Custom navigation function.
+   * Only used when onAuthResponse is NOT provided.
+   *
+   * @example Angular Router
+   * ```typescript
+   * navigationHandler: (url) => inject(Router).navigateByUrl(url)
+   * ```
+   *
+   * @default Uses window.location.replace (works in guards)
+   */
+  navigationHandler?: (url: string) => void | Promise<void>;
+
+  /**
    * Redirect URLs for various authentication scenarios.
    * Used by guards and interceptors to handle routing in a platform-agnostic way.
+   *
+   * @see {@link NAuthRedirectsConfig} for complete configuration options
    */
-  redirects?: {
-    /**
-     * URL to redirect to after successful authentication (login, signup, or OAuth).
-     * @default '/'
-     */
-    success?: string;
-
-    /**
-     * URL to redirect to when session expires (refresh fails with 401).
-     * @default '/login'
-     */
-    sessionExpired?: string;
-
-    /**
-     * URL to redirect to when OAuth authentication fails.
-     * @default '/login'
-     */
-    oauthError?: string;
-
-    /**
-     * Base URL for challenge routes (email verification, MFA, etc.).
-     * The challenge type will be appended (e.g., '/auth/challenge/verify-email').
-     * @default '/auth/challenge'
-     */
-    challengeBase?: string;
-  };
+  redirects?: NAuthRedirectsConfig;
 
   /**
    * Called when session expires (refresh fails with 401).

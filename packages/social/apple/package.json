@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/social-apple",
-  "version": "0.1.58",
+  "version": "0.1.59",
   "description": "Apple OAuth provider for nauth-toolkit",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -35,7 +35,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.58",
+    "@nauth-toolkit/core": "^0.1.59",
     "jose": "^6.0.0",
     "@nestjs/common": "^9 || ^10 || ^11"
   },

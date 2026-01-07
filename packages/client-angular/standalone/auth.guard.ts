@@ -1,25 +1,31 @@
-import { inject } from '@angular/core';
+import { inject, Inject, Optional } from '@angular/core';
 import { CanActivateFn, Router, UrlTree } from '@angular/router';
 import { AuthService } from './auth.service';
+import { NAUTH_CLIENT_CONFIG } from './tokens';
+import type { NAuthClientConfig } from '@nauth-toolkit/client';
 
 /**
  * Functional route guard for authentication (Angular 17+).
  *
  * Protects routes by checking if user is authenticated.
- * Redirects to login page if not authenticated.
+ * Redirects to configured session expired route (or login) if not authenticated.
  *
- * @param redirectTo - Path to redirect to if not authenticated (default: '/login')
+ * @param redirectTo - Optional path to redirect to if not authenticated. If not provided, uses `redirects.sessionExpired` from config (defaults to '/login')
  * @returns CanActivateFn guard function
  *
  * @example
  * ```typescript
- * // In route configuration
+ * // In route configuration - uses config.redirects.sessionExpired
  * const routes: Routes = [
  *   {
  *     path: 'home',
  *     component: HomeComponent,
  *     canActivate: [authGuard()]
- *   },
+ *   }
+ * ];
+ *
+ * // Override with custom route
+ * const routes: Routes = [
  *   {
  *     path: 'admin',
  *     component: AdminComponent,
@@ -28,16 +34,21 @@ import { AuthService } from './auth.service';
  * ];
  * ```
  */
-export function authGuard(redirectTo = '/login'): CanActivateFn {
+export function authGuard(redirectTo?: string): CanActivateFn {
   return (): boolean | UrlTree => {
     const auth = inject(AuthService);
     const router = inject(Router);
+    const config = inject(NAUTH_CLIENT_CONFIG, { optional: true });
 
     if (auth.isAuthenticated()) {
       return true;
     }
 
-    return router.createUrlTree([redirectTo]);
+    // Use provided redirectTo, or config.redirects.sessionExpired, or default to '/login'
+    const redirectPath =
+      redirectTo ?? config?.redirects?.sessionExpired ?? '/login';
+
+    return router.createUrlTree([redirectPath]);
   };
 }
 
@@ -65,22 +76,27 @@ export class AuthGuard {
   /**
    * @param auth - Authentication service
    * @param router - Angular router
+   * @param config - Optional client configuration (injected automatically)
    */
   constructor(
     private auth: AuthService,
     private router: Router,
+    @Optional() @Inject(NAUTH_CLIENT_CONFIG) private config?: NAuthClientConfig,
   ) {}
 
   /**
    * Check if route can be activated.
    *
-   * @returns True if authenticated, otherwise redirects to login
+   * @returns True if authenticated, otherwise redirects to configured session expired route (or '/login')
    */
   canActivate(): boolean | UrlTree {
     if (this.auth.isAuthenticated()) {
       return true;
     }
 
-    return this.router.createUrlTree(['/login']);
+    // Use config.redirects.sessionExpired or default to '/login'
+    const redirectPath = this.config?.redirects?.sessionExpired ?? '/login';
+
+    return this.router.createUrlTree([redirectPath]);
   }
 }

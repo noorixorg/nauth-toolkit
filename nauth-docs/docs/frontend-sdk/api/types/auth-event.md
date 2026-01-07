@@ -1,7 +1,7 @@
 ---
 title: AuthEvent
 description: Authentication lifecycle event data structure
-sidebar_position: 15
+sidebar_position: 60
 keywords: [event, lifecycle, authentication, reactive]
 image: /img/api-social-card.png
 ---

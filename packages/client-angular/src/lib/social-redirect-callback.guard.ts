@@ -3,6 +3,7 @@ import { isPlatformBrowser } from '@angular/common';
 import { type CanActivateFn } from '@angular/router';
 import { AuthService } from '../ngmodule/auth.service';
 import { NAUTH_CLIENT_CONFIG } from '../ngmodule/tokens';
+import { NAuthClientError, NAuthErrorCode } from '@nauth-toolkit/client';
 
 /**
  * Social redirect callback route guard.
@@ -14,8 +15,8 @@ import { NAUTH_CLIENT_CONFIG } from '../ngmodule/tokens';
  * - `error` / `error_description` (provider errors)
  *
  * Behavior:
- * - If `exchangeToken` exists: exchanges it via backend and redirects to success or challenge routes.
- * - If no `exchangeToken`: treat as cookie-success path and redirect to success route.
+ * - If `exchangeToken` exists: exchanges it via backend (SDK handles navigation automatically).
+ * - If no `exchangeToken`: treat as cookie-success path (SDK handles navigation automatically).
  * - If `error` exists: redirects to oauthError route.
  *
  * @example
@@ -29,7 +30,6 @@ import { NAUTH_CLIENT_CONFIG } from '../ngmodule/tokens';
  */
 export const socialRedirectCallbackGuard: CanActivateFn = async (): Promise<boolean> => {
   const auth = inject(AuthService);
-  const config = inject(NAUTH_CLIENT_CONFIG);
   const platformId = inject(PLATFORM_ID);
   const isBrowser = isPlatformBrowser(platformId);
 
@@ -40,15 +40,15 @@ export const socialRedirectCallbackGuard: CanActivateFn = async (): Promise<bool
   const params = new URLSearchParams(window.location.search);
   const error = params.get('error');
   const exchangeToken = params.get('exchangeToken');
+  const router = auth.getChallengeRouter();
 
   // Provider error: redirect to oauthError
   if (error) {
-    const errorUrl = config.redirects?.oauthError || '/login';
-    window.location.replace(errorUrl);
+    await router.navigateToError('oauth');
     return false;
   }
 
-  // No exchangeToken: cookie success path; redirect to success.
+  // No exchangeToken: cookie success path; hydrate then navigate to success.
   //
   // Note: we do not "activate" the callback route to avoid consumers needing to render a page.
   if (!exchangeToken) {
@@ -62,26 +62,31 @@ export const socialRedirectCallbackGuard: CanActivateFn = async (): Promise<bool
     // `currentUser` is still null even though cookies were set successfully.
     try {
       await auth.getProfile();
-    } catch {
-      const errorUrl = config.redirects?.oauthError || '/login';
-      window.location.replace(errorUrl);
-      return false;
+      await router.navigateToSuccess();
+    } catch (err) {
+      // Only treat auth failures (401/403) as OAuth errors
+      // Network errors or other issues might be temporary - still try success route
+      const isAuthError =
+        err instanceof NAuthClientError &&
+        (err.statusCode === 401 ||
+          err.statusCode === 403 ||
+          err.code === NAuthErrorCode.AUTH_TOKEN_INVALID ||
+          err.code === NAuthErrorCode.AUTH_SESSION_EXPIRED ||
+          err.code === NAuthErrorCode.AUTH_SESSION_NOT_FOUND);
+
+      if (isAuthError) {
+        // Cookies weren't set properly - OAuth failed
+        await router.navigateToError('oauth');
+      } else {
+        // For network errors or other issues, proceed to success route
+        // The auth guard will handle authentication state on the next route
+        await router.navigateToSuccess();
+      }
     }
-    const successUrl = config.redirects?.success || '/';
-    window.location.replace(successUrl);
     return false;
   }
 
-  // Exchange token and route accordingly
-  const response = await auth.exchangeSocialRedirect(exchangeToken);
-  if (response.challengeName) {
-    const challengeBase = config.redirects?.challengeBase || '/auth/challenge';
-    const challengeRoute = response.challengeName.toLowerCase().replace(/_/g, '-');
-    window.location.replace(`${challengeBase}/${challengeRoute}`);
-    return false;
-  }
-
-  const successUrl = config.redirects?.success || '/';
-  window.location.replace(successUrl);
+  // Exchange token - SDK handles navigation automatically
+  await auth.exchangeSocialRedirect(exchangeToken);
   return false;
 };

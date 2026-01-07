@@ -7,7 +7,7 @@
 
 ## What's Stored Where?
 
-### 🗄️ **Database (Always) - With Optimistic Locking**
+###  **Database (Always) - With Optimistic Locking**
 
 **Sessions** - Always stored in database, regardless of storage adapter:
 
@@ -34,7 +34,7 @@ export class Session {
 - Supports complex queries (find by user, device, etc.)
 - Optimistic locking with `@VersionColumn()` prevents TOCTOU attacks
 
-### 📦 **Storage Adapters (Redis/Memory/Database) - No Version Fields**
+###  **Storage Adapters (Redis/Memory/Database) - No Version Fields**
 
 **Transient state only** - Stored via your chosen storage adapter:
 
@@ -67,7 +67,7 @@ if (revalidated.version !== initialVersion) {
 }
 ```
 
-✅ **Works identically regardless of storage adapter** because:
+- **Works identically regardless of storage adapter** because:
 - Sessions are always in database
 - Version checking logic only touches database sessions
 - Storage adapter selection doesn't affect session handling
@@ -174,11 +174,11 @@ await this.sessionService.releaseRefreshLock(tokenHash);
 | Feature | Sessions (Database) | Storage Adapters |
 |---------|---------------------|------------------|
 | **Location** | Always in database | Redis/Memory/Database (your choice) |
-| **Version Field** | ✅ Yes (`@VersionColumn()`) | ❌ No |
-| **Optimistic Locking** | ✅ Yes (double-check pattern) | ❌ No (atomic operations instead) |
+| **Version Field** | - Yes (`@VersionColumn()`) | - No |
+| **Optimistic Locking** | - Yes (double-check pattern) | - No (atomic operations instead) |
 | **Race Prevention** | Version comparison | Atomic operations (`INCR`, locks) |
-| **Affected by Storage Adapter** | ❌ No (always uses database) | ✅ Yes (depends on adapter choice) |
-| **Multi-Server** | ✅ Yes (shared database) | Depends on adapter (Memory=❌, Redis/DB=✅) |
+| **Affected by Storage Adapter** | - No (always uses database) | - Yes (depends on adapter choice) |
+| **Multi-Server** | - Yes (shared database) | Depends on adapter (Memory=-, Redis/DB=-) |
 
 ## Answer to Your Question
 
@@ -186,10 +186,10 @@ await this.sessionService.releaseRefreshLock(tokenHash);
 
 **Yes, optimistic locking works identically regardless of storage adapter** because:
 
-1. ✅ Sessions are **always** stored in the database
-2. ✅ Version checking in `AuthGuard` only touches database sessions
-3. ✅ Storage adapter choice doesn't affect session handling
-4. ✅ Storage adapters use their own atomic mechanisms (don't need version fields)
+1. - Sessions are **always** stored in the database
+2. - Version checking in `AuthGuard` only touches database sessions
+3. - Storage adapter choice doesn't affect session handling
+4. - Storage adapters use their own atomic mechanisms (don't need version fields)
 
 **The storage adapter only affects:**
 - Rate limit counters

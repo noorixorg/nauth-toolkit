@@ -79,7 +79,7 @@ function updatePackageJson(packagePath, packageName, description) {
   }
 
   fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
-  console.log(`✓ Updated ${packageName}`);
+  console.log(`Updated ${packageName}`);
 }
 
 function createREADME(packagePath, packageName, description) {
