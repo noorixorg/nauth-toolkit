@@ -17,7 +17,7 @@ import { CsrfService } from '../services/csrf.service';
 import { NAuthRequest, NAuthResponse } from '../platform/interfaces';
 
 /** HTTP methods that don't require CSRF validation */
-const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];
+const SAFE_METHODS = ['GET', 'HEAD'];
 
 /**
  * CsrfHandler
@@ -40,6 +40,18 @@ export class CsrfHandler {
     // Skip if token delivery is not cookies or hybrid
     const method = this.config.tokenDelivery?.method || 'json';
     if (method !== 'cookies' && method !== 'hybrid') {
+      await next();
+      return;
+    }
+
+    // ============================================================================
+    // IMPORTANT: Never generate CSRF cookies on CORS preflight (OPTIONS)
+    // ============================================================================
+    // Browsers typically do NOT include cookies on preflight requests.
+    // If we generated a CSRF cookie here, we'd rotate the token between the time
+    // the client reads document.cookie (to set the header) and the actual request
+    // is sent, causing intermittent CSRF mismatches.
+    if (req.method === 'OPTIONS') {
       await next();
       return;
     }

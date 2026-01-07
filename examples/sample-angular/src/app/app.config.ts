@@ -86,6 +86,10 @@ export const appConfig: ApplicationConfig = {
         baseUrl: `${environment.apiBaseUrl}/auth`,
         tokenDelivery: 'cookies',
         debug: true,
+        csrf: {
+          cookieName: 'nauth_csrf_token',
+          headerName: 'x-csrf-token',
+        },
 
         redirects: {
           success: '/dashboard',

@@ -89,6 +89,9 @@ export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, ne
         return throwError(() => error);
       }
 
+      // Mark original request as retried to prevent infinite loops
+      retriedRequests.add(req);
+
       if (config.debug) {
         console.warn('[nauth-interceptor] 401 detected:', req.url);
       }
@@ -118,9 +121,8 @@ export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, ne
             const newToken = 'accessToken' in response ? response.accessToken : 'success';
             refreshTokenSubject.next(newToken ?? 'success');
 
-            // Build retry request
-            const retryReq = buildRetryRequest(authReq, tokenDelivery, newToken);
-            retriedRequests.add(retryReq);
+            // Build retry request with fresh CSRF token (re-read from cookie after refresh)
+            const retryReq = buildRetryRequest(authReq, tokenDelivery, newToken, config.csrf);
 
             if (config.debug) {
               console.warn('[nauth-interceptor] Retrying:', req.url);
@@ -158,8 +160,7 @@ export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, ne
             if (config.debug) {
               console.warn('[nauth-interceptor] Refresh done, retrying:', req.url);
             }
-            const retryReq = buildRetryRequest(authReq, tokenDelivery, token);
-            retriedRequests.add(retryReq);
+            const retryReq = buildRetryRequest(authReq, tokenDelivery, token, config.csrf);
             return next(retryReq);
           }),
         );
@@ -170,18 +171,50 @@ export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, ne
 
 /**
  * Build retry request with appropriate auth.
+ *
+ * CRITICAL FIX: In cookies mode, after refresh the server may send updated cookies.
+ * We MUST re-read the CSRF token from the cookie before retrying to ensure we have
+ * the current CSRF token that matches what the server expects.
+ *
+ * In JSON mode: Clones the request and adds the new Bearer token.
+ *
+ * @param originalReq - The base request (already has withCredentials if cookies mode)
+ * @param tokenDelivery - 'cookies' or 'json'
+ * @param newToken - The new access token (JSON mode only)
+ * @param csrfConfig - CSRF configuration to re-read token from cookie
+ * @returns The request ready for retry with fresh auth
  */
 function buildRetryRequest(
   originalReq: HttpRequest<unknown>,
   tokenDelivery: string,
   newToken?: string,
+  csrfConfig?: { cookieName?: string; headerName?: string },
 ): HttpRequest<unknown> {
   if (tokenDelivery === 'json' && newToken && newToken !== 'success') {
     return originalReq.clone({
       setHeaders: { Authorization: `Bearer ${newToken}` },
     });
   }
-  return originalReq.clone();
+
+  // Cookies mode: Browser automatically sends updated httpOnly cookies (access/refresh tokens).
+  // However, CSRF token must match the cookie value at the moment of retry.
+  // We ALWAYS re-read from document.cookie here (using defaults when csrfConfig
+  // is not provided) to avoid stale header values after refresh or across tabs.
+  if (tokenDelivery === 'cookies' && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(originalReq.method)) {
+    const csrfCookieName = csrfConfig?.cookieName ?? 'nauth_csrf_token';
+    const csrfHeaderName = csrfConfig?.headerName ?? 'x-csrf-token';
+    const freshCsrfToken = getCsrfToken(csrfCookieName);
+
+    if (freshCsrfToken) {
+      // Clone with fresh CSRF token in header
+      return originalReq.clone({
+        setHeaders: { [csrfHeaderName]: freshCsrfToken },
+      });
+    }
+  }
+
+  // No changes needed (GET request or no CSRF token available)
+  return originalReq;
 }
 
 /**
