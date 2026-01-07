@@ -2,6 +2,7 @@ import { AuthUser } from './user.types';
 import { NAuthError } from './error.types';
 import { NAuthStorageAdapter } from '../storage/interface';
 import type { HttpAdapter } from '../core/http-adapter';
+import type { AuthResponse, AuthChallenge } from './auth.types';
 export type { NAuthStorageAdapter } from '../storage/interface';
 export type { HttpAdapter } from '../core/http-adapter';
 
