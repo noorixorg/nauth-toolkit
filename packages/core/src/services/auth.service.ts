@@ -2234,7 +2234,15 @@ export class AuthService {
     // Ensure DTO is validated (supports direct usage without framework validation)
     dto = await ensureValidatedDto(RefreshTokenDTO, dto);
 
-    const tokenHash = this.jwtService.hashToken(dto.refreshToken);
+    // After validation, refreshToken must be present (validation ensures it's a valid string)
+    // Controller should have filled it from cookies if it was missing in cookies mode
+    if (!dto.refreshToken) {
+      throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'Refresh token is required');
+    }
+
+    // Extract to const for type narrowing (TypeScript doesn't narrow optional properties)
+    const refreshToken: string = dto.refreshToken;
+    const tokenHash = this.jwtService.hashToken(refreshToken);
 
     // ============================================================================
     // CRITICAL SECURITY FIX #1 & #2: Distributed Lock + Reuse Detection
@@ -2247,7 +2255,7 @@ export class AuthService {
 
     if (!session || session.isRevoked) {
       // Validate token to get user info for error message
-      const validation = await this.jwtService.validateRefreshToken(dto.refreshToken);
+      const validation = await this.jwtService.validateRefreshToken(refreshToken);
       const userId = validation.payload?.sub || 'unknown';
       this.logger?.debug?.(
         `Session not found or revoked for user ${userId}. Possible issue where token are not cleared on logout`,
@@ -2289,7 +2297,7 @@ export class AuthService {
         if (isAlreadyUsed) {
           // Decode token to get sessionId from JWT payload (without full validation)
           // This allows us to check if the token belongs to the session we found
-          const tokenPayload = this.jwtService.decodeToken(dto.refreshToken);
+          const tokenPayload = this.jwtService.decodeToken(refreshToken);
           const tokenSessionId = tokenPayload?.sessionId;
 
           // Get current session state to ensure it's still valid
@@ -2397,7 +2405,7 @@ export class AuthService {
 
       // NOW validate the refresh token (after lock is acquired and reuse check)
       // This ensures only one request can validate at a time per session
-      const validation = await this.jwtService.validateRefreshToken(dto.refreshToken);
+      const validation = await this.jwtService.validateRefreshToken(refreshToken);
 
       if (!validation.valid || !validation.payload) {
         throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'Invalid refresh token');

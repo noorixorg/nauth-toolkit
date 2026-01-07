@@ -46,6 +46,38 @@ export class NAuthValidationPipe implements PipeTransform {
   async transform(value: unknown, metadata: ArgumentMetadata): Promise<unknown> {
     const metatype = metadata.metatype;
 
+    // #region agent log
+    const http = await import('http');
+    const logData = JSON.stringify({
+      location: 'nauth-validation.pipe.ts:transform',
+      message: 'Validation pipe input',
+      data: {
+        value: value,
+        valueType: typeof value,
+        metatypeName: metatype?.name,
+        isNull: value === null,
+        isUndefined: value === undefined,
+        keys: value && typeof value === 'object' ? Object.keys(value) : [],
+      },
+      timestamp: Date.now(),
+      sessionId: 'debug-session',
+      hypothesisId: 'E',
+    });
+    const req = http.request(
+      {
+        hostname: '127.0.0.1',
+        port: 7242,
+        path: '/ingest/97f9fe53-6a8b-43e2-ae9b-4b2d0f725816',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      },
+      () => {},
+    );
+    req.on('error', () => {});
+    req.write(logData);
+    req.end();
+    // #endregion
+
     // Skip validation for primitives or missing metatype (same behavior as Nest ValidationPipe)
     if (!metatype || this.isPrimitiveType(metatype)) {
       return value;

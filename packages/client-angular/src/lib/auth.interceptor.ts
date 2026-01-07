@@ -46,6 +46,23 @@ export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, ne
     return next(req);
   }
 
+  // #region agent log
+  if (req.url.includes('/profile') && req.method === 'PUT') {
+    fetch('http://127.0.0.1:7242/ingest/97f9fe53-6a8b-43e2-ae9b-4b2d0f725816', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'auth.interceptor.ts:entry',
+        message: 'Original request entry',
+        data: { reqBody: req.body, reqBodyType: typeof req.body, reqMethod: req.method, reqUrl: req.url },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        hypothesisId: 'A',
+      }),
+    }).catch(() => {});
+  }
+  // #endregion
+
   const tokenDelivery = config.tokenDelivery;
   const baseUrl = config.baseUrl;
   const endpoints = config.endpoints ?? {};
@@ -121,15 +138,70 @@ export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, ne
             const newToken = 'accessToken' in response ? response.accessToken : 'success';
             refreshTokenSubject.next(newToken ?? 'success');
 
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/97f9fe53-6a8b-43e2-ae9b-4b2d0f725816', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                location: 'auth.interceptor.ts:125',
+                message: 'Before buildRetryRequest',
+                data: {
+                  authReqBody: authReq.body,
+                  authReqMethod: authReq.method,
+                  authReqUrl: authReq.url,
+                  authReqBodyType: typeof authReq.body,
+                },
+                timestamp: Date.now(),
+                sessionId: 'debug-session',
+                hypothesisId: 'A',
+              }),
+            }).catch(() => {});
+            // #endregion
+
             // Build retry request with fresh CSRF token (re-read from cookie after refresh)
             const retryReq = buildRetryRequest(authReq, tokenDelivery, newToken, config.csrf);
+
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/97f9fe53-6a8b-43e2-ae9b-4b2d0f725816', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                location: 'auth.interceptor.ts:130',
+                message: 'After buildRetryRequest',
+                data: {
+                  retryReqBody: retryReq.body,
+                  retryReqMethod: retryReq.method,
+                  retryReqUrl: retryReq.url,
+                  retryReqBodyType: typeof retryReq.body,
+                  headersKeys: retryReq.headers.keys(),
+                },
+                timestamp: Date.now(),
+                sessionId: 'debug-session',
+                hypothesisId: 'B',
+              }),
+            }).catch(() => {});
+            // #endregion
 
             if (config.debug) {
               console.warn('[nauth-interceptor] Retrying:', req.url);
             }
-            return next(retryReq);
+
+            // Retry the request with fresh token/CSRF
+            // IMPORTANT: Errors from the retry (e.g., 400 validation) should NOT trigger
+            // session expiration redirect. Only the refresh failure should redirect.
+            return next(retryReq).pipe(
+              catchError((retryErr) => {
+                // Retry failed (could be 400, 403, 500, etc.)
+                // Just propagate the error - don't redirect to login
+                if (config.debug) {
+                  console.warn('[nauth-interceptor] Retry request failed:', retryErr);
+                }
+                return throwError(() => retryErr);
+              }),
+            );
           }),
           catchError((err) => {
+            // This only catches REFRESH failures, not retry failures
             if (config.debug) {
               console.error('[nauth-interceptor] Refresh failed:', err);
             }
@@ -137,6 +209,7 @@ export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, ne
             refreshTokenSubject.next(null);
 
             // Handle session expiration - redirect to configured URL
+            // Only redirect if refresh itself failed (not if retry failed)
             if (config.redirects?.sessionExpired) {
               router.navigateByUrl(config.redirects.sessionExpired).catch((navError) => {
                 if (config.debug) {
@@ -161,7 +234,17 @@ export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, ne
               console.warn('[nauth-interceptor] Refresh done, retrying:', req.url);
             }
             const retryReq = buildRetryRequest(authReq, tokenDelivery, token, config.csrf);
-            return next(retryReq);
+
+            // Retry the request - errors here should propagate normally
+            // without triggering session expiration redirect
+            return next(retryReq).pipe(
+              catchError((retryErr) => {
+                if (config.debug) {
+                  console.warn('[nauth-interceptor] Retry request failed:', retryErr);
+                }
+                return throwError(() => retryErr);
+              }),
+            );
           }),
         );
       }
@@ -205,11 +288,48 @@ function buildRetryRequest(
     const csrfHeaderName = csrfConfig?.headerName ?? 'x-csrf-token';
     const freshCsrfToken = getCsrfToken(csrfCookieName);
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/97f9fe53-6a8b-43e2-ae9b-4b2d0f725816', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'auth.interceptor.ts:buildRetryRequest',
+        message: 'Inside buildRetryRequest cookies branch',
+        data: {
+          originalReqBody: originalReq.body,
+          originalReqBodyType: typeof originalReq.body,
+          freshCsrfToken: freshCsrfToken?.substring(0, 8),
+          method: originalReq.method,
+        },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        hypothesisId: 'C',
+      }),
+    }).catch(() => {});
+    // #endregion
+
     if (freshCsrfToken) {
       // Clone with fresh CSRF token in header
-      return originalReq.clone({
+      const cloned = originalReq.clone({
         setHeaders: { [csrfHeaderName]: freshCsrfToken },
       });
+
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/97f9fe53-6a8b-43e2-ae9b-4b2d0f725816', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location: 'auth.interceptor.ts:buildRetryRequest:afterClone',
+          message: 'After clone with setHeaders',
+          data: { clonedBody: cloned.body, clonedBodyType: typeof cloned.body, originalBody: originalReq.body },
+          timestamp: Date.now(),
+          sessionId: 'debug-session',
+          hypothesisId: 'D',
+        }),
+      }).catch(() => {});
+      // #endregion
+
+      return cloned;
     }
   }
 

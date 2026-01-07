@@ -7,7 +7,7 @@ import fastifyCookie from '@fastify/cookie';
 dotenv.config();
 
 import { AppModule } from './app.module';
-import { NAuthHttpExceptionFilter } from '@nauth-toolkit/nestjs';
+import { NAuthHttpExceptionFilter, NAuthValidationPipe } from '@nauth-toolkit/nestjs';
 
 /**
  * Bootstrap the NestJS application with Fastify
@@ -71,6 +71,10 @@ async function bootstrap() {
   // Enable nauth-toolkit exception filter (PLATFORM-AGNOSTIC - works with Fastify!)
   // Uses ArgumentsHost abstraction - not Express-specific
   app.useGlobalFilters(new NAuthHttpExceptionFilter());
+
+  // Enable global validation pipe for all DTOs
+  // Validates request bodies using nauth-toolkit's stable error contract
+  app.useGlobalPipes(new NAuthValidationPipe());
   app.enableCors({
     origin: [
       'http://localhost:4200',

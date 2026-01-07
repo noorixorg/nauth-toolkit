@@ -18,7 +18,7 @@
  * ```
  */
 
-import { IsUUID } from 'class-validator';
+import { IsUUID, IsOptional, ValidateIf } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ChangePasswordDTO } from './change-password.dto';
 
@@ -29,8 +29,11 @@ export class ChangePasswordRequestDTO extends ChangePasswordDTO {
   /**
    * User's unique identifier (UUID v4)
    *
+   * Optional at controller level - filled from authenticated user's JWT.
+   * Validated only when provided (service layer will ensure it's set).
+   *
    * Validation:
-   * - Must be a valid UUID v4 format
+   * - Must be a valid UUID v4 format when provided
    * - Matches DB constraint: char(36) or uuid
    *
    * Sanitization:
@@ -39,6 +42,7 @@ export class ChangePasswordRequestDTO extends ChangePasswordDTO {
    *
    * @example "a21b654c-2746-4168-acee-c175083a65cd"
    */
+  @ValidateIf((o) => o.sub !== undefined && o.sub !== null && o.sub !== '')
   @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
@@ -46,5 +50,6 @@ export class ChangePasswordRequestDTO extends ChangePasswordDTO {
     }
     return value;
   })
-  sub!: string;
+  @IsOptional()
+  sub?: string;
 }

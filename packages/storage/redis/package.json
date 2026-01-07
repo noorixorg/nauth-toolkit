@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/storage-redis",
-  "version": "0.1.60",
+  "version": "0.1.61",
   "description": "Redis storage adapter for nauth-toolkit using the redis package (node-redis)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.60",
+    "@nauth-toolkit/core": "^0.1.61",
     "redis": "^4.6.0 || ^5.0.0"
   },
   "devDependencies": {
