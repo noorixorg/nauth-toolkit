@@ -463,6 +463,46 @@ export class NodemailerProvider implements EmailProvider {
   }
 
   /**
+   * Send admin-initiated password reset email with code AND optional link.
+   * Pattern matches sendVerificationEmail (code + optional link).
+   *
+   * @param to - Recipient email address
+   * @param code - Reset code (e.g., "123456")
+   * @param link - Optional reset link with token (for consumer apps to build UI)
+   * @param expiryMinutes - Code expiry time in minutes
+   */
+  async sendAdminPasswordResetEmail(
+    to: string,
+    code: string,
+    link?: string,
+    expiryMinutes: number = 60,
+    variables: TemplateVariables = {},
+  ): Promise<void> {
+    const templateVariables: TemplateVariables = {
+      ...this.globalVariables,
+      userName: to.split('@')[0],
+      userEmail: to,
+      code,
+      expiryMinutes,
+      ...variables,
+    };
+
+    // Only include link if provided (like verification email)
+    if (link) {
+      templateVariables.link = link;
+    }
+
+    const email = await this.templateEngine.render(TemplateType.ADMIN_PASSWORD_RESET, templateVariables);
+
+    await this.sendMail({
+      to,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+  }
+
+  /**
    * Send welcome email to new user
    *
    * @param to - Recipient email address

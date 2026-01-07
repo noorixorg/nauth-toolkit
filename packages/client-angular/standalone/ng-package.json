@@ -1,7 +1,7 @@
 {
   "$schema": "../../ng-package.schema.json",
   "lib": {
-    "entryFile": "public-api.ts"
+    "entryFile": "../src/standalone/public-api.ts"
   }
 }
 

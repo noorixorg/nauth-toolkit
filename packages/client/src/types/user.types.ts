@@ -76,3 +76,20 @@ export interface ConfirmForgotPasswordResponse {
   success: boolean;
   mustChangePassword: boolean;
 }
+
+/**
+ * Reset password with code/token request (generic for both admin-initiated and user-initiated resets).
+ */
+export interface ResetPasswordWithCodeRequest {
+  identifier: string;
+  code?: string;
+  token?: string;
+  newPassword: string;
+}
+
+/**
+ * Reset password with code response.
+ */
+export interface ResetPasswordWithCodeResponse {
+  success: boolean;
+}

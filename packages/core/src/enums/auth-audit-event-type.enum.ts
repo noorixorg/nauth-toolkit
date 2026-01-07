@@ -119,6 +119,21 @@ export enum AuthAuditEventType {
    */
   PASSWORD_FORCE_CHANGE_COMPLETED = 'PASSWORD_FORCE_CHANGE_COMPLETED',
 
+  /**
+   * Admin initiated password reset (code sent to user)
+   */
+  ADMIN_PASSWORD_RESET_INITIATED = 'ADMIN_PASSWORD_RESET_INITIATED',
+
+  /**
+   * Admin-initiated password reset completed successfully
+   */
+  ADMIN_PASSWORD_RESET_COMPLETED = 'ADMIN_PASSWORD_RESET_COMPLETED',
+
+  /**
+   * Admin-initiated password reset failed (invalid code, expired, etc.)
+   */
+  ADMIN_PASSWORD_RESET_FAILED = 'ADMIN_PASSWORD_RESET_FAILED',
+
   // ============================================================================
   // Multi-Factor Authentication (MFA) Events
   // ============================================================================

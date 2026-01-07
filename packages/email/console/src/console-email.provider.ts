@@ -83,6 +83,37 @@ export class ConsoleEmailProvider implements EmailProvider {
   }
 
   /**
+   * Send admin-initiated password reset email with code AND optional link.
+   * Pattern matches sendVerificationEmail (code + optional link).
+   *
+   * Logs email details to console for debugging.
+   *
+   * @param to - Recipient email address
+   * @param code - Reset code (e.g., "123456")
+   * @param link - Optional reset link with token (for consumer apps)
+   * @param expiryMinutes - Code expiry time in minutes
+   */
+  async sendAdminPasswordResetEmail(
+    to: string,
+    code: string,
+    link?: string,
+    expiryMinutes: number = 60,
+  ): Promise<void> {
+    let message = `Your admin-initiated password reset code is: ${code}`;
+    if (link) {
+      message += `\nOr use this link: ${link}`;
+    }
+    message += `\nThis code expires in ${expiryMinutes} minutes.`;
+
+    this.logger.log(`\n${'='.repeat(60)}`);
+    this.logger.log('EMAIL: Admin Password Reset (simulated)');
+    this.logger.log('='.repeat(60));
+    this.logger.log(`To: ${to}`);
+    this.logger.log(`Message: ${message}`);
+    this.logger.log(`${'='.repeat(60)}\n`);
+  }
+
+  /**
    * Send welcome email to new users
    *
    * Logs email details to console for debugging.

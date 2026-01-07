@@ -28,6 +28,8 @@ import {
   ConfirmForgotPasswordResponse,
   ForgotPasswordRequest,
   ForgotPasswordResponse,
+  ResetPasswordWithCodeRequest,
+  ResetPasswordWithCodeResponse,
   UpdateProfileRequest,
 } from '../types/user.types';
 import { AuditHistoryResponse } from '../types/audit.types';
@@ -411,6 +413,65 @@ export class NAuthClient {
     // stale UI (e.g., still showing social-only/no-password state from cached user) and prevents the
     // client from attempting further authenticated calls with invalid tokens/cookies.
     await this.clearAuthState(false);
+    return result;
+  }
+
+  /**
+   * Reset password with code or token (works for both admin-initiated and user-initiated resets).
+   *
+   * Accepts either:
+   * - code: Short numeric code from email/SMS (6-10 digits)
+   * - token: Long hex token from reset link (64 chars)
+   *
+   * WHY: Generic method that works for both admin-initiated (adminResetPassword) and
+   * user-initiated (forgotPassword) password resets. Uses same backend endpoint.
+   *
+   * @param identifier - User identifier (email, username, phone)
+   * @param codeOrToken - Verification code OR token from link (one required)
+   * @param newPassword - New password
+   * @returns Success response
+   * @throws {NAuthClientError} When reset fails
+   *
+   * @example
+   * ```typescript
+   * // With code from email
+   * await client.resetPasswordWithCode('user@example.com', '123456', 'NewPass123!');
+   *
+   * // With token from link
+   * await client.resetPasswordWithCode('user@example.com', '64-char-token', 'NewPass123!');
+   * ```
+   */
+  async resetPasswordWithCode(
+    identifier: string,
+    codeOrToken: string,
+    newPassword: string,
+  ): Promise<ResetPasswordWithCodeResponse> {
+    // ============================================================================
+    // Detect if input is token (>10 chars) or code (<=10 chars)
+    // ============================================================================
+    // WHY: Tokens are 64-char hex (from crypto.randomBytes(32).toString('hex'))
+    // Codes are 6-10 digits. Use length to distinguish.
+    const isToken = codeOrToken.length > 10;
+
+    const payload: ResetPasswordWithCodeRequest = {
+      identifier,
+      ...(isToken ? { token: codeOrToken } : { code: codeOrToken }),
+      newPassword,
+    };
+
+    const result = await this.post<ResetPasswordWithCodeResponse>(
+      this.config.endpoints.confirmAdminResetPassword,
+      payload,
+    );
+
+    // ============================================================================
+    // IMPORTANT: Password reset revokes all sessions
+    // ============================================================================
+    // WHY: The backend invalidates all sessions as a security measure. Clearing local auth state avoids
+    // stale UI (e.g., still showing social-only/no-password state from cached user) and prevents the
+    // client from attempting further authenticated calls with invalid tokens/cookies.
+    await this.clearAuthState(false);
+
     return result;
   }
 

@@ -451,6 +451,42 @@ async resendCode(session: string): Promise<{ destination: string }>
 
 ---
 
+### resetPasswordWithCode()
+
+Reset password with code or token (generic method for both admin-initiated and user-initiated resets).
+
+```typescript
+async resetPasswordWithCode(
+  identifier: string,
+  codeOrToken: string,
+  newPassword: string
+): Promise<ResetPasswordWithCodeResponse>
+```
+
+**Parameters**
+
+| Parameter     | Type     | Description                              |
+| ------------- | -------- | ---------------------------------------- |
+| `identifier`  | `string` | User identifier (email, username, phone) |
+| `codeOrToken` | `string` | Verification code (6-10 digits) OR token |
+| `newPassword` | `string` | New password (min 8 characters)          |
+
+**Returns**
+
+- [`ResetPasswordWithCodeResponse`](./types/reset-password-with-code-response) - `{ success: boolean }`
+
+**Example**
+
+```typescript
+// With code from email
+await client.resetPasswordWithCode('user@example.com', '123456', 'NewPass123!');
+
+// With token from link
+await client.resetPasswordWithCode('user@example.com', '64-char-token-from-url', 'NewPass123!');
+```
+
+---
+
 ### getSetupData()
 
 Get MFA setup data during [`MFA_SETUP_REQUIRED`](./types/auth-challenge) challenge.
@@ -633,12 +669,12 @@ See [`ChangePasswordRequest`](./types/change-password-request) for request struc
 
 **Errors**
 
-| Code                          | When                       | Details                |
-| ----------------------------- | -------------------------- | ---------------------- |
-| `PASSWORD_INCORRECT`          | Wrong current password     | `undefined`            |
-| `WEAK_PASSWORD`               | Policy violation           | `{ errors?: string[] }` |
-| `PASSWORD_REUSED`             | Password recently used     | `undefined`            |
-| `PASSWORD_CHANGE_NOT_ALLOWED` | Social-only account        | `undefined`            |
+| Code                          | When                   | Details                 |
+| ----------------------------- | ---------------------- | ----------------------- |
+| `PASSWORD_INCORRECT`          | Wrong current password | `undefined`             |
+| `WEAK_PASSWORD`               | Policy violation       | `{ errors?: string[] }` |
+| `PASSWORD_REUSED`             | Password recently used | `undefined`             |
+| `PASSWORD_CHANGE_NOT_ALLOWED` | Social-only account    | `undefined`             |
 
 **Example**
 
@@ -658,11 +694,11 @@ async confirmForgotPassword(identifier: string, code: string, newPassword: strin
 
 **Parameters**
 
-| Parameter     | Type     | Description              |
-| ------------- | -------- | ------------------------ |
+| Parameter     | Type     | Description               |
+| ------------- | -------- | ------------------------- |
 | `identifier`  | `string` | Email, username, or phone |
-| `code`        | `string` | One-time reset code      |
-| `newPassword` | `string` | New password             |
+| `code`        | `string` | One-time reset code       |
+| `newPassword` | `string` | New password              |
 
 **Returns**
 
@@ -672,13 +708,13 @@ See [`ConfirmForgotPasswordRequest`](./types/confirm-forgot-password-request) fo
 
 **Errors**
 
-| Code                        | When                    | Details                |
-| --------------------------- | ----------------------- | ---------------------- |
-| `PASSWORD_RESET_CODE_INVALID` | Code invalid           | `undefined`            |
-| `PASSWORD_RESET_CODE_EXPIRED` | Code expired           | `undefined`            |
-| `PASSWORD_RESET_MAX_ATTEMPTS` | Too many attempts      | `undefined`            |
-| `WEAK_PASSWORD`            | Policy violation        | `{ errors?: string[] }` |
-| `PASSWORD_REUSED`          | Password recently used  | `undefined`            |
+| Code                          | When                   | Details                 |
+| ----------------------------- | ---------------------- | ----------------------- |
+| `PASSWORD_RESET_CODE_INVALID` | Code invalid           | `undefined`             |
+| `PASSWORD_RESET_CODE_EXPIRED` | Code expired           | `undefined`             |
+| `PASSWORD_RESET_MAX_ATTEMPTS` | Too many attempts      | `undefined`             |
+| `WEAK_PASSWORD`               | Policy violation       | `{ errors?: string[] }` |
+| `PASSWORD_REUSED`             | Password recently used | `undefined`             |
 
 **Example**
 
@@ -698,8 +734,8 @@ async forgotPassword(identifier: string): Promise<ForgotPasswordResponse>
 
 **Parameters**
 
-| Parameter    | Type     | Description              |
-| ------------ | -------- | ------------------------ |
+| Parameter    | Type     | Description               |
+| ------------ | -------- | ------------------------- |
 | `identifier` | `string` | Email, username, or phone |
 
 **Returns**
@@ -710,8 +746,8 @@ See [`ForgotPasswordRequest`](./types/forgot-password-request) for request struc
 
 **Errors**
 
-| Code                      | When              | Details                                   |
-| ------------------------- | ----------------- | ----------------------------------------- |
+| Code                        | When              | Details                                         |
+| --------------------------- | ----------------- | ----------------------------------------------- |
 | `RATE_LIMIT_PASSWORD_RESET` | Too many requests | `{ retryAfter?: number, maxAttempts?: number }` |
 
 **Example**
@@ -990,10 +1026,10 @@ async loginWithSocial(provider: 'google' | 'apple' | 'facebook', options?: Socia
 
 **Parameters**
 
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `provider` | `'google' \| 'apple' \| 'facebook'` | OAuth provider |
-| `options` | [`SocialLoginOptions`](./types/social-login-options) | Redirect options (`returnTo`, `appState`, `action`) |
+| Parameter  | Type                                                 | Description                                         |
+| ---------- | ---------------------------------------------------- | --------------------------------------------------- |
+| `provider` | `'google' \| 'apple' \| 'facebook'`                  | OAuth provider                                      |
+| `options`  | [`SocialLoginOptions`](./types/social-login-options) | Redirect options (`returnTo`, `appState`, `action`) |
 
 **Returns**
 
@@ -1021,8 +1057,8 @@ async exchangeSocialRedirect(exchangeToken: string): Promise<AuthResponse>
 
 **Parameters**
 
-| Parameter | Type | Description |
-| --- | --- | --- |
+| Parameter       | Type     | Description                                    |
+| --------------- | -------- | ---------------------------------------------- |
 | `exchangeToken` | `string` | One-time token issued by backend redirect flow |
 
 **Returns**

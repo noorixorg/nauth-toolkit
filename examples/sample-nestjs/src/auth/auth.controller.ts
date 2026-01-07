@@ -24,6 +24,10 @@ import {
   AdminSignupSocialResponseDTO,
   AdminSignupResponseDTO,
   AdminSetPasswordDTO,
+  AdminResetPasswordDTO,
+  AdminResetPasswordResponseDTO,
+  ConfirmAdminResetPasswordDTO,
+  ConfirmAdminResetPasswordResponseDTO,
   DeleteUserDTO,
   DeleteUserResponseDTO,
   DisableUserDTO,
@@ -231,7 +235,7 @@ export class CustomAuthController {
   }
 
   /**
-   * Administrative password reset
+   * Administrative password reset (direct set)
    *
    * Allows administrators to set a new password for any user.
    *
@@ -247,6 +251,44 @@ export class CustomAuthController {
     this.logger.log(`Admin set password attempt for: ${dto.identifier}`);
     await this.authService.adminSetPassword(dto);
     return { success: true };
+  }
+
+  /**
+   * Admin initiates password reset workflow
+   *
+   * Sends verification code (and optional link) to user via email/SMS.
+   * User completes reset using confirmAdminResetPassword endpoint.
+   *
+   * **SECURITY WARNING:** This endpoint has NO built-in authentication.
+   * You MUST protect it with your own admin authentication guard.
+   *
+   * @param dto - Admin reset password DTO
+   * @returns Response with masked destination and expiry
+   */
+  @Post('admin/reset-password/initiate')
+  @HttpCode(HttpStatus.OK)
+  async adminResetPassword(@Body() dto: AdminResetPasswordDTO): Promise<AdminResetPasswordResponseDTO> {
+    this.logger.log(`Admin reset password for: ${dto.identifier}`);
+    return this.authService.adminResetPassword(dto);
+  }
+
+  /**
+   * User completes admin-initiated password reset
+   *
+   * Public endpoint (user uses code/token from email).
+   * Accepts either code (from email/SMS) or token (from link).
+   *
+   * @param dto - Confirm admin reset password DTO
+   * @returns Success confirmation
+   */
+  @Post('admin/reset-password/confirm')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  async confirmAdminResetPassword(
+    @Body() dto: ConfirmAdminResetPasswordDTO,
+  ): Promise<ConfirmAdminResetPasswordResponseDTO> {
+    this.logger.log(`Confirm admin reset for: ${dto.identifier}`);
+    return this.authService.confirmAdminResetPassword(dto);
   }
 
   /**

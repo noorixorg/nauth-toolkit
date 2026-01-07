@@ -203,56 +203,262 @@ export class PasswordResetService {
   }
 
   // ============================================================================
+  // Admin Password Reset (Request)
+  // ============================================================================
+
+  /**
+   * Request password reset for admin-initiated workflow.
+   *
+   * Differences from requestReset():
+   * - No rate limiting (admin bypass)
+   * - Uses token type 'admin_password_reset'
+   * - Sends admin-specific email template
+   * - Supports code + optional link delivery
+   * - Longer default expiry (1 hour vs 15 min)
+   *
+   * @param user - Target user
+   * @param delivery - Delivery channel ('email' or 'sms')
+   * @param options - Reset options (expiresIn, baseUrl)
+   * @returns Delivery metadata with destination, medium, expiry
+   * @throws {NAuthException} Never throws (email delivery errors are non-blocking)
+   *
+   * @example
+   * ```typescript
+   * const result = await passwordResetService.requestAdminReset(
+   *   user,
+   *   'email',
+   *   { expiresIn: 3600, baseUrl: 'https://myapp.com/reset' }
+   * );
+   * // result: { destination: 'u***r@example.com', deliveryMedium: 'email', expiresIn: 3600 }
+   * ```
+   */
+  async requestAdminReset(
+    user: IUser,
+    delivery: 'email' | 'sms',
+    options: {
+      expiresIn: number;
+      baseUrl?: string;
+    },
+  ): Promise<{ destination?: string; deliveryMedium?: 'email' | 'sms'; expiresIn?: number }> {
+    // ============================================================================
+    // No rate limiting for admin (admin bypass)
+    // ============================================================================
+
+    // ============================================================================
+    // Invalidate existing unused admin reset tokens
+    // ============================================================================
+    await this.verificationTokenRepo.update(
+      { userId: user.id, type: 'admin_password_reset', usedAt: IsNull() },
+      { usedAt: new Date() },
+    );
+
+    // ============================================================================
+    // Create new reset token with code AND token
+    // ============================================================================
+    const codeLength = this.config.password?.adminPasswordReset?.codeLength ?? 6;
+    const expiresIn = options.expiresIn;
+
+    const code = this.generateNumericCode(codeLength);
+    const token = this.generateToken();
+    const tokenHash = this.hashToken(token);
+
+    const clientInfo = this.clientInfoService.get();
+    const { ipAddress, userAgent } = clientInfo;
+
+    const verificationToken = this.verificationTokenRepo.create({
+      userId: user.id,
+      challengeSessionId: null,
+      type: 'admin_password_reset',
+      token: tokenHash,
+      code,
+      expiresAt: new Date(Date.now() + expiresIn * 1000),
+      attempts: 0,
+      ipAddress,
+      userAgent,
+    });
+
+    const saved = (await this.verificationTokenRepo.save(verificationToken)) as unknown as IVerificationToken;
+
+    // ============================================================================
+    // Build reset link if baseUrl provided
+    // ============================================================================
+    const resetLink = options.baseUrl ? `${options.baseUrl}?token=${token}` : undefined;
+
+    // ============================================================================
+    // Deliver code (and optional link)
+    // ============================================================================
+    if (delivery === 'email') {
+      if (!user.email) {
+        return { deliveryMedium: 'email', expiresIn };
+      }
+
+      const expiryMinutes = Math.ceil(expiresIn / 60);
+      await this.emailProvider.sendAdminPasswordResetEmail(user.email, code, resetLink, expiryMinutes);
+      this.logger?.log?.(`Admin password reset code sent via email to user ${user.sub}`);
+
+      // Audit
+      await this.auditService?.recordEvent({
+        userId: user.id,
+        eventType: AuthAuditEventType.ADMIN_PASSWORD_RESET_INITIATED,
+        eventStatus: 'INFO',
+        authMethod: 'password',
+        description: 'Admin initiated password reset (email)',
+        metadata: {
+          medium: 'email',
+          tokenId: saved.id,
+          hasLink: !!resetLink,
+        },
+      });
+
+      return {
+        destination: this.maskEmail(user.email),
+        deliveryMedium: 'email',
+        expiresIn,
+      };
+    }
+
+    // SMS delivery (code only, no link support)
+    if (!this.smsProvider) {
+      return { deliveryMedium: 'sms', expiresIn };
+    }
+    if (!user.phone) {
+      return { deliveryMedium: 'sms', expiresIn };
+    }
+
+    const expiryMinutes = Math.ceil(expiresIn / 60);
+    const smsConfig = this.config.sms as { templates?: { globalVariables?: Record<string, unknown> } } | undefined;
+    const appName =
+      this.config.email?.appName || (smsConfig?.templates?.globalVariables?.appName as string | undefined);
+
+    await this.smsProvider.sendOTP(user.phone, code, 'passwordReset', {
+      expiryMinutes,
+      appName,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      userName: user.username,
+      userEmail: user.email,
+      phone: user.phone,
+    });
+    this.logger?.log?.(`Admin password reset code sent via SMS to user ${user.sub}`);
+
+    await this.auditService?.recordEvent({
+      userId: user.id,
+      eventType: AuthAuditEventType.ADMIN_PASSWORD_RESET_INITIATED,
+      eventStatus: 'INFO',
+      authMethod: 'password',
+      description: 'Admin initiated password reset (sms)',
+      metadata: {
+        medium: 'sms',
+        tokenId: saved.id,
+      },
+    });
+
+    return {
+      destination: this.maskPhone(user.phone),
+      deliveryMedium: 'sms',
+      expiresIn,
+    };
+  }
+
+  // ============================================================================
   // Forgot Password (Confirm)
   // ============================================================================
 
   /**
-   * Confirm a password reset by verifying the one-time code.
+   * Consume and validate verification code or token.
+   *
+   * Enhanced to support both code (6-10 digits) and token (64-char hex).
+   * Token-based validation has no attempt tracking (single use).
+   * Code-based validation tracks attempts (max 3).
    *
    * @param user - Target user
-   * @param code - Reset code entered by the user
-   * @returns True when code is valid and token marked as used
-   * @throws {NAuthException} PASSWORD_RESET_CODE_INVALID when code is invalid
+   * @param codeOrToken - Verification code (short) or token (long)
+   * @param tokenType - Token type ('password_reset' | 'admin_password_reset')
+   * @returns void on success
+   * @throws {NAuthException} PASSWORD_RESET_CODE_INVALID when code/token is invalid
    * @throws {NAuthException} PASSWORD_RESET_CODE_EXPIRED when token expired
-   * @throws {NAuthException} PASSWORD_RESET_MAX_ATTEMPTS when max attempts exceeded
+   * @throws {NAuthException} PASSWORD_RESET_MAX_ATTEMPTS when max attempts exceeded (code only)
+   *
+   * @example
+   * ```typescript
+   * // Validate code
+   * await passwordResetService.consumeValidCode(user, '123456', 'admin_password_reset');
+   *
+   * // Validate token
+   * await passwordResetService.consumeValidCode(user, '64-char-hex', 'admin_password_reset');
+   * ```
    */
-  async consumeValidCode(user: IUser, code: string): Promise<void> {
-    const maxAttempts = this.config.password?.passwordReset?.maxAttempts ?? 3;
+  async consumeValidCode(
+    user: IUser,
+    codeOrToken: string,
+    tokenType: 'email' | 'phone' | 'password_reset' | 'admin_password_reset' = 'password_reset',
+  ): Promise<void> {
+    // ============================================================================
+    // Detect if input is token (long hex) or code (short numeric)
+    // ============================================================================
+    // WHY: Tokens are 64-char hex (from crypto.randomBytes(32).toString('hex'))
+    // Codes are 6-10 digits. Use length to distinguish.
+    const isToken = codeOrToken.length > 10;
 
+    // ============================================================================
     // Find most recent active token for the user
+    // ============================================================================
     const tokenEntity = await this.verificationTokenRepo.findOne({
-      where: { userId: user.id, type: 'password_reset', usedAt: IsNull() },
+      where: { userId: user.id, type: tokenType, usedAt: IsNull() },
       order: { createdAt: 'DESC' },
     });
     const token = tokenEntity as unknown as IVerificationToken | null;
 
     if (!tokenEntity || !token) {
-      throw new NAuthException(AuthErrorCode.PASSWORD_RESET_CODE_INVALID, 'Invalid password reset code');
+      throw new NAuthException(AuthErrorCode.PASSWORD_RESET_CODE_INVALID, 'Invalid password reset code or token');
     }
 
+    // ============================================================================
+    // Check expiry
+    // ============================================================================
     const isExpired = token.isExpired ? token.isExpired() : token.expiresAt < new Date();
     if (isExpired) {
-      throw new NAuthException(AuthErrorCode.PASSWORD_RESET_CODE_EXPIRED, 'Password reset code has expired');
+      throw new NAuthException(AuthErrorCode.PASSWORD_RESET_CODE_EXPIRED, 'Password reset code or token has expired');
     }
 
-    if (token.attempts >= maxAttempts) {
-      throw new NAuthException(
-        AuthErrorCode.PASSWORD_RESET_MAX_ATTEMPTS,
-        'Too many failed attempts. Please request a new code.',
-      );
-    }
-
-    if (!token.code || token.code !== code) {
-      // Increment attempts (non-blocking)
-      try {
-        await this.verificationTokenRepo.update({ id: token.id }, { attempts: token.attempts + 1 });
-      } catch {
-        // Non-blocking: attempts are best-effort
+    // ============================================================================
+    // Validate code or token
+    // ============================================================================
+    if (isToken) {
+      // Token-based validation (no attempt tracking)
+      // WHY: Tokens are long random strings, single-use, no brute force risk
+      const tokenHash = this.hashToken(codeOrToken);
+      if (token.token !== tokenHash) {
+        throw new NAuthException(AuthErrorCode.PASSWORD_RESET_CODE_INVALID, 'Invalid password reset token');
       }
-      throw new NAuthException(AuthErrorCode.PASSWORD_RESET_CODE_INVALID, 'Invalid password reset code');
+    } else {
+      // Code-based validation (with attempt tracking)
+      const maxAttempts =
+        tokenType === 'admin_password_reset'
+          ? (this.config.password?.adminPasswordReset?.maxAttempts ?? 3)
+          : (this.config.password?.passwordReset?.maxAttempts ?? 3);
+
+      if (token.attempts >= maxAttempts) {
+        throw new NAuthException(
+          AuthErrorCode.PASSWORD_RESET_MAX_ATTEMPTS,
+          'Too many failed attempts. Please request a new code.',
+        );
+      }
+
+      if (!token.code || token.code !== codeOrToken) {
+        // Increment attempts (non-blocking)
+        try {
+          await this.verificationTokenRepo.update({ id: token.id }, { attempts: token.attempts + 1 });
+        } catch {
+          // Non-blocking: attempts are best-effort
+        }
+        throw new NAuthException(AuthErrorCode.PASSWORD_RESET_CODE_INVALID, 'Invalid password reset code');
+      }
     }
 
+    // ============================================================================
     // Mark as used
+    // ============================================================================
     tokenEntity.usedAt = new Date();
     await this.verificationTokenRepo.save(tokenEntity);
   }

@@ -467,6 +467,42 @@ await this.auth.changePassword('oldPass123', 'newPass456!');
 
 ---
 
+### resetPasswordWithCode()
+
+Reset password with code or token (generic method for both admin and user-initiated resets).
+
+```typescript
+async resetPasswordWithCode(
+  identifier: string,
+  codeOrToken: string,
+  newPassword: string
+): Promise<ResetPasswordWithCodeResponse>
+```
+
+**Parameters**
+
+| Parameter     | Type     | Description                                   |
+| ------------- | -------- | --------------------------------------------- |
+| `identifier`  | `string` | User identifier (email, username, phone)      |
+| `codeOrToken` | `string` | Verification code (6-10 digits) OR token      |
+| `newPassword` | `string` | New password (min 8 characters)               |
+
+**Returns**
+
+- `Promise<[ResetPasswordWithCodeResponse](../api/types/reset-password-with-code-response)>`
+
+**Example**
+
+```typescript
+// With code from email
+await this.auth.resetPasswordWithCode('user@example.com', '123456', 'NewPass123!');
+
+// With token from link
+await this.auth.resetPasswordWithCode('user@example.com', '64-char-token', 'NewPass123!');
+```
+
+---
+
 ### getMfaStatus()
 
 Get user's MFA status.

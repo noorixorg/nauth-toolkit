@@ -198,9 +198,9 @@ export class AdminComponent implements OnInit {
   getActionMenuItems(user: User): MenuItem[] {
     return [
       {
-        label: 'Reset Password',
+        label: 'Admin Reset Password',
         icon: 'pi pi-key',
-        command: () => this.openResetPasswordDialog(user),
+        command: () => this.openAdminResetPasswordDialog(user),
       },
       {
         label: 'Force Password Change',
@@ -320,19 +320,19 @@ export class AdminComponent implements OnInit {
   // ============================================================================
 
   /**
-   * Reset password form
+   * Admin reset password form (for choosing delivery method)
    */
-  resetPasswordForm!: FormGroup;
+  adminResetPasswordForm!: FormGroup;
 
   /**
-   * Show reset password dialog
+   * Show admin reset password dialog (new workflow)
    */
-  showResetPasswordDialog = signal(false);
+  showAdminResetPasswordDialog = signal(false);
 
   /**
-   * Loading state for reset password
+   * Loading state for admin reset password
    */
-  resetPasswordLoading = signal(false);
+  adminResetPasswordLoading = signal(false);
 
   /**
    * Computed pagination info
@@ -354,7 +354,7 @@ export class AdminComponent implements OnInit {
     this.initializeFilterForm();
     this.initializeCreateUserForm();
     this.initializeImportSocialUserForm();
-    this.initializeResetPasswordForm();
+    this.initializeAdminResetPasswordForm();
     // Defer initial load to next tick
     Promise.resolve().then(() => {
       this.loadUsers();
@@ -468,11 +468,13 @@ export class AdminComponent implements OnInit {
   }
 
   /**
-   * Initialize reset password form
+   * Initialize admin reset password form
    */
-  private initializeResetPasswordForm(): void {
-    this.resetPasswordForm = this.fb.group({
-      password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(128)]],
+  private initializeAdminResetPasswordForm(): void {
+    this.adminResetPasswordForm = this.fb.group({
+      deliveryMethod: ['email', [Validators.required]],
+      revokeSessions: [true],
+      reason: ['', [Validators.maxLength(500)]],
     });
   }
 
@@ -567,7 +569,7 @@ export class AdminComponent implements OnInit {
   handleUserAction(event: { action: string; user: User }): void {
     switch (event.action) {
       case 'resetPassword':
-        this.openResetPasswordDialog(event.user);
+        this.openAdminResetPasswordDialog(event.user);
         break;
       case 'forcePasswordChange':
         this.forcePasswordChange(event.user);
@@ -672,30 +674,34 @@ export class AdminComponent implements OnInit {
   // ============================================================================
 
   /**
-   * Open reset password dialog
+   * Open admin reset password dialog (new workflow)
    */
-  openResetPasswordDialog(user: User): void {
+  openAdminResetPasswordDialog(user: User): void {
     this.selectedUser.set(user);
-    this.resetPasswordForm.reset();
-    this.showResetPasswordDialog.set(true);
+    this.adminResetPasswordForm.reset({
+      deliveryMethod: user.email ? 'email' : 'sms',
+      revokeSessions: true,
+      reason: '',
+    });
+    this.showAdminResetPasswordDialog.set(true);
   }
 
   /**
-   * Close reset password dialog
+   * Close admin reset password dialog
    */
-  closeResetPasswordDialog(): void {
-    this.showResetPasswordDialog.set(false);
+  closeAdminResetPasswordDialog(): void {
+    this.showAdminResetPasswordDialog.set(false);
     this.selectedUser.set(null);
-    this.resetPasswordForm.reset();
+    this.adminResetPasswordForm.reset();
   }
 
   /**
-   * Handle reset password form submission
+   * Handle admin reset password form submission
    */
-  onSubmitResetPassword(): void {
-    if (this.resetPasswordForm.invalid) {
-      Object.keys(this.resetPasswordForm.controls).forEach((key) => {
-        this.resetPasswordForm.get(key)?.markAsTouched();
+  async onSubmitAdminResetPassword(): Promise<void> {
+    if (this.adminResetPasswordForm.invalid) {
+      Object.keys(this.adminResetPasswordForm.controls).forEach((key) => {
+        this.adminResetPasswordForm.get(key)?.markAsTouched();
       });
       return;
     }
@@ -703,29 +709,37 @@ export class AdminComponent implements OnInit {
     const user = this.selectedUser();
     if (!user) return;
 
-    this.resetPasswordLoading.set(true);
+    this.adminResetPasswordLoading.set(true);
 
-    this.adminService
-      .setPassword(user.email, this.resetPasswordForm.value.password)
-      .then(() => {
-        this.resetPasswordLoading.set(false);
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Password Reset',
-          detail: `Password has been reset for ${user.email}`,
-        });
-        this.loadUsers();
-        this.closeResetPasswordDialog();
-      })
-      .catch((err: unknown) => {
-        this.resetPasswordLoading.set(false);
-        const errorMessage = err instanceof Error ? err.message : 'Failed to reset password';
-        this.messageService.add({
-          severity: 'error',
-          summary: 'Reset Password Failed',
-          detail: errorMessage,
-        });
+    try {
+      const formValue = this.adminResetPasswordForm.value;
+      const baseUrl = `${window.location.origin}/admin-reset-password`;
+
+      const result = await this.adminService.adminResetPassword({
+        identifier: user.email || user.phone || user.sub,
+        deliveryMethod: formValue.deliveryMethod,
+        baseUrl,
+        revokeSessions: formValue.revokeSessions,
+        reason: formValue.reason || undefined,
       });
+
+      this.adminResetPasswordLoading.set(false);
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Password Reset Initiated',
+        detail: `Reset code sent to ${result.destination || 'user'}. ${result.sessionsRevoked ? `${result.sessionsRevoked} session(s) revoked.` : ''}`,
+      });
+      this.loadUsers();
+      this.closeAdminResetPasswordDialog();
+    } catch (err: unknown) {
+      this.adminResetPasswordLoading.set(false);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to initiate password reset';
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Reset Password Failed',
+        detail: errorMessage,
+      });
+    }
   }
 
   /**

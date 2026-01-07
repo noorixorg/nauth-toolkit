@@ -17,6 +17,7 @@ import { AuthErrorCode } from '../enums/error-codes.enum';
 export const TEMPLATE_REQUIRED_PARAMS: Record<TemplateType, string[]> = {
   [TemplateType.VERIFICATION]: ['code', 'link', 'expiryMinutes'],
   [TemplateType.PASSWORD_RESET]: ['link', 'expiryMinutes'],
+  [TemplateType.ADMIN_PASSWORD_RESET]: ['code', 'link', 'expiryMinutes'],
   [TemplateType.WELCOME]: [],
   [TemplateType.ACCOUNT_LOCKOUT]: ['reason', 'durationMinutes'],
   [TemplateType.NEW_DEVICE]: ['deviceName', 'timestamp'],

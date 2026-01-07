@@ -41,7 +41,7 @@
     "@nauth-toolkit/client-angular": "file:../../packages/client-angular/dist",
     "@primeuix/themes": "^2.0.2",
     "@simplewebauthn/browser": "^13.2.2",
-    "primeng": "^21.0.1",
+    "primeng": "^21.0.2",
     "rxjs": "~7.8.0",
     "tailwindcss-primeui": "^0.6.1",
     "tslib": "^2.3.0"

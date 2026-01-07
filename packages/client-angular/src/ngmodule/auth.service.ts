@@ -12,6 +12,7 @@ import {
   AuthUser,
   ConfirmForgotPasswordResponse,
   ForgotPasswordResponse,
+  ResetPasswordWithCodeResponse,
   UpdateProfileRequest,
   GetChallengeDataResponse,
   GetSetupDataResponse,
@@ -71,10 +72,7 @@ export class AuthService {
    * @param config - Injected client configuration (required)
    * @param httpAdapter - Angular HTTP adapter for making requests (required)
    */
-  constructor(
-    @Inject(NAUTH_CLIENT_CONFIG) config: NAuthClientConfig,
-    httpAdapter: AngularHttpAdapter,
-  ) {
+  constructor(@Inject(NAUTH_CLIENT_CONFIG) config: NAuthClientConfig, httpAdapter: AngularHttpAdapter) {
     this.config = config;
 
     // Use provided httpAdapter (from config or injected)
@@ -350,6 +348,35 @@ export class AuthService {
     newPassword: string,
   ): Promise<ConfirmForgotPasswordResponse> {
     return this.client.confirmForgotPassword(identifier, code, newPassword);
+  }
+
+  /**
+   * Reset password with code or token (generic method for both admin and user-initiated resets).
+   *
+   * Accepts either:
+   * - code: Short numeric code from email/SMS (6-10 digits)
+   * - token: Long hex token from reset link (64 chars)
+   *
+   * @param identifier - User identifier (email, username, phone)
+   * @param codeOrToken - Verification code OR token from link
+   * @param newPassword - New password
+   * @returns Promise with success response
+   *
+   * @example
+   * ```typescript
+   * // With code from email
+   * await this.auth.resetPasswordWithCode('user@example.com', '123456', 'NewPass123!');
+   *
+   * // With token from link
+   * await this.auth.resetPasswordWithCode('user@example.com', '64-char-token', 'NewPass123!');
+   * ```
+   */
+  async resetPasswordWithCode(
+    identifier: string,
+    codeOrToken: string,
+    newPassword: string,
+  ): Promise<ResetPasswordWithCodeResponse> {
+    return this.client.resetPasswordWithCode(identifier, codeOrToken, newPassword);
   }
 
   /**

@@ -59,10 +59,18 @@ export class App implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.auth.authEvents$
         .pipe(
-          filter((event) => event.type === 'auth:challenge'),
+          filter((event) => {
+            // Debug: log all events to see what's coming through
+            if (event.type === 'auth:challenge' || event.type === 'auth:success' || event.type === 'auth:login' || event.type === 'auth:signup') {
+              console.log('[App] Auth event received:', event.type, event.data);
+            }
+            return event.type === 'auth:challenge';
+          }),
           filter((event) => {
             const challenge = event.data as AuthResponse;
             const challengeName = challenge.challengeName;
+            console.log('[App] Challenge event filtered:', challengeName, challenge);
+
             if (!challengeName) return false;
 
             // Only handle SMS and email challenges
@@ -70,23 +78,31 @@ export class App implements OnInit, OnDestroy {
               challengeName === AuthChallenge.VERIFY_PHONE ||
               challengeName === AuthChallenge.VERIFY_EMAIL
             ) {
+              console.log('[App] SMS/Email challenge detected, will show toast');
               return true;
             }
             if (challengeName === AuthChallenge.MFA_REQUIRED) {
               const method = getMFAMethod(challenge);
-              return method === 'sms' || method === 'email';
+              const shouldHandle = method === 'sms' || method === 'email';
+              if (shouldHandle) {
+                console.log('[App] MFA_REQUIRED challenge with SMS/Email detected, will show toast');
+              }
+              return shouldHandle;
             }
             if (challengeName === AuthChallenge.MFA_SETUP_REQUIRED) {
               // For MFA_SETUP_REQUIRED, method is not in challenge yet when getSetupData() is called
               // The OTP component will handle it manually with the method from query params
               // Skip app-level toast trigger to avoid duplicates - OTP component handles it
+              console.log('[App] MFA_SETUP_REQUIRED challenge - skipping app-level toast (OTP component handles it)');
               return false;
             }
+            console.log('[App] Challenge type not handled:', challengeName);
             return false;
           }),
         )
         .subscribe(async (event) => {
           const challenge = event.data as AuthResponse;
+          console.log('[App] Calling handleChallenge for:', challenge.challengeName, challenge.session);
           await this.verificationCodeService.handleChallenge(challenge);
         }),
     );

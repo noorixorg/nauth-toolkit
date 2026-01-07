@@ -606,51 +606,86 @@
   </form>
 </p-dialog>
 
-<!-- Reset Password Dialog -->
+<!-- Admin Reset Password Dialog (New Workflow) -->
 <p-dialog
-  [visible]="showResetPasswordDialog()"
-  (visibleChange)="showResetPasswordDialog.set($event)"
+  [visible]="showAdminResetPasswordDialog()"
+  (visibleChange)="showAdminResetPasswordDialog.set($event)"
   [modal]="true"
   [closable]="true"
   [draggable]="false"
   [resizable]="false"
-  [style]="{ width: '500px', maxWidth: '90vw' }"
-  header="Reset Password"
-  (onHide)="closeResetPasswordDialog()"
+  [style]="{ width: '600px', maxWidth: '90vw' }"
+  header="Admin Reset Password"
+  (onHide)="closeAdminResetPasswordDialog()"
 >
-  <form [formGroup]="resetPasswordForm" (ngSubmit)="onSubmitResetPassword()" class="space-y-4">
+  <form
+    [formGroup]="adminResetPasswordForm"
+    (ngSubmit)="onSubmitAdminResetPassword()"
+    class="space-y-4"
+  >
     <p class="text-secondary-700 mb-4">
-      Set a new password for <strong>{{ selectedUser()?.email }}</strong>
+      Initiate password reset workflow for
+      <strong>{{ selectedUser()?.email || selectedUser()?.phone || selectedUser()?.sub }}</strong
+      >. The user will receive a code via email or SMS to reset their password.
     </p>
 
+    <!-- Delivery Method -->
     <div class="flex flex-col gap-2">
-      <label for="reset-password" class="form-label">
-        New Password <span class="form-required">*</span>
+      <label for="deliveryMethod" class="form-label">
+        Delivery Method <span class="form-required">*</span>
       </label>
-      <p-password
-        id="reset-password"
-        formControlName="password"
-        placeholder="Enter new password"
-        [toggleMask]="true"
-        [feedback]="true"
+      <p-select
+        id="deliveryMethod"
+        formControlName="deliveryMethod"
+        [options]="[
+          { label: 'Email', value: 'email' },
+          { label: 'SMS', value: 'sms' },
+        ]"
+        optionLabel="label"
+        optionValue="value"
         [class.p-invalid]="
-          resetPasswordForm.get('password')?.invalid && resetPasswordForm.get('password')?.touched
+          adminResetPasswordForm.get('deliveryMethod')?.invalid &&
+          adminResetPasswordForm.get('deliveryMethod')?.touched
         "
-        styleClass="w-full"
-        inputStyleClass="w-full"
+        class="w-full"
       />
       @if (
-        resetPasswordForm.get('password')?.invalid && resetPasswordForm.get('password')?.touched
+        adminResetPasswordForm.get('deliveryMethod')?.invalid &&
+        adminResetPasswordForm.get('deliveryMethod')?.touched
       ) {
-        <small class="p-error">
-          @if (resetPasswordForm.get('password')?.errors?.['required']) {
-            Password is required
-          } @else if (resetPasswordForm.get('password')?.errors?.['minlength']) {
-            Password must be at least 8 characters
-          } @else if (resetPasswordForm.get('password')?.errors?.['maxlength']) {
-            Password must not exceed 128 characters
-          }
-        </small>
+        <small class="p-error">Delivery method is required</small>
+      }
+    </div>
+
+    <!-- Revoke Sessions -->
+    <div class="flex items-center gap-2">
+      <p-checkbox formControlName="revokeSessions" [binary]="true" inputId="revokeSessions" />
+      <label for="revokeSessions" class="form-label cursor-pointer">
+        Revoke all active sessions immediately
+      </label>
+    </div>
+
+    <!-- Reason (Optional) -->
+    <div class="flex flex-col gap-2">
+      <label for="reason" class="form-label">Reason (Optional)</label>
+      <textarea
+        id="reason"
+        pInputText
+        formControlName="reason"
+        placeholder="Reason for password reset (for audit trail)"
+        rows="3"
+        maxlength="500"
+        [class.p-invalid]="
+          adminResetPasswordForm.get('reason')?.invalid &&
+          adminResetPasswordForm.get('reason')?.touched
+        "
+        class="w-full"
+      ></textarea>
+      @if (
+        adminResetPasswordForm.get('reason')?.invalid &&
+        adminResetPasswordForm.get('reason')?.touched
+      ) {
+        <small class="p-error">Reason must not exceed 500 characters</small>
       }
     </div>
 
@@ -659,15 +694,14 @@
         label="Cancel"
         severity="secondary"
         [outlined]="true"
-        (onClick)="closeResetPasswordDialog()"
-        [disabled]="resetPasswordLoading()"
+        (onClick)="closeAdminResetPasswordDialog()"
+        [disabled]="adminResetPasswordLoading()"
       />
       <p-button
         type="submit"
-        label="{{ resetPasswordLoading() ? 'Resetting...' : 'Reset Password' }}"
-        [disabled]="resetPasswordForm.invalid || resetPasswordLoading()"
-        [loading]="resetPasswordLoading()"
-        icon="pi pi-key"
+        label="{{ adminResetPasswordLoading() ? 'Sending...' : 'Send Reset Code' }}"
+        [disabled]="adminResetPasswordForm.invalid || adminResetPasswordLoading()"
+        [loading]="adminResetPasswordLoading()"
       />
     </div>
   </form>

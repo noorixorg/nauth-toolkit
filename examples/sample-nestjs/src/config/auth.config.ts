@@ -22,7 +22,7 @@ export const authConfig: NAuthModuleConfig = {
     algorithm: 'HS256',
     issuer: 'com.noorix.nauth',
     audience: ['web', 'mobile'],
-    accessToken: { secret: process.env.JWT_SECRET, expiresIn: '15m' },
+    accessToken: { secret: process.env.JWT_SECRET, expiresIn: '10s' },
     refreshToken: {
       secret: process.env.JWT_REFRESH_SECRET as string,
       expiresIn: '1d',
@@ -116,7 +116,7 @@ export const authConfig: NAuthModuleConfig = {
     method: 'cookies',
     cookieOptions: {
       secure: true,
-      sameSite: 'none',
+      sameSite: 'strict',
       domain: '.angular.dev1.noorix.com',
     },
   },

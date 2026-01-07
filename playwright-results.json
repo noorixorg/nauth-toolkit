@@ -124,7 +124,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.507Z",
+                      "startTime": "2026-01-07T06:31:56.587Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -184,7 +184,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.508Z",
+                      "startTime": "2026-01-07T06:31:56.587Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -244,7 +244,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.508Z",
+                      "startTime": "2026-01-07T06:31:56.587Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -304,7 +304,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.508Z",
+                      "startTime": "2026-01-07T06:31:56.588Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -364,7 +364,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.508Z",
+                      "startTime": "2026-01-07T06:31:56.588Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -424,7 +424,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.508Z",
+                      "startTime": "2026-01-07T06:31:56.588Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -508,12 +508,12 @@
                           "workerIndex": 0,
                           "parallelIndex": 0,
                           "status": "passed",
-                          "duration": 312,
+                          "duration": 310,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:09.509Z",
+                          "startTime": "2026-01-07T06:31:56.588Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -610,19 +610,19 @@
                           "workerIndex": 0,
                           "parallelIndex": 0,
                           "status": "passed",
-                          "duration": 4313,
+                          "duration": 4512,
                           "errors": [],
                           "stdout": [
                             {
                               "text": "Resend rate limited, waiting 1100ms before retry...\n"
                             },
                             {
-                              "text": "Resend code succeeded: destination=t***6@example.com\n"
+                              "text": "Resend code succeeded: destination=t***1@example.com\n"
                             }
                           ],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:09.845Z",
+                          "startTime": "2026-01-07T06:31:56.941Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -728,19 +728,19 @@
                           "workerIndex": 0,
                           "parallelIndex": 0,
                           "status": "passed",
-                          "duration": 4277,
+                          "duration": 4635,
                           "errors": [],
                           "stdout": [
                             {
                               "text": "Resend rate limited, waiting 1100ms before retry...\n"
                             },
                             {
-                              "text": "Resend code succeeded: destination=***-***-0974\n"
+                              "text": "Resend code succeeded: destination=***-***-0985\n"
                             }
                           ],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:14.166Z",
+                          "startTime": "2026-01-07T06:32:01.460Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -846,12 +846,12 @@
                           "workerIndex": 0,
                           "parallelIndex": 0,
                           "status": "passed",
-                          "duration": 111,
+                          "duration": 160,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:18.449Z",
+                          "startTime": "2026-01-07T06:32:06.103Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -948,12 +948,12 @@
                           "workerIndex": 0,
                           "parallelIndex": 0,
                           "status": "passed",
-                          "duration": 3166,
+                          "duration": 3316,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:18.566Z",
+                          "startTime": "2026-01-07T06:32:06.270Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -996,7 +996,7 @@
                 },
                 {
                   "title": "5. Refresh Token",
-                  "ok": true,
+                  "ok": false,
                   "tags": [
                     "email-phone",
                     "mfa-required"
@@ -1040,13 +1040,36 @@
                         {
                           "workerIndex": 0,
                           "parallelIndex": 0,
-                          "status": "passed",
-                          "duration": 20,
-                          "errors": [],
+                          "status": "failed",
+                          "duration": 27,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m\n    at /Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts:580:34",
+                            "location": {
+                              "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                              "column": 34,
+                              "line": 580
+                            },
+                            "snippet": "\u001b[0m \u001b[90m 578 |\u001b[39m\n \u001b[90m 579 |\u001b[39m           \u001b[90m// Use expect() to validate result\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 580 |\u001b[39m           expect(result\u001b[33m.\u001b[39msuccess)\u001b[33m.\u001b[39mtoBe(\u001b[36mtrue\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                  \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 581 |\u001b[39m           expect(result\u001b[33m.\u001b[39mresponse\u001b[33m?\u001b[39m\u001b[33m.\u001b[39mstatus())\u001b[33m.\u001b[39mtoBe(\u001b[35m200\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 582 |\u001b[39m\n \u001b[90m 583 |\u001b[39m           \u001b[90m// Validate new tokens are set\u001b[39m\u001b[0m"
+                          },
+                          "errors": [
+                            {
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "column": 34,
+                                "line": 580
+                              },
+                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m\n\n\u001b[0m \u001b[90m 578 |\u001b[39m\n \u001b[90m 579 |\u001b[39m           \u001b[90m// Use expect() to validate result\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 580 |\u001b[39m           expect(result\u001b[33m.\u001b[39msuccess)\u001b[33m.\u001b[39mtoBe(\u001b[36mtrue\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                  \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 581 |\u001b[39m           expect(result\u001b[33m.\u001b[39mresponse\u001b[33m?\u001b[39m\u001b[33m.\u001b[39mstatus())\u001b[33m.\u001b[39mtoBe(\u001b[35m200\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 582 |\u001b[39m\n \u001b[90m 583 |\u001b[39m           \u001b[90m// Validate new tokens are set\u001b[39m\u001b[0m\n\u001b[2m    at /Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts:580:34\u001b[22m"
+                            }
+                          ],
                           "stdout": [],
-                          "stderr": [],
+                          "stderr": [
+                            {
+                              "text": "Refresh token failed: status=500, body= { statusCode: \u001b[33m500\u001b[39m, message: \u001b[32m'Internal server error'\u001b[39m }\n"
+                            }
+                          ],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:21.738Z",
+                          "startTime": "2026-01-07T06:32:09.593Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -1076,10 +1099,21 @@
                               }
                             }
                           ],
-                          "attachments": []
+                          "attachments": [
+                            {
+                              "name": "trace",
+                              "contentType": "application/zip",
+                              "path": "/Users/noorix/development/nauth-toolkit/test-results/specs-auth-lifecycle-compl-9e169-n-Lifecycle-5-Refresh-Token-cookies/trace.zip"
+                            }
+                          ],
+                          "errorLocation": {
+                            "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                            "column": 34,
+                            "line": 580
+                          }
                         }
                       ],
-                      "status": "expected"
+                      "status": "unexpected"
                     }
                   ],
                   "id": "68c0f7b4fc8ce30f3e44-8aa510d9fb64eff10dc0",
@@ -1133,78 +1167,23 @@
                             "line": 596,
                             "column": 11
                           }
-                        },
-                        {
-                          "type": "skip",
-                          "description": "Adaptive MFA not enabled",
-                          "location": {
-                            "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
-                            "line": 621,
-                            "column": 16
-                          }
                         }
                       ],
-                      "expectedStatus": "skipped",
+                      "expectedStatus": "passed",
                       "projectId": "cookies",
                       "projectName": "cookies",
                       "results": [
                         {
-                          "workerIndex": 0,
-                          "parallelIndex": 0,
+                          "workerIndex": -1,
+                          "parallelIndex": -1,
                           "status": "skipped",
-                          "duration": 2,
+                          "duration": 0,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:21.763Z",
-                          "annotations": [
-                            {
-                              "type": "testId",
-                              "description": "Config: email-phone-mfa-required-cookies",
-                              "location": {
-                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
-                                "line": 596,
-                                "column": 11
-                              }
-                            },
-                            {
-                              "type": "testDetails",
-                              "description": "Token Delivery: cookies | MFA: REQUIRED | Simulates location change",
-                              "location": {
-                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
-                                "line": 596,
-                                "column": 11
-                              }
-                            },
-                            {
-                              "type": "testSteps",
-                              "description": "Set IP to 203.0.113.1 → POST /auth/login. With adaptive MFA, may trigger challenge if risk detected.",
-                              "location": {
-                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
-                                "line": 596,
-                                "column": 11
-                              }
-                            },
-                            {
-                              "type": "skipCondition",
-                              "description": "Skipped if adaptive MFA not enabled",
-                              "location": {
-                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
-                                "line": 596,
-                                "column": 11
-                              }
-                            },
-                            {
-                              "type": "skip",
-                              "description": "Adaptive MFA not enabled",
-                              "location": {
-                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
-                                "line": 621,
-                                "column": 16
-                              }
-                            }
-                          ],
+                          "startTime": "2026-01-07T06:32:09.639Z",
+                          "annotations": [],
                           "attachments": []
                         }
                       ],
@@ -1260,48 +1239,20 @@
                       "projectName": "cookies",
                       "results": [
                         {
-                          "workerIndex": 0,
-                          "parallelIndex": 0,
-                          "status": "passed",
-                          "duration": 23,
+                          "workerIndex": -1,
+                          "parallelIndex": -1,
+                          "status": "skipped",
+                          "duration": 0,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:21.770Z",
-                          "annotations": [
-                            {
-                              "type": "testId",
-                              "description": "Config: email-phone-mfa-required-cookies",
-                              "location": {
-                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
-                                "line": 636,
-                                "column": 11
-                              }
-                            },
-                            {
-                              "type": "testDetails",
-                              "description": "Token Delivery: cookies | Validates token/cookie invalidation",
-                              "location": {
-                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
-                                "line": 636,
-                                "column": 11
-                              }
-                            },
-                            {
-                              "type": "testSteps",
-                              "description": "GET /auth/logout with access token. Expect tokens/cookies cleared (expired or maxAge=0).",
-                              "location": {
-                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
-                                "line": 636,
-                                "column": 11
-                              }
-                            }
-                          ],
+                          "startTime": "2026-01-07T06:32:09.643Z",
+                          "annotations": [],
                           "attachments": []
                         }
                       ],
-                      "status": "expected"
+                      "status": "skipped"
                     }
                   ],
                   "id": "68c0f7b4fc8ce30f3e44-9af368bed92b096c9a56",
@@ -1341,15 +1292,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.648Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1401,15 +1352,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.653Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1461,15 +1412,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.658Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1521,15 +1472,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.662Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1581,15 +1532,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.670Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1641,15 +1592,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.674Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1701,15 +1652,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.678Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1761,15 +1712,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.683Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1821,15 +1772,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.687Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1881,15 +1832,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.697Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1941,15 +1892,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.701Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2001,15 +1952,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.706Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2061,15 +2012,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.710Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2121,15 +2072,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.720Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2181,15 +2132,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.724Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2241,15 +2192,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.728Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2301,15 +2252,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
+                      "workerIndex": -1,
+                      "parallelIndex": -1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.799Z",
+                      "startTime": "2026-01-07T06:32:09.733Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2378,7 +2329,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.512Z",
+                      "startTime": "2026-01-07T06:31:56.619Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2438,7 +2389,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.513Z",
+                      "startTime": "2026-01-07T06:31:56.620Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2498,7 +2449,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.513Z",
+                      "startTime": "2026-01-07T06:31:56.620Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2558,7 +2509,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.513Z",
+                      "startTime": "2026-01-07T06:31:56.620Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2618,7 +2569,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.513Z",
+                      "startTime": "2026-01-07T06:31:56.620Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2678,7 +2629,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.513Z",
+                      "startTime": "2026-01-07T06:31:56.621Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2738,7 +2689,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.513Z",
+                      "startTime": "2026-01-07T06:31:56.621Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2798,7 +2749,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.513Z",
+                      "startTime": "2026-01-07T06:31:56.621Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2858,7 +2809,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.513Z",
+                      "startTime": "2026-01-07T06:31:56.622Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2918,7 +2869,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.514Z",
+                      "startTime": "2026-01-07T06:31:56.623Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2978,7 +2929,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.514Z",
+                      "startTime": "2026-01-07T06:31:56.623Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -3038,7 +2989,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.514Z",
+                      "startTime": "2026-01-07T06:31:56.624Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -3098,7 +3049,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.514Z",
+                      "startTime": "2026-01-07T06:31:56.624Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -3158,7 +3109,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.514Z",
+                      "startTime": "2026-01-07T06:31:56.624Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -3251,12 +3202,12 @@
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 316,
+                          "duration": 297,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:09.514Z",
+                          "startTime": "2026-01-07T06:31:56.624Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3353,12 +3304,12 @@
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 106,
+                          "duration": 136,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:09.846Z",
+                          "startTime": "2026-01-07T06:31:56.942Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3446,12 +3397,12 @@
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 2141,
+                          "duration": 2170,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:09.965Z",
+                          "startTime": "2026-01-07T06:31:57.091Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3539,12 +3490,12 @@
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 104,
+                          "duration": 124,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:12.113Z",
+                          "startTime": "2026-01-07T06:31:59.268Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3632,12 +3583,12 @@
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 2056,
+                          "duration": 2269,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:12.224Z",
+                          "startTime": "2026-01-07T06:31:59.399Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3742,12 +3693,12 @@
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 103,
+                          "duration": 138,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:14.288Z",
+                          "startTime": "2026-01-07T06:32:01.677Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3835,12 +3786,12 @@
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 2114,
+                          "duration": 2273,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:14.396Z",
+                          "startTime": "2026-01-07T06:32:01.820Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3942,7 +3893,7 @@
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:16.517Z",
+                          "startTime": "2026-01-07T06:32:04.100Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -4048,12 +3999,12 @@
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 91,
+                          "duration": 145,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:16.521Z",
+                          "startTime": "2026-01-07T06:32:04.104Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -4150,12 +4101,12 @@
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 2055,
+                          "duration": 2154,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:16.619Z",
+                          "startTime": "2026-01-07T06:32:04.257Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -4252,12 +4203,12 @@
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 74,
+                          "duration": 139,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:18.680Z",
+                          "startTime": "2026-01-07T06:32:06.417Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -4354,12 +4305,12 @@
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 3175,
+                          "duration": 3364,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-02T01:42:18.759Z",
+                          "startTime": "2026-01-07T06:32:06.562Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -4440,7 +4391,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.941Z",
+                      "startTime": "2026-01-07T06:32:09.936Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -4500,7 +4451,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.941Z",
+                      "startTime": "2026-01-07T06:32:09.936Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -4560,7 +4511,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:21.941Z",
+                      "startTime": "2026-01-07T06:32:09.936Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -4615,12 +4566,12 @@
                       "workerIndex": 2,
                       "parallelIndex": 2,
                       "status": "passed",
-                      "duration": 3,
+                      "duration": 4,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-02T01:42:09.506Z",
+                      "startTime": "2026-01-07T06:31:56.618Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -4640,11 +4591,11 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-01-02T01:42:08.135Z",
-    "duration": 13833.87,
-    "expected": 20,
-    "skipped": 41,
-    "unexpected": 0,
+    "startTime": "2026-01-07T06:31:55.089Z",
+    "duration": 14874.636999999999,
+    "expected": 18,
+    "skipped": 42,
+    "unexpected": 1,
     "flaky": 0
   }
 }

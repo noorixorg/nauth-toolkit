@@ -35,5 +35,3 @@ export class ValidateAccessTokenDTO {
   @MaxLength(2048, { message: 'Access token must not exceed 2048 characters' })
   accessToken!: string;
 }
-
-

@@ -95,6 +95,11 @@ export class PasswordService {
         rateLimitWindow: passwordConfig?.passwordReset?.rateLimitWindow ?? 3600, // 1 hour
         maxAttempts: passwordConfig?.passwordReset?.maxAttempts ?? 3,
       },
+      adminPasswordReset: {
+        codeLength: passwordConfig?.adminPasswordReset?.codeLength ?? 6,
+        expiresIn: passwordConfig?.adminPasswordReset?.expiresIn ?? 3600,
+        maxAttempts: passwordConfig?.adminPasswordReset?.maxAttempts ?? 3,
+      },
     };
   }
 

@@ -68,6 +68,12 @@ import { ResendCodeResponseDTO } from '../dto/resend-code-response.dto';
 import { SetMustChangePasswordDTO } from '../dto/set-must-change-password.dto';
 import { SetMustChangePasswordResponseDTO } from '../dto/set-must-change-password-response.dto';
 import { AdminSetPasswordDTO, AdminSetPasswordResponseDTO } from '../dto/admin-set-password.dto';
+import {
+  AdminResetPasswordDTO,
+  AdminResetPasswordResponseDTO,
+  ConfirmAdminResetPasswordDTO,
+  ConfirmAdminResetPasswordResponseDTO,
+} from '../dto/admin-reset-password.dto';
 import { ForgotPasswordDTO, ForgotPasswordResponseDTO } from '../dto/forgot-password.dto';
 import { ConfirmForgotPasswordDTO, ConfirmForgotPasswordResponseDTO } from '../dto/confirm-forgot-password.dto';
 import { TrustDeviceResponseDTO } from '../dto/trust-device-response.dto';
@@ -3293,6 +3299,267 @@ export class AuthService {
    */
   async setMustChangePassword(dto: SetMustChangePasswordDTO): Promise<SetMustChangePasswordResponseDTO> {
     return await this.userService.setMustChangePassword(dto);
+  }
+
+  /**
+   * Admin-only: Initiate a code-based password reset workflow.
+   *
+   * Unlike adminSetPassword(), this sends a verification code (and optional link)
+   * to the user via email/SMS and allows them to set their own password.
+   *
+   * Features:
+   * - Code + optional link delivery (like email verification)
+   * - Optional immediate session revocation
+   * - Configurable expiry (default 1 hour)
+   * - Admin-specific email template
+   * - No rate limiting (admin bypass)
+   * - Separate audit trail with reason
+   *
+   * Security:
+   * - Admin-only operation (protect route with admin guard)
+   * - Non-enumerating (throws NOT_FOUND if user doesn't exist)
+   * - Separate token type ('admin_password_reset')
+   * - Audit logging with reason
+   *
+   * @param dto - Admin reset password request
+   * @returns Response with masked destination, expiry, and sessions revoked count
+   * @throws {NAuthException} NOT_FOUND when user not found
+   *
+   * @example
+   * ```typescript
+   * // With link for custom UI
+   * const result = await authService.adminResetPassword({
+   *   identifier: 'user@example.com',
+   *   baseUrl: 'https://myapp.com/reset-password',
+   *   revokeSessions: true,
+   *   reason: 'User reported compromise'
+   * });
+   * // result: { success: true, destination: 'u***r@example.com', expiresIn: 3600, sessionsRevoked: 3 }
+   *
+   * // Code only (no link)
+   * const result = await authService.adminResetPassword({
+   *   identifier: 'user@example.com'
+   * });
+   * ```
+   */
+  async adminResetPassword(dto: AdminResetPasswordDTO): Promise<AdminResetPasswordResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(AdminResetPasswordDTO, dto);
+
+    this.logger?.log?.(`Admin password reset requested for identifier: ${dto.identifier}`);
+    this.logger?.debug?.(
+      `Reset details: { identifier: ${dto.identifier}, deliveryMethod: ${dto.deliveryMethod ?? 'email'}, revokeSessions: ${dto.revokeSessions ?? false}, baseUrl: ${dto.baseUrl ?? 'none'}, reason: ${dto.reason ?? 'none'} }`,
+    );
+
+    // ============================================================================
+    // Find User by Identifier
+    // ============================================================================
+    // Support multiple identifier types: email, username, phone, or sub (UUID)
+    let user: IUser | null = null;
+
+    // Try to find by sub (UUID) first if it looks like a UUID.
+    // WHY: Many deployments treat `sub` as the primary immutable identifier.
+    if (isUUID(dto.identifier)) {
+      this.logger?.debug?.(`Identifier appears to be UUID, searching by sub: ${dto.identifier}`);
+      user = (await this.userRepository.findOne({ where: { sub: dto.identifier } })) as IUser | null;
+    }
+
+    // If not found by sub, try by identifier (email, username, phone)
+    if (!user) {
+      this.logger?.debug?.(`Searching by identifier (email/username/phone): ${dto.identifier}`);
+      user = await this.helpers.findUserByIdentifier(dto.identifier);
+    }
+
+    if (!user) {
+      this.logger?.warn?.(`Admin password reset failed - user not found: ${dto.identifier}`);
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    if (!this.passwordResetService) {
+      this.logger?.error?.('Password reset service not available');
+      throw new NAuthException(
+        AuthErrorCode.SERVICE_UNAVAILABLE,
+        'Password reset service is not configured. Please configure an email provider.',
+      );
+    }
+
+    // ============================================================================
+    // Optionally revoke sessions immediately (before sending reset email)
+    // ============================================================================
+    const revokeSessions = dto.revokeSessions ?? false;
+    let sessionsRevoked = 0;
+
+    if (revokeSessions) {
+      sessionsRevoked = await this.sessionService.revokeAllUserSessions(user.id, 'Admin initiated password reset');
+      this.logger?.log?.(`Revoked ${sessionsRevoked} sessions for user ${user.sub}`);
+    }
+
+    // ============================================================================
+    // Request admin reset with code + link
+    // ============================================================================
+    const delivery = dto.deliveryMethod || 'email';
+    const expiresIn = dto.codeExpiresIn || 3600; // Default 1 hour
+
+    const result = await this.passwordResetService.requestAdminReset(user, delivery, {
+      expiresIn,
+      baseUrl: dto.baseUrl, // Consumer app can build custom UI
+    });
+
+    // ============================================================================
+    // Audit Logging
+    // ============================================================================
+    await this.auditService?.recordEvent({
+      userId: user.id,
+      eventType: AuthAuditEventType.ADMIN_PASSWORD_RESET_INITIATED,
+      eventStatus: 'INFO',
+      authMethod: 'password',
+      description: dto.reason || 'Admin initiated password reset',
+      reason: dto.reason, // Store reason in audit event
+      metadata: {
+        medium: delivery,
+        expiresIn,
+        sessionsRevoked,
+        hasBaseUrl: !!dto.baseUrl,
+      },
+    });
+
+    // ============================================================================
+    // Return Response
+    // ============================================================================
+    return {
+      success: true,
+      destination: result.destination,
+      deliveryMedium: result.deliveryMedium,
+      expiresIn: result.expiresIn,
+      sessionsRevoked: revokeSessions ? sessionsRevoked : undefined,
+    };
+  }
+
+  /**
+   * Complete admin-initiated password reset with verification code or token.
+   *
+   * Accepts either:
+   * - code: Short numeric code from email/SMS (6-10 digits, attempt tracking)
+   * - token: Long hex token from link (64 chars, single use, no attempts)
+   *
+   * Security:
+   * - Verifies code/token via PasswordResetService
+   * - Enforces password policy and history
+   * - Always revokes all sessions on completion
+   * - Does not force password change (user already set new password)
+   * - Records audit event
+   *
+   * @param dto - Confirm admin reset password request
+   * @returns Success response
+   * @throws {NAuthException} NOT_FOUND | PASSWORD_RESET_CODE_INVALID | PASSWORD_RESET_CODE_EXPIRED | PASSWORD_RESET_MAX_ATTEMPTS | WEAK_PASSWORD | PASSWORD_REUSED | INVALID_CREDENTIALS
+   *
+   * @example
+   * ```typescript
+   * // With code
+   * await authService.confirmAdminResetPassword({
+   *   identifier: 'user@example.com',
+   *   code: '123456',
+   *   newPassword: 'NewSecurePass123!'
+   * });
+   *
+   * // With token from link
+   * await authService.confirmAdminResetPassword({
+   *   identifier: 'user@example.com',
+   *   token: '64-char-hex-token',
+   *   newPassword: 'NewSecurePass123!'
+   * });
+   * ```
+   */
+  async confirmAdminResetPassword(dto: ConfirmAdminResetPasswordDTO): Promise<ConfirmAdminResetPasswordResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(ConfirmAdminResetPasswordDTO, dto);
+
+    this.logger?.log?.(`Confirm admin password reset for identifier: ${dto.identifier}`);
+
+    // ============================================================================
+    // Validate that either code or token is provided
+    // ============================================================================
+    if (!dto.code && !dto.token) {
+      throw new NAuthException(
+        AuthErrorCode.INVALID_CREDENTIALS,
+        'Either code or token is required to confirm password reset',
+      );
+    }
+
+    // ============================================================================
+    // Find User by Identifier
+    // ============================================================================
+    let user: IUser | null = null;
+
+    if (isUUID(dto.identifier)) {
+      this.logger?.debug?.(`Identifier appears to be UUID, searching by sub: ${dto.identifier}`);
+      user = (await this.userRepository.findOne({ where: { sub: dto.identifier } })) as IUser | null;
+    }
+
+    if (!user) {
+      this.logger?.debug?.(`Searching by identifier (email/username/phone): ${dto.identifier}`);
+      user = await this.helpers.findUserByIdentifier(dto.identifier);
+    }
+
+    if (!user) {
+      this.logger?.warn?.(`Confirm admin reset failed - user not found: ${dto.identifier}`);
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    if (!this.passwordResetService) {
+      this.logger?.error?.('Password reset service not available');
+      throw new NAuthException(
+        AuthErrorCode.SERVICE_UNAVAILABLE,
+        'Password reset service is not configured. Please configure an email provider.',
+      );
+    }
+
+    // ============================================================================
+    // Verify code or token
+    // ============================================================================
+    const codeOrToken = dto.code || dto.token;
+    if (!codeOrToken) {
+      throw new NAuthException(
+        AuthErrorCode.INVALID_CREDENTIALS,
+        'Either code or token is required to confirm password reset',
+      );
+    }
+
+    await this.passwordResetService.consumeValidCode(user, codeOrToken, 'admin_password_reset');
+
+    // ============================================================================
+    // Update password
+    // ============================================================================
+    // WHY: User already set a new password via this reset flow, so no need to force
+    // another password change on next login (unlike adminSetPassword where admin sets
+    // a password the user doesn't know)
+    await this.helpers.updateUserPassword(
+      {
+        user,
+        newPassword: dto.newPassword,
+        mustChangePassword: false, // User already set new password, no need to force change again
+        revokeSessions: true, // Always revoke on completion
+        revokeReason: 'Admin-initiated password reset completed',
+        audit: {
+          eventType: AuthAuditEventType.ADMIN_PASSWORD_RESET_COMPLETED,
+          eventStatus: 'SUCCESS',
+          description: 'User completed admin-initiated password reset',
+          metadata: {
+            usedCode: !!dto.code,
+            usedToken: !!dto.token,
+          },
+        },
+      },
+      this.passwordService,
+      this.auditService,
+    );
+
+    // ============================================================================
+    // Return Response
+    // ============================================================================
+    return {
+      success: true,
+    };
   }
 
   /**

@@ -869,6 +869,34 @@ export interface PasswordConfig {
      */
     maxAttempts?: number;
   };
+
+  /**
+   * Admin password reset configuration
+   *
+   * Controls admin-initiated password reset verification code behavior.
+   * Admin resets have longer expiry (default 1 hour vs 15 min) and no rate limiting.
+   *
+   * Note: Defaults are applied in service layer when not provided.
+   */
+  adminPasswordReset?: {
+    /**
+     * Verification code length
+     * @default 6
+     */
+    codeLength?: number;
+
+    /**
+     * Code expiry in seconds
+     * @default 3600 (1 hour - longer than user-initiated 15 min)
+     */
+    expiresIn?: number;
+
+    /**
+     * Maximum code verification attempts per code
+     * @default 3
+     */
+    maxAttempts?: number;
+  };
 }
 
 export interface LockoutConfig {

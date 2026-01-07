@@ -52,6 +52,81 @@ Automatically injected by your framework adapter. No manual instantiation requir
 
 ## Methods
 
+### adminResetPassword()
+
+Admin-only: Initiate code-based password reset workflow with email/SMS delivery.
+
+```typescript
+async adminResetPassword(dto: AdminResetPasswordDTO): Promise<AdminResetPasswordResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminResetPasswordDTO`](../dto/admin-reset-password-dto)
+
+**Returns**
+
+- [`AdminResetPasswordResponseDTO`](../dto/admin-reset-password-dto)
+
+**Errors**
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
+
+| Code                  | When                           | Details     |
+| --------------------- | ------------------------------ | ----------- |
+| `NOT_FOUND`           | User not found                 | `undefined` |
+| `SERVICE_UNAVAILABLE` | Password reset service missing | `undefined` |
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Controller('admin')
+@UseGuards(AdminGuard)
+export class AdminController {
+  constructor(private authService: AuthService) {}
+
+  @Post('reset-password/initiate')
+  async initiateReset(@Body() dto: AdminResetPasswordDTO) {
+    return this.authService.adminResetPassword(dto);
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.post('/admin/reset-password/initiate', nauth.helpers.requireAuth(), requireAdmin, async (req, res) => {
+  const result = await nauth.authService.adminResetPassword(req.body);
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.post(
+  '/admin/reset-password/initiate',
+  { preHandler: [nauth.helpers.requireAuth(), requireAdmin] },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    return nauth.authService.adminResetPassword(req.body);
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+:::warning Authorization
+Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
+:::
+
+---
+
 ### adminSetPassword()
 
 Admin-only: Reset user password by identifier.
@@ -700,6 +775,92 @@ fastify.post('/auth/change-password', async (req, reply) => {
   const result = await nauth.authService.changePassword(req.body);
   reply.send(result);
 });
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+### confirmAdminResetPassword()
+
+Complete admin-initiated password reset with verification code or token.
+
+```typescript
+async confirmAdminResetPassword(dto: ConfirmAdminResetPasswordDTO): Promise<ConfirmAdminResetPasswordResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`ConfirmAdminResetPasswordDTO`](../dto/confirm-admin-reset-password-dto)
+
+**Returns**
+
+- [`ConfirmAdminResetPasswordResponseDTO`](../dto/confirm-admin-reset-password-dto)
+
+**Errors**
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
+
+| Code                          | When                                                              | Details                |
+| ----------------------------- | ----------------------------------------------------------------- | ---------------------- |
+| `NOT_FOUND`                   | User not found                                                    | `undefined`            |
+| `PASSWORD_RESET_CODE_INVALID` | Code/token invalid                                                | `undefined`            |
+| `PASSWORD_RESET_CODE_EXPIRED` | Code/token expired                                                | `undefined`            |
+| `PASSWORD_RESET_MAX_ATTEMPTS` | Max attempts exceeded (code only)                                 | `undefined`            |
+| `WEAK_PASSWORD`               | Policy violation                                                  | `{ errors: string[] }` |
+| `PASSWORD_REUSED`             | Only if `password.historyCount` is configured AND password reused | `undefined`            |
+| `INVALID_CREDENTIALS`         | Neither code nor token provided                                   | `undefined`            |
+| `SERVICE_UNAVAILABLE`         | Password reset service missing                                    | `undefined`            |
+
+**WEAK_PASSWORD details**
+
+Example strings returned in `errors`:
+
+```json
+{
+  "errors": [
+    "Password must be at least 8 characters long",
+    "Password must contain at least one uppercase letter",
+    "Password must contain at least one number",
+    "Password must contain at least one special character !@#$%^&*()_+=[{}|;:,.<>?-]"
+  ]
+}
+```
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Post('admin/reset-password/confirm')
+async confirmReset(@Body() dto: ConfirmAdminResetPasswordDTO) {
+  return this.authService.confirmAdminResetPassword(dto);
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.post('/admin/reset-password/confirm', async (req, res) => {
+  const result = await nauth.authService.confirmAdminResetPassword(req.body);
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.post(
+  '/admin/reset-password/confirm',
+  { preHandler: nauth.helpers.public() },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    return nauth.authService.confirmAdminResetPassword(req.body);
+  }),
+);
 ```
 
 </TabItem>

@@ -51,7 +51,7 @@ import { AdaptiveMFAUser } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AdaptiveMFARiskEventPayload](./nauth-config#adaptivemfariskeventpayload) - User property type
+- [AdaptiveMFARiskEventPayload](./adaptive-mfa-risk-event-payload) - User property type
 
 ## Related APIs
 

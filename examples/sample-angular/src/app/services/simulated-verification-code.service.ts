@@ -68,8 +68,12 @@ export class SimulatedVerificationCodeService {
    * @param method - Optional MFA method override (for MFA_SETUP_REQUIRED when method isn't in challenge)
    */
   async handleChallenge(challenge: AuthResponse, method?: string): Promise<void> {
+    console.log('[SimulatedVerificationCodeService] handleChallenge called:', challenge.challengeName, challenge.session, method);
     const challengeName = challenge.challengeName;
-    if (!challengeName) return;
+    if (!challengeName) {
+      console.log('[SimulatedVerificationCodeService] No challengeName, returning');
+      return;
+    }
 
     // Only handle SMS and email verification challenges
     const isSmsChallenge = challengeName === AuthChallenge.VERIFY_PHONE;
@@ -156,9 +160,11 @@ export class SimulatedVerificationCodeService {
       }
       if (!code) {
         // No code found - silently return (may not be available in all configurations)
+        console.log('[SimulatedVerificationCodeService] No code found for challenge:', challengeName, 'session:', sessionId);
         return;
       }
 
+      console.log('[SimulatedVerificationCodeService] Code found, showing toast:', code, 'type:', type);
       // Show toast with verification code - replaces the dismissed one
       this.showVerificationCodeToast(code, type);
     } catch {
@@ -182,13 +188,19 @@ export class SimulatedVerificationCodeService {
       params.method = method;
     }
 
-    const response = await firstValueFrom(
-      this.http.get<{ code: string | null }>(`${environment.apiBaseUrl}/test/code/latest`, {
-        params,
-      }),
-    );
-
-    return response?.code || null;
+    console.log('[SimulatedVerificationCodeService] Fetching code:', `${environment.apiBaseUrl}/test/code/latest`, params);
+    try {
+      const response = await firstValueFrom(
+        this.http.get<{ code: string | null }>(`${environment.apiBaseUrl}/test/code/latest`, {
+          params,
+        }),
+      );
+      console.log('[SimulatedVerificationCodeService] Code fetch response:', response);
+      return response?.code || null;
+    } catch (error) {
+      console.error('[SimulatedVerificationCodeService] Error fetching code:', error);
+      throw error;
+    }
   }
 
   /**

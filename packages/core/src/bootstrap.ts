@@ -164,24 +164,34 @@ export class NAuth {
     // ========================================================================
     // 0. Run database migrations (adapter-owned, auto-run, no consumer burden)
     // ========================================================================
+    logger.debug('[PERF] Starting database migrations...');
     await runNAuthMigrationsOnStartup(config, dataSource, logger);
+    logger.debug('[PERF] Database migrations completed');
 
     // ========================================================================
     // 1. Initialize Repositories & Storage
     // ========================================================================
+    logger.debug('[PERF] Discovering repositories...');
     const repos = getRepositories(dataSource);
+    logger.debug('[PERF] Repositories discovered');
+
+    logger.debug('[PERF] Initializing storage...');
     const storage = await initStorage(config, repos.rateLimitRepository, repos.storageLockRepository, logger);
+    logger.debug('[PERF] Storage initialized');
 
     // ========================================================================
     // 2. Initialize Services
     // ========================================================================
+    logger.debug('[PERF] Initializing services...');
     const emailProvider = config.emailProvider;
     const smsProvider = config.smsProvider;
     const services: NAuthServices = initServices(config, repos, storage, logger, emailProvider, smsProvider);
+    logger.debug('[PERF] Services initialized');
 
     // ========================================================================
     // 3. Initialize Auth Flow State Machine
     // ========================================================================
+    logger.debug('[PERF] Initializing auth flow state machine...');
     const contextBuilder = new AuthFlowContextBuilder(
       services.trustedDeviceService,
       services.adaptiveMFADecisionService,
@@ -196,13 +206,16 @@ export class NAuth {
     } else {
       throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'AuthChallengeHelperService not initialized.');
     }
+    logger.debug('[PERF] Auth flow state machine initialized');
 
     // ========================================================================
     // 4. Register MFA & Social Providers
     // ========================================================================
+    logger.debug('[PERF] Registering providers...');
     const socialAuthStateStore = new SocialAuthStateStore(storage, logger);
 
     if (config.mfa?.enabled && services.mfaService) {
+      logger.debug('[PERF] Registering MFA providers...');
       await registerMFAProviders(
         config,
         services.mfaService,
@@ -216,8 +229,10 @@ export class NAuth {
         services.auditService,
         services.clientInfoService,
       );
+      logger.debug('[PERF] MFA providers registered');
     }
 
+    logger.debug('[PERF] Initializing social auth...');
     const socialProviders: NAuthSocialProviders = await initSocialAuth(
       config,
       services.socialProviderRegistry,
@@ -236,10 +251,13 @@ export class NAuth {
       repos.socialProviderSecretRepository,
       services.hookRegistry,
     );
+    logger.debug('[PERF] Social auth initialized');
+    logger.debug('[PERF] Providers registration completed');
 
     // ========================================================================
     // 5. Create Handlers
     // ========================================================================
+    logger.debug('[PERF] Creating handlers...');
     const clientInfoHandler = new ClientInfoHandler(services.clientInfoService, services.geoLocationService, logger);
 
     const authHandler = new AuthHandler(
@@ -259,10 +277,12 @@ export class NAuth {
         : undefined;
 
     const csrfHandler = csrfService ? new CsrfHandler(csrfService, config, logger) : null;
+    logger.debug('[PERF] Handlers created');
 
     // ========================================================================
     // 6. Register Middleware with Adapter
     // ========================================================================
+    logger.debug('[PERF] Registering middleware with adapter...');
     const middleware = {
       // ClientInfo MUST be first - initializes context
       clientInfo: adapter.registerMiddleware('clientInfo', clientInfoHandler.handle.bind(clientInfoHandler), {
@@ -352,15 +372,18 @@ export class NAuth {
       getCurrentSession: () => ContextStorage.get<string | number>('CURRENT_SESSION'),
       getClientInfo: () => ContextStorage.get<ClientInfo>('CLIENT_INFO'),
     };
+    logger.debug('[PERF] Middleware registered with adapter');
 
     // ========================================================================
     // 8. Build and Return Instance
     // ========================================================================
+    logger.debug('[PERF] Building NAuth instance...');
 
     // Exclude internal services from public API
     const { challengeService, authChallengeHelperService, ...publicServices } = services;
 
     logger.log(`NAuth initialized successfully with ${adapter.name}`);
+    logger.debug('[PERF] NAuth initialization completed');
 
     return {
       ...publicServices,

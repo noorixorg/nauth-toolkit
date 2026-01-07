@@ -370,6 +370,69 @@ If you didn't request a password reset, your account is secure and you can ignor
     });
 
     // ============================================================================
+    // Admin Password Reset Template
+    // ============================================================================
+    this.registerTemplate(TemplateType.ADMIN_PASSWORD_RESET, {
+      subject: 'Password Reset Initiated by Administrator - {{appName}}',
+      html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Password Reset</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; }
+    .container { max-width: 600px; margin: 0 auto; }
+    h1 { font-size: 24px; margin: 0 0 20px 0; }
+    p { margin: 0 0 15px 0; }
+    .code { font-size: 24px; font-weight: bold; letter-spacing: 3px; margin: 20px 0; text-align: center; padding: 15px; background-color: #f5f5f5; border-radius: 5px; }
+    .warning { background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Password Reset Initiated</h1>
+    <p>{{#if greetingName}}Hi {{greetingName}},{{else}}Hi,{{/if}}</p>
+    <p><strong>An administrator has initiated a password reset for your {{appName}} account.</strong></p>
+
+    <p>Your Reset Code:</p>
+    <div class="code">{{code}}</div>
+
+    {{#if link}}
+    <p>Or click the link below to reset your password:</p>
+    <p><a href="{{link}}">Reset Password</a></p>
+    {{/if}}
+
+    <p>This code expires in {{expiryMinutes}} minutes.</p>
+
+    <div class="warning">
+      <p><strong>Important:</strong> If you did not request this password reset, please contact your administrator immediately.</p>
+    </div>
+  </div>
+</body>
+</html>
+      `,
+      text: `
+Password Reset Initiated by Administrator
+
+{{#if greetingName}}Hi {{greetingName}},{{else}}Hi,{{/if}}
+
+An administrator has initiated a password reset for your {{appName}} account.
+
+Your Reset Code: {{code}}
+
+{{#if link}}
+Or use this link: {{link}}
+{{/if}}
+
+This code expires in {{expiryMinutes}} minutes.
+
+IMPORTANT: If you did not request this password reset, please contact your administrator immediately.
+      `,
+    });
+
+    // ============================================================================
     // Welcome Email Template
     // ============================================================================
     this.registerTemplate(TemplateType.WELCOME, {

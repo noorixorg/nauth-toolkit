@@ -100,5 +100,3 @@ export class ValidateAccessTokenResponseDTO {
    */
   errorType?: 'expired' | 'invalid' | 'malformed' | 'blacklisted';
 }
-
-

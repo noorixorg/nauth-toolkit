@@ -210,6 +210,29 @@ export interface AdminSetPasswordRequest {
 }
 
 /**
+ * Admin-initiated password reset request DTO
+ */
+export interface AdminResetPasswordRequest {
+  identifier: string;
+  deliveryMethod?: 'email' | 'sms';
+  baseUrl?: string;
+  codeExpiresIn?: number;
+  revokeSessions?: boolean;
+  reason?: string;
+}
+
+/**
+ * Admin-initiated password reset response DTO
+ */
+export interface AdminResetPasswordResponse {
+  success: boolean;
+  destination?: string;
+  deliveryMedium?: 'email' | 'sms';
+  expiresIn?: number;
+  sessionsRevoked?: number;
+}
+
+/**
  * Admin Service
  *
  * Handles administrative operations for user management.
@@ -498,6 +521,41 @@ export class AdminService {
       if (error && typeof error === 'object' && 'error' in error) {
         const httpError = error as { error?: { message?: string; code?: string } };
         throw new Error(httpError.error?.message || 'Failed to import social user');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Initiate admin password reset workflow
+   *
+   * Sends a verification code (and optional link) to the user via email/SMS.
+   * User can then reset their password using the code or link.
+   *
+   * @param dto - Admin reset password request
+   * @returns Reset confirmation with delivery details
+   * @throws {Error} If API call fails
+   *
+   * @example
+   * ```typescript
+   * const result = await adminService.adminResetPassword({
+   *   identifier: 'user@example.com',
+   *   deliveryMethod: 'email',
+   *   baseUrl: 'https://myapp.com/reset-password',
+   *   reason: 'User reported account compromise'
+   * });
+   * ```
+   */
+  async adminResetPassword(dto: AdminResetPasswordRequest): Promise<AdminResetPasswordResponse> {
+    try {
+      const response = await firstValueFrom(
+        this.http.post<AdminResetPasswordResponse>(`${this.baseUrl}/reset-password/initiate`, dto),
+      );
+      return response;
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'error' in error) {
+        const httpError = error as { error?: { message?: string; code?: string } };
+        throw new Error(httpError.error?.message || 'Failed to initiate password reset');
       }
       throw error;
     }

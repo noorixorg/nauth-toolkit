@@ -266,6 +266,8 @@ export class AuthModule {
       nauthLogger.log('Initializing nauth-toolkit...');
       nauthLogger.debug(`Table prefix: ${config.tablePrefix || 'nauth_'}`);
       nauthLogger.debug(`JWT algorithm: ${config.jwt.algorithm || 'HS256'}`);
+      nauthLogger.debug('[PERF] Config validation completed');
+      nauthLogger.debug('[PERF] Logger initialized');
     }
 
     // Storage adapter will be initialized in useFactory below
@@ -373,9 +375,13 @@ export class AuthModule {
             rateLimitRepo: Repository<BaseRateLimit> | null,
             storageLockRepo: Repository<BaseStorageLock> | null,
           ) => {
+            logger?.debug?.('[PERF] STORAGE_ADAPTER factory started');
+
             // If storage adapter is explicitly provided, use it
             if (config.storageAdapter) {
+              logger?.debug?.('[PERF] Using provided storage adapter');
               const adapter = config.storageAdapter;
+
               // Inject logger into adapter if it supports setLogger (for factory-created adapters)
               if (
                 adapter &&
@@ -406,7 +412,9 @@ export class AuthModule {
                   ).setRepositories(rateLimitRepo, storageLockRepo);
                 }
               }
+              logger?.debug?.('[PERF] Calling storage adapter.initialize()...');
               await adapter.initialize();
+              logger?.debug?.('[PERF] Storage adapter initialized');
               return adapter;
             }
 
@@ -414,15 +422,20 @@ export class AuthModule {
             if (rateLimitRepo && storageLockRepo) {
               // Default to DatabaseStorageAdapter when repositories are available (most apps have a database)
               try {
+                logger?.debug?.('[PERF] Importing DatabaseStorageAdapter...');
                 // Lazy import to avoid bundling if not used
                 const { DatabaseStorageAdapter } = await import('@nauth-toolkit/storage-database');
+                logger?.debug?.('[PERF] DatabaseStorageAdapter imported');
+
                 const adapter = new DatabaseStorageAdapter(null, null, logger);
                 adapter.setRepositories(rateLimitRepo, storageLockRepo);
+                logger?.debug?.('[PERF] Calling DatabaseStorageAdapter.initialize()...');
                 await adapter.initialize();
                 logger?.warn?.(
                   'WARNING: Storage adapter not provided. Using DatabaseStorageAdapter as default. ' +
                     'For production, explicitly configure storageAdapter in your config.',
                 );
+                logger?.debug?.('[PERF] DatabaseStorageAdapter initialized');
                 return adapter;
               } catch (error) {
                 // If DatabaseStorageAdapter import fails, fall through to error
@@ -455,7 +468,8 @@ export class AuthModule {
         // Rate Limit Repository (optional - only needed for DatabaseStorageAdapter)
         {
           provide: 'RateLimitRepository',
-          useFactory: (dataSource: DataSource) => {
+          useFactory: (dataSource: DataSource, logger?: NAuthLogger) => {
+            logger?.debug?.('[PERF] Discovering RateLimitRepository...');
             // Try to find entity from config first
             const entityFromConfig = entities.find((e: Function) => e.name === 'RateLimit');
             if (entityFromConfig) {
@@ -478,13 +492,14 @@ export class AuthModule {
             // Return null if not found (storage adapter might not be DatabaseStorageAdapter)
             return null;
           },
-          inject: [DataSource],
+          inject: [DataSource, 'NAUTH_LOGGER'],
         },
 
         // Storage Lock Repository (optional - only needed for DatabaseStorageAdapter)
         {
           provide: 'StorageLockRepository',
-          useFactory: (dataSource: DataSource) => {
+          useFactory: (dataSource: DataSource, logger?: NAuthLogger) => {
+            logger?.debug?.('[PERF] Discovering StorageLockRepository...');
             // Try to find entity from config first
             const entityFromConfig = entities.find((e: Function) => e.name === 'StorageLock');
             if (entityFromConfig) {
@@ -507,14 +522,15 @@ export class AuthModule {
             // Return null if not found (storage adapter might not be DatabaseStorageAdapter)
             return null;
           },
-          inject: [DataSource],
+          inject: [DataSource, 'NAUTH_LOGGER'],
         },
 
         // Repository Tokens - discover entities from DataSource metadata
         // This allows entities to be auto-discovered if registered in TypeORM.forRoot()
         {
           provide: 'UserRepository',
-          useFactory: (dataSource: DataSource) => {
+          useFactory: (dataSource: DataSource, logger?: NAuthLogger) => {
+            logger?.debug?.('[PERF] Discovering UserRepository...');
             // Try to find entity from provided config first
             const entityFromConfig = entities.find((e: Function) => e.name === 'User');
             if (entityFromConfig) {
@@ -530,7 +546,7 @@ export class AuthModule {
             }
             return dataSource.getRepository(metadata.target);
           },
-          inject: [DataSource],
+          inject: [DataSource, 'NAUTH_LOGGER'],
         },
         {
           provide: 'SessionRepository',

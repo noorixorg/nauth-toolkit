@@ -83,6 +83,7 @@ export interface EmailTemplate {
 export enum TemplateType {
   VERIFICATION = 'verification',
   PASSWORD_RESET = 'passwordReset',
+  ADMIN_PASSWORD_RESET = 'adminPasswordReset',
   WELCOME = 'welcome',
   ACCOUNT_LOCKOUT = 'accountLockout',
   NEW_DEVICE = 'newDevice',

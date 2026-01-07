@@ -34,6 +34,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'admin-reset-password',
+    loadComponent: () =>
+      import('./admin-reset-password/admin-reset-password.component').then(
+        (m) => m.AdminResetPasswordComponent,
+      ),
+  },
+  {
     path: 'auth/callback',
     canActivate: [socialRedirectCallbackGuard],
     // Guard-only callback route. The guard handles exchanging `exchangeToken` (json/hybrid)

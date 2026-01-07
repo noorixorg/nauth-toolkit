@@ -56,7 +56,7 @@ import { AuthResponseUser } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AuthResponseDTO](../dto/auth-response-dto#user) - User property type
+- [AuthResponseDTO](../dto/auth-response-dto#properties) - `user` property type
 - [toAuthResponseUser()](../dto/auth-response-dto#toauthresponseuser) - Conversion utility function
 
 ## Related APIs

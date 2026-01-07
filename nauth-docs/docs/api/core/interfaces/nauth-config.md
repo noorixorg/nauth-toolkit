@@ -49,6 +49,6 @@ import { NAuthConfig } from '@nauth-toolkit/core';
 ## Related Types
 
 - [`AdaptiveMFAUser`](./adaptive-mfa-user) - User interface for adaptive MFA risk events
-- [`AdaptiveMFARiskEventPayload`](#adaptivemfariskeventpayload) - Risk event payload interface
+- [`AdaptiveMFARiskEventPayload`](./adaptive-mfa-risk-event-payload) - Risk event payload interface
 
 

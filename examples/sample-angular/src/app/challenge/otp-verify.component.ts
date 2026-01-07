@@ -19,7 +19,11 @@ import {
   AbstractControl,
   ValidationErrors,
 } from '@angular/forms';
-import { AuthService, AuthResponse, NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client-angular/standalone';
+import {
+  AuthService,
+  AuthResponse,
+  NAUTH_CLIENT_CONFIG,
+} from '@nauth-toolkit/client-angular/standalone';
 import {
   AuthChallenge,
   VerifyEmailResponse,
@@ -188,6 +192,7 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private triggerToast(sessionId: string, challengeName: string, method: 'sms' | 'email'): void {
     if (!sessionId) {
+      console.log('[OTP Component] triggerToast: No sessionId provided');
       return;
     }
 
@@ -198,11 +203,18 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
     // Mark as triggered immediately to prevent multiple calls
     // Resend operations will clear this flag before calling triggerToast again
     if (this.toastTriggeredSessions.has(toastKey)) {
+      console.log('[OTP Component] triggerToast: Toast already triggered for', toastKey);
       return;
     }
 
     // Mark as triggered to prevent duplicate calls
     this.toastTriggeredSessions.add(toastKey);
+    console.log(
+      '[OTP Component] triggerToast: Triggering toast for',
+      toastKey,
+      'challenge:',
+      challengeName,
+    );
 
     // Delay to ensure code is saved to database after challenge event occurs
     // Backend typically completes in 20-50ms, 500ms provides comfortable buffer
@@ -215,12 +227,14 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
         challengeParameters: {},
       };
 
+      console.log('[OTP Component] triggerToast: Calling handleChallenge with', challenge, method);
       this.simulatedVerificationCodeService
         .handleChallenge(challenge, method)
         .then(() => {
-          // Toast shown successfully
+          console.log('[OTP Component] triggerToast: Toast shown successfully');
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error('[OTP Component] triggerToast: Error showing toast', error);
           // Silently handle errors - if fetch fails, remove from set to allow retry
           this.toastTriggeredSessions.delete(toastKey);
         });
@@ -810,6 +824,20 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
       challengeName === AuthChallenge.VERIFY_PHONE
     ) {
       this.startResendTimer();
+
+      // Trigger toast for email/phone verification
+      // Code is sent automatically when challenge is created
+      const sessionId = challenge.session;
+      if (sessionId) {
+        const method = challengeName === AuthChallenge.VERIFY_EMAIL ? 'email' : 'sms';
+        console.log(
+          '[OTP Component] Triggering toast for initial challenge:',
+          challengeName,
+          sessionId,
+          method,
+        );
+        this.triggerToast(sessionId, challengeName, method);
+      }
     }
 
     // For MFA_REQUIRED with SMS/Email preferred (or implicitly selected by backend),

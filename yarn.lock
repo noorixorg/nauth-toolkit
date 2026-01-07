@@ -3409,7 +3409,7 @@
     "@tybys/wasm-util" "^0.10.1"
 
 "@nauth-toolkit/client-angular@file:packages/client-angular/dist":
-  version "0.1.54"
+  version "0.1.59"
   dependencies:
     tslib "^2.3.0"
 
@@ -12280,10 +12280,10 @@ pretty-format@^29.0.0, pretty-format@^29.7.0:
     ansi-styles "^5.0.0"
     react-is "^18.0.0"
 
-primeng@^21.0.1:
-  version "21.0.1"
-  resolved "https://registry.yarnpkg.com/primeng/-/primeng-21.0.1.tgz#4386f5779d8efb813eaaa16939bd4a57abbee0df"
-  integrity sha512-lCmMpr2cgL4r/HPByMnrKTPgwYJAQhMDbtu/u8VL3Otnzs8KSKY7bmSnH6cqvucsk8lr/VSKJTxbssb9gtmOVg==
+primeng@^21.0.2:
+  version "21.0.2"
+  resolved "https://registry.yarnpkg.com/primeng/-/primeng-21.0.2.tgz#157080b92e3ee690c588548ddca7ab49e007e08f"
+  integrity sha512-suf+xK3V3z2aG9OmQMAriqhMt79JM3jBSoRDu4XQKCiTiWDRnOvoVdCZCjByT32sE5tYqhrLBsCH0lT7RLcosg==
   dependencies:
     "@primeuix/motion" "^0.0.10"
     "@primeuix/styled" "^0.7.4"
