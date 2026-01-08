@@ -102,5 +102,3 @@ describe('CsrfHandler', () => {
     expect((res.header as unknown as jest.Mock).mock.calls.length).toBe(1);
   });
 });
-
-

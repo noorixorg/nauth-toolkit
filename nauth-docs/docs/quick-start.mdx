@@ -29,6 +29,7 @@ npm install @nauth-toolkit/core @nauth-toolkit/nestjs @nauth-toolkit/database-ty
 ```
 
 **With Yarn 1.x, also install peer dependencies:**
+
 ```bash
 yarn add @nauth-toolkit/core @nauth-toolkit/nestjs @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console dotenv
 yarn add typeorm @nestjs/common @nestjs/core @nestjs/typeorm reflect-metadata rxjs jose
@@ -41,17 +42,22 @@ yarn add mysql2  # For MySQL
 <TabItem value="express" label="Express">
 
 ```bash npm2yarn
-npm install @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console
+npm install @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console cookie-parser
 ```
 
 **With Yarn 1.x, also install peer dependencies:**
+
 ```bash
-yarn add @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console
+yarn add @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console cookie-parser
 yarn add typeorm
 yarn add pg  # For PostgreSQL
 # OR
 yarn add mysql2  # For MySQL
 ```
+
+:::info Cookie Parser Required
+`cookie-parser` is required when using `tokenDelivery.method: 'cookies'` or `'hybrid'` in your configuration. If you're using `'json'` mode only, you can omit it.
+:::
 
 </TabItem>
 <TabItem value="fastify" label="Fastify">
@@ -61,6 +67,7 @@ npm install @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres @nauth-
 ```
 
 **With Yarn 1.x, also install peer dependencies:**
+
 ```bash
 yarn add @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console @fastify/cookie
 yarn add typeorm
@@ -80,6 +87,7 @@ The following peer dependencies are automatically installed by **npm, pnpm, bun,
 <TabItem value="nestjs" label="NestJS" default>
 
 **Required:**
+
 - `typeorm` (^0.3.0) - Required by core and database adapters
 - `@nestjs/common` (^9.0.0 || ^10.0.0 || ^11.0.0) - Required by NestJS adapter
 - `@nestjs/core` (^9.0.0 || ^10.0.0 || ^11.0.0) - Required by NestJS adapter
@@ -88,42 +96,51 @@ The following peer dependencies are automatically installed by **npm, pnpm, bun,
 - `rxjs` (^7.0.0) - Required by NestJS adapter
 
 **Database-specific:**
+
 - `pg` (^8.0.0) - For PostgreSQL
 - `mysql2` (^2.3.0 || ^3.0.0) - For MySQL
 
 **Optional:**
+
 - `@maxmind/geoip2-node` (^4.0.0 || ^5.0.0 || ^6.0.0) - For geolocation features
 
 </TabItem>
 <TabItem value="express" label="Express">
 
 **Required:**
+
 - `typeorm` (^0.3.0) - Required by core and database adapters
 
 **Database-specific:**
+
 - `pg` (^8.0.0) - For PostgreSQL
 - `mysql2` (^2.3.0 || ^3.0.0) - For MySQL
 
 **Optional:**
+
 - `@maxmind/geoip2-node` (^4.0.0 || ^5.0.0 || ^6.0.0) - For geolocation features
 
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
 **Required:**
+
 - `typeorm` (^0.3.0) - Required by core and database adapters
 
 **Database-specific:**
+
 - `pg` (^8.0.0) - For PostgreSQL
 - `mysql2` (^2.3.0 || ^3.0.0) - For MySQL
 
 **Optional:**
+
 - `@maxmind/geoip2-node` (^4.0.0 || ^5.0.0 || ^6.0.0) - For geolocation features
 
 </TabItem>
 </Tabs>
 
 **Additional peer dependencies for optional features:**
+
 - `otplib` (^12.0.1) & `qrcode` (^1.5.3) - For MFA TOTP
 - `@simplewebauthn/server` (^10.0.0) - For MFA Passkey/WebAuthn
 - `redis` (^4.6.0 || ^5.0.0) - For Redis storage adapter
@@ -168,10 +185,7 @@ bootstrap();
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '@nauth-toolkit/nestjs';
-import {
-  getNAuthEntities,
-  getNAuthTransientStorageEntities,
-} from '@nauth-toolkit/database-typeorm-postgres';
+import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
 import { authConfig } from './config/auth.config';
 import { AuthController } from './auth.controller';
 import { AppController } from './app.controller';
@@ -232,7 +246,7 @@ export class AuthController {
 
 ```typescript title="index.ts"
 import express from 'express';
-import cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser'; // Required for 'cookies' or 'hybrid' token delivery mode
 import { DataSource } from 'typeorm';
 import { NAuth, ExpressAdapter, NAuthInstance, ExpressMiddlewareType } from '@nauth-toolkit/core';
 import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
@@ -264,6 +278,7 @@ async function bootstrap() {
 
   const app = express();
   app.use(express.json());
+  // cookie-parser is required when using 'cookies' or 'hybrid' token delivery mode
   app.use(cookieParser());
 
   // Mount middleware (order matters)
@@ -320,7 +335,7 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
 
 ```typescript title="index.ts"
 import Fastify, { FastifyInstance } from 'fastify';
-import cookie from '@fastify/cookie';
+import cookie from '@fastify/cookie'; // Required for 'cookies' or 'hybrid' token delivery mode
 import { DataSource } from 'typeorm';
 import { NAuth, FastifyAdapter, NAuthInstance } from '@nauth-toolkit/core';
 import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
@@ -351,6 +366,7 @@ async function bootstrap() {
   });
 
   const fastify = Fastify();
+  // @fastify/cookie is required when using 'cookies' or 'hybrid' token delivery mode
   await fastify.register(cookie);
 
   // Register hooks (order matters)
@@ -360,9 +376,12 @@ async function bootstrap() {
   fastify.addHook('onSend', nauth.middleware.tokenDelivery as any);
 
   // Routes
-  await fastify.register(async (api) => {
-    createAuthRoutes(api, nauth);
-  }, { prefix: '/auth' });
+  await fastify.register(
+    async (api) => {
+      createAuthRoutes(api, nauth);
+    },
+    { prefix: '/auth' },
+  );
 
   await fastify.listen({ port: 3000 });
   console.log('Server running on :3000');
@@ -375,10 +394,7 @@ bootstrap();
 import { FastifyInstance } from 'fastify';
 import { NAuthInstance } from '@nauth-toolkit/core';
 
-export async function createAuthRoutes(
-  fastify: FastifyInstance,
-  nauth: NAuthInstance<any, any>,
-): Promise<void> {
+export async function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<any, any>): Promise<void> {
   fastify.post(
     '/signup',
     { preHandler: nauth.helpers.public() as any },
@@ -517,6 +533,11 @@ export const authConfig: NAuthConfig = {
   // For production, use: new AWSSMSProvider({ region: 'us-east-1', ... })
   smsProvider: new ConsoleSMSProvider(),
 
+  // Token delivery configuration
+  // NOTE: If using 'cookies' or 'hybrid' mode, ensure cookie-parser middleware is installed and configured
+  tokenDelivery: {
+    method: 'json', // 'json', 'cookies', or 'hybrid'
+  },
 
   signup: {
     enabled: true,
@@ -575,6 +596,11 @@ export const authConfig: NAuthConfig = {
   // For production, use: new AWSSMSProvider({ region: 'us-east-1', ... })
   smsProvider: new ConsoleSMSProvider(),
 
+  // Token delivery configuration
+  // NOTE: If using 'cookies' or 'hybrid' mode, ensure @fastify/cookie plugin is registered
+  tokenDelivery: {
+    method: 'json', // 'json', 'cookies', or 'hybrid'
+  },
 
   signup: {
     enabled: true,
@@ -828,13 +854,16 @@ export const authConfig: NAuthModuleConfig = {
       // Custom templates (override defaults)
       customTemplates: {
         verification: {
-          content: '{{#if appName}}{{appName}}: {{/if}}Your verification code is {{code}}. Valid for {{expiryMinutes}} minutes.',
+          content:
+            '{{#if appName}}{{appName}}: {{/if}}Your verification code is {{code}}. Valid for {{expiryMinutes}} minutes.',
         },
         mfa: {
-          content: '{{#if appName}}{{appName}}: {{/if}}Your MFA code is {{code}}. Expires in {{expiryMinutes}} minutes.',
+          content:
+            '{{#if appName}}{{appName}}: {{/if}}Your MFA code is {{code}}. Expires in {{expiryMinutes}} minutes.',
         },
         passwordReset: {
-          content: '{{#if appName}}{{appName}}: {{/if}}Your password reset code is {{code}}. Valid for {{expiryMinutes}} minutes.',
+          content:
+            '{{#if appName}}{{appName}}: {{/if}}Your password reset code is {{code}}. Valid for {{expiryMinutes}} minutes.',
         },
       },
     },
@@ -1100,13 +1129,16 @@ export const authConfig: NAuthConfig = {
       },
       customTemplates: {
         verification: {
-          content: '{{#if appName}}{{appName}}: {{/if}}Your verification code is {{code}}. Valid for {{expiryMinutes}} minutes.',
+          content:
+            '{{#if appName}}{{appName}}: {{/if}}Your verification code is {{code}}. Valid for {{expiryMinutes}} minutes.',
         },
         mfa: {
-          content: '{{#if appName}}{{appName}}: {{/if}}Your MFA code is {{code}}. Expires in {{expiryMinutes}} minutes.',
+          content:
+            '{{#if appName}}{{appName}}: {{/if}}Your MFA code is {{code}}. Expires in {{expiryMinutes}} minutes.',
         },
         passwordReset: {
-          content: '{{#if appName}}{{appName}}: {{/if}}Your password reset code is {{code}}. Valid for {{expiryMinutes}} minutes.',
+          content:
+            '{{#if appName}}{{appName}}: {{/if}}Your password reset code is {{code}}. Valid for {{expiryMinutes}} minutes.',
         },
       },
     },
@@ -1371,13 +1403,16 @@ export const authConfig: NAuthConfig = {
       },
       customTemplates: {
         verification: {
-          content: '{{#if appName}}{{appName}}: {{/if}}Your verification code is {{code}}. Valid for {{expiryMinutes}} minutes.',
+          content:
+            '{{#if appName}}{{appName}}: {{/if}}Your verification code is {{code}}. Valid for {{expiryMinutes}} minutes.',
         },
         mfa: {
-          content: '{{#if appName}}{{appName}}: {{/if}}Your MFA code is {{code}}. Expires in {{expiryMinutes}} minutes.',
+          content:
+            '{{#if appName}}{{appName}}: {{/if}}Your MFA code is {{code}}. Expires in {{expiryMinutes}} minutes.',
         },
         passwordReset: {
-          content: '{{#if appName}}{{appName}}: {{/if}}Your password reset code is {{code}}. Valid for {{expiryMinutes}} minutes.',
+          content:
+            '{{#if appName}}{{appName}}: {{/if}}Your password reset code is {{code}}. Valid for {{expiryMinutes}} minutes.',
         },
       },
     },
@@ -1438,10 +1473,7 @@ npm install @nauth-toolkit/social-google
 import { GoogleSocialAuthModule } from '@nauth-toolkit/social-google/nestjs';
 
 @Module({
-  imports: [
-    AuthModule.forRoot(authConfig),
-    GoogleSocialAuthModule,
-  ],
+  imports: [AuthModule.forRoot(authConfig), GoogleSocialAuthModule],
 })
 export class AppModule {}
 ```
@@ -1481,10 +1513,7 @@ npm install @nauth-toolkit/mfa-totp
 import { TOTPMFAModule } from '@nauth-toolkit/mfa-totp/nestjs';
 
 @Module({
-  imports: [
-    AuthModule.forRoot(authConfig),
-    TOTPMFAModule,
-  ],
+  imports: [AuthModule.forRoot(authConfig), TOTPMFAModule],
 })
 export class AppModule {}
 ```
