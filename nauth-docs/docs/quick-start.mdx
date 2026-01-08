@@ -213,8 +213,8 @@ export class AppModule {}
 ```
 
 ```typescript title="auth.controller.ts"
-import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
-import { AuthService, SignupDTO, LoginDTO, AuthGuard, CurrentUser, Public } from '@nauth-toolkit/nestjs';
+import { Controller, Post, Get, Body, UseGuards, Query } from '@nestjs/common';
+import { AuthService, SignupDTO, LoginDTO, LogoutDTO, AuthGuard, CurrentUser, Public } from '@nauth-toolkit/nestjs';
 import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('auth')
@@ -231,6 +231,23 @@ export class AuthController {
   @Post('login')
   async login(@Body() dto: LoginDTO) {
     return this.authService.login(dto);
+  }
+
+  // Public + AuthGuard = optional auth
+  // - If the request has a valid token, `@CurrentUser()` is populated.
+  // - If the user is already logged out/expired, the endpoint still succeeds and clears cookies (cookies/hybrid mode).
+  @Public()
+  @UseGuards(AuthGuard)
+  @Get('logout')
+  async logout(@CurrentUser() user: IUser | undefined, @Query('forgetMe') forgetMe?: string) {
+    const dto = new LogoutDTO();
+    if (forgetMe === 'true' || forgetMe === '1') {
+      dto.forgetMe = true;
+    }
+    if (user) {
+      dto.sub = user.sub;
+    }
+    return this.authService.logout(dto);
   }
 
   @UseGuards(AuthGuard)

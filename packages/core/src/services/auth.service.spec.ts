@@ -2398,6 +2398,38 @@ describe('AuthService', () => {
       });
     });
 
+    describe('Idempotent logout (no active session)', () => {
+      it('should not throw when sessionId is missing and should return success', async () => {
+        mockClientInfo.sessionId = undefined;
+
+        const result = await service.logout(createLogoutDto({ sub: mockSub }));
+
+        expect(result).toEqual({ success: true });
+        expect(mockSessionService.revokeSession).not.toHaveBeenCalled();
+      });
+
+      it('should clear auth cookies when sessionId is missing in cookie delivery modes', async () => {
+        mockClientInfo.sessionId = undefined;
+        mockConfig.tokenDelivery = {
+          method: 'cookies',
+          cookieNamePrefix: 'nauth',
+          cookieOptions: { path: '/', secure: true, sameSite: 'strict' },
+        } as any;
+
+        const clearCookie = jest.fn();
+        mockClientInfoService.getResponse.mockReturnValue({ clearCookie } as any);
+
+        const result = await service.logout(createLogoutDto({ sub: mockSub, forgetMe: true }));
+
+        expect(result).toEqual({ success: true });
+        expect(mockSessionService.revokeSession).not.toHaveBeenCalled();
+        // Access + refresh cookies must be cleared; device cookie cleared when forgetMe=true
+        expect(clearCookie).toHaveBeenCalledWith('nauth_access_token', expect.anything());
+        expect(clearCookie).toHaveBeenCalledWith('nauth_refresh_token', expect.anything());
+        expect(clearCookie).toHaveBeenCalledWith('nauth_device_token', expect.anything());
+      });
+    });
+
     describe('Forget device (forgetMe)', () => {
       it('should revoke trusted device when forgetMe is true', async () => {
         mockConfig.mfa = {

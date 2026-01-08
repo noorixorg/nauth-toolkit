@@ -255,10 +255,12 @@ const customTemplateDefinitionSchema = z
  * - Global variables for branding
  * - Custom templates with required parameters
  */
-const templateConfigSchema = z.object({
-  engine: z.any().optional(), // TemplateEngine instance - runtime validation
-  customTemplates: z.record(customTemplateDefinitionSchema).optional(),
-}).strict();
+const templateConfigSchema = z
+  .object({
+    engine: z.any().optional(), // TemplateEngine instance - runtime validation
+    customTemplates: z.record(customTemplateDefinitionSchema).optional(),
+  })
+  .strict();
 
 /**
  * Global variables schema for email templates
@@ -281,10 +283,12 @@ const emailGlobalVariablesSchema = z
 /**
  * Email configuration schema
  */
-export const emailConfigSchema = z.object({
-  globalVariables: emailGlobalVariablesSchema.optional(),
-  templates: templateConfigSchema.optional(),
-}).strict();
+export const emailConfigSchema = z
+  .object({
+    globalVariables: emailGlobalVariablesSchema.optional(),
+    templates: templateConfigSchema.optional(),
+  })
+  .strict();
 
 // ============================================================================
 // SMS Template Configuration Schema

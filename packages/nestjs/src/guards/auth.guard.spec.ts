@@ -137,6 +137,49 @@ describe('AuthGuard token source enforcement', () => {
     expect(result).toBe(true);
     expect(mockJwtService.validateAccessToken).toHaveBeenCalledWith('cookieToken');
   });
+
+  it('allows public routes to proceed even when token source is not allowed by delivery mode', async () => {
+    // Public route should never throw; it should just skip auth context attachment.
+    (mockReflector.getAllAndOverride as unknown as jest.Mock).mockReturnValue(true);
+
+    const guardJson = await createGuard({ tokenDelivery: { method: 'json' } });
+    const ctxCookiesInJson = createHttpContext({ cookies: { nauth_access_token: 'abc' } });
+    await expect(guardJson.canActivate(ctxCookiesInJson as any)).resolves.toBe(true);
+    expect(ctxCookiesInJson.switchToHttp().getRequest().user).toBeUndefined();
+
+    const guardCookies = await createGuard({ tokenDelivery: { method: 'cookies' } });
+    const ctxBearerInCookies = createHttpContext({ headers: { authorization: 'Bearer abc' } });
+    await expect(guardCookies.canActivate(ctxBearerInCookies as any)).resolves.toBe(true);
+    expect(ctxBearerInCookies.switchToHttp().getRequest().user).toBeUndefined();
+  });
+
+  it('attaches request.user on public routes when a valid token is provided', async () => {
+    (mockReflector.getAllAndOverride as unknown as jest.Mock).mockReturnValue(true);
+    const guard = await createGuard({ tokenDelivery: { method: 'json' } });
+    const ctx = createHttpContext({ headers: { authorization: 'Bearer valid' } });
+
+    await expect(guard.canActivate(ctx as any)).resolves.toBe(true);
+    const req = ctx.switchToHttp().getRequest();
+    expect(req.user).toBeDefined();
+    expect(req.token).toBeDefined();
+  });
+
+  it('does not throw and does not attach user on public routes when token is invalid/expired', async () => {
+    (mockReflector.getAllAndOverride as unknown as jest.Mock).mockReturnValue(true);
+    (mockJwtService.validateAccessToken as unknown as jest.Mock).mockResolvedValueOnce({
+      valid: false,
+      error: 'Token has expired',
+      errorType: 'expired',
+    });
+
+    const guard = await createGuard({ tokenDelivery: { method: 'json' } });
+    const ctx = createHttpContext({ headers: { authorization: 'Bearer expired' } });
+
+    await expect(guard.canActivate(ctx as any)).resolves.toBe(true);
+    const req = ctx.switchToHttp().getRequest();
+    expect(req.user).toBeUndefined();
+    expect(req.token).toBeUndefined();
+  });
 });
 
 /**
@@ -289,7 +332,7 @@ describe('AuthGuard', () => {
   describe('canActivate', () => {
     beforeEach(() => {
       // Setup default mocks
-      jest.spyOn(guard['reflector'], 'getAllAndOverride').mockReturnValue(false);
+      jest.spyOn(guard['_reflector'], 'getAllAndOverride').mockReturnValue(false);
       jest.spyOn(jwtService, 'extractTokenFromHeader').mockReturnValue('valid-token');
       jest.spyOn(jwtService, 'validateAccessToken').mockResolvedValue({
         valid: true,
@@ -308,7 +351,7 @@ describe('AuthGuard', () => {
 
     it('should return true for public routes', async () => {
       // Arrange
-      jest.spyOn(guard['reflector'], 'getAllAndOverride').mockReturnValue(true);
+      jest.spyOn(guard['_reflector'], 'getAllAndOverride').mockReturnValue(true);
 
       // Act
       const result = await guard.canActivate(mockExecutionContext);

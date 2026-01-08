@@ -62,113 +62,162 @@ export class AuthGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    if (isPublic) {
-      return true;
-    }
+    // Public routes can optionally accept authentication:
+    // - If a valid token is present, we attach user/context so `@CurrentUser()` works.
+    // - If token is missing/invalid/expired (or session is revoked/expired), we do NOT throw.
+    //   This keeps public endpoints resilient while still enabling "optional auth" patterns.
+    await this.tryAttachAuthContext(context, { strict: !isPublic });
 
+    // if error is not thrown then it's valid tokens or public route
+    return true;
+  }
+
+  /**
+   * Attempt to authenticate the request and attach `request.user` + ContextStorage.
+   *
+   * When `strict` is true: behaves like a traditional auth guard (throws on failures).
+   * When `strict` is false: best-effort only; failures are treated as "unauthenticated"
+   * and the request is allowed to proceed without a user context.
+   *
+   * @param context - Nest execution context
+   * @param options - Behavior options
+   */
+  private async tryAttachAuthContext(context: ExecutionContext, options: { strict: boolean }): Promise<void> {
     const request = context.switchToHttp().getRequest();
 
-    // Extract token according to configured delivery mode
-    const token = this.extractToken(context);
+    // ============================================================================
+    // Token extraction (delivery-mode aware)
+    // ============================================================================
+    let token: string | null = null;
+    try {
+      token = this.extractToken(context);
+    } catch (error) {
+      if (options.strict) {
+        throw error;
+      }
+      return; // Optional auth: treat as unauthenticated
+    }
 
     if (!token) {
-      throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'No token provided');
+      if (options.strict) {
+        throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'No token provided');
+      }
+      return;
     }
 
     // Validate token
     const validation = await this._jwtService.validateAccessToken(token);
-
     if (!validation.valid) {
-      throw new NAuthException(AuthErrorCode.TOKEN_INVALID, validation.error || 'Invalid token');
+      if (options.strict) {
+        throw new NAuthException(AuthErrorCode.TOKEN_INVALID, validation.error || 'Invalid token');
+      }
+      return;
     }
 
     // ============================================================================
-    // CRITICAL SECURITY FIX #3: Optimistic Locking for TOCTOU Prevention
+    // Session checks (revocation + expiry)
     // ============================================================================
-
-    // Check if session is revoked
+    // WHY:
+    // - Even if the JWT is cryptographically valid, we must ensure the session
+    //   hasn't been revoked/expired server-side.
     const sessionId = validation.payload!.sessionId;
     const session = await this._sessionService.findByIdLight(sessionId);
 
     if (!session) {
-      throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found');
+      if (options.strict) {
+        throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found');
+      }
+      return;
     }
 
-    // Store initial version for optimistic locking check
+    // Store initial version for optimistic locking check (TOCTOU prevention)
     const initialVersion = session.version;
 
     if (session.isRevoked) {
-      throw new NAuthException(AuthErrorCode.TOKEN_REUSE_DETECTED, 'Session has been revoked');
+      if (options.strict) {
+        throw new NAuthException(AuthErrorCode.TOKEN_REUSE_DETECTED, 'Session has been revoked');
+      }
+      return;
     }
 
-    // Check if session is expired
     if (session.expiresAt < new Date()) {
-      throw new NAuthException(AuthErrorCode.SESSION_EXPIRED, 'Session has expired');
+      if (options.strict) {
+        throw new NAuthException(AuthErrorCode.SESSION_EXPIRED, 'Session has expired');
+      }
+      return;
     }
 
     // ============================================================================
     // Load user via AuthService (service-first architecture)
     // ============================================================================
-    // AuthService.getUserForAuthContext handles:
-    // - User lookup by sub
-    // - Active status check
-    // - Computing hasPasswordHash from passwordHash
-    // - Removing sensitive fields (passwordHash, totpSecret, backupCodes, passwordHistory)
-    //
-    // Wrap in context restoration to ensure ContextStorage.set() works
+    // Wrap in context restoration to ensure ContextStorage.set() works.
     const store = getNAuthContextStore(request);
     if (!store) {
-      // No context available - should not happen with proper setup
-      throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Context not initialized');
+      if (options.strict) {
+        // No context available - should not happen with proper setup
+        throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Context not initialized');
+      }
+
+      // Optional auth: still provide `@CurrentUser()` support by attaching user to the request,
+      // but skip ContextStorage because the request isn't context-initialized.
+      try {
+        const user = await this._authService.getUserForAuthContext(validation.payload!.sub);
+        request.user = user;
+        request.token = validation.payload;
+      } catch {
+        // Optional auth must not block public endpoints
+      }
+      return;
     }
 
-    return ContextStorage.enterStore(store, async () => {
-      const user = await this._authService.getUserForAuthContext(validation.payload!.sub);
-      //
-      // ============================================================================
-      // Session-scoped auth method propagation
-      // ============================================================================
-      // WHY: NestJS `@CurrentUser()` often backs `/profile` and other "who am I" endpoints.
-      // Attaching session auth method allows frontends to show "Signed in with Google/Apple/etc."
-      // even after refresh or cookie-based OAuth redirects.
-      const sessionAuthMethod = (session as unknown as { authMethod?: string | null }).authMethod ?? null;
-      (user as IUser & { sessionAuthMethod?: string | null }).sessionAuthMethod = sessionAuthMethod;
+    try {
+      await ContextStorage.enterStore(store, async () => {
+        const user = await this._authService.getUserForAuthContext(validation.payload!.sub);
 
-      // SECURITY CRITICAL: Re-check session hasn't been modified (optimistic locking)
-      // Prevents TOCTOU (Time-of-Check-Time-of-Use) vulnerabilities
-      const revalidated = await this._sessionService.findByIdLight(sessionId);
-      if (!revalidated || revalidated.version !== initialVersion || revalidated.isRevoked) {
-        throw new NAuthException(
-          AuthErrorCode.TOKEN_INVALID,
-          'Session was modified during request - possible security breach',
-        );
-      }
+        // ============================================================================
+        // Session-scoped auth method propagation
+        // ============================================================================
+        const sessionAuthMethod = (session as unknown as { authMethod?: string | null }).authMethod ?? null;
+        (user as IUser & { sessionAuthMethod?: string | null }).sessionAuthMethod = sessionAuthMethod;
 
-      // Attach user to request
-      request.user = user;
-      request.token = validation.payload;
-
-      // Store in ContextStorage for service access
-      ContextStorage.set('CURRENT_USER', user);
-      ContextStorage.set('JWT_PAYLOAD', validation.payload);
-      ContextStorage.set('CURRENT_SESSION', sessionId);
-
-      // Update CLIENT_INFO with sessionId and userId
-      const clientInfo = ContextStorage.get<{ sessionId?: number; userId?: number }>('CLIENT_INFO');
-      if (clientInfo) {
-        const sessionIdNumber = typeof sessionId === 'number' ? sessionId : parseInt(String(sessionId), 10);
-        const userIdNumber = typeof user.id === 'number' ? user.id : parseInt(String(user.id), 10);
-        if (!isNaN(sessionIdNumber) && sessionIdNumber > 0) {
-          clientInfo.sessionId = sessionIdNumber;
+        // SECURITY CRITICAL: Re-check session hasn't been modified (optimistic locking)
+        const revalidated = await this._sessionService.findByIdLight(sessionId);
+        if (!revalidated || revalidated.version !== initialVersion || revalidated.isRevoked) {
+          throw new NAuthException(
+            AuthErrorCode.TOKEN_INVALID,
+            'Session was modified during request - possible security breach',
+          );
         }
-        if (!isNaN(userIdNumber) && userIdNumber > 0) {
-          clientInfo.userId = userIdNumber;
-        }
-        ContextStorage.set('CLIENT_INFO', clientInfo);
-      }
 
-      return true;
-    });
+        // Attach user to request
+        request.user = user;
+        request.token = validation.payload;
+
+        // Store in ContextStorage for service access
+        ContextStorage.set('CURRENT_USER', user);
+        ContextStorage.set('JWT_PAYLOAD', validation.payload);
+        ContextStorage.set('CURRENT_SESSION', sessionId);
+
+        // Update CLIENT_INFO with sessionId and userId
+        const clientInfo = ContextStorage.get<{ sessionId?: number; userId?: number }>('CLIENT_INFO');
+        if (clientInfo) {
+          const sessionIdNumber = typeof sessionId === 'number' ? sessionId : parseInt(String(sessionId), 10);
+          const userIdNumber = typeof user.id === 'number' ? user.id : parseInt(String(user.id), 10);
+          if (!isNaN(sessionIdNumber) && sessionIdNumber > 0) {
+            clientInfo.sessionId = sessionIdNumber;
+          }
+          if (!isNaN(userIdNumber) && userIdNumber > 0) {
+            clientInfo.userId = userIdNumber;
+          }
+          ContextStorage.set('CLIENT_INFO', clientInfo);
+        }
+      });
+    } catch (error) {
+      if (options.strict) {
+        throw error;
+      }
+      // Optional auth must not block public endpoints; treat as unauthenticated.
+    }
   }
 
   /**

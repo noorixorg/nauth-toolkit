@@ -231,10 +231,7 @@ export function initServices(
   }
 
   // Inject config into email provider if it supports it (used for notification suppression logic)
-  if (
-    emailProvider &&
-    typeof (emailProvider as { setConfig?: (cfg: NAuthConfig) => void }).setConfig === 'function'
-  ) {
+  if (emailProvider && typeof (emailProvider as { setConfig?: (cfg: NAuthConfig) => void }).setConfig === 'function') {
     (emailProvider as { setConfig: (cfg: NAuthConfig) => void }).setConfig(config);
   }
 

@@ -36,6 +36,42 @@ async canActivate(context: ExecutionContext): Promise<boolean>
 The guard throws [`NAuthException`](../../core/exceptions/nauth-exception) on auth failures. It does not return `false`.
 ::::
 
+## Optional authentication on `@Public()` routes
+
+On routes marked with [`@Public()`](../decorators/public), `AuthGuard` allows the request through. If a valid token is present, it will still attach `req.user` so [`@CurrentUser()`](../decorators/current-user) works. If the token is missing/invalid/expired, it will not throw and `req.user` will be `undefined`.
+
+To make an endpoint "public, but optionally authenticated", combine `@Public()` with `@UseGuards(AuthGuard)`:
+
+```typescript
+import { Controller, Get, UseGuards, Query } from '@nestjs/common';
+import { AuthGuard, AuthService, CurrentUser, LogoutDTO, Public } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
+
+@Controller('auth')
+export class ExampleController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @UseGuards(AuthGuard)
+  @Get('logout')
+  async logout(
+    @CurrentUser() user: IUser | undefined,
+    @Query('forgetMe') forgetMe?: string,
+  ): Promise<{ success: true }> {
+    // Logout is idempotent:
+    // - If the user is authenticated, this revokes the current session.
+    // - If the user is already logged out/expired, it still succeeds and clears cookies (cookies/hybrid mode).
+    const dto = new LogoutDTO();
+    dto.forgetMe = forgetMe === 'true' || forgetMe === '1';
+    if (user) {
+      // Optional: validate that the logout targets the authenticated user (never accept sub from the client).
+      dto.sub = user.sub;
+    }
+    return await this.authService.logout(dto);
+  }
+}
+```
+
 **Errors**
 
 | Code                   | When                  | Details     |
@@ -47,7 +83,7 @@ The guard throws [`NAuthException`](../../core/exceptions/nauth-exception) on au
 | `TOKEN_INVALID`        | Missing/invalid token | `undefined` |
 | `TOKEN_REUSE_DETECTED` | Revoked session       | `undefined` |
 
-Throws [`NAuthException`](../../core/exceptions/nauth-exception) with the codes listed above.
+Throws [`NAuthException`](../../core/exceptions/nauth-exception) with the codes listed above (protected routes only).
 
 ## Example (inherit without constructor deps)
 

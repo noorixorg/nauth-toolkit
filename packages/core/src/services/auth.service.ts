@@ -2614,10 +2614,24 @@ export class AuthService {
     }
 
     if (!sessionId) {
-      throw new NAuthException(
-        AuthErrorCode.SESSION_NOT_FOUND,
-        'Session ID not found in request context. Ensure the request is authenticated.',
-      );
+      // ============================================================================
+      // Idempotent logout (no consumer baggage)
+      // ============================================================================
+      // WHY:
+      // - Frontends often call logout even after the session/access token has expired.
+      // - In cookie delivery modes, httpOnly auth cookies can only be cleared server-side.
+      // - Throwing here would prevent cookie clearing and force consumers to add try/catch logic.
+      //
+      // SECURITY NOTE:
+      // - If we cannot identify a session, we do NOT revoke anything server-side.
+      // - We only clear cookies (best-effort) and return success.
+      const response = this.clientInfoService.getResponse();
+      if (response && this.config.tokenDelivery?.method !== 'json') {
+        this.helpers.clearAuthCookies(response, dto.forgetMe ?? false);
+        this.logger?.debug?.('Auth cookies cleared on logout without an active session (idempotent logout)');
+      }
+
+      return { success: true };
     }
 
     // Prepare metadata for audit trail

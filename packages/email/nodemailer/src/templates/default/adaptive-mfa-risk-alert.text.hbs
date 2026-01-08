@@ -5,11 +5,7 @@ Security Alert: Risk Detected
 {{#if lastName}}Hi {{lastName}},{{/if}}
 {{#if userName}}Hi {{userName}},{{/if}}
 
-We detected unusual activity on your account.
-
-{{#if (eq action "require_mfa")}}We required additional verification to protect your account.{{/if}}
-{{#if (eq action "block_signin")}}We blocked this sign-in attempt to protect your account.{{/if}}
-{{#if (eq action "allow")}}We allowed the sign-in, but wanted to keep you informed.{{/if}}
+We detected unusual activity on your account and required additional verification.
 
 Risk Level: {{riskLevel}}
 Risk Score: {{riskScore}}/100
@@ -17,7 +13,7 @@ Risk Score: {{riskScore}}/100
 Action Taken: {{action}}
 
 What does this mean?
-Our security system evaluates unusual login characteristics (such as a new device, new location, or unusual behavior patterns) to protect your account.
+Our security system detected unusual login characteristics (such as a new device, new location, or unusual behavior patterns) and required additional verification to protect your account.
 
 Was this you?
 If you recognize this activity, no action is needed. Your account is secure.
