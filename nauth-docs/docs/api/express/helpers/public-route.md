@@ -1,11 +1,9 @@
 ---
 title: public()
 description: Mark routes as public to bypass CSRF validation in Express
-sidebar_position: 2
 keywords: [express, helper, public, csrf, api]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

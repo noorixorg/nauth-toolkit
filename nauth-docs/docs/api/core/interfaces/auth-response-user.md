@@ -3,9 +3,7 @@ title: AuthResponseUser
 description: User information interface for authentication responses. Minimal user object with essential fields only.
 keywords: [interface, user, auth, response, api]
 image: /img/api-social-card.png
-sidebar_position: 6
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

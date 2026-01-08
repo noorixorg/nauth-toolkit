@@ -3,9 +3,7 @@ title: AuthAuditService
 description: Query authentication and security audit events for monitoring and investigation.
 keywords: [service, audit, logging, security, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

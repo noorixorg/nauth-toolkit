@@ -3,9 +3,7 @@ title: NAuthResponse
 description: Framework-agnostic response interface used by nauth-toolkit adapters and middleware
 keywords: [response, adapter, interface, platform, api]
 image: /img/api-social-card.png
-sidebar_position: 5
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

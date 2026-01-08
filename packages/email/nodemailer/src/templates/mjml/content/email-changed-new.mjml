@@ -1,0 +1,57 @@
+<!-- Email Changed Confirmation (to NEW email) Email Content -->
+<mj-text>
+  Welcome to your updated account email address.
+</mj-text>
+
+<mj-text css-class="text-small alert-box alert-success" padding="16px 24px">
+  Email address successfully updated
+</mj-text>
+
+<mj-text css-class="text-small font-bold" padding="24px 24px 8px 24px">
+  Change Details:
+</mj-text>
+
+<mj-raw>
+  {{#if oldEmail}}
+</mj-raw>
+<mj-text css-class="text-small" padding="0 24px 8px 24px">
+  Previous Email: {{oldEmail}}
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  New Email (this address): {{userEmail}}
+</mj-text>
+
+<mj-text css-class="text-small" padding="24px 24px 8px 24px">
+  What's next?
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  Your email address has been successfully updated. All future notifications will be sent to this email address.
+</mj-text>
+
+<mj-text css-class="text-small" padding="24px 24px 8px 24px">
+  Security Note:
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  A security notification was also sent to your previous email address. If you made this change, no further action is required.
+</mj-text>
+
+<mj-raw>
+  {{#if supportEmail}}
+</mj-raw>
+<mj-text css-class="text-small" padding="24px 24px 8px 24px">
+  Need Help?
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  If you have any questions, please contact support at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>.
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+

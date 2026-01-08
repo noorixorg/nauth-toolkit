@@ -3,9 +3,7 @@ title: TOTP Provider
 description: Time-based One-Time Password MFA provider
 keywords: [mfa, totp, authenticator, google-authenticator, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

@@ -3,9 +3,7 @@ title: SetMFAExemptionDTO
 description: Request and response DTOs for granting or revoking MFA exemption. Admin-only operation with optional reason and grantedBy fields.
 keywords: [mfa, exemption, admin, dto, request, response, api]
 image: /img/api-social-card.png
-sidebar_position: 770
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

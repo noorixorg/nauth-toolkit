@@ -3,9 +3,7 @@ title: clientInfo Hook
 description: Fastify onRequest hook for client info extraction
 keywords: [fastify, hook, client-info, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 # clientInfo Hook
 
 **Type:** `onRequestHookHandler`

@@ -3,9 +3,7 @@ title: VerifyTokenDTO
 description: Native mobile app token verification DTO with ID token, access token, and profile data. Used for Google Sign-In, Sign in with Apple, etc.
 keywords: [token, verify, mobile, native, dto, request, google, apple, ios, android]
 image: /img/api-social-card.png
-sidebar_position: 1035
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

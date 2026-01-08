@@ -1,11 +1,9 @@
 ---
 title: SocialCallbackFormDTO
 description: Form DTO for Apple form_post OAuth callbacks
-sidebar_position: 850
 keywords: [dto, social, oauth, redirect, callback, form, apple, api]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

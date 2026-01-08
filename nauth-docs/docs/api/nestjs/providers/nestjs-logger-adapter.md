@@ -3,9 +3,7 @@ title: NestJsLoggerAdapter
 description: NestJS logger adapter for NAuth logging
 keywords: [nestjs, logger, adapter, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 # NestJsLoggerAdapter
 
 **Package:** `@nauth-toolkit/nestjs`

@@ -3,9 +3,7 @@ title: Utilities
 description: Utility classes and functions for NAuth integration
 keywords: [utilities, logger, context, api]
 image: /img/api-social-card.png
-sidebar_position: 0
 ---
-
 # Utilities
 
 **Package:** `@nauth-toolkit/core`

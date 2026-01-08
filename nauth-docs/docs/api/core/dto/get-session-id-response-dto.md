@@ -3,9 +3,7 @@ title: GetSessionIdResponseDTO
 description: Response DTO for session ID. Returns session ID from the current request context (extracted from JWT token after authentication).
 keywords: [session, id, jwt, response, dto, api]
 image: /img/api-social-card.png
-sidebar_position: 350
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

@@ -3,9 +3,7 @@ title: NAuthRequest
 description: Framework-agnostic request interface used by nauth-toolkit adapters and middleware
 keywords: [request, adapter, interface, platform, api]
 image: /img/api-social-card.png
-sidebar_position: 4
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

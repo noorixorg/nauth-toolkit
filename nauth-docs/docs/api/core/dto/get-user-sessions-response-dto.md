@@ -3,9 +3,7 @@ title: GetUserSessionsResponseDTO
 description: Response DTO containing array of active user sessions with device info, location, and authentication method details.
 keywords: [dto, sessions, response, user, device, location, api]
 image: /img/api-social-card.png
-sidebar_position: 470
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

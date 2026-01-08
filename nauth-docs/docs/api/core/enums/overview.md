@@ -3,9 +3,7 @@ title: Enums
 description: Enumeration types for authentication states and codes
 keywords: [enums, types, mfa, errors, api]
 image: /img/api-social-card.png
-sidebar_position: 0
 ---
-
 # Enums
 
 **Package:** `@nauth-toolkit/core`

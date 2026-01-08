@@ -6,7 +6,7 @@ module.exports = {
   rootDir: 'src',
   testRegex: '.*\\.spec\\.ts$',
   transform: {
-    '^.+\\.(t|j)s$': [
+    '^.+\\.ts$': [
       'ts-jest',
       {
         tsconfig: '<rootDir>/../tsconfig.json',
@@ -22,7 +22,8 @@ module.exports = {
     'node_modules/(?!(jose)/)',
   ],
   moduleNameMapper: {
-    '^@nauth-toolkit/core$': path.resolve(__dirname, '../../core/src/index'),
-    '^@nauth-toolkit/core/(.*)$': path.resolve(__dirname, '../../core/src/$1'),
+    // Use built core outputs to avoid compiling the entire core source tree as part of this package's tests.
+    '^@nauth-toolkit/core$': path.resolve(__dirname, '../../core/dist/index'),
+    '^@nauth-toolkit/core/(.*)$': path.resolve(__dirname, '../../core/dist/$1'),
   },
 };

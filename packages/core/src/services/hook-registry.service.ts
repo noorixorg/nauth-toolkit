@@ -18,6 +18,22 @@ import {
   PreSignupHookData,
   IUserProfileUpdatedHook,
   UserProfileUpdatedMetadata,
+  IPasswordChangedHook,
+  PasswordChangedMetadata,
+  IMFADeviceRemovedHook,
+  MFADeviceRemovedMetadata,
+  IAdaptiveMFARiskDetectedHook,
+  AdaptiveMFARiskDetectedMetadata,
+  IAccountStatusChangedHook,
+  AccountStatusChangedMetadata,
+  IEmailChangedHook,
+  EmailChangedMetadata,
+  IAccountLockedHook,
+  AccountLockedMetadata,
+  ISessionsRevokedHook,
+  SessionsRevokedMetadata,
+  IMFAFirstEnabledHook,
+  MFAFirstEnabledMetadata,
 } from '../interfaces/hooks.interface';
 import { IUser } from '../interfaces/entities.interface';
 import { LoggerProvider } from '../interfaces/logger.interface';
@@ -33,6 +49,14 @@ export class HookRegistryService {
   private readonly preSignupHooks: IPreSignupHookProvider[] = [];
   private readonly postSignupHooks: IPostSignupHookProvider[] = [];
   private readonly userProfileUpdatedHooks: IUserProfileUpdatedHook[] = [];
+  private readonly passwordChangedHooks: IPasswordChangedHook[] = [];
+  private readonly mfaDeviceRemovedHooks: IMFADeviceRemovedHook[] = [];
+  private readonly adaptiveMFARiskDetectedHooks: IAdaptiveMFARiskDetectedHook[] = [];
+  private readonly accountStatusChangedHooks: IAccountStatusChangedHook[] = [];
+  private readonly emailChangedHooks: IEmailChangedHook[] = [];
+  private readonly accountLockedHooks: IAccountLockedHook[] = [];
+  private readonly sessionsRevokedHooks: ISessionsRevokedHook[] = [];
+  private readonly mfaFirstEnabledHooks: IMFAFirstEnabledHook[] = [];
 
   constructor(private readonly logger?: LoggerProvider) {}
 
@@ -77,6 +101,110 @@ export class HookRegistryService {
   registerUserProfileUpdated(provider: IUserProfileUpdatedHook): void {
     this.userProfileUpdatedHooks.push(provider);
     this.logger?.debug?.(`[HookRegistry] Registered userProfileUpdated hook: ${provider.constructor.name}`);
+  }
+
+  /**
+   * Register a password changed hook
+   *
+   * Hooks are executed in registration order.
+   * Hook errors are logged but do not block password changes (non-blocking).
+   *
+   * @param provider - Password changed hook instance
+   */
+  registerPasswordChanged(provider: IPasswordChangedHook): void {
+    this.passwordChangedHooks.push(provider);
+    this.logger?.debug?.(`[HookRegistry] Registered passwordChanged hook: ${provider.constructor.name}`);
+  }
+
+  /**
+   * Register an MFA device removed hook
+   *
+   * Hooks are executed in registration order.
+   * Hook errors are logged but do not block device removal (non-blocking).
+   *
+   * @param provider - MFA device removed hook instance
+   */
+  registerMFADeviceRemoved(provider: IMFADeviceRemovedHook): void {
+    this.mfaDeviceRemovedHooks.push(provider);
+    this.logger?.debug?.(`[HookRegistry] Registered mfaDeviceRemoved hook: ${provider.constructor.name}`);
+  }
+
+  /**
+   * Register an adaptive MFA risk detected hook
+   *
+   * Hooks are executed in registration order.
+   * Hook errors are logged but do not block authentication (non-blocking).
+   *
+   * @param provider - Adaptive MFA risk detected hook instance
+   */
+  registerAdaptiveMFARiskDetected(provider: IAdaptiveMFARiskDetectedHook): void {
+    this.adaptiveMFARiskDetectedHooks.push(provider);
+    this.logger?.debug?.(`[HookRegistry] Registered adaptiveMFARiskDetected hook: ${provider.constructor.name}`);
+  }
+
+  /**
+   * Register an account status changed hook
+   *
+   * Hooks are executed in registration order.
+   * Hook errors are logged but do not block status changes (non-blocking).
+   *
+   * @param provider - Account status changed hook instance
+   */
+  registerAccountStatusChanged(provider: IAccountStatusChangedHook): void {
+    this.accountStatusChangedHooks.push(provider);
+    this.logger?.debug?.(`[HookRegistry] Registered accountStatusChanged hook: ${provider.constructor.name}`);
+  }
+
+  /**
+   * Register an email changed hook
+   *
+   * Hooks are executed in registration order.
+   * Hook errors are logged but do not block email changes (non-blocking).
+   *
+   * @param provider - Email changed hook instance
+   */
+  registerEmailChanged(provider: IEmailChangedHook): void {
+    this.emailChangedHooks.push(provider);
+    this.logger?.debug?.(`[HookRegistry] Registered emailChanged hook: ${provider.constructor.name}`);
+  }
+
+  /**
+   * Register an account locked hook
+   *
+   * Hooks are executed in registration order.
+   * Hook errors are logged but do not block lockout (non-blocking).
+   *
+   * @param provider - Account locked hook instance
+   */
+  registerAccountLocked(provider: IAccountLockedHook): void {
+    this.accountLockedHooks.push(provider);
+    this.logger?.debug?.(`[HookRegistry] Registered accountLocked hook: ${provider.constructor.name}`);
+  }
+
+  /**
+   * Register a sessions revoked hook
+   *
+   * Hooks are executed in registration order.
+   * Hook errors are logged but do not block session revocation (non-blocking).
+   *
+   * @param provider - Sessions revoked hook instance
+   */
+  registerSessionsRevoked(provider: ISessionsRevokedHook): void {
+    this.sessionsRevokedHooks.push(provider);
+    this.logger?.debug?.(`[HookRegistry] Registered sessionsRevoked hook: ${provider.constructor.name}`);
+  }
+
+  /**
+   * Register an MFA first enabled hook
+   *
+   * Hooks are executed in registration order.
+   * Hook errors are logged but do not block MFA enrollment (non-blocking).
+   *
+   * @param provider - MFA first enabled hook instance
+   */
+  registerMFAFirstEnabled(provider: IMFAFirstEnabledHook): void {
+    this.mfaFirstEnabledHooks.push(provider);
+    this.logger?.debug?.(`[HookRegistry] Registered mfaFirstEnabled hook: ${provider.constructor.name}`);
   }
 
   // ============================================================================
@@ -186,6 +314,246 @@ export class HookRegistryService {
         const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
         this.logger?.error?.(
           `[HookRegistry] userProfileUpdated hook error: ${hook.constructor.name} - ${errorMessage}`,
+          hookError instanceof Error ? { error: hookError } : undefined,
+        );
+      }
+    }
+  }
+
+  /**
+   * Execute all registered password changed hooks
+   *
+   * Hooks are executed sequentially in registration order.
+   * Hook errors are logged but do not stop execution (non-blocking).
+   *
+   * @param metadata - Password change context with user and change details
+   *
+   * @internal
+   * @remarks This method is called internally by AuthServiceInternalHelpers
+   */
+  async executePasswordChanged(metadata: PasswordChangedMetadata): Promise<void> {
+    if (this.passwordChangedHooks.length === 0) {
+      return; // No hooks registered
+    }
+
+    for (const hook of this.passwordChangedHooks) {
+      try {
+        await hook.execute(metadata);
+      } catch (hookError: unknown) {
+        // Non-blocking: log error and continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(
+          `[HookRegistry] passwordChanged hook error: ${hook.constructor.name} - ${errorMessage}`,
+          hookError instanceof Error ? { error: hookError } : undefined,
+        );
+      }
+    }
+  }
+
+  /**
+   * Execute all registered MFA device removed hooks
+   *
+   * Hooks are executed sequentially in registration order.
+   * Hook errors are logged but do not stop execution (non-blocking).
+   *
+   * @param metadata - Device removal context with user and device details
+   *
+   * @internal
+   * @remarks This method is called internally by UserService and MFAService
+   */
+  async executeMFADeviceRemoved(metadata: MFADeviceRemovedMetadata): Promise<void> {
+    if (this.mfaDeviceRemovedHooks.length === 0) {
+      return; // No hooks registered
+    }
+
+    for (const hook of this.mfaDeviceRemovedHooks) {
+      try {
+        await hook.execute(metadata);
+      } catch (hookError: unknown) {
+        // Non-blocking: log error and continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(
+          `[HookRegistry] mfaDeviceRemoved hook error: ${hook.constructor.name} - ${errorMessage}`,
+          hookError instanceof Error ? { error: hookError } : undefined,
+        );
+      }
+    }
+  }
+
+  /**
+   * Execute all registered adaptive MFA risk detected hooks
+   *
+   * Hooks are executed sequentially in registration order.
+   * Hook errors are logged but do not stop execution (non-blocking).
+   *
+   * @param metadata - Risk evaluation context with user and risk details
+   *
+   * @internal
+   * @remarks This method is called internally by AdaptiveMFADecisionService
+   */
+  async executeAdaptiveMFARiskDetected(metadata: AdaptiveMFARiskDetectedMetadata): Promise<void> {
+    if (this.adaptiveMFARiskDetectedHooks.length === 0) {
+      return; // No hooks registered
+    }
+
+    for (const hook of this.adaptiveMFARiskDetectedHooks) {
+      try {
+        await hook.execute(metadata);
+      } catch (hookError: unknown) {
+        // Non-blocking: log error and continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(
+          `[HookRegistry] adaptiveMFARiskDetected hook error: ${hook.constructor.name} - ${errorMessage}`,
+          hookError instanceof Error ? { error: hookError } : undefined,
+        );
+      }
+    }
+  }
+
+  /**
+   * Execute all registered account status changed hooks
+   *
+   * Hooks are executed sequentially in registration order.
+   * Hook errors are logged but do not stop execution (non-blocking).
+   *
+   * @param metadata - Status change context with user and change details
+   *
+   * @internal
+   * @remarks This method is called internally by UserService
+   */
+  async executeAccountStatusChanged(metadata: AccountStatusChangedMetadata): Promise<void> {
+    if (this.accountStatusChangedHooks.length === 0) {
+      return; // No hooks registered
+    }
+
+    for (const hook of this.accountStatusChangedHooks) {
+      try {
+        await hook.execute(metadata);
+      } catch (hookError: unknown) {
+        // Non-blocking: log error and continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(
+          `[HookRegistry] accountStatusChanged hook error: ${hook.constructor.name} - ${errorMessage}`,
+          hookError instanceof Error ? { error: hookError } : undefined,
+        );
+      }
+    }
+  }
+
+  /**
+   * Execute all registered email changed hooks
+   *
+   * Hooks are executed sequentially in registration order.
+   * Hook errors are logged but do not stop execution (non-blocking).
+   *
+   * @param metadata - Email change context with old and new addresses
+   *
+   * @internal
+   * @remarks This method is called internally by UserService
+   */
+  async executeEmailChanged(metadata: EmailChangedMetadata): Promise<void> {
+    if (this.emailChangedHooks.length === 0) {
+      return; // No hooks registered
+    }
+
+    for (const hook of this.emailChangedHooks) {
+      try {
+        await hook.execute(metadata);
+      } catch (hookError: unknown) {
+        // Non-blocking: log error and continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(
+          `[HookRegistry] emailChanged hook error: ${hook.constructor.name} - ${errorMessage}`,
+          hookError instanceof Error ? { error: hookError } : undefined,
+        );
+      }
+    }
+  }
+
+  /**
+   * Execute all registered account locked hooks
+   *
+   * Hooks are executed sequentially in registration order.
+   * Hook errors are logged but do not stop execution (non-blocking).
+   *
+   * @param metadata - Lockout context with user and lock details
+   *
+   * @internal
+   * @remarks This method is called internally by AuthServiceInternalHelpers
+   */
+  async executeAccountLocked(metadata: AccountLockedMetadata): Promise<void> {
+    if (this.accountLockedHooks.length === 0) {
+      return; // No hooks registered
+    }
+
+    for (const hook of this.accountLockedHooks) {
+      try {
+        await hook.execute(metadata);
+      } catch (hookError: unknown) {
+        // Non-blocking: log error and continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(
+          `[HookRegistry] accountLocked hook error: ${hook.constructor.name} - ${errorMessage}`,
+          hookError instanceof Error ? { error: hookError } : undefined,
+        );
+      }
+    }
+  }
+
+  /**
+   * Execute all registered sessions revoked hooks
+   *
+   * Hooks are executed sequentially in registration order.
+   * Hook errors are logged but do not stop execution (non-blocking).
+   *
+   * @param metadata - Revocation context with user and session details
+   *
+   * @internal
+   * @remarks This method is called internally by SessionService
+   */
+  async executeSessionsRevoked(metadata: SessionsRevokedMetadata): Promise<void> {
+    if (this.sessionsRevokedHooks.length === 0) {
+      return; // No hooks registered
+    }
+
+    for (const hook of this.sessionsRevokedHooks) {
+      try {
+        await hook.execute(metadata);
+      } catch (hookError: unknown) {
+        // Non-blocking: log error and continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(
+          `[HookRegistry] sessionsRevoked hook error: ${hook.constructor.name} - ${errorMessage}`,
+          hookError instanceof Error ? { error: hookError } : undefined,
+        );
+      }
+    }
+  }
+
+  /**
+   * Execute all registered MFA first enabled hooks
+   *
+   * Hooks are executed sequentially in registration order.
+   * Hook errors are logged but do not stop execution (non-blocking).
+   *
+   * @param metadata - MFA enrollment context with user and device details
+   *
+   * @internal
+   * @remarks This method is called internally by BaseMFAProviderService
+   */
+  async executeMFAFirstEnabled(metadata: MFAFirstEnabledMetadata): Promise<void> {
+    if (this.mfaFirstEnabledHooks.length === 0) {
+      return; // No hooks registered
+    }
+
+    for (const hook of this.mfaFirstEnabledHooks) {
+      try {
+        await hook.execute(metadata);
+      } catch (hookError: unknown) {
+        // Non-blocking: log error and continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(
+          `[HookRegistry] mfaFirstEnabled hook error: ${hook.constructor.name} - ${errorMessage}`,
           hookError instanceof Error ? { error: hookError } : undefined,
         );
       }

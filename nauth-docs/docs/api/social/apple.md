@@ -3,9 +3,7 @@ title: Apple Provider
 description: Sign in with Apple social authentication provider
 keywords: [social, oauth, apple, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

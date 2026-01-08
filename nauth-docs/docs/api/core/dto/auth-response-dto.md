@@ -3,9 +3,7 @@ title: AuthResponseDTO
 description: Unified authentication response DTO for all auth operations. Contains tokens on success or challenge information when verification required.
 keywords: [auth, response, dto, tokens, challenge, jwt, api]
 image: /img/api-social-card.png
-sidebar_position: 60
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

@@ -3,9 +3,7 @@ title: AWS SNS
 description: AWS SNS SMS provider for phone verification
 keywords: [sms, aws, sns, phone, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

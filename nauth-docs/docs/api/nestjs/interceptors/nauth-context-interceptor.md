@@ -3,9 +3,7 @@ title: NAuthContextInterceptor
 description: NestJS interceptor for restoring AsyncLocalStorage context
 keywords: [nestjs, interceptor, context, async-local-storage, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 # NAuthContextInterceptor
 
 **Package:** `@nauth-toolkit/nestjs`

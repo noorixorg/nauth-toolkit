@@ -3,9 +3,7 @@ title: ValidateAccessTokenResponseDTO
 description: Response DTO for token validation operations. Contains validation result with decoded payload or error information.
 keywords: [token, validate, response, jwt, payload, dto, api, authentication]
 image: /img/api-social-card.png
-sidebar_position: 932
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

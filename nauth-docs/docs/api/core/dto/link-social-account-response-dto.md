@@ -3,9 +3,7 @@ title: LinkSocialAccountResponseDTO
 description: Response DTO for link social account operation. Returns success message and provider name.
 keywords: [social, auth, oauth, dto, response, link, api]
 image: /img/api-social-card.png
-sidebar_position: 530
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

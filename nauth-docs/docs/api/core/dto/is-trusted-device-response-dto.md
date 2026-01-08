@@ -3,9 +3,7 @@ title: IsTrustedDeviceResponseDTO
 description: Response DTO for checking if the current device is trusted
 keywords: [trusted, device, response, dto, api, mfa]
 image: /img/api-social-card.png
-sidebar_position: 510
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

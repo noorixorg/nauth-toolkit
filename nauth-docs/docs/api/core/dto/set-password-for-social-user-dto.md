@@ -3,9 +3,7 @@ title: SetPasswordForSocialUserDTO
 description: Request DTO for setting password for social-only user. Includes user identifier and new password.
 keywords: [social, auth, dto, request, password, api]
 image: /img/api-social-card.png
-sidebar_position: 800
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

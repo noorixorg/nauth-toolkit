@@ -1,11 +1,9 @@
 ---
 title: DeleteUserDTO
 description: Administrative user deletion request with cascade cleanup
-sidebar_position: 140
 keywords: [dto, admin, delete, user, cascade]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

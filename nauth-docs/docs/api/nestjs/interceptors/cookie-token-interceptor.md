@@ -3,9 +3,7 @@ title: CookieTokenInterceptor
 description: NestJS interceptor for cookie-based token delivery
 keywords: [nestjs, interceptor, cookies, token, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 # CookieTokenInterceptor
 
 **Package:** `@nauth-toolkit/nestjs`

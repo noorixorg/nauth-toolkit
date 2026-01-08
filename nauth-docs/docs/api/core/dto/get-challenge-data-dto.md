@@ -3,9 +3,7 @@ title: GetChallengeDataDTO
 description: Request DTO for MFA challenge data retrieval. Currently only supports passkey method for WebAuthn challenge options.
 keywords: [mfa, challenge, data, dto, request, passkey, webauthn, api]
 image: /img/api-social-card.png
-sidebar_position: 230
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

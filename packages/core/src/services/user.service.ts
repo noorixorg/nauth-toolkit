@@ -93,6 +93,7 @@ export class UserService {
         undefined as unknown as AccountLockoutStorageService, // accountLockoutStorage - unused in validateUniquenessConstraints
         config,
         logger,
+        undefined as unknown as HookRegistryService, // hookRegistry - unused in validateUniquenessConstraints
       );
     }
 
@@ -747,6 +748,34 @@ export class UserService {
             retainVerification: dto.retainVerification || false,
           },
         });
+
+        // ============================================================================
+        // Lifecycle Hook: Email Changed
+        // ============================================================================
+        if (this.hookRegistry) {
+          try {
+            const clientInfo = this.clientInfoService.get();
+            await this.hookRegistry.executeEmailChanged({
+              user: updatedUser,
+              oldEmail: user.email,
+              newEmail: dto.email,
+              updateSource: 'user_request',
+              clientInfo: {
+                ipAddress: clientInfo.ipAddress,
+                userAgent: clientInfo.userAgent,
+                ipCountry: clientInfo.ipCountry,
+                ipCity: clientInfo.ipCity,
+              },
+            });
+          } catch (hookError) {
+            // Non-blocking: Log but continue
+            const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+            this.logger?.error?.(`Failed to execute emailChanged hooks: ${errorMessage}`, {
+              error: hookError,
+              userId: user.id,
+            });
+          }
+        }
       }
 
       if (dto.phone !== undefined && dto.phone !== user.phone) {
@@ -1343,6 +1372,34 @@ export class UserService {
       }
     }
 
+    // ============================================================================
+    // Lifecycle Hook: Account Status Changed (Disabled)
+    // ============================================================================
+    if (this.hookRegistry) {
+      try {
+        await this.hookRegistry.executeAccountStatusChanged({
+          user: updatedUser,
+          status: 'disabled',
+          reason: updatedUser.lockReason || 'Account disabled',
+          revokedSessions: revokedCount,
+          clientInfo: {
+            ipAddress: clientInfo.ipAddress,
+            userAgent: clientInfo.userAgent,
+            ipCountry: clientInfo.ipCountry,
+            ipCity: clientInfo.ipCity,
+          },
+        });
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute accountStatusChanged hooks: ${errorMessage}`, {
+          error: hookError,
+          userId: updatedUser.id,
+          status: 'disabled',
+        });
+      }
+    }
+
     // Return sanitized user and revoked session count
     const userDto = UserResponseDto.fromEntity(updatedUser as unknown as IUser);
     return {
@@ -1474,6 +1531,33 @@ export class UserService {
           errorStack,
           userId: updatedUser.id,
           userSub: dto.sub,
+        });
+      }
+    }
+
+    // ============================================================================
+    // Lifecycle Hook: Account Status Changed (Enabled)
+    // ============================================================================
+    if (this.hookRegistry) {
+      try {
+        await this.hookRegistry.executeAccountStatusChanged({
+          user: updatedUser,
+          status: 'enabled',
+          reason: 'admin_unlock',
+          clientInfo: {
+            ipAddress: clientInfo.ipAddress,
+            userAgent: clientInfo.userAgent,
+            ipCountry: clientInfo.ipCountry,
+            ipCity: clientInfo.ipCity,
+          },
+        });
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute accountStatusChanged hooks: ${errorMessage}`, {
+          error: hookError,
+          userId: updatedUser.id,
+          status: 'enabled',
         });
       }
     }

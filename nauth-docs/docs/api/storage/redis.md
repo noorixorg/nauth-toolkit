@@ -3,9 +3,7 @@ title: Redis
 description: Redis storage adapter for production deployments
 keywords: [storage, redis, production, adapter, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

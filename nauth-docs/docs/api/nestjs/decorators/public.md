@@ -1,9 +1,7 @@
 ---
 title: "@Public()"
 description: Mark routes as public to bypass authentication
-sidebar_position: 6
 ---
-
 # @Public()
 
 **Package:** `@nauth-toolkit/nestjs`

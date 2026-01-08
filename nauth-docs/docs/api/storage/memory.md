@@ -3,9 +3,7 @@ title: Memory Adapter
 description: In-memory storage adapter (not recommended)
 keywords: [storage, memory, development, adapter, api]
 image: /img/api-social-card.png
-sidebar_position: 4
 ---
-
 # Memory Adapter
 
 **Package:** `@nauth-toolkit/core`

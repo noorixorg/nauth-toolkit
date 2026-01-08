@@ -1,11 +1,9 @@
 ---
 title: AdminSignupSocialResponseDTO
 description: Response DTO for administrative social user import containing user object and social account confirmation
-sidebar_position: 40
 keywords: [dto, response, admin, social]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

@@ -3,9 +3,7 @@ title: LoginDTO
 description: User login request DTO with email, username, or phone authentication support. Includes optional device tracking for session management.
 keywords: [login, dto, authentication, request, email, username, phone, api]
 image: /img/api-social-card.png
-sidebar_position: 550
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

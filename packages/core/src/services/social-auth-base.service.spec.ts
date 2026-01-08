@@ -287,7 +287,7 @@ describe('BaseSocialAuthProviderService', () => {
       mockUserRepository.save.mockResolvedValue(mockUser as any);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      const result = await service.handleCallback('code', 'valid-state');
+      const result = await service.handleCallback({ code: 'code', state: 'valid-state' });
 
       expect(result).toBeDefined();
       expect(mockUserRepository.create).toHaveBeenCalled();
@@ -307,7 +307,7 @@ describe('BaseSocialAuthProviderService', () => {
       it('should execute preSignup hook before user creation for social signup', async () => {
         mockHookRegistry.executePreSignup.mockResolvedValue(undefined);
 
-        await service.handleCallback('code', 'valid-state');
+        await service.handleCallback({ code: 'code', state: 'valid-state' });
 
         expect(mockHookRegistry.executePreSignup).toHaveBeenCalledTimes(1);
         expect(mockHookRegistry.executePreSignup).toHaveBeenCalledWith(
@@ -331,8 +331,8 @@ describe('BaseSocialAuthProviderService', () => {
           new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, customMessage),
         );
 
-        await expect(service.handleCallback('code', 'valid-state')).rejects.toThrow(NAuthException);
-        await expect(service.handleCallback('code', 'valid-state')).rejects.toMatchObject({
+        await expect(service.handleCallback({ code: 'code', state: 'valid-state' })).rejects.toThrow(NAuthException);
+        await expect(service.handleCallback({ code: 'code', state: 'valid-state' })).rejects.toMatchObject({
           code: AuthErrorCode.PRESIGNUP_FAILED,
           message: customMessage,
         });
@@ -347,8 +347,8 @@ describe('BaseSocialAuthProviderService', () => {
           new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, 'External validation service unavailable'),
         );
 
-        await expect(service.handleCallback('code', 'valid-state')).rejects.toThrow(NAuthException);
-        await expect(service.handleCallback('code', 'valid-state')).rejects.toMatchObject({
+        await expect(service.handleCallback({ code: 'code', state: 'valid-state' })).rejects.toThrow(NAuthException);
+        await expect(service.handleCallback({ code: 'code', state: 'valid-state' })).rejects.toMatchObject({
           code: AuthErrorCode.PRESIGNUP_FAILED,
           message: 'External validation service unavailable',
         });
@@ -378,7 +378,7 @@ describe('BaseSocialAuthProviderService', () => {
       );
 
       try {
-        await newService.handleCallback('code', 'state');
+        await newService.handleCallback({ code: 'code', state: 'state' });
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -395,7 +395,7 @@ describe('BaseSocialAuthProviderService', () => {
       mockUserRepository.save.mockResolvedValue(mockUser as any);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      const result = await service.verifyToken('id-token');
+      const result = await service.verifyToken({ idToken: 'id-token' });
 
       expect(result).toBeDefined();
       expect(mockUserRepository.create).toHaveBeenCalled();
@@ -414,7 +414,7 @@ describe('BaseSocialAuthProviderService', () => {
       it('should execute preSignup hook before user creation for native token verification', async () => {
         mockHookRegistry.executePreSignup.mockResolvedValue(undefined);
 
-        await service.verifyToken('id-token');
+        await service.verifyToken({ idToken: 'id-token' });
 
         expect(mockHookRegistry.executePreSignup).toHaveBeenCalledTimes(1);
         expect(mockHookRegistry.executePreSignup).toHaveBeenCalledWith(
@@ -439,7 +439,7 @@ describe('BaseSocialAuthProviderService', () => {
         );
 
         try {
-          await service.verifyToken('id-token');
+          await service.verifyToken({ idToken: 'id-token' });
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -458,7 +458,7 @@ describe('BaseSocialAuthProviderService', () => {
         );
 
         try {
-          await service.verifyToken('id-token');
+          await service.verifyToken({ idToken: 'id-token' });
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -491,7 +491,7 @@ describe('BaseSocialAuthProviderService', () => {
       );
 
       try {
-        await newService.verifyToken('id-token');
+        await newService.verifyToken({ idToken: 'id-token' });
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);

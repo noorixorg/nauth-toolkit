@@ -3,9 +3,7 @@ title: Express Adapter
 description: Express adapter with middleware and route helpers
 keywords: [express, adapter, middleware, helpers, api]
 image: /img/api-social-card.png
-sidebar_position: 0
 ---
-
 # Express Adapter
 
 **Package:** `@nauth-toolkit/core`

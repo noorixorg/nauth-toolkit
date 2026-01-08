@@ -259,6 +259,7 @@ export class NodemailerProvider implements EmailProvider {
   private readonly defaults: SendMailOptions;
   private readonly preview: boolean;
   private globalVariables: TemplateVariables = {};
+  private config?: import('@nauth-toolkit/core').NAuthConfig;
 
   /**
    * Set logger instance (called by AuthModule to inject NAuthLogger)
@@ -266,6 +267,17 @@ export class NodemailerProvider implements EmailProvider {
    */
   setLogger(logger: LoggerService): void {
     this.logger = logger;
+  }
+
+  /**
+   * Set NAuth configuration (called during initialization)
+   *
+   * Allows email provider to access emailNotifications config for suppression logic.
+   *
+   * @param config - NAuth configuration object
+   */
+  setConfig(config: import('@nauth-toolkit/core').NAuthConfig): void {
+    this.config = config;
   }
 
   /**
@@ -592,6 +604,405 @@ export class NodemailerProvider implements EmailProvider {
   }
 
   /**
+   * Send password changed security alert
+   *
+   * @param to - Recipient email address
+   * @param context - Password change context
+   * @param variables - Additional template variables
+   */
+  async sendPasswordChangedEmail(
+    to: string,
+    context: {
+      changedBy?: 'user' | 'admin' | 'reset';
+      sessionsRevoked?: number;
+      timestamp?: string;
+    } = {},
+    variables: TemplateVariables = {},
+  ): Promise<void> {
+    if (!this.shouldSendEmail('passwordChanged')) return;
+
+    const templateVariables: TemplateVariables = {
+      ...this.globalVariables,
+      userName: to.split('@')[0],
+      userEmail: to,
+      changedBy: context.changedBy || 'user',
+      sessionsRevoked: context.sessionsRevoked,
+      timestamp: context.timestamp || new Date().toISOString(),
+      ...variables,
+    };
+
+    const email = await this.templateEngine.render(TemplateType.PASSWORD_CHANGED, templateVariables);
+
+    await this.sendMail({
+      to,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+  }
+
+  /**
+   * Send MFA device removed security alert
+   *
+   * @param to - Recipient email address
+   * @param context - Device removal context
+   * @param variables - Additional template variables
+   */
+  async sendMFADeviceRemovedEmail(
+    to: string,
+    context: {
+      deviceType?: string;
+      deviceName?: string;
+      removedBy?: 'user' | 'system';
+      reason?: string;
+      remainingDeviceCount?: number;
+    } = {},
+    variables: TemplateVariables = {},
+  ): Promise<void> {
+    if (!this.shouldSendEmail('mfaDeviceRemoved')) return;
+
+    const templateVariables: TemplateVariables = {
+      ...this.globalVariables,
+      userName: to.split('@')[0],
+      userEmail: to,
+      deviceType: context.deviceType || 'Unknown',
+      deviceName: context.deviceName || 'Unknown Device',
+      removedBy: context.removedBy || 'user',
+      reason: context.reason || 'User request',
+      remainingDeviceCount: context.remainingDeviceCount || 0,
+      timestamp: new Date().toISOString(),
+      ...variables,
+    };
+
+    const email = await this.templateEngine.render(TemplateType.MFA_DEVICE_REMOVED, templateVariables);
+
+    await this.sendMail({
+      to,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+  }
+
+  /**
+   * Send adaptive MFA risk detection alert
+   *
+   * @param to - Recipient email address
+   * @param context - Risk detection context
+   * @param variables - Additional template variables
+   */
+  async sendAdaptiveMFARiskAlertEmail(
+    to: string,
+    context: {
+      riskScore?: number;
+      riskLevel?: 'low' | 'medium' | 'high';
+      riskFactors?: string[];
+      action?: string;
+      timestamp?: string;
+    } = {},
+    variables: TemplateVariables = {},
+  ): Promise<void> {
+    if (!this.shouldSendEmail('adaptiveMfaRiskDetected')) return;
+
+    const templateVariables: TemplateVariables = {
+      ...this.globalVariables,
+      userName: to.split('@')[0],
+      userEmail: to,
+      riskScore: context.riskScore || 0,
+      riskLevel: context.riskLevel || 'medium',
+      riskFactors: context.riskFactors?.join(', ') || 'Unknown',
+      action: context.action || 'require_mfa',
+      timestamp: context.timestamp || new Date().toISOString(),
+      ...variables,
+    };
+
+    const email = await this.templateEngine.render(TemplateType.ADAPTIVE_MFA_RISK_ALERT, templateVariables);
+
+    await this.sendMail({
+      to,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+  }
+
+  /**
+   * Send account disabled notification
+   *
+   * @param to - Recipient email address
+   * @param context - Account disable context
+   * @param variables - Additional template variables
+   */
+  async sendAccountDisabledEmail(
+    to: string,
+    context: {
+      reason?: string;
+      performedBy?: string;
+      timestamp?: string;
+    } = {},
+    variables: TemplateVariables = {},
+  ): Promise<void> {
+    if (!this.shouldSendEmail('accountDisabled')) return;
+
+    const templateVariables: TemplateVariables = {
+      ...this.globalVariables,
+      userName: to.split('@')[0],
+      userEmail: to,
+      reason: context.reason || 'Administrative action',
+      performedBy: context.performedBy || 'Administrator',
+      timestamp: context.timestamp || new Date().toISOString(),
+      ...variables,
+    };
+
+    const email = await this.templateEngine.render(TemplateType.ACCOUNT_DISABLED, templateVariables);
+
+    await this.sendMail({
+      to,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+  }
+
+  /**
+   * Send account enabled notification
+   *
+   * @param to - Recipient email address
+   * @param context - Account enable context
+   * @param variables - Additional template variables
+   */
+  async sendAccountEnabledEmail(
+    to: string,
+    context: {
+      reason?: string;
+      performedBy?: string;
+      timestamp?: string;
+    } = {},
+    variables: TemplateVariables = {},
+  ): Promise<void> {
+    if (!this.shouldSendEmail('accountEnabled')) return;
+
+    const templateVariables: TemplateVariables = {
+      ...this.globalVariables,
+      userName: to.split('@')[0],
+      userEmail: to,
+      reason: context.reason || 'Administrative action',
+      performedBy: context.performedBy || 'Administrator',
+      timestamp: context.timestamp || new Date().toISOString(),
+      ...variables,
+    };
+
+    const email = await this.templateEngine.render(TemplateType.ACCOUNT_ENABLED, templateVariables);
+
+    await this.sendMail({
+      to,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+  }
+
+  /**
+   * Send email changed alert (to OLD email address)
+   *
+   * @param to - OLD email address
+   * @param context - Email change context
+   * @param variables - Additional template variables
+   */
+  async sendEmailChangedAlertEmail(
+    to: string,
+    context: {
+      newEmail?: string;
+      deactivatedMFADevices?: number;
+      timestamp?: string;
+    } = {},
+    variables: TemplateVariables = {},
+  ): Promise<void> {
+    if (!this.shouldSendEmail('emailChangedOld')) return;
+
+    const templateVariables: TemplateVariables = {
+      ...this.globalVariables,
+      userName: to.split('@')[0],
+      userEmail: to,
+      newEmail: context.newEmail || 'Unknown',
+      deactivatedMFADevices: context.deactivatedMFADevices || 0,
+      timestamp: context.timestamp || new Date().toISOString(),
+      isOldEmail: true,
+      ...variables,
+    };
+
+    const email = await this.templateEngine.render(TemplateType.EMAIL_CHANGED_OLD, templateVariables);
+
+    await this.sendMail({
+      to,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+  }
+
+  /**
+   * Send email changed confirmation (to NEW email address)
+   *
+   * @param to - NEW email address
+   * @param context - Email change context
+   * @param variables - Additional template variables
+   */
+  async sendEmailChangedConfirmationEmail(
+    to: string,
+    context: {
+      oldEmail?: string;
+      timestamp?: string;
+    } = {},
+    variables: TemplateVariables = {},
+  ): Promise<void> {
+    if (!this.shouldSendEmail('emailChangedNew')) return;
+
+    const templateVariables: TemplateVariables = {
+      ...this.globalVariables,
+      userName: to.split('@')[0],
+      userEmail: to,
+      oldEmail: context.oldEmail || 'Unknown',
+      timestamp: context.timestamp || new Date().toISOString(),
+      isOldEmail: false,
+      ...variables,
+    };
+
+    const email = await this.templateEngine.render(TemplateType.EMAIL_CHANGED_NEW, templateVariables);
+
+    await this.sendMail({
+      to,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+  }
+
+  /**
+   * Send account locked notification
+   *
+   * @param to - Recipient email address
+   * @param context - Lockout context
+   * @param variables - Additional template variables
+   */
+  async sendAccountLockedEmail(
+    to: string,
+    context: {
+      reason?: string;
+      lockType?: 'temporary' | 'permanent';
+      lockDuration?: number;
+      lockedUntil?: Date;
+      ipAddress?: string;
+      failedAttempts?: number;
+    } = {},
+    variables: TemplateVariables = {},
+  ): Promise<void> {
+    if (!this.shouldSendEmail('accountLockout')) return;
+
+    const templateVariables: TemplateVariables = {
+      ...this.globalVariables,
+      userName: to.split('@')[0],
+      userEmail: to,
+      reason: context.reason || 'Multiple failed login attempts',
+      lockType: context.lockType || 'temporary',
+      lockDuration: context.lockDuration,
+      durationMinutes: context.lockDuration ? Math.round(context.lockDuration / 60) : undefined,
+      lockedUntil: context.lockedUntil?.toISOString(),
+      ipAddress: context.ipAddress,
+      failedAttempts: context.failedAttempts,
+      timestamp: new Date().toISOString(),
+      ...variables,
+    };
+
+    const email = await this.templateEngine.render(TemplateType.ACCOUNT_LOCKOUT, templateVariables);
+
+    await this.sendMail({
+      to,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+  }
+
+  /**
+   * Send sessions revoked security alert
+   *
+   * @param to - Recipient email address
+   * @param context - Session revocation context
+   * @param variables - Additional template variables
+   */
+  async sendSessionsRevokedEmail(
+    to: string,
+    context: {
+      revokedCount?: number;
+      reason?: string;
+      triggerEvent?: string;
+      timestamp?: string;
+    } = {},
+    variables: TemplateVariables = {},
+  ): Promise<void> {
+    if (!this.shouldSendEmail('sessionsRevoked')) return;
+
+    const templateVariables: TemplateVariables = {
+      ...this.globalVariables,
+      userName: to.split('@')[0],
+      userEmail: to,
+      revokedCount: context.revokedCount || 0,
+      reason: context.reason || 'Security action',
+      triggerEvent: context.triggerEvent,
+      timestamp: context.timestamp || new Date().toISOString(),
+      ...variables,
+    };
+
+    const email = await this.templateEngine.render(TemplateType.SESSIONS_REVOKED, templateVariables);
+
+    await this.sendMail({
+      to,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+  }
+
+  /**
+   * Send MFA first enabled confirmation
+   *
+   * @param to - Recipient email address
+   * @param context - MFA enrollment context
+   * @param variables - Additional template variables
+   */
+  async sendMFAFirstEnabledEmail(
+    to: string,
+    context: {
+      firstMethod?: string;
+      deviceName?: string;
+      timestamp?: string;
+    } = {},
+    variables: TemplateVariables = {},
+  ): Promise<void> {
+    if (!this.shouldSendEmail('mfaFirstEnabled')) return;
+
+    const templateVariables: TemplateVariables = {
+      ...this.globalVariables,
+      userName: to.split('@')[0],
+      userEmail: to,
+      firstMethod: context.firstMethod || 'TOTP',
+      deviceName: context.deviceName,
+      timestamp: context.timestamp || new Date().toISOString(),
+      ...variables,
+    };
+
+    const email = await this.templateEngine.render(TemplateType.MFA_ENABLED, templateVariables);
+
+    await this.sendMail({
+      to,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+  }
+
+  /**
    * Send email using Nodemailer
    * @private
    */
@@ -635,6 +1046,42 @@ export class NodemailerProvider implements EmailProvider {
       this.logger?.debug?.('Full error object:', error);
       throw error;
     }
+  }
+
+  /**
+   * Check if email notification should be sent based on config
+   *
+   * Checks global enabled flag and per-notification suppression settings.
+   *
+   * @param notificationType - Type of notification (matches suppress config keys)
+   * @returns True if email should be sent, false if suppressed
+   * @private
+   */
+  private shouldSendEmail(notificationType: string): boolean {
+    const notifications = this.config?.emailNotifications;
+
+    // Check global kill switch
+    if (notifications?.enabled === false) {
+      this.logger?.debug?.(`[EmailNotifications] Global kill switch: ${notificationType} email suppressed`);
+      return false;
+    }
+
+    // Check per-notification suppression (default to true = DISABLED for optional notifications)
+    const suppress = notifications?.suppress as Record<string, boolean | undefined> | undefined;
+    const isSuppressed = suppress?.[notificationType];
+
+    // For code emails (verification, passwordReset, adminPasswordReset), default is false (ENABLED)
+    // For optional notifications, default is true (DISABLED)
+    const defaultSuppressed = !['emailVerification', 'passwordReset', 'adminPasswordReset'].includes(notificationType);
+
+    const shouldSuppress = isSuppressed !== undefined ? isSuppressed : defaultSuppressed;
+
+    if (shouldSuppress) {
+      this.logger?.debug?.(`[EmailNotifications] ${notificationType} email suppressed by config`);
+      return false;
+    }
+
+    return true;
   }
 
   /**

@@ -3,9 +3,7 @@ title: tokenDelivery()
 description: Override token delivery mode for route
 keywords: [fastify, helper, token, delivery, api]
 image: /img/api-social-card.png
-sidebar_position: 5
 ---
-
 # tokenDelivery()
 
 **Type:** `preHandlerHookHandler`

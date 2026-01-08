@@ -24,6 +24,13 @@ export const TEMPLATE_REQUIRED_PARAMS: Record<TemplateType, string[]> = {
   [TemplateType.PASSWORD_CHANGED]: [],
   [TemplateType.EMAIL_CHANGED]: ['userEmail'],
   [TemplateType.MFA_ENABLED]: [],
+  [TemplateType.MFA_DEVICE_REMOVED]: [],
+  [TemplateType.ADAPTIVE_MFA_RISK_ALERT]: ['riskLevel', 'riskFactors'],
+  [TemplateType.ACCOUNT_DISABLED]: ['reason'],
+  [TemplateType.ACCOUNT_ENABLED]: [],
+  [TemplateType.EMAIL_CHANGED_OLD]: [],
+  [TemplateType.EMAIL_CHANGED_NEW]: [],
+  [TemplateType.SESSIONS_REVOKED]: ['revokedCount'],
 };
 
 /**

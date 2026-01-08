@@ -3,9 +3,7 @@ title: requireAuth()
 description: Fastify preHandler for requiring authentication
 keywords: [fastify, helper, auth, protected, api]
 image: /img/api-social-card.png
-sidebar_position: 4
 ---
-
 # requireAuth()
 
 **Type:** `preHandlerHookHandler`

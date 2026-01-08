@@ -3,9 +3,7 @@ title: tokenDelivery Hook
 description: Fastify onSend hook for token cookie delivery
 keywords: [fastify, hook, token, cookies, api]
 image: /img/api-social-card.png
-sidebar_position: 4
 ---
-
 # tokenDelivery Hook
 
 **Type:** `onSendHookHandler`

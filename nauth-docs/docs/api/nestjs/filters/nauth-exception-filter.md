@@ -3,9 +3,7 @@ title: NAuthHttpExceptionFilter
 description: NestJS exception filter for NAuthException handling
 keywords: [nestjs, filter, exception, error, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 # NAuthHttpExceptionFilter
 
 **Package:** `@nauth-toolkit/nestjs`

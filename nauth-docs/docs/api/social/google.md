@@ -3,9 +3,7 @@ title: Google Provider
 description: Google OAuth 2.0 social authentication provider
 keywords: [social, oauth, google, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

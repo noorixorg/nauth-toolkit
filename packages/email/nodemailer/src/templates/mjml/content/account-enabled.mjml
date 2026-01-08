@@ -1,0 +1,55 @@
+<!-- Account Enabled Email Content -->
+<mj-text>
+  Your account has been enabled.
+</mj-text>
+
+<mj-text css-class="text-small alert-box alert-success" padding="16px 24px">
+  Account Status: Active
+</mj-text>
+
+<mj-raw>
+  {{#if reason}}
+</mj-raw>
+<mj-text css-class="text-small font-bold" padding="24px 24px 8px 24px">
+  Reason:
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  {{reason}}
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+
+<mj-text css-class="text-small" padding="24px 24px 8px 24px">
+  What does this mean?
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  Your account has been re-enabled and you can now sign in normally. You may need to reset your password if you don't remember it.
+</mj-text>
+
+<mj-raw>
+  {{#if dashboardUrl}}
+</mj-raw>
+<mj-button href="{{dashboardUrl}}" css-class="button-primary">
+  Sign In
+</mj-button>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+
+<mj-raw>
+  {{#if supportEmail}}
+</mj-raw>
+<mj-text css-class="text-small" padding="24px 24px 8px 24px">
+  Need Help?
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  If you have any questions, please contact support at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>.
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+

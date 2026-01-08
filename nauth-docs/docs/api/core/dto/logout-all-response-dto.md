@@ -3,9 +3,7 @@ title: LogoutAllResponseDTO
 description: Logout all sessions response DTO with revoked session count. Returns number of sessions terminated.
 keywords: [logout, all, response, dto, sessions, api]
 image: /img/api-social-card.png
-sidebar_position: 570
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

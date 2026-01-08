@@ -3,9 +3,7 @@ title: Social Auth
 description: OAuth providers for Google, Apple, and Facebook authentication
 keywords: [social, oauth, google, apple, facebook, api]
 image: /img/api-social-card.png
-sidebar_position: 0
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

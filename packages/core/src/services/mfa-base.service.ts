@@ -12,6 +12,7 @@ import { AuthErrorCode } from '../enums/error-codes.enum';
 import { IMFAProviderService } from '../interfaces/mfa-provider.interface';
 import { MFADeviceMethod, MFADeviceMethods } from '../enums/mfa-method.enum';
 import { ChallengeService } from './challenge.service';
+import { HookRegistryService } from './hook-registry.service';
 
 /**
  * Base MFA Provider Service
@@ -68,6 +69,7 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
     protected readonly challengeService?: ChallengeService,
     protected readonly auditService?: AuthAuditService,
     protected readonly clientInfoService?: ClientInfoService,
+    protected readonly hookRegistry?: HookRegistryService,
   ) {}
 
   /**
@@ -335,6 +337,34 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
         const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
         this.logger?.error?.(`Failed to record MFA_ENABLED audit event: ${errorMessage}`, {
           error: auditError,
+          userId: user.id,
+          methodName: this.methodName,
+        });
+      }
+    }
+
+    // ============================================================================
+    // Lifecycle Hook: MFA First Enabled (only for first device)
+    // ============================================================================
+    if (isFirstDevice && this.hookRegistry && this.clientInfoService) {
+      try {
+        const clientInfo = this.clientInfoService.get();
+        await this.hookRegistry.executeMFAFirstEnabled({
+          user: userEntity as unknown as IUser,
+          firstMethod: this.methodName as import('../enums/mfa-method.enum').MFADeviceMethod,
+          enforcedAt: new Date(),
+          clientInfo: {
+            ipAddress: clientInfo.ipAddress,
+            userAgent: clientInfo.userAgent,
+            ipCountry: clientInfo.ipCountry,
+            ipCity: clientInfo.ipCity,
+          },
+        });
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute mfaFirstEnabled hooks: ${errorMessage}`, {
+          error: hookError,
           userId: user.id,
           methodName: this.methodName,
         });

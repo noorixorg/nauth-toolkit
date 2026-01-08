@@ -7,7 +7,7 @@ import {
   AuthErrorCode,
 } from '@nauth-toolkit/core';
 import * as Handlebars from 'handlebars';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { join, resolve } from 'path';
 
 /**
@@ -71,6 +71,38 @@ export interface HandlebarsTemplateEngineOptions {
    * Custom Handlebars helpers
    */
   helpers?: Record<string, Handlebars.HelperDelegate>;
+
+  /**
+   * Handlebars partials (in-memory)
+   *
+   * Keys are the partial names (used like `{{> footer }}`), values are the partial templates.
+   *
+   * @example
+   * ```typescript
+   * const engine = new HandlebarsTemplateEngine({
+   *   partials: {
+   *     footer: '<footer>&copy; {{currentYear}} {{companyName}}</footer>',
+   *   },
+   * });
+   * ```
+   */
+  partials?: Record<string, string>;
+
+  /**
+   * Directory containing `.hbs` partials
+   *
+   * Files are registered by filename (without extension).
+   * Example: `partials/footer.hbs` → `{{> footer }}`
+   *
+   * @example
+   * ```typescript
+   * const engine = new HandlebarsTemplateEngine({
+   *   baseDir: process.cwd(),
+   *   partialsDir: './email-templates/partials',
+   * });
+   * ```
+   */
+  partialsDir?: string;
 
   /**
    * Handlebars compile options
@@ -161,6 +193,16 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
       });
     }
 
+    // Register partials (optional)
+    if (options.partials) {
+      Object.entries(options.partials).forEach(([name, content]) => {
+        this.handlebars.registerPartial(name, content);
+      });
+    }
+    if (options.partialsDir) {
+      this.registerPartialsFromDir(options.partialsDir);
+    }
+
     // Load default templates if enabled
     if (options.useDefaultTemplates !== false) {
       this.registerDefaultTemplates();
@@ -191,10 +233,23 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
       ...variables,
     };
 
-    // Render subject, HTML, and text
+    // Render subject first, then expose it to HTML/text templates.
+    // MJML-built templates use {{subject}} and {{previewText}} in the shared master layout.
     const subject = template.subject(allVariables);
-    const html = template.html(allVariables);
-    const text = template.text ? template.text(allVariables) : this.htmlToText(html);
+    const previewText =
+      typeof allVariables.previewText === 'string' && allVariables.previewText.trim().length > 0
+        ? allVariables.previewText
+        : subject;
+
+    const variablesWithMeta: TemplateVariables = {
+      ...allVariables,
+      subject,
+      previewText,
+    };
+
+    // Render HTML and text (text falls back to HTML->text conversion)
+    const html = template.html(variablesWithMeta);
+    const text = template.text ? template.text(variablesWithMeta) : this.htmlToText(html);
 
     return { subject, html, text };
   }
@@ -441,6 +496,25 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
   }
 
   /**
+   * Register all `.hbs` partials from a directory
+   *
+   * @param partialsDir - Directory path (relative to baseDir or absolute)
+   * @private
+   */
+  private registerPartialsFromDir(partialsDir: string): void {
+    const fullDir = resolve(this.baseDir, partialsDir);
+    const files = readdirSync(fullDir);
+
+    files.forEach((fileName) => {
+      if (!fileName.endsWith('.hbs')) return;
+      const partialName = fileName.replace(/\.hbs$/, '');
+      const fullPath = join(fullDir, fileName);
+      const content = readFileSync(fullPath, 'utf-8');
+      this.handlebars.registerPartial(partialName, content);
+    });
+  }
+
+  /**
    * Register default templates from built-in files
    *
    * Loads templates from the default templates directory.
@@ -453,12 +527,20 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
     const templateFileMapping: Record<string, string> = {
       [TemplateType.VERIFICATION]: 'verification',
       [TemplateType.PASSWORD_RESET]: 'password-reset',
+      [TemplateType.ADMIN_PASSWORD_RESET]: 'admin-password-reset',
       [TemplateType.WELCOME]: 'welcome',
       [TemplateType.ACCOUNT_LOCKOUT]: 'account-lockout',
       [TemplateType.NEW_DEVICE]: 'new-device',
       [TemplateType.PASSWORD_CHANGED]: 'password-changed',
       [TemplateType.EMAIL_CHANGED]: 'email-changed',
       [TemplateType.MFA_ENABLED]: 'mfa-enabled',
+      [TemplateType.MFA_DEVICE_REMOVED]: 'mfa-device-removed',
+      [TemplateType.ADAPTIVE_MFA_RISK_ALERT]: 'adaptive-mfa-risk-alert',
+      [TemplateType.ACCOUNT_DISABLED]: 'account-disabled',
+      [TemplateType.ACCOUNT_ENABLED]: 'account-enabled',
+      [TemplateType.EMAIL_CHANGED_OLD]: 'email-changed-old',
+      [TemplateType.EMAIL_CHANGED_NEW]: 'email-changed-new',
+      [TemplateType.SESSIONS_REVOKED]: 'sessions-revoked',
     };
 
     // Register all default templates

@@ -3,9 +3,7 @@ title: csrf Hook
 description: Fastify onRequest hook for CSRF protection
 keywords: [fastify, hook, csrf, security, api]
 image: /img/api-social-card.png
-sidebar_position: 3
 ---
-
 # csrf Hook
 
 **Type:** `onRequestHookHandler`

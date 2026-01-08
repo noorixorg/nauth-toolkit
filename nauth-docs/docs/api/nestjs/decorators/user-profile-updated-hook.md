@@ -1,11 +1,9 @@
 ---
 title: '@UserProfileUpdatedHook()'
 description: NestJS decorator for user profile updated hooks with automatic registration
-sidebar_position: 9
 keywords: [decorator, hook, profile, update, nestjs]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -22,7 +20,7 @@ import { UserProfileUpdatedHook } from '@nauth-toolkit/nestjs';
 
 ## Overview
 
-The `@UserProfileUpdatedHook()` decorator automatically registers a class with the `HookRegistryService` when used with `NAuthHooksModule.forFeature()`. The decorated class must implement [`IUserProfileUpdatedHook`](/docs/api/core/interfaces/user-profile-updated-hook).
+The `@UserProfileUpdatedHook()` decorator automatically registers a class with the `HookRegistryService` when used with `NAuthHooksModule.forFeature()`. The decorated class must implement [`IUserProfileUpdatedHook`](/docs/api/core/hooks/user-profile-updated-hook).
 
 :::note
 Requires `NAuthHooksModule.forFeature()` to be imported in your module.
@@ -93,6 +91,6 @@ export class AuthModule {}
 
 ## Related APIs
 
-- [IUserProfileUpdatedHook](../../core/interfaces/user-profile-updated-hook) - Hook interface
+- [IUserProfileUpdatedHook](../../core/hooks/user-profile-updated-hook) - Hook interface
 - [NAuthHooksModule](./nauth-hooks-module) - Hook registration module
 - [HookRegistryService](../../core/services/hook-registry-service) - Hook registry

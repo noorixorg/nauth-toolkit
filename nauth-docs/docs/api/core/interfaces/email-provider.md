@@ -3,9 +3,7 @@ title: EmailProvider
 description: Interface for email providers used for verification, password reset, and onboarding emails
 keywords: [email, provider, interface, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

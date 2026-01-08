@@ -69,6 +69,18 @@ describe('PasswordResetService', () => {
       sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
       sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
       sendWelcomeEmail: jest.fn().mockResolvedValue(undefined),
+      sendAdminPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
+      sendLockoutEmail: jest.fn().mockResolvedValue(undefined),
+      sendPasswordChangedEmail: jest.fn().mockResolvedValue(undefined),
+      sendMFADeviceRemovedEmail: jest.fn().mockResolvedValue(undefined),
+      sendAdaptiveMFARiskAlertEmail: jest.fn().mockResolvedValue(undefined),
+      sendAccountDisabledEmail: jest.fn().mockResolvedValue(undefined),
+      sendAccountEnabledEmail: jest.fn().mockResolvedValue(undefined),
+      sendEmailChangedAlertEmail: jest.fn().mockResolvedValue(undefined),
+      sendEmailChangedConfirmationEmail: jest.fn().mockResolvedValue(undefined),
+      sendAccountLockedEmail: jest.fn().mockResolvedValue(undefined),
+      sendSessionsRevokedEmail: jest.fn().mockResolvedValue(undefined),
+      sendMFAFirstEnabledEmail: jest.fn().mockResolvedValue(undefined),
     };
 
     mockSmsProvider = {

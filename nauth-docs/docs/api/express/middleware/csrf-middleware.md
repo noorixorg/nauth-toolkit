@@ -1,11 +1,9 @@
 ---
 title: csrf
 description: CSRF token validation middleware for Express
-sidebar_position: 3
 keywords: [express, middleware, csrf, security, cookie, api]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

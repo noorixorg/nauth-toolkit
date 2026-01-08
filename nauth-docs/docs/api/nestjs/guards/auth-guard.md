@@ -1,11 +1,9 @@
 ---
 title: AuthGuard
 description: NestJS guard that authenticates requests and attaches the current user.
-sidebar_position: 1
 keywords: [nestjs, guard, auth, jwt, cookies, token delivery]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

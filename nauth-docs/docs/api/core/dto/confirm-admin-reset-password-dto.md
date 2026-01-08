@@ -3,9 +3,7 @@ title: ConfirmAdminResetPasswordDTO
 description: DTOs for completing admin-initiated password reset with verification code or token. Accepts either short code from email/SMS or long token from link.
 keywords: [admin, password, reset, confirm, dto, request, response, api, code, token]
 image: /img/api-social-card.png
-sidebar_position: 120
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

@@ -3,9 +3,7 @@ title: AuthService
 description: Core authentication service providing signup, login, password management, MFA, session handling, and token generation for Node.js applications.
 keywords: [auth, authentication, service, api, login, signup, password, session, mfa, jwt]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

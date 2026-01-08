@@ -3,9 +3,7 @@ title: SMS Templates Configuration
 description: Configure custom SMS templates for verification, MFA, and password reset codes
 keywords: [sms, templates, configuration, handlebars, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

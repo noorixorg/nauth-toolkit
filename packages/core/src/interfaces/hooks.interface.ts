@@ -205,14 +205,9 @@ export interface UserProfileUpdatedMetadata {
   performedBy?: string;
 
   /**
-   * Client information (IP address, user agent)
+   * Client information (IP address, user agent, location)
    */
-  clientInfo?: {
-    ipAddress?: string;
-    userAgent?: string;
-    ipCountry?: string;
-    ipCity?: string;
-  };
+  clientInfo?: import('./client-info.interface').ClientInfo;
 }
 
 /**
@@ -258,4 +253,717 @@ export interface IUserProfileUpdatedHook {
    * @param metadata - Profile update context with user, changed fields, and update source
    */
   execute(metadata: UserProfileUpdatedMetadata): Promise<void>;
+}
+
+// ============================================================================
+// Password Changed Hook
+// ============================================================================
+
+/**
+ * Password changed metadata
+ *
+ * Provides context about password change events.
+ */
+export interface PasswordChangedMetadata {
+  /**
+   * User whose password was changed
+   */
+  user: IUser;
+
+  /**
+   * How the password was changed
+   *
+   * - 'user': User changed their own password
+   * - 'admin': Admin set new password
+   * - 'reset': Password reset via forgot-password flow
+   */
+  changedBy: 'user' | 'admin' | 'reset';
+
+  /**
+   * Number of sessions revoked (optional)
+   */
+  sessionsRevoked?: number;
+
+  /**
+   * Client information (IP address, user agent, location)
+   */
+  clientInfo?: import('./client-info.interface').ClientInfo;
+}
+
+/**
+ * Password changed hook interface
+ *
+ * Executes actions after password is changed (non-blocking).
+ * Errors are logged but do not affect the password change operation.
+ *
+ * @remarks
+ * This hook is triggered when:
+ * - User changes their password via `changePassword()`
+ * - Admin sets new password via `adminSetPassword()`
+ * - User completes password reset via `confirmPasswordReset()`
+ *
+ * The hook is non-blocking. If it throws an error, the error is logged
+ * but the password has already been changed when the hook is called.
+ *
+ * Use cases:
+ * - Send security alert email
+ * - Log to SIEM
+ * - Trigger account re-enrollment
+ * - Update external systems
+ *
+ * @example
+ * ```typescript
+ * export class PasswordChangedEmailHook implements IPasswordChangedHook {
+ *   async execute(metadata: PasswordChangedMetadata): Promise<void> {
+ *     const { user, changedBy, sessionsRevoked } = metadata;
+ *     await this.emailService.sendPasswordChangedEmail(
+ *       user.email,
+ *       { changedBy, sessionsRevoked }
+ *     );
+ *   }
+ * }
+ * ```
+ */
+export interface IPasswordChangedHook {
+  /**
+   * Execute password changed actions
+   *
+   * @param metadata - Password change context with user and change details
+   */
+  execute(metadata: PasswordChangedMetadata): Promise<void>;
+}
+
+// ============================================================================
+// MFA Device Removed Hook
+// ============================================================================
+
+/**
+ * MFA device removed metadata
+ *
+ * Provides context about MFA device removal events.
+ */
+export interface MFADeviceRemovedMetadata {
+  /**
+   * User whose MFA device was removed
+   */
+  user: IUser;
+
+  /**
+   * Type of MFA device that was removed
+   */
+  deviceType: import('../enums/mfa-method.enum').MFADeviceMethod;
+
+  /**
+   * Device name (optional, user-provided label)
+   */
+  deviceName?: string;
+
+  /**
+   * Who removed the device
+   *
+   * - 'user': User removed their own device
+   * - 'system': System removed device (e.g., after email/phone change)
+   */
+  removedBy: 'user' | 'system';
+
+  /**
+   * Reason for removal
+   *
+   * - 'email_changed': Email changed, email MFA device removed
+   * - 'phone_changed': Phone changed, SMS MFA device removed
+   * - 'user_request': User requested removal
+   * - 'admin_action': Admin removed device
+   */
+  reason?: string;
+
+  /**
+   * Number of MFA devices remaining after removal
+   */
+  remainingDeviceCount: number;
+
+  /**
+   * Client information (IP address, user agent, location)
+   */
+  clientInfo?: import('./client-info.interface').ClientInfo;
+}
+
+/**
+ * MFA device removed hook interface
+ *
+ * Executes actions after MFA device is removed (non-blocking).
+ * Errors are logged but do not affect the removal operation.
+ *
+ * @remarks
+ * This hook is triggered when:
+ * - User removes MFA device via `removeDevices()`
+ * - System removes device due to email/phone change via `updateUserAttributes()`
+ *
+ * The hook is non-blocking. If it throws an error, the error is logged
+ * but the device has already been removed when the hook is called.
+ *
+ * Use cases:
+ * - Send security alert email
+ * - Log to SIEM
+ * - Warn if last device removed
+ * - Update external systems
+ *
+ * @example
+ * ```typescript
+ * export class MFADeviceRemovedAlertHook implements IMFADeviceRemovedHook {
+ *   async execute(metadata: MFADeviceRemovedMetadata): Promise<void> {
+ *     const { user, deviceType, remainingDeviceCount } = metadata;
+ *     if (remainingDeviceCount === 0) {
+ *       await this.emailService.sendMFADeviceRemovedEmail(
+ *         user.email,
+ *         { deviceType, warning: 'No MFA devices remaining' }
+ *       );
+ *     }
+ *   }
+ * }
+ * ```
+ */
+export interface IMFADeviceRemovedHook {
+  /**
+   * Execute MFA device removed actions
+   *
+   * @param metadata - Device removal context with user and device details
+   */
+  execute(metadata: MFADeviceRemovedMetadata): Promise<void>;
+}
+
+// ============================================================================
+// Adaptive MFA Risk Detected Hook
+// ============================================================================
+
+/**
+ * Adaptive MFA risk detected metadata
+ *
+ * Provides context about adaptive MFA risk evaluation events.
+ */
+export interface AdaptiveMFARiskDetectedMetadata {
+  /**
+   * User being authenticated
+   */
+  user: IUser;
+
+  /**
+   * Risk score (0-100)
+   */
+  riskScore: number;
+
+  /**
+   * Risk level classification
+   */
+  riskLevel: 'low' | 'medium' | 'high';
+
+  /**
+   * Detected risk factors
+   */
+  riskFactors: import('../enums/risk-factor.enum').RiskFactor[];
+
+  /**
+   * Action taken based on risk level
+   *
+   * - 'allow': No MFA required
+   * - 'require_mfa': MFA verification required
+   * - 'block_signin': Sign-in blocked
+   */
+  action: 'allow' | 'require_mfa' | 'block_signin';
+
+  /**
+   * Authentication method used
+   */
+  authMethod: string;
+
+  /**
+   * Client information (IP address, user agent, location)
+   */
+  clientInfo: import('./client-info.interface').ClientInfo;
+
+  /**
+   * Event timestamp
+   */
+  timestamp: Date;
+}
+
+/**
+ * Adaptive MFA risk detected hook interface
+ *
+ * Executes actions when adaptive MFA evaluates risk (non-blocking).
+ * Only triggered when notifyUser is true in risk level config.
+ * Errors are logged but do not affect authentication flow.
+ *
+ * @remarks
+ * This hook is triggered when:
+ * - Adaptive MFA evaluates login and detects risk factors
+ * - Risk level configuration has `notifyUser: true`
+ *
+ * The hook is non-blocking. If it throws an error, the error is logged
+ * but authentication flow continues normally.
+ *
+ * Use cases:
+ * - Send risk alert email
+ * - Log to SIEM
+ * - Trigger additional verification
+ * - Update fraud detection systems
+ *
+ * @example
+ * ```typescript
+ * export class AdaptiveMFARiskAlertHook implements IAdaptiveMFARiskDetectedHook {
+ *   async execute(metadata: AdaptiveMFARiskDetectedMetadata): Promise<void> {
+ *     const { user, riskScore, riskLevel, riskFactors } = metadata;
+ *     if (riskLevel === 'high') {
+ *       await this.emailService.sendRiskAlertEmail(
+ *         user.email,
+ *         { riskScore, riskFactors }
+ *       );
+ *     }
+ *   }
+ * }
+ * ```
+ */
+export interface IAdaptiveMFARiskDetectedHook {
+  /**
+   * Execute adaptive MFA risk detected actions
+   *
+   * @param metadata - Risk evaluation context with user and risk details
+   */
+  execute(metadata: AdaptiveMFARiskDetectedMetadata): Promise<void>;
+}
+
+// ============================================================================
+// Account Status Changed Hook
+// ============================================================================
+
+/**
+ * Account status changed metadata
+ *
+ * Provides context about account enable/disable events.
+ */
+export interface AccountStatusChangedMetadata {
+  /**
+   * User whose account status changed
+   */
+  user: IUser;
+
+  /**
+   * New account status
+   *
+   * - 'disabled': Account was disabled
+   * - 'enabled': Account was enabled
+   */
+  status: 'disabled' | 'enabled';
+
+  /**
+   * Reason for status change
+   */
+  reason?: string;
+
+  /**
+   * Admin who performed the action (admin sub)
+   */
+  performedBy?: string;
+
+  /**
+   * Number of sessions revoked (for disable action)
+   */
+  revokedSessions?: number;
+
+  /**
+   * Client information (IP address, user agent, location)
+   */
+  clientInfo?: import('./client-info.interface').ClientInfo;
+}
+
+/**
+ * Account status changed hook interface
+ *
+ * Executes actions after account is enabled or disabled (non-blocking).
+ * Errors are logged but do not affect the status change operation.
+ *
+ * @remarks
+ * This hook is triggered when:
+ * - Admin disables user account via `disableUser()`
+ * - Admin enables user account via `enableUser()`
+ *
+ * The hook is non-blocking. If it throws an error, the error is logged
+ * but the account status has already been changed when the hook is called.
+ *
+ * Use cases:
+ * - Notify user of account status change
+ * - Log to compliance system
+ * - Trigger CRM/support workflows
+ * - Update external systems
+ *
+ * @example
+ * ```typescript
+ * export class AccountStatusNotificationHook implements IAccountStatusChangedHook {
+ *   async execute(metadata: AccountStatusChangedMetadata): Promise<void> {
+ *     const { user, status, reason } = metadata;
+ *     if (status === 'disabled') {
+ *       await this.emailService.sendAccountDisabledEmail(
+ *         user.email,
+ *         { reason }
+ *       );
+ *     }
+ *   }
+ * }
+ * ```
+ */
+export interface IAccountStatusChangedHook {
+  /**
+   * Execute account status changed actions
+   *
+   * @param metadata - Status change context with user and change details
+   */
+  execute(metadata: AccountStatusChangedMetadata): Promise<void>;
+}
+
+// ============================================================================
+// Email Changed Hook
+// ============================================================================
+
+/**
+ * Email changed metadata
+ *
+ * Provides context about email change events.
+ */
+export interface EmailChangedMetadata {
+  /**
+   * User whose email was changed
+   */
+  user: IUser;
+
+  /**
+   * Old email address (before change)
+   */
+  oldEmail: string;
+
+  /**
+   * New email address (after change)
+   */
+  newEmail: string;
+
+  /**
+   * Source of the email change
+   */
+  updateSource: UserProfileUpdateSource;
+
+  /**
+   * Number of MFA devices deactivated due to email change
+   */
+  deactivatedMFADevices?: number;
+
+  /**
+   * Client information (IP address, user agent, location)
+   */
+  clientInfo?: import('./client-info.interface').ClientInfo;
+}
+
+/**
+ * Email changed hook interface
+ *
+ * Executes actions after email address is changed (non-blocking).
+ * Errors are logged but do not affect the email change operation.
+ *
+ * @remarks
+ * This hook is triggered when:
+ * - User changes email via `updateUserAttributes()`
+ *
+ * The hook is non-blocking. If it throws an error, the error is logged
+ * but the email has already been changed when the hook is called.
+ *
+ * **Important:** This hook triggers TWO emails for security:
+ * 1. Alert to OLD email address (security notification)
+ * 2. Confirmation to NEW email address
+ *
+ * Use cases:
+ * - Send security alert to old email
+ * - Send confirmation to new email
+ * - Log to audit system
+ * - Update external systems
+ *
+ * @example
+ * ```typescript
+ * export class EmailChangedNotificationHook implements IEmailChangedHook {
+ *   async execute(metadata: EmailChangedMetadata): Promise<void> {
+ *     const { oldEmail, newEmail, deactivatedMFADevices } = metadata;
+ *
+ *     // Alert to old email
+ *     await this.emailService.sendEmailChangedAlertEmail(
+ *       oldEmail,
+ *       { newEmail, deactivatedMFADevices }
+ *     );
+ *
+ *     // Confirmation to new email
+ *     await this.emailService.sendEmailChangedConfirmationEmail(
+ *       newEmail
+ *     );
+ *   }
+ * }
+ * ```
+ */
+export interface IEmailChangedHook {
+  /**
+   * Execute email changed actions
+   *
+   * @param metadata - Email change context with old and new addresses
+   */
+  execute(metadata: EmailChangedMetadata): Promise<void>;
+}
+
+// ============================================================================
+// Account Locked Hook
+// ============================================================================
+
+/**
+ * Account locked metadata
+ *
+ * Provides context about account lockout events.
+ */
+export interface AccountLockedMetadata {
+  /**
+   * User whose account was locked
+   */
+  user: IUser;
+
+  /**
+   * Reason for lockout
+   */
+  reason: string;
+
+  /**
+   * Type of lock
+   *
+   * - 'temporary': Temporary lockout (auto-unlocks)
+   * - 'permanent': Permanent lock (requires admin intervention)
+   */
+  lockType: 'temporary' | 'permanent';
+
+  /**
+   * Lock duration in seconds (for temporary locks)
+   */
+  lockDuration?: number;
+
+  /**
+   * When the lock expires (for temporary locks)
+   */
+  lockedUntil?: Date;
+
+  /**
+   * IP address that triggered the lockout
+   */
+  ipAddress?: string;
+
+  /**
+   * Number of failed attempts that triggered lockout
+   */
+  failedAttempts?: number;
+}
+
+/**
+ * Account locked hook interface
+ *
+ * Executes actions after account is locked (non-blocking).
+ * Errors are logged but do not affect the lockout operation.
+ *
+ * @remarks
+ * This hook is triggered when:
+ * - Account lockout threshold is reached via `handleFailedLogin()`
+ *
+ * The hook is non-blocking. If it throws an error, the error is logged
+ * but the account has already been locked when the hook is called.
+ *
+ * Use cases:
+ * - Notify user of lockout
+ * - Log to security system
+ * - Trigger fraud detection
+ * - Alert admins for high-risk lockouts
+ *
+ * @example
+ * ```typescript
+ * export class AccountLockedNotificationHook implements IAccountLockedHook {
+ *   async execute(metadata: AccountLockedMetadata): Promise<void> {
+ *     const { user, reason, lockDuration } = metadata;
+ *     await this.emailService.sendAccountLockedEmail(
+ *       user.email,
+ *       { reason, lockDuration }
+ *     );
+ *   }
+ * }
+ * ```
+ */
+export interface IAccountLockedHook {
+  /**
+   * Execute account locked actions
+   *
+   * @param metadata - Lockout context with user and lock details
+   */
+  execute(metadata: AccountLockedMetadata): Promise<void>;
+}
+
+// ============================================================================
+// Sessions Revoked Hook
+// ============================================================================
+
+/**
+ * Sessions revoked metadata
+ *
+ * Provides context about session revocation events.
+ */
+export interface SessionsRevokedMetadata {
+  /**
+   * User whose sessions were revoked
+   */
+  user: IUser;
+
+  /**
+   * Number of sessions revoked
+   */
+  revokedCount: number;
+
+  /**
+   * Reason for revocation
+   */
+  reason: string;
+
+  /**
+   * Who initiated the revocation
+   *
+   * - 'user': User revoked their own sessions
+   * - 'admin': Admin revoked sessions
+   * - 'system': System revoked sessions (e.g., password change)
+   */
+  initiatedBy: 'user' | 'admin' | 'system';
+
+  /**
+   * Trigger event (optional)
+   *
+   * - 'password_changed': Password change triggered revocation
+   * - 'account_disabled': Account disable triggered revocation
+   * - 'user_request': User manually revoked sessions
+   */
+  triggerEvent?: string;
+}
+
+/**
+ * Sessions revoked hook interface
+ *
+ * Executes actions after sessions are revoked (non-blocking).
+ * Errors are logged but do not affect the revocation operation.
+ *
+ * @remarks
+ * This hook is triggered when:
+ * - Sessions are revoked via `revokeAllUserSessions()` when NOT user-initiated
+ *
+ * The hook is non-blocking. If it throws an error, the error is logged
+ * but the sessions have already been revoked when the hook is called.
+ *
+ * **Note:** Hook is NOT triggered for user-initiated revocations (when user
+ * explicitly logs out or revokes sessions) to avoid notification spam.
+ *
+ * Use cases:
+ * - Send security alert about forced logout
+ * - Log to security system
+ * - Update external systems
+ *
+ * @example
+ * ```typescript
+ * export class SessionsRevokedAlertHook implements ISessionsRevokedHook {
+ *   async execute(metadata: SessionsRevokedMetadata): Promise<void> {
+ *     const { user, revokedCount, reason } = metadata;
+ *     if (reason === 'password_changed') {
+ *       await this.emailService.sendSessionsRevokedEmail(
+ *         user.email,
+ *         { revokedCount, reason }
+ *       );
+ *     }
+ *   }
+ * }
+ * ```
+ */
+export interface ISessionsRevokedHook {
+  /**
+   * Execute sessions revoked actions
+   *
+   * @param metadata - Revocation context with user and session details
+   */
+  execute(metadata: SessionsRevokedMetadata): Promise<void>;
+}
+
+// ============================================================================
+// MFA First Enabled Hook
+// ============================================================================
+
+/**
+ * MFA first enabled metadata
+ *
+ * Provides context about first MFA device enrollment.
+ */
+export interface MFAFirstEnabledMetadata {
+  /**
+   * User who enabled their first MFA device
+   */
+  user: IUser;
+
+  /**
+   * Type of first MFA device
+   */
+  firstMethod: import('../enums/mfa-method.enum').MFADeviceMethod;
+
+  /**
+   * Device name (optional, user-provided label)
+   */
+  deviceName?: string;
+
+  /**
+   * When MFA was first enforced for this user
+   */
+  enforcedAt: Date;
+
+  /**
+   * Client information (IP address, user agent, location)
+   */
+  clientInfo?: import('./client-info.interface').ClientInfo;
+}
+
+/**
+ * MFA first enabled hook interface
+ *
+ * Executes actions when user enables their first MFA device (non-blocking).
+ * Errors are logged but do not affect the MFA enrollment operation.
+ *
+ * @remarks
+ * This hook is triggered when:
+ * - User enables their first MFA device via `enableMFAForUser()` when `isFirstDevice = true`
+ *
+ * The hook is non-blocking. If it throws an error, the error is logged
+ * but the MFA device has already been enabled when the hook is called.
+ *
+ * Use cases:
+ * - Send confirmation email
+ * - Log to audit system
+ * - Update onboarding status
+ * - Update external systems
+ *
+ * @example
+ * ```typescript
+ * export class MFAFirstEnabledConfirmationHook implements IMFAFirstEnabledHook {
+ *   async execute(metadata: MFAFirstEnabledMetadata): Promise<void> {
+ *     const { user, firstMethod } = metadata;
+ *     await this.emailService.sendMFAFirstEnabledEmail(
+ *       user.email,
+ *       { method: firstMethod }
+ *     );
+ *   }
+ * }
+ * ```
+ */
+export interface IMFAFirstEnabledHook {
+  /**
+   * Execute MFA first enabled actions
+   *
+   * @param metadata - MFA enrollment context with user and device details
+   */
+  execute(metadata: MFAFirstEnabledMetadata): Promise<void>;
 }

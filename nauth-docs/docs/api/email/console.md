@@ -3,9 +3,7 @@ title: Console
 description: Console email provider for development and testing
 keywords: [email, console, development, testing, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

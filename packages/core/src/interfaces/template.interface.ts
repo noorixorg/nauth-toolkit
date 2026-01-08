@@ -48,7 +48,9 @@ export interface TemplateVariables {
   footerDisclaimer?: string;
 
   // Allow any custom variables
-  [key: string]: string | number | boolean | undefined;
+  // NOTE: Handlebars templates can consume objects/arrays for helpers like #each.
+  // Using `unknown` avoids `any` while still allowing consumers to pass structured data.
+  [key: string]: unknown;
 }
 
 /**
@@ -90,6 +92,13 @@ export enum TemplateType {
   PASSWORD_CHANGED = 'passwordChanged',
   EMAIL_CHANGED = 'emailChanged',
   MFA_ENABLED = 'mfaEnabled',
+  MFA_DEVICE_REMOVED = 'mfaDeviceRemoved',
+  ADAPTIVE_MFA_RISK_ALERT = 'adaptiveMfaRiskAlert',
+  ACCOUNT_DISABLED = 'accountDisabled',
+  ACCOUNT_ENABLED = 'accountEnabled',
+  EMAIL_CHANGED_OLD = 'emailChangedOld',
+  EMAIL_CHANGED_NEW = 'emailChangedNew',
+  SESSIONS_REVOKED = 'sessionsRevoked',
 }
 
 /**

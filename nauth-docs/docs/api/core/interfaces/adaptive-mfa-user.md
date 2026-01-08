@@ -3,9 +3,7 @@ title: AdaptiveMFAUser
 description: User information interface for adaptive MFA risk event payloads. Contains minimal user data for risk assessment.
 keywords: [interface, user, mfa, adaptive, risk, api]
 image: /img/api-social-card.png
-sidebar_position: 7
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

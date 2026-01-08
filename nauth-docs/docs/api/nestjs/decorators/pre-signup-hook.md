@@ -1,11 +1,9 @@
 ---
 title: "@PreSignupHook()"
 description: Decorator for automatic pre-signup hook registration in NestJS
-sidebar_position: 5
 keywords: [decorator, hooks, lifecycle, presignup, validation]
 image: /img/api-social-card.png
 ---
-
 # @PreSignupHook()
 
 **Package:** `@nauth-toolkit/nestjs`
@@ -233,7 +231,7 @@ describe('DomainValidationHook', () => {
 
 ## Related APIs
 
-- [`IPreSignupHookProvider`](/docs/api/core/interfaces/hook-providers#ipresignuphookprovider) - Pre-signup hook interface
+- [`IPreSignupHookProvider`](/docs/api/core/hooks/pre-signup-hook-provider) - Pre-signup hook interface
 - [`@PostSignupHook()`](./post-signup-hook) - Post-signup hook decorator
 - [`HookRegistryService`](/docs/api/core/services/hook-registry-service) - Hook registry service
 - [`NAuthHooksModule`](./nauth-hooks-module) - Hook registration module

@@ -3,9 +3,7 @@ title: ValidateAccessTokenDTO
 description: Request DTO for validating JWT access tokens. Returns validation result with decoded payload or error information.
 keywords: [token, validate, jwt, access, dto, request, api, authentication]
 image: /img/api-social-card.png
-sidebar_position: 931
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

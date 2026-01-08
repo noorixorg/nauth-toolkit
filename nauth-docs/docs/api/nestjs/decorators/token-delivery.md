@@ -1,11 +1,9 @@
 ---
 title: "@TokenDelivery()"
 description: Override token delivery mode for specific routes in NestJS
-sidebar_position: 7
 keywords: [nestjs, decorator, token-delivery, cookies, json, api]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

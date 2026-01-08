@@ -3,9 +3,7 @@ title: API Reference
 description: Complete API reference for nauth-toolkit with framework-specific examples
 keywords: [api, reference, documentation, nestjs, express, fastify, authentication]
 image: /img/api-social-card.png
-sidebar_position: 0
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

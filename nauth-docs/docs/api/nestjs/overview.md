@@ -3,9 +3,7 @@ title: NestJS Adapter
 description: NestJS adapter with guards, decorators, interceptors, and module configuration
 keywords: [nestjs, adapter, guards, decorators, interceptors, api]
 image: /img/api-social-card.png
-sidebar_position: 0
 ---
-
 # NestJS Adapter
 
 **Package:** `@nauth-toolkit/nestjs`

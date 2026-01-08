@@ -1,11 +1,9 @@
 ---
 title: tokenDelivery
 description: Token delivery middleware for Express (cookie-based token delivery)
-sidebar_position: 4
 keywords: [express, middleware, token-delivery, cookies, api]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

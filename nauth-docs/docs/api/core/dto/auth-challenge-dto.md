@@ -3,9 +3,7 @@ title: AuthChallengeDTO
 description: Authentication challenge DTOs for challenge responses and challenge completion requests. Includes challenge type enums and validation.
 keywords: [challenge, auth, dto, response, request, enum, api]
 image: /img/api-social-card.png
-sidebar_position: 50
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

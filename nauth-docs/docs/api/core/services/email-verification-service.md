@@ -3,9 +3,7 @@ title: EmailVerificationService
 description: Email verification service for sending codes, verifying with code or token, and resending with rate limiting. Supports both code-based and link-based verification.
 keywords: [email, verification, service, code, token, api]
 image: /img/api-social-card.png
-sidebar_position: 5
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

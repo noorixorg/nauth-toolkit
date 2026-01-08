@@ -3,9 +3,7 @@ title: AdminResetPasswordDTO
 description: Admin-only password reset workflow DTOs for initiating code-based password resets with email/SMS delivery and optional link generation.
 keywords: [admin, password, reset, workflow, dto, request, response, api, code, link]
 image: /img/api-social-card.png
-sidebar_position: 9
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

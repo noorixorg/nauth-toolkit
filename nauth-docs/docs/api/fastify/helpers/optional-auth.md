@@ -3,9 +3,7 @@ title: optionalAuth()
 description: Fastify preHandler for optional authentication
 keywords: [fastify, helper, optional, auth, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 # optionalAuth()
 
 **Type:** `preHandlerHookHandler`

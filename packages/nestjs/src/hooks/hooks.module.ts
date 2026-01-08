@@ -1,7 +1,7 @@
 /**
  * NAuth Hook Registration Module
  *
- * This module automatically discovers and registers hooks decorated with @PreSignupHook, @PostSignupHook, or @UserProfileUpdatedHook
+ * This module automatically discovers and registers hooks decorated with hook decorators
  * with the HookRegistryService. It should be imported after NAuthModule in your application.
  *
  * @example
@@ -11,7 +11,7 @@
  * import { NAuthHooksModule } from '@nauth-toolkit/nestjs';
  * import { DomainValidationHook } from './hooks/domain-validation.hook';
  * import { WelcomeEmailHook } from './hooks/welcome-email.hook';
- * import { CrmSyncHook } from './hooks/crm-sync.hook';
+ * import { PasswordChangedNotificationHook } from './hooks/password-changed.hook';
  *
  * @Module({
  *   imports: [
@@ -19,7 +19,7 @@
  *     NAuthHooksModule.forFeature([
  *       DomainValidationHook,
  *       WelcomeEmailHook,
- *       CrmSyncHook,
+ *       PasswordChangedNotificationHook,
  *     ]),
  *   ],
  * })
@@ -34,13 +34,32 @@ import {
   IPreSignupHookProvider,
   IPostSignupHookProvider,
   IUserProfileUpdatedHook,
+  IPasswordChangedHook,
+  IMFADeviceRemovedHook,
+  IAdaptiveMFARiskDetectedHook,
+  IAccountStatusChangedHook,
+  IEmailChangedHook,
+  IAccountLockedHook,
+  ISessionsRevokedHook,
+  IMFAFirstEnabledHook,
 } from '@nauth-toolkit/core';
 import { HOOK_METADATA_KEY, HookMetadata } from '../decorators/hook.decorator';
 
 /**
  * Union type for all hook provider classes
  */
-type HookProviderClass = Type<IPreSignupHookProvider> | Type<IPostSignupHookProvider> | Type<IUserProfileUpdatedHook>;
+type HookProviderClass =
+  | Type<IPreSignupHookProvider>
+  | Type<IPostSignupHookProvider>
+  | Type<IUserProfileUpdatedHook>
+  | Type<IPasswordChangedHook>
+  | Type<IMFADeviceRemovedHook>
+  | Type<IAdaptiveMFARiskDetectedHook>
+  | Type<IAccountStatusChangedHook>
+  | Type<IEmailChangedHook>
+  | Type<IAccountLockedHook>
+  | Type<ISessionsRevokedHook>
+  | Type<IMFAFirstEnabledHook>;
 
 /**
  * Module for automatic hook registration
@@ -87,6 +106,22 @@ export class NAuthHooksModule implements OnModuleInit {
         hookRegistry.registerPostSignup(hookInstance as unknown as IPostSignupHookProvider);
       } else if (metadata.type === 'userProfileUpdated') {
         hookRegistry.registerUserProfileUpdated(hookInstance as unknown as IUserProfileUpdatedHook);
+      } else if (metadata.type === 'passwordChanged') {
+        hookRegistry.registerPasswordChanged(hookInstance as unknown as IPasswordChangedHook);
+      } else if (metadata.type === 'mfaDeviceRemoved') {
+        hookRegistry.registerMFADeviceRemoved(hookInstance as unknown as IMFADeviceRemovedHook);
+      } else if (metadata.type === 'adaptiveMfaRiskDetected') {
+        hookRegistry.registerAdaptiveMFARiskDetected(hookInstance as unknown as IAdaptiveMFARiskDetectedHook);
+      } else if (metadata.type === 'accountStatusChanged') {
+        hookRegistry.registerAccountStatusChanged(hookInstance as unknown as IAccountStatusChangedHook);
+      } else if (metadata.type === 'emailChanged') {
+        hookRegistry.registerEmailChanged(hookInstance as unknown as IEmailChangedHook);
+      } else if (metadata.type === 'accountLocked') {
+        hookRegistry.registerAccountLocked(hookInstance as unknown as IAccountLockedHook);
+      } else if (metadata.type === 'sessionsRevoked') {
+        hookRegistry.registerSessionsRevoked(hookInstance as unknown as ISessionsRevokedHook);
+      } else if (metadata.type === 'mfaFirstEnabled') {
+        hookRegistry.registerMFAFirstEnabled(hookInstance as unknown as IMFAFirstEnabledHook);
       }
     }
   }
@@ -94,7 +129,7 @@ export class NAuthHooksModule implements OnModuleInit {
   /**
    * Register hooks for a feature module
    *
-   * @param hooks - Array of hook provider classes decorated with @PreSignupHook, @PostSignupHook, or @UserProfileUpdatedHook
+   * @param hooks - Array of hook provider classes decorated with hook decorators
    * @returns Dynamic module configuration
    *
    * @example
@@ -104,7 +139,7 @@ export class NAuthHooksModule implements OnModuleInit {
    *     NAuthHooksModule.forFeature([
    *       DomainValidationHook,
    *       WelcomeEmailHook,
-   *       CrmSyncHook,
+   *       PasswordChangedNotificationHook,
    *     ]),
    *   ],
    * })

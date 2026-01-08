@@ -431,6 +431,97 @@ export interface NAuthConfig {
    * ```
    */
   geoLocation?: GeoLocationConfig;
+
+  /**
+   * Email notifications configuration
+   *
+   * Controls which lifecycle notification emails are sent by the system.
+   * All notifications default to DISABLED (opt-in) except verification/reset codes.
+   *
+   * Consumers can:
+   * - Enable/disable any notification email
+   * - Suppress built-in emails and implement custom hooks instead
+   * - Use hooks to send notifications via custom channels (SMS, push, etc.)
+   *
+   * @remarks
+   * **Global Kill Switch:**
+   * - `enabled: false` disables ALL email notifications (including codes)
+   * - Useful for development/testing environments
+   *
+   * **Suppression Controls:**
+   * - Each notification type can be individually suppressed
+   * - `suppress.emailVerification: true` disables verification code emails
+   * - `suppress.passwordChanged: false` enables password changed emails
+   *
+   * **Hook Alternative:**
+   * - Consumers can suppress built-in emails and implement custom hooks
+   * - Hooks provide full control over notification content and delivery
+   *
+   * @default
+   * ```typescript
+   * {
+   *   enabled: true,  // Global emails enabled
+   *   suppress: {
+   *     // Optional notifications (all default: true = DISABLED)
+   *     welcome: true,
+   *     passwordChanged: true,
+   *     mfaDeviceRemoved: true,
+   *     adaptiveMfaRiskDetected: true,
+   *     accountDisabled: true,
+   *     accountEnabled: true,
+   *     emailChangedOld: true,
+   *     emailChangedNew: true,
+   *     accountLockout: true,
+   *     sessionsRevoked: true,
+   *     mfaFirstEnabled: true,
+   *     // Code emails (default: false = ENABLED)
+   *     emailVerification: false,
+   *     passwordReset: false,
+   *     adminPasswordReset: false
+   *   }
+   * }
+   * ```
+   *
+   * @example Enable all lifecycle notifications
+   * ```typescript
+   * emailNotifications: {
+   *   enabled: true,
+   *   suppress: {
+   *     welcome: false,                    // Enable welcome email
+   *     passwordChanged: false,            // Enable password changed alert
+   *     mfaDeviceRemoved: false,          // Enable MFA device removed alert
+   *     adaptiveMfaRiskDetected: false,   // Enable risk detection alerts
+   *     accountDisabled: false,            // Enable account disabled notification
+   *     accountEnabled: false,             // Enable account enabled notification
+   *     emailChangedOld: false,           // Enable email changed alert (old address)
+   *     emailChangedNew: false,           // Enable email changed confirmation (new address)
+   *     accountLockout: false,            // Enable account lockout notification
+   *     sessionsRevoked: false,           // Enable sessions revoked alert
+   *     mfaFirstEnabled: false            // Enable MFA first enabled confirmation
+   *   }
+   * }
+   * ```
+   *
+   * @example Disable built-in emails, use custom hooks
+   * ```typescript
+   * emailNotifications: {
+   *   enabled: true,
+   *   suppress: {
+   *     emailVerification: true,           // Suppress, use IVerificationCodeSentHook
+   *     passwordReset: true,               // Suppress, use IPasswordResetSentHook
+   *     passwordChanged: true              // Suppress, use IPasswordChangedHook
+   *   }
+   * }
+   * ```
+   *
+   * @example Disable all emails (development/testing)
+   * ```typescript
+   * emailNotifications: {
+   *   enabled: false  // Kill switch - no emails sent at all
+   * }
+   * ```
+   */
+  emailNotifications?: EmailNotificationsConfig;
 }
 
 /**
@@ -2163,6 +2254,185 @@ export interface ChallengeConfig {
    * ```
    */
   maxAttempts?: number;
+}
+
+/**
+ * Email Notifications Configuration
+ *
+ * Controls which lifecycle notification emails are sent by the system.
+ * Provides granular control over each notification type with global kill switch.
+ *
+ * **Design Principles:**
+ * - All optional notifications default to DISABLED (opt-in)
+ * - Code emails (verification, password reset) default to ENABLED
+ * - Consumers can suppress ANY email and implement custom hooks
+ * - Global `enabled` switch disables everything (for dev/test environments)
+ *
+ * **Hook Alternative:**
+ * Consumers can suppress built-in emails and implement custom hooks:
+ * - `IPasswordChangedHook` for password changed alerts
+ * - `IMFADeviceRemovedHook` for MFA device removal alerts
+ * - `IAdaptiveMFARiskDetectedHook` for risk detection alerts
+ * - `IAccountStatusChangedHook` for account enable/disable notifications
+ * - `IEmailChangedHook` for email change alerts (sends TWO emails)
+ * - `IAccountLockedHook` for account lockout notifications
+ * - `ISessionsRevokedHook` for session revocation alerts
+ * - `IMFAFirstEnabledHook` for MFA first enabled confirmation
+ */
+export interface EmailNotificationsConfig {
+  /**
+   * Global email notifications kill switch
+   *
+   * When false, ALL emails are disabled (including verification codes).
+   * Useful for development/testing environments.
+   *
+   * @default true
+   */
+  enabled?: boolean;
+
+  /**
+   * Granular email suppression controls
+   *
+   * Each notification type can be individually suppressed.
+   * Suppressed emails will NOT be sent by built-in email provider.
+   *
+   * **Default Behavior:**
+   * - Optional notifications default to `true` (DISABLED, opt-in required)
+   * - Code emails default to `false` (ENABLED, critical for auth flow)
+   *
+   * **Hook Alternative:**
+   * Set notification to `true` (suppressed) and implement corresponding hook
+   * for full control over content and delivery channel.
+   */
+  suppress?: {
+    /**
+     * Welcome email after successful signup
+     *
+     * Sent via `IPostSignupHookProvider` when `requiresVerification = false`.
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    welcome?: boolean;
+
+    /**
+     * Password changed security alert
+     *
+     * Hook: `IPasswordChangedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    passwordChanged?: boolean;
+
+    /**
+     * MFA device removed security alert
+     *
+     * Hook: `IMFADeviceRemovedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    mfaDeviceRemoved?: boolean;
+
+    /**
+     * Adaptive MFA risk detection alert
+     *
+     * Hook: `IAdaptiveMFARiskDetectedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    adaptiveMfaRiskDetected?: boolean;
+
+    /**
+     * Account disabled notification
+     *
+     * Hook: `IAccountStatusChangedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    accountDisabled?: boolean;
+
+    /**
+     * Account enabled notification
+     *
+     * Hook: `IAccountStatusChangedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    accountEnabled?: boolean;
+
+    /**
+     * Email changed alert (sent to OLD email address)
+     *
+     * Security notification when email address is changed.
+     * Hook: `IEmailChangedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    emailChangedOld?: boolean;
+
+    /**
+     * Email changed confirmation (sent to NEW email address)
+     *
+     * Confirmation when email address is changed.
+     * Hook: `IEmailChangedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    emailChangedNew?: boolean;
+
+    /**
+     * Account lockout notification
+     *
+     * Hook: `IAccountLockedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    accountLockout?: boolean;
+
+    /**
+     * Sessions revoked security alert
+     *
+     * Hook: `ISessionsRevokedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    sessionsRevoked?: boolean;
+
+    /**
+     * MFA first enabled confirmation
+     *
+     * Hook: `IMFAFirstEnabledHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    mfaFirstEnabled?: boolean;
+
+    /**
+     * Email verification code
+     *
+     * Critical for signup flow. Can be suppressed if using custom hook.
+     *
+     * @default false (ENABLED by default)
+     */
+    emailVerification?: boolean;
+
+    /**
+     * Password reset code/link
+     *
+     * Critical for account recovery. Can be suppressed if using custom hook.
+     *
+     * @default false (ENABLED by default)
+     */
+    passwordReset?: boolean;
+
+    /**
+     * Admin-initiated password reset code/link
+     *
+     * Critical for admin-initiated password recovery. Can be suppressed if using custom hook.
+     *
+     * @default false (ENABLED by default)
+     */
+    adminPasswordReset?: boolean;
+  };
 }
 
 /**

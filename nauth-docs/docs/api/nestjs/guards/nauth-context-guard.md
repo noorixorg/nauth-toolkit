@@ -3,9 +3,7 @@ title: NAuthContextGuard
 description: NestJS guard for initializing AsyncLocalStorage context
 keywords: [nestjs, guard, context, async-local-storage, api]
 image: /img/api-social-card.png
-sidebar_position: 3
 ---
-
 # NAuthContextGuard
 
 **Package:** `@nauth-toolkit/nestjs`

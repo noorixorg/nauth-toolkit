@@ -3,9 +3,7 @@ title: CanSetPasswordDTO
 description: Request DTO for checking if user can set password. Includes user identifier (UUID v4).
 keywords: [social, auth, dto, request, password, api]
 image: /img/api-social-card.png
-sidebar_position: 70
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

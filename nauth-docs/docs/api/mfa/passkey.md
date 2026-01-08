@@ -3,9 +3,7 @@ title: Passkey Provider
 description: WebAuthn/FIDO2 passkey MFA provider
 keywords: [mfa, passkey, webauthn, fido2, biometric, api]
 image: /img/api-social-card.png
-sidebar_position: 4
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

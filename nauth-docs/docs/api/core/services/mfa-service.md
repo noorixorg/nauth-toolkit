@@ -1,11 +1,9 @@
 ---
 title: MFAService
 description: MFA provider registry and orchestration service for TOTP, SMS, Email, and Passkey authentication
-sidebar_position: 6
 keywords: [mfa, multi-factor, authentication, totp, sms, passkey, service, api]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

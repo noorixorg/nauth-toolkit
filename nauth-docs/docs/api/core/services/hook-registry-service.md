@@ -3,9 +3,7 @@ title: HookRegistryService
 description: Service for registering and managing authentication lifecycle hooks
 keywords: [hooks, registry, lifecycle, service, api]
 image: /img/api-social-card.png
-sidebar_position: 7
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -66,7 +64,7 @@ registerPreSignup(provider: IPreSignupHookProvider): void
 
 **Parameters**
 
-- `provider` - [`IPreSignupHookProvider`](../interfaces/hook-providers#ipresignuphookprovider)
+- `provider` - [`IPreSignupHookProvider`](../hooks/pre-signup-hook-provider)
 
 **Example**
 
@@ -133,7 +131,7 @@ registerPostSignup(provider: IPostSignupHookProvider): void
 
 **Parameters**
 
-- `provider` - [`IPostSignupHookProvider`](../interfaces/hook-providers#ipostsignuphookprovider)
+- `provider` - [`IPostSignupHookProvider`](../hooks/post-signup-hook-provider)
 
 **Example**
 
@@ -206,7 +204,7 @@ registerUserProfileUpdated(provider: IUserProfileUpdatedHook): void
 
 **Parameters**
 
-- `provider` - [`IUserProfileUpdatedHook`](../interfaces/user-profile-updated-hook)
+- `provider` - [`IUserProfileUpdatedHook`](../hooks/user-profile-updated-hook)
 
 **Example**
 
@@ -320,7 +318,7 @@ async executeUserProfileUpdated(metadata: UserProfileUpdatedMetadata): Promise<v
 
 **Parameters**
 
-- `metadata` - [`UserProfileUpdatedMetadata`](../interfaces/user-profile-updated-hook#userprofileupdatedmetadata) containing updated user and change details
+- `metadata` - [`UserProfileUpdatedMetadata`](../hooks/user-profile-updated-hook#userprofileupdatedmetadata) containing updated user and change details
 
 ---
 
@@ -402,7 +400,7 @@ analyticsTracking.execute(); // Executes normally
 
 ## Related APIs
 
-- [IPreSignupHookProvider](../interfaces/hook-providers#ipresignuphookprovider) - Pre-signup hook interface
-- [IPostSignupHookProvider](../interfaces/hook-providers#ipostsignuphookprovider) - Post-signup hook interface
-- [IUserProfileUpdatedHook](../interfaces/user-profile-updated-hook) - User profile updated hook interface
+- [IPreSignupHookProvider](../hooks/pre-signup-hook-provider) - Pre-signup hook interface
+- [IPostSignupHookProvider](../hooks/post-signup-hook-provider) - Post-signup hook interface
+- [IUserProfileUpdatedHook](../hooks/user-profile-updated-hook) - User profile updated hook interface
 - [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete usage guide

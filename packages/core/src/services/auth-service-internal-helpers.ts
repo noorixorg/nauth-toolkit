@@ -12,6 +12,7 @@ import { AccountLockoutStorageService } from '../storage/account-lockout-storage
 import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { TrustedDeviceService } from './trusted-device.service';
 import { MFAService } from './mfa.service';
+import { HookRegistryService } from './hook-registry.service';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
 import {
@@ -59,6 +60,7 @@ export class AuthServiceInternalHelpers {
     private readonly accountLockoutStorage: AccountLockoutStorageService,
     private readonly config: NAuthConfig,
     private readonly logger: NAuthLogger,
+    private readonly hookRegistry: HookRegistryService,
   ) {}
 
   // ============================================================================
@@ -1105,6 +1107,31 @@ export class AuthServiceInternalHelpers {
           userId: userEntity.id,
         });
       }
+    }
+
+    // ============================================================================
+    // Lifecycle Hook: Password Changed
+    // ============================================================================
+    try {
+      const clientInfo = this.clientInfoService.get();
+      await this.hookRegistry.executePasswordChanged({
+        user: userEntity,
+        changedBy: audit?.reason?.includes('admin') ? 'admin' : audit?.reason?.includes('reset') ? 'reset' : 'user',
+        sessionsRevoked,
+        clientInfo: {
+          ipAddress: clientInfo.ipAddress,
+          userAgent: clientInfo.userAgent,
+          ipCountry: clientInfo.ipCountry,
+          ipCity: clientInfo.ipCity,
+        },
+      });
+    } catch (hookError) {
+      // Non-blocking: Log but continue
+      const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to execute passwordChanged hooks: ${errorMessage}`, {
+        error: hookError,
+        userId: userEntity.id,
+      });
     }
 
     return { sessionsRevoked };

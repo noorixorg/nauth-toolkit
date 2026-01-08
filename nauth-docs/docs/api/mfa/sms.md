@@ -3,9 +3,7 @@ title: SMS MFA Provider
 description: SMS-based MFA provider
 keywords: [mfa, sms, verification, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

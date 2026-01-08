@@ -1,9 +1,7 @@
 ---
 title: ChallengeResponseData
 description: Discriminated union type for challenge responses
-sidebar_position: 90
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

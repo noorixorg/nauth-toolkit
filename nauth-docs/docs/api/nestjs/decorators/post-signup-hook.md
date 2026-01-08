@@ -1,11 +1,9 @@
 ---
 title: '@PostSignupHook()'
 description: Decorator for automatic post-signup hook registration in NestJS
-sidebar_position: 4
 keywords: [decorator, hooks, lifecycle, postsignup, notifications]
 image: /img/api-social-card.png
 ---
-
 # @PostSignupHook()
 
 **Package:** `@nauth-toolkit/nestjs`
@@ -340,7 +338,7 @@ describe('WelcomeEmailHook', () => {
 
 ## Related APIs
 
-- [`IPostSignupHookProvider`](/docs/api/core/interfaces/hook-providers#ipostsignuphookprovider) - Post-signup hook interface
+- [`IPostSignupHookProvider`](/docs/api/core/hooks/post-signup-hook-provider) - Post-signup hook interface
 - [`@PreSignupHook()`](./pre-signup-hook) - Pre-signup hook decorator
 - [`HookRegistryService`](/docs/api/core/services/hook-registry-service) - Hook registry service
 - [`NAuthHooksModule`](./nauth-hooks-module) - Hook registration module

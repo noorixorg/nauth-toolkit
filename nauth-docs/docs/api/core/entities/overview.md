@@ -3,9 +3,7 @@ title: Entities
 description: Base entity classes for database models
 keywords: [entities, database, typeorm, api]
 image: /img/api-social-card.png
-sidebar_position: 0
 ---
-
 # Entities
 
 **Package:** `@nauth-toolkit/core`

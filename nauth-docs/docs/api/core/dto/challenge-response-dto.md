@@ -3,9 +3,7 @@ title: ChallengeResponseData
 description: Discriminated union types for challenge responses. TypeScript interfaces for type-safe challenge handling with method-specific structures.
 keywords: [challenge, response, types, typescript, mfa, verification, api]
 image: /img/api-social-card.png
-sidebar_position: 100
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

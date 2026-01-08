@@ -3,9 +3,7 @@ title: UserResponseDto
 description: Sanitized user response DTO excluding sensitive fields. Used for all user retrieval operations with safe data exposure.
 keywords: [user, response, dto, profile, api]
 image: /img/api-social-card.png
-sidebar_position: 940
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

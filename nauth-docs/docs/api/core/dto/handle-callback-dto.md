@@ -3,9 +3,7 @@ title: HandleCallbackDTO
 description: OAuth callback request DTO with authorization code and CSRF state. Used for processing social authentication callbacks.
 keywords: [oauth, callback, social auth, dto, request, google, apple, facebook]
 image: /img/api-social-card.png
-sidebar_position: 510
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

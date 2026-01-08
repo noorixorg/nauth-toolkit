@@ -3,9 +3,7 @@ title: AuthAuditEventStatus
 description: Event classification status for audit records
 keywords: [enum, audit, status, security, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

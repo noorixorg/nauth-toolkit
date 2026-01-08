@@ -3,9 +3,7 @@ title: AuthErrorCode
 description: Error codes used by NAuthException for programmatic error handling in nauth-toolkit
 keywords: [errors, codes, exception, autherrorcode, api]
 image: /img/api-social-card.png
-sidebar_position: 3
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

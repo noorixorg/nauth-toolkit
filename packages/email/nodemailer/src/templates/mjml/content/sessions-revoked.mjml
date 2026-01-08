@@ -1,0 +1,79 @@
+<!-- Sessions Revoked Email Content -->
+<mj-text>
+  All sessions on your account have been terminated.
+</mj-text>
+
+<mj-text css-class="text-small alert-box alert-warning" padding="16px 24px">
+  Security Action: Sessions revoked
+</mj-text>
+
+<mj-text css-class="text-small font-bold" padding="24px 24px 8px 24px">
+  Action Details:
+</mj-text>
+
+<mj-raw>
+  {{#if revokedCount}}
+</mj-raw>
+<mj-text css-class="text-small" padding="0 24px 8px 24px">
+  Sessions Terminated: {{revokedCount}}
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+
+<mj-raw>
+  {{#if reason}}
+</mj-raw>
+<mj-text css-class="text-small" padding="0 24px 8px 24px">
+  Reason: {{reason}}
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+
+<mj-raw>
+  {{#if triggerEvent}}
+</mj-raw>
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  Triggered by: {{triggerEvent}}
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+
+<mj-text css-class="text-small" padding="24px 24px 8px 24px">
+  What does this mean?
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  You have been logged out of all devices and browsers. This is a security measure to protect your account.
+</mj-text>
+
+<mj-text css-class="text-small" padding="24px 24px 8px 24px">
+  What should I do?
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  If you made this change (such as changing your password), no action is required. Simply sign in again to create a new session.
+</mj-text>
+
+<mj-raw>
+  {{#if dashboardUrl}}
+</mj-raw>
+<mj-button href="{{dashboardUrl}}" css-class="button-primary">
+  Sign In Again
+</mj-button>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+
+<mj-raw>
+  {{#if supportEmail}}
+</mj-raw>
+<mj-text css-class="text-small text-danger font-bold" padding="0 24px 24px 24px">
+  If you didn't make any changes, please contact support immediately at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a> and change your password.
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+

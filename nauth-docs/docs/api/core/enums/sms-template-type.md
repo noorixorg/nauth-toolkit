@@ -3,9 +3,7 @@ title: SMSTemplateType
 description: Enum values for SMS template types (verification, MFA, password reset)
 keywords: [sms, templates, enum, api]
 image: /img/api-social-card.png
-sidebar_position: 6
 ---
-
 # SMSTemplateType
 
 **Package:** `@nauth-toolkit/core`

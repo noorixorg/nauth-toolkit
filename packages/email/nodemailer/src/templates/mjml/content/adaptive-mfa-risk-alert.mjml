@@ -1,0 +1,61 @@
+<!-- Adaptive MFA Risk Alert Email Content -->
+<mj-text>
+  We detected unusual activity on your account and required additional verification.
+</mj-text>
+
+<mj-text css-class="text-small alert-box alert-warning" padding="16px 24px">
+  Security Alert: Risk detected
+</mj-text>
+
+<mj-text css-class="text-small font-bold" padding="24px 24px 8px 24px">
+  Risk Details:
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 8px 24px">
+  Risk Level: <span class="font-bold">{{riskLevel}}</span>
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 8px 24px">
+  Risk Score: {{riskScore}}/100
+</mj-text>
+
+<mj-raw>
+  {{#if riskFactors}}
+</mj-raw>
+<mj-text css-class="text-small" padding="0 24px 8px 24px">
+  Risk Factors: {{riskFactors}}
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  Action Taken: {{action}}
+</mj-text>
+
+<mj-text css-class="text-small" padding="24px 24px 8px 24px">
+  What does this mean?
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  Our security system detected unusual login characteristics (such as a new device, new location, or unusual behavior patterns) and required additional verification to protect your account.
+</mj-text>
+
+<mj-text css-class="text-small" padding="24px 24px 8px 24px">
+  Was this you?
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  If you recognize this activity, no action is needed. Your account is secure.
+</mj-text>
+
+<mj-raw>
+  {{#if supportEmail}}
+</mj-raw>
+<mj-text css-class="text-small text-danger font-bold" padding="0 24px 24px 24px">
+  If you don't recognize this activity, please contact support immediately at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a> and consider changing your password.
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+

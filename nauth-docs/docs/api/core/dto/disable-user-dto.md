@@ -1,11 +1,9 @@
 ---
 title: DisableUserDTO
 description: Administrative account locking request with permanent lock
-sidebar_position: 160
 keywords: [dto, admin, disable, lock, user]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

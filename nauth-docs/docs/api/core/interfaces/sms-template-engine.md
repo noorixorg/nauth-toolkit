@@ -3,9 +3,7 @@ title: SMSTemplateEngine Interface
 description: Interface for SMS template engines that render SMS messages with variables
 keywords: [sms, templates, engine, interface, api]
 image: /img/api-social-card.png
-sidebar_position: 8
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

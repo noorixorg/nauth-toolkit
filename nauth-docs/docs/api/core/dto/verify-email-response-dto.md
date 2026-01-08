@@ -3,9 +3,7 @@ title: VerifyEmailResponseDTO
 description: Response DTO for email verification operations. Returns success message confirming email verification.
 keywords: [email, verification, dto, response, success, api]
 image: /img/api-social-card.png
-sidebar_position: 970
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

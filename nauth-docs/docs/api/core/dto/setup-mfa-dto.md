@@ -3,9 +3,7 @@ title: SetupMFADTO
 description: Request and response DTOs for setting up MFA device. Includes user sub, method name, and optional provider-specific setup data.
 keywords: [mfa, setup, device, dto, request, response, api]
 image: /img/api-social-card.png
-sidebar_position: 830
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

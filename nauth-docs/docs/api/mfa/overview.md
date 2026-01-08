@@ -3,9 +3,7 @@ title: MFA
 description: Multi-factor authentication providers for TOTP, SMS, Email, and Passkeys
 keywords: [mfa, totp, sms, email, passkey, api]
 image: /img/api-social-card.png
-sidebar_position: 0
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

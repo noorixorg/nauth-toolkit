@@ -3,9 +3,7 @@ title: TypeORM PostgreSQL
 description: PostgreSQL database entities for NAuth
 keywords: [database, typeorm, postgres, entities, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

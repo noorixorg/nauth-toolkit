@@ -1,0 +1,20 @@
+Sessions Terminated
+
+{{#if fullName}}Hi {{fullName}},{{/if}}
+{{#if firstName}}Hi {{firstName}},{{/if}}
+{{#if lastName}}Hi {{lastName}},{{/if}}
+{{#if userName}}Hi {{userName}},{{/if}}
+
+All sessions on your account have been terminated.
+
+{{#if revokedCount}}Sessions Terminated: {{revokedCount}}{{/if}}
+{{#if reason}}Reason: {{reason}}{{/if}}
+{{#if triggerEvent}}Triggered by: {{triggerEvent}}{{/if}}
+
+What does this mean?
+You have been logged out of all devices and browsers. This is a security measure to protect your account.
+
+What should I do?
+If you made this change (such as changing your password), no action is required. Simply sign in again to create a new session.
+
+{{#if supportEmail}}If you didn't make any changes, please contact support immediately at {{supportEmail}} and change your password.{{/if}}

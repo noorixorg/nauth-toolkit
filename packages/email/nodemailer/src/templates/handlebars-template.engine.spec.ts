@@ -80,14 +80,34 @@ describe('HandlebarsTemplateEngine', () => {
         html: '<ul>{{#each items}}<li>{{this}}</li>{{/each}}</ul>',
       });
 
-      // Use type assertion to allow array for template rendering (runtime allows it, interface is restrictive)
       const result = await engine.render('test', {
         items: ['Item 1', 'Item 2', 'Item 3'],
-      } as any);
+      });
 
       expect(result.html).toContain('<li>Item 1</li>');
       expect(result.html).toContain('<li>Item 2</li>');
       expect(result.html).toContain('<li>Item 3</li>');
+    });
+
+    it('should support Handlebars partials', async () => {
+      const engineWithPartials = new HandlebarsTemplateEngine({
+        useDefaultTemplates: false,
+        partials: {
+          footer: '<footer>&copy; {{currentYear}} {{companyName}}</footer>',
+        },
+      });
+
+      engineWithPartials.registerTemplate('test', {
+        subject: 'Test',
+        html: '<main>Hello</main>{{> footer }}',
+      });
+
+      const result = await engineWithPartials.render('test', {
+        companyName: 'My Company Inc.',
+      });
+
+      expect(result.html).toContain('Hello');
+      expect(result.html).toContain(`&copy; ${new Date().getFullYear()} My Company Inc.`);
     });
 
     it('should support custom helpers', async () => {

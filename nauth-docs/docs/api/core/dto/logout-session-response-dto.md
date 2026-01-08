@@ -3,9 +3,7 @@ title: LogoutSessionResponseDTO
 description: Response DTO confirming session revocation with flag indicating if the revoked session was the current session.
 keywords: [logout, session, response, dto, api]
 image: /img/api-social-card.png
-sidebar_position: 610
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

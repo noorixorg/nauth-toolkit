@@ -3,9 +3,7 @@ title: SendVerificationSMSDTO
 description: Request DTO for sending SMS verification codes. Includes user identifier and optional skip flag for MFA contexts.
 keywords: [phone, verification, sms, dto, request, send, code, api]
 image: /img/api-social-card.png
-sidebar_position: 750
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

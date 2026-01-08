@@ -3,9 +3,7 @@ title: GetUserSessionsDTO
 description: Request DTO for retrieving all active sessions for a user. Supports both user and admin use cases.
 keywords: [dto, sessions, user, admin, request, api]
 image: /img/api-social-card.png
-sidebar_position: 460
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

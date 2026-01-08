@@ -1,11 +1,9 @@
 ---
 title: auth
 description: JWT authentication middleware for Express
-sidebar_position: 1
 keywords: [express, middleware, auth, jwt, protected, api]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

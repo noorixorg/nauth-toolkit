@@ -3,9 +3,7 @@ title: NAuthException
 description: Framework-agnostic authentication exception class with structured error codes, messages, and metadata for error handling across any transport layer.
 keywords: [exception, error, authentication, error-handling, api, nauthexception]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

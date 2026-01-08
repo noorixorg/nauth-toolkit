@@ -9,6 +9,7 @@ import { ClientInfoService } from './client-info.service';
 import { ClientInfo } from '../interfaces/client-info.interface';
 import { NAuthConfig, AdaptiveMFARiskEventPayload, AdaptiveMFAUser } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
+import { HookRegistryService } from './hook-registry.service';
 
 /**
  * Adaptive MFA decision result
@@ -123,6 +124,7 @@ export class AdaptiveMFADecisionService {
     private readonly config: NAuthConfig,
     private readonly logger: NAuthLogger,
     private readonly auditService?: AuthAuditService, // Optional - audit trail service (enabled via config.auditLogs.enabled)
+    private readonly hookRegistry?: HookRegistryService, // Optional - lifecycle hooks
   ) {}
 
   /**
@@ -198,9 +200,34 @@ export class AdaptiveMFADecisionService {
       timestamp: new Date(),
     };
 
-    // TODO: Implement provider-based hook for onAdaptiveMFATriggered
-    // Call lifecycle hook if configured and user should be notified
+    // ============================================================================
+    // Lifecycle Hook: Adaptive MFA Risk Detected
+    // ============================================================================
+    // Call hook if user should be notified
     const hookOverride = false;
+    if (notifyUser && this.hookRegistry) {
+      try {
+        await this.hookRegistry.executeAdaptiveMFARiskDetected({
+          user,
+          riskScore,
+          riskLevel: level,
+          riskFactors,
+          action,
+          authMethod,
+          clientInfo,
+          timestamp: new Date(),
+        });
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute adaptiveMfaRiskDetected hooks: ${errorMessage}`, {
+          error: hookError,
+          userId: user.id,
+          riskScore,
+          riskLevel: level,
+        });
+      }
+    }
 
     // Record in audit trail (non-blocking)
     // This logs the risk assessment result

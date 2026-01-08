@@ -1,9 +1,7 @@
 ---
 title: Core Services
 description: Platform-agnostic services for authentication, MFA, social auth, and more
-sidebar_position: 0
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

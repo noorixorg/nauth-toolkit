@@ -3,9 +3,7 @@ title: GetLinkedAccountsDTO
 description: Request DTO for getting linked social accounts. Includes user identifier (UUID v4).
 keywords: [social, auth, dto, request, accounts, api]
 image: /img/api-social-card.png
-sidebar_position: 300
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

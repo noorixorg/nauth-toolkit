@@ -3,9 +3,7 @@ title: RespondChallengeDTO
 description: Unified challenge response DTO with conditional validation for email verification, phone verification, MFA, and password change challenges.
 keywords: [challenge, response, dto, mfa, verification, password, api]
 image: /img/api-social-card.png
-sidebar_position: 710
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

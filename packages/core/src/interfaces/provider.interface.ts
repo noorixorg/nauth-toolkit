@@ -40,6 +40,176 @@ export interface EmailProvider {
    * Send new device login notification
    */
   sendNewDeviceEmail?(to: string, deviceInfo: any, location?: any): Promise<void>;
+
+  /**
+   * Send password changed security alert
+   *
+   * @param to - Recipient email address
+   * @param context - Password change context (changedBy, sessionsRevoked, etc.)
+   */
+  sendPasswordChangedEmail?(
+    to: string,
+    context: {
+      changedBy?: 'user' | 'admin' | 'reset';
+      sessionsRevoked?: number;
+      timestamp?: string;
+    },
+  ): Promise<void>;
+
+  /**
+   * Send MFA device removed security alert
+   *
+   * @param to - Recipient email address
+   * @param context - Device removal context (deviceType, deviceName, etc.)
+   */
+  sendMFADeviceRemovedEmail?(
+    to: string,
+    context: {
+      deviceType?: string;
+      deviceName?: string;
+      removedBy?: 'user' | 'system';
+      reason?: string;
+      remainingDeviceCount?: number;
+    },
+  ): Promise<void>;
+
+  /**
+   * Send adaptive MFA risk detection alert
+   *
+   * @param to - Recipient email address
+   * @param context - Risk detection context (riskScore, riskLevel, etc.)
+   */
+  sendAdaptiveMFARiskAlertEmail?(
+    to: string,
+    context: {
+      riskScore?: number;
+      riskLevel?: 'low' | 'medium' | 'high';
+      riskFactors?: string[];
+      action?: string;
+      timestamp?: string;
+    },
+  ): Promise<void>;
+
+  /**
+   * Send account disabled notification
+   *
+   * @param to - Recipient email address
+   * @param context - Account disable context (reason, performedBy, etc.)
+   */
+  sendAccountDisabledEmail?(
+    to: string,
+    context: {
+      reason?: string;
+      performedBy?: string;
+      timestamp?: string;
+    },
+  ): Promise<void>;
+
+  /**
+   * Send account enabled notification
+   *
+   * @param to - Recipient email address
+   * @param context - Account enable context (reason, performedBy, etc.)
+   */
+  sendAccountEnabledEmail?(
+    to: string,
+    context: {
+      reason?: string;
+      performedBy?: string;
+      timestamp?: string;
+    },
+  ): Promise<void>;
+
+  /**
+   * Send email changed alert (to OLD email address)
+   *
+   * Security notification when email address is changed.
+   *
+   * @param to - OLD email address
+   * @param context - Email change context (newEmail, deactivatedMFADevices, etc.)
+   */
+  sendEmailChangedAlertEmail?(
+    to: string,
+    context: {
+      newEmail?: string;
+      deactivatedMFADevices?: number;
+      timestamp?: string;
+    },
+  ): Promise<void>;
+
+  /**
+   * Send email changed confirmation (to NEW email address)
+   *
+   * Confirmation when email address is changed.
+   *
+   * @param to - NEW email address
+   * @param context - Email change context (oldEmail, timestamp, etc.)
+   */
+  sendEmailChangedConfirmationEmail?(
+    to: string,
+    context: {
+      oldEmail?: string;
+      timestamp?: string;
+    },
+  ): Promise<void>;
+
+  /**
+   * Send account locked notification
+   *
+   * @param to - Recipient email address
+   * @param context - Lockout context (reason, lockDuration, etc.)
+   */
+  sendAccountLockedEmail?(
+    to: string,
+    context: {
+      reason?: string;
+      lockType?: 'temporary' | 'permanent';
+      lockDuration?: number;
+      lockedUntil?: Date;
+      ipAddress?: string;
+      failedAttempts?: number;
+    },
+  ): Promise<void>;
+
+  /**
+   * Send sessions revoked security alert
+   *
+   * @param to - Recipient email address
+   * @param context - Session revocation context (revokedCount, reason, etc.)
+   */
+  sendSessionsRevokedEmail?(
+    to: string,
+    context: {
+      revokedCount?: number;
+      reason?: string;
+      triggerEvent?: string;
+      timestamp?: string;
+    },
+  ): Promise<void>;
+
+  /**
+   * Send MFA first enabled confirmation
+   *
+   * @param to - Recipient email address
+   * @param context - MFA enrollment context (firstMethod, deviceName, etc.)
+   */
+  sendMFAFirstEnabledEmail?(
+    to: string,
+    context: {
+      firstMethod?: string;
+      deviceName?: string;
+      timestamp?: string;
+    },
+  ): Promise<void>;
+
+  /**
+   * Set NAuth configuration (called during initialization)
+   *
+   * Allows email provider to access emailNotifications config for suppression logic.
+   *
+   * @param config - NAuth configuration object
+   */
+  setConfig?(config: import('./config.interface').NAuthConfig): void;
 }
 
 /**

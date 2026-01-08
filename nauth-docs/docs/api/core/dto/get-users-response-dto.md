@@ -1,11 +1,9 @@
 ---
 title: GetUsersResponseDTO
 description: Paginated user listing response with metadata
-sidebar_position: 490
 keywords: [dto, admin, list, users, response, pagination]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

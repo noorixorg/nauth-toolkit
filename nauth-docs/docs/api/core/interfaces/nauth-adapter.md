@@ -3,9 +3,7 @@ title: NAuthAdapter
 description: Interface for framework adapters (Express, Fastify, custom) used by nauth-toolkit
 keywords: [adapter, platform, interface, express, fastify, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

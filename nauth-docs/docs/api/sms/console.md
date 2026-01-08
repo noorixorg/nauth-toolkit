@@ -3,9 +3,7 @@ title: Console
 description: Console SMS provider for development and testing
 keywords: [sms, console, development, testing, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

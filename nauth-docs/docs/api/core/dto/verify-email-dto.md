@@ -3,9 +3,7 @@ title: VerifyEmailDTO
 description: Email verification DTOs for verifying with code or token, and resending verification emails. Includes strict validation for security.
 keywords: [verify, email, dto, verification, code, token, api]
 image: /img/api-social-card.png
-sidebar_position: 960
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

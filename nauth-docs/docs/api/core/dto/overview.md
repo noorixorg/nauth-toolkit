@@ -3,9 +3,7 @@ title: Data Transfer Objects (DTOs)
 description: Complete reference for all request and response DTOs used in nauth-toolkit authentication APIs. Includes validation rules and usage examples.
 keywords: [dto, data transfer objects, request, response, validation, api, typescript]
 image: /img/api-social-card.png
-sidebar_position: 0
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

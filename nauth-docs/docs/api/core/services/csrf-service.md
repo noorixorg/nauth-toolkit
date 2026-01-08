@@ -3,9 +3,7 @@ title: CsrfService
 description: CSRF token generation and validation service for cookie-based authentication. Automatically handled by middleware.
 keywords: [service, csrf, security, api, cookies]
 image: /img/api-social-card.png
-sidebar_position: 4
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

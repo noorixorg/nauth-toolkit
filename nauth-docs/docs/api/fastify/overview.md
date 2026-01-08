@@ -3,9 +3,7 @@ title: Fastify Adapter
 description: Fastify adapter with hooks and route helpers
 keywords: [fastify, adapter, hooks, helpers, api]
 image: /img/api-social-card.png
-sidebar_position: 0
 ---
-
 # Fastify Adapter
 
 **Package:** `@nauth-toolkit/core`

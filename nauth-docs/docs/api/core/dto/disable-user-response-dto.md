@@ -1,11 +1,9 @@
 ---
 title: DisableUserResponseDTO
 description: Administrative account locking response with session count
-sidebar_position: 170
 keywords: [dto, admin, disable, lock, user, response]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

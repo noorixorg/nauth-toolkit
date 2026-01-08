@@ -1,11 +1,9 @@
 ---
 title: CsrfGuard
 description: CSRF token validation guard for cookie-based token delivery in NestJS
-sidebar_position: 2
 keywords: [nestjs, guard, csrf, security, cookie, api]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

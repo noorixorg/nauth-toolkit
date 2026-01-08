@@ -3,9 +3,7 @@ title: ISession
 description: Session entity contract used for JWT session tracking and device metadata
 keywords: [session, entity, interface, api]
 image: /img/api-social-card.png
-sidebar_position: 6
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

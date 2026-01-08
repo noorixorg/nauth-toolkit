@@ -3,9 +3,7 @@ title: AdaptiveMFARiskEventPayload
 description: Risk event payload interface for adaptive MFA. Contains user context, risk signals, decision, and client metadata for audit/logging and hooks.
 keywords: [interface, mfa, adaptive, risk, payload, api]
 image: /img/api-social-card.png
-sidebar_position: 8
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

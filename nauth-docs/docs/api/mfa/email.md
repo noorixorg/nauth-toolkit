@@ -3,9 +3,7 @@ title: Email MFA Provider
 description: Email-based MFA provider
 keywords: [mfa, email, verification, api]
 image: /img/api-social-card.png
-sidebar_position: 3
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

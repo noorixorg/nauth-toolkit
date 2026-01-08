@@ -153,6 +153,7 @@ export class AuthService {
       accountLockoutStorage,
       config,
       logger,
+      hookRegistry,
     );
 
     // Initialize UserService for user data management
@@ -2811,6 +2812,28 @@ export class AuthService {
         const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
         this.logger?.error?.(`Failed to record GLOBAL_SIGNOUT audit event: ${errorMessage}`, {
           error: auditError,
+          userId: user.id,
+        });
+      }
+    }
+
+    // ============================================================================
+    // Lifecycle Hook: Sessions Revoked
+    // ============================================================================
+    if (revokedCount > 0) {
+      try {
+        const clientInfo = this.clientInfoService.get();
+        await this.hookRegistry.executeSessionsRevoked({
+          user,
+          revokedCount,
+          reason: 'global_signout',
+          initiatedBy: 'user',
+        });
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute sessionsRevoked hooks: ${errorMessage}`, {
+          error: hookError,
           userId: user.id,
         });
       }

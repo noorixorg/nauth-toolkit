@@ -23,20 +23,66 @@ nauth-toolkit provides:
 - **Startup validation** to catch missing required variables
 - **Global variables** shared across all templates
 
+## Quick start (recommended)
+
+If you're reading this for the first time, this is the shortest path to success:
+
+1. Configure your email/SMS provider(s) (see [Email provider configuration](#email-provider-configuration) and [SMS provider configuration](#sms-provider-configuration)).
+2. Set `email.templates.globalVariables` / `sms.templates.globalVariables` (branding, support contact, URLs).
+3. Override only the templates you need via `customTemplates` (start with `verification` and `passwordReset`).
+4. Keep required variables in your templates (see [Required variables validation](#required-variables-validation)).
+5. Preview locally before shipping (see [Testing templates](#testing-templates)).
+
+**Jump to:**
+- [Email templates](#email-templates)
+- [SMS templates](#sms-templates)
+- [Testing templates](#testing-templates)
+- [Troubleshooting](#troubleshooting)
+
 ## Email templates
 
 ### Available email types
+
+#### Core Authentication Emails
 
 | Template Type | When Sent | Required Variables |
 |--------------|-----------|-------------------|
 | `verification` | Email address verification during signup | `code`, `link`, `expiryMinutes` |
 | `passwordReset` | User requests password reset | `link`, `expiryMinutes` |
+| `adminPasswordReset` | Admin initiates password reset | `code`, `link`, `expiryMinutes` |
 | `welcome` | After successful signup or email verification | None |
+
+#### Security Notifications
+
+| Template Type | When Sent | Required Variables |
+|--------------|-----------|-------------------|
+| `passwordChanged` | Password successfully changed | None |
 | `accountLockout` | Account locked due to failed login attempts | `reason`, `durationMinutes` |
 | `newDevice` | New device detected (adaptive MFA) | `deviceName`, `timestamp` |
-| `passwordChanged` | Password successfully changed | None |
-| `emailChanged` | Email address successfully changed | `userEmail` |
-| `mfaEnabled` | MFA method successfully enabled | None |
+| `sessionsRevoked` | All sessions terminated | `revokedCount` |
+| `adaptiveMfaRiskAlert` | High-risk signin detected | `riskLevel`, `riskFactors` |
+
+#### Account Management
+
+| Template Type | When Sent | Required Variables |
+|--------------|-----------|-------------------|
+| `accountDisabled` | Account disabled by admin | `reason` |
+| `accountEnabled` | Account re-enabled by admin | None |
+| `emailChanged` | Email changed (legacy single-email template) | `userEmail` |
+| `emailChangedOld` | Email changed (sent to old address) | None |
+| `emailChangedNew` | Email changed (sent to new address) | None |
+
+#### MFA Notifications
+
+| Template Type | When Sent | Required Variables |
+|--------------|-----------|-------------------|
+| `mfaEnabled` | First MFA device enabled | None |
+| `mfaDeviceRemoved` | MFA device removed | None |
+
+:::note
+The default Nodemailer email templates are generated from MJML and stored in `@nauth-toolkit/email-nodemailer` under `src/templates/default/` (with sources in `src/templates/mjml/`).
+When overriding templates, use the **template type key** (for example `passwordReset`, `sessionsRevoked`, `adaptiveMfaRiskAlert`) which matches `TemplateType` in `@nauth-toolkit/core`.
+:::
 
 ### Configuration
 
@@ -147,7 +193,9 @@ AuthModule.forRoot({
             <!DOCTYPE html>
             <html>
             <body>
-              <h1>Hello {{greetingName}}!</h1>
+              <h1>
+                {{#if fullName}}Hello {{fullName}}!{{else}}{{#if firstName}}Hello {{firstName}}!{{else}}Hello!{{/if}}{{/if}}
+              </h1>
             </body>
             </html>
           `,
@@ -161,6 +209,84 @@ AuthModule.forRoot({
 </TabItem>
 </Tabs>
 
+### Global header/footer (partials)
+
+If you want all your templates to share the same header/footer (branding, links, support, legal text), use **Handlebars partials**.
+This lets you define `header` / `footer` once and reuse them across templates without copy/paste.
+
+#### Option A: File-based partials (recommended)
+
+1. Create a partials directory:
+
+- `email-templates/partials/header.hbs`
+- `email-templates/partials/footer.hbs`
+
+Example `email-templates/partials/footer.hbs`:
+
+```handlebars
+<hr />
+<p>&copy; {{currentYear}} {{companyName}}. All rights reserved.</p>
+{{#if supportEmail}}
+  <p>Need help? <a href="mailto:{{supportEmail}}">Contact support</a></p>
+{{/if}}
+```
+
+2. Use partials inside any template:
+
+```handlebars
+{{> header }}
+<h1>Password Changed</h1>
+<p>If you didn’t do this, contact support.</p>
+{{> footer }}
+```
+
+3. Tell the Nodemailer provider to load those partials:
+
+```typescript
+import { NodemailerEmailProvider, HandlebarsTemplateEngine } from '@nauth-toolkit/email-nodemailer';
+
+const templateEngine = new HandlebarsTemplateEngine({
+  baseDir: process.cwd(),
+  partialsDir: './email-templates/partials',
+});
+
+AuthModule.forRoot({
+  email: {
+    provider: new NodemailerEmailProvider({
+      transport: { /* ... */ },
+      defaults: { from: '"My App" <noreply@example.com>' },
+      templateEngine,
+    }),
+    templates: {
+      globalVariables: {
+        companyName: 'My Company Inc.',
+        supportEmail: 'support@myapp.com',
+      },
+      customTemplates: {
+        passwordChanged: {
+          htmlPath: './email-templates/password-changed.html.hbs',
+          // textPath optional (fallback is generated from HTML)
+        },
+      },
+    },
+  },
+});
+```
+
+#### Option B: Inline partials
+
+If you don’t want files, you can register partials in code:
+
+```typescript
+import { HandlebarsTemplateEngine } from '@nauth-toolkit/email-nodemailer';
+
+const templateEngine = new HandlebarsTemplateEngine({
+  partials: {
+    footer: '<footer>&copy; {{currentYear}} {{companyName}}</footer>',
+  },
+});
+```
+
 ### Template file format
 
 Email templates use Handlebars syntax with optional YAML frontmatter for the subject line.
@@ -171,79 +297,13 @@ Email templates use Handlebars syntax with optional YAML frontmatter for the sub
 ---
 subject: Verify your email - {{appName}}
 ---
-
-<!DOCTYPE html>
-<html>
-  <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-      /* Use inline styles for best email client compatibility */
-    body {
-      font-family: Arial, sans-serif;
-      line-height: 1.6;
-      color: #333;
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    .code {
-      font-size: 24px;
-      font-weight: bold;
-      letter-spacing: 3px;
-      background: #f5f5f5;
-      padding: 15px;
-      text-align: center;
-      margin: 20px 0;
-    }
-    .button {
-      display: inline-block;
-      background: {{brandColor}};
-      color: white;
-      padding: 12px 24px;
-      text-decoration: none;
-      border-radius: 4px;
-      margin: 20px 0;
-    }
-    .footer {
-      margin-top: 40px;
-      font-size: 12px;
-      color: #666;
-      border-top: 1px solid #ddd;
-      padding-top: 20px;
-    }
-    </style>
-  </head>
-  <body>
-  <h1>Verify Your Email</h1>
-
-  {{#if greetingName}}
-  <p>Hi {{greetingName}},</p>
-  {{else}}
-  <p>Hi,</p>
-  {{/if}}
-
-  <p>Thank you for signing up for {{appName}}! Please verify your email address to activate your account.</p>
-
-  <p>Your verification code:</p>
-  <div class="code">{{code}}</div>
-
-  <p>Or click the button below:</p>
-  <a href="{{link}}" class="button">Verify Email Address</a>
-
-  <p>This code expires in <strong>{{expiryMinutes}} minutes</strong>.</p>
-
-  {{#if supportEmail}}
-  <p>If you didn't create an account, you can safely ignore this email or contact us at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>.</p>
-  {{else}}
-  <p>If you didn't create an account, you can safely ignore this email.</p>
-  {{/if}}
-
-  <div class="footer">
-    <p>&copy; {{currentYear}} {{companyName}}. All rights reserved.</p>
-  </div>
-  </body>
-</html>
+<h1>Verify your email</h1>
+<p>
+  {{#if fullName}}Hi {{fullName}},{{else}}{{#if firstName}}Hi {{firstName}},{{else}}{{#if userName}}Hi {{userName}},{{else}}Hi,{{/if}}{{/if}}{{/if}}
+</p>
+<p>Your verification code: <strong>{{code}}</strong></p>
+<p><a href="{{link}}">Verify Email</a></p>
+<p>This code expires in {{expiryMinutes}} minutes.</p>
 ```
 
 **Example: `email-templates/verification.text.hbs` (plain text version)**
@@ -251,7 +311,7 @@ subject: Verify your email - {{appName}}
 ```text
 Verify Your Email
 
-{{#if greetingName}}Hi {{greetingName}},{{else}}Hi,{{/if}}
+{{#if fullName}}Hi {{fullName}},{{else}}{{#if firstName}}Hi {{firstName}},{{else}}{{#if userName}}Hi {{userName}},{{else}}Hi,{{/if}}{{/if}}{{/if}}
 
 Thank you for signing up for {{appName}}! Please verify your email address to activate your account.
 
@@ -279,26 +339,38 @@ All templates have access to these variables:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
+| `fullName` | Full name | `John Doe` |
 | `userName` | Username | `john_doe` |
 | `userEmail` | Email address | `john@example.com` |
 | `firstName` | First name | `John` |
 | `lastName` | Last name | `Doe` |
-| `greetingName` | Smart greeting (see below) | `John` or `john_doe` |
+| `greetingName` | Optional convenience name (compute and pass yourself) | `John` or `john_doe` |
 
 #### Authentication & security
 
 | Variable | Description | Templates |
 |----------|-------------|-----------|
-| `code` | Verification/reset code | `verification`, `passwordReset` (if code-based) |
-| `link` | Verification/reset link | `verification`, `passwordReset` |
-| `expiryMinutes` | Code/link expiration time | `verification`, `passwordReset` |
-| `reason` | Lockout reason | `accountLockout` |
+| `code` | Verification/reset code | `verification`, `passwordReset`, `adminPasswordReset` |
+| `link` | Verification/reset link | `verification`, `passwordReset`, `adminPasswordReset` |
+| `expiryMinutes` | Code/link expiration time | `verification`, `passwordReset`, `adminPasswordReset` |
+| `reason` | Reason for action | `accountLockout`, `accountDisabled`, `accountEnabled`, `sessionsRevoked` |
 | `durationMinutes` | Lockout duration | `accountLockout` |
-| `deviceName` | Device identifier | `newDevice` |
-| `deviceType` | Device type (mobile/desktop) | `newDevice` |
+| `deviceName` | Device identifier | `newDevice`, `mfaDeviceRemoved` |
+| `deviceType` | Device type | `newDevice`, `mfaDeviceRemoved` |
 | `ipAddress` | IP address | `newDevice` |
 | `location` | Geographic location | `newDevice` |
 | `timestamp` | Event timestamp | `newDevice` |
+| `riskLevel` | Risk level (low/medium/high) | `adaptiveMfaRiskAlert` |
+| `riskScore` | Numeric risk score (0-100) | `adaptiveMfaRiskAlert` |
+| `riskFactors` | Detected risk factors (string or comma-separated list) | `adaptiveMfaRiskAlert` |
+| `action` | Action taken | `adaptiveMfaRiskAlert` |
+| `removedBy` | Who removed device | `mfaDeviceRemoved` |
+| `remainingDeviceCount` | MFA devices remaining | `mfaDeviceRemoved` |
+| `revokedCount` | Number of sessions revoked | `sessionsRevoked` |
+| `triggerEvent` | What triggered the action | `sessionsRevoked` |
+| `oldEmail` | Previous email address | `emailChangedOld`, `emailChangedNew` |
+| `newEmail` | New email address | `emailChangedOld`, `emailChangedNew` |
+| `deactivatedMFADevices` | Deactivated MFA device count | `emailChangedOld` |
 
 #### Branding (from globalVariables)
 
@@ -315,26 +387,21 @@ All templates have access to these variables:
 | Variable | Description | Value |
 |----------|-------------|-------|
 | `currentYear` | Current year | `2024` |
+| `subject` | Email subject (available inside MJML-built HTML templates) | `Password Changed - My App` |
+| `previewText` | Email preview text (defaults to `subject` unless provided) | `Your password has been successfully changed` |
 
-### Smart greeting
+### Greetings (recommended pattern)
 
-The `greetingName` variable automatically selects the best name to use:
-
-1. `fullName` (if firstName and lastName are present)
-2. `firstName`
-3. `lastName`
-4. `userName`
-5. Falls back to empty string (use conditional)
-
-**Usage:**
+The default Nodemailer templates implement a simple, explicit greeting fallback:
 
 ```handlebars
-{{#if greetingName}}
-  Hi {{greetingName}},
-{{else}}
-  Hi,
-{{/if}}
+{{#if fullName}}Hi {{fullName}},{{/if}}
+{{#if firstName}}Hi {{firstName}},{{/if}}
+{{#if lastName}}Hi {{lastName}},{{/if}}
+{{#if userName}}Hi {{userName}},{{/if}}
 ```
+
+If you prefer a single variable like `{{greetingName}}`, compute it in your application and pass it as a template variable. (The core `HtmlTemplateEngine` also computes `greetingName` automatically when you use it directly.)
 
 ### Handlebars syntax reference
 
@@ -406,12 +473,20 @@ To prevent broken emails, nauth-toolkit validates templates at startup:
 |--------------|-------------------|
 | `verification` | `{{code}}`, `{{link}}`, `{{expiryMinutes}}` |
 | `passwordReset` | `{{link}}`, `{{expiryMinutes}}` |
+| `adminPasswordReset` | `{{code}}`, `{{link}}`, `{{expiryMinutes}}` |
 | `accountLockout` | `{{reason}}`, `{{durationMinutes}}` |
 | `newDevice` | `{{deviceName}}`, `{{timestamp}}` |
+| `adaptiveMfaRiskAlert` | `{{riskLevel}}`, `{{riskFactors}}` |
+| `accountDisabled` | `{{reason}}` |
 | `emailChanged` | `{{userEmail}}` |
+| `sessionsRevoked` | `{{revokedCount}}` |
 | `welcome` | None |
 | `passwordChanged` | None |
 | `mfaEnabled` | None |
+| `mfaDeviceRemoved` | None |
+| `accountEnabled` | None |
+| `emailChangedOld` | None |
+| `emailChangedNew` | None |
 
 **Error example:**
 
@@ -422,6 +497,11 @@ Missing required variable: {{code}}
 
 :::tip
 The validator checks for the presence of `{{variableName}}` in your template. If validation fails, your application won't start, preventing broken emails in production.
+:::
+
+:::note
+**Text templates are optional.** If you don’t provide a `text` template, the template engine will generate one by stripping HTML tags from the rendered HTML.
+Even if you only provide HTML, the Nodemailer provider will still send a `text` body (generated), which improves deliverability and accessibility.
 :::
 
 ### Email provider configuration
@@ -825,6 +905,17 @@ const templateEngine = new HandlebarsTemplateEngine({
   },
 });
 
+// Optional: register reusable partials (header/footer blocks)
+// Use in templates with: {{> footer }}
+const engineWithPartials = new HandlebarsTemplateEngine({
+  helpers: {
+    // ... helpers ...
+  },
+  partials: {
+    footer: '<footer>&copy; {{currentYear}} {{companyName}}. All rights reserved.</footer>',
+  },
+});
+
 // Use in config
 {
   email: {
@@ -904,7 +995,8 @@ Register templates programmatically instead of via config:
 <TabItem value="email-programmatic" label="Email" default>
 
 ```typescript
-import { HandlebarsTemplateEngine, TemplateType } from '@nauth-toolkit/core';
+import { HandlebarsTemplateEngine } from '@nauth-toolkit/email-nodemailer';
+import { TemplateType } from '@nauth-toolkit/core';
 
 const engine = new HandlebarsTemplateEngine({ baseDir: './templates' });
 
@@ -1006,7 +1098,8 @@ Test your templates before deploying:
 <TabItem value="test-email" label="Email" default>
 
 ```typescript
-import { HandlebarsTemplateEngine, TemplateType } from '@nauth-toolkit/core';
+import { HandlebarsTemplateEngine } from '@nauth-toolkit/email-nodemailer';
+import { TemplateType } from '@nauth-toolkit/core';
 
 const engine = new HandlebarsTemplateEngine({ baseDir: './templates' });
 

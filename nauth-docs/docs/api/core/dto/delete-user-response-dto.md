@@ -1,11 +1,9 @@
 ---
 title: DeleteUserResponseDTO
 description: Administrative user deletion response with cascade counts
-sidebar_position: 150
 keywords: [dto, admin, delete, user, response]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

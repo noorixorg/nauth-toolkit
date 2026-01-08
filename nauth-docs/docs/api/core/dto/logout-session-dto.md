@@ -3,9 +3,7 @@ title: LogoutSessionDTO
 description: Request DTO for logging out from a specific session by session ID. Validates session ownership for security.
 keywords: [logout, session, dto, request, device, api]
 image: /img/api-social-card.png
-sidebar_position: 600
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

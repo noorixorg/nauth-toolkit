@@ -3,9 +3,7 @@ title: Facebook Provider
 description: Facebook Login social authentication provider
 keywords: [social, oauth, facebook, api]
 image: /img/api-social-card.png
-sidebar_position: 3
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

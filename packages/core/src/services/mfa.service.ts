@@ -12,6 +12,7 @@ import { NAuthLogger } from '../utils/nauth-logger';
 import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { ClientInfoService } from './client-info.service';
+import { HookRegistryService } from './hook-registry.service';
 import { ensureValidatedDto, ensureValidatedDtoSync } from '../utils/dto-validator';
 import {
   GetAvailableMethodsDTO,
@@ -79,6 +80,7 @@ export class MFAService {
     private readonly logger?: NAuthLogger,
     private readonly auditService?: AuthAuditService,
     private readonly clientInfoService?: ClientInfoService,
+    private readonly hookRegistry?: HookRegistryService,
   ) {}
 
   /**
@@ -600,6 +602,35 @@ export class MFAService {
         const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
         this.logger?.error?.(`Failed to record MFA_DEVICE_REMOVED audit event: ${errorMessage}`, {
           error: auditError,
+          userId: user.id,
+          method: normalizedMethod,
+        });
+      }
+    }
+
+    // ============================================================================
+    // Lifecycle Hook: MFA Device Removed
+    // ============================================================================
+    if (deletedCount > 0 && this.hookRegistry && this.clientInfoService) {
+      try {
+        const clientInfo = this.clientInfoService.get();
+        await this.hookRegistry.executeMFADeviceRemoved({
+          user,
+          deviceType: normalizedMethod as import('../enums/mfa-method.enum').MFADeviceMethod,
+          removedBy: 'user',
+          remainingDeviceCount: remainingActiveDevices.length,
+          clientInfo: {
+            ipAddress: clientInfo.ipAddress,
+            userAgent: clientInfo.userAgent,
+            ipCountry: clientInfo.ipCountry,
+            ipCity: clientInfo.ipCity,
+          },
+        });
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute mfaDeviceRemoved hooks: ${errorMessage}`, {
+          error: hookError,
           userId: user.id,
           method: normalizedMethod,
         });

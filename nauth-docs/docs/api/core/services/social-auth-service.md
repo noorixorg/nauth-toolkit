@@ -3,9 +3,7 @@ title: SocialAuthService
 description: Social account management service for linking/unlinking accounts and password management for social-only users.
 keywords: [social, auth, account, management, linking, service, api]
 image: /img/api-social-card.png
-sidebar_position: 8
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

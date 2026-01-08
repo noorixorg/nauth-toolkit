@@ -1,11 +1,9 @@
 ---
 title: EnableUserDTO
 description: Administrative account unlocking request
-sidebar_position: 180
 keywords: [dto, admin, enable, unlock, user]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

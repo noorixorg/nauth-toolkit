@@ -3,9 +3,7 @@ title: Redis Cluster
 description: Redis Cluster storage for high availability
 keywords: [storage, redis, cluster, production, adapter, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

@@ -3,9 +3,7 @@ title: SetMustChangePasswordDTO
 description: Request DTO for requiring user to change password on next login. Includes UUID validation for security.
 keywords: [password, change, required, dto, request, uuid, api]
 image: /img/api-social-card.png
-sidebar_position: 780
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

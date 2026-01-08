@@ -1,11 +1,9 @@
 ---
 title: GetUserAuthHistoryResponseDTO
 description: Response DTO for paginated user authentication history
-sidebar_position: 420
 keywords: [dto, response, audit, history, pagination, api]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

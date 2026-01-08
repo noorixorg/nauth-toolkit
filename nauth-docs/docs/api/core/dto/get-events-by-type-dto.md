@@ -1,11 +1,9 @@
 ---
 title: GetEventsByTypeDTO
 description: Request DTO for getting paginated audit events filtered by event type with optional date range filtering
-sidebar_position: 270
 keywords: [dto, request, audit, events, filtering, api]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

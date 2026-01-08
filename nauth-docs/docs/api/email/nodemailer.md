@@ -3,9 +3,7 @@ title: Nodemailer Provider
 description: Nodemailer SMTP email provider
 keywords: [email, nodemailer, smtp, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 # Nodemailer Provider
 
 **Package:** `@nauth-toolkit/email-nodemailer`

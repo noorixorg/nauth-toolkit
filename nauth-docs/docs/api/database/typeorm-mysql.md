@@ -3,9 +3,7 @@ title: TypeORM MySQL
 description: MySQL/MariaDB database entities for NAuth
 keywords: [database, typeorm, mysql, mariadb, entities, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

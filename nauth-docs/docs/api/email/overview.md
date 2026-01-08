@@ -3,9 +3,7 @@ title: Email Providers
 description: Email providers for authentication notifications
 keywords: [email, providers, nodemailer, smtp, api]
 image: /img/api-social-card.png
-sidebar_position: 0
 ---
-
 # Email Providers
 
 Email providers for sending verification codes, password resets, and notifications.
