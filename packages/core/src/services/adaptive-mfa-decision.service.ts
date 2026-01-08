@@ -128,6 +128,40 @@ export class AdaptiveMFADecisionService {
   ) {}
 
   /**
+   * Resolve the configured block scope for adaptive MFA sign-in blocking.
+   *
+   * @returns Block scope (defaults to `user`)
+   * @private
+   */
+  private getBlockedSignInScope(): 'user' | 'device' | 'ip' {
+    return this.config.mfa?.adaptive?.blockedSignIn?.scope ?? 'user';
+  }
+
+  /**
+   * Build the storage key for a sign-in block.
+   *
+   * Keys are scoped to reduce the blast radius of blocking:
+   * - user: `adaptive_mfa_block:{userId}`
+   * - device: `adaptive_mfa_block:{userId}:device:{deviceToken}`
+   * - ip: `adaptive_mfa_block:{userId}:ip:{ipAddress}`
+   *
+   * @param userId - Internal user ID
+   * @param clientInfo - Current client context (used for device/ip scoped keys)
+   * @returns Storage key
+   * @private
+   */
+  private buildBlockKey(userId: number, clientInfo?: Pick<ClientInfo, 'ipAddress' | 'deviceToken'>): string {
+    const scope = this.getBlockedSignInScope();
+    if (scope === 'ip' && clientInfo?.ipAddress) {
+      return `adaptive_mfa_block:${userId}:ip:${clientInfo.ipAddress}`;
+    }
+    if (scope === 'device' && clientInfo?.deviceToken) {
+      return `adaptive_mfa_block:${userId}:device:${clientInfo.deviceToken}`;
+    }
+    return `adaptive_mfa_block:${userId}`;
+  }
+
+  /**
    * Evaluate adaptive MFA requirement with risk-based actions
    *
    * Main entry point for adaptive MFA evaluation. Analyzes current login context,
@@ -352,7 +386,8 @@ export class AdaptiveMFADecisionService {
     message?: string;
   }> {
     try {
-      const blockKey = `adaptive_mfa_block:${userId}`;
+      const clientInfo = this.clientInfoService.get();
+      const blockKey = this.buildBlockKey(userId, clientInfo);
       const blockData = await this.storageAdapter.get(blockKey);
 
       if (!blockData) {
@@ -360,7 +395,20 @@ export class AdaptiveMFADecisionService {
       }
 
       const parsed = JSON.parse(blockData);
-      const expiresAt = parsed.expiresAt ? new Date(parsed.expiresAt) : undefined;
+      let expiresAt = parsed.expiresAt ? new Date(parsed.expiresAt) : undefined;
+
+      // If a legacy/permanent block was stored without an explicit expiresAt,
+      // but the current config defines a blockDuration, derive an expiry from blockedAt.
+      // This prevents accidental permanent lockouts when configs evolve.
+      if (!expiresAt) {
+        const configuredBlockDuration = this.config.mfa?.adaptive?.blockedSignIn?.blockDuration;
+        if (configuredBlockDuration && parsed.blockedAt) {
+          const blockedAt = new Date(parsed.blockedAt);
+          if (!Number.isNaN(blockedAt.getTime())) {
+            expiresAt = new Date(blockedAt.getTime() + configuredBlockDuration * 60 * 1000);
+          }
+        }
+      }
 
       // Check if block has expired (if temporary)
       if (expiresAt && expiresAt < new Date()) {
@@ -407,7 +455,8 @@ export class AdaptiveMFADecisionService {
     const message = blockConfig?.message || 'Sign-in blocked due to suspicious activity. Please contact support.';
 
     // Store block in storage adapter
-    const blockKey = `adaptive_mfa_block:${user.id}`;
+    const clientInfo = this.clientInfoService.get();
+    const blockKey = this.buildBlockKey(user.id, clientInfo);
     const blockData = {
       userId: user.id,
       userSub: user.sub,
@@ -443,8 +492,17 @@ export class AdaptiveMFADecisionService {
    */
   async clearUserBlock(userId: number): Promise<void> {
     try {
-      const blockKey = `adaptive_mfa_block:${userId}`;
-      await this.storageAdapter.del(blockKey);
+      // Always clear the user-scoped key for backwards compatibility.
+      await this.storageAdapter.del(`adaptive_mfa_block:${userId}`);
+
+      // Best-effort clear for scoped keys (depends on current runtime client context).
+      const clientInfo = this.clientInfoService.get();
+      if (clientInfo.ipAddress) {
+        await this.storageAdapter.del(`adaptive_mfa_block:${userId}:ip:${clientInfo.ipAddress}`);
+      }
+      if (clientInfo.deviceToken) {
+        await this.storageAdapter.del(`adaptive_mfa_block:${userId}:device:${clientInfo.deviceToken}`);
+      }
       this.logger?.log?.(`User block cleared: userId=${userId}`);
     } catch (error) {
       // Non-blocking: Log error but continue

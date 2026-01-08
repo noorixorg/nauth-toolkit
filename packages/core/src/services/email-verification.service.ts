@@ -365,6 +365,18 @@ export class EmailVerificationService {
     // Valid codes should always be allowed through
     // ============================================================================
 
+    const verificationMethod = this.config.signup?.verificationMethod ?? 'email';
+    const wasOnboardingCompleteBefore =
+      verificationMethod === 'none'
+        ? true
+        : verificationMethod === 'email'
+          ? !!user.isEmailVerified
+          : verificationMethod === 'phone'
+            ? !!user.isPhoneVerified
+            : verificationMethod === 'both'
+              ? !!user.isEmailVerified && !!user.isPhoneVerified
+              : !!user.isEmailVerified;
+
     // Mark token as used
     verificationToken.usedAt = new Date();
     await this.verificationTokenRepo.save(verificationToken);
@@ -427,6 +439,26 @@ export class EmailVerificationService {
             ipCity: clientInfo.ipCity,
           },
         });
+
+        const isOnboardingCompleteNow =
+          verificationMethod === 'none'
+            ? true
+            : verificationMethod === 'email'
+              ? !!updatedUser.isEmailVerified
+              : verificationMethod === 'phone'
+                ? !!updatedUser.isPhoneVerified
+                : verificationMethod === 'both'
+                  ? !!updatedUser.isEmailVerified && !!updatedUser.isPhoneVerified
+                  : !!updatedUser.isEmailVerified;
+
+        // Fire onboarding completed only on the transition to "complete" to avoid duplicate welcome emails.
+        if (!wasOnboardingCompleteBefore && isOnboardingCompleteNow) {
+          await this.hookRegistry.executeOnboardingCompleted(updatedUser, {
+            verificationMethod,
+            source: 'email_verification',
+            completedAt: new Date(),
+          });
+        }
       }
     } catch (hookError) {
       // Non-blocking: Log but continue
@@ -484,6 +516,19 @@ export class EmailVerificationService {
     const user = (await this.userRepo.findOne({
       where: { id: verificationToken.userId },
     })) as IUser | null;
+
+    const verificationMethod = this.config.signup?.verificationMethod ?? 'email';
+    const wasOnboardingCompleteBefore = !user
+      ? false
+      : verificationMethod === 'none'
+        ? true
+        : verificationMethod === 'email'
+          ? !!user.isEmailVerified
+          : verificationMethod === 'phone'
+            ? !!user.isPhoneVerified
+            : verificationMethod === 'both'
+              ? !!user.isEmailVerified && !!user.isPhoneVerified
+              : !!user.isEmailVerified;
 
     // Update user
     await this.userRepo.update(verificationToken.userId, {
@@ -544,6 +589,25 @@ export class EmailVerificationService {
               ipCity: clientInfo.ipCity,
             },
           });
+
+          const isOnboardingCompleteNow =
+            verificationMethod === 'none'
+              ? true
+              : verificationMethod === 'email'
+                ? !!updatedUser.isEmailVerified
+                : verificationMethod === 'phone'
+                  ? !!updatedUser.isPhoneVerified
+                  : verificationMethod === 'both'
+                    ? !!updatedUser.isEmailVerified && !!updatedUser.isPhoneVerified
+                    : !!updatedUser.isEmailVerified;
+
+          if (!wasOnboardingCompleteBefore && isOnboardingCompleteNow) {
+            await this.hookRegistry.executeOnboardingCompleted(updatedUser, {
+              verificationMethod,
+              source: 'email_verification',
+              completedAt: new Date(),
+            });
+          }
         }
       } catch (hookError) {
         // Non-blocking: Log but continue

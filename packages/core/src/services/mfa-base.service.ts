@@ -286,6 +286,9 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
 
     const userEntityRecord = userEntity as unknown as Record<string, unknown>;
     const isFirstDevice = !userEntityRecord.mfaEnabled;
+    const previousMethods = Array.isArray(userEntityRecord.mfaMethods)
+      ? (userEntityRecord.mfaMethods as unknown as string[])
+      : [];
 
     if (!userEntityRecord.mfaEnabled) {
       userEntityRecord.mfaEnabled = true;
@@ -295,6 +298,7 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
     // Update mfaMethods array
     const devices = await this.getUserDevices(userId);
     const methods = [...new Set(devices.filter((d) => d.isActive).map((d) => d.type))];
+    const newlyAddedMethods = methods.filter((m) => !previousMethods.includes(m));
     userEntityRecord.mfaMethods = methods;
 
     // Set preferred method if not set
@@ -304,6 +308,41 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
     }
 
     await this.userRepository.save(userEntity);
+
+    // ============================================================================
+    // Lifecycle Hook: MFA Method Added (additional methods only)
+    // ============================================================================
+    // This complements (and avoids duplicating) the "first enabled" hook:
+    // - First ever method → `executeMFAFirstEnabled`
+    // - Subsequent new method → `executeMFAMethodAdded`
+    if (!isFirstDevice && newlyAddedMethods.length > 0 && this.hookRegistry && this.clientInfoService) {
+      try {
+        const clientInfo = this.clientInfoService.get();
+        for (const method of newlyAddedMethods) {
+          await this.hookRegistry.executeMFAMethodAdded({
+            user: userEntity as unknown as IUser,
+            method: method as import('../enums/mfa-method.enum').MFADeviceMethod,
+            isFirstMethod: false,
+            enabledMethods: methods as unknown as import('../enums/mfa-method.enum').MFADeviceMethod[],
+            timestamp: new Date(),
+            clientInfo: {
+              ipAddress: clientInfo.ipAddress,
+              userAgent: clientInfo.userAgent,
+              ipCountry: clientInfo.ipCountry,
+              ipCity: clientInfo.ipCity,
+            },
+          });
+        }
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute mfaMethodAdded hooks: ${errorMessage}`, {
+          error: hookError,
+          userId: user.id,
+          methodName: this.methodName,
+        });
+      }
+    }
 
     // If this is the first MFA device being set up, clear any MFA_SETUP_REQUIRED challenges
     // This prevents phantom challenges when user sets up MFA while logged in

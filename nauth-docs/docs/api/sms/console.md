@@ -31,9 +31,7 @@ npm install @nauth-toolkit/sms-console
 import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
 
 AuthModule.forRoot({
-  sms: {
-    provider: new ConsoleSMSProvider(),
-  },
+  smsProvider: new ConsoleSMSProvider(),
 })
 ```
 
@@ -45,9 +43,7 @@ import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
 
 const nauth = await NAuth.create({
   config: {
-    sms: {
-      provider: new ConsoleSMSProvider(),
-    },
+    smsProvider: new ConsoleSMSProvider(),
   },
   // ...
 });
@@ -61,9 +57,7 @@ import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
 
 const nauth = await NAuth.create({
   config: {
-    sms: {
-      provider: new ConsoleSMSProvider(),
-    },
+    smsProvider: new ConsoleSMSProvider(),
   },
   adapter: new FastifyAdapter(),
   // ...

@@ -374,8 +374,10 @@ describe('AuthService', () => {
     mockHookRegistry = {
       registerPreSignup: jest.fn(),
       registerPostSignup: jest.fn(),
+      registerOnboardingCompleted: jest.fn(),
       executePreSignup: jest.fn().mockResolvedValue(undefined),
       executePostSignup: jest.fn().mockResolvedValue(undefined),
+      executeOnboardingCompleted: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     mockTrustedDeviceService = {
@@ -1361,6 +1363,13 @@ describe('AuthService', () => {
         mockAccountLockoutStorage.isAccountLocked.mockResolvedValue(true);
         mockLoginAttemptRepository.create.mockReturnValue({} as any);
         mockLoginAttemptRepository.save.mockResolvedValue({} as any);
+        const queryBuilder = {
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(mockUser),
+        };
+        mockUserRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
 
         try {
           await service.login(loginDto);
@@ -1371,6 +1380,7 @@ describe('AuthService', () => {
 
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
+            userId: mockUser.id,
             eventType: AuthAuditEventType.LOGIN_BLOCKED,
             eventStatus: 'FAILURE',
             reason: 'ip_locked',

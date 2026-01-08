@@ -535,6 +535,7 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
       [TemplateType.EMAIL_CHANGED]: 'email-changed',
       [TemplateType.MFA_ENABLED]: 'mfa-enabled',
       [TemplateType.MFA_DEVICE_REMOVED]: 'mfa-device-removed',
+      [TemplateType.MFA_METHOD_ADDED]: 'mfa-method-added',
       [TemplateType.ADAPTIVE_MFA_RISK_ALERT]: 'adaptive-mfa-risk-alert',
       [TemplateType.ACCOUNT_DISABLED]: 'account-disabled',
       [TemplateType.ACCOUNT_ENABLED]: 'account-enabled',

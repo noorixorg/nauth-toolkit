@@ -52,12 +52,10 @@ const smsProvider = new AWSSMSProvider(config);
 
 ```typescript
 AuthModule.forRoot({
-  sms: {
-    provider: new AWSSMSProvider({
-      region: 'us-east-1',
-      originationNumber: '+12345678901',
-    }),
-  },
+  smsProvider: new AWSSMSProvider({
+    region: 'us-east-1',
+    originationNumber: '+12345678901',
+  }),
 })
 ```
 
@@ -67,12 +65,10 @@ AuthModule.forRoot({
 ```typescript
 const nauth = await NAuth.create({
   config: {
-    sms: {
-      provider: new AWSSMSProvider({
-        region: 'us-east-1',
-        originationNumber: '+12345678901',
-      }),
-    },
+    smsProvider: new AWSSMSProvider({
+      region: 'us-east-1',
+      originationNumber: '+12345678901',
+    }),
   },
   // ...
 });
@@ -84,12 +80,10 @@ const nauth = await NAuth.create({
 ```typescript
 const nauth = await NAuth.create({
   config: {
-    sms: {
-      provider: new AWSSMSProvider({
-        region: 'us-east-1',
-        originationNumber: '+12345678901',
-      }),
-    },
+    smsProvider: new AWSSMSProvider({
+      region: 'us-east-1',
+      originationNumber: '+12345678901',
+    }),
   },
   adapter: new FastifyAdapter(),
   // ...

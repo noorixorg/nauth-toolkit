@@ -44,6 +44,11 @@ import { NAuthConfig } from '@nauth-toolkit/core';
 
 - See **[Configuration](/docs/concepts/configuration)** for the complete `NAuthConfig` reference (all options, defaults, and examples).
 
+## Recent additions
+
+- `mfa.adaptive.blockedSignIn.scope`: control whether Adaptive MFA blocks apply to the **user**, **device**, or **IP**.
+- `emailNotifications.suppress.mfaMethodAdded`: opt-in email notification when an **additional MFA method** is added.
+
 ## Related Types
 
 - [`AdaptiveMFAUser`](./adaptive-mfa-user) - User interface for adaptive MFA risk events

@@ -1,6 +1,9 @@
 <!-- Adaptive MFA Risk Alert Email Content -->
 <mj-text>
-  We detected unusual activity on your account and required additional verification.
+  We detected unusual activity on your account.
+  {{#if (eq action "require_mfa")}}We required additional verification to protect your account.{{/if}}
+  {{#if (eq action "block_signin")}}We blocked this sign-in attempt to protect your account.{{/if}}
+  {{#if (eq action "allow")}}We allowed the sign-in, but wanted to keep you informed.{{/if}}
 </mj-text>
 
 <mj-text css-class="text-small alert-box alert-warning" padding="16px 24px">
@@ -38,7 +41,7 @@
 </mj-text>
 
 <mj-text css-class="text-small" padding="0 24px 24px 24px">
-  Our security system detected unusual login characteristics (such as a new device, new location, or unusual behavior patterns) and required additional verification to protect your account.
+  Our security system evaluates unusual login characteristics (such as a new device, new location, or unusual behavior patterns) to protect your account.
 </mj-text>
 
 <mj-text css-class="text-small" padding="24px 24px 8px 24px">

@@ -137,6 +137,12 @@ export { GeoLocationService } from './services/geo-location.service';
  */
 export { HookRegistryService } from './services/hook-registry.service';
 
+/**
+ * Built-in email notification hook provider
+ * @internal
+ */
+export { registerBuiltInEmailNotificationHooks } from './services/email-notifications.hook';
+
 // ============================================================================
 // Risk & Adaptive Security (Internal)
 // ============================================================================

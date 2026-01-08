@@ -195,10 +195,11 @@ export class PhoneVerificationService {
     // Default to 'verification' for phone verification flows
     const templateType = dto.skipAlreadyVerifiedCheck && user.isPhoneVerified ? 'mfa' : 'verification';
 
-    // Get appName from email config or SMS templates global variables
+    // Get appName from email globals or SMS templates global variables
     const smsConfig = this.config.sms as { templates?: { globalVariables?: Record<string, unknown> } } | undefined;
     const appName =
-      this.config.email?.appName || (smsConfig?.templates?.globalVariables?.appName as string | undefined);
+      (this.config.email?.globalVariables?.appName as string | undefined) ||
+      (smsConfig?.templates?.globalVariables?.appName as string | undefined);
 
     // Send SMS with template support
     await this.smsProvider.sendOTP(user.phone, code, templateType, {
@@ -280,6 +281,18 @@ export class PhoneVerificationService {
     }
 
     const { token, user } = matched;
+
+    const verificationMethod = this.config.signup?.verificationMethod ?? 'email';
+    const wasOnboardingCompleteBefore =
+      verificationMethod === 'none'
+        ? true
+        : verificationMethod === 'email'
+          ? !!user.isEmailVerified
+          : verificationMethod === 'phone'
+            ? !!user.isPhoneVerified
+            : verificationMethod === 'both'
+              ? !!user.isEmailVerified && !!user.isPhoneVerified
+              : !!user.isEmailVerified;
 
     // Get verification attempt rate limit configuration from config
     const maxAttemptsPerUser = this.config.signup?.phoneVerification?.maxAttemptsPerUser ?? 10;
@@ -448,6 +461,26 @@ export class PhoneVerificationService {
             ipCity: clientInfo.ipCity,
           },
         });
+
+        const isOnboardingCompleteNow =
+          verificationMethod === 'none'
+            ? true
+            : verificationMethod === 'email'
+              ? !!updatedUser.isEmailVerified
+              : verificationMethod === 'phone'
+                ? !!updatedUser.isPhoneVerified
+                : verificationMethod === 'both'
+                  ? !!updatedUser.isEmailVerified && !!updatedUser.isPhoneVerified
+                  : !!updatedUser.isEmailVerified;
+
+        // Fire onboarding completed only on the transition to "complete" to avoid duplicate welcome emails.
+        if (!wasOnboardingCompleteBefore && isOnboardingCompleteNow) {
+          await this.hookRegistry.executeOnboardingCompleted(updatedUser, {
+            verificationMethod,
+            source: 'phone_verification',
+            completedAt: new Date(),
+          });
+        }
       }
     } catch (hookError) {
       // Non-blocking: Log but continue
@@ -476,6 +509,18 @@ export class PhoneVerificationService {
     if (!user) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
+
+    const verificationMethod = this.config.signup?.verificationMethod ?? 'email';
+    const wasOnboardingCompleteBefore =
+      verificationMethod === 'none'
+        ? true
+        : verificationMethod === 'email'
+          ? !!user.isEmailVerified
+          : verificationMethod === 'phone'
+            ? !!user.isPhoneVerified
+            : verificationMethod === 'both'
+              ? !!user.isEmailVerified && !!user.isPhoneVerified
+              : !!user.isEmailVerified;
     if (!user.phone) {
       throw new NAuthException(AuthErrorCode.PHONE_REQUIRED, 'No phone number associated with this account');
     }
@@ -727,6 +772,25 @@ export class PhoneVerificationService {
               ipCity: clientInfo.ipCity,
             },
           });
+
+          const isOnboardingCompleteNow =
+            verificationMethod === 'none'
+              ? true
+              : verificationMethod === 'email'
+                ? !!updatedUser.isEmailVerified
+                : verificationMethod === 'phone'
+                  ? !!updatedUser.isPhoneVerified
+                  : verificationMethod === 'both'
+                    ? !!updatedUser.isEmailVerified && !!updatedUser.isPhoneVerified
+                    : !!updatedUser.isEmailVerified;
+
+          if (!wasOnboardingCompleteBefore && isOnboardingCompleteNow) {
+            await this.hookRegistry.executeOnboardingCompleted(updatedUser, {
+              verificationMethod,
+              source: 'phone_verification',
+              completedAt: new Date(),
+            });
+          }
         }
       } catch (hookError) {
         // Non-blocking: Log but continue

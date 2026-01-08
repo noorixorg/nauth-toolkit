@@ -28,7 +28,7 @@ nauth-toolkit provides:
 If you're reading this for the first time, this is the shortest path to success:
 
 1. Configure your email/SMS provider(s) (see [Email provider configuration](#email-provider-configuration) and [SMS provider configuration](#sms-provider-configuration)).
-2. Set `email.templates.globalVariables` / `sms.templates.globalVariables` (branding, support contact, URLs).
+2. Set `email.globalVariables` / `sms.templates.globalVariables` (branding, support contact, URLs).
 3. Override only the templates you need via `customTemplates` (start with `verification` and `passwordReset`).
 4. Keep required variables in your templates (see [Required variables validation](#required-variables-validation)).
 5. Preview locally before shipping (see [Testing templates](#testing-templates)).
@@ -50,7 +50,7 @@ If you're reading this for the first time, this is the shortest path to success:
 | `verification` | Email address verification during signup | `code`, `link`, `expiryMinutes` |
 | `passwordReset` | User requests password reset | `link`, `expiryMinutes` |
 | `adminPasswordReset` | Admin initiates password reset | `code`, `link`, `expiryMinutes` |
-| `welcome` | After successful signup or email verification | None |
+| `welcome` | After onboarding is complete: immediately after signup when `signup.verificationMethod = 'none'`, otherwise after the required verification(s) succeed (`email` / `phone` / `both`) | None |
 
 #### Security Notifications
 
@@ -60,7 +60,7 @@ If you're reading this for the first time, this is the shortest path to success:
 | `accountLockout` | Account locked due to failed login attempts | `reason`, `durationMinutes` |
 | `newDevice` | New device detected (adaptive MFA) | `deviceName`, `timestamp` |
 | `sessionsRevoked` | All sessions terminated | `revokedCount` |
-| `adaptiveMfaRiskAlert` | High-risk signin detected | `riskLevel`, `riskFactors` |
+| `adaptiveMfaRiskAlert` | Adaptive MFA risk evaluation occurred **and** the selected risk level has `notifyUser: true` | `riskLevel`, `riskFactors` |
 
 #### Account Management
 
@@ -76,13 +76,33 @@ If you're reading this for the first time, this is the shortest path to success:
 
 | Template Type | When Sent | Required Variables |
 |--------------|-----------|-------------------|
-| `mfaEnabled` | First MFA device enabled | None |
+| `mfaEnabled` | First MFA method enabled (hook: `mfaFirstEnabled`) | None |
 | `mfaDeviceRemoved` | MFA device removed | None |
+| `mfaMethodAdded` | Additional MFA method added (after MFA is already enabled) | None |
 
 :::note
-The default Nodemailer email templates are generated from MJML and stored in `@nauth-toolkit/email-nodemailer` under `src/templates/default/` (with sources in `src/templates/mjml/`).
-When overriding templates, use the **template type key** (for example `passwordReset`, `sessionsRevoked`, `adaptiveMfaRiskAlert`) which matches `TemplateType` in `@nauth-toolkit/core`.
+`@nauth-toolkit/email-nodemailer` ships with production-ready default templates.
+To override any email, set `email.templates.customTemplates` using the **Template Type key** from the table above (for example `passwordReset`, `sessionsRevoked`, `adaptiveMfaRiskAlert`).
+You don’t need to care how the defaults are generated—just provide your own template content or file paths.
 :::
+
+### Notifications: config keys vs template keys (important)
+
+Email template **types** (the keys in `email.templates.customTemplates`) are **not always the same** as the `emailNotifications.suppress.*` keys.
+
+- **`emailNotifications.suppress.*`**: controls whether a notification email is sent at all (gating/suppression).
+- **`email.templates.customTemplates.*`**: controls which Handlebars template is rendered when an email is sent.
+
+The most common mismatches:
+
+| Notification key (`emailNotifications.suppress`) | Hook that triggers it | EmailProvider method | Template key (`TemplateType`) |
+|---|---|---|---|
+| `mfaFirstEnabled` | `IMFAFirstEnabledHook` | `sendMFAFirstEnabledEmail()` | `mfaEnabled` |
+| `adaptiveMfaRiskDetected` | `IAdaptiveMFARiskDetectedHook` | `sendAdaptiveMFARiskAlertEmail()` | `adaptiveMfaRiskAlert` |
+
+::::tip
+If you override templates, use the **TemplateType key** (right-most column). If you enable/disable emails, use the **emailNotifications.suppress** key (left-most column).
+::::
 
 ### Configuration
 
@@ -96,17 +116,17 @@ import { AuthModule } from '@nauth-toolkit/nestjs';
 
 AuthModule.forRoot({
   email: {
-    templates: {
-      // Global variables (available to all templates)
-      globalVariables: {
-        appName: 'My App',
-        companyName: 'My Company Inc.',
-        supportEmail: 'support@myapp.com',
-        brandColor: '#4f46e5',
-        logoUrl: 'https://myapp.com/logo.png',
-      },
+    // Global variables (available to all templates)
+    globalVariables: {
+      appName: 'My App',
+      companyName: 'My Company Inc.',
+      supportEmail: 'support@myapp.com',
+      brandColor: '#4f46e5',
+      logoUrl: 'https://myapp.com/logo.png',
+    },
 
-      // Custom templates
+    // Custom templates
+    templates: {
       customTemplates: {
         verification: {
           htmlPath: './email-templates/verification.html.hbs',
@@ -136,12 +156,12 @@ Define templates directly in configuration:
 ```typescript
 AuthModule.forRoot({
   email: {
-    templates: {
-      globalVariables: {
-        appName: 'My App',
-        supportEmail: 'support@myapp.com',
-      },
+    globalVariables: {
+      appName: 'My App',
+      supportEmail: 'support@myapp.com',
+    },
 
+    templates: {
       customTemplates: {
         welcome: {
           subject: 'Welcome to {{appName}}!',
@@ -171,11 +191,11 @@ Combine file-based and inline templates:
 ```typescript
 AuthModule.forRoot({
   email: {
-    templates: {
-      globalVariables: {
-        appName: 'My App',
-      },
+    globalVariables: {
+      appName: 'My App',
+    },
 
+    templates: {
       customTemplates: {
         // File-based with explicit subject
         verification: {
@@ -243,6 +263,7 @@ Example `email-templates/partials/footer.hbs`:
 3. Tell the Nodemailer provider to load those partials:
 
 ```typescript
+import { AuthModule } from '@nauth-toolkit/nestjs';
 import { NodemailerEmailProvider, HandlebarsTemplateEngine } from '@nauth-toolkit/email-nodemailer';
 
 const templateEngine = new HandlebarsTemplateEngine({
@@ -251,17 +272,17 @@ const templateEngine = new HandlebarsTemplateEngine({
 });
 
 AuthModule.forRoot({
+  emailProvider: new NodemailerEmailProvider({
+    transport: { /* ... */ },
+    defaults: { from: '"My App" <noreply@example.com>' },
+    templateEngine,
+  }),
   email: {
-    provider: new NodemailerEmailProvider({
-      transport: { /* ... */ },
-      defaults: { from: '"My App" <noreply@example.com>' },
-      templateEngine,
-    }),
+    globalVariables: {
+      companyName: 'My Company Inc.',
+      supportEmail: 'support@myapp.com',
+    },
     templates: {
-      globalVariables: {
-        companyName: 'My Company Inc.',
-        supportEmail: 'support@myapp.com',
-      },
       customTemplates: {
         passwordChanged: {
           htmlPath: './email-templates/password-changed.html.hbs',
@@ -355,15 +376,18 @@ All templates have access to these variables:
 | `expiryMinutes` | Code/link expiration time | `verification`, `passwordReset`, `adminPasswordReset` |
 | `reason` | Reason for action | `accountLockout`, `accountDisabled`, `accountEnabled`, `sessionsRevoked` |
 | `durationMinutes` | Lockout duration | `accountLockout` |
-| `deviceName` | Device identifier | `newDevice`, `mfaDeviceRemoved` |
+| `deviceName` | Device identifier | `newDevice`, `mfaDeviceRemoved`, `mfaMethodAdded`, `mfaEnabled` |
 | `deviceType` | Device type | `newDevice`, `mfaDeviceRemoved` |
 | `ipAddress` | IP address | `newDevice` |
 | `location` | Geographic location | `newDevice` |
-| `timestamp` | Event timestamp | `newDevice` |
+| `timestamp` | Event timestamp | `newDevice`, `adaptiveMfaRiskAlert`, `mfaEnabled`, `mfaMethodAdded`, `sessionsRevoked` |
 | `riskLevel` | Risk level (low/medium/high) | `adaptiveMfaRiskAlert` |
 | `riskScore` | Numeric risk score (0-100) | `adaptiveMfaRiskAlert` |
 | `riskFactors` | Detected risk factors (string or comma-separated list) | `adaptiveMfaRiskAlert` |
 | `action` | Action taken | `adaptiveMfaRiskAlert` |
+| `firstMethod` | MFA method that was first enabled | `mfaEnabled` |
+| `method` | MFA method that was added | `mfaMethodAdded` |
+| `enabledMethods` | Enabled MFA methods after a method was added (array or comma-separated list) | `mfaMethodAdded` |
 | `removedBy` | Who removed device | `mfaDeviceRemoved` |
 | `remainingDeviceCount` | MFA devices remaining | `mfaDeviceRemoved` |
 | `revokedCount` | Number of sessions revoked | `sessionsRevoked` |
@@ -387,7 +411,7 @@ All templates have access to these variables:
 | Variable | Description | Value |
 |----------|-------------|-------|
 | `currentYear` | Current year | `2024` |
-| `subject` | Email subject (available inside MJML-built HTML templates) | `Password Changed - My App` |
+| `subject` | Email subject (available inside rendered templates) | `Password Changed - My App` |
 | `previewText` | Email preview text (defaults to `subject` unless provided) | `Your password has been successfully changed` |
 
 ### Greetings (recommended pattern)
@@ -484,6 +508,7 @@ To prevent broken emails, nauth-toolkit validates templates at startup:
 | `passwordChanged` | None |
 | `mfaEnabled` | None |
 | `mfaDeviceRemoved` | None |
+| `mfaMethodAdded` | None |
 | `accountEnabled` | None |
 | `emailChangedOld` | None |
 | `emailChangedNew` | None |
@@ -515,8 +540,8 @@ Configure your email provider to send emails:
 import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
 
 {
-  email: {
-    provider: new NodemailerEmailProvider({
+  emailProvider: new NodemailerEmailProvider({
+    transport: {
       host: 'smtp.gmail.com',
       port: 587,
       secure: false, // true for 465, false for other ports
@@ -524,13 +549,17 @@ import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
       },
-      from: 'noreply@myapp.com',
-    }),
+    },
+    defaults: {
+      from: 'My App <noreply@myapp.com>',
+    },
+  }),
+  email: {
     appName: 'My App',
     templates: {
       // ... template config
     },
-  }
+  },
 }
 ```
 
@@ -548,29 +577,29 @@ import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
 import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
 
 {
+  emailProvider: new NodemailerEmailProvider({
+    transport: {
+      SES: {
+        sesClient: new SESv2Client({
+          region: process.env.AWS_REGION || 'us-east-1',
+          // Credentials automatically discovered from:
+          // 1. IAM role (when running on EC2/ECS/containers) - RECOMMENDED
+          // 2. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+          // 3. Shared credentials file (~/.aws/credentials)
+        }),
+        SendEmailCommand,
+      },
+    },
+    defaults: {
+      from: 'My App <noreply@myapp.com>',
+    },
+  }),
   email: {
-    provider: new NodemailerEmailProvider({
-      transport: {
-        SES: {
-          sesClient: new SESv2Client({
-            region: process.env.AWS_REGION || 'us-east-1',
-            // Credentials automatically discovered from:
-            // 1. IAM role (when running on EC2/ECS/containers) - RECOMMENDED
-            // 2. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
-            // 3. Shared credentials file (~/.aws/credentials)
-          }),
-          SendEmailCommand,
-        },
-      },
-      defaults: {
-        from: 'noreply@myapp.com',
-      },
-    }),
     appName: 'My App',
     templates: {
       // ... template config
     },
-  }
+  },
 }
 ```
 
@@ -587,24 +616,39 @@ Implement the `EmailProvider` interface:
 import { EmailProvider } from '@nauth-toolkit/core';
 
 class MyCustomEmailProvider implements EmailProvider {
-  async sendEmail(to: string, subject: string, html: string, text?: string): Promise<void> {
-    // Your email sending logic
+  async sendVerificationEmail(to: string, code: string, link?: string): Promise<void> {
+    // Send verification email
+    await myEmailService.send({ to, subject: 'Verify your email', html: `Code: ${code}`, text: `Code: ${code}` });
+  }
+
+  async sendPasswordResetEmail(to: string, _token: string, link: string): Promise<void> {
+    // Send password reset email
+    await myEmailService.send({ to, subject: 'Reset your password', html: `Link: ${link}`, text: `Link: ${link}` });
+  }
+
+  async sendAdminPasswordResetEmail(to: string, code: string, link?: string, expiryMinutes?: number): Promise<void> {
+    // Send admin reset email
     await myEmailService.send({
       to,
-      subject,
-      html,
-      text,
+      subject: 'Admin password reset',
+      html: `Code: ${code}${link ? `<br/>Link: ${link}` : ''}${expiryMinutes ? `<br/>Expires: ${expiryMinutes} min` : ''}`,
+      text: `Code: ${code}${link ? `\nLink: ${link}` : ''}${expiryMinutes ? `\nExpires: ${expiryMinutes} min` : ''}`,
     });
+  }
+
+  async sendWelcomeEmail(to: string, name: string): Promise<void> {
+    // Send welcome email
+    await myEmailService.send({ to, subject: 'Welcome!', html: `Hi ${name}`, text: `Hi ${name}` });
   }
 }
 
 {
+  emailProvider: new MyCustomEmailProvider(),
   email: {
-    provider: new MyCustomEmailProvider(),
     templates: {
       // ... template config
     },
-  }
+  },
 }
 ```
 
@@ -632,21 +676,20 @@ SMS templates use **text-only** format (no HTML). Keep messages short and clear 
 
 ```typescript
 {
-  sms: {
-    // SMS provider configuration
-    provider: new TwilioSMSProvider({
-      accountSid: process.env.TWILIO_ACCOUNT_SID,
-      authToken: process.env.TWILIO_AUTH_TOKEN,
-      fromNumber: '+1234567890',
-    }),
+  // SMS provider configuration
+  smsProvider: new TwilioSMSProvider({
+    accountSid: process.env.TWILIO_ACCOUNT_SID,
+    authToken: process.env.TWILIO_AUTH_TOKEN,
+    fromNumber: '+1234567890',
+  }),
 
-    // SMS templates
+  // SMS templates
+  sms: {
     templates: {
       globalVariables: {
         appName: 'My App',
         supportPhone: '+1-800-123-4567',
       },
-
       customTemplates: {
         verification: {
           contentPath: './sms-templates/verification.txt.hbs',
@@ -658,7 +701,7 @@ SMS templates use **text-only** format (no HTML). Keep messages short and clear 
         },
       },
     },
-  }
+  },
 }
 ```
 
@@ -667,18 +710,17 @@ SMS templates use **text-only** format (no HTML). Keep messages short and clear 
 
 ```typescript
 {
-  sms: {
-    provider: new TwilioSMSProvider({
-      accountSid: process.env.TWILIO_ACCOUNT_SID,
-      authToken: process.env.TWILIO_AUTH_TOKEN,
-      fromNumber: '+1234567890',
-    }),
+  smsProvider: new TwilioSMSProvider({
+    accountSid: process.env.TWILIO_ACCOUNT_SID,
+    authToken: process.env.TWILIO_AUTH_TOKEN,
+    fromNumber: '+1234567890',
+  }),
 
+  sms: {
     templates: {
       globalVariables: {
         appName: 'My App',
       },
-
       customTemplates: {
         verification: {
           content: '{{appName}}: Your verification code is {{code}}. Valid for {{expiryMinutes}} minutes.',
@@ -691,7 +733,7 @@ SMS templates use **text-only** format (no HTML). Keep messages short and clear 
         },
       },
     },
-  }
+  },
 }
 ```
 
@@ -774,16 +816,16 @@ npm install @nauth-toolkit/sms-twilio
 import { TwilioSMSProvider } from '@nauth-toolkit/sms-twilio';
 
 {
+  smsProvider: new TwilioSMSProvider({
+    accountSid: process.env.TWILIO_ACCOUNT_SID,
+    authToken: process.env.TWILIO_AUTH_TOKEN,
+    fromNumber: '+1234567890', // Your Twilio phone number
+  }),
   sms: {
-    provider: new TwilioSMSProvider({
-      accountSid: process.env.TWILIO_ACCOUNT_SID,
-      authToken: process.env.TWILIO_AUTH_TOKEN,
-      fromNumber: '+1234567890', // Your Twilio phone number
-    }),
     templates: {
       // ... template config
     },
-  }
+  },
 }
 ```
 
@@ -798,16 +840,16 @@ npm install @nauth-toolkit/sms-aws-sns
 import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
 
 {
+  smsProvider: new AWSSMSProvider({
+    region: 'us-east-1',
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  }),
   sms: {
-    provider: new AWSSMSProvider({
-      region: 'us-east-1',
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    }),
     templates: {
       // ... template config
     },
-  }
+  },
 }
 ```
 
@@ -835,12 +877,12 @@ class MyCustomSMSProvider implements SMSProvider {
 }
 
 {
+  smsProvider: new MyCustomSMSProvider(),
   sms: {
-    provider: new MyCustomSMSProvider(),
     templates: {
       // ... template config
     },
-  }
+  },
 }
 ```
 
@@ -1068,7 +1110,7 @@ const userPreferences = await getUserPreferences(user.sub);
 // Templates automatically receive user data
 // You can extend globalVariables to include user-specific data
 const emailVariables = {
-  ...config.email.templates.globalVariables,
+  ...config.email.globalVariables,
   preferredLanguage: userPreferences.language,
   dashboardUrl: `https://app.myapp.com/dashboard/${user.sub}`,
 };

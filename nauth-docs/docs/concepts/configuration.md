@@ -196,6 +196,7 @@ These are the top-level keys you can provide in `NAuthConfig` / `NAuthModuleConf
 | `auditLogs`     | `{ enabled?: boolean; fireAndForget?: boolean }` | No       | Audit logging behavior                                                             |
 | `emailProvider` | `EmailProvider`                                  | No       | Email provider instance (required when email verification or MFA email is enabled) |
 | `email`         | `EmailConfig`                                    | No       | Email branding + email templates                                                   |
+| `emailNotifications` | `EmailNotificationsConfig`                  | No       | Email notification suppression (optional notifications are disabled by default)    |
 | `smsProvider`   | `SMSProvider`                                    | No       | SMS provider instance (required when phone verification or MFA SMS is enabled)     |
 | `sms`           | `{ templates?: SMSTemplateConfig }`              | No       | SMS template configuration                                                         |
 | `social`        | `SocialConfig`                                   | No       | Social provider settings                                                           |
@@ -319,11 +320,13 @@ emailProvider: new NodemailerEmailProvider({
 }),
 
 email: {
-  appName: 'My App',
-  companyName: 'My Company Inc.',
-  supportEmail: 'support@myapp.com',
-  logoUrl: 'https://myapp.com/logo.png',
-  brandColor: '#4f46e5',
+  globalVariables: {
+    appName: 'My App',
+    companyName: 'My Company Inc.',
+    supportEmail: 'support@myapp.com',
+    logoUrl: 'https://myapp.com/logo.png',
+    brandColor: '#4f46e5',
+  },
 },
 ```
 
@@ -359,11 +362,13 @@ emailProvider: new NodemailerEmailProvider({
 }),
 
 email: {
-  appName: 'My App',
-  companyName: 'My Company Inc.',
-  supportEmail: 'support@myapp.com',
-  logoUrl: 'https://myapp.com/logo.png',
-  brandColor: '#4f46e5',
+  globalVariables: {
+    appName: 'My App',
+    companyName: 'My Company Inc.',
+    supportEmail: 'support@myapp.com',
+    logoUrl: 'https://myapp.com/logo.png',
+    brandColor: '#4f46e5',
+  },
 },
 ```
 
@@ -380,13 +385,53 @@ import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
 emailProvider: new ConsoleEmailProvider(),
 
 email: {
-  appName: 'My App',
-  supportEmail: 'support@myapp.com',
+  globalVariables: {
+    appName: 'My App',
+    supportEmail: 'support@myapp.com',
+  },
 },
 ```
 
   </TabItem>
 </Tabs>
+
+### Email Notifications (Optional)
+
+Optional notification emails are **opt-in** and controlled via `emailNotifications.suppress`.
+This is separate from template customization (see [Email Templates](/docs/features/email-templates)).
+
+```typescript
+emailNotifications: {
+  enabled: true,
+  suppress: {
+    // Optional notifications (default: true = suppressed/disabled)
+    welcome: false,
+    passwordChanged: false,
+    mfaDeviceRemoved: false,
+    mfaFirstEnabled: false,
+    mfaMethodAdded: false,
+    adaptiveMfaRiskDetected: false,
+    sessionsRevoked: false,
+    accountLockout: false,
+    // ...
+
+    // Code emails (default: false = enabled)
+    emailVerification: false,
+    passwordReset: false,
+    adminPasswordReset: false,
+  },
+},
+```
+
+**New additions:**
+- `emailNotifications.suppress.mfaMethodAdded`: sends an email when a user adds an additional MFA method (after MFA is already enabled).
+
+::::note Naming tip
+Some notification keys map to a differently-named template type:
+
+- `mfaFirstEnabled` notification uses the `mfaEnabled` email template (`TemplateType.MFA_ENABLED`)
+- `adaptiveMfaRiskDetected` notification uses the `adaptiveMfaRiskAlert` email template (`TemplateType.ADAPTIVE_MFA_RISK_ALERT`)
+::::
 
 ### SMS Provider
 
@@ -817,6 +862,15 @@ mfa: {
       low: { maxScore: 20, action: 'allow', notifyUser: false },
       medium: { maxScore: 50, action: 'require_mfa', notifyUser: true },
       high: { maxScore: 100, action: 'require_mfa', notifyUser: true },
+    },
+    blockedSignIn: {
+      // Block scope controls the blast radius of `block_signin`.
+      // - 'ip': block the suspicious IP
+      // - 'device': block the device token
+      // - 'user': block the whole user (strongest, highest DoS risk)
+      scope: 'ip',
+      blockDuration: 15, // minutes
+      message: 'Sign-in blocked due to suspicious activity. Please try again shortly or contact support.',
     },
   },
 

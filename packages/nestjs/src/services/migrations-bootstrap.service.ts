@@ -26,13 +26,11 @@ function getAdapterPackageName(
 export const nauthMigrationsBootstrapProvider: Provider = {
   provide: NAUTH_MIGRATIONS_BOOTSTRAP,
   useFactory: async (config: NAuthConfig, logger: NAuthLogger, dataSource: DataSource) => {
-    logger?.debug?.('[PERF] Migrations bootstrap factory started');
     if (!dataSource?.isInitialized) {
       logger?.warn?.('[nauth-toolkit] DataSource not initialized; skipping migrations');
       return false;
     }
 
-    logger?.debug?.('[PERF] Determining adapter package name...');
     const adapterPackageName = getAdapterPackageName(dataSource);
     if (!adapterPackageName) {
       logger?.debug?.(
@@ -43,11 +41,9 @@ export const nauthMigrationsBootstrapProvider: Provider = {
       return false;
     }
 
-    logger?.debug?.(`[PERF] Importing migration adapter: ${adapterPackageName}...`);
     let imported: MigrationRunnerModule;
     try {
       imported = (await import(adapterPackageName)) as unknown as MigrationRunnerModule;
-      logger?.debug?.('[PERF] Migration adapter imported');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       throw new Error(`[nauth-toolkit] Failed to load migration adapter ${adapterPackageName}: ${message}`);
@@ -57,9 +53,7 @@ export const nauthMigrationsBootstrapProvider: Provider = {
       throw new Error(`[nauth-toolkit] Migration adapter ${adapterPackageName} does not export runNAuthMigrations()`);
     }
 
-    logger?.debug?.('[PERF] Running migrations...');
     await imported.runNAuthMigrations(dataSource, logger, config);
-    logger?.debug?.('[PERF] Migrations completed');
     return true;
   },
   inject: ['NAUTH_CONFIG', 'NAUTH_LOGGER', DataSource],

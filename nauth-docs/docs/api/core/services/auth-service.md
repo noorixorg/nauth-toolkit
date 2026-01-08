@@ -1482,7 +1482,7 @@ If client checks `result.accessToken`, behavior differs by `tokenDelivery.method
 | **MFA setup challenge**          | MFA required AND user has no MFA device configured                                                | `{ challengeName: 'MFA_SETUP_REQUIRED', session, challengeParameters, userSub }`    |
 | **MFA verification challenge**   | MFA required AND user has MFA device configured                                                   | `{ challengeName: 'MFA_REQUIRED', session, challengeParameters, userSub }`          |
 | **Force password change**        | Password expired (>= `password.expiryDays` old) OR `mustChangePassword` flag set                  | `{ challengeName: 'FORCE_CHANGE_PASSWORD', session, challengeParameters, userSub }` |
-| **Blocked (adaptive risk)**      | `mfa.adaptive.enabled = true` AND risk score exceeds threshold AND `blockedSignIn.enabled = true` | **Throws** `SIGNIN_BLOCKED_HIGH_RISK` (no body returned)                            |
+| **Blocked (adaptive risk)**      | `mfa.enforcement = 'ADAPTIVE'` AND adaptive risk evaluation resolves to `action = 'block_signin'` (via `mfa.adaptive.riskLevels`) | **Throws** `SIGNIN_BLOCKED_HIGH_RISK` (no body returned)                            |
 
 **Errors**
 

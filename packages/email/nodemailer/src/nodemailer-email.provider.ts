@@ -704,13 +704,17 @@ export class NodemailerProvider implements EmailProvider {
   ): Promise<void> {
     if (!this.shouldSendEmail('adaptiveMfaRiskDetected')) return;
 
+    const riskFactorsText =
+      context.riskFactors && context.riskFactors.length > 0 ? context.riskFactors.join(', ') : undefined;
+
     const templateVariables: TemplateVariables = {
       ...this.globalVariables,
       userName: to.split('@')[0],
       userEmail: to,
       riskScore: context.riskScore || 0,
       riskLevel: context.riskLevel || 'medium',
-      riskFactors: context.riskFactors?.join(', ') || 'Unknown',
+      // Only set this variable when we actually have factors. Templates use {{#if riskFactors}}.
+      riskFactors: riskFactorsText,
       action: context.action || 'require_mfa',
       timestamp: context.timestamp || new Date().toISOString(),
       ...variables,
@@ -993,6 +997,46 @@ export class NodemailerProvider implements EmailProvider {
     };
 
     const email = await this.templateEngine.render(TemplateType.MFA_ENABLED, templateVariables);
+
+    await this.sendMail({
+      to,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+  }
+
+  /**
+   * Send MFA method added notification
+   *
+   * @param to - Recipient email address
+   * @param context - MFA method addition context
+   * @param variables - Additional template variables
+   */
+  async sendMFAMethodAddedEmail(
+    to: string,
+    context: {
+      method?: string;
+      enabledMethods?: string[];
+      deviceName?: string;
+      timestamp?: string;
+    } = {},
+    variables: TemplateVariables = {},
+  ): Promise<void> {
+    if (!this.shouldSendEmail('mfaMethodAdded')) return;
+
+    const templateVariables: TemplateVariables = {
+      ...this.globalVariables,
+      userName: to.split('@')[0],
+      userEmail: to,
+      method: context.method || 'unknown',
+      enabledMethods: context.enabledMethods,
+      deviceName: context.deviceName,
+      timestamp: context.timestamp || new Date().toISOString(),
+      ...variables,
+    };
+
+    const email = await this.templateEngine.render(TemplateType.MFA_METHOD_ADDED, templateVariables);
 
     await this.sendMail({
       to,

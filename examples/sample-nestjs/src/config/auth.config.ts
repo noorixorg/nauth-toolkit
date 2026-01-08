@@ -1,8 +1,8 @@
 import { MFAMethod, NAuthModuleConfig, createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
-import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
 import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
-//import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
 import { Logger } from '@nestjs/common';
+import { SendEmailCommand, SESv2Client } from '@aws-sdk/client-sesv2';
 
 // AWS SES SDK imports (install: yarn add @aws-sdk/client-sesv2)
 
@@ -63,7 +63,7 @@ export const authConfig: NAuthModuleConfig = {
   },
   mfa: {
     enabled: true,
-    enforcement: 'REQUIRED',
+    enforcement: 'ADAPTIVE',
     gracePeriod: 0,
     requireForSocialLogin: false,
     allowedMethods: [MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.TOTP, MFAMethod.PASSKEY],
@@ -85,9 +85,16 @@ export const authConfig: NAuthModuleConfig = {
     adaptive: {
       triggers: ['new_device', 'new_ip', 'new_country', 'impossible_travel'],
       riskLevels: {
-        low: { maxScore: 20, action: 'allow', notifyUser: false },
-        medium: { maxScore: 50, action: 'require_mfa', notifyUser: true },
+        low: { maxScore: 20, action: 'allow', notifyUser: true },
+        medium: { maxScore: 40, action: 'require_mfa', notifyUser: true },
         high: { maxScore: 100, action: 'block_signin', notifyUser: true },
+      },
+      blockedSignIn: {
+        // Block only the suspicious IP (not the whole user) and auto-expire quickly.
+        // This reduces lockout DoS risk while still protecting against repeated attempts.
+        scope: 'ip',
+        blockDuration: 15, // minutes
+        message: 'Sign-in blocked due to suspicious activity. Please try again shortly or contact support.',
       },
     },
     rememberDevices: 'user_opt_in',
@@ -180,30 +187,75 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
 
-  emailProvider: new ConsoleEmailProvider(),
+  // emailProvider: new ConsoleEmailProvider(),
 
-  // emailProvider: new NodemailerEmailProvider({
-  //   transport: {
-  //     SES: {
-  //       sesClient: new SESv2Client({
-  //         region: process.env.AWS_REGION || 'ap-southeast-2',
-  //       }),
-  //       SendEmailCommand,
-  //     },
-  //   },
-  //   defaults: {
-  //     from: 'Nauth App <noreply@noorix.com>',
-  //   },
-  // }),
+  emailProvider: new NodemailerEmailProvider({
+    transport: {
+      SES: {
+        sesClient: new SESv2Client({
+          region: process.env.AWS_REGION || 'ap-southeast-2',
+        }),
+        SendEmailCommand,
+      },
+    },
+    defaults: {
+      from: 'Nauth App <noreply@noorix.com>',
+    },
+  }),
 
   email: {
-    appName: process.env.APP_NAME || 'Nauth App',
-    companyName: process.env.COMPANY_NAME || 'Nauth Company Pty Ltd.',
-    supportEmail: process.env.SUPPORT_EMAIL || 'support@noorix.com.au',
-    logoUrl: process.env.LOGO_URL || 'https://www.noorix.com.au/images/noorix-logo-social.png',
-    dashboardUrl: process.env.DASHBOARD_URL || 'https://app.example.com/dashboard',
-    brandColor: process.env.BRAND_COLOR || '#4f46e5',
-    footerDisclaimer: process.env.FOOTER_DISCLAIMER, // Optional - uses default if not provided
+    // Canonical template globals location (no templates.globalVariables)
+    globalVariables: {
+      appName: process.env.APP_NAME || 'Nauth App',
+      companyName: process.env.COMPANY_NAME || 'Nauth Company Pty Ltd.',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@noorix.com.au',
+      logoUrl: process.env.LOGO_URL || 'https://www.noorix.com.au/images/noorix-logo-social.png',
+      dashboardUrl: process.env.DASHBOARD_URL || 'https://app.example.com/dashboard',
+      brandColor: process.env.BRAND_COLOR || '#4f46e5',
+      footerDisclaimer: process.env.FOOTER_DISCLAIMER, // Optional - uses default if not provided
+    },
+    templates: {
+      // All email templates are enabled by default when emailProvider is configured
+      // You can override specific templates here if needed:
+      // customTemplates: {
+      //   verification: {
+      //     htmlPath: './email-templates/verification.html.hbs',
+      //     textPath: './email-templates/verification.text.hbs',
+      //   },
+      //   welcome: {
+      //     htmlPath: './email-templates/welcome.html.hbs',
+      //     textPath: './email-templates/welcome.text.hbs',
+      //   },
+      // },
+    },
+  },
+
+  // ============================================================================
+  // Email Notifications Configuration
+  // ============================================================================
+  // Controls which lifecycle notification emails are sent
+  // Most optional notifications are DISABLED by default (opt-in)
+  // Code emails (verification, password reset) are ENABLED by default
+  emailNotifications: {
+    enabled: true, // Global kill switch - set to false to disable all emails
+    suppress: {
+      // Optional lifecycle notifications (set to false to ENABLE)
+      welcome: false, // Enable welcome email after signup
+      passwordChanged: false, // Enable password changed security alert
+      mfaDeviceRemoved: false, // Enable MFA device removed alert
+      adaptiveMfaRiskDetected: false, // Enable adaptive MFA risk detection alerts
+      accountDisabled: false, // Enable account disabled notification
+      accountEnabled: false, // Enable account enabled notification
+      emailChangedOld: false, // Enable email changed alert (sent to old address)
+      emailChangedNew: false, // Enable email changed confirmation (sent to new address)
+      accountLockout: false, // Enable account lockout notification
+      sessionsRevoked: false, // Enable sessions revoked alert
+      mfaFirstEnabled: false, // Enable MFA first enabled confirmation
+      // Code emails (already enabled by default, but explicitly set for clarity)
+      emailVerification: false, // Email verification codes (ENABLED by default)
+      passwordReset: false, // Password reset codes (ENABLED by default)
+      adminPasswordReset: false, // Admin password reset codes (ENABLED by default)
+    },
   },
 
   //smsProvider: new AWSSMSProvider(smsConfig)
@@ -259,7 +311,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
 
-  lockout: { enabled: true, maxAttempts: 5, duration: 900, resetOnSuccess: true },
+  lockout: { enabled: true, maxAttempts: 5, duration: 300, resetOnSuccess: true },
   session: {
     maxConcurrent: 2,
     disallowMultipleSessions: false,

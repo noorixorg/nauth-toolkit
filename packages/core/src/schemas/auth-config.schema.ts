@@ -257,23 +257,34 @@ const customTemplateDefinitionSchema = z
  */
 const templateConfigSchema = z.object({
   engine: z.any().optional(), // TemplateEngine instance - runtime validation
-  globalVariables: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
   customTemplates: z.record(customTemplateDefinitionSchema).optional(),
-});
+}).strict();
+
+/**
+ * Global variables schema for email templates
+ *
+ * Validates well-known branding keys while allowing arbitrary extra keys for custom templates.
+ */
+const emailGlobalVariablesSchema = z
+  .object({
+    appName: z.string().optional(),
+    companyName: z.string().optional(),
+    companyAddress: z.string().optional(),
+    brandColor: z.string().optional(),
+    logoUrl: z.string().optional(),
+    dashboardUrl: z.string().url().optional(),
+    supportEmail: z.string().email().optional(),
+    footerDisclaimer: z.string().optional(),
+  })
+  .catchall(z.unknown());
 
 /**
  * Email configuration schema
  */
 export const emailConfigSchema = z.object({
-  appName: z.string().optional(),
-  companyName: z.string().optional(),
-  logoUrl: z.string().optional(),
-  supportEmail: z.string().email().optional(),
-  dashboardUrl: z.string().url().optional(),
-  brandColor: z.string().optional(),
-  footerDisclaimer: z.string().optional(),
+  globalVariables: emailGlobalVariablesSchema.optional(),
   templates: templateConfigSchema.optional(),
-});
+}).strict();
 
 // ============================================================================
 // SMS Template Configuration Schema
@@ -424,6 +435,7 @@ export const adaptiveMFAConfigSchema = z.object({
       blockDuration: z.number().optional(),
       message: z.string().optional(),
       errorCode: z.string().optional(),
+      scope: z.enum(['user', 'device', 'ip']).optional(),
     })
     .optional(),
   maxTravelSpeed: z.number().optional(),
@@ -496,6 +508,44 @@ export const geoLocationConfigSchema = z.object({
 });
 
 // ============================================================================
+// Email Notifications Configuration Schema
+// ============================================================================
+
+/**
+ * Email notifications configuration schema
+ *
+ * Controls which optional notification emails are suppressed.
+ * Note: Code emails (verification/password reset) default to enabled; optional notifications default to disabled.
+ */
+export const emailNotificationsConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    suppress: z
+      .object({
+        // Optional notifications (default: suppressed/disabled)
+        welcome: z.boolean().optional(),
+        passwordChanged: z.boolean().optional(),
+        mfaDeviceRemoved: z.boolean().optional(),
+        mfaFirstEnabled: z.boolean().optional(),
+        mfaMethodAdded: z.boolean().optional(),
+        adaptiveMfaRiskDetected: z.boolean().optional(),
+        accountDisabled: z.boolean().optional(),
+        accountEnabled: z.boolean().optional(),
+        emailChangedOld: z.boolean().optional(),
+        emailChangedNew: z.boolean().optional(),
+        accountLockout: z.boolean().optional(),
+        sessionsRevoked: z.boolean().optional(),
+
+        // Code emails (default: NOT suppressed/enabled)
+        emailVerification: z.boolean().optional(),
+        passwordReset: z.boolean().optional(),
+        adminPasswordReset: z.boolean().optional(),
+      })
+      .optional(),
+  })
+  .optional();
+
+// ============================================================================
 // Root Configuration Schema with Cross-Dependency Validation
 // ============================================================================
 
@@ -525,6 +575,7 @@ export const authConfigSchema = z
         fireAndForget: z.boolean().optional(),
       })
       .optional(),
+    emailNotifications: emailNotificationsConfigSchema,
     emailProvider: z.any().optional(), // Runtime instance - cannot validate type
     email: emailConfigSchema.optional(),
     smsProvider: z.any().optional(), // Runtime instance - cannot validate type

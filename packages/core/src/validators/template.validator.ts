@@ -25,6 +25,7 @@ export const TEMPLATE_REQUIRED_PARAMS: Record<TemplateType, string[]> = {
   [TemplateType.EMAIL_CHANGED]: ['userEmail'],
   [TemplateType.MFA_ENABLED]: [],
   [TemplateType.MFA_DEVICE_REMOVED]: [],
+  [TemplateType.MFA_METHOD_ADDED]: [],
   [TemplateType.ADAPTIVE_MFA_RISK_ALERT]: ['riskLevel', 'riskFactors'],
   [TemplateType.ACCOUNT_DISABLED]: ['reason'],
   [TemplateType.ACCOUNT_ENABLED]: [],

@@ -142,6 +142,78 @@ export interface SignupMetadata {
 }
 
 // ============================================================================
+// Onboarding Completed Hook
+// ============================================================================
+
+/**
+ * Onboarding completion source
+ *
+ * Indicates what caused onboarding to become "complete":
+ * - `signup`: Signup did not require verification (verificationMethod = 'none')
+ * - `email_verification`: Email verification completed onboarding
+ * - `phone_verification`: Phone verification completed onboarding
+ */
+export type OnboardingCompletionSource = 'signup' | 'email_verification' | 'phone_verification';
+
+/**
+ * Onboarding completed metadata
+ *
+ * Fired exactly once when the user has satisfied the configured signup verification requirements.
+ *
+ * @remarks
+ * This is the correct lifecycle event for sending “welcome” style emails because it represents
+ * "the user can now proceed" — either immediately after signup (no verification required) or
+ * after the required verification(s) succeed.
+ */
+export interface OnboardingCompletedMetadata {
+  /**
+   * Configured signup verification method at the time of completion
+   *
+   * @example 'none' | 'email' | 'phone' | 'both'
+   */
+  verificationMethod: 'none' | 'email' | 'phone' | 'both';
+
+  /**
+   * What completed onboarding
+   */
+  source: OnboardingCompletionSource;
+
+  /**
+   * When onboarding was completed
+   */
+  completedAt: Date;
+}
+
+/**
+ * Onboarding completed hook interface
+ *
+ * Executes actions after onboarding becomes complete (non-blocking).
+ *
+ * @example
+ * ```typescript
+ * export class WelcomeAnalyticsHook implements IOnboardingCompletedHook {
+ *   async execute(user: IUser, metadata: OnboardingCompletedMetadata): Promise<void> {
+ *     // Track onboarding completion event
+ *     await this.analytics.track('onboarding_completed', {
+ *       userSub: user.sub,
+ *       verificationMethod: metadata.verificationMethod,
+ *       source: metadata.source,
+ *     });
+ *   }
+ * }
+ * ```
+ */
+export interface IOnboardingCompletedHook {
+  /**
+   * Execute onboarding completed actions
+   *
+   * @param user - User entity (IUser interface)
+   * @param metadata - Completion metadata (verification method, source, timestamp)
+   */
+  execute(user: IUser, metadata: OnboardingCompletedMetadata): Promise<void>;
+}
+
+// ============================================================================
 // User Profile Updated Hook
 // ============================================================================
 
@@ -966,4 +1038,79 @@ export interface IMFAFirstEnabledHook {
    * @param metadata - MFA enrollment context with user and device details
    */
   execute(metadata: MFAFirstEnabledMetadata): Promise<void>;
+}
+
+// ============================================================================
+// MFA Method Added Hook
+// ============================================================================
+
+/**
+ * MFA method added metadata
+ *
+ * Provides context when a user adds an additional MFA method (e.g., adding Passkey
+ * after already having TOTP enabled).
+ */
+export interface MFAMethodAddedMetadata {
+  /**
+   * User who added an MFA method
+   */
+  user: IUser;
+
+  /**
+   * MFA method that was added
+   */
+  method: import('../enums/mfa-method.enum').MFADeviceMethod;
+
+  /**
+   * Device name (optional, user-provided label)
+   */
+  deviceName?: string;
+
+  /**
+   * Whether this method addition is also the user's first MFA method
+   */
+  isFirstMethod: boolean;
+
+  /**
+   * Enabled MFA methods after the change
+   */
+  enabledMethods: import('../enums/mfa-method.enum').MFADeviceMethod[];
+
+  /**
+   * Event timestamp
+   */
+  timestamp: Date;
+
+  /**
+   * Client information (IP address, user agent, location)
+   */
+  clientInfo?: import('./client-info.interface').ClientInfo;
+}
+
+/**
+ * MFA method added hook interface
+ *
+ * Executes actions after a user adds an MFA method (non-blocking).
+ * Errors are logged but do not affect the MFA enrollment operation.
+ *
+ * @example
+ * ```typescript
+ * export class MFAMethodAddedNotificationHook implements IMFAMethodAddedHook {
+ *   async execute(metadata: MFAMethodAddedMetadata): Promise<void> {
+ *     const { user, method, enabledMethods } = metadata;
+ *     await this.emailService.sendMFAMethodAddedEmail(user.email, {
+ *       method,
+ *       enabledMethods,
+ *     });
+ *   }
+ * }
+ * ```
+ */
+export interface IMFAMethodAddedHook {
+  /**
+   * Execute MFA method added actions
+   *
+   * @param metadata - MFA method addition context
+   */
+  execute(metadata: MFAMethodAddedMetadata): Promise<void>;
 }

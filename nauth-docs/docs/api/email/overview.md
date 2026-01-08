@@ -17,20 +17,9 @@ Email providers for sending verification codes, password resets, and notificatio
 
 ## Provider Interface
 
-All email providers implement `EmailProvider`:
+All email providers implement `EmailProvider` (core interface):
 
-```typescript
-interface EmailProvider {
-  sendVerificationEmail(to: string, code: string, link?: string): Promise<void>;
-  sendPasswordResetEmail(to: string, link: string): Promise<void>;
-  sendWelcomeEmail(to: string): Promise<void>;
-  sendAccountLockoutEmail(to: string, reason: string, duration: number): Promise<void>;
-  sendNewDeviceEmail(to: string, device: string, timestamp: Date): Promise<void>;
-  sendPasswordChangedEmail(to: string): Promise<void>;
-  sendEmailChangedEmail(to: string, newEmail: string): Promise<void>;
-  sendMfaEnabledEmail(to: string): Promise<void>;
-}
-```
+- See [`EmailProvider`](/docs/api/core/interfaces/email-provider) for the up-to-date method list and signatures.
 
 ## Related
 

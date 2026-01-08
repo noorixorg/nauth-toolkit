@@ -16,6 +16,7 @@ import {
   GetRiskAssessmentHistoryDTO,
   GetRiskAssessmentHistoryResponseDTO,
 } from '../dto/get-risk-assessment-history.dto';
+import { isUUID } from 'class-validator';
 
 /**
  * DTO for creating audit events
@@ -402,12 +403,31 @@ export class InternalAuthAuditService extends AuthAuditService {
       // Resolve userId if userSub provided
       let userId = data.userId;
       if (!userId && data.userSub) {
-        const user = (await this.userRepository.findOne({ where: { sub: data.userSub } })) as IUser | null;
-        if (!user) {
-          this.logger?.warn?.(`Cannot record audit event - user not found: ${data.userSub}`);
+        // `userSub` is expected to be a UUID in most deployments (e.g., Postgres UUID column).
+        // Avoid hitting the database (and avoid adapter-level type-cast errors) when an invalid value is provided.
+        if (!isUUID(data.userSub)) {
+          this.logger?.warn?.('Cannot record audit event - invalid userSub format (expected UUID)', {
+            userSub: data.userSub,
+          });
           return null;
         }
-        userId = user.id;
+        try {
+          // NOTE: In some adapters (e.g., Postgres) `sub` may be a UUID column. If a caller accidentally
+          // passes a non-UUID here (e.g., an email/username), the query can throw. Auditing must never
+          // break auth flows, so we treat lookup failures as "user not found".
+          const user = (await this.userRepository.findOne({ where: { sub: data.userSub } })) as IUser | null;
+          if (!user) {
+            this.logger?.warn?.(`Cannot record audit event - user not found: ${data.userSub}`);
+            return null;
+          }
+          userId = user.id;
+        } catch (lookupError: unknown) {
+          const errorMessage = lookupError instanceof Error ? lookupError.message : 'Unknown error';
+          this.logger?.warn?.(`Cannot record audit event - failed to resolve userSub: ${errorMessage}`, {
+            userSub: data.userSub,
+          });
+          return null;
+        }
       }
 
       if (!userId) {

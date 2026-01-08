@@ -156,6 +156,22 @@ describe('AuthAuditService', () => {
       );
     });
 
+    it('should not query database when userSub is not a UUID', async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+
+      const result = await service.recordEvent({
+        userSub: 'example@email.com',
+        eventType: AuthAuditEventType.LOGIN_SUCCESS,
+        eventStatus: 'SUCCESS',
+      });
+
+      expect(result).toBeNull();
+      expect(mockUserRepository.findOne).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalledWith('Cannot record audit event - invalid userSub format (expected UUID)', {
+        userSub: 'example@email.com',
+      });
+    });
+
     it('should return null when neither userId nor userSub provided', async () => {
       const result = await service.recordEvent({
         eventType: AuthAuditEventType.LOGIN_SUCCESS,

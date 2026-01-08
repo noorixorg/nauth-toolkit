@@ -24,6 +24,7 @@ import {
   AuthErrorCode,
   HookRegistryService,
 } from '../../index';
+import { registerBuiltInEmailNotificationHooks } from '../../services/email-notifications.hook';
 // Internal API imports (for framework adapter use only)
 import {
   PasswordService,
@@ -225,21 +226,29 @@ export function initServices(
       'function' &&
     config.email
   ) {
-    const globalVars: Record<string, unknown> = {};
-    // Extract top-level branding fields
-    if (config.email.appName) globalVars.appName = config.email.appName;
-    if (config.email.companyName) globalVars.companyName = config.email.companyName;
-    if (config.email.logoUrl) globalVars.logoUrl = config.email.logoUrl;
-    if (config.email.supportEmail) globalVars.supportEmail = config.email.supportEmail;
-    if (config.email.dashboardUrl) globalVars.dashboardUrl = config.email.dashboardUrl;
-    if (config.email.brandColor) globalVars.brandColor = config.email.brandColor;
-    if (config.email.footerDisclaimer) globalVars.footerDisclaimer = config.email.footerDisclaimer;
-    // Merge with templates.globalVariables (templates.globalVariables takes precedence)
-    const mergedVars = {
-      ...globalVars,
-      ...(config.email.templates?.globalVariables || {}),
-    };
+    const mergedVars = (config.email.globalVariables ?? {}) as Record<string, unknown>;
     (emailProvider as { setGlobalVariables: (vars: Record<string, unknown>) => void }).setGlobalVariables(mergedVars);
+  }
+
+  // Inject config into email provider if it supports it (used for notification suppression logic)
+  if (
+    emailProvider &&
+    typeof (emailProvider as { setConfig?: (cfg: NAuthConfig) => void }).setConfig === 'function'
+  ) {
+    (emailProvider as { setConfig: (cfg: NAuthConfig) => void }).setConfig(config);
+  }
+
+  // ============================================================================
+  // Register built-in email notification hooks (opt-in via emailNotifications)
+  // ============================================================================
+  try {
+    // Framework adapters can suppress/override with their own hooks; built-ins are opt-in via config.
+    const typedProvider = emailProvider as EmailProvider;
+    registerBuiltInEmailNotificationHooks(hookRegistry, typedProvider, config, logger);
+  } catch (error: unknown) {
+    // Non-blocking: never prevent auth initialization if notifications wiring fails.
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    logger?.debug?.(`[EmailNotifications] Failed to register built-in email hooks: ${message}`);
   }
 
   const emailVerificationService = new EmailVerificationService(

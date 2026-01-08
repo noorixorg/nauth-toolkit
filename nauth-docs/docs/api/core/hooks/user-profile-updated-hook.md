@@ -79,7 +79,7 @@ type UserProfileUpdateSource =
 **Excluded Changes:**
 - Password changes (use `IPasswordChangedHook`)
 - Account lock/unlock (use `IAccountLockedHook`)
-- MFA changes (use `IMFADeviceRemovedHook`, `IMFAFirstEnabledHook`)
+- MFA changes (use `IMFADeviceRemovedHook`, `IMFAFirstEnabledHook`, `IMFAMethodAddedHook`)
 
 ## Example
 

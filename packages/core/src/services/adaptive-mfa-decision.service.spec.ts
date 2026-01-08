@@ -10,6 +10,7 @@ import { NAuthLogger } from '../utils/nauth-logger';
 import { ClientInfo } from '../interfaces/client-info.interface';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { RiskFactor } from '../enums/risk-factor.enum';
+import { HookRegistryService } from './hook-registry.service';
 
 /**
  * Adaptive MFA Decision Service Unit Tests
@@ -34,6 +35,7 @@ describe('AdaptiveMFADecisionService', () => {
   let mockClientInfoService: jest.Mocked<ClientInfoService>;
   let mockConfig: NAuthConfig;
   let mockLogger: jest.Mocked<NAuthLogger>;
+  let mockHookRegistry: jest.Mocked<Pick<HookRegistryService, 'executeAdaptiveMFARiskDetected'>>;
 
   const mockUser: IUser = {
     id: 1,
@@ -132,6 +134,10 @@ describe('AdaptiveMFADecisionService', () => {
       verbose: jest.fn(),
     } as any;
 
+    mockHookRegistry = {
+      executeAdaptiveMFARiskDetected: jest.fn().mockResolvedValue(undefined),
+    };
+
     mockConfig = {
       jwt: {
         accessToken: { secret: 'test-secret', expiresIn: '15m' },
@@ -158,6 +164,7 @@ describe('AdaptiveMFADecisionService', () => {
       mockConfig,
       mockLogger,
       mockAuditService,
+      mockHookRegistry as unknown as HookRegistryService,
     );
   });
 
@@ -199,8 +206,16 @@ describe('AdaptiveMFADecisionService', () => {
       expect(decision.hookOverride).toBe(false);
     });
 
-    // TODO: Re-enable when onAdaptiveMFATriggered hook is implemented in HookRegistryService
-    // it('should not call lifecycle hook for low risk when notifyUser is false', async () => { ... });
+    it('should not execute adaptiveMfaRiskDetected hook when notifyUser is false (low risk)', async () => {
+      mockClientInfoService.get.mockReturnValue(mockClientInfo);
+      mockRiskDetectionService.detectRiskFactors.mockResolvedValue([RiskFactor.NEW_DEVICE]);
+      mockRiskScoringService.calculateRiskScore.mockReturnValue(15); // Low risk
+      mockAuditService.recordEvent.mockResolvedValue(null);
+
+      await service.evaluateAdaptiveMFA(mockUser, 'password');
+
+      expect(mockHookRegistry.executeAdaptiveMFARiskDetected).not.toHaveBeenCalled();
+    });
   });
 
   // ============================================================================
@@ -344,6 +359,23 @@ describe('AdaptiveMFADecisionService', () => {
       // Payload should be included for block_signin action (caller can use it to call blockUserSignIn)
       expect(decision.payload).toBeDefined();
       expect(decision.payload?.action).toBe('block_signin');
+    });
+
+    it('should execute adaptiveMfaRiskDetected hook when notifyUser is true (medium risk)', async () => {
+      mockClientInfoService.get.mockReturnValue(mockClientInfo);
+      mockRiskDetectionService.detectRiskFactors.mockResolvedValue([RiskFactor.NEW_COUNTRY]);
+      mockRiskScoringService.calculateRiskScore.mockReturnValue(35); // Medium risk
+      mockAuditService.recordEvent.mockResolvedValue(null);
+
+      const decision = await service.evaluateAdaptiveMFA(mockUser, 'password');
+
+      expect(decision.notifyUser).toBe(true);
+      expect(mockHookRegistry.executeAdaptiveMFARiskDetected).toHaveBeenCalledTimes(1);
+      const call = mockHookRegistry.executeAdaptiveMFARiskDetected.mock.calls[0]?.[0];
+      expect(call.user.email).toBe(mockUser.email);
+      expect(call.riskScore).toBe(35);
+      expect(call.riskLevel).toBe('medium');
+      expect(call.action).toBe('require_mfa');
     });
   });
 
@@ -536,6 +568,53 @@ describe('AdaptiveMFADecisionService', () => {
 
       expect(result.blocked).toBe(true);
       expect(result.expiresAt).toBeUndefined();
+    });
+
+    it('should derive expiry from blockedAt when config.blockDuration is set (legacy block)', async () => {
+      const blockedAt = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(); // 2 hours ago
+      const legacyPermanentBlockData: any = {
+        userId: 1,
+        userSub: 'user-123',
+        message: 'Sign-in blocked',
+        riskScore: 70,
+        riskFactors: [RiskFactor.IMPOSSIBLE_TRAVEL],
+        blockedAt,
+        // expiresAt intentionally omitted
+      };
+
+      const testConfig: NAuthConfig = {
+        ...mockConfig,
+        mfa: {
+          ...mockConfig.mfa,
+          adaptive: {
+            ...mockConfig.mfa!.adaptive!,
+            blockedSignIn: {
+              blockDuration: 60, // 60 minutes
+            },
+          },
+        },
+      };
+
+      const testService = new AdaptiveMFADecisionService(
+        mockRiskDetectionService,
+        mockRiskScoringService,
+        mockStorageAdapter,
+        mockClientInfoService,
+        testConfig,
+        mockLogger,
+        mockAuditService,
+      );
+
+      mockStorageAdapter.get.mockClear();
+      mockStorageAdapter.get.mockResolvedValue(JSON.stringify(legacyPermanentBlockData));
+      mockStorageAdapter.del.mockClear();
+      mockStorageAdapter.del.mockResolvedValue(undefined);
+
+      const result = await testService.isUserBlocked(1);
+
+      // 2 hours ago + 60 minutes duration => expired => should auto-clear
+      expect(result.blocked).toBe(false);
+      expect(mockStorageAdapter.del).toHaveBeenCalledWith('adaptive_mfa_block:1');
     });
 
     it('should handle errors gracefully', async () => {

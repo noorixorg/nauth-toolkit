@@ -44,9 +44,22 @@ import { EmailProvider } from '@nauth-toolkit/core';
 | --- | --- | --- |
 | `sendVerificationEmail(to, code, link?)` | `Promise<void>` | Send email verification code (and optional link) |
 | `sendPasswordResetEmail(to, token, link)` | `Promise<void>` | Send password reset message |
+| `sendAdminPasswordResetEmail(to, code, link?, expiryMinutes?)` | `Promise<void>` | Send admin-initiated password reset code/link |
 | `sendWelcomeEmail(to, name)` | `Promise<void>` | Send welcome message |
 | `sendLockoutEmail?(to, reason, duration)` | `Promise<void>` | (Optional) Account lockout notification |
 | `sendNewDeviceEmail?(to, deviceInfo, location?)` | `Promise<void>` | (Optional) New device login notification |
+| `sendPasswordChangedEmail?(to, context)` | `Promise<void>` | (Optional) Password changed security alert |
+| `sendMFADeviceRemovedEmail?(to, context)` | `Promise<void>` | (Optional) MFA method/device removed security alert |
+| `sendMFAFirstEnabledEmail?(to, context)` | `Promise<void>` | (Optional) MFA enabled confirmation (first device) |
+| `sendMFAMethodAddedEmail?(to, context)` | `Promise<void>` | (Optional) MFA method added notification (additional method) |
+| `sendAdaptiveMFARiskAlertEmail?(to, context)` | `Promise<void>` | (Optional) Adaptive MFA risk alert |
+| `sendAccountDisabledEmail?(to, context)` | `Promise<void>` | (Optional) Account disabled notification |
+| `sendAccountEnabledEmail?(to, context)` | `Promise<void>` | (Optional) Account enabled notification |
+| `sendEmailChangedAlertEmail?(to, context)` | `Promise<void>` | (Optional) Email changed alert (to old email address) |
+| `sendEmailChangedConfirmationEmail?(to, context)` | `Promise<void>` | (Optional) Email changed confirmation (to new email address) |
+| `sendAccountLockedEmail?(to, context)` | `Promise<void>` | (Optional) Account locked notification |
+| `sendSessionsRevokedEmail?(to, context)` | `Promise<void>` | (Optional) Sessions revoked security alert |
+| `setConfig?(config)` | `void` | Inject config for provider-side suppression logic (e.g., `emailNotifications`) |
 
 ## Related APIs
 

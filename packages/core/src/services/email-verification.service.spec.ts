@@ -73,6 +73,10 @@ describe('EmailVerificationService', () => {
   let mockClientInfoService: jest.Mocked<ClientInfoService>;
   let mockLogger: jest.Mocked<NAuthLogger>;
   let mockAuditService: jest.Mocked<AuthAuditService>;
+  let mockHookRegistry: {
+    executeUserProfileUpdated: jest.Mock;
+    executeOnboardingCompleted: jest.Mock;
+  };
   let mockConfig: NAuthConfig;
 
   const mockUser: IUser = {
@@ -189,6 +193,11 @@ describe('EmailVerificationService', () => {
       recordEvent: jest.fn().mockResolvedValue(null),
     } as any;
 
+    mockHookRegistry = {
+      executeUserProfileUpdated: jest.fn().mockResolvedValue(undefined),
+      executeOnboardingCompleted: jest.fn().mockResolvedValue(undefined),
+    };
+
     mockConfig = {
       jwt: {
         accessToken: { secret: 'test-secret', expiresIn: '15m' },
@@ -213,7 +222,7 @@ describe('EmailVerificationService', () => {
       mockConfig,
       mockClientInfoService,
       mockLogger,
-      {} as any, // hookRegistry (mock)
+      mockHookRegistry as any, // hookRegistry (mock)
       mockAuditService,
     );
   });
@@ -446,7 +455,7 @@ describe('EmailVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
-        {} as any, // hookRegistry (mock)
+        mockHookRegistry as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -471,7 +480,7 @@ describe('EmailVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
-        {} as any, // hookRegistry (mock)
+        mockHookRegistry as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -499,7 +508,10 @@ describe('EmailVerificationService', () => {
 
   describe('verifyEmailWithCode', () => {
     it('should verify email with valid code', async () => {
-      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockConfig.signup!.verificationMethod = 'email';
+      mockUserRepository.findOne
+        .mockResolvedValueOnce(mockUser as any) // user lookup by email
+        .mockResolvedValueOnce({ ...mockUser, isEmailVerified: true } as any); // refetch after update
       mockStorageAdapter.incr.mockResolvedValue(1);
       mockStorageAdapter.expire.mockResolvedValue();
       mockVerificationTokenRepository.findOne.mockResolvedValue(mockVerificationToken as any);
@@ -517,6 +529,15 @@ describe('EmailVerificationService', () => {
         isActive: true,
       });
       expect(mockAuditService.recordEvent).toHaveBeenCalled();
+      expect(mockHookRegistry.executeOnboardingCompleted).toHaveBeenCalledTimes(1);
+      expect(mockHookRegistry.executeOnboardingCompleted).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 123, isEmailVerified: true }),
+        expect.objectContaining({
+          verificationMethod: 'email',
+          source: 'email_verification',
+          completedAt: expect.any(Date),
+        }),
+      );
     });
 
     it('should verify email with code when challengeSessionId is not provided', async () => {
@@ -854,7 +875,7 @@ describe('EmailVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
-        {} as any, // hookRegistry (mock)
+        mockHookRegistry as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -1184,7 +1205,7 @@ describe('EmailVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
-        {} as any, // hookRegistry (mock)
+        mockHookRegistry as any, // hookRegistry (mock)
         undefined, // No audit service
       );
 
@@ -1272,7 +1293,7 @@ describe('EmailVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
-        {} as any, // hookRegistry (mock)
+        mockHookRegistry as any, // hookRegistry (mock)
         mockAuditService,
       );
 

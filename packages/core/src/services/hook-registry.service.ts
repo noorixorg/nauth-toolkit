@@ -16,6 +16,8 @@ import {
   IPostSignupHookProvider,
   SignupMetadata,
   PreSignupHookData,
+  IOnboardingCompletedHook,
+  OnboardingCompletedMetadata,
   IUserProfileUpdatedHook,
   UserProfileUpdatedMetadata,
   IPasswordChangedHook,
@@ -34,6 +36,8 @@ import {
   SessionsRevokedMetadata,
   IMFAFirstEnabledHook,
   MFAFirstEnabledMetadata,
+  IMFAMethodAddedHook,
+  MFAMethodAddedMetadata,
 } from '../interfaces/hooks.interface';
 import { IUser } from '../interfaces/entities.interface';
 import { LoggerProvider } from '../interfaces/logger.interface';
@@ -48,6 +52,7 @@ import { AuthErrorCode } from '../enums/error-codes.enum';
 export class HookRegistryService {
   private readonly preSignupHooks: IPreSignupHookProvider[] = [];
   private readonly postSignupHooks: IPostSignupHookProvider[] = [];
+  private readonly onboardingCompletedHooks: IOnboardingCompletedHook[] = [];
   private readonly userProfileUpdatedHooks: IUserProfileUpdatedHook[] = [];
   private readonly passwordChangedHooks: IPasswordChangedHook[] = [];
   private readonly mfaDeviceRemovedHooks: IMFADeviceRemovedHook[] = [];
@@ -57,6 +62,7 @@ export class HookRegistryService {
   private readonly accountLockedHooks: IAccountLockedHook[] = [];
   private readonly sessionsRevokedHooks: ISessionsRevokedHook[] = [];
   private readonly mfaFirstEnabledHooks: IMFAFirstEnabledHook[] = [];
+  private readonly mfaMethodAddedHooks: IMFAMethodAddedHook[] = [];
 
   constructor(private readonly logger?: LoggerProvider) {}
 
@@ -88,6 +94,19 @@ export class HookRegistryService {
   registerPostSignup(provider: IPostSignupHookProvider): void {
     this.postSignupHooks.push(provider);
     this.logger?.debug?.(`[HookRegistry] Registered postSignup hook: ${provider.constructor.name}`);
+  }
+
+  /**
+   * Register an onboarding completed hook
+   *
+   * Hooks are executed in registration order.
+   * Hook errors are logged but do not block user flows (non-blocking).
+   *
+   * @param provider - Onboarding completed hook instance
+   */
+  registerOnboardingCompleted(provider: IOnboardingCompletedHook): void {
+    this.onboardingCompletedHooks.push(provider);
+    this.logger?.debug?.(`[HookRegistry] Registered onboardingCompleted hook: ${provider.constructor.name}`);
   }
 
   /**
@@ -207,6 +226,19 @@ export class HookRegistryService {
     this.logger?.debug?.(`[HookRegistry] Registered mfaFirstEnabled hook: ${provider.constructor.name}`);
   }
 
+  /**
+   * Register an MFA method added hook
+   *
+   * Hooks are executed in registration order.
+   * Hook errors are logged but do not block MFA enrollment (non-blocking).
+   *
+   * @param provider - MFA method added hook instance
+   */
+  registerMFAMethodAdded(provider: IMFAMethodAddedHook): void {
+    this.mfaMethodAddedHooks.push(provider);
+    this.logger?.debug?.(`[HookRegistry] Registered mfaMethodAdded hook: ${provider.constructor.name}`);
+  }
+
   // ============================================================================
   // Execution Methods
   // ============================================================================
@@ -284,6 +316,37 @@ export class HookRegistryService {
         const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
         this.logger?.error?.(
           `[HookRegistry] postSignup hook error: ${hook.constructor.name} - ${errorMessage}`,
+          hookError instanceof Error ? { error: hookError } : undefined,
+        );
+      }
+    }
+  }
+
+  /**
+   * Execute all registered onboarding completed hooks
+   *
+   * Hooks are executed sequentially in registration order.
+   * Hook errors are logged but do not stop execution (non-blocking).
+   *
+   * @param user - User entity (IUser interface)
+   * @param metadata - Completion metadata (verification method, source, timestamp)
+   *
+   * @internal
+   * @remarks This method is called internally by AuthService, EmailVerificationService, and PhoneVerificationService
+   */
+  async executeOnboardingCompleted(user: IUser, metadata: OnboardingCompletedMetadata): Promise<void> {
+    if (this.onboardingCompletedHooks.length === 0) {
+      return; // No hooks registered
+    }
+
+    for (const hook of this.onboardingCompletedHooks) {
+      try {
+        await hook.execute(user, metadata);
+      } catch (hookError: unknown) {
+        // Non-blocking: log error and continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(
+          `[HookRegistry] onboardingCompleted hook error: ${hook.constructor.name} - ${errorMessage}`,
           hookError instanceof Error ? { error: hookError } : undefined,
         );
       }
@@ -554,6 +617,36 @@ export class HookRegistryService {
         const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
         this.logger?.error?.(
           `[HookRegistry] mfaFirstEnabled hook error: ${hook.constructor.name} - ${errorMessage}`,
+          hookError instanceof Error ? { error: hookError } : undefined,
+        );
+      }
+    }
+  }
+
+  /**
+   * Execute all registered MFA method added hooks
+   *
+   * Hooks are executed sequentially in registration order.
+   * Hook errors are logged but do not stop execution (non-blocking).
+   *
+   * @param metadata - MFA method addition context
+   *
+   * @internal
+   * @remarks This method is called internally by BaseMFAProviderService
+   */
+  async executeMFAMethodAdded(metadata: MFAMethodAddedMetadata): Promise<void> {
+    if (this.mfaMethodAddedHooks.length === 0) {
+      return; // No hooks registered
+    }
+
+    for (const hook of this.mfaMethodAddedHooks) {
+      try {
+        await hook.execute(metadata);
+      } catch (hookError: unknown) {
+        // Non-blocking: log error and continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(
+          `[HookRegistry] mfaMethodAdded hook error: ${hook.constructor.name} - ${errorMessage}`,
           hookError instanceof Error ? { error: hookError } : undefined,
         );
       }

@@ -79,14 +79,15 @@ export class AuthFlowContextBuilder {
     const isDeviceTrusted = await this.checkDeviceTrust(user, deviceToken, config);
     const gracePeriodData = this.calculateGracePeriod(user, config);
     const blockData = await this.checkBlocked(user);
-    const mfaVerificationData = await this.checkMFAVerification(
-      user,
-      config,
-      authMethod,
-      deviceToken,
-      isDeviceTrusted,
-      skipMFAVerification,
-    );
+
+    // ============================================================================
+    // IMPORTANT: If the user is already blocked (persisted from a previous high-risk decision),
+    // do NOT run adaptive evaluation again. That evaluation can send notification emails and
+    // produce fresh risk scores, which becomes confusing when the state machine will block anyway.
+    // ============================================================================
+    const mfaVerificationData = blockData.blocked
+      ? { required: false, isBlocked: true }
+      : await this.checkMFAVerification(user, config, authMethod, deviceToken, isDeviceTrusted, skipMFAVerification);
 
     // Merge block status from existing storage and adaptive MFA decision
     const isBlocked = blockData.blocked || (mfaVerificationData.isBlocked ?? false);

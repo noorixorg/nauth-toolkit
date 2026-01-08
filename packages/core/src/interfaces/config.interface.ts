@@ -179,8 +179,9 @@ export interface NAuthConfig {
    * Configure custom SMS templates and global variables for branding.
    * Templates are validated at startup to ensure required parameters are present.
    *
-   * Note: Top-level branding fields (appName, companyName, etc.) are automatically
-   * merged into sms.templates.globalVariables. You can override them in globalVariables if needed.
+   * Note: If `email.globalVariables` contains shared branding fields (e.g., `appName`, `companyName`, `supportEmail`),
+   * the framework adapters may copy those into `sms.templates.globalVariables` as defaults.
+   * `sms.templates.globalVariables` always takes precedence for SMS rendering.
    *
    * @example Basic configuration with top-level branding
    * ```typescript
@@ -1196,99 +1197,44 @@ export interface SecurityConfig {
  */
 export interface EmailConfig {
   /**
-   * Application name (used in email templates)
+   * Global variables available to all email templates
    *
-   * @example 'My Application'
+   * This is the ONLY place to configure template globals.
+   * (There is no `email.templates.globalVariables`.)
+   *
+   * These values are injected into the configured EmailProvider (if it supports `setGlobalVariables`)
+   * and merged with per-email variables at send time.
+   *
+   * @example
+   * ```typescript
+   * email: {
+   *   globalVariables: {
+   *     appName: 'My Application',
+   *     companyName: 'My Company Inc.',
+   *     supportEmail: 'support@example.com',
+   *     brandColor: '#4f46e5',
+   *     logoUrl: 'https://example.com/logo.png',
+   *     dashboardUrl: 'https://app.example.com/dashboard'
+   *   }
+   * }
+   * ```
    */
-  appName?: string;
-
-  /**
-   * Company name (used in email footer)
-   *
-   * @example 'My Company Inc.'
-   */
-  companyName?: string;
-
-  /**
-   * Logo URL for email templates
-   *
-   * @example 'https://example.com/logo.png'
-   */
-  logoUrl?: string;
-
-  /**
-   * Support email address (displayed in email footer)
-   *
-   * @example 'support@example.com'
-   */
-  supportEmail?: string;
-
-  /**
-   * Dashboard URL (used in welcome emails)
-   *
-   * @example 'https://app.example.com/dashboard'
-   */
-  dashboardUrl?: string;
-
-  /**
-   * Brand color (hex code, used in email templates)
-   *
-   * @example '#4f46e5'
-   */
-  brandColor?: string;
-
-  /**
-   * Custom footer disclaimer text
-   *
-   * If not provided, uses default professional disclaimer.
-   *
-   * @example 'This email is confidential. Unsubscribe at any time.'
-   */
-  footerDisclaimer?: string;
+  globalVariables?: import('../interfaces/template.interface').TemplateVariables;
 
   /**
    * Template configuration for email notifications
    *
-   * Configure custom email templates and global variables for branding.
+   * Configure custom email templates and engine.
    * Templates are validated at startup to ensure required parameters are present.
-   *
-   * Note: Top-level branding fields (appName, companyName, logoUrl, etc.) are automatically
-   * merged into templates.globalVariables. You can override them in globalVariables if needed.
-   *
-   * @example Basic configuration with top-level branding
-   * ```typescript
-   * email: {
-   *   appName: process.env.APP_NAME || 'My Application',
-   *   companyName: process.env.COMPANY_NAME || 'My Company Inc.',
-   *   supportEmail: process.env.SUPPORT_EMAIL || 'support@example.com',
-   *   brandColor: '#4f46e5',
-   *   logoUrl: 'https://example.com/logo.png'
-   * }
-   * ```
-   *
-   * @example Advanced configuration with global variables
-   * ```typescript
-   * email: {
-   *   appName: 'My App',
-   *   companyName: 'My Company',
-   *   templates: {
-   *     globalVariables: {
-   *       // These override top-level values if both are provided
-   *       appName: 'Custom App Name',
-   *       customVar: 'Custom value'
-   *     }
-   *   }
-   * }
-   * ```
    *
    * @example Custom templates with file paths
    * ```typescript
    * email: {
+   *   globalVariables: {
+   *     appName: 'My App',
+   *     supportEmail: 'support@myapp.com'
+   *   },
    *   templates: {
-   *     globalVariables: {
-   *       appName: 'My App',
-   *       supportEmail: 'support@myapp.com'
-   *     },
    *     customTemplates: {
    *       verification: {
    *         htmlPath: './email-templates/verification.html.hbs',
@@ -1308,7 +1254,6 @@ export interface EmailConfig {
    * ```typescript
    * email: {
    *   templates: {
-   *     globalVariables: { appName: 'My App' },
    *     customTemplates: {
    *       welcome: {
    *         subject: 'Welcome to {{appName}}!',
@@ -1935,6 +1880,21 @@ export interface AdaptiveMFAConfig {
     blockDuration?: number;
 
     /**
+     * Block scope for `block_signin` decisions.
+     *
+     * Controls what gets blocked when a high-risk sign-in is detected:
+     * - `user`: blocks the entire user (all devices/locations) until expiry/unblock
+     * - `device`: blocks only the current device (identified by `deviceToken`)
+     * - `ip`: blocks only the current IP address
+     *
+     * WARNING: `user` scope can be abused as a denial-of-service vector if attackers
+     * can repeatedly trigger high-risk decisions. Prefer `device` or `ip` in most apps.
+     *
+     * @default 'user'
+     */
+    scope?: 'user' | 'device' | 'ip';
+
+    /**
      * Custom message to show user when blocked
      *
      * @default 'Sign-in blocked due to suspicious activity. Please contact support.'
@@ -2405,6 +2365,18 @@ export interface EmailNotificationsConfig {
      * @default true (DISABLED, opt-in)
      */
     mfaFirstEnabled?: boolean;
+
+    /**
+     * MFA method added notification
+     *
+     * Sent when a user adds an additional MFA method after MFA is already enabled
+     * (e.g., adding Passkey after already having TOTP).
+     *
+     * Hook: `IMFAMethodAddedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    mfaMethodAdded?: boolean;
 
     /**
      * Email verification code

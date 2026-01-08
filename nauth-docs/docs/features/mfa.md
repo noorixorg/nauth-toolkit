@@ -322,13 +322,11 @@ Send verification codes via text message.
 import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
 
 const config = {
-  sms: {
-    provider: new AWSSMSProvider({
-      region: 'us-east-1',
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    }),
-  },
+  smsProvider: new AWSSMSProvider({
+    region: 'us-east-1',
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  }),
   mfa: {
     sms: {
       codeLength: 6,
@@ -374,8 +372,8 @@ Send verification codes via email.
 import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
 
 const config = {
-  email: {
-    provider: new NodemailerEmailProvider({
+  emailProvider: new NodemailerEmailProvider({
+    transport: {
       host: 'smtp.gmail.com',
       port: 587,
       secure: false,
@@ -383,9 +381,11 @@ const config = {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASSWORD,
       },
-      from: 'noreply@yourapp.com',
-    }),
-  },
+    },
+    defaults: {
+      from: 'Your App <noreply@yourapp.com>',
+    },
+  }),
   mfa: {
     email: {
       codeLength: 6,
@@ -630,6 +630,11 @@ Block high-risk logins and notify security team:
 
       // Block configuration
       blockedSignIn: {
+        // Choose the blast radius of a block:
+        // - 'ip' blocks only the suspicious IP
+        // - 'device' blocks only the device token
+        // - 'user' blocks the entire user (strongest, highest DoS risk)
+        scope: 'ip',
         blockDuration: 60, // minutes
         message: 'Sign-in blocked due to suspicious activity. Please contact support.',
         errorCode: 'SIGNIN_BLOCKED_HIGH_RISK',
@@ -653,6 +658,39 @@ Block high-risk logins and notify security team:
 
 </TabItem>
 </Tabs>
+
+### Sign-in blocking behavior (`blockedSignIn`)
+
+When a risk level resolves to `action: 'block_signin'`, nauth-toolkit will:
+
+1. **Create a block record** in your configured `storageAdapter` (Redis recommended).
+2. **Reject the login** with `SIGNIN_BLOCKED_HIGH_RISK`.
+
+**Scope (`blockedSignIn.scope`)**
+
+Controls the blast radius of a block:
+
+- `ip`: block only the suspicious IP address
+- `device`: block only the current device token
+- `user`: block the entire user (strongest, highest denial-of-service risk)
+
+If the requested scope identifier (IP/device token) is not available, the system **falls back to `user` scope**.
+
+**TTL (`blockedSignIn.blockDuration`)**
+
+- If set, blocks expire after N minutes and the error details may include an `expiresAt`.
+- If omitted, blocks are **effectively permanent** until you remove the stored key (or implement your own admin unblocking flow).
+
+**Repeated attempts**
+
+While blocked, subsequent login attempts that match the block scope are rejected **immediately** (the toolkit checks existing blocks before running another adaptive risk evaluation).
+
+**Notifications**
+
+User-facing risk emails are only triggered when **both** are true:
+
+- The chosen risk level has `notifyUser: true`
+- `emailNotifications.suppress.adaptiveMfaRiskDetected = false` (and `emailNotifications.enabled !== false`)
 
 ### Risk level actions
 
@@ -1087,7 +1125,7 @@ fastify.post('/login', async (request, reply) => {
    - Solution: Review and adjust `riskWeights` for your security needs
 
 4. **Trusted device:** Device is trusted and bypasses adaptive logic
-   - Solution: Expected behavior; user can untrust device in settings
+   - Solution: Trusted devices reduce risk but do **not** bypass adaptive evaluation in ADAPTIVE mode. If you're not seeing MFA, review your risk weights/thresholds and enabled triggers.
 
 ## Related documentation
 

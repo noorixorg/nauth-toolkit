@@ -49,6 +49,12 @@ sequenceDiagram
         Backend->>Hooks: executePostSignup()
         Note over Hooks: Errors logged,<br/>don't block signup
         Hooks-->>Backend: Complete (non-blocking)
+        alt signup.verificationMethod = 'none'
+            Backend->>Hooks: executeOnboardingCompleted()
+            Note over Hooks: Onboarding is complete immediately
+        else verification required
+            Note over Backend: executeOnboardingCompleted() fires later<br/>after required verification(s) succeed
+        end
         Backend-->>Frontend: 200 { challengeName or tokens }
         Frontend-->>User: Continue flow
     end
@@ -61,7 +67,8 @@ sequenceDiagram
 | Hook                                                                             | When                            | Can Block? | Use Cases                                                      |
 | -------------------------------------------------------------------------------- | ------------------------------- | ---------- | -------------------------------------------------------------- |
 | [**preSignup**](/docs/api/core/hooks/pre-signup-hook-provider)                  | Before user creation            | Yes        | Validation, domain whitelisting, invite codes                  |
-| [**postSignup**](/docs/api/core/hooks/post-signup-hook-provider)                | After user creation             | No         | Welcome emails, analytics, CRM sync, resource provisioning     |
+| [**postSignup**](/docs/api/core/hooks/post-signup-hook-provider)                | After user creation             | No         | Analytics, CRM sync, resource provisioning                     |
+| [**onboardingCompleted**](/docs/api/core/hooks/onboarding-completed-hook)       | When onboarding is complete     | No         | Welcome emails, onboarding flows, “account ready” notifications |
 | [**userProfileUpdated**](/docs/api/core/hooks/user-profile-updated-hook)        | After profile attribute changes | No         | CRM sync, analytics tracking, audit logging                    |
 
 ### Security & Authentication Hooks
@@ -71,7 +78,8 @@ sequenceDiagram
 | [**passwordChanged**](/docs/api/core/hooks/password-changed-hook)               | After password change          | No         | Security alerts, force logout notifications                    |
 | [**mfaFirstEnabled**](/docs/api/core/hooks/mfa-first-enabled-hook)              | After first MFA device setup   | No         | Congratulations email, security confirmation                   |
 | [**mfaDeviceRemoved**](/docs/api/core/hooks/mfa-device-removed-hook)            | After MFA device deletion      | No         | Security alerts, backup device reminders                       |
-| [**adaptiveMfaRiskDetected**](/docs/api/core/hooks/adaptive-mfa-risk-detected-hook) | When high-risk signin detected | No    | Risk alert emails, admin notifications, SIEM logging           |
+| [**mfaMethodAdded**](/docs/api/core/hooks/mfa-method-added-hook)                | After MFA method added         | No         | Security alerts, inventory tracking                            |
+| [**adaptiveMfaRiskDetected**](/docs/api/core/hooks/adaptive-mfa-risk-detected-hook) | When adaptive MFA risk evaluation runs and `notifyUser: true` | No    | Risk alert emails, admin notifications, SIEM logging           |
 
 ### Account Management Hooks
 
@@ -377,6 +385,7 @@ Complete reference for all hook-related classes and interfaces:
 | `IEmailChangedHook`              | Email changed hook interface           | [IEmailChangedHook](/docs/api/core/hooks/email-changed-hook)                             |
 | `IMFADeviceRemovedHook`          | MFA device removed hook interface      | [IMFADeviceRemovedHook](/docs/api/core/hooks/mfa-device-removed-hook)                    |
 | `IMFAFirstEnabledHook`           | MFA first enabled hook interface       | [IMFAFirstEnabledHook](/docs/api/core/hooks/mfa-first-enabled-hook)                      |
+| `IOnboardingCompletedHook`       | Onboarding completed hook interface    | [IOnboardingCompletedHook](/docs/api/core/hooks/onboarding-completed-hook)               |
 | `IPasswordChangedHook`           | Password changed hook interface        | [IPasswordChangedHook](/docs/api/core/hooks/password-changed-hook)                       |
 | `IPostSignupHookProvider`        | Post-signup hook interface             | [IPostSignupHookProvider](/docs/api/core/hooks/post-signup-hook-provider)                |
 | `IPreSignupHookProvider`         | Pre-signup hook interface              | [IPreSignupHookProvider](/docs/api/core/hooks/pre-signup-hook-provider)                  |
@@ -390,6 +399,11 @@ Complete reference for all hook-related classes and interfaces:
 | `HookRegistryService` | Hook registration service | [HookRegistryService](/docs/api/core/services/hook-registry-service) |
 
 ### NestJS Decorators
+
+:::note
+There is currently no `@OnboardingCompletedHook()` decorator.
+If you need custom onboarding-completed behavior in NestJS, register an `IOnboardingCompletedHook` via `HookRegistryService`.
+:::
 
 | Decorator                        | Description                            | Documentation                                                                                   |
 | -------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------- |

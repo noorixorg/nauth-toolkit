@@ -51,6 +51,11 @@ interface SignupMetadata {
 | `socialMetadata`       | `Record<string, unknown>` | Raw OAuth profile data             |
 | `profilePicture`       | `string`                  | Profile picture URL                |
 
+:::tip
+`IPostSignupHookProvider` runs **before** verification challenges are completed.
+If you want to send a “welcome” email after the user has finished required verification(s), use `IOnboardingCompletedHook` instead.
+:::
+
 ## When Hook Fires
 
 - After password signup completes

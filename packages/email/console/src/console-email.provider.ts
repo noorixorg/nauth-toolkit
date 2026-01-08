@@ -173,4 +173,78 @@ export class ConsoleEmailProvider implements EmailProvider {
     this.logger.log(`Location: ${deviceInfo.location || 'Unknown'}`);
     this.logger.log('----------------------------------------------');
   }
+
+  /**
+   * Send MFA first enabled confirmation
+   *
+   * Logs email details to the configured logger for debugging.
+   *
+   * @param to - Recipient email address
+   * @param context - MFA enrollment context
+   */
+  async sendMFAFirstEnabledEmail(
+    to: string,
+    context: { firstMethod?: string; deviceName?: string; timestamp?: string } = {},
+  ): Promise<void> {
+    this.logger.log('----------------------------------------------');
+    this.logger.log('EMAIL: MFA first enabled (simulated)');
+    this.logger.log(`To: ${to}`);
+    this.logger.log(`First method: ${context.firstMethod || 'Unknown'}`);
+    if (context.deviceName) this.logger.log(`Device name: ${context.deviceName}`);
+    if (context.timestamp) this.logger.log(`Timestamp: ${context.timestamp}`);
+    this.logger.log('----------------------------------------------');
+  }
+
+  /**
+   * Send MFA device removed security alert
+   *
+   * Logs email details to the configured logger for debugging.
+   *
+   * @param to - Recipient email address
+   * @param context - MFA device removal context
+   */
+  async sendMFADeviceRemovedEmail(
+    to: string,
+    context: {
+      deviceType?: string;
+      deviceName?: string;
+      removedBy?: 'user' | 'system';
+      reason?: string;
+      remainingDeviceCount?: number;
+    } = {},
+  ): Promise<void> {
+    this.logger.warn('----------------------------------------------');
+    this.logger.warn('EMAIL: MFA method/device removed (simulated)');
+    this.logger.warn(`To: ${to}`);
+    if (context.deviceType) this.logger.warn(`Type: ${context.deviceType}`);
+    if (context.deviceName) this.logger.warn(`Device name: ${context.deviceName}`);
+    if (context.removedBy) this.logger.warn(`Removed by: ${context.removedBy}`);
+    if (context.reason) this.logger.warn(`Reason: ${context.reason}`);
+    if (typeof context.remainingDeviceCount === 'number') {
+      this.logger.warn(`Remaining devices: ${context.remainingDeviceCount}`);
+    }
+    this.logger.warn('----------------------------------------------');
+  }
+
+  /**
+   * Send MFA method added notification
+   *
+   * Logs email details to the configured logger for debugging.
+   *
+   * @param to - Recipient email address
+   * @param context - MFA method addition context
+   */
+  async sendMFAMethodAddedEmail(
+    to: string,
+    context: { method?: string; enabledMethods?: string[]; deviceName?: string; timestamp?: string } = {},
+  ): Promise<void> {
+    this.logger.log('----------------------------------------------');
+    this.logger.log('EMAIL: MFA method added (simulated)');
+    this.logger.log(`To: ${to}`);
+    if (context.method) this.logger.log(`Method: ${context.method}`);
+    if (context.deviceName) this.logger.log(`Device name: ${context.deviceName}`);
+    if (context.enabledMethods) this.logger.log(`Enabled methods: ${context.enabledMethods.join(', ')}`);
+    if (context.timestamp) this.logger.log(`Timestamp: ${context.timestamp}`);
+    this.logger.log('----------------------------------------------');
+  }
 }

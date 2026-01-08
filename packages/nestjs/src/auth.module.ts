@@ -61,6 +61,7 @@ import {
   PasswordResetService,
   SocialAuthStateStore,
   HookRegistryService,
+  registerBuiltInEmailNotificationHooks,
 } from '@nauth-toolkit/core/internal';
 
 // MaxMind module type (for type safety in factory)
@@ -113,6 +114,8 @@ class NAuthProviderAutoRegistrationService implements OnApplicationBootstrap {
     private readonly moduleRef: ModuleRef,
     private readonly mfaService: MFAService,
     private readonly socialProviderRegistry: SocialProviderRegistry,
+    private readonly hookRegistry: HookRegistryService,
+    @Inject('EMAIL_PROVIDER') private readonly emailProvider: EmailProvider,
     // NOTE: These are provided by AuthModule. Marked optional for safe initialization in edge test contexts.
     @Optional() @Inject('NAUTH_LOGGER') private readonly logger?: NAuthLogger,
     @Optional() @Inject('NAUTH_CONFIG') private readonly config?: NAuthConfig,
@@ -163,6 +166,18 @@ class NAuthProviderAutoRegistrationService implements OnApplicationBootstrap {
       this.logger.debug(
         `[nauth-toolkit] Auto-registered providers (NestJS): MFA=${registeredMfa}/${mfaProviders.length}, Social=${registeredSocial}/${validSocialProviders} (${socialProviders.length} total from DI)`,
       );
+    }
+
+    // ==========================================================================
+    // Built-in Email Notification Hooks (opt-in via config.emailNotifications)
+    // ==========================================================================
+    // Register built-in hooks on bootstrap to guarantee they are wired before any requests,
+    // similar to MFA/Social provider auto-registration.
+    if (this.config) {
+      registerBuiltInEmailNotificationHooks(this.hookRegistry, this.emailProvider, this.config, this.logger);
+      if (this.logger?.isEnabled?.()) {
+        this.logger.debug('[nauth-toolkit] Registered built-in email notification hooks (NestJS)');
+      }
     }
   }
 
@@ -266,8 +281,6 @@ export class AuthModule {
       nauthLogger.log('Initializing nauth-toolkit...');
       nauthLogger.debug(`Table prefix: ${config.tablePrefix || 'nauth_'}`);
       nauthLogger.debug(`JWT algorithm: ${config.jwt.algorithm || 'HS256'}`);
-      nauthLogger.debug('[PERF] Config validation completed');
-      nauthLogger.debug('[PERF] Logger initialized');
     }
 
     // Storage adapter will be initialized in useFactory below
@@ -375,11 +388,8 @@ export class AuthModule {
             rateLimitRepo: Repository<BaseRateLimit> | null,
             storageLockRepo: Repository<BaseStorageLock> | null,
           ) => {
-            logger?.debug?.('[PERF] STORAGE_ADAPTER factory started');
-
             // If storage adapter is explicitly provided, use it
             if (config.storageAdapter) {
-              logger?.debug?.('[PERF] Using provided storage adapter');
               const adapter = config.storageAdapter;
 
               // Inject logger into adapter if it supports setLogger (for factory-created adapters)
@@ -412,9 +422,7 @@ export class AuthModule {
                   ).setRepositories(rateLimitRepo, storageLockRepo);
                 }
               }
-              logger?.debug?.('[PERF] Calling storage adapter.initialize()...');
               await adapter.initialize();
-              logger?.debug?.('[PERF] Storage adapter initialized');
               return adapter;
             }
 
@@ -422,20 +430,16 @@ export class AuthModule {
             if (rateLimitRepo && storageLockRepo) {
               // Default to DatabaseStorageAdapter when repositories are available (most apps have a database)
               try {
-                logger?.debug?.('[PERF] Importing DatabaseStorageAdapter...');
                 // Lazy import to avoid bundling if not used
                 const { DatabaseStorageAdapter } = await import('@nauth-toolkit/storage-database');
-                logger?.debug?.('[PERF] DatabaseStorageAdapter imported');
 
                 const adapter = new DatabaseStorageAdapter(null, null, logger);
                 adapter.setRepositories(rateLimitRepo, storageLockRepo);
-                logger?.debug?.('[PERF] Calling DatabaseStorageAdapter.initialize()...');
                 await adapter.initialize();
                 logger?.warn?.(
                   'WARNING: Storage adapter not provided. Using DatabaseStorageAdapter as default. ' +
                     'For production, explicitly configure storageAdapter in your config.',
                 );
-                logger?.debug?.('[PERF] DatabaseStorageAdapter initialized');
                 return adapter;
               } catch (error) {
                 // If DatabaseStorageAdapter import fails, fall through to error
@@ -468,8 +472,7 @@ export class AuthModule {
         // Rate Limit Repository (optional - only needed for DatabaseStorageAdapter)
         {
           provide: 'RateLimitRepository',
-          useFactory: (dataSource: DataSource, logger?: NAuthLogger) => {
-            logger?.debug?.('[PERF] Discovering RateLimitRepository...');
+          useFactory: (dataSource: DataSource, _logger?: NAuthLogger) => {
             // Try to find entity from config first
             const entityFromConfig = entities.find((e: Function) => e.name === 'RateLimit');
             if (entityFromConfig) {
@@ -498,8 +501,7 @@ export class AuthModule {
         // Storage Lock Repository (optional - only needed for DatabaseStorageAdapter)
         {
           provide: 'StorageLockRepository',
-          useFactory: (dataSource: DataSource, logger?: NAuthLogger) => {
-            logger?.debug?.('[PERF] Discovering StorageLockRepository...');
+          useFactory: (dataSource: DataSource, _logger?: NAuthLogger) => {
             // Try to find entity from config first
             const entityFromConfig = entities.find((e: Function) => e.name === 'StorageLock');
             if (entityFromConfig) {
@@ -529,8 +531,7 @@ export class AuthModule {
         // This allows entities to be auto-discovered if registered in TypeORM.forRoot()
         {
           provide: 'UserRepository',
-          useFactory: (dataSource: DataSource, logger?: NAuthLogger) => {
-            logger?.debug?.('[PERF] Discovering UserRepository...');
+          useFactory: (dataSource: DataSource, _logger?: NAuthLogger) => {
             // Try to find entity from provided config first
             const entityFromConfig = entities.find((e: Function) => e.name === 'User');
             if (entityFromConfig) {
@@ -1009,6 +1010,7 @@ export class AuthModule {
             logger?: NAuthLogger,
             auditService?: InternalAuthAuditService,
             clientInfoService?: ClientInfoService,
+            hookRegistry?: HookRegistryService,
           ) => {
             return new MFAService(
               mfaDeviceRepository,
@@ -1018,6 +1020,7 @@ export class AuthModule {
               logger,
               auditService,
               clientInfoService,
+              hookRegistry,
             );
           },
           inject: [
@@ -1028,6 +1031,7 @@ export class AuthModule {
             { token: 'NAUTH_LOGGER', optional: true },
             { token: InternalAuthAuditService, optional: true },
             { token: ClientInfoService, optional: true },
+            { token: HookRegistryService, optional: true },
           ],
         },
         {
@@ -1132,6 +1136,7 @@ export class AuthModule {
             config: NAuthConfig,
             logger: NAuthLogger,
             auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
+            hookRegistry?: HookRegistryService,
           ) => {
             return new AdaptiveMFADecisionService(
               riskDetectionService,
@@ -1141,6 +1146,7 @@ export class AuthModule {
               config,
               logger,
               auditService,
+              hookRegistry,
             );
           },
           inject: [
@@ -1151,6 +1157,7 @@ export class AuthModule {
             'NAUTH_CONFIG',
             'NAUTH_LOGGER',
             { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
+            { token: HookRegistryService, optional: true },
           ],
         },
 
@@ -1237,26 +1244,21 @@ export class AuthModule {
                 maybeLoggerAware.setLogger(nauthLogger);
               }
             }
+
+            // Inject config into provider if it supports it (used for suppression logic in some providers)
+            {
+              const maybeConfigAware = provider as unknown as { setConfig?: (cfg: NAuthConfig) => void };
+              if (typeof maybeConfigAware.setConfig === 'function') {
+                maybeConfigAware.setConfig(config);
+              }
+            }
             // Inject global variables from email config if provider supports it
             if (
               typeof (provider as unknown as { setGlobalVariables?: (vars: Record<string, unknown>) => void })
                 .setGlobalVariables === 'function' &&
               config.email
             ) {
-              const globalVars: Record<string, unknown> = {};
-              // Extract top-level branding fields
-              if (config.email.appName) globalVars.appName = config.email.appName;
-              if (config.email.companyName) globalVars.companyName = config.email.companyName;
-              if (config.email.logoUrl) globalVars.logoUrl = config.email.logoUrl;
-              if (config.email.supportEmail) globalVars.supportEmail = config.email.supportEmail;
-              if (config.email.dashboardUrl) globalVars.dashboardUrl = config.email.dashboardUrl;
-              if (config.email.brandColor) globalVars.brandColor = config.email.brandColor;
-              if (config.email.footerDisclaimer) globalVars.footerDisclaimer = config.email.footerDisclaimer;
-              // Merge with templates.globalVariables (templates.globalVariables takes precedence)
-              const mergedVars = {
-                ...globalVars,
-                ...(config.email.templates?.globalVariables || {}),
-              };
+              const mergedVars = (config.email.globalVariables ?? {}) as Record<string, unknown>;
               (
                 provider as unknown as { setGlobalVariables: (vars: Record<string, unknown>) => void }
               ).setGlobalVariables(mergedVars);
@@ -1368,11 +1370,18 @@ export class AuthModule {
 
                     // Set global variables
                     if (typeof provider.setGlobalVariables === 'function' && smsTemplates.globalVariables) {
-                      // Extract top-level branding fields from email config (if available)
+                      // Extract selected branding fields from email.globalVariables (if available)
                       const globalVars: Record<string, string | number | boolean | undefined> = {};
-                      if (config.email?.appName) globalVars.appName = config.email.appName;
-                      if (config.email?.companyName) globalVars.companyName = config.email.companyName;
-                      if (config.email?.supportEmail) globalVars.supportEmail = config.email.supportEmail;
+                      const emailGlobals = config.email?.globalVariables as Record<string, unknown> | undefined;
+                      if (typeof emailGlobals?.appName === 'string') {
+                        globalVars.appName = emailGlobals.appName;
+                      }
+                      if (typeof emailGlobals?.companyName === 'string') {
+                        globalVars.companyName = emailGlobals.companyName;
+                      }
+                      if (typeof emailGlobals?.supportEmail === 'string') {
+                        globalVars.supportEmail = emailGlobals.supportEmail;
+                      }
 
                       // Merge with sms.templates.globalVariables (sms.templates.globalVariables takes precedence)
                       // Filter out non-compatible types from globalVariables

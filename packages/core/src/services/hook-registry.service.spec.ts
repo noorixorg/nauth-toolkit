@@ -17,6 +17,7 @@ import {
   IAccountLockedHook,
   ISessionsRevokedHook,
   IMFAFirstEnabledHook,
+  IMFAMethodAddedHook,
   SignupMetadata,
   UserProfileUpdatedMetadata,
   PasswordChangedMetadata,
@@ -27,6 +28,7 @@ import {
   AccountLockedMetadata,
   SessionsRevokedMetadata,
   MFAFirstEnabledMetadata,
+  MFAMethodAddedMetadata,
 } from '../interfaces/hooks.interface';
 import { IUser } from '../interfaces/entities.interface';
 import { NAuthException } from '../exceptions/nauth.exception';
@@ -86,6 +88,10 @@ class MockSessionsRevokedHook implements ISessionsRevokedHook {
 }
 
 class MockMFAFirstEnabledHook implements IMFAFirstEnabledHook {
+  execute = jest.fn().mockResolvedValue(undefined);
+}
+
+class MockMFAMethodAddedHook implements IMFAMethodAddedHook {
   execute = jest.fn().mockResolvedValue(undefined);
 }
 
@@ -151,6 +157,25 @@ describe('HookRegistryService', () => {
       hookRegistry.registerPostSignup(hook2);
 
       expect(mockLogger.debug).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('registerOnboardingCompleted / executeOnboardingCompleted', () => {
+    it('should register and execute onboardingCompleted hooks in order', async () => {
+      const hookRegistry = new HookRegistryService(mockLogger);
+      const hook1 = { execute: jest.fn().mockResolvedValue(undefined) };
+      const hook2 = { execute: jest.fn().mockResolvedValue(undefined) };
+
+      hookRegistry.registerOnboardingCompleted(hook1 as any);
+      hookRegistry.registerOnboardingCompleted(hook2 as any);
+
+      const user = { sub: 'user-sub-123' } as any;
+      const metadata = { verificationMethod: 'none', source: 'signup', completedAt: new Date() } as any;
+
+      await hookRegistry.executeOnboardingCompleted(user, metadata);
+
+      expect(hook1.execute).toHaveBeenCalledWith(user, metadata);
+      expect(hook2.execute).toHaveBeenCalledWith(user, metadata);
     });
   });
 
@@ -1739,6 +1764,65 @@ describe('HookRegistryService', () => {
         };
 
         await expect(hookRegistry.executeMFAFirstEnabled(metadata)).resolves.not.toThrow();
+
+        expect(hook2.execute).toHaveBeenCalled();
+        expect(mockLogger.error).toHaveBeenCalled();
+      });
+    });
+
+    describe('registerMFAMethodAdded', () => {
+      it('should register an MFA method added hook', () => {
+        const hook = new MockMFAMethodAddedHook();
+        hookRegistry.registerMFAMethodAdded(hook);
+
+        expect(mockLogger.debug).toHaveBeenCalledWith(
+          expect.stringContaining('Registered mfaMethodAdded hook: MockMFAMethodAddedHook'),
+        );
+      });
+    });
+
+    describe('executeMFAMethodAdded', () => {
+      it('should execute all registered hooks with correct metadata', async () => {
+        const hook1 = new MockMFAMethodAddedHook();
+        const hook2 = new MockMFAMethodAddedHook();
+
+        hookRegistry.registerMFAMethodAdded(hook1);
+        hookRegistry.registerMFAMethodAdded(hook2);
+
+        const testUser = createTestUser();
+        const metadata: MFAMethodAddedMetadata = {
+          user: testUser,
+          method: 'passkey' as any,
+          isFirstMethod: false,
+          enabledMethods: ['totp', 'passkey'] as any,
+          timestamp: new Date(),
+          clientInfo: { ipAddress: '127.0.0.1', userAgent: 'Mozilla/5.0' },
+        };
+
+        await hookRegistry.executeMFAMethodAdded(metadata);
+
+        expect(hook1.execute).toHaveBeenCalledWith(metadata);
+        expect(hook2.execute).toHaveBeenCalledWith(metadata);
+      });
+
+      it('should continue execution when a hook throws', async () => {
+        const hook1 = new MockMFAMethodAddedHook();
+        const hook2 = new MockMFAMethodAddedHook();
+        hook1.execute.mockRejectedValue(new Error('Failed'));
+
+        hookRegistry.registerMFAMethodAdded(hook1);
+        hookRegistry.registerMFAMethodAdded(hook2);
+
+        const testUser = createTestUser();
+        const metadata: MFAMethodAddedMetadata = {
+          user: testUser,
+          method: 'sms' as any,
+          isFirstMethod: false,
+          enabledMethods: ['totp', 'sms'] as any,
+          timestamp: new Date(),
+        };
+
+        await expect(hookRegistry.executeMFAMethodAdded(metadata)).resolves.not.toThrow();
 
         expect(hook2.execute).toHaveBeenCalled();
         expect(mockLogger.error).toHaveBeenCalled();

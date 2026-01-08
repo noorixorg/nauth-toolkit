@@ -398,6 +398,20 @@ export class AuthService {
     }
 
     // ============================================================================
+    // Lifecycle Hook: onboardingCompleted
+    // ============================================================================
+    // Welcome-style emails should be sent when onboarding is complete:
+    // - Immediately for verificationMethod = 'none'
+    // - Otherwise, fired by EmailVerificationService / PhoneVerificationService once verification completes
+    if (verificationMethod === 'none') {
+      await this.hookRegistry.executeOnboardingCompleted(savedUser, {
+        verificationMethod: 'none',
+        source: 'signup',
+        completedAt: new Date(),
+      });
+    }
+
+    // ============================================================================
     // Challenge System: Determine if user needs to complete challenges
     // ============================================================================
 
@@ -1095,6 +1109,7 @@ export class AuthService {
     // Get client info from request context (transparent!)
     const clientInfo = this.clientInfoService.get();
     const fireAndForget = this.config.auditLogs?.fireAndForget === true;
+    const identifierType = this.config.login?.identifierType;
 
     this.logger?.log?.(`Login attempt for: ${dto.identifier}`);
     this.logger?.debug?.(
@@ -1116,33 +1131,52 @@ export class AuthService {
           // ============================================================================
           // Audit: Record blocked login (IP locked)
           // ============================================================================
+          // We do not have a resolved user yet because IP lockout happens before the normal
+          // identifier validation + user lookup. Resolve it here to avoid passing a non-UUID
+          // (email/username/phone) into `userSub`.
+          const userForAudit = await this.helpers.findUserByIdentifier(dto.identifier, identifierType);
           if (fireAndForget) {
-            this.auditService
-              ?.recordEvent({
-                userSub: dto.identifier,
-                eventType: AuthAuditEventType.LOGIN_BLOCKED,
-                eventStatus: 'FAILURE',
-                authMethod: 'password',
-                reason: 'ip_locked',
-                description: 'Login blocked - IP address locked due to too many failed attempts',
-              })
-              .catch((err) => {
-                const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-                this.logger?.error?.(`Failed to record LOGIN_BLOCKED audit event (fire-and-forget): ${errorMessage}`, {
-                  error: err,
-                  identifier: dto.identifier,
+            if (userForAudit?.id) {
+              this.auditService
+                ?.recordEvent({
+                  userId: userForAudit.id,
+                  eventType: AuthAuditEventType.LOGIN_BLOCKED,
+                  eventStatus: 'FAILURE',
+                  authMethod: 'password',
+                  reason: 'ip_locked',
+                  description: 'Login blocked - IP address locked due to too many failed attempts',
+                  metadata: {
+                    identifier: dto.identifier,
+                    identifierType: identifierType || null,
+                  },
+                })
+                .catch((err) => {
+                  const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+                  this.logger?.error?.(
+                    `Failed to record LOGIN_BLOCKED audit event (fire-and-forget): ${errorMessage}`,
+                    {
+                      error: err,
+                      identifier: dto.identifier,
+                    },
+                  );
                 });
-              });
+            }
           } else {
             try {
-              await this.auditService?.recordEvent({
-                userSub: dto.identifier,
-                eventType: AuthAuditEventType.LOGIN_BLOCKED,
-                eventStatus: 'FAILURE',
-                authMethod: 'password',
-                reason: 'ip_locked',
-                description: 'Login blocked - IP address locked due to too many failed attempts',
-              });
+              if (userForAudit?.id) {
+                await this.auditService?.recordEvent({
+                  userId: userForAudit.id,
+                  eventType: AuthAuditEventType.LOGIN_BLOCKED,
+                  eventStatus: 'FAILURE',
+                  authMethod: 'password',
+                  reason: 'ip_locked',
+                  description: 'Login blocked - IP address locked due to too many failed attempts',
+                  metadata: {
+                    identifier: dto.identifier,
+                    identifierType: identifierType || null,
+                  },
+                });
+              }
             } catch (auditError) {
               const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
               this.logger?.error?.(`Failed to record LOGIN_BLOCKED audit event (IP locked): ${errorMessage}`, {
@@ -1162,7 +1196,6 @@ export class AuthService {
     // ============================================================================
     // Validate identifier type based on configuration
     // ============================================================================
-    const identifierType = this.config.login?.identifierType;
     if (identifierType) {
       this.logger?.debug?.(`Validating identifier type for: ${dto.identifier}, allowed type: ${identifierType}`);
       const isValidIdentifier = this.helpers.validateIdentifierType(dto.identifier, identifierType);
@@ -2822,7 +2855,6 @@ export class AuthService {
     // ============================================================================
     if (revokedCount > 0) {
       try {
-        const clientInfo = this.clientInfoService.get();
         await this.hookRegistry.executeSessionsRevoked({
           user,
           revokedCount,

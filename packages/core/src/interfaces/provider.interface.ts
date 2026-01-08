@@ -203,6 +203,24 @@ export interface EmailProvider {
   ): Promise<void>;
 
   /**
+   * Send MFA method added notification
+   *
+   * Triggered when a user adds an additional MFA method after MFA is already enabled.
+   *
+   * @param to - Recipient email address
+   * @param context - MFA method addition context (method, enabledMethods, etc.)
+   */
+  sendMFAMethodAddedEmail?(
+    to: string,
+    context: {
+      method?: string;
+      enabledMethods?: string[];
+      deviceName?: string;
+      timestamp?: string;
+    },
+  ): Promise<void>;
+
+  /**
    * Set NAuth configuration (called during initialization)
    *
    * Allows email provider to access emailNotifications config for suppression logic.

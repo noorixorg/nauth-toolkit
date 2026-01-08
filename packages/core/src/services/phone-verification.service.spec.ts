@@ -70,6 +70,10 @@ describe('PhoneVerificationService', () => {
   let mockClientInfoService: jest.Mocked<ClientInfoService>;
   let mockLogger: jest.Mocked<NAuthLogger>;
   let mockAuditService: jest.Mocked<AuthAuditService>;
+  let mockHookRegistry: {
+    executeUserProfileUpdated: jest.Mock;
+    executeOnboardingCompleted: jest.Mock;
+  };
   let mockConfig: NAuthConfig;
 
   const mockUser: IUser = {
@@ -177,6 +181,11 @@ describe('PhoneVerificationService', () => {
       recordEvent: jest.fn().mockResolvedValue(null),
     } as any;
 
+    mockHookRegistry = {
+      executeUserProfileUpdated: jest.fn().mockResolvedValue(undefined),
+      executeOnboardingCompleted: jest.fn().mockResolvedValue(undefined),
+    };
+
     mockConfig = {
       jwt: {
         accessToken: { secret: 'test-secret', expiresIn: '15m' },
@@ -203,7 +212,7 @@ describe('PhoneVerificationService', () => {
       mockConfig,
       mockClientInfoService,
       mockLogger,
-      {} as any, // hookRegistry (mock)
+      mockHookRegistry as any, // hookRegistry (mock)
       mockAuditService,
     );
   });
@@ -434,7 +443,7 @@ describe('PhoneVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
-        {} as any, // hookRegistry (mock)
+        mockHookRegistry as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -459,7 +468,7 @@ describe('PhoneVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
-        {} as any, // hookRegistry (mock)
+        mockHookRegistry as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -488,7 +497,10 @@ describe('PhoneVerificationService', () => {
   describe('verifyPhoneWithCode', () => {
     it('should verify phone with valid code', async () => {
       mockVerificationTokenRepository.find.mockResolvedValue([mockVerificationToken] as any);
-      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockConfig.signup!.verificationMethod = 'phone';
+      mockUserRepository.findOne
+        .mockResolvedValueOnce(mockUser as any) // user lookup by token.userId during matching loop
+        .mockResolvedValueOnce({ ...mockUser, isPhoneVerified: true } as any); // refetch after update
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
       const result = await service.verifyPhoneWithCode(createVerifyPhoneWithCodeDto({ phone: '+1234567890', code: '123456' }));
@@ -499,6 +511,15 @@ describe('PhoneVerificationService', () => {
         isActive: true,
       });
       expect(mockAuditService.recordEvent).toHaveBeenCalled();
+      expect(mockHookRegistry.executeOnboardingCompleted).toHaveBeenCalledTimes(1);
+      expect(mockHookRegistry.executeOnboardingCompleted).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 123, isPhoneVerified: true }),
+        expect.objectContaining({
+          verificationMethod: 'phone',
+          source: 'phone_verification',
+          completedAt: expect.any(Date),
+        }),
+      );
     });
 
     it('should throw NAuthException for invalid code', async () => {
@@ -1058,7 +1079,7 @@ describe('PhoneVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
-        {} as any, // hookRegistry (mock)
+        mockHookRegistry as any, // hookRegistry (mock)
         undefined, // No audit service
       );
 
@@ -1133,7 +1154,7 @@ describe('PhoneVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
-        {} as any, // hookRegistry (mock)
+        mockHookRegistry as any, // hookRegistry (mock)
         mockAuditService,
       );
 

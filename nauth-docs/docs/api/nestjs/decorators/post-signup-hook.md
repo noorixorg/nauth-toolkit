@@ -227,10 +227,12 @@ export class ContextualEmailHook implements IPostSignupHookProvider {
     } else {
       // Password signup
       if (metadata?.requiresVerification) {
-        // User needs to verify email/phone
+        // Post-signup runs BEFORE verification challenges complete.
+        // Use this for reminders/analytics, not for “welcome” emails.
         await this.emailService.sendVerificationReminder(user.email);
       } else {
-        // Standard welcome
+        // If no verification is required, onboarding is already complete.
+        // (If verification IS required, send welcome after onboarding completion instead.)
         await this.emailService.sendWelcome(user.email);
       }
     }
