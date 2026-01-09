@@ -500,7 +500,9 @@ export class NAuthClient {
    * Setup MFA device (authenticated user).
    */
   async setupMfaDevice(method: string): Promise<unknown> {
-    return this.post<unknown>(this.config.endpoints.mfaSetupData, { method }, true);
+    // Backend expects `methodName` (SetupMFADTO). We keep the public SDK method name `method`
+    // for ergonomics, but serialize as `methodName` to match the API contract.
+    return this.post<unknown>(this.config.endpoints.mfaSetupData, { methodName: method }, true);
   }
 
   /**
@@ -513,7 +515,9 @@ export class NAuthClient {
   ): Promise<{ deviceId: number }> {
     return this.post<{ deviceId: number }>(
       this.config.endpoints.mfaVerifySetup,
-      { method, setupData, deviceName },
+      // Backend expects `methodName` (SetupMFADTO). `deviceName` is optional and may be ignored
+      // by consumer controllers depending on their DTO/validation strategy.
+      { methodName: method, setupData, deviceName },
       true,
     );
   }
