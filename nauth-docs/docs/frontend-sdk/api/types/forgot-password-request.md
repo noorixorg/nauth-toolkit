@@ -31,6 +31,10 @@ import { ForgotPasswordRequest } from '@nauth-toolkit/client';
 }
 ```
 
+:::note baseUrl
+The `baseUrl` parameter for generating reset links is configured on the backend, not sent from the client. See [`ForgotPasswordDTO`](../../api/core/dto/forgot-password-dto) for backend configuration details.
+:::
+
 ## Used By
 
 - [NAuthClient.forgotPassword()](../nauth-client#forgotpassword) - Accepts [`ForgotPasswordRequest`](./forgot-password-request)
