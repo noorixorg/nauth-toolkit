@@ -15,11 +15,12 @@ export class AccountLockoutStorageService implements AccountLockoutStorage {
   /**
    * Record failed login attempt for an IP address
    * @param ipAddress - IP address that made the failed attempt
+   * @param ttlSeconds - Optional TTL (seconds) for the attempt counter window
    * @returns Number of failed attempts for this IP
    */
-  async recordFailedAttempt(ipAddress: string): Promise<number> {
+  async recordFailedAttempt(ipAddress: string, ttlSeconds?: number): Promise<number> {
     const key = this.getKey(ipAddress);
-    return await this.storageAdapter.incr(key);
+    return await this.storageAdapter.incr(key, ttlSeconds);
   }
 
   /**
@@ -58,6 +59,16 @@ export class AccountLockoutStorageService implements AccountLockoutStorage {
     });
 
     await this.storageAdapter.set(lockKey, lockData, duration);
+
+    // ============================================================================
+    // IMPORTANT: Reset attempt counter on lock
+    // ============================================================================
+    // WHY:
+    // - Without this, a user can remain at/above maxAttempts and get re-locked immediately
+    //   once the lock TTL expires (especially when attempt counters are long-lived).
+    // - Lock duration is the penalty window; after it expires, users should get a fresh
+    //   attempt budget within the next attempt window.
+    await this.resetFailedAttempts(ipAddress);
   }
 
   /**

@@ -66,7 +66,7 @@ describe('AccountLockoutStorageService', () => {
       const result = await service.recordFailedAttempt('192.168.1.1');
 
       expect(result).toBe(1);
-      expect(mockStorageAdapter.incr).toHaveBeenCalledWith('nauth:lockout:ip:192.168.1.1');
+      expect(mockStorageAdapter.incr).toHaveBeenCalledWith('nauth:lockout:ip:192.168.1.1', undefined);
     });
 
     it('should return incremented count', async () => {
@@ -77,12 +77,20 @@ describe('AccountLockoutStorageService', () => {
       expect(result).toBe(5);
     });
 
+    it('should pass TTL when provided (attempt window)', async () => {
+      mockStorageAdapter.incr.mockResolvedValue(1);
+
+      await service.recordFailedAttempt('192.168.1.1', 3600);
+
+      expect(mockStorageAdapter.incr).toHaveBeenCalledWith('nauth:lockout:ip:192.168.1.1', 3600);
+    });
+
     it('should use correct key prefix', async () => {
       mockStorageAdapter.incr.mockResolvedValue(1);
 
       await service.recordFailedAttempt('10.0.0.1');
 
-      expect(mockStorageAdapter.incr).toHaveBeenCalledWith('nauth:lockout:ip:10.0.0.1');
+      expect(mockStorageAdapter.incr).toHaveBeenCalledWith('nauth:lockout:ip:10.0.0.1', undefined);
     });
   });
 
@@ -163,6 +171,7 @@ describe('AccountLockoutStorageService', () => {
   describe('lockIpAddress', () => {
     it('should lock account with correct data', async () => {
       mockStorageAdapter.set.mockResolvedValue();
+      mockStorageAdapter.del.mockResolvedValue();
 
       await service.lockIpAddress('192.168.1.1', 300, 'too_many_failed_attempts');
 
@@ -171,11 +180,13 @@ describe('AccountLockoutStorageService', () => {
         (expect as any).stringContaining('too_many_failed_attempts'),
         300,
       );
+      expect(mockStorageAdapter.del).toHaveBeenCalledWith('nauth:lockout:ip:192.168.1.1');
     });
 
     it('should include lockedAt timestamp', async () => {
       const beforeLock = new Date();
       mockStorageAdapter.set.mockResolvedValue();
+      mockStorageAdapter.del.mockResolvedValue();
 
       await service.lockIpAddress('192.168.1.1', 300, 'test_reason');
 
@@ -191,6 +202,7 @@ describe('AccountLockoutStorageService', () => {
     it('should calculate lockedUntil correctly', async () => {
       const duration = 600; // 10 minutes
       mockStorageAdapter.set.mockResolvedValue();
+      mockStorageAdapter.del.mockResolvedValue();
 
       await service.lockIpAddress('192.168.1.1', duration, 'test_reason');
 
@@ -205,6 +217,7 @@ describe('AccountLockoutStorageService', () => {
     it('should set TTL equal to duration', async () => {
       const duration = 300;
       mockStorageAdapter.set.mockResolvedValue();
+      mockStorageAdapter.del.mockResolvedValue();
 
       await service.lockIpAddress('192.168.1.1', duration, 'test_reason');
 

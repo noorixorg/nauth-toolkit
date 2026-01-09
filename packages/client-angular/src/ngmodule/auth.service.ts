@@ -1,4 +1,4 @@
-import { Inject, Injectable, Optional } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { NAUTH_CLIENT_CONFIG } from './tokens';
@@ -470,7 +470,44 @@ export class AuthService {
    * ```
    */
   async respondToChallenge(response: ChallengeResponse): Promise<AuthResponse> {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/97f9fe53-6a8b-43e2-ae9b-4b2d0f725816', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'auth.service.ts:respondToChallenge:entry',
+        message: 'RespondToChallenge called',
+        data: {
+          challengeType: response.type,
+          hasSession: !!response.session,
+        },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        hypothesisId: 'H7',
+      }),
+    }).catch(() => {});
+    // #endregion
     const res = await this.client.respondToChallenge(response);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/97f9fe53-6a8b-43e2-ae9b-4b2d0f725816', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'auth.service.ts:respondToChallenge:response',
+        message: 'RespondToChallenge response received',
+        data: {
+          hasChallengeName: !!res.challengeName,
+          challengeName: res.challengeName,
+          hasAccessToken: !!res.accessToken,
+          hasRefreshToken: !!res.refreshToken,
+          hasUser: !!res.user,
+        },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        hypothesisId: 'H7',
+      }),
+    }).catch(() => {});
+    // #endregion
     return this.updateChallengeState(res);
   }
 
@@ -542,6 +579,23 @@ export class AuthService {
   async clearChallenge(): Promise<void> {
     await this.client.clearStoredChallenge();
     this.challengeSubject.next(null);
+  }
+
+  /**
+   * Get current access token (JSON mode only).
+   *
+   * This is primarily useful for consumers using Angular `HttpClient` directly
+   * (outside of the SDK methods) and relying on an interceptor to attach Bearer tokens.
+   *
+   * @returns Access token, or null if not available
+   *
+   * @example
+   * ```typescript
+   * const token = await this.auth.getAccessToken();
+   * ```
+   */
+  async getAccessToken(): Promise<string | null> {
+    return await this.client.getAccessToken();
   }
 
   // ============================================================================

@@ -43,7 +43,7 @@ import { EmailProvider } from '@nauth-toolkit/core';
 | Method | Returns | Description |
 | --- | --- | --- |
 | `sendVerificationEmail(to, code, link?)` | `Promise<void>` | Send email verification code (and optional link) |
-| `sendPasswordResetEmail(to, token, link)` | `Promise<void>` | Send password reset message |
+| `sendPasswordResetEmail(to, token, link?, expiryMinutes?)` | `Promise<void>` | Send password reset message. Code is always sent (mandatory). Link is optional and only included when baseUrl is provided in the forgotPassword request. |
 | `sendAdminPasswordResetEmail(to, code, link?, expiryMinutes?)` | `Promise<void>` | Send admin-initiated password reset code/link |
 | `sendWelcomeEmail(to, name)` | `Promise<void>` | Send welcome message |
 | `sendLockoutEmail?(to, reason, duration)` | `Promise<void>` | (Optional) Account lockout notification |

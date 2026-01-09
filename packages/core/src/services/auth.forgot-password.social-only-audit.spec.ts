@@ -132,7 +132,7 @@ describe('AuthService.forgotPassword() (social-only)', () => {
     const res = await service.forgotPassword(dto);
 
     expect(res.success).toBe(true);
-    expect(mockPasswordResetService.requestReset).toHaveBeenCalledWith(socialOnlyUser, 'email');
+    expect(mockPasswordResetService.requestReset).toHaveBeenCalledWith(socialOnlyUser, 'email', { baseUrl: undefined });
   });
 });
 

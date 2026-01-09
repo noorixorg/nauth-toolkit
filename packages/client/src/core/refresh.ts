@@ -88,11 +88,26 @@ export class TokenManager {
    *
    * @param refreshFn - function performing refresh request
    */
-  async refreshOnce(refreshFn: () => Promise<TokenResponse>): Promise<TokenResponse> {
+  async refreshOnce(
+    refreshFn: () => Promise<TokenResponse>,
+    options?: {
+      /**
+       * Whether to persist returned tokens to storage.
+       *
+       * WHY:
+       * - JSON mode needs persisted tokens for Authorization headers.
+       * - Cookies mode uses httpOnly cookies; persisting tokens would be a security footgun.
+       */
+      persist?: boolean;
+    },
+  ): Promise<TokenResponse> {
+    const shouldPersist = options?.persist !== false;
     if (!this.refreshPromise) {
       this.refreshPromise = refreshFn()
         .then(async (tokens) => {
-          await this.setTokens(tokens);
+          if (shouldPersist) {
+            await this.setTokens(tokens);
+          }
           return tokens;
         })
         .catch((error) => {

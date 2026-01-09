@@ -83,12 +83,46 @@ export const appConfig: ApplicationConfig = {
     {
       provide: NAUTH_CLIENT_CONFIG,
       useValue: {
-        baseUrl: `${environment.apiBaseUrl}/auth`,
-        tokenDelivery: 'cookies',
+        baseUrl: `${environment.apiBaseUrl}`,
+        authPathPrefix: '/auth',
+        tokenDelivery: 'json',
         debug: true,
-        csrf: {
-          cookieName: 'nauth_csrf_token',
-          headerName: 'x-csrf-token',
+        // csrf: {
+        //   cookieName: 'nauth_csrf_token',
+        //   headerName: 'x-csrf-token',
+        // },
+        // CSRF not needed in JSON mode (Bearer tokens are CSRF-safe)
+        // Only configure csrf when using tokenDelivery: 'cookies' or 'hybrid'
+        endpoints: {
+          profile: '/profile',
+          login: '/login/mobile',
+          refresh: '/refresh/mobile',
+          signup: '/signup/mobile',
+          logout: '/logout/mobile',
+          // respondChallenge: '/respond-challenge/mobile',
+          // isTrustedDevice: '/auth/is-trusted-device',
+          // trustDevice: '/auth/trust-device',
+          // auditHistory: '/auth/audit/history',
+          // updateProfile: '/auth/profile',
+          // changePassword: '/auth/change-password',
+          // requestPasswordChange: '/auth/request-password-change',
+          // forgotPassword: '/auth/forgot-password/',
+          // confirmForgotPassword: '/auth/forgot-password/confirm',
+          // confirmAdminResetPassword: '/auth/admin/reset-password/confirm',
+          // socialRedirectStart: '/auth/social/:provider/redirect',
+          // socialExchange: '/auth/social/exchange',
+          // socialLinked: '/auth/social/linked',
+          // socialLink: '/auth/social/link',
+          // socialUnlink: '/auth/social/unlink',
+          // socialVerify: '/auth/social/:provider/verify',
+          // mfaStatus: '/auth/mfa/status',
+          // mfaDevices: '/auth/mfa/devices',
+          // mfaSetupData: '/auth/mfa/setup-data',
+          // mfaVerifySetup: '/auth/mfa/verify-setup',
+          // mfaRemove: '/auth/mfa/method',
+          // mfaPreferred: '/auth/mfa/preferred-method',
+          // mfaBackupCodes: '/auth/mfa/backup-codes/generate',
+          // mfaExemption: '/auth/mfa/exemption',
         },
 
         redirects: {

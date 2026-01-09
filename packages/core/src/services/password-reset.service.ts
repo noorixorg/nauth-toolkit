@@ -61,12 +61,16 @@ export class PasswordResetService {
    *
    * @param user - Target user
    * @param delivery - Delivery channel ('email' or 'sms')
+   * @param options - Reset options (baseUrl for link generation)
    * @returns Delivery metadata (masked destination, medium, expiresIn)
    * @throws {NAuthException} RATE_LIMIT_PASSWORD_RESET when rate limit exceeded
    */
   async requestReset(
     user: IUser,
     delivery: 'email' | 'sms',
+    options?: {
+      baseUrl?: string;
+    },
   ): Promise<{ destination?: string; deliveryMedium?: 'email' | 'sms'; expiresIn?: number }> {
     // ============================================================================
     // Rate limiting (per-user)
@@ -124,16 +128,28 @@ export class PasswordResetService {
     const saved = (await this.verificationTokenRepo.save(verificationToken)) as unknown as IVerificationToken;
 
     // ============================================================================
-    // Deliver code
+    // Build reset link if baseUrl provided
+    // ============================================================================
+    const resetLink = options?.baseUrl ? `${options.baseUrl}?token=${token}` : undefined;
+
+    // ============================================================================
+    // Deliver code (and optional link)
     // ============================================================================
     if (delivery === 'email') {
       if (!user.email) {
         return { deliveryMedium: 'email', expiresIn };
       }
-      // We reuse sendVerificationEmail for code-based reset (no link required).
-      // Consumers can customize provider templates to render this as a password reset email.
-      await this.emailProvider.sendVerificationEmail(user.email, code);
-      this.logger?.log?.(`Password reset code sent via email to user ${user.sub}`);
+
+      const expiryMinutes = Math.ceil(expiresIn / 60);
+
+      // Use sendPasswordResetEmail if link is provided, otherwise sendVerificationEmail for code-only
+      if (resetLink) {
+        await this.emailProvider.sendPasswordResetEmail(user.email, token, resetLink, expiryMinutes);
+      } else {
+        // Code-only reset (backward compatible)
+        await this.emailProvider.sendVerificationEmail(user.email, code);
+      }
+      this.logger?.log?.(`Password reset ${resetLink ? 'code and link' : 'code'} sent via email to user ${user.sub}`);
 
       // Audit
       await this.auditService?.recordEvent({

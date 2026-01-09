@@ -3409,23 +3409,12 @@
     "@tybys/wasm-util" "^0.10.1"
 
 "@nauth-toolkit/client-angular@file:packages/client-angular/dist":
-  version "0.1.59"
+  version "0.1.66"
   dependencies:
     tslib "^2.3.0"
 
 "@nauth-toolkit/client@file:packages/client/dist":
   version "0.0.0"
-
-"@nauth-toolkit/core@0.1.32":
-  version "0.1.32"
-  resolved "https://registry.yarnpkg.com/@nauth-toolkit/core/-/core-0.1.32.tgz#f01410a9390fc900ed70aa19466f407a9794b44e"
-  integrity sha512-o3kDOMtlPK7DctDgPhUgCgJclmANM76Rxqn/ImOjqP8iplm7GxUXkyB7XdcxgCBy7F2r3s2x+kpr05PsG4VF7w==
-  dependencies:
-    argon2 "^0.40.0"
-    class-transformer "^0.5.1"
-    class-validator "^0.14.0"
-    jose "^6.0.0"
-    zod "^3.23.8"
 
 "@nestjs/cli@^10.0.0":
   version "10.4.9"

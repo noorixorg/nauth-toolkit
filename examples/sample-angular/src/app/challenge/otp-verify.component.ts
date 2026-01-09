@@ -848,6 +848,18 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
       const method = this.mfaMethod();
       if (method === 'sms' || method === 'email') {
         this.startResendTimer();
+        // Trigger toast for verification code (code was sent when challenge was created)
+        const challengeSessionId = challenge.session;
+        if (challengeSessionId) {
+          // Small delay to ensure challenge is fully loaded
+          setTimeout(() => {
+            this.triggerToast(
+              challengeSessionId,
+              AuthChallenge.MFA_REQUIRED,
+              method as 'sms' | 'email',
+            );
+          }, 100);
+        }
       }
     }
 

@@ -414,11 +414,8 @@ emailNotifications: {
     sessionsRevoked: false,
     accountLockout: false,
     // ...
-
-    // Code emails (default: false = enabled)
-    emailVerification: false,
-    passwordReset: false,
-    adminPasswordReset: false,
+    // Note: Code emails (emailVerification, passwordReset, adminPasswordReset)
+    // cannot be suppressed and are always sent when enabled: true
   },
 },
 ```

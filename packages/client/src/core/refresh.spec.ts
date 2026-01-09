@@ -48,4 +48,25 @@ describe('TokenManager', () => {
     await Promise.all([manager.refreshOnce(refreshFn), manager.refreshOnce(refreshFn)]);
     expect(calls).toBe(1);
   });
+
+  it('does not persist tokens when persist=false (cookies mode safety)', async () => {
+    const storage = new MockStorage();
+    const manager = new TokenManager(storage);
+
+    const refreshFn = async () => {
+      return {
+        accessToken: 'x',
+        refreshToken: 'y',
+        accessTokenExpiresAt: 10,
+        refreshTokenExpiresAt: 20,
+      };
+    };
+
+    const tokens = await manager.refreshOnce(refreshFn, { persist: false });
+    expect(tokens.accessToken).toBe('x');
+
+    const state = await manager.getTokens();
+    expect(state.accessToken).toBeNull();
+    expect(state.refreshToken).toBeNull();
+  });
 });

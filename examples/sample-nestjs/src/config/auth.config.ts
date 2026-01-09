@@ -62,8 +62,8 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   mfa: {
-    enabled: true,
-    enforcement: 'ADAPTIVE',
+    enabled: false,
+    enforcement: 'OPTIONAL',
     gracePeriod: 0,
     requireForSocialLogin: false,
     allowedMethods: [MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.TOTP, MFAMethod.PASSKEY],
@@ -120,7 +120,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   tokenDelivery: {
-    method: 'cookies',
+    method: 'hybrid',
     cookieOptions: {
       secure: true,
       sameSite: 'strict',
@@ -217,16 +217,17 @@ export const authConfig: NAuthModuleConfig = {
     templates: {
       // All email templates are enabled by default when emailProvider is configured
       // You can override specific templates here if needed:
-      // customTemplates: {
-      //   verification: {
-      //     htmlPath: './email-templates/verification.html.hbs',
-      //     textPath: './email-templates/verification.text.hbs',
-      //   },
-      //   welcome: {
-      //     htmlPath: './email-templates/welcome.html.hbs',
-      //     textPath: './email-templates/welcome.text.hbs',
-      //   },
-      // },
+      customTemplates: {
+        // Custom verification template to test template override functionality
+        verification: {
+          htmlPath: './src/email-templates/verification.html.hbs',
+          textPath: './src/email-templates/verification.text.hbs',
+        },
+        // welcome: {
+        //   htmlPath: './email-templates/welcome.html.hbs',
+        //   textPath: './email-templates/welcome.text.hbs',
+        // },
+      },
     },
   },
 
@@ -251,10 +252,8 @@ export const authConfig: NAuthModuleConfig = {
       accountLockout: false, // Enable account lockout notification
       sessionsRevoked: false, // Enable sessions revoked alert
       mfaFirstEnabled: false, // Enable MFA first enabled confirmation
-      // Code emails (already enabled by default, but explicitly set for clarity)
-      emailVerification: false, // Email verification codes (ENABLED by default)
-      passwordReset: false, // Password reset codes (ENABLED by default)
-      adminPasswordReset: false, // Admin password reset codes (ENABLED by default)
+      // Note: Code emails (emailVerification, passwordReset, adminPasswordReset)
+      // cannot be suppressed and are always sent when enabled: true
     },
   },
 
@@ -311,7 +310,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
 
-  lockout: { enabled: true, maxAttempts: 5, duration: 300, resetOnSuccess: true },
+  lockout: { enabled: false, maxAttempts: 5, duration: 300, resetOnSuccess: true },
   session: {
     maxConcurrent: 2,
     disallowMultipleSessions: false,

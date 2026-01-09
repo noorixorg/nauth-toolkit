@@ -11,9 +11,14 @@ export interface EmailProvider {
   sendVerificationEmail(to: string, code: string, link?: string): Promise<void>;
 
   /**
-   * Send password reset email
+   * Send password reset email with optional link
+   *
+   * @param to - Recipient email address
+   * @param token - Reset token (for validation)
+   * @param link - Reset link (optional, only sent if provided)
+   * @param expiryMinutes - Link expiry time in minutes
    */
-  sendPasswordResetEmail(to: string, token: string, link: string): Promise<void>;
+  sendPasswordResetEmail(to: string, token: string, link?: string, expiryMinutes?: number): Promise<void>;
 
   /**
    * Send admin-initiated password reset email with code AND optional link

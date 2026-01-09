@@ -247,7 +247,24 @@ export class AuthGuard implements CanActivate {
     if (routeMode) {
       effective = routeMode;
     } else if (method === 'hybrid') {
-      effective = resolveDeliveryForRequest(request, cfg?.hybridPolicy);
+      // ============================================================================
+      // HYBRID MODE: Prefer the credential that is actually present
+      // ============================================================================
+      // WHY:
+      // - Browser-based SPAs can legitimately use JSON token delivery (localStorage + Bearer).
+      // - `Origin` is always present in browsers, so origin-based classification can incorrectly
+      //   force 'cookies' and reject Bearer tokens, even when the client is configured for JSON.
+      //
+      // SECURITY:
+      // - We do NOT "leak" tokens to browsers; we only accept Bearer when the client sends it.
+      // - When both cookie and bearer are present, we fall back to hybridPolicy/origin resolution.
+      if (headerToken && !cookieToken) {
+        effective = 'json';
+      } else if (cookieToken && !headerToken) {
+        effective = 'cookies';
+      } else {
+        effective = resolveDeliveryForRequest(request, cfg?.hybridPolicy);
+      }
     } else if (method === 'cookies') {
       effective = 'cookies';
     } else {

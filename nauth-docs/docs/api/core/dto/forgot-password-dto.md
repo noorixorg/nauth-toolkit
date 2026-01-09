@@ -59,11 +59,12 @@ import {
 
 ## ForgotPasswordDTO
 
-Request a password reset code for an account.
+Request a password reset code for an account. Optionally includes a base URL to generate a reset link.
 
 | Property | Type | Required | Description |
 | -------- | ---- | -------- | ----------- |
 | `identifier` | `string` | Yes | Account identifier (email/username/phone). 1-255 chars. Trimmed. Lowercased if email (contains `@`). |
+| `baseUrl` | `string` | No | Base URL for building reset link (e.g., `https://myapp.com/reset-password`). Must be valid URL with http:// or https://. Max 2048 chars. Trimmed. When provided, both code and link are sent. |
 
 ## ForgotPasswordResponseDTO
 
@@ -97,13 +98,24 @@ Response for a confirmed password reset.
 
 ## Example
 
-**Request Reset Code:**
+**Request Reset Code (code only):**
 
 ```json
 {
   "identifier": "user@example.com"
 }
 ```
+
+**Request Reset Code with Link:**
+
+```json
+{
+  "identifier": "user@example.com",
+  "baseUrl": "https://myapp.com/reset-password"
+}
+```
+
+When `baseUrl` is provided, the system generates a reset link as `${baseUrl}?token=<token>` and sends both the code and the link to the user. The code is always sent (mandatory), while the link is optional and only included when `baseUrl` is provided.
 
 **Confirm Reset:**
 

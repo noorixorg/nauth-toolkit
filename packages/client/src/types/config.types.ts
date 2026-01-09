@@ -173,6 +173,45 @@ export interface NAuthClientConfig {
   baseUrl: string;
 
   /**
+   * Optional path prefix automatically prepended to all endpoint paths.
+   * Simplifies configuration when all auth endpoints share a common prefix.
+   *
+   * Benefits:
+   * - Avoids repeating `/auth` in every endpoint path or having to give it if using default endpoints in backend.
+   * - Cleaner endpoint configuration
+   * - Easier to change the auth path globally
+   *
+   * Note: Authorization tokens are still sent to ALL requests matching `baseUrl`,
+   * regardless of this prefix. This is a convenience feature, not a security boundary.
+   *
+   * @example Without authPathPrefix (verbose)
+   * ```typescript
+   * {
+   *   baseUrl: 'https://api.example.com',
+   *   endpoints: {
+   *     profile: '/auth/profile',
+   *     login: '/auth/login/mobile',
+   *     mfaStatus: '/auth/mfa/status',
+   *   }
+   * }
+   * ```
+   *
+   * @example With authPathPrefix (clean)
+   * ```typescript
+   * {
+   *   baseUrl: 'https://api.example.com',
+   *   authPathPrefix: '/auth',
+   *   endpoints: {
+   *     profile: '/profile',          // SDK builds: /auth/profile
+   *     login: '/login/mobile',       // SDK builds: /auth/login/mobile
+   *     mfaStatus: '/mfa/status',     // SDK builds: /auth/mfa/status
+   *   }
+   * }
+   * ```
+   */
+  authPathPrefix?: string;
+
+  /**
    * How tokens are delivered between client and server.
    *
    * - `'cookies'` - For web apps. Backend sets httpOnly cookies.

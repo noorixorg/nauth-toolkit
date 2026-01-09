@@ -138,6 +138,28 @@ describe('AuthGuard token source enforcement', () => {
     expect(mockJwtService.validateAccessToken).toHaveBeenCalledWith('cookieToken');
   });
 
+  it('accepts bearer tokens in hybrid mode when only Authorization is present', async () => {
+    const guard = await createGuard({ tokenDelivery: { method: 'hybrid' } });
+    const ctx = createHttpContext({
+      headers: { authorization: 'Bearer headerToken' },
+      cookies: {},
+    });
+    const result = await guard.canActivate(ctx as any);
+    expect(result).toBe(true);
+    expect(mockJwtService.validateAccessToken).toHaveBeenCalledWith('headerToken');
+  });
+
+  it('accepts cookies in hybrid mode when only cookie is present', async () => {
+    const guard = await createGuard({ tokenDelivery: { method: 'hybrid' } });
+    const ctx = createHttpContext({
+      headers: {},
+      cookies: { nauth_access_token: 'cookieToken' },
+    });
+    const result = await guard.canActivate(ctx as any);
+    expect(result).toBe(true);
+    expect(mockJwtService.validateAccessToken).toHaveBeenCalledWith('cookieToken');
+  });
+
   it('allows public routes to proceed even when token source is not allowed by delivery mode', async () => {
     // Public route should never throw; it should just skip auth context attachment.
     (mockReflector.getAllAndOverride as unknown as jest.Mock).mockReturnValue(true);

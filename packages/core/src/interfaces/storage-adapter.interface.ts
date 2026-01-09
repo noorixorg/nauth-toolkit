@@ -73,7 +73,18 @@ export interface RateLimitStorage {
  * attackers from locking out legitimate users by guessing their email/username.
  */
 export interface AccountLockoutStorage {
-  recordFailedAttempt(ipAddress: string): Promise<number>;
+  /**
+   * Record a failed login attempt for an IP address.
+   *
+   * SECURITY NOTE:
+   * Use an expiry window to prevent counters from accumulating indefinitely, which can cause
+   * unexpected lockouts long after the original failures.
+   *
+   * @param ipAddress - IP address that made the failed attempt
+   * @param ttlSeconds - Optional TTL (seconds) applied when the counter key is first created
+   * @returns Number of failed attempts for this IP within the active window
+   */
+  recordFailedAttempt(ipAddress: string, ttlSeconds?: number): Promise<number>;
   getFailedAttempts(ipAddress: string): Promise<number>;
   isAccountLocked(ipAddress: string): Promise<boolean>;
   lockIpAddress(ipAddress: string, duration: number, reason: string): Promise<void>;

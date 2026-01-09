@@ -3821,7 +3821,9 @@ export class AuthService {
     }
 
     try {
-      const result = await this.passwordResetService.requestReset(user, delivery);
+      const result = await this.passwordResetService.requestReset(user, delivery, {
+        baseUrl: dto.baseUrl,
+      });
       response.destination = result.destination;
       response.deliveryMedium = result.deliveryMedium;
       response.expiresIn = result.expiresIn;

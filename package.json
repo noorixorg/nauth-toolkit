@@ -18,7 +18,7 @@
   ],
   "packageManager": "yarn@1.22.0",
   "resolutions": {
-    "@nauth-toolkit/core": "0.1.32"
+    "@nauth-toolkit/core": "0.1.66"
   },
   "scripts": {
     "preinstall": "node -e \"if(!process.env.npm_execpath||process.env.npm_execpath.includes('npm')){console.error('\\nERROR: This monorepo requires Yarn, not npm!\\nPlease use: yarn install\\n');process.exit(1)}\"",

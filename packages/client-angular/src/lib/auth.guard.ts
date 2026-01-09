@@ -1,4 +1,4 @@
-import { inject, Inject, Optional } from '@angular/core';
+import { inject, Inject, Injectable, Optional } from '@angular/core';
 import { CanActivateFn, Router, UrlTree } from '@angular/router';
 import { AuthService } from '../ngmodule/auth.service';
 import { NAUTH_CLIENT_CONFIG } from '../ngmodule/tokens';
@@ -87,6 +87,7 @@ export function authGuard(redirectTo?: string): CanActivateFn {
  * export class FeatureModule {}
  * ```
  */
+@Injectable()
 export class AuthGuard {
   /**
    * @param auth - Authentication service

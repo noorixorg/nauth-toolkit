@@ -101,6 +101,8 @@ import {
  * POST /auth/challenge/setup-data { session, method: 'totp' }
  * ```
  */
+
+@UseGuards(AuthGuard)
 @Controller('auth')
 export class CustomAuthController {
   protected readonly logger = new Logger(this.constructor.name);
@@ -493,8 +495,23 @@ export class CustomAuthController {
   @Post('login/mobile')
   @HttpCode(HttpStatus.OK)
   async loginMobile(@Body() dto: LoginDTO): Promise<AuthResponseDTO> {
-    this.logger.log(`Login attempt: ${dto.identifier}`);
+    this.logger.log(`Login attempt (mobile): ${dto.identifier}`);
     return await this.authService.login(dto);
+  }
+
+  /**
+   * User signup (MOBILE/JSON MODE)
+   *
+   * @param dto - Signup credentials
+   * @returns Auth response (tokens or challenge)
+   */
+  @Public()
+  @TokenDelivery('json')
+  @Post('signup/mobile')
+  @HttpCode(HttpStatus.CREATED)
+  async signupMobile(@Body() dto: SignupDTO): Promise<AuthResponseDTO> {
+    this.logger.log(`Signup attempt (mobile): ${dto.email}`);
+    return await this.authService.signup(dto);
   }
 
   /**
@@ -548,6 +565,35 @@ export class CustomAuthController {
   }
 
   /**
+   * Respond to authentication challenge (MOBILE/JSON MODE)
+   *
+   * Mobile version with @TokenDelivery('json') for JSON-based clients.
+   *
+   * @param dto - Challenge response with type-specific data
+   * @returns Auth response (tokens in body or next challenge)
+   */
+  @Public()
+  @TokenDelivery('json')
+  @Post('respond-challenge/mobile')
+  @HttpCode(HttpStatus.OK)
+  async respondToChallengeMobile(@Body() dto: RespondChallengeDTO): Promise<AuthResponseDTO> {
+    const requestId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    this.logger.log(
+      `[${requestId}] Challenge response (mobile): type=${dto.type}, session=${dto.session?.substring(0, 8)}...`,
+    );
+    try {
+      const result = await this.authService.respondToChallenge(dto);
+      this.logger.log(`[${requestId}] Challenge response (mobile) completed successfully`);
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `[${requestId}] Challenge response (mobile) failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Refresh access token
    *
    * Issues a new access token using a valid refresh token.
@@ -584,6 +630,24 @@ export class CustomAuthController {
   }
 
   /**
+   * Refresh access token (MOBILE/JSON MODE)
+   *
+   * @param dto - Refresh token DTO
+   * @returns New token pair
+   */
+  @Public()
+  @TokenDelivery('json')
+  @Post('refresh/mobile')
+  @HttpCode(HttpStatus.OK)
+  async refreshMobile(@Body() dto: RefreshTokenDTO): Promise<TokenResponse> {
+    if (!dto.refreshToken) {
+      throw new BadRequestException('Refresh token is required');
+    }
+    this.logger.log('Token refresh attempt (mobile)');
+    return await this.authService.refreshToken(dto);
+  }
+
+  /**
    * Logout user and revoke session
    *
    * Uses GET request to avoid CSRF token issues.
@@ -599,7 +663,7 @@ export class CustomAuthController {
    * GET /auth/logout?forgetMe=true
    * ```
    */
-  @UseGuards(AuthGuard)
+
   @Get('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@CurrentUser() user: IUser, @Query('forgetMe') forgetMe?: string): Promise<{ message: string }> {
@@ -619,6 +683,28 @@ export class CustomAuthController {
   }
 
   /**
+   * Logout user (MOBILE/JSON MODE)
+   *
+   * @param user - Current user (from JWT)
+   * @param forgetMe - If true, also untrust the device
+   * @returns Success message
+   */
+
+  @TokenDelivery('json')
+  @Get('logout/mobile')
+  @HttpCode(HttpStatus.OK)
+  async logoutMobile(@CurrentUser() user: IUser, @Query('forgetMe') forgetMe?: string): Promise<{ message: string }> {
+    const dto = new LogoutDTO();
+    if (forgetMe === 'true' || forgetMe === '1') {
+      dto.forgetMe = true;
+    }
+    dto.sub = user.sub;
+    await this.authService.logout(dto);
+    this.logger.log(`User logged out (mobile): ${user.email}`);
+    return { message: 'Logged out successfully' };
+  }
+
+  /**
    * Global signout (revoke all user sessions)
    *
    * Revokes all active sessions for the current user across all devices.
@@ -627,7 +713,7 @@ export class CustomAuthController {
    * @param user - Current user (from JWT)
    * @returns Success message with number of sessions revoked
    */
-  @UseGuards(AuthGuard)
+
   /**
    * Global signout (revoke all sessions)
    *
@@ -638,7 +724,7 @@ export class CustomAuthController {
    * @param body - Optional request body with forgetDevices flag
    * @returns Number of sessions revoked
    */
-  @UseGuards(AuthGuard)
+
   @Post('logout/all')
   @HttpCode(HttpStatus.OK)
   async logoutAll(
@@ -677,7 +763,7 @@ export class CustomAuthController {
    * // Returns: { sessions: [{ sessionId, deviceInfo, ipAddress, lastActivity, isCurrent }] }
    * ```
    */
-  @UseGuards(AuthGuard)
+
   @Get('sessions')
   @HttpCode(HttpStatus.OK)
   async getUserSessions(@CurrentUser() user: IUser): Promise<GetUserSessionsResponseDTO> {
@@ -708,7 +794,7 @@ export class CustomAuthController {
    * // Returns: { success: true, wasCurrentSession: false }
    * ```
    */
-  @UseGuards(AuthGuard)
+
   @Delete('sessions/:sessionId')
   @HttpCode(HttpStatus.OK)
   async logoutSession(
@@ -733,7 +819,7 @@ export class CustomAuthController {
    * @param req - Request object (for session ID)
    * @returns Device token
    */
-  @UseGuards(AuthGuard)
+
   @Post('trust-device')
   @HttpCode(HttpStatus.OK)
   async trustDevice(@CurrentUser() user: IUser): Promise<{ deviceToken: string }> {
@@ -753,7 +839,7 @@ export class CustomAuthController {
    * @param user - Current user (from JWT)
    * @returns Trusted device status
    */
-  @UseGuards(AuthGuard)
+
   @Get('is-trusted-device')
   @HttpCode(HttpStatus.OK)
   async isTrustedDevice(): Promise<{ trusted: boolean }> {
@@ -862,7 +948,7 @@ export class CustomAuthController {
    * @param user - Current user (from JWT)
    * @returns User profile
    */
-  @UseGuards(AuthGuard)
+
   @Get('profile')
   async getProfile(@CurrentUser() user: IUser): Promise<IUser> {
     return user;
@@ -871,7 +957,7 @@ export class CustomAuthController {
   /**
    * Update current user profile
    */
-  @UseGuards(AuthGuard)
+
   @Put('profile')
   async updateProfile(@CurrentUser() user: IUser, @Body() dto: UpdateUserAttributesRequestDTO) {
     // #region agent log
@@ -913,7 +999,7 @@ export class CustomAuthController {
    * @param body - Current and new password (accepts both 'oldPassword' and 'currentPassword' for compatibility)
    * @returns Success message
    */
-  @UseGuards(AuthGuard)
+
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
   async changePassword(
@@ -935,7 +1021,7 @@ export class CustomAuthController {
    * @param user - Current user (from JWT)
    * @returns Success message
    */
-  @UseGuards(AuthGuard)
+
   @Post('request-password-change')
   @HttpCode(HttpStatus.OK)
   async requestPasswordChange(@CurrentUser() user: IUser): Promise<{ message: string }> {
@@ -956,7 +1042,7 @@ export class CustomAuthController {
    * @param user - Current user (from JWT)
    * @returns MFA status including enabled methods, configured devices, etc.
    */
-  @UseGuards(AuthGuard)
+
   @Get('mfa/status')
   async getMFAStatus(@CurrentUser() user: IUser): Promise<{
     enabled: boolean;
@@ -997,7 +1083,7 @@ export class CustomAuthController {
    * @param body - MFA method to set up
    * @returns Setup data (provider-specific)
    */
-  @UseGuards(AuthGuard)
+
   @Post('mfa/setup-data')
   async getMFASetupData(@CurrentUser() user: IUser, @Body() dto: SetupMFADTO): Promise<unknown> {
     if (!this.mfaService) {
@@ -1018,7 +1104,7 @@ export class CustomAuthController {
    * @param body - Verification data (method-specific)
    * @returns Success response with device ID
    */
-  @UseGuards(AuthGuard)
+
   @Post('mfa/verify-setup')
   async verifyMFASetup(@CurrentUser() user: IUser, @Body() dto: SetupMFADTO): Promise<{ deviceId: number }> {
     if (!this.mfaService) {
@@ -1042,7 +1128,7 @@ export class CustomAuthController {
    * @param user - Current user (from JWT)
    * @returns Array of MFA devices
    */
-  @UseGuards(AuthGuard)
+
   @Get('mfa/devices')
   async getMFADevices(@CurrentUser() user: IUser): Promise<any[]> {
     if (!this.mfaService) {
@@ -1067,7 +1153,7 @@ export class CustomAuthController {
    * @param body - Preferred method
    * @returns Success message
    */
-  @UseGuards(AuthGuard)
+
   @Post('mfa/preferred-method')
   async setPreferredMFAMethod(
     @CurrentUser() user: IUser,
@@ -1098,7 +1184,7 @@ export class CustomAuthController {
    * // Returns: { deletedCount: 1, mfaDisabled: false, message: "MFA method removed successfully" }
    * ```
    */
-  @UseGuards(AuthGuard)
+
   @Delete('mfa/method/:method')
   @HttpCode(HttpStatus.OK)
   async removeMFAMethod(
@@ -1131,7 +1217,7 @@ export class CustomAuthController {
    * @param body - Exemption request (exempt: boolean, reason?: string)
    * @returns Updated exemption status
    */
-  @UseGuards(AuthGuard)
+
   @Post('mfa/exemption')
   @HttpCode(HttpStatus.OK)
   async setMFAExemption(
@@ -1187,7 +1273,7 @@ export class CustomAuthController {
    * @param user - Current user (from JWT)
    * @returns Array of linked social account providers
    */
-  @UseGuards(AuthGuard)
+
   @Get('social/linked')
   async getLinkedAccounts(@CurrentUser() user: IUser): Promise<{ providers: string[] }> {
     if (!this.socialAuthService) {
@@ -1209,7 +1295,7 @@ export class CustomAuthController {
    * @param body - OAuth callback parameters
    * @returns Success message
    */
-  @UseGuards(AuthGuard)
+
   @Post('social/link')
   async linkSocialAccount(@CurrentUser() user: IUser, @Body() dto: LinkSocialAccountDTO): Promise<{ message: string }> {
     if (!this.socialAuthService) {
@@ -1227,7 +1313,7 @@ export class CustomAuthController {
    * @param body - Provider to unlink
    * @returns Success message
    */
-  @UseGuards(AuthGuard)
+
   @Post('social/unlink')
   async unlinkSocialAccount(
     @CurrentUser() user: IUser,
@@ -1253,7 +1339,7 @@ export class CustomAuthController {
    * @param query - Pagination and filter parameters
    * @returns Paginated audit history
    */
-  @UseGuards(AuthGuard)
+
   @Get('audit/history')
   async getAuditHistory(
     @CurrentUser() user: IUser,

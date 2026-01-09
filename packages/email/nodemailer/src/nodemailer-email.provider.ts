@@ -289,6 +289,17 @@ export class NodemailerProvider implements EmailProvider {
   }
 
   /**
+   * Get the template engine instance
+   *
+   * Allows AuthModule to register custom templates on the engine
+   *
+   * @returns The template engine instance
+   */
+  getTemplateEngine(): HandlebarsTemplateEngine {
+    return this.templateEngine;
+  }
+
+  /**
    * Constructor
    *
    * @param config - Nodemailer provider configuration
@@ -451,7 +462,7 @@ export class NodemailerProvider implements EmailProvider {
   async sendPasswordResetEmail(
     to: string,
     _token: string,
-    link: string,
+    link?: string,
     expiryMinutes: number = 60,
     variables: TemplateVariables = {},
   ): Promise<void> {
@@ -459,10 +470,14 @@ export class NodemailerProvider implements EmailProvider {
       ...this.globalVariables,
       userName: to.split('@')[0],
       userEmail: to,
-      link,
       expiryMinutes,
       ...variables,
     };
+
+    // Only include link if provided
+    if (link) {
+      templateVariables.link = link;
+    }
 
     const email = await this.templateEngine.render(TemplateType.PASSWORD_RESET, templateVariables);
 
@@ -1096,6 +1111,8 @@ export class NodemailerProvider implements EmailProvider {
    * Check if email notification should be sent based on config
    *
    * Checks global enabled flag and per-notification suppression settings.
+   * Code emails (verification, password reset, admin password reset) cannot be suppressed
+   * and are always sent when the global kill switch is enabled.
    *
    * @param notificationType - Type of notification (matches suppress config keys)
    * @returns True if email should be sent, false if suppressed
@@ -1110,15 +1127,16 @@ export class NodemailerProvider implements EmailProvider {
       return false;
     }
 
-    // Check per-notification suppression (default to true = DISABLED for optional notifications)
+    // Code emails cannot be suppressed - always send when global switch is enabled
+    const codeEmails = ['emailVerification', 'passwordReset', 'adminPasswordReset'];
+    if (codeEmails.includes(notificationType)) {
+      return true;
+    }
+
+    // Check per-notification suppression for optional notifications (default to true = DISABLED)
     const suppress = notifications?.suppress as Record<string, boolean | undefined> | undefined;
     const isSuppressed = suppress?.[notificationType];
-
-    // For code emails (verification, passwordReset, adminPasswordReset), default is false (ENABLED)
-    // For optional notifications, default is true (DISABLED)
-    const defaultSuppressed = !['emailVerification', 'passwordReset', 'adminPasswordReset'].includes(notificationType);
-
-    const shouldSuppress = isSuppressed !== undefined ? isSuppressed : defaultSuppressed;
+    const shouldSuppress = isSuppressed !== undefined ? isSuppressed : true;
 
     if (shouldSuppress) {
       this.logger?.debug?.(`[EmailNotifications] ${notificationType} email suppressed by config`);

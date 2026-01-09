@@ -289,7 +289,11 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
     htmlFilePath: string,
     textFilePath?: string,
   ): Promise<void> {
-    const fullHtmlPath = resolve(this.baseDir, htmlFilePath);
+    // If path is already absolute, use it directly; otherwise resolve relative to baseDir
+    const fullHtmlPath =
+      htmlFilePath.startsWith('/') || /^[A-Z]:/.test(htmlFilePath) // Windows absolute path
+        ? htmlFilePath
+        : resolve(this.baseDir, htmlFilePath);
 
     try {
       const htmlContent = readFileSync(fullHtmlPath, 'utf-8');
@@ -297,7 +301,11 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
 
       let text: string | undefined;
       if (textFilePath) {
-        const fullTextPath = resolve(this.baseDir, textFilePath);
+        // If path is already absolute, use it directly; otherwise resolve relative to baseDir
+        const fullTextPath =
+          textFilePath.startsWith('/') || /^[A-Z]:/.test(textFilePath) // Windows absolute path
+            ? textFilePath
+            : resolve(this.baseDir, textFilePath);
         text = readFileSync(fullTextPath, 'utf-8');
       }
 
@@ -406,7 +414,11 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
     }
 
     if (source.filePath) {
-      const fullPath = resolve(this.baseDir, source.filePath);
+      // If path is already absolute, use it directly; otherwise resolve relative to baseDir
+      const fullPath =
+        source.filePath.startsWith('/') || source.filePath.match(/^[A-Z]:/) // Windows absolute path
+          ? source.filePath
+          : resolve(this.baseDir, source.filePath);
       try {
         return readFileSync(fullPath, 'utf-8');
       } catch (error) {

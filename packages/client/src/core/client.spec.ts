@@ -135,4 +135,47 @@ describe('NAuthClient', () => {
     const result = await client.isTrustedDevice();
     expect(result.trusted).toBe(true);
   });
+
+  it('refreshTokens in cookies mode does not persist tokens to storage', async () => {
+    const storage = new MockStorage();
+    const client = new NAuthClient({
+      baseUrl: 'https://api.example.com',
+      authPathPrefix: '/auth',
+      tokenDelivery: 'cookies',
+      storage,
+      onSessionExpired: () => undefined,
+    });
+
+    getFetchMock().mockImplementation(async (input: RequestInfo | URL, options?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input.toString();
+
+      if (url === 'https://api.example.com/auth/refresh') {
+        expect(options?.method).toBe('POST');
+        expect(options?.credentials).toBe('include');
+        return createMockResponse({
+          ok: true,
+          status: 200,
+          body: {
+            accessToken: 'a2',
+            refreshToken: 'r2',
+            accessTokenExpiresAt: 10,
+            refreshTokenExpiresAt: 20,
+          },
+        });
+      }
+
+      return createMockResponse({
+        ok: true,
+        status: 200,
+        body: {},
+      });
+    });
+
+    const tokens = await client.refreshTokens();
+    expect(tokens.accessToken).toBe('a2');
+
+    // Cookies mode should not persist tokens client-side
+    expect(await storage.getItem('nauth_access_token')).toBeNull();
+    expect(await storage.getItem('nauth_refresh_token')).toBeNull();
+  });
 });

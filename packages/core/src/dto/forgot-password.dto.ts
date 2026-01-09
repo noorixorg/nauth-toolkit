@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength, MinLength, IsOptional, IsUrl } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 /**
@@ -13,6 +13,12 @@ import { Transform } from 'class-transformer';
  * @example
  * ```typescript
  * await authService.forgotPassword({ identifier: 'user@example.com' });
+ *
+ * // With link support
+ * await authService.forgotPassword({
+ *   identifier: 'user@example.com',
+ *   baseUrl: 'https://myapp.com/reset-password'
+ * });
  * ```
  */
 export class ForgotPasswordDTO {
@@ -40,6 +46,36 @@ export class ForgotPasswordDTO {
     return value;
   })
   identifier!: string;
+
+  /**
+   * Base URL for building reset link
+   *
+   * Validation:
+   * - Must be valid URL with http:// or https://
+   * - Max 2048 characters
+   * - Optional
+   *
+   * Sanitization:
+   * - Trimmed
+   *
+   * WHY: Allows consumer apps to build custom reset UI (e.g., myapp.com/reset-password?token=xxx)
+   * Like email verification and admin reset, supports both code AND link delivery
+   *
+   * @example "https://myapp.com/reset-password"
+   */
+  @IsOptional()
+  @IsUrl(
+    { require_protocol: true, protocols: ['http', 'https'] },
+    { message: 'Base URL must be valid URL with http:// or https://' },
+  )
+  @MaxLength(2048, { message: 'Base URL must not exceed 2048 characters' })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    return value;
+  })
+  baseUrl?: string;
 }
 
 /**

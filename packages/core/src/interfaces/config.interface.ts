@@ -440,7 +440,7 @@ export interface NAuthConfig {
    * All notifications default to DISABLED (opt-in) except verification/reset codes.
    *
    * Consumers can:
-   * - Enable/disable any notification email
+   * - Enable/disable optional notification emails
    * - Suppress built-in emails and implement custom hooks instead
    * - Use hooks to send notifications via custom channels (SMS, push, etc.)
    *
@@ -450,8 +450,8 @@ export interface NAuthConfig {
    * - Useful for development/testing environments
    *
    * **Suppression Controls:**
-   * - Each notification type can be individually suppressed
-   * - `suppress.emailVerification: true` disables verification code emails
+   * - Optional notification types can be individually suppressed
+   * - Code emails (verification, password reset, admin password reset) cannot be suppressed
    * - `suppress.passwordChanged: false` enables password changed emails
    *
    * **Hook Alternative:**
@@ -475,10 +475,7 @@ export interface NAuthConfig {
    *     accountLockout: true,
    *     sessionsRevoked: true,
    *     mfaFirstEnabled: true,
-   *     // Code emails (default: false = ENABLED)
-   *     emailVerification: false,
-   *     passwordReset: false,
-   *     adminPasswordReset: false
+   *     mfaMethodAdded: true
    *   }
    * }
    * ```
@@ -499,18 +496,6 @@ export interface NAuthConfig {
    *     accountLockout: false,            // Enable account lockout notification
    *     sessionsRevoked: false,           // Enable sessions revoked alert
    *     mfaFirstEnabled: false            // Enable MFA first enabled confirmation
-   *   }
-   * }
-   * ```
-   *
-   * @example Disable built-in emails, use custom hooks
-   * ```typescript
-   * emailNotifications: {
-   *   enabled: true,
-   *   suppress: {
-   *     emailVerification: true,           // Suppress, use IVerificationCodeSentHook
-   *     passwordReset: true,               // Suppress, use IPasswordResetSentHook
-   *     passwordChanged: true              // Suppress, use IPasswordChangedHook
    *   }
    * }
    * ```
@@ -1004,6 +989,17 @@ export interface LockoutConfig {
    * Maximum failed login attempts per IP address
    */
   maxAttempts?: number;
+
+  /**
+   * Attempt window in seconds for counting failed login attempts.
+   *
+   * WHY:
+   * - Prevents failed-attempt counters from accumulating indefinitely.
+   * - Makes `maxAttempts` behave like "N attempts per window" (standard lockout semantics).
+   *
+   * @default 3600 (1 hour)
+   */
+  attemptWindow?: number;
 
   /**
    * IP lockout duration in seconds
@@ -2253,12 +2249,12 @@ export interface EmailNotificationsConfig {
   /**
    * Granular email suppression controls
    *
-   * Each notification type can be individually suppressed.
+   * Optional notification types can be individually suppressed.
    * Suppressed emails will NOT be sent by built-in email provider.
    *
    * **Default Behavior:**
    * - Optional notifications default to `true` (DISABLED, opt-in required)
-   * - Code emails default to `false` (ENABLED, critical for auth flow)
+   * - Code emails (verification, password reset, admin password reset) cannot be suppressed
    *
    * **Hook Alternative:**
    * Set notification to `true` (suppressed) and implement corresponding hook
@@ -2377,33 +2373,6 @@ export interface EmailNotificationsConfig {
      * @default true (DISABLED, opt-in)
      */
     mfaMethodAdded?: boolean;
-
-    /**
-     * Email verification code
-     *
-     * Critical for signup flow. Can be suppressed if using custom hook.
-     *
-     * @default false (ENABLED by default)
-     */
-    emailVerification?: boolean;
-
-    /**
-     * Password reset code/link
-     *
-     * Critical for account recovery. Can be suppressed if using custom hook.
-     *
-     * @default false (ENABLED by default)
-     */
-    passwordReset?: boolean;
-
-    /**
-     * Admin-initiated password reset code/link
-     *
-     * Critical for admin-initiated password recovery. Can be suppressed if using custom hook.
-     *
-     * @default false (ENABLED by default)
-     */
-    adminPasswordReset?: boolean;
   };
 }
 

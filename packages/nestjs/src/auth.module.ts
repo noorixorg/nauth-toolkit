@@ -1214,7 +1214,7 @@ export class AuthModule {
         // Email Provider (required - must be provided in config or from email package)
         {
           provide: 'EMAIL_PROVIDER',
-          useFactory: (): EmailProvider => {
+          useFactory: async (): Promise<EmailProvider> => {
             if (!config.emailProvider) {
               throw new NAuthException(
                 AuthErrorCode.VALIDATION_FAILED,
@@ -1263,6 +1263,95 @@ export class AuthModule {
                 provider as unknown as { setGlobalVariables: (vars: Record<string, unknown>) => void }
               ).setGlobalVariables(mergedVars);
             }
+
+            // ============================================================================
+            // Register Custom Email Templates
+            // ============================================================================
+            const emailTemplates = config.email?.templates;
+            if (emailTemplates?.customTemplates) {
+              // Check if provider has getTemplateEngine method (NodemailerProvider)
+              const maybeTemplateEngineAware = provider as unknown as {
+                getTemplateEngine?: () => {
+                  registerTemplate?: (type: string, template: { subject: string; html: string; text?: string }) => void;
+                  registerTemplateFromFile?: (type: string, htmlPath: string, textPath?: string) => Promise<void>;
+                  registerTemplateFromSources?: (
+                    type: string,
+                    sources: {
+                      subject: { content?: string; filePath?: string };
+                      html: { content?: string; filePath?: string };
+                      text?: { content?: string; filePath?: string };
+                    },
+                  ) => Promise<void>;
+                };
+              };
+
+              if (typeof maybeTemplateEngineAware.getTemplateEngine === 'function') {
+                const templateEngine = maybeTemplateEngineAware.getTemplateEngine();
+
+                // Register each custom template
+                for (const [type, templateDef] of Object.entries(emailTemplates.customTemplates)) {
+                  try {
+                    if (templateDef.htmlPath) {
+                      // File-based template
+                      // NOTE: We intentionally avoid framework-specific path magic here.
+                      // The template engine resolves relative paths against its baseDir (default: process.cwd()).
+                      const htmlPath = templateDef.htmlPath;
+                      const textPath = templateDef.textPath;
+
+                      if (templateDef.subject && templateEngine.registerTemplateFromSources) {
+                        // Explicit subject + file paths
+                        await templateEngine.registerTemplateFromSources(type, {
+                          subject: { content: templateDef.subject },
+                          html: { filePath: htmlPath },
+                          text: textPath ? { filePath: textPath } : undefined,
+                        });
+                      } else if (templateEngine.registerTemplateFromFile) {
+                        // Subject is expected in HTML frontmatter
+                        await templateEngine.registerTemplateFromFile(type, htmlPath, textPath);
+                      }
+                    } else if (templateDef.html) {
+                      // Inline template
+                      if (templateEngine.registerTemplate) {
+                        // Parse subject from frontmatter if present, otherwise require explicit subject.
+                        let subject = templateDef.subject;
+                        let html = templateDef.html;
+
+                        const frontmatterMatch = html.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
+                        if (frontmatterMatch) {
+                          const frontmatter = frontmatterMatch[1];
+                          html = frontmatterMatch[2];
+                          const subjectMatch = frontmatter.match(/subject:\s*(.+)/);
+                          if (subjectMatch) subject = subjectMatch[1].trim();
+                        }
+
+                        // Graceful fallback: if subject is missing, do not register (avoids sending malformed emails).
+                        if (!subject) {
+                          throw new Error(
+                            `Inline template "${type}" must provide "subject" or HTML frontmatter (--- subject: ... ---)`,
+                          );
+                        }
+
+                        templateEngine.registerTemplate(type, {
+                          subject,
+                          html,
+                          text: templateDef.text,
+                        });
+                      }
+                    }
+                  } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                    nauthLogger.warn?.(
+                      `Failed to register email template "${type}": ${errorMessage}. Using default template.`,
+                    );
+                  }
+                }
+              } else {
+                nauthLogger.warn?.(
+                  '[EmailTemplates] Email provider does not support getTemplateEngine(). Custom templates will not be registered.',
+                );
+              }
+            }
+
             return provider;
           },
         },

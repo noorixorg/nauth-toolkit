@@ -1158,7 +1158,8 @@ export class AuthServiceInternalHelpers {
 
     // Increment IP-based lockout counter if enabled
     if (this.config.lockout?.enabled && ipAddress) {
-      const attempts = await this.accountLockoutStorage.recordFailedAttempt(ipAddress);
+      const attemptWindowSeconds = this.config.lockout.attemptWindow ?? 3600;
+      const attempts = await this.accountLockoutStorage.recordFailedAttempt(ipAddress, attemptWindowSeconds);
 
       // Lock IP if max attempts reached
       if (attempts >= (this.config.lockout.maxAttempts || 5)) {

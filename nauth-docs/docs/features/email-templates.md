@@ -45,12 +45,12 @@ If you're reading this for the first time, this is the shortest path to success:
 
 #### Core Authentication Emails
 
-| Template Type | When Sent | Required Variables |
-|--------------|-----------|-------------------|
-| `verification` | Email address verification during signup | `code`, `link`, `expiryMinutes` |
-| `passwordReset` | User requests password reset | `link`, `expiryMinutes` |
-| `adminPasswordReset` | Admin initiates password reset | `code`, `link`, `expiryMinutes` |
-| `welcome` | After onboarding is complete: immediately after signup when `signup.verificationMethod = 'none'`, otherwise after the required verification(s) succeed (`email` / `phone` / `both`) | None |
+| Template Type | When Sent | Required Variables | Optional Variables |
+|--------------|-----------|-------------------|-------------------|
+| `verification` | Email address verification during signup | `code`, `expiryMinutes` | `link` (only when baseUrl provided) |
+| `passwordReset` | User requests password reset | `expiryMinutes` | `link` (only when baseUrl provided in forgotPassword request) |
+| `adminPasswordReset` | Admin initiates password reset | `code`, `expiryMinutes` | `link` (only when baseUrl provided) |
+| `welcome` | After onboarding is complete: immediately after signup when `signup.verificationMethod = 'none'`, otherwise after the required verification(s) succeed (`email` / `phone` / `both`) | None | None |
 
 #### Security Notifications
 
@@ -64,21 +64,21 @@ If you're reading this for the first time, this is the shortest path to success:
 
 #### Account Management
 
-| Template Type | When Sent | Required Variables |
-|--------------|-----------|-------------------|
-| `accountDisabled` | Account disabled by admin | `reason` |
-| `accountEnabled` | Account re-enabled by admin | None |
-| `emailChanged` | Email changed (legacy single-email template) | `userEmail` |
-| `emailChangedOld` | Email changed (sent to old address) | None |
-| `emailChangedNew` | Email changed (sent to new address) | None |
+| Template Type | When Sent | Required Variables | Optional Variables |
+|--------------|-----------|-------------------|-------------------|
+| `accountDisabled` | Account disabled by admin | `reason` | None |
+| `accountEnabled` | Account re-enabled by admin | None | None |
+| `emailChanged` | Email changed (legacy single-email template) | `userEmail` | None |
+| `emailChangedOld` | Email changed (sent to old address) | None | None |
+| `emailChangedNew` | Email changed (sent to new address) | None | None |
 
 #### MFA Notifications
 
-| Template Type | When Sent | Required Variables |
-|--------------|-----------|-------------------|
-| `mfaEnabled` | First MFA method enabled (hook: `mfaFirstEnabled`) | None |
-| `mfaDeviceRemoved` | MFA device removed | None |
-| `mfaMethodAdded` | Additional MFA method added (after MFA is already enabled) | None |
+| Template Type | When Sent | Required Variables | Optional Variables |
+|--------------|-----------|-------------------|-------------------|
+| `mfaEnabled` | First MFA method enabled (hook: `mfaFirstEnabled`) | None | None |
+| `mfaDeviceRemoved` | MFA device removed | None | None |
+| `mfaMethodAdded` | Additional MFA method added (after MFA is already enabled) | None | None |
 
 :::note
 `@nauth-toolkit/email-nodemailer` ships with production-ready default templates.
@@ -93,6 +93,12 @@ Email template **types** (the keys in `email.templates.customTemplates`) are **n
 - **`emailNotifications.suppress.*`**: controls whether a notification email is sent at all (gating/suppression).
 - **`email.templates.customTemplates.*`**: controls which Handlebars template is rendered when an email is sent.
 
+:::important Code emails cannot be suppressed
+Code emails (`verification`, `passwordReset`, `adminPasswordReset`) **cannot be suppressed** via `emailNotifications.suppress`. These emails are always sent when `emailNotifications.enabled: true` and can only be disabled via the global kill switch (`enabled: false`).
+
+This ensures critical authentication flows (signup verification, password reset) always work correctly.
+:::
+
 The most common mismatches:
 
 | Notification key (`emailNotifications.suppress`) | Hook that triggers it | EmailProvider method | Template key (`TemplateType`) |
@@ -101,8 +107,42 @@ The most common mismatches:
 | `adaptiveMfaRiskDetected` | `IAdaptiveMFARiskDetectedHook` | `sendAdaptiveMFARiskAlertEmail()` | `adaptiveMfaRiskAlert` |
 
 ::::tip
-If you override templates, use the **TemplateType key** (right-most column). If you enable/disable emails, use the **emailNotifications.suppress** key (left-most column).
+If you override templates, use the **TemplateType key** (right-most column). If you enable/disable emails, use the **emailNotifications.suppress** key (left-most column). Note that code emails cannot be suppressed individually.
 ::::
+
+### Password Reset: Code and Optional Link
+
+The password reset flow supports both code-only and code+link delivery:
+
+- **Code is always sent** (mandatory) - Users can always reset using the verification code
+- **Link is optional** - Only sent when `baseUrl` is provided in the `forgotPassword` request
+
+When `baseUrl` is provided, the system generates a reset link as `${baseUrl}?token=<token>` and includes it in the email. Your `passwordReset` template should handle both scenarios using Handlebars conditionals:
+
+```handlebars
+{{#if link}}
+  <p><a href="{{link}}">Reset Password</a></p>
+  <p>Or use this code: <strong>{{code}}</strong></p>
+{{else}}
+  <p>Your password reset code: <strong>{{code}}</strong></p>
+{{/if}}
+<p>This code expires in {{expiryMinutes}} minutes.</p>
+```
+
+**Usage in your application:**
+
+```typescript
+// Code-only reset (backward compatible)
+await authService.forgotPassword({ identifier: 'user@example.com' });
+
+// Code + link reset
+await authService.forgotPassword({
+  identifier: 'user@example.com',
+  baseUrl: 'https://myapp.com/reset-password'
+});
+```
+
+This ensures consistency with `verification` and `adminPasswordReset` flows, where both code and link are supported.
 
 ### Configuration
 
@@ -131,7 +171,7 @@ AuthModule.forRoot({
         verification: {
           htmlPath: './email-templates/verification.html.hbs',
           textPath: './email-templates/verification.text.hbs',
-          // Must include: {{code}}, {{link}}, {{expiryMinutes}}
+          // Must include: code, link, expiryMinutes variables
         },
         welcome: {
           htmlPath: './email-templates/welcome.html.hbs',
@@ -140,7 +180,8 @@ AuthModule.forRoot({
         passwordReset: {
           htmlPath: './email-templates/password-reset.html.hbs',
           textPath: './email-templates/password-reset.text.hbs',
-          // Must include: {{link}}, {{expiryMinutes}}
+          // Must include: expiryMinutes variable
+          // Optional: link variable (only included if baseUrl provided in forgotPassword request)
         },
       },
     },
@@ -199,9 +240,9 @@ AuthModule.forRoot({
       customTemplates: {
         // File-based with explicit subject
         verification: {
-          subject: 'Verify your email - {{appName}}',
+          subject: 'Verify your email - {`{{appName}}`}',
           htmlPath: './email-templates/verification.html.hbs',
-          text: 'Your code: {{code}}. Link: {{link}} (expires in {{expiryMinutes}} minutes)',
+          text: 'Your code: {`{{code}}`}. Link: {`{{link}}`} (expires in {`{{expiryMinutes}}`} minutes)',
         },
 
         // Inline with frontmatter subject
@@ -371,8 +412,8 @@ All templates have access to these variables:
 
 | Variable | Description | Templates |
 |----------|-------------|-----------|
-| `code` | Verification/reset code | `verification`, `passwordReset`, `adminPasswordReset` |
-| `link` | Verification/reset link | `verification`, `passwordReset`, `adminPasswordReset` |
+| `code` | Verification/reset code | `verification`, `passwordReset` (always present), `adminPasswordReset` |
+| `link` | Verification/reset link | `verification` (always present), `passwordReset` (optional, only when baseUrl provided), `adminPasswordReset` (always present) |
 | `expiryMinutes` | Code/link expiration time | `verification`, `passwordReset`, `adminPasswordReset` |
 | `reason` | Reason for action | `accountLockout`, `accountDisabled`, `accountEnabled`, `sessionsRevoked` |
 | `durationMinutes` | Lockout duration | `accountLockout` |
@@ -425,7 +466,7 @@ The default Nodemailer templates implement a simple, explicit greeting fallback:
 {{#if userName}}Hi {{userName}},{{/if}}
 ```
 
-If you prefer a single variable like `{{greetingName}}`, compute it in your application and pass it as a template variable. (The core `HtmlTemplateEngine` also computes `greetingName` automatically when you use it directly.)
+If you prefer a single variable like `greetingName`, compute it in your application and pass it as a template variable. (The core `HtmlTemplateEngine` also computes `greetingName` automatically when you use it directly.)
 
 ### Handlebars syntax reference
 
@@ -493,31 +534,31 @@ Use Handlebars built-in helpers:
 
 To prevent broken emails, nauth-toolkit validates templates at startup:
 
-| Template Type | Required Variables |
-|--------------|-------------------|
-| `verification` | `{{code}}`, `{{link}}`, `{{expiryMinutes}}` |
-| `passwordReset` | `{{link}}`, `{{expiryMinutes}}` |
-| `adminPasswordReset` | `{{code}}`, `{{link}}`, `{{expiryMinutes}}` |
-| `accountLockout` | `{{reason}}`, `{{durationMinutes}}` |
-| `newDevice` | `{{deviceName}}`, `{{timestamp}}` |
-| `adaptiveMfaRiskAlert` | `{{riskLevel}}`, `{{riskFactors}}` |
-| `accountDisabled` | `{{reason}}` |
-| `emailChanged` | `{{userEmail}}` |
-| `sessionsRevoked` | `{{revokedCount}}` |
-| `welcome` | None |
-| `passwordChanged` | None |
-| `mfaEnabled` | None |
-| `mfaDeviceRemoved` | None |
-| `mfaMethodAdded` | None |
-| `accountEnabled` | None |
-| `emailChangedOld` | None |
-| `emailChangedNew` | None |
+| Template Type | Required Variables | Optional Variables |
+|--------------|-------------------|-------------------|
+| `verification` | `code`, `expiryMinutes` | `link` (only when baseUrl provided) |
+| `passwordReset` | `expiryMinutes` | `link` (only when baseUrl provided in forgotPassword request) |
+| `adminPasswordReset` | `code`, `expiryMinutes` | `link` (only when baseUrl provided) |
+| `accountLockout` | `reason`, `durationMinutes` | None |
+| `newDevice` | `deviceName`, `timestamp` | None |
+| `adaptiveMfaRiskAlert` | `riskLevel`, `riskFactors` | None |
+| `accountDisabled` | `reason` | None |
+| `emailChanged` | `userEmail` | None |
+| `sessionsRevoked` | `revokedCount` | None |
+| `welcome` | None | None |
+| `passwordChanged` | None | None |
+| `mfaEnabled` | None | None |
+| `mfaDeviceRemoved` | None | None |
+| `mfaMethodAdded` | None | None |
+| `accountEnabled` | None | None |
+| `emailChangedOld` | None | None |
+| `emailChangedNew` | None | None |
 
 **Error example:**
 
 ```
 Template validation failed for 'verification':
-Missing required variable: {{code}}
+Missing required variable: code
 ```
 
 :::tip
@@ -621,9 +662,10 @@ class MyCustomEmailProvider implements EmailProvider {
     await myEmailService.send({ to, subject: 'Verify your email', html: `Code: ${code}`, text: `Code: ${code}` });
   }
 
-  async sendPasswordResetEmail(to: string, _token: string, link: string): Promise<void> {
-    // Send password reset email
-    await myEmailService.send({ to, subject: 'Reset your password', html: `Link: ${link}`, text: `Link: ${link}` });
+  async sendPasswordResetEmail(to: string, _token: string, link?: string, expiryMinutes?: number): Promise<void> {
+    // Send password reset email (link is optional)
+    const html = link ? `Reset link: ${link} (expires in ${expiryMinutes} minutes)` : 'Please use the code sent to you.';
+    await myEmailService.send({ to, subject: 'Reset your password', html, text: html });
   }
 
   async sendAdminPasswordResetEmail(to: string, code: string, link?: string, expiryMinutes?: number): Promise<void> {
@@ -693,11 +735,11 @@ SMS templates use **text-only** format (no HTML). Keep messages short and clear 
       customTemplates: {
         verification: {
           contentPath: './sms-templates/verification.txt.hbs',
-          // Must include: {{code}}, {{expiryMinutes}}
+          // Must include: code, expiryMinutes variables
         },
         mfa: {
           contentPath: './sms-templates/mfa.txt.hbs',
-          // Must include: {{code}}, {{expiryMinutes}}
+          // Must include: code, expiryMinutes variables
         },
       },
     },
@@ -778,9 +820,9 @@ SMS templates are validated at startup to ensure required variables are present:
 
 | Template Type | Required Variables |
 |--------------|-------------------|
-| `verification` | `{{code}}`, `{{expiryMinutes}}` |
-| `mfa` | `{{code}}`, `{{expiryMinutes}}` |
-| `passwordReset` | `{{code}}`, `{{expiryMinutes}}` |
+| `verification` | `code`, `expiryMinutes` |
+| `mfa` | `code`, `expiryMinutes` |
+| `passwordReset` | `code`, `expiryMinutes` |
 
 ### Default SMS templates
 
@@ -892,10 +934,10 @@ class MyCustomSMSProvider implements SMSProvider {
 ### SMS best practices
 
 1. **Keep it short:** Aim for under 160 characters to avoid multi-part messages
-2. **Lead with brand:** Start with `{{appName}}:` so users know who sent it
-3. **Include expiry:** Always show `{{expiryMinutes}}` so users act quickly
+2. **Lead with brand:** Start with the appName variable so users know who sent it
+3. **Include expiry:** Always show the expiryMinutes variable so users act quickly
 4. **Security warnings:** For MFA codes, add "Never share this code"
-5. **Support contact:** Include `{{supportPhone}}` for questions
+5. **Support contact:** Include the supportPhone variable for questions
 6. **No URLs:** SMS links are often flagged as spam; use codes instead
 
 **Good example:**
@@ -1243,7 +1285,7 @@ describe('Email Templates', () => {
 **Error:**
 ```
 Template validation failed for 'verification':
-Missing required variable: {{link}}
+Missing required variable: link
 ```
 
 **Solution:** Add the missing variable to your template:

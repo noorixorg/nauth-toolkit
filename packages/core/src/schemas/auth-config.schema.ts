@@ -175,6 +175,7 @@ export const passwordConfigSchema = z.object({
 export const lockoutConfigSchema = z.object({
   enabled: z.boolean().optional(),
   maxAttempts: z.number().optional(),
+  attemptWindow: z.number().optional(),
   duration: z.number().optional(),
   resetOnSuccess: z.boolean().optional(),
 });
@@ -519,7 +520,7 @@ export const geoLocationConfigSchema = z.object({
  * Email notifications configuration schema
  *
  * Controls which optional notification emails are suppressed.
- * Note: Code emails (verification/password reset) default to enabled; optional notifications default to disabled.
+ * Note: Code emails (verification/password reset) cannot be suppressed and are always sent when enabled.
  */
 export const emailNotificationsConfigSchema = z
   .object({
@@ -539,11 +540,6 @@ export const emailNotificationsConfigSchema = z
         emailChangedNew: z.boolean().optional(),
         accountLockout: z.boolean().optional(),
         sessionsRevoked: z.boolean().optional(),
-
-        // Code emails (default: NOT suppressed/enabled)
-        emailVerification: z.boolean().optional(),
-        passwordReset: z.boolean().optional(),
-        adminPasswordReset: z.boolean().optional(),
       })
       .optional(),
   })
