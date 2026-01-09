@@ -157,7 +157,7 @@ export const authConfig: NAuthModuleConfig = {
         ? [process.env.GOOGLE_CLIENT_ID!, process.env.GOOGLE_IOS_CLIENT_ID]
         : process.env.GOOGLE_CLIENT_ID, // Client ID (string or array for multi-platform: web, iOS, Android, e.g., '12345.apps.googleusercontent.com' or ['12345-web.apps.googleusercontent.com', '12345-ios.apps.googleusercontent.com'])
       clientSecret: process.env.GOOGLE_CLIENT_SECRET, // Client secret (required if enabled)
-      callbackUrl: 'https://api.angular.dev1.noorix.com/auth/social/google/callback', // Callback URL (must match provider registration, e.g., 'https://myapp.com/auth/google/callback')
+      callbackUrl: 'https://api.angular.dev1.noorix.com/social/google/callback', // Callback URL (must match provider registration, e.g., 'https://myapp.com/social/google/callback')
       scopes: ['openid', 'email', 'profile'], // OAuth scopes (default: ['openid', 'email', 'profile'])
       autoLink: true, // Auto-link to existing users by verified email (default: true)
       allowSignup: true, // Allow new user creation (default: true)
@@ -171,7 +171,7 @@ export const authConfig: NAuthModuleConfig = {
       teamId: process.env.APPLE_TEAM_ID, // Apple Developer Team ID (required for web OAuth)
       keyId: process.env.APPLE_KEY_ID, // Apple Key ID (kid) from your .p8 key (required for web OAuth)
       privateKeyPem: process.env.APPLE_P8_KEY, // Contents of your .p8 private key file in PEM format (required for web OAuth)
-      callbackUrl: 'https://api.angular.dev1.noorix.com/auth/social/apple/callback', // Callback URL (must match provider registration)
+      callbackUrl: 'https://api.angular.dev1.noorix.com/social/apple/callback', // Callback URL (must match provider registration)
       scopes: ['name', 'email'], // OAuth scopes (default: ['name', 'email'])
       autoLink: true, // Auto-link to existing users by verified email (default: true)
       allowSignup: true, // Allow new user creation (default: true)
@@ -180,7 +180,7 @@ export const authConfig: NAuthModuleConfig = {
       enabled: true, // Enable Facebook OAuth (default: false)
       clientId: process.env.FACEBOOK_CLIENT_ID, // Facebook App ID
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET, // Facebook App Secret
-      callbackUrl: 'http://localhost:3000/auth/social/facebook/callback', // Callback URL (must match provider registration, e.g., 'https://myapp.com/auth/facebook/callback')
+      callbackUrl: 'http://localhost:3000/social/facebook/callback', // Callback URL (must match provider registration, e.g., 'https://myapp.com/social/facebook/callback')
       scopes: ['email', 'public_profile'], // OAuth scopes (default: ['email', 'public_profile'])
       autoLink: true, // Auto-link to existing users by verified email (default: true)
       allowSignup: true, // Allow new user creation (default: true)

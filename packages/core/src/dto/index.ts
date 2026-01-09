@@ -66,6 +66,7 @@ export * from './trust-device-response.dto';
 export * from './is-trusted-device-response.dto';
 export * from './validate-access-token.dto';
 export * from './validate-access-token-response.dto';
+export * from './get-user-auth-history.dto';
 
 export * from './social-auth.dto';
 export * from './social-redirect.dto';
