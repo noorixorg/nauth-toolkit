@@ -154,6 +154,7 @@ export class SendVerificationEmailDTO {
    *
    * Validation:
    * - Must be valid URL format (http:// or https://)
+   * - Supports localhost URLs (e.g., http://localhost:4200)
    * - Max 2048 characters (typical URL length limit)
    * - Optional field
    *
@@ -162,7 +163,7 @@ export class SendVerificationEmailDTO {
    */
   @IsOptional()
   @IsUrl(
-    { require_protocol: true, protocols: ['http', 'https'] },
+    { require_protocol: true, protocols: ['http', 'https'], require_tld: false },
     { message: 'Base URL must be a valid URL with http:// or https://' },
   )
   @MaxLength(2048, { message: 'Base URL must not exceed 2048 characters' })
@@ -279,7 +280,7 @@ export class ResendVerificationEmailDTO {
    */
   @IsOptional()
   @IsUrl(
-    { require_protocol: true, protocols: ['http', 'https'] },
+    { require_protocol: true, protocols: ['http', 'https'], require_tld: false },
     { message: 'Base URL must be a valid URL with http:// or https://' },
   )
   @MaxLength(2048, { message: 'Base URL must not exceed 2048 characters' })

@@ -1,6 +1,12 @@
 import { Injectable, CanActivate, ExecutionContext, Inject } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { NAuthConfig, NAuthException, AuthErrorCode, resolveDeliveryForRequest } from '@nauth-toolkit/core';
+import {
+  NAuthConfig,
+  NAuthException,
+  AuthErrorCode,
+  resolveDeliveryForRequest,
+  getAccessTokenCookieName,
+} from '@nauth-toolkit/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { TOKEN_DELIVERY_KEY, RouteDelivery } from '../decorators/token-delivery.decorator';
 import { CsrfService } from '../services/csrf.service';
@@ -77,7 +83,23 @@ export class CsrfGuard implements CanActivate {
     if (routeMode) {
       effective = routeMode;
     } else if (method === 'hybrid') {
-      effective = resolveDeliveryForRequest(request, deliveryConfig?.hybridPolicy);
+      // ============================================================================
+      // HYBRID MODE: Prefer the credential that is actually present
+      // ============================================================================
+      // Match AuthGuard logic: if client sends Bearer token, treat as JSON mode
+      // This prevents CSRF enforcement for mobile apps using Bearer tokens
+      const authHeader: string | undefined = request.headers?.authorization;
+      const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+      const accessTokenCookieName = getAccessTokenCookieName(this.config);
+      const cookieToken: string | undefined = request.cookies?.[accessTokenCookieName];
+
+      if (headerToken && !cookieToken) {
+        effective = 'json';
+      } else if (cookieToken && !headerToken) {
+        effective = 'cookies';
+      } else {
+        effective = resolveDeliveryForRequest(request, deliveryConfig?.hybridPolicy);
+      }
     } else if (method === 'cookies') {
       effective = 'cookies';
     } else {

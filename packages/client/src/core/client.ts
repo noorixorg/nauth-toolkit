@@ -175,7 +175,7 @@ export class NAuthClient {
       // Refresh endpoint is PUBLIC - it doesn't need an access token
       return this.post<TokenResponse>(this.config.endpoints.refresh, body, false);
     };
-    const tokens = await this.tokenManager.refreshOnce(refreshFn, { persist: tokenDelivery === 'json' });
+    const tokens = await this.tokenManager.refreshOnce(refreshFn);
     this.config.onTokenRefresh?.();
     this.eventEmitter.emit({ type: 'auth:refresh', data: { success: true }, timestamp: Date.now() });
     return tokens;
@@ -949,26 +949,18 @@ export class NAuthClient {
 
   /**
    * Build request URL by combining baseUrl with path.
-   * Automatically prepends authPathPrefix if configured and not already in path or baseUrl.
+   * Automatically prepends authPathPrefix if configured and not already in path.
    * @private
    */
   private buildUrl(path: string): string {
     // Prepend authPathPrefix if configured and path doesn't already start with it
-    // Also check if baseUrl already ends with authPathPrefix to avoid double-prefixing
     // Ensure path starts with '/' for proper prefix concatenation
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-    const baseUrlEndsWithPrefix =
-      this.config.authPathPrefix && this.config.baseUrl.endsWith(this.config.authPathPrefix);
     const effectivePath =
-      this.config.authPathPrefix && !baseUrlEndsWithPrefix && !normalizedPath.startsWith(this.config.authPathPrefix)
+      this.config.authPathPrefix && !normalizedPath.startsWith(this.config.authPathPrefix)
         ? `${this.config.authPathPrefix}${normalizedPath}`
         : normalizedPath;
-
-    // Ensure baseUrl doesn't have trailing slash to avoid double slashes
-    const normalizedBaseUrl = this.config.baseUrl.endsWith('/')
-      ? this.config.baseUrl.slice(0, -1)
-      : this.config.baseUrl;
-    return `${normalizedBaseUrl}${effectivePath}`;
+    return `${this.config.baseUrl}${effectivePath}`;
   }
 
   /**

@@ -1016,15 +1016,8 @@ When rate limit is exceeded, `details` includes:
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-// Code-only reset
 await authService.forgotPassword({
   identifier: 'user@example.com',
-});
-
-// Code + link reset
-await authService.forgotPassword({
-  identifier: 'user@example.com',
-  baseUrl: 'https://myapp.com/reset-password',
 });
 ```
 
@@ -1050,10 +1043,6 @@ fastify.post('/auth/forgot-password', async (req, reply) => {
 
 </TabItem>
 </Tabs>
-
-:::note baseUrl parameter
-When `baseUrl` is provided in the `ForgotPasswordDTO`, the system generates a reset link as `${baseUrl}?token=<token>` and sends both the code and the link to the user. The code is always sent (mandatory), while the link is optional and only included when `baseUrl` is provided. This ensures consistency with `verification` and `adminPasswordReset` flows.
-:::
 
 ---
 

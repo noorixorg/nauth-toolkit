@@ -544,6 +544,7 @@ signup: {
     maxAttemptsPerUser: 10,
     maxAttemptsPerIP: 20,
     attemptWindow: 3600,
+    baseUrl: 'https://myapp.com',  // Optional: include verification link in emails
   },
 
   phoneVerification: {
@@ -581,6 +582,7 @@ signup: {
 | `maxAttemptsPerUser` | Max verification attempts per user per window. Prevents brute force.           | 10      | 10            |
 | `maxAttemptsPerIP`   | Max verification attempts per IP per window. Prevents distributed attacks.     | 20      | 20            |
 | `attemptWindow`      | Time window for attempt limits (seconds).                                      | 3600    | 3600 (1 hour) |
+| `baseUrl`            | Base URL for verification links. If provided, emails include clickable link with code. Format: `${baseUrl}?code=${code}`. The consumer app handles routing. Supports localhost (e.g., `http://localhost:4200`). | none | `https://myapp.com` or `http://localhost:4200` for development |
 
 **Phone Verification Options:**
 
@@ -963,6 +965,7 @@ export const authConfig: NAuthModuleConfig = {
       resendDelay: 60,
       rateLimitMax: 3,
       rateLimitWindow: 3600,
+      baseUrl: 'https://myapp.com',  // Optional: include verification link in emails
     },
   },
 

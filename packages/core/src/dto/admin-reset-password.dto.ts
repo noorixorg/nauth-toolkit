@@ -100,6 +100,7 @@ export class AdminResetPasswordDTO {
    *
    * Validation:
    * - Must be valid URL with http:// or https://
+   * - Supports localhost URLs (e.g., http://localhost:4200)
    * - Max 2048 characters
    * - Optional
    *
@@ -110,10 +111,11 @@ export class AdminResetPasswordDTO {
    * Like email verification, supports both code AND link delivery
    *
    * @example "https://myapp.com/reset-password"
+   * @example "http://localhost:4200"
    */
   @IsOptional()
   @IsUrl(
-    { require_protocol: true, protocols: ['http', 'https'] },
+    { require_protocol: true, protocols: ['http', 'https'], require_tld: false },
     { message: 'Base URL must be valid URL with http:// or https://' },
   )
   @MaxLength(2048, { message: 'Base URL must not exceed 2048 characters' })

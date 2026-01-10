@@ -31,7 +31,7 @@ import { GoogleSocialAuthService } from '@nauth-toolkit/social-google/nestjs';
  * 302 -> https://frontend/auth/callback?appState=12345
  * ```
  */
-@Controller('social')
+@Controller('auth/social')
 export class SocialRedirectController {
   constructor(
     private readonly socialRedirect: SocialRedirectHandler,

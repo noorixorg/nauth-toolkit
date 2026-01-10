@@ -48,6 +48,7 @@ export const authConfig: NAuthModuleConfig = {
       // Verification attempt liits (for testing - increase these values)
       maxAttemptsPerIP: 20000, // Max attempts per IP per window (default: 20)
       attemptWindow: 300, // Time window in seconds (default: 3600 = 1 hour)
+      baseUrl: 'http://localhost:4200', // Include verification link in emails
     },
     phoneVerification: {
       codeLength: 6,
@@ -220,8 +221,8 @@ export const authConfig: NAuthModuleConfig = {
       customTemplates: {
         // Custom verification template to test template override functionality
         verification: {
-          htmlPath: './src/email-templates/verification.html.hbs',
-          textPath: './src/email-templates/verification.text.hbs',
+          htmlPath: './resources/email-templates/verification.html.hbs',
+          textPath: './resources/email-templates/verification.text.hbs',
         },
         // welcome: {
         //   htmlPath: './email-templates/welcome.html.hbs',

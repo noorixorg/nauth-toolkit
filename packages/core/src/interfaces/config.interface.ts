@@ -743,6 +743,23 @@ export interface SignupConfig {
      * @default 3600 (1 hour)
      */
     attemptWindow?: number;
+
+    /**
+     * Base URL for email verification links
+     *
+     * If provided, verification emails will include a clickable link with the verification code.
+     * The link format will be: `${baseUrl}?code=${code}`
+     *
+     * The consumer app is responsible for handling the route. Only the query parameter is appended.
+     *
+     * Supports both development (localhost) and production URLs:
+     * - `http://localhost:4200`
+     * - `https://myapp.com`
+     *
+     * @example "https://myapp.com"
+     * @example "http://localhost:4200"
+     */
+    baseUrl?: string;
   };
 
   /**

@@ -173,9 +173,12 @@ export class EmailVerificationService {
 
     await this.verificationTokenRepo.save(verificationToken);
 
-    // Generate verification link only if baseUrl is provided
-    // Consumer apps can build their own verification links if needed
-    const verificationLink = baseUrl ? `${baseUrl}/verify-email?token=${token}` : undefined;
+    // Generate verification link if baseUrl is provided (from DTO or config)
+    // Use config baseUrl if DTO doesn't provide one
+    const effectiveBaseUrl = baseUrl || this.config.signup?.emailVerification?.baseUrl;
+    // Link uses code as query parameter (not token) for consistency with code-based verification
+    // Append query parameter to baseUrl (consumer app handles routing)
+    const verificationLink = effectiveBaseUrl ? `${effectiveBaseUrl}?code=${code}` : undefined;
 
     // Send email (link is optional - only sent if provided)
     await this.emailProvider.sendVerificationEmail(user.email, code, verificationLink);
@@ -680,9 +683,11 @@ export class EmailVerificationService {
 
     // Send new verification email - use sub (external identifier)
     // Use provided challengeSessionId if available, otherwise preserve from last token
+    // Use config baseUrl if not provided in parameters
+    const effectiveBaseUrl = baseUrl || this.config.signup?.emailVerification?.baseUrl;
     const dto = Object.assign(new SendVerificationEmailDTO(), {
       sub,
-      baseUrl,
+      baseUrl: effectiveBaseUrl,
       challengeSessionId: challengeSessionId ?? lastToken?.challengeSessionId ?? undefined,
     });
     return this.sendVerificationEmail(dto);

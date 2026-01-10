@@ -47,7 +47,7 @@ If you're reading this for the first time, this is the shortest path to success:
 
 | Template Type | When Sent | Required Variables | Optional Variables |
 |--------------|-----------|-------------------|-------------------|
-| `verification` | Email address verification during signup | `code`, `expiryMinutes` | `link` (only when baseUrl provided) |
+| `verification` | Email address verification during signup | `code`, `expiryMinutes` | `link` (only when `signup.emailVerification.baseUrl` is configured) |
 | `passwordReset` | User requests password reset | `expiryMinutes` | `link` (only when baseUrl provided in forgotPassword request) |
 | `adminPasswordReset` | Admin initiates password reset | `code`, `expiryMinutes` | `link` (only when baseUrl provided) |
 | `welcome` | After onboarding is complete: immediately after signup when `signup.verificationMethod = 'none'`, otherwise after the required verification(s) succeed (`email` / `phone` / `both`) | None | None |
@@ -413,7 +413,7 @@ All templates have access to these variables:
 | Variable | Description | Templates |
 |----------|-------------|-----------|
 | `code` | Verification/reset code | `verification`, `passwordReset` (always present), `adminPasswordReset` |
-| `link` | Verification/reset link | `verification` (always present), `passwordReset` (optional, only when baseUrl provided), `adminPasswordReset` (always present) |
+| `link` | Verification/reset link | `verification` (only when `signup.emailVerification.baseUrl` is configured), `passwordReset` (optional, only when baseUrl provided in forgotPassword request), `adminPasswordReset` (only when baseUrl provided) |
 | `expiryMinutes` | Code/link expiration time | `verification`, `passwordReset`, `adminPasswordReset` |
 | `reason` | Reason for action | `accountLockout`, `accountDisabled`, `accountEnabled`, `sessionsRevoked` |
 | `durationMinutes` | Lockout duration | `accountLockout` |
@@ -536,7 +536,7 @@ To prevent broken emails, nauth-toolkit validates templates at startup:
 
 | Template Type | Required Variables | Optional Variables |
 |--------------|-------------------|-------------------|
-| `verification` | `code`, `expiryMinutes` | `link` (only when baseUrl provided) |
+| `verification` | `code`, `expiryMinutes` | `link` (only when `signup.emailVerification.baseUrl` is configured) |
 | `passwordReset` | `expiryMinutes` | `link` (only when baseUrl provided in forgotPassword request) |
 | `adminPasswordReset` | `code`, `expiryMinutes` | `link` (only when baseUrl provided) |
 | `accountLockout` | `reason`, `durationMinutes` | None |

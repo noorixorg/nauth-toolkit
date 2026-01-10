@@ -734,9 +734,9 @@ async forgotPassword(identifier: string): Promise<ForgotPasswordResponse>
 
 **Parameters**
 
-| Parameter    | Type     | Required | Description               |
-| ------------ | -------- | -------- | ------------------------- |
-| `identifier` | `string` | Yes      | Email, username, or phone |
+| Parameter    | Type     | Description               |
+| ------------ | -------- | ------------------------- |
+| `identifier` | `string` | Email, username, or phone |
 
 **Returns**
 
@@ -755,10 +755,6 @@ See [`ForgotPasswordRequest`](./types/forgot-password-request) for request struc
 ```typescript
 await client.forgotPassword('user@example.com');
 ```
-
-:::note baseUrl
-The `baseUrl` parameter for generating reset links is configured on the backend when calling `AuthService.forgotPassword()`, not from the client SDK. See [`ForgotPasswordDTO`](../../api/core/dto/forgot-password-dto) for backend configuration details.
-:::
 
 ---
 

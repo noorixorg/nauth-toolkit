@@ -70,31 +70,10 @@ import {
   LogoutSessionResponseDTO,
   UpdateUserAttributesRequestDTO,
   SetPreferredMethodDTO,
-  SetPreferredMethodResponseDTO,
   SetMFAExemptionDTO,
-  SetMFAExemptionResponseDTO,
   GetChallengeDataDTO,
-  GetChallengeDataResponseDTO,
   RemoveDevicesDTO,
-  RemoveDevicesResponseDTO,
   SetupMFADTO,
-  SetupMFAResponseDTO,
-  LogoutResponseDTO,
-  LogoutAllResponseDTO,
-  ChangePasswordResponseDTO,
-  SetMustChangePasswordResponseDTO,
-  ResendCodeResponseDTO,
-  TrustDeviceResponseDTO,
-  IsTrustedDeviceResponseDTO,
-  AdminSetPasswordResponseDTO,
-  LinkSocialAccountResponseDTO,
-  UnlinkSocialAccountResponseDTO,
-  GetLinkedAccountsResponseDTO,
-  GetUserAuthHistoryResponseDTO,
-  GetMFAStatusResponseDTO,
-  GetUserDevicesResponseDTO,
-  GetMFAStatusDTO,
-  GetUserDevicesDTO,
 } from '@nauth-toolkit/nestjs';
 
 /**
@@ -270,9 +249,10 @@ export class CustomAuthController {
    */
   @Post('admin/set-password')
   @HttpCode(HttpStatus.OK)
-  async adminSetPassword(@Body() dto: AdminSetPasswordDTO): Promise<AdminSetPasswordResponseDTO> {
+  async adminSetPassword(@Body() dto: AdminSetPasswordDTO): Promise<{ success: boolean }> {
     this.logger.log(`Admin set password attempt for: ${dto.identifier}`);
-    return await this.authService.adminSetPassword(dto);
+    await this.authService.adminSetPassword(dto);
+    return { success: true };
   }
 
   /**
@@ -288,6 +268,7 @@ export class CustomAuthController {
    * @returns Response with masked destination and expiry
    */
   @Post('admin/reset-password/initiate')
+  @TokenDelivery('cookies')
   @HttpCode(HttpStatus.OK)
   async adminResetPassword(@Body() dto: AdminResetPasswordDTO): Promise<AdminResetPasswordResponseDTO> {
     this.logger.log(`Admin reset password for: ${dto.identifier}`);
@@ -367,11 +348,12 @@ export class CustomAuthController {
    */
   @Post('admin/users/:sub/force-password-change')
   @HttpCode(HttpStatus.OK)
-  async forcePasswordChange(@Param('sub') sub: string): Promise<SetMustChangePasswordResponseDTO> {
+  async forcePasswordChange(@Param('sub') sub: string): Promise<{ success: boolean }> {
     this.logger.log(`Admin force password change attempt: ${sub}`);
     const dto = new SetMustChangePasswordDTO();
     dto.userId = sub;
-    return await this.authService.setMustChangePassword(dto);
+    await this.authService.setMustChangePassword(dto);
+    return { success: true };
   }
 
   /**
@@ -451,12 +433,22 @@ export class CustomAuthController {
    */
   @Post('admin/users/:sub/logout-all')
   @HttpCode(HttpStatus.OK)
-  async adminLogoutAll(@Param('sub') sub: string, @Body() dto: LogoutAllDTO): Promise<LogoutAllResponseDTO> {
+  async adminLogoutAll(
+    @Param('sub') sub: string,
+    @Body() dto: LogoutAllDTO,
+  ): Promise<{ message: string; revokedCount: number }> {
     this.logger.log(`Admin force logout all sessions for user: ${sub}`);
     dto.sub = sub;
     const result = await this.authService.logoutAll(dto);
+    const message = dto.forgetDevices
+      ? `All sessions and trusted devices revoked for user (${result.revokedCount} session(s))`
+      : `All sessions revoked for user (${result.revokedCount} session(s))`;
     this.logger.log(`Admin: Revoked ${result.revokedCount} session(s) for user: ${sub}`);
-    return result;
+
+    return {
+      message,
+      revokedCount: result.revokedCount,
+    };
   }
 
   /**
@@ -675,7 +667,7 @@ export class CustomAuthController {
 
   @Get('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@CurrentUser() user: IUser, @Query('forgetMe') forgetMe?: string): Promise<LogoutResponseDTO> {
+  async logout(@CurrentUser() user: IUser, @Query('forgetMe') forgetMe?: string): Promise<{ message: string }> {
     // Session ID is automatically extracted from JWT token context by the library
     const dto = new LogoutDTO();
     if (forgetMe === 'true' || forgetMe === '1') {
@@ -685,10 +677,10 @@ export class CustomAuthController {
     dto.sub = user.sub;
 
     // Automatically clears cookies via ClientInfoService context
-    const result = await this.authService.logout(dto);
+    await this.authService.logout(dto);
     this.logger.log(`User logged out: ${user.email}`);
 
-    return result;
+    return { message: 'Logged out successfully' };
   }
 
   /**
@@ -702,15 +694,15 @@ export class CustomAuthController {
   @TokenDelivery('json')
   @Get('logout/mobile')
   @HttpCode(HttpStatus.OK)
-  async logoutMobile(@CurrentUser() user: IUser, @Query('forgetMe') forgetMe?: string): Promise<LogoutResponseDTO> {
+  async logoutMobile(@CurrentUser() user: IUser, @Query('forgetMe') forgetMe?: string): Promise<{ message: string }> {
     const dto = new LogoutDTO();
     if (forgetMe === 'true' || forgetMe === '1') {
       dto.forgetMe = true;
     }
     dto.sub = user.sub;
-    const result = await this.authService.logout(dto);
+    await this.authService.logout(dto);
     this.logger.log(`User logged out (mobile): ${user.email}`);
-    return result;
+    return { message: 'Logged out successfully' };
   }
 
   /**
@@ -736,12 +728,22 @@ export class CustomAuthController {
 
   @Post('logout/all')
   @HttpCode(HttpStatus.OK)
-  async logoutAll(@CurrentUser() user: IUser, @Body() dto: LogoutAllDTO): Promise<LogoutAllResponseDTO> {
+  async logoutAll(
+    @CurrentUser() user: IUser,
+    @Body() dto: LogoutAllDTO,
+  ): Promise<{ message: string; revokedCount: number }> {
     // Automatically clears cookies via ClientInfoService context
     dto.sub = user.sub;
     const result = await this.authService.logoutAll(dto);
+    const message = dto.forgetDevices
+      ? `All sessions and trusted devices revoked successfully (${result.revokedCount} session(s))`
+      : `All sessions revoked successfully (${result.revokedCount} session(s))`;
     this.logger.log(`Global signout: ${user.email} (${result.revokedCount} session(s) revoked)`);
-    return result;
+
+    return {
+      message,
+      revokedCount: result.revokedCount,
+    };
   }
 
   /**
@@ -821,7 +823,7 @@ export class CustomAuthController {
 
   @Post('trust-device')
   @HttpCode(HttpStatus.OK)
-  async trustDevice(@CurrentUser() user: IUser): Promise<TrustDeviceResponseDTO> {
+  async trustDevice(@CurrentUser() user: IUser): Promise<{ deviceToken: string }> {
     // Session ID is automatically extracted from JWT token context by the library
     const result = await this.authService.trustDevice();
     this.logger.log(`Device trusted for user: ${user.email}`);
@@ -841,8 +843,9 @@ export class CustomAuthController {
 
   @Get('is-trusted-device')
   @HttpCode(HttpStatus.OK)
-  async isTrustedDevice(): Promise<IsTrustedDeviceResponseDTO> {
-    return await this.authService.isTrustedDevice();
+  async isTrustedDevice(): Promise<{ trusted: boolean }> {
+    const result = await this.authService.isTrustedDevice();
+    return result;
   }
 
   // ============================================================================
@@ -898,7 +901,7 @@ export class CustomAuthController {
   @Public()
   @Post('challenge/challenge-data')
   @HttpCode(HttpStatus.OK)
-  async getChallengeData(@Body() dto: GetChallengeDataDTO): Promise<GetChallengeDataResponseDTO> {
+  async getChallengeData(@Body() dto: GetChallengeDataDTO): Promise<unknown> {
     if (!this.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
@@ -930,7 +933,7 @@ export class CustomAuthController {
   @Public()
   @Post('challenge/resend')
   @HttpCode(HttpStatus.OK)
-  async resendCode(@Body() dto: ResendCodeDTO): Promise<ResendCodeResponseDTO> {
+  async resendCode(@Body() dto: ResendCodeDTO): Promise<{ destination: string }> {
     this.logger.log('Resend verification code');
     // DTO is automatically validated by NAuthValidationPipe
     return await this.authService.resendCode(dto);
@@ -1003,11 +1006,11 @@ export class CustomAuthController {
   async changePassword(
     @CurrentUser() user: IUser,
     @Body() dto: ChangePasswordRequestDTO,
-  ): Promise<ChangePasswordResponseDTO> {
+  ): Promise<{ message: string }> {
     dto.sub = user.sub;
-    const result = await this.authService.changePassword(dto);
+    await this.authService.changePassword(dto);
     this.logger.log(`Password changed for user: ${user.email}`);
-    return result;
+    return { message: 'Password changed successfully' };
   }
 
   /**
@@ -1022,12 +1025,12 @@ export class CustomAuthController {
 
   @Post('request-password-change')
   @HttpCode(HttpStatus.OK)
-  async requestPasswordChange(@CurrentUser() user: IUser): Promise<SetMustChangePasswordResponseDTO> {
+  async requestPasswordChange(@CurrentUser() user: IUser): Promise<{ message: string }> {
     const dto = new SetMustChangePasswordDTO();
     dto.userId = user.sub;
-    const result = await this.authService.setMustChangePassword(dto);
+    await this.authService.setMustChangePassword(dto);
     this.logger.log(`Password change requested for user: ${user.email}`);
-    return result;
+    return { message: 'You will be required to change your password on your next login' };
   }
 
   // ============================================================================
@@ -1042,14 +1045,33 @@ export class CustomAuthController {
    */
 
   @Get('mfa/status')
-  async getMFAStatus(@CurrentUser() user: IUser): Promise<GetMFAStatusResponseDTO> {
+  async getMFAStatus(@CurrentUser() user: IUser): Promise<{
+    enabled: boolean;
+    required: boolean;
+    methods: string[];
+    availableMethods: string[];
+    hasBackupCodes: boolean;
+    preferredMethod?: string;
+    mfaExempt: boolean;
+    mfaExemptReason: string | null;
+    mfaExemptGrantedAt: Date | null;
+  }> {
     if (!this.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
 
-    const dto = new GetMFAStatusDTO();
-    dto.sub = user.sub;
-    return await this.mfaService.getMFAStatus(dto);
+    const status = await this.mfaService.getMFAStatus(user);
+    return {
+      enabled: status.enabled,
+      required: status.required,
+      methods: status.configuredMethods,
+      availableMethods: status.availableMethods,
+      hasBackupCodes: status.hasBackupCodes,
+      preferredMethod: status.preferredMethod,
+      mfaExempt: status.mfaExempt,
+      mfaExemptReason: status.mfaExemptReason,
+      mfaExemptGrantedAt: status.mfaExemptGrantedAt,
+    };
   }
 
   /**
@@ -1064,15 +1086,14 @@ export class CustomAuthController {
    */
 
   @Post('mfa/setup-data')
-  async getMFASetupData(@CurrentUser() user: IUser, @Body() dto: SetupMFADTO): Promise<SetupMFAResponseDTO> {
+  async getMFASetupData(@CurrentUser() user: IUser, @Body() dto: SetupMFADTO): Promise<unknown> {
     if (!this.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
 
     dto.sub = user.sub;
     const provider = this.mfaService.getProvider(dto.methodName);
-    const setupData = await provider.setup(user, dto.setupData);
-    return { setupData } as SetupMFAResponseDTO;
+    return await provider.setup(user, dto.setupData);
   }
 
   /**
@@ -1110,14 +1131,20 @@ export class CustomAuthController {
    */
 
   @Get('mfa/devices')
-  async getMFADevices(@CurrentUser() user: IUser): Promise<GetUserDevicesResponseDTO> {
+  async getMFADevices(@CurrentUser() user: IUser): Promise<any[]> {
     if (!this.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
 
-    const dto = new GetUserDevicesDTO();
-    dto.sub = user.sub;
-    return await this.mfaService.getUserDevices(dto);
+    const devices = await this.mfaService.getUserDevices({ sub: user.sub });
+    return devices.devices.map((device) => ({
+      id: device.id,
+      type: device.type,
+      name: device.name,
+      isPrimary: device.isPrimary || false,
+      isActive: device.isActive,
+      createdAt: device.createdAt,
+    }));
   }
 
   /**
@@ -1132,13 +1159,14 @@ export class CustomAuthController {
   async setPreferredMFAMethod(
     @CurrentUser() user: IUser,
     @Body() dto: SetPreferredMethodDTO,
-  ): Promise<SetPreferredMethodResponseDTO> {
+  ): Promise<{ message: string }> {
     if (!this.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
 
     dto.userSub = user.sub;
-    return await this.mfaService.setPreferredMethod(dto);
+    await this.mfaService.setPreferredMethod(dto);
+    return { message: 'Preferred MFA method updated successfully' };
   }
 
   /**
@@ -1163,7 +1191,7 @@ export class CustomAuthController {
   async removeMFAMethod(
     @CurrentUser() user: IUser,
     @Param('method') method: string,
-  ): Promise<RemoveDevicesResponseDTO> {
+  ): Promise<{ message: string; deletedCount: number; mfaDisabled: boolean }> {
     if (!this.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
@@ -1171,7 +1199,13 @@ export class CustomAuthController {
     const dto = new RemoveDevicesDTO();
     dto.userSub = user.sub;
     dto.methodType = method;
-    return await this.mfaService.removeDevices(dto);
+    const result = await this.mfaService.removeDevices(dto);
+
+    return {
+      message: 'MFA method removed successfully',
+      deletedCount: result.deletedCount,
+      mfaDisabled: result.mfaDisabled,
+    };
   }
 
   /**
@@ -1190,14 +1224,29 @@ export class CustomAuthController {
   async setMFAExemption(
     @CurrentUser() user: IUser,
     @Body() dto: SetMFAExemptionDTO,
-  ): Promise<SetMFAExemptionResponseDTO> {
+  ): Promise<{
+    message: string;
+    mfaExempt: boolean;
+    mfaExemptReason: string | null;
+    mfaExemptGrantedAt: Date | null;
+  }> {
     if (!this.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
 
     dto.userSub = user.sub;
     dto.grantedBy = user.email || null; // Use user's email as grantedBy for audit trail
-    return await this.mfaService.setMFAExemption(dto);
+    await this.mfaService.setMFAExemption(dto);
+
+    // Get updated MFA status to return exemption fields
+    const status = await this.mfaService.getMFAStatus(user);
+
+    return {
+      message: dto.exempt ? 'MFA exemption granted successfully' : 'MFA exemption revoked successfully',
+      mfaExempt: status.mfaExempt,
+      mfaExemptReason: status.mfaExemptReason,
+      mfaExemptGrantedAt: status.mfaExemptGrantedAt,
+    };
   }
 
   // ============================================================================
@@ -1227,14 +1276,17 @@ export class CustomAuthController {
    */
 
   @Get('social/linked')
-  async getLinkedAccounts(@CurrentUser() user: IUser): Promise<GetLinkedAccountsResponseDTO> {
+  async getLinkedAccounts(@CurrentUser() user: IUser): Promise<{ providers: string[] }> {
     if (!this.socialAuthService) {
       throw new BadRequestException('Social auth service is not available');
     }
 
     const dto = new GetLinkedAccountsDTO();
     dto.userId = user.sub;
-    return await this.socialAuthService.getLinkedAccounts(dto);
+    const accounts = await this.socialAuthService.getLinkedAccounts(dto);
+    return {
+      providers: accounts.accounts.map((account) => account.provider),
+    };
   }
 
   /**
@@ -1246,10 +1298,7 @@ export class CustomAuthController {
    */
 
   @Post('social/link')
-  async linkSocialAccount(
-    @CurrentUser() user: IUser,
-    @Body() dto: LinkSocialAccountDTO,
-  ): Promise<LinkSocialAccountResponseDTO> {
+  async linkSocialAccount(@CurrentUser() user: IUser, @Body() dto: LinkSocialAccountDTO): Promise<{ message: string }> {
     if (!this.socialAuthService) {
       throw new BadRequestException('Social auth service is not available');
     }
@@ -1270,13 +1319,14 @@ export class CustomAuthController {
   async unlinkSocialAccount(
     @CurrentUser() user: IUser,
     @Body() dto: UnlinkSocialAccountDTO,
-  ): Promise<UnlinkSocialAccountResponseDTO> {
+  ): Promise<{ message: string }> {
     if (!this.socialAuthService) {
       throw new BadRequestException('Social auth service is not available');
     }
 
     dto.userId = user.sub;
-    return await this.socialAuthService.unlinkSocialAccount(dto);
+    await this.socialAuthService.unlinkSocialAccount(dto);
+    return { message: 'Social account unlinked successfully' };
   }
 
   // ============================================================================
@@ -1300,12 +1350,18 @@ export class CustomAuthController {
     @Query('endDate') endDate?: string,
     @Query('eventTypes') eventTypes?: string,
     @Query('eventStatus') eventStatus?: string,
-  ): Promise<GetUserAuthHistoryResponseDTO> {
+  ): Promise<{
+    data: any[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
     if (!this.auditService) {
       throw new BadRequestException('Audit service is not available');
     }
 
-    return await this.auditService.getUserAuthHistory({
+    const history = await this.auditService.getUserAuthHistory({
       userSub: user.sub,
       page: page ? parseInt(page, 10) : 1,
       limit: limit ? parseInt(limit, 10) : 50,
@@ -1314,5 +1370,13 @@ export class CustomAuthController {
       eventTypes: eventTypes ? (eventTypes.split(',') as any) : undefined,
       eventStatus: eventStatus ? (eventStatus.split(',') as any) : undefined,
     });
+
+    return {
+      data: history.data,
+      total: history.total,
+      page: history.page,
+      limit: history.limit,
+      totalPages: history.totalPages,
+    };
   }
 }
