@@ -1,4 +1,4 @@
-import { Injectable, CanActivate, ExecutionContext, Inject } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, Inject, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import {
   NAuthConfig,
@@ -33,6 +33,8 @@ import { getNAuthContextStore } from './nauth-context.guard';
  */
 @Injectable()
 export class AuthGuard implements CanActivate {
+  protected readonly nlogger = new Logger(AuthGuard.name);
+
   // ============================================================================
   // Dependency Injection (property-based)
   // ============================================================================
@@ -235,7 +237,9 @@ export class AuthGuard implements CanActivate {
     const cfg = this.config.tokenDelivery;
     const method = cfg?.method || 'json';
 
-    const authHeader: string | undefined = request.headers?.authorization;
+    // Handle case-insensitive header lookup (Express uses lowercase, Fastify may use original case)
+    const authHeader: string | undefined =
+      (request.headers?.authorization as string | undefined) || (request.headers?.Authorization as string | undefined);
     const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
     const accessTokenCookieName = getAccessTokenCookieName(this.config);
     const cookieToken: string | undefined = request.cookies?.[accessTokenCookieName];
@@ -244,8 +248,10 @@ export class AuthGuard implements CanActivate {
     const routeMode = this._reflector.get<RouteDelivery>(TOKEN_DELIVERY_KEY, context.getHandler());
 
     let effective: 'cookies' | 'json' = 'json';
+
     if (routeMode) {
       effective = routeMode;
+      this.nlogger.debug(`[AuthGuard] Route mode override: ${routeMode}`);
     } else if (method === 'hybrid') {
       // ============================================================================
       // HYBRID MODE: Prefer the credential that is actually present
@@ -258,18 +264,41 @@ export class AuthGuard implements CanActivate {
       // SECURITY:
       // - We do NOT "leak" tokens to browsers; we only accept Bearer when the client sends it.
       // - When both cookie and bearer are present, we fall back to hybridPolicy/origin resolution.
+      // Match AuthGuard logic: if client sends Bearer token, treat as JSON mode
+      // This prevents CSRF enforcement for mobile apps using Bearer tokens
+      // Handle case-insensitive header lookup (Express uses lowercase, Fastify may use original case)
+      this.nlogger.debug(
+        `[AuthGuard] Hybrid mode - Bearer: ${!!headerToken}, Cookie: ${!!cookieToken}, Origin: ${request.headers?.origin || 'MISSING'}`,
+      );
+      this.nlogger.debug(
+        `[AuthGuard] Header check - authHeader exists: ${!!authHeader}, startsWith Bearer: ${authHeader?.startsWith('Bearer ')}, headerToken length: ${headerToken?.length || 0}`,
+      );
+      this.nlogger.debug(
+        `[AuthGuard] Cookie check - cookieName: ${accessTokenCookieName}, cookieToken exists: ${!!cookieToken}`,
+      );
+
       if (headerToken && !cookieToken) {
         effective = 'json';
+        this.nlogger.debug(`[AuthGuard] Detected JSON mode (Bearer token only)`);
       } else if (cookieToken && !headerToken) {
         effective = 'cookies';
+        this.nlogger.debug(`[AuthGuard] Detected cookies mode (cookie only)`);
       } else {
+        // Both present, neither present, or edge case - fall back to origin-based
         effective = resolveDeliveryForRequest(request, cfg?.hybridPolicy);
+        this.nlogger.debug(
+          `[AuthGuard] Fallback to origin-based resolution: ${effective} (Bearer: ${!!headerToken}, Cookie: ${!!cookieToken})`,
+        );
       }
     } else if (method === 'cookies') {
       effective = 'cookies';
+      this.nlogger.debug(`[AuthGuard] Global cookies mode`);
     } else {
       effective = 'json';
+      this.nlogger.debug(`[AuthGuard] Global JSON mode`);
     }
+
+    this.nlogger.debug(`[AuthGuard] Effective delivery mode: ${effective} for ${request.method} ${request.url}`);
 
     if (effective === 'cookies') {
       if (headerToken && !cookieToken) {

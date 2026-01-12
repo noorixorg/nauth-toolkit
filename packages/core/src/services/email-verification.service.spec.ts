@@ -261,7 +261,7 @@ describe('EmailVerificationService', () => {
       const callArgs = mockEmailProvider.sendVerificationEmail.mock.calls[0];
       expect(callArgs[0]).toBe('test@example.com');
       expect(typeof callArgs[1]).toBe('string'); // 6-digit code
-      expect(callArgs[2]).toContain('https://example.com/verify-email?token='); // token in URL
+      expect(callArgs[2]).toContain('https://example.com?code='); // verification link uses code
       expect(mockAuditService.recordEvent).toHaveBeenCalled();
       expect(result).toEqual({ tokenId: 456 });
     });

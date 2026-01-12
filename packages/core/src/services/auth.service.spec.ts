@@ -2085,6 +2085,28 @@ describe('AuthService', () => {
         }
       });
 
+      it('should clear auth cookies when refresh fails with invalid token in cookie delivery modes', async () => {
+        mockConfig.tokenDelivery = {
+          method: 'cookies',
+          cookieNamePrefix: 'nauth',
+          cookieOptions: { path: '/', secure: true, sameSite: 'strict' },
+        } as any;
+
+        const clearCookie = jest.fn();
+        mockClientInfoService.getResponse.mockReturnValue({ clearCookie } as any);
+
+        mockJwtService.validateRefreshToken.mockResolvedValue({
+          valid: false,
+          payload: undefined,
+        } as any);
+
+        await expect(service.refreshToken(createRefreshTokenDto('invalid-token'))).rejects.toBeInstanceOf(NAuthException);
+
+        expect(clearCookie).toHaveBeenCalledWith('nauth_access_token', expect.anything());
+        expect(clearCookie).toHaveBeenCalledWith('nauth_refresh_token', expect.anything());
+        expect(clearCookie).toHaveBeenCalledWith('nauth_csrf_token', expect.anything());
+      });
+
       it('should throw NAuthException if session not found', async () => {
         mockSessionService.findByRefreshToken.mockResolvedValue(null);
 
@@ -2095,6 +2117,25 @@ describe('AuthService', () => {
           expect(error).toBeInstanceOf(NAuthException);
           expect(error.code).toBe(AuthErrorCode.SESSION_NOT_FOUND);
         }
+      });
+
+      it('should clear auth cookies when refresh fails with session not found in cookie delivery modes', async () => {
+        mockConfig.tokenDelivery = {
+          method: 'cookies',
+          cookieNamePrefix: 'nauth',
+          cookieOptions: { path: '/', secure: true, sameSite: 'strict' },
+        } as any;
+
+        const clearCookie = jest.fn();
+        mockClientInfoService.getResponse.mockReturnValue({ clearCookie } as any);
+
+        mockSessionService.findByRefreshToken.mockResolvedValue(null);
+
+        await expect(service.refreshToken(createRefreshTokenDto(mockRefreshToken))).rejects.toBeInstanceOf(NAuthException);
+
+        expect(clearCookie).toHaveBeenCalledWith('nauth_access_token', expect.anything());
+        expect(clearCookie).toHaveBeenCalledWith('nauth_refresh_token', expect.anything());
+        expect(clearCookie).toHaveBeenCalledWith('nauth_csrf_token', expect.anything());
       });
 
       it('should throw NAuthException if session is revoked', async () => {

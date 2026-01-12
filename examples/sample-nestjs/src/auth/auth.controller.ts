@@ -961,31 +961,6 @@ export class CustomAuthController {
 
   @Put('profile')
   async updateProfile(@CurrentUser() user: IUser, @Body() dto: UpdateUserAttributesRequestDTO) {
-    // #region agent log
-    const http = await import('http');
-    const logData = JSON.stringify({
-      location: 'auth.controller.ts:updateProfile',
-      message: 'Received profile update',
-      data: { dtoKeys: Object.keys(dto || {}), dtoValues: dto, userSub: user.sub },
-      timestamp: Date.now(),
-      sessionId: 'debug-session',
-      hypothesisId: 'E',
-    });
-    const req = http.request(
-      {
-        hostname: '127.0.0.1',
-        port: 7242,
-        path: '/ingest/97f9fe53-6a8b-43e2-ae9b-4b2d0f725816',
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      },
-      () => {},
-    );
-    req.on('error', () => {});
-    req.write(logData);
-    req.end();
-    // #endregion
-
     dto.sub = user.sub;
     return await this.authService.updateUserAttributes(dto);
   }

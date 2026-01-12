@@ -33,6 +33,44 @@ const refreshTokenSubject = new BehaviorSubject<string | null>(null);
 let refreshInFlight$: Observable<string> | null = null;
 const retriedRequests = new WeakSet<HttpRequest<unknown>>();
 
+// ============================================================================
+// Error + cookie helpers
+// ============================================================================
+
+/**
+ * Safely extract HTTP status code from either:
+ * - Angular HttpErrorResponse (HttpClient calls)
+ * - SDK NAuthClientError (thrown by the SDK's HttpAdapter)
+ */
+function getStatusCode(error: unknown): number | null {
+  if (error instanceof HttpErrorResponse) return error.status;
+  if (typeof error === 'object' && error !== null && 'statusCode' in error) {
+    const statusCode = (error as { statusCode?: unknown }).statusCode;
+    return typeof statusCode === 'number' ? statusCode : null;
+  }
+  return null;
+}
+
+/**
+ * Best-effort CSRF cookie clearing (non-httpOnly).
+ *
+ * WARNING: This cannot clear httpOnly auth cookies (access/refresh/device).
+ * Those must be cleared by the backend on refresh/logout.
+ */
+function clearCsrfCookie(baseUrl: string, cookieName: string): void {
+  if (typeof document === 'undefined') return;
+
+  // WHY: Cookie domain handling differs between localhost and real domains.
+  // We try to clear with an explicit domain (if available), then without.
+  try {
+    const url = new URL(baseUrl);
+    document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${url.hostname}`;
+    document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+  } catch {
+    document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+  }
+}
+
 /**
  * Get CSRF token from cookie.
  */
@@ -177,11 +215,27 @@ export function createNAuthAuthHttpInterceptor(params: {
       catchError((err) => {
         refreshTokenSubject.next(null);
 
-        // Refresh failed -> redirect if configured
-        if (config.redirects?.sessionExpired) {
-          router.navigateByUrl(config.redirects.sessionExpired).catch(() => {
-            // Ignore navigation errors
-          });
+        const statusCode = getStatusCode(err);
+
+        // Refresh failed with 401 => session expired.
+        // Clear *local* SDK state so guards/pages don't think the user is still logged in after navigation/reload.
+        if (statusCode === 401) {
+          // Best-effort: also clear CSRF cookie in cookies mode (non-httpOnly).
+          if (tokenDelivery === 'cookies') {
+            const csrfCookieName = config.csrf?.cookieName ?? 'nauth_csrf_token';
+            clearCsrfCookie(config.baseUrl, csrfCookieName);
+          }
+
+          return from(authService.getClient().clearLocalAuthState()).pipe(
+            switchMap(() => {
+              if (config.redirects?.sessionExpired) {
+                router.navigateByUrl(config.redirects.sessionExpired).catch(() => {
+                  // Ignore navigation errorsy
+                });
+              }
+              return throwError(() => err);
+            }),
+          );
         }
 
         return throwError(() => err);

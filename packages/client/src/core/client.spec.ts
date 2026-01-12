@@ -178,4 +178,30 @@ describe('NAuthClient', () => {
     expect(await storage.getItem('nauth_access_token')).toBeNull();
     expect(await storage.getItem('nauth_refresh_token')).toBeNull();
   });
+
+  it('clearLocalAuthState clears persisted user and tokens', async () => {
+    const storage = new MockStorage();
+    await storage.setItem('nauth_user', JSON.stringify({ sub: 'u1', email: 'user@example.com' }));
+    await storage.setItem('nauth_access_token', 'a1');
+    await storage.setItem('nauth_refresh_token', 'r1');
+    await storage.setItem('nauth_access_token_expires_at', '10');
+    await storage.setItem('nauth_refresh_token_expires_at', '20');
+
+    const client = new NAuthClient({
+      ...baseConfig,
+      storage,
+    });
+
+    await client.initialize();
+    expect(client.isAuthenticatedSync()).toBe(true);
+
+    await client.clearLocalAuthState();
+
+    expect(client.isAuthenticatedSync()).toBe(false);
+    expect(await storage.getItem('nauth_user')).toBeNull();
+    expect(await storage.getItem('nauth_access_token')).toBeNull();
+    expect(await storage.getItem('nauth_refresh_token')).toBeNull();
+    expect(await storage.getItem('nauth_access_token_expires_at')).toBeNull();
+    expect(await storage.getItem('nauth_refresh_token_expires_at')).toBeNull();
+  });
 });

@@ -147,7 +147,7 @@ export class PasswordResetService {
         await this.emailProvider.sendPasswordResetEmail(user.email, token, resetLink, expiryMinutes);
       } else {
         // Code-only reset (backward compatible)
-      await this.emailProvider.sendVerificationEmail(user.email, code);
+        await this.emailProvider.sendVerificationEmail(user.email, code);
       }
       this.logger?.log?.(`Password reset ${resetLink ? 'code and link' : 'code'} sent via email to user ${user.sub}`);
 

@@ -175,10 +175,38 @@ export class NAuthClient {
       // Refresh endpoint is PUBLIC - it doesn't need an access token
       return this.post<TokenResponse>(this.config.endpoints.refresh, body, false);
     };
-    const tokens = await this.tokenManager.refreshOnce(refreshFn);
+    // Cookies mode MUST NEVER persist tokens to storage, even if a misconfigured backend
+    // accidentally returns tokens in the response body (security footgun).
+    const tokens = await this.tokenManager.refreshOnce(refreshFn, { persist: tokenDelivery === 'json' });
     this.config.onTokenRefresh?.();
     this.eventEmitter.emit({ type: 'auth:refresh', data: { success: true }, timestamp: Date.now() });
     return tokens;
+  }
+
+  // ============================================================================
+  // Local state management (no network)
+  // ============================================================================
+
+  /**
+   * Clear all local auth state without making any network requests.
+   *
+   * WHY:
+   * - When refresh fails with 401 (session expired), clients should immediately drop any cached
+   *   auth state (user + tokens) to prevent "sticky auth" across hard reloads.
+   * - In cookie delivery modes, httpOnly cookies can only be cleared by the backend; this method
+   *   only clears client-side state (e.g., cached user + persisted tokens in JSON mode).
+   *
+   * @param options - Optional behavior flags
+   * @returns Promise that resolves when local state is cleared
+   *
+   * @example
+   * ```typescript
+   * // Called by framework adapters/interceptors when refresh fails with 401
+   * await client.clearLocalAuthState();
+   * ```
+   */
+  async clearLocalAuthState(options?: { forgetDevice?: boolean }): Promise<void> {
+    await this.clearAuthState(options?.forgetDevice ?? false);
   }
 
   /**

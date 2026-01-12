@@ -96,6 +96,7 @@ import { isUUID } from 'class-validator';
 import * as crypto from 'crypto';
 import { generateSecurePassword } from '../utils/password-generator';
 import { ensureValidatedDto } from '../utils/dto-validator';
+import { clearAuthCookies as clearAuthCookiesCompat } from '../utils/cookies.util';
 
 /**
  * Dummy Argon2 hash for constant-time response
@@ -2271,6 +2272,8 @@ export class AuthService {
     // After validation, refreshToken must be present (validation ensures it's a valid string)
     // Controller should have filled it from cookies if it was missing in cookies mode
     if (!dto.refreshToken) {
+      // Best-effort: clear cookies in cookie/hybrid delivery so clients don't keep sending stale cookies.
+      this.clearAuthCookiesOnRefreshFailure(AuthErrorCode.TOKEN_INVALID);
       throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'Refresh token is required');
     }
 
@@ -2294,6 +2297,9 @@ export class AuthService {
       this.logger?.debug?.(
         `Session not found or revoked for user ${userId}. Possible issue where token are not cleared on logout`,
       );
+
+      // Best-effort: clear cookies in cookie/hybrid delivery so clients don't keep sending stale cookies.
+      this.clearAuthCookiesOnRefreshFailure(AuthErrorCode.SESSION_NOT_FOUND);
       throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found or revoked');
     }
 
@@ -2537,6 +2543,12 @@ export class AuthService {
         accessTokenExpiresAt: accessTokenValidation.payload?.exp || 0,
         refreshTokenExpiresAt: refreshTokenValidation.payload?.exp || 0,
       };
+    } catch (error: unknown) {
+      // Best-effort cookie cleanup for session-invalid refresh errors.
+      if (error instanceof NAuthException) {
+        this.clearAuthCookiesOnRefreshFailure(error.code);
+      }
+      throw error;
     } finally {
       // Always release lock, even if error occurs
       // Only release if we successfully acquired it
@@ -2544,6 +2556,51 @@ export class AuthService {
         await this.sessionService.releaseRefreshLock(lockKey);
         this.logger?.debug?.(`[REFRESH DEBUG] Released lock ${lockKey}`);
       }
+    }
+  }
+
+  // ============================================================================
+  // Refresh failure cookie cleanup helpers
+  // ============================================================================
+
+  /**
+   * Clear auth cookies (access/refresh/csrf) on refresh failures that imply the session is invalid.
+   *
+   * WHY:
+   * - In cookie delivery, httpOnly cookies can only be cleared server-side.
+   * - Clearing them on refresh failure prevents client loops and aligns client state with server reality.
+   *
+   * SECURITY NOTE:
+   * - Device token cookie is intentionally NOT cleared by default (remember-device feature).
+   *
+   * @param code - Error code to evaluate
+   */
+  private clearAuthCookiesOnRefreshFailure(code: AuthErrorCode): void {
+    if (this.config.tokenDelivery?.method === 'json') return;
+    if (
+      code !== AuthErrorCode.TOKEN_INVALID &&
+      code !== AuthErrorCode.SESSION_NOT_FOUND &&
+      code !== AuthErrorCode.SESSION_EXPIRED
+    ) {
+      return;
+    }
+
+    const responseFromContext = this.clientInfoService.getResponse();
+    if (!responseFromContext) return;
+
+    const response = responseFromContext as unknown as {
+      clearCookie?: (name: string, options?: unknown) => void;
+      cookie?: Function;
+      setCookie?: Function;
+    };
+
+    if (typeof response.clearCookie === 'function') {
+      this.helpers.clearAuthCookies(response, false);
+      return;
+    }
+
+    if (typeof response.cookie === 'function' || typeof response.setCookie === 'function') {
+      clearAuthCookiesCompat(response, this.config, this.config.tokenDelivery?.cookieOptions, false);
     }
   }
 

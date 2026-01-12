@@ -470,44 +470,7 @@ export class AuthService {
    * ```
    */
   async respondToChallenge(response: ChallengeResponse): Promise<AuthResponse> {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/97f9fe53-6a8b-43e2-ae9b-4b2d0f725816', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'auth.service.ts:respondToChallenge:entry',
-        message: 'RespondToChallenge called',
-        data: {
-          challengeType: response.type,
-          hasSession: !!response.session,
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        hypothesisId: 'H7',
-      }),
-    }).catch(() => {});
-    // #endregion
     const res = await this.client.respondToChallenge(response);
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/97f9fe53-6a8b-43e2-ae9b-4b2d0f725816', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        location: 'auth.service.ts:respondToChallenge:response',
-        message: 'RespondToChallenge response received',
-        data: {
-          hasChallengeName: !!res.challengeName,
-          challengeName: res.challengeName,
-          hasAccessToken: !!res.accessToken,
-          hasRefreshToken: !!res.refreshToken,
-          hasUser: !!res.user,
-        },
-        timestamp: Date.now(),
-        sessionId: 'debug-session',
-        hypothesisId: 'H7',
-      }),
-    }).catch(() => {});
-    // #endregion
     return this.updateChallengeState(res);
   }
 
