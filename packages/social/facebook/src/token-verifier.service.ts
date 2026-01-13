@@ -1,5 +1,14 @@
+import type { JWTPayload } from 'jose';
 import { NAuthConfig, NAuthLogger, NAuthException, AuthErrorCode, ITokenVerifierService } from '@nauth-toolkit/core';
 import { VerifiedFacebookTokenProfile } from './verified-token-profile.interface';
+
+/**
+ * jose module type (ESM-only dependency).
+ *
+ * IMPORTANT: `jose@6` is ESM-only. This package is compiled to CommonJS by default,
+ * so we load jose via dynamic import to avoid `ERR_REQUIRE_ESM` at runtime.
+ */
+type JoseModule = typeof import('jose');
 
 /**
  * Facebook debug token response
@@ -27,10 +36,12 @@ interface FacebookUserProfileResponse {
  * Token Verifier Service for Facebook OAuth (Platform-Agnostic)
  *
  * Handles secure verification of Facebook access tokens via Graph API.
+ * Also supports verifying Facebook OIDC ID tokens (Limited Login) via JWKS.
  * Validates tokens by calling Facebook's debug_token endpoint.
  *
  * Security Features:
  * - Facebook: Validates access tokens via Facebook Graph API
+ * - Facebook (Limited Login): Validates ID tokens via OIDC JWKS (RS256)
  *
  * This is a plain TypeScript class with no framework dependencies.
  *
@@ -43,9 +54,29 @@ interface FacebookUserProfileResponse {
  */
 export class TokenVerifierService implements ITokenVerifierService {
   private readonly logger: NAuthLogger;
+  private facebookJWKS: ReturnType<JoseModule['createRemoteJWKSet']> | null = null;
+  private readonly loadJose: () => Promise<JoseModule>;
+  private joseModulePromise: Promise<JoseModule> | null = null;
 
-  constructor(config: NAuthConfig) {
+  constructor(config: NAuthConfig, loadJose?: () => Promise<JoseModule>) {
     this.logger = config.logger as NAuthLogger;
+    this.loadJose = loadJose ?? (() => import('jose') as Promise<JoseModule>);
+  }
+
+  private async getJose(): Promise<JoseModule> {
+    if (!this.joseModulePromise) {
+      this.joseModulePromise = this.loadJose();
+    }
+    return await this.joseModulePromise;
+  }
+
+  private async getFacebookJWKS(): Promise<ReturnType<JoseModule['createRemoteJWKSet']>> {
+    if (this.facebookJWKS) return this.facebookJWKS;
+    const jose = await this.getJose();
+    // Facebook OIDC JWKS (used by Limited Login / ID tokens).
+    // Source of truth: https://www.facebook.com/.well-known/openid-configuration
+    this.facebookJWKS = jose.createRemoteJWKSet(new URL('https://www.facebook.com/.well-known/oauth/openid/jwks/'));
+    return this.facebookJWKS;
   }
 
   /**
@@ -135,5 +166,82 @@ export class TokenVerifierService implements ITokenVerifierService {
         `Facebook token verification failed: ${errorMessage}`,
       );
     }
+  }
+
+  /**
+   * Verify Facebook ID token (OIDC / Limited Login) with JWT signature validation
+   *
+   * Facebook Limited Login (primarily iOS) returns an ID token (JWT) that must be
+   * verified using Facebook's OIDC JWKS (RS256).
+   *
+   * ⚠️ WARNING: If the client uses `nonce`, the backend cannot validate it unless the
+   * client also sends the original nonce. This method still provides strong security by
+   * validating signature, issuer, audience, and expiry.
+   *
+   * @param idToken - Facebook ID token (JWT)
+   * @param appId - Facebook App ID for audience validation
+   * @returns Minimal verified profile payload (provider-specific)
+   * @throws {NAuthException} SOCIAL_TOKEN_INVALID when token is invalid
+   */
+  async verifyFacebookIdToken(
+    idToken: string,
+    appId: string,
+  ): Promise<{
+    sub: string;
+    email?: string;
+    name?: string;
+    given_name?: string;
+    family_name?: string;
+    picture?: string;
+  }> {
+    try {
+      const jose = await this.getJose();
+      const jwks = await this.getFacebookJWKS();
+      this.logger?.debug?.('[TokenVerifier] Verifying Facebook ID token (OIDC / Limited Login)');
+
+      const { payload } = await jose.jwtVerify(idToken, jwks, {
+        issuer: 'https://www.facebook.com',
+        audience: appId,
+        clockTolerance: 300, // 5 minutes leeway
+      });
+
+      const p = payload as JWTPayload & {
+        sub?: string;
+        email?: string;
+        name?: string;
+        given_name?: string;
+        family_name?: string;
+        picture?: string;
+      };
+
+      if (!p.sub) {
+        throw new NAuthException(AuthErrorCode.SOCIAL_TOKEN_INVALID, 'Missing required fields in Facebook token (sub)');
+      }
+
+      this.logger?.log?.(`[TokenVerifier] Facebook ID token verified (secure): ${p.email || p.sub}`);
+      return {
+        sub: p.sub,
+        email: p.email,
+        name: p.name,
+        given_name: p.given_name,
+        family_name: p.family_name,
+        picture: p.picture,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.error?.(`[TokenVerifier] Facebook ID token verification FAILED: ${errorMessage}`);
+      throw new NAuthException(
+        AuthErrorCode.SOCIAL_TOKEN_INVALID,
+        `Facebook ID token verification failed: ${errorMessage}`,
+      );
+    }
+  }
+
+  /**
+   * Clear cached clients and keys
+   */
+  clearCache(): void {
+    this.facebookJWKS = null;
+    this.joseModulePromise = null;
   }
 }

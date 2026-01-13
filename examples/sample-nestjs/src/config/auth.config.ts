@@ -121,10 +121,10 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   tokenDelivery: {
-    method: 'hybrid',
+    method: 'cookies',
     cookieOptions: {
       secure: true,
-      sameSite: 'strict',
+      sameSite: 'none',
       domain: '.angular.dev1.noorix.com',
     },
   },
@@ -148,7 +148,7 @@ export const authConfig: NAuthModuleConfig = {
   },
   social: {
     redirect: {
-      frontendBaseUrl: 'https://angular.dev1.noorix.com',
+      frontendBaseUrl: 'http://localhost:4200',
       allowAbsoluteReturnTo: false,
       allowedReturnToOrigins: ['https://angular.dev1.noorix.com'],
     },
@@ -158,7 +158,7 @@ export const authConfig: NAuthModuleConfig = {
         ? [process.env.GOOGLE_CLIENT_ID!, process.env.GOOGLE_IOS_CLIENT_ID]
         : process.env.GOOGLE_CLIENT_ID, // Client ID (string or array for multi-platform: web, iOS, Android, e.g., '12345.apps.googleusercontent.com' or ['12345-web.apps.googleusercontent.com', '12345-ios.apps.googleusercontent.com'])
       clientSecret: process.env.GOOGLE_CLIENT_SECRET, // Client secret (required if enabled)
-      callbackUrl: 'https://api.angular.dev1.noorix.com/social/google/callback', // Callback URL (must match provider registration, e.g., 'https://myapp.com/social/google/callback')
+      callbackUrl: 'http://localhost:3000/auth/social/google/callback', // Callback URL (must match provider registration, e.g., 'https://myapp.com/social/google/callback')
       scopes: ['openid', 'email', 'profile'], // OAuth scopes (default: ['openid', 'email', 'profile'])
       autoLink: true, // Auto-link to existing users by verified email (default: true)
       allowSignup: true, // Allow new user creation (default: true)

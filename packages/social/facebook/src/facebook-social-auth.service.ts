@@ -30,6 +30,20 @@ import { TokenVerifierService as FacebookTokenVerifierService } from './token-ve
 import { VerifiedFacebookTokenProfile } from './verified-token-profile.interface';
 
 /**
+ * Lightweight check for JWT format (header.payload.signature).
+ *
+ * Used to distinguish Facebook Limited Login ID tokens (JWT) from classic access tokens.
+ *
+ * @param token - Raw token string
+ * @returns True if token looks like a JWT
+ */
+function isJwt(token: string): boolean {
+  // JWTs are 3 base64url segments separated by dots.
+  const parts = token.split('.');
+  return parts.length === 3 && parts.every((p) => p.length > 0);
+}
+
+/**
  * Facebook Social Authentication Service (Platform-Agnostic)
  *
  * Handles Facebook OAuth flow including:
@@ -190,7 +204,7 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
    */
   protected async verifyNativeToken(
     idToken: string,
-    _accessToken?: string,
+    accessToken?: string,
     profileData?: unknown,
   ): Promise<OAuthUserProfile> {
     if (!this.tokenVerifier) {
@@ -208,17 +222,57 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Facebook token verifier is not available');
     }
 
-    // For Facebook, the idToken parameter actually contains the access token
-    // Facebook native SDKs return access tokens, not ID tokens
-    const accessToken = idToken;
+    // ============================================================================
+    // Facebook Native Token Verification
+    // ============================================================================
+    // Facebook supports two native token shapes:
+    // - Classic login: access token (opaque string) -> verify via Graph API debug_token
+    // - Limited Login (iOS): ID token (JWT) -> verify via OIDC JWKS (RS256)
+    //
+    // NOTE: Base class passes dto.idToken as first arg; dto.accessToken as second arg.
+    // Consumers might send:
+    // - { accessToken } only (client SDK supports this) -> controller should map it into dto.idToken or dto.accessToken.
+    // - { idToken } (JWT) for Limited Login.
+    let verified: VerifiedFacebookTokenProfile;
 
-    // Verify access token with Facebook's Graph API
-    const verified = (await this.tokenVerifier.verifyFacebookToken(
-      accessToken,
-      appId,
-      appSecret,
-    )) as VerifiedFacebookTokenProfile;
-    this.logger?.debug?.(`Verified Facebook token for: ${verified.email || verified.id}`);
+    const isJwtToken = isJwt(idToken);
+    const hasIdTokenVerifier = !!this.tokenVerifier.verifyFacebookIdToken;
+
+    if (isJwtToken && hasIdTokenVerifier) {
+      // Limited Login: verify ID token (JWT) via Facebook OIDC JWKS.
+      if (!this.tokenVerifier.verifyFacebookIdToken) {
+        throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Facebook ID token verifier is not available');
+      }
+      const jwtProfile = (await this.tokenVerifier.verifyFacebookIdToken(idToken, appId)) as {
+        sub: string;
+        email?: string;
+        name?: string;
+        given_name?: string;
+        family_name?: string;
+        picture?: string;
+      };
+
+      verified = {
+        id: jwtProfile.sub,
+        email: jwtProfile.email,
+        first_name: jwtProfile.given_name || (jwtProfile.name ? jwtProfile.name.split(' ')[0] : undefined),
+        last_name: jwtProfile.family_name || undefined,
+        picture: jwtProfile.picture ? { data: { url: jwtProfile.picture } } : undefined,
+      };
+      this.logger?.debug?.(`Verified Facebook ID token for: ${verified.email || verified.id}`);
+    } else {
+      // Classic login: verify access token via Graph API.
+      // Prefer explicit accessToken if provided, otherwise treat idToken as access token for backward compatibility.
+      const tokenToVerify = accessToken || idToken;
+
+      const verifiedAccess = (await this.tokenVerifier.verifyFacebookToken(
+        tokenToVerify,
+        appId,
+        appSecret,
+      )) as VerifiedFacebookTokenProfile;
+      verified = verifiedAccess;
+      this.logger?.debug?.(`Verified Facebook access token for: ${verified.email || verified.id}`);
+    }
 
     // CRITICAL: Require email from all social providers for signup
     if (!verified.email) {

@@ -17,7 +17,7 @@ describe('TokenVerifierService (Facebook)', () => {
       error: jest.fn(),
       warn: jest.fn(),
       debug: jest.fn(),
-    } as any;
+    } as unknown as NAuthLogger;
 
     mockConfig = {
       jwt: {
@@ -25,7 +25,7 @@ describe('TokenVerifierService (Facebook)', () => {
         refreshToken: { secret: 'test-refresh-secret', expiresIn: '7d' },
       },
       logger: mockLogger,
-    } as NAuthConfig;
+    } as unknown as NAuthConfig;
 
     service = new TokenVerifierService(mockConfig);
   });
@@ -109,6 +109,54 @@ describe('TokenVerifierService (Facebook)', () => {
         expect((error as NAuthException).code).toBe(AuthErrorCode.SOCIAL_TOKEN_INVALID);
         expect((error as NAuthException).message).toContain('Token does not belong to this app');
       }
+    });
+  });
+
+  describe('verifyFacebookIdToken', () => {
+    it('should verify valid Facebook ID token (Limited Login)', async () => {
+      const mockJose = {
+        createRemoteJWKSet: jest.fn().mockReturnValue('jwks'),
+        jwtVerify: jest.fn().mockResolvedValue({
+          payload: {
+            sub: 'facebook-user-sub',
+            email: 'user@example.com',
+            given_name: 'John',
+            family_name: 'Doe',
+            picture: 'https://example.com/photo.jpg',
+          },
+        }),
+      };
+
+      service = new TokenVerifierService(
+        mockConfig,
+        async () => mockJose as unknown as typeof import('jose'),
+      );
+
+      const result = await service.verifyFacebookIdToken('header.payload.signature', 'app-id');
+
+      expect(result.sub).toBe('facebook-user-sub');
+      expect(result.email).toBe('user@example.com');
+      expect(mockJose.jwtVerify).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw when sub is missing', async () => {
+      const mockJose = {
+        createRemoteJWKSet: jest.fn().mockReturnValue('jwks'),
+        jwtVerify: jest.fn().mockResolvedValue({
+          payload: {
+            email: 'user@example.com',
+          },
+        }),
+      };
+
+      service = new TokenVerifierService(
+        mockConfig,
+        async () => mockJose as unknown as typeof import('jose'),
+      );
+
+      await expect(service.verifyFacebookIdToken('header.payload.signature', 'app-id')).rejects.toBeInstanceOf(
+        NAuthException,
+      );
     });
   });
 });

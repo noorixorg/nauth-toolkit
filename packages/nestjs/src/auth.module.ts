@@ -1662,7 +1662,7 @@ export class AuthModule {
 
     if (!result.success) {
       // Format Zod errors into readable messages
-      const errors = result.error.errors
+      const errors = result.error.issues
         .map((err) => {
           const path = err.path.length > 0 ? err.path.join('.') : 'root';
           return `  - ${path}: ${err.message}`;

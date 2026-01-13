@@ -1,4 +1,5 @@
-import { Inject, Injectable } from '@angular/core';
+import { Inject, Injectable, Optional } from '@angular/core';
+import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { NAUTH_CLIENT_CONFIG } from './tokens';
@@ -71,8 +72,13 @@ export class AuthService {
   /**
    * @param config - Injected client configuration (required)
    * @param httpAdapter - Angular HTTP adapter for making requests (required)
+   * @param router - Angular Router (optional, automatically used for navigation if available)
    */
-  constructor(@Inject(NAUTH_CLIENT_CONFIG) config: NAuthClientConfig, httpAdapter: AngularHttpAdapter) {
+  constructor(
+    @Inject(NAUTH_CLIENT_CONFIG) config: NAuthClientConfig,
+    httpAdapter: AngularHttpAdapter,
+    @Optional() private router?: Router,
+  ) {
     this.config = config;
 
     // Use provided httpAdapter (from config or injected)
@@ -83,9 +89,23 @@ export class AuthService {
       );
     }
 
+    // ============================================================================
+    // Automatic Angular Router integration
+    // ============================================================================
+    // If Router is available and no custom navigationHandler is provided,
+    // automatically use Angular Router's navigateByUrl() to prevent page refreshes
+    const navigationHandler =
+      config.navigationHandler ??
+      (this.router
+        ? async (url: string): Promise<void> => {
+            await this.router!.navigateByUrl(url);
+          }
+        : undefined);
+
     this.client = new NAuthClient({
       ...config,
       httpAdapter: adapter,
+      navigationHandler,
       onAuthStateChange: (user) => {
         this.currentUserSubject.next(user);
         this.isAuthenticatedSubject.next(Boolean(user));

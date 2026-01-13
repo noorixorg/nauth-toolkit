@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Param, Query, Body, Req, Redirect, Inject, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Query,
+  Body,
+  Req,
+  Redirect,
+  Inject,
+  BadRequestException,
+  Optional,
+} from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import {
   Public,
@@ -10,7 +22,10 @@ import {
   StartSocialRedirectQueryDTO,
   VerifyTokenDTO,
 } from '@nauth-toolkit/nestjs';
+import { ensureValidatedDto } from '@nauth-toolkit/core/utils';
 import { GoogleSocialAuthService } from '@nauth-toolkit/social-google/nestjs';
+import { AppleSocialAuthService } from '@nauth-toolkit/social-apple/nestjs';
+import { FacebookSocialAuthService } from '@nauth-toolkit/social-facebook/nestjs';
 
 /**
  * Social Redirect Controller (Consumer-owned)
@@ -35,9 +50,88 @@ import { GoogleSocialAuthService } from '@nauth-toolkit/social-google/nestjs';
 export class SocialRedirectController {
   constructor(
     private readonly socialRedirect: SocialRedirectHandler,
+    @Optional()
     @Inject(GoogleSocialAuthService)
     private readonly googleAuth?: GoogleSocialAuthService,
+    @Optional()
+    @Inject(AppleSocialAuthService)
+    private readonly appleAuth?: AppleSocialAuthService,
+    @Optional()
+    @Inject(FacebookSocialAuthService)
+    private readonly facebookAuth?: FacebookSocialAuthService,
   ) {}
+
+  /**
+   * Verify native social token from mobile apps (Capacitor/React Native)
+   *
+   * Endpoint: `POST /auth/social/:provider/verify`
+   *
+   * Supports:
+   * - Google: expects `idToken` (JWT) and optional `accessToken`
+   * - Apple: expects `idToken` (JWT) and optional `profileData` (first-time signin)
+   * - Facebook:
+   *   - Classic: expects `accessToken` (opaque string)
+   *   - Limited Login (iOS): expects `idToken` (JWT)
+   *
+   * @param provider - Provider name (`google`, `apple`, `facebook`)
+   * @param body - Native token payload from the mobile SDK
+   * @returns Authentication response with JWT tokens and user info
+   */
+  @Public()
+  @Post(':provider/verify')
+  async verifyNative(@Param('provider') provider: string, @Body() body: unknown): Promise<AuthResponseDTO> {
+    const p = provider.toLowerCase();
+
+    // ============================================================================
+    // Provider-aware validation (conditional fields via class-validator)
+    // ============================================================================
+    const dto = await ensureValidatedDto(VerifyTokenDTO, {
+      ...(typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {}),
+      provider: p,
+    });
+
+    // ============================================================================
+    // Provider Routing
+    // ============================================================================
+    if (p === 'google') {
+      if (!this.googleAuth) throw new BadRequestException('Google OAuth is not configured');
+      // DTO guarantees idToken is present for google
+      return await this.googleAuth.verifyToken({
+        provider: dto.provider,
+        idToken: dto.idToken as string,
+        accessToken: dto.accessToken,
+        profileData: dto.profileData,
+      });
+    }
+
+    if (p === 'apple') {
+      if (!this.appleAuth) throw new BadRequestException('Apple OAuth is not configured');
+      // DTO guarantees idToken is present for apple
+      return await this.appleAuth.verifyToken({
+        provider: dto.provider,
+        idToken: dto.idToken as string,
+        accessToken: dto.accessToken,
+        profileData: dto.profileData,
+      });
+    }
+
+    if (p === 'facebook') {
+      if (!this.facebookAuth) throw new BadRequestException('Facebook OAuth is not configured');
+      // DTO guarantees either idToken (Limited Login) or accessToken (classic) is present.
+      const token = dto.idToken || dto.accessToken;
+      if (!token) throw new BadRequestException('Either idToken or accessToken is required for facebook');
+
+      // Service layer expects idToken parameter (maps accessToken -> idToken internally for Facebook classic)
+      return await this.facebookAuth.verifyToken({
+        provider: dto.provider,
+        idToken: token,
+        accessToken: dto.accessToken,
+        profileData: dto.profileData,
+      });
+    }
+
+    throw new BadRequestException(`Unsupported provider: ${provider}`);
+  }
 
   /**
    * Start redirect-first social login.

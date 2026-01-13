@@ -1,4 +1,4 @@
-import { IsString, IsUUID, MaxLength, MinLength, IsOptional, IsObject } from 'class-validator';
+import { IsString, IsUUID, MaxLength, MinLength, IsOptional, IsObject, ValidateIf, IsIn } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 /**
@@ -354,46 +354,98 @@ export class HandleCallbackDTO {
  * DTO for verifying social authentication token from native mobile apps
  *
  * Used when mobile apps (iOS, Android) use native SDKs (e.g., Google Sign-In SDK,
- * Sign in with Apple) and need to verify the ID token on the backend.
+ * Sign in with Apple, Facebook SDK) and need to verify tokens on the backend.
+ *
+ * Supports provider-aware validation:
+ * - **google**: requires `idToken`, `accessToken` optional
+ * - **apple**: requires `idToken`, `accessToken` optional, `profileData` optional
+ * - **facebook**:
+ *   - Classic login: requires `accessToken` (when `idToken` not provided)
+ *   - Limited Login (OIDC): requires `idToken` (JWT, when `accessToken` not provided)
  *
  * Security:
- * - ID token validated by provider-specific verification
+ * - Provider allow-list enforced
+ * - Per-provider required fields validated
+ * - Token signature verification performed
  * - Token must be fresh (not expired)
- * - Signature verification performed
  *
  * @example
  * ```typescript
  * // Google Sign-In from iOS/Android
  * const dto: VerifyTokenDTO = {
+ *   provider: 'google',
  *   idToken: 'eyJhbGciOiJSUzI1NiIs...',
  *   accessToken: 'ya29.a0AfH6SM...'
  * };
  *
  * // Sign in with Apple from iOS
  * const dto: VerifyTokenDTO = {
+ *   provider: 'apple',
  *   idToken: 'eyJraWQiOiJlWGF1bm...',
  *   profileData: {
  *     name: { firstName: 'John', lastName: 'Doe' },
  *     email: 'user@privaterelay.appleid.com'
  *   }
  * };
+ *
+ * // Facebook classic login
+ * const dto: VerifyTokenDTO = {
+ *   provider: 'facebook',
+ *   accessToken: 'EAABwzLixnjYBO...'
+ * };
+ *
+ * // Facebook Limited Login (iOS)
+ * const dto: VerifyTokenDTO = {
+ *   provider: 'facebook',
+ *   idToken: 'eyJhbGciOiJSUzI1NiIs...'
+ * };
  * ```
  */
 export class VerifyTokenDTO {
   /**
-   * ID token from native SDK
-   *
-   * JWT token issued by the social provider's native SDK.
-   * Must be verified against provider's public keys.
+   * Social provider name
    *
    * Validation:
+   * - Must be one of: 'google', 'apple', 'facebook'
+   * - Max 50 characters
+   *
+   * Sanitization:
+   * - Trimmed and lowercased
+   *
+   * @example
+   * ```typescript
+   * { provider: 'google' }
+   * ```
+   */
+  @IsString({ message: 'provider must be a string' })
+  @MaxLength(50, { message: 'provider must not exceed 50 characters' })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') return value.trim().toLowerCase();
+    return value;
+  })
+  @IsIn(['google', 'apple', 'facebook'], { message: 'provider must be one of: google, apple, facebook' })
+  provider!: string;
+
+  /**
+   * ID token (JWT) from native SDK
+   *
+   * Required for:
+   * - google (always)
+   * - apple (always)
+   * - facebook Limited Login (when accessToken is not provided)
+   *
+   * Validation:
+   * - Required for google/apple
+   * - Required for facebook only when accessToken is NOT provided
    * - Must be non-empty string
    * - Max 10000 characters (JWT tokens can be large)
    *
    * Sanitization:
    * - Trimmed
    */
+  @ValidateIf((o: VerifyTokenDTO) => o.provider !== 'facebook' || !o.accessToken)
   @IsString({ message: 'idToken must be a string' })
+  @MinLength(1, { message: 'idToken must not be empty' })
   @MaxLength(10000, { message: 'idToken must not exceed 10000 characters' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
@@ -401,23 +453,28 @@ export class VerifyTokenDTO {
     }
     return value;
   })
-  idToken!: string;
+  idToken?: string;
 
   /**
-   * Optional access token from native SDK
+   * Access token (opaque) from native SDK
    *
-   * Some providers (e.g., Google) provide an access token alongside the ID token.
-   * This can be used for additional API calls or verification.
+   * Required for:
+   * - facebook classic login (when idToken is not provided)
+   *
+   * Optional for:
+   * - google (provided alongside idToken)
    *
    * Validation:
-   * - Optional
+   * - Required for facebook only when idToken is NOT provided
+   * - Must be non-empty string if provided
    * - Max 2000 characters
    *
    * Sanitization:
    * - Trimmed
    */
-  @IsOptional()
+  @ValidateIf((o: VerifyTokenDTO) => o.provider === 'facebook' && !o.idToken)
   @IsString({ message: 'accessToken must be a string' })
+  @MinLength(1, { message: 'accessToken must not be empty' })
   @MaxLength(2000, { message: 'accessToken must not exceed 2000 characters' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {

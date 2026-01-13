@@ -1,5 +1,6 @@
-import { NgModule, ModuleWithProviders } from '@angular/core';
+import { NgModule, ModuleWithProviders, inject } from '@angular/core';
 import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { NAUTH_CLIENT_CONFIG } from './tokens';
 import { AuthService } from './auth.service';
 import { AngularHttpAdapter } from './http-adapter';
@@ -45,7 +46,10 @@ export class NAuthModule {
         {
           provide: AuthService,
           useFactory: (httpAdapter: AngularHttpAdapter) => {
-            return new AuthService(config, httpAdapter);
+            // Try to inject Router optionally - if not available, pass undefined
+            // Router will be undefined if not provided (e.g., in apps without routing)
+            const router = inject(Router, { optional: true });
+            return new AuthService(config, httpAdapter, router ?? undefined);
           },
           deps: [AngularHttpAdapter],
         },

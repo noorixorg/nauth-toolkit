@@ -276,7 +276,7 @@ const customTemplateDefinitionSchema = z
 const templateConfigSchema = z
   .object({
     engine: z.any().optional(), // TemplateEngine instance - runtime validation
-    customTemplates: z.record(customTemplateDefinitionSchema).optional(),
+    customTemplates: z.record(z.string(), customTemplateDefinitionSchema).optional(),
   })
   .strict();
 
@@ -339,8 +339,8 @@ const customSMSTemplateDefinitionSchema = z
  */
 const smsTemplateConfigSchema = z.object({
   engine: z.any().optional(), // SMSTemplateEngine instance - runtime validation
-  globalVariables: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
-  customTemplates: z.record(customSMSTemplateDefinitionSchema).optional(),
+  globalVariables: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  customTemplates: z.record(z.string(), customSMSTemplateDefinitionSchema).optional(),
 });
 
 /**

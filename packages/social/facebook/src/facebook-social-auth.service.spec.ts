@@ -14,12 +14,7 @@ import {
   ISocialAuthStateStore,
   BaseUser,
 } from '@nauth-toolkit/core';
-import {
-  JwtService,
-  SessionService,
-  AuthChallengeHelperService,
-  AuthAuditService,
-} from '@nauth-toolkit/core/internal';
+import { JwtService, SessionService, AuthChallengeHelperService, AuthAuditService } from '@nauth-toolkit/core/internal';
 import { Repository } from 'typeorm';
 import { VerifiedFacebookTokenProfile } from './verified-token-profile.interface';
 
@@ -49,7 +44,7 @@ describe('FacebookSocialAuthService', () => {
       error: jest.fn(),
       warn: jest.fn(),
       debug: jest.fn(),
-    } as any;
+    } as unknown as NAuthLogger;
 
     mockConfig = {
       jwt: {
@@ -71,21 +66,21 @@ describe('FacebookSocialAuthService', () => {
           scopes: ['email', 'public_profile'],
         },
       },
-    } as NAuthConfig;
+    } as unknown as NAuthConfig;
 
-    mockAuthService = {} as any;
-    mockSocialAuthService = {} as any;
-    mockJwtService = {} as any;
-    mockSessionService = {} as any;
-    mockChallengeHelper = {} as any;
-    mockClientInfoService = {} as any;
-    mockAuditService = {} as any;
-    mockPhoneVerificationService = {} as any;
+    mockAuthService = {} as unknown as jest.Mocked<AuthService>;
+    mockSocialAuthService = {} as unknown as jest.Mocked<SocialAuthService>;
+    mockJwtService = {} as unknown as jest.Mocked<JwtService>;
+    mockSessionService = {} as unknown as jest.Mocked<SessionService>;
+    mockChallengeHelper = {} as unknown as jest.Mocked<AuthChallengeHelperService>;
+    mockClientInfoService = {} as unknown as jest.Mocked<ClientInfoService>;
+    mockAuditService = {} as unknown as jest.Mocked<AuthAuditService>;
+    mockPhoneVerificationService = {} as unknown as jest.Mocked<PhoneVerificationService>;
     mockUserRepository = {
       findOne: jest.fn(),
       save: jest.fn(),
       create: jest.fn(),
-    } as any;
+    } as unknown as jest.Mocked<Repository<BaseUser>>;
     mockStateStore = {
       createCsrfState: jest.fn().mockResolvedValue('generated-state'),
       validateAndConsumeCsrfState: jest.fn().mockResolvedValue(undefined),
@@ -95,13 +90,14 @@ describe('FacebookSocialAuthService', () => {
 
     mockTokenVerifier = {
       verifyFacebookToken: jest.fn(),
-    } as any;
+      verifyFacebookIdToken: jest.fn(),
+    } as unknown as jest.Mocked<ITokenVerifierService>;
 
     mockOAuthClient = {
       getAuthorizationUrl: jest.fn(),
       exchangeCodeForToken: jest.fn(),
       getUserProfile: jest.fn(),
-    } as any;
+    } as unknown as jest.Mocked<FacebookOAuthClient>;
 
     (FacebookOAuthClient as jest.Mock).mockImplementation(() => mockOAuthClient);
   });
@@ -126,6 +122,7 @@ describe('FacebookSocialAuthService', () => {
         mockPhoneVerificationService,
         mockAuditService,
         undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
 
@@ -151,6 +148,7 @@ describe('FacebookSocialAuthService', () => {
         mockPhoneVerificationService,
         mockAuditService,
         undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
 
@@ -175,6 +173,7 @@ describe('FacebookSocialAuthService', () => {
         mockPhoneVerificationService,
         mockAuditService,
         undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
     });
@@ -205,6 +204,7 @@ describe('FacebookSocialAuthService', () => {
         mockPhoneVerificationService,
         mockAuditService,
         undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
     });
@@ -220,16 +220,35 @@ describe('FacebookSocialAuthService', () => {
 
       (mockTokenVerifier.verifyFacebookToken as jest.Mock).mockResolvedValue(verifiedToken);
 
-      const result = await (service as any).verifyNativeToken('access-token');
+      const result = (await (
+        service as unknown as { verifyNativeToken: (idToken: string) => Promise<unknown> }
+      ).verifyNativeToken('access-token')) as { email: string; id: string };
 
       expect(result.email).toBe('user@example.com');
       expect(result.id).toBe('facebook-user-id');
     });
 
+    it('should verify Facebook ID token (Limited Login) and return profile', async () => {
+      (mockTokenVerifier as unknown as { verifyFacebookIdToken: jest.Mock }).verifyFacebookIdToken.mockResolvedValue({
+        sub: 'facebook-user-sub',
+        email: 'user@example.com',
+        given_name: 'John',
+        family_name: 'Doe',
+        picture: 'https://example.com/photo.jpg',
+      });
+
+      const result = (await (
+        service as unknown as { verifyNativeToken: (idToken: string) => Promise<unknown> }
+      ).verifyNativeToken('header.payload.signature')) as { id?: string; email?: string };
+
+      expect(result.id).toBe('facebook-user-sub');
+      expect(result.email).toBe('user@example.com');
+    });
+
     it('should throw error when email is missing', async () => {
       const verifiedToken: VerifiedFacebookTokenProfile = {
         id: 'facebook-user-id',
-        email: null as any,
+        email: undefined,
         first_name: 'John',
         last_name: 'Doe',
         picture: undefined,
@@ -238,7 +257,9 @@ describe('FacebookSocialAuthService', () => {
       (mockTokenVerifier.verifyFacebookToken as jest.Mock).mockResolvedValue(verifiedToken);
 
       try {
-        await (service as any).verifyNativeToken('access-token');
+        await (service as unknown as { verifyNativeToken: (idToken: string) => Promise<unknown> }).verifyNativeToken(
+          'access-token',
+        );
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);

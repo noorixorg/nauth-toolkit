@@ -6,6 +6,7 @@ import {
   AuthErrorCode,
   resolveDeliveryForRequest,
   getAccessTokenCookieName,
+  getRefreshTokenCookieName,
 } from '@nauth-toolkit/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { TOKEN_DELIVERY_KEY, RouteDelivery } from '../decorators/token-delivery.decorator';
@@ -84,7 +85,6 @@ export class CsrfGuard implements CanActivate {
 
     if (routeMode) {
       effective = routeMode;
-      this.logger.debug(`[CSRF] Route mode override: ${routeMode}`);
     } else if (method === 'hybrid') {
       // ============================================================================
       // HYBRID MODE: Prefer the credential that is actually present
@@ -99,43 +99,43 @@ export class CsrfGuard implements CanActivate {
       const accessTokenCookieName = getAccessTokenCookieName(this.config);
       const cookieToken: string | undefined = request.cookies?.[accessTokenCookieName];
 
-      this.logger.debug(
-        `[CSRF] Hybrid mode - Bearer: ${!!headerToken}, Cookie: ${!!cookieToken}, Origin: ${request.headers?.origin || 'MISSING'}`,
-      );
-      this.logger.debug(
-        `[CSRF] Header check - authHeader exists: ${!!authHeader}, startsWith Bearer: ${authHeader?.startsWith('Bearer ')}, headerToken length: ${headerToken?.length || 0}`,
-      );
-      this.logger.debug(
-        `[CSRF] Cookie check - cookieName: ${accessTokenCookieName}, cookieToken exists: ${!!cookieToken}`,
-      );
-
       if (headerToken && !cookieToken) {
         effective = 'json';
-        this.logger.debug(`[CSRF] Detected JSON mode (Bearer token only)`);
       } else if (cookieToken && !headerToken) {
         effective = 'cookies';
-        this.logger.debug(`[CSRF] Detected cookies mode (cookie only)`);
       } else {
         // Both present, neither present, or edge case - fall back to origin-based
         effective = resolveDeliveryForRequest(request, deliveryConfig?.hybridPolicy);
-        this.logger.debug(
-          `[CSRF] Fallback to origin-based resolution: ${effective} (Bearer: ${!!headerToken}, Cookie: ${!!cookieToken})`,
-        );
       }
     } else if (method === 'cookies') {
       effective = 'cookies';
-      this.logger.debug(`[CSRF] Global cookies mode`);
     } else {
       effective = 'json';
-      this.logger.debug(`[CSRF] Global JSON mode`);
     }
-
-    this.logger.debug(`[CSRF] Effective delivery mode: ${effective} for ${request.method} ${request.url}`);
 
     // Only enforce CSRF for cookie-based token delivery
     if (effective !== 'cookies') {
-      this.logger.debug(`[CSRF] Skipping CSRF check (JSON mode)`);
       return true; // JSON mode doesn't need CSRF (Bearer tokens are CSRF-safe)
+    }
+
+    // ============================================================================
+    // CSRF ENFORCEMENT CONDITION (SECURITY-CRITICAL)
+    // ============================================================================
+    // CSRF protection is only meaningful when a request is authenticated via cookies.
+    // In hybrid deployments, non-browser clients (mobile/M2M/webhooks) may have no Origin
+    // header; delivery resolution safely defaults to 'cookies' to avoid leaking tokens to
+    // browsers. Enforcing CSRF purely based on that fallback would block legitimate
+    // non-cookie requests while adding no security.
+    //
+    // Therefore, enforce CSRF only when an auth cookie is actually present.
+    const accessTokenCookieName = getAccessTokenCookieName(this.config);
+    const refreshTokenCookieName = getRefreshTokenCookieName(this.config);
+    const hasAuthCookie = Boolean(
+      request.cookies?.[accessTokenCookieName] || request.cookies?.[refreshTokenCookieName],
+    );
+
+    if (!hasAuthCookie) {
+      return true;
     }
 
     // Validate CSRF token

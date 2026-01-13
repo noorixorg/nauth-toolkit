@@ -85,20 +85,20 @@ export const appConfig: ApplicationConfig = {
       useValue: {
         baseUrl: `${environment.apiBaseUrl}`,
         authPathPrefix: '/auth',
-        tokenDelivery: 'json',
+        tokenDelivery: 'cookies',
         debug: true,
-        csrf: {
-          cookieName: 'nauth_csrf_token',
-          headerName: 'x-csrf-token',
-        },
+        // csrf: {
+        //   cookieName: 'nauth_csrf_token',
+        //   headerName: 'x-csrf-token',
+        // },
         // CSRF not needed in JSON mode (Bearer tokens are CSRF-safe)
         // Only configure csrf when using tokenDelivery: 'cookies' or 'hybrid'
         endpoints: {
-          profile: '/profile',
-          login: '/login/mobile',
-          refresh: '/refresh/mobile',
-          signup: '/signup/mobile',
-          logout: '/logout/mobile',
+          // profile: '/profile',
+          // login: '/login/mobile',
+          // refresh: '/refresh/mobile',
+          // signup: '/signup/mobile',
+          // logout: '/logout/mobile',
           // respondChallenge: '/respond-challenge/mobile',
           // isTrustedDevice: '/auth/is-trusted-device',
           // trustDevice: '/auth/trust-device',

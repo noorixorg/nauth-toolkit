@@ -251,7 +251,6 @@ export class AuthGuard implements CanActivate {
 
     if (routeMode) {
       effective = routeMode;
-      this.nlogger.debug(`[AuthGuard] Route mode override: ${routeMode}`);
     } else if (method === 'hybrid') {
       // ============================================================================
       // HYBRID MODE: Prefer the credential that is actually present
@@ -267,38 +266,20 @@ export class AuthGuard implements CanActivate {
       // Match AuthGuard logic: if client sends Bearer token, treat as JSON mode
       // This prevents CSRF enforcement for mobile apps using Bearer tokens
       // Handle case-insensitive header lookup (Express uses lowercase, Fastify may use original case)
-      this.nlogger.debug(
-        `[AuthGuard] Hybrid mode - Bearer: ${!!headerToken}, Cookie: ${!!cookieToken}, Origin: ${request.headers?.origin || 'MISSING'}`,
-      );
-      this.nlogger.debug(
-        `[AuthGuard] Header check - authHeader exists: ${!!authHeader}, startsWith Bearer: ${authHeader?.startsWith('Bearer ')}, headerToken length: ${headerToken?.length || 0}`,
-      );
-      this.nlogger.debug(
-        `[AuthGuard] Cookie check - cookieName: ${accessTokenCookieName}, cookieToken exists: ${!!cookieToken}`,
-      );
 
       if (headerToken && !cookieToken) {
         effective = 'json';
-        this.nlogger.debug(`[AuthGuard] Detected JSON mode (Bearer token only)`);
       } else if (cookieToken && !headerToken) {
         effective = 'cookies';
-        this.nlogger.debug(`[AuthGuard] Detected cookies mode (cookie only)`);
       } else {
         // Both present, neither present, or edge case - fall back to origin-based
         effective = resolveDeliveryForRequest(request, cfg?.hybridPolicy);
-        this.nlogger.debug(
-          `[AuthGuard] Fallback to origin-based resolution: ${effective} (Bearer: ${!!headerToken}, Cookie: ${!!cookieToken})`,
-        );
       }
     } else if (method === 'cookies') {
       effective = 'cookies';
-      this.nlogger.debug(`[AuthGuard] Global cookies mode`);
     } else {
       effective = 'json';
-      this.nlogger.debug(`[AuthGuard] Global JSON mode`);
     }
-
-    this.nlogger.debug(`[AuthGuard] Effective delivery mode: ${effective} for ${request.method} ${request.url}`);
 
     if (effective === 'cookies') {
       if (headerToken && !cookieToken) {

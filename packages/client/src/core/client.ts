@@ -657,8 +657,9 @@ export class NAuthClient {
 
     if (hasWindow()) {
       const startPath = this.config.endpoints.socialRedirectStart.replace(':provider', provider);
-      const base = this.config.baseUrl.replace(/\/$/, '');
-      const startUrl = new URL(`${base}${startPath}`);
+      // Use buildUrl to ensure authPathPrefix is applied
+      const fullUrl = this.buildUrl(startPath);
+      const startUrl = new URL(fullUrl);
 
       const returnTo = options?.returnTo ?? this.config.redirects?.success ?? '/';
 

@@ -97,6 +97,33 @@ export interface ITokenVerifierService {
   verifyFacebookToken?(accessToken: string, appId: string, appSecret: string): Promise<unknown>;
 
   /**
+   * Verify Facebook ID token (OIDC / Limited Login) with JWT signature validation
+   *
+   * Facebook Limited Login (primarily iOS) returns an **ID token (JWT)** instead of an access token.
+   * This method verifies the JWT signature using Facebook's OIDC JWKS and validates standard claims.
+   *
+   * Expected OIDC discovery values:
+   * - Issuer: `https://www.facebook.com`
+   * - JWKS URI: `https://www.facebook.com/.well-known/oauth/openid/jwks/`
+   *
+   * Security:
+   * - Validates signature (RS256) using Facebook public keys (JWKS)
+   * - Validates `iss` (issuer) and `aud` (audience) against the app ID
+   * - Validates token freshness (`exp`, `iat`) via jwt library
+   *
+   * @param idToken - Facebook OIDC ID token (JWT)
+   * @param appId - Facebook App ID for audience validation
+   * @returns Verified user profile data (provider-specific type)
+   *
+   * @example
+   * ```typescript
+   * const profile = await verifier.verifyFacebookIdToken(idToken, '1234567890');
+   * console.log(profile.sub);
+   * ```
+   */
+  verifyFacebookIdToken?(idToken: string, appId: string): Promise<unknown>;
+
+  /**
    * Clear cached clients and keys
    *
    * Useful for testing or when configuration changes

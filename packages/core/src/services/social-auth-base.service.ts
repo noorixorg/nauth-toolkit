@@ -243,7 +243,13 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
 
     try {
       // Verify token and get profile
-      const profile = await this.verifyNativeToken(dto.idToken, dto.accessToken, dto.profileData);
+      // Note: For Facebook classic login, idToken may be undefined and accessToken is used instead.
+      // Provider-specific implementations handle this mapping internally.
+      const profile = await this.verifyNativeToken(
+        dto.idToken || dto.accessToken || '',
+        dto.accessToken,
+        dto.profileData,
+      );
 
       // Find or create user
       const user = await this.findOrCreateUser(profile, providerConfig);
