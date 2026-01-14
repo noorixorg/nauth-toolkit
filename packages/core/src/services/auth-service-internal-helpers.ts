@@ -856,6 +856,9 @@ export class AuthServiceInternalHelpers {
    * Ensures email, phone, and username are unique for other users before update.
    *
    * Throws if another user already has the specified email, phone, or username.
+   * Phone uniqueness check respects `config.signup.allowDuplicatePhones` setting:
+   * - If `allowDuplicatePhones` is true, phone uniqueness is not checked
+   * - If `allowDuplicatePhones` is false or undefined, phone must be unique
    *
    * @param userId - Internal numeric user ID (excluded from check)
    * @param updateData - User fields to check for uniqueness
@@ -874,8 +877,8 @@ export class AuthServiceInternalHelpers {
       }
     }
 
-    // Check phone uniqueness
-    if (updateData.phone) {
+    // Check phone uniqueness - only if duplicates are not allowed
+    if (updateData.phone && !this.config.signup?.allowDuplicatePhones) {
       const existingUser = await this.userRepository.findOne({
         where: { phone: updateData.phone },
       });
