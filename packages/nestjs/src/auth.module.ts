@@ -31,6 +31,7 @@ import {
   AccountLockoutStorageService,
   NAuthLogger,
   AuthAuditService, // Public type for DI token
+  HookRegistryService as PublicHookRegistryService,
   EmailProvider,
   SMSProvider,
   SMSTemplateEngine,
@@ -1062,6 +1063,17 @@ export class AuthModule {
         },
         ClientInfoService,
         HookRegistryService,
+        // ============================================================================
+        // DI Compatibility: Public vs internal HookRegistryService token
+        // ============================================================================
+        // The NestJS adapter uses the internal `HookRegistryService` token for wiring core services.
+        // The consumer-facing `NAuthHooksModule` imports `HookRegistryService` from the public entry.
+        // In certain build setups these tokens can diverge, causing hooks to register into a different instance.
+        // We alias the public token to the internal singleton to guarantee a single registry instance.
+        {
+          provide: PublicHookRegistryService,
+          useExisting: HookRegistryService,
+        },
         // Conditionally provide AuthAuditService based on config.auditLogs.enabled
         // Default to enabled if not specified (backward compatibility)
         //
@@ -1601,7 +1613,8 @@ export class AuthModule {
         AuthChallengeHelperService, // Needed by social auth providers
         SocialProviderRegistry, // Needed by social auth provider modules for auto-registration
         ClientInfoService,
-        HookRegistryService, // Needed by NAuthHooksModule for hook registration
+        HookRegistryService, // Internal token (core services)
+        PublicHookRegistryService, // Public token (NAuthHooksModule / consumer DI)
         // Audit Services (conditional - only if enabled)
         // Single instance, exported under two tokens:
         //   - AuthAuditService (public API) - For consumer apps to fetch audit logs (TypeScript prevents recordEvent)

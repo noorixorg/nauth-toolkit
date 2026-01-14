@@ -294,6 +294,9 @@ export class PhoneVerificationService {
               ? !!user.isEmailVerified && !!user.isPhoneVerified
               : !!user.isEmailVerified;
 
+    // Store initial verification status to detect changes
+    const wasPhoneVerified = Boolean(user.isPhoneVerified);
+
     // Get verification attempt rate limit configuration from config
     const maxAttemptsPerUser = this.config.signup?.phoneVerification?.maxAttemptsPerUser ?? 10;
     const maxAttemptsPerIP = this.config.signup?.phoneVerification?.maxAttemptsPerIP ?? 20;
@@ -399,11 +402,13 @@ export class PhoneVerificationService {
     token.usedAt = new Date();
     await this.verificationTokenRepo.save(token);
 
-    // Update user flags
-    await this.userRepo.update(user.id, {
-      isPhoneVerified: true,
-      isActive: true,
-    });
+    // Update user flags - only update if not already verified to avoid unnecessary DB write
+    if (!wasPhoneVerified) {
+      await this.userRepo.update(user.id, {
+        isPhoneVerified: true,
+        isActive: true,
+      });
+    }
 
     this.logger?.log?.(`Phone verification successful: userId=${user.id}, phone=${this.maskPhone(phone)}`);
 
@@ -436,59 +441,63 @@ export class PhoneVerificationService {
     // ============================================================================
     // Hook: Execute user profile updated hooks
     // ============================================================================
-    try {
-      // Refetch user to get complete updated state
-      const updatedUser = (await this.userRepo.findOne({ where: { id: user.id } })) as IUser | null;
-      if (updatedUser) {
-        // Get client info from ClientInfoService
-        const clientInfo = this.clientInfoService.get();
+    // Fire hook if verification status changed (false→true OR true→false)
+    // This ensures hook fires consistently on any status change
+    if (wasPhoneVerified !== true) {
+      try {
+        // Refetch user to get complete updated state
+        const updatedUser = (await this.userRepo.findOne({ where: { id: user.id } })) as IUser | null;
+        if (updatedUser) {
+          // Get client info from ClientInfoService
+          const clientInfo = this.clientInfoService.get();
 
-        // Execute hooks (non-blocking)
-        await this.hookRegistry.executeUserProfileUpdated({
-          user: updatedUser,
-          changedFields: [
-            {
-              fieldName: 'isPhoneVerified',
-              oldValue: false,
-              newValue: true,
+          // Execute hooks (non-blocking) with actual old/new values
+          await this.hookRegistry.executeUserProfileUpdated({
+            user: updatedUser,
+            changedFields: [
+              {
+                fieldName: 'isPhoneVerified',
+                oldValue: wasPhoneVerified,
+                newValue: true,
+              },
+            ],
+            updateSource: 'phone_verification',
+            clientInfo: {
+              ipAddress: clientInfo.ipAddress,
+              userAgent: clientInfo.userAgent,
+              ipCountry: clientInfo.ipCountry,
+              ipCity: clientInfo.ipCity,
             },
-          ],
-          updateSource: 'phone_verification',
-          clientInfo: {
-            ipAddress: clientInfo.ipAddress,
-            userAgent: clientInfo.userAgent,
-            ipCountry: clientInfo.ipCountry,
-            ipCity: clientInfo.ipCity,
-          },
-        });
-
-        const isOnboardingCompleteNow =
-          verificationMethod === 'none'
-            ? true
-            : verificationMethod === 'email'
-              ? !!updatedUser.isEmailVerified
-              : verificationMethod === 'phone'
-                ? !!updatedUser.isPhoneVerified
-                : verificationMethod === 'both'
-                  ? !!updatedUser.isEmailVerified && !!updatedUser.isPhoneVerified
-                  : !!updatedUser.isEmailVerified;
-
-        // Fire onboarding completed only on the transition to "complete" to avoid duplicate welcome emails.
-        if (!wasOnboardingCompleteBefore && isOnboardingCompleteNow) {
-          await this.hookRegistry.executeOnboardingCompleted(updatedUser, {
-            verificationMethod,
-            source: 'phone_verification',
-            completedAt: new Date(),
           });
+
+          const isOnboardingCompleteNow =
+            verificationMethod === 'none'
+              ? true
+              : verificationMethod === 'email'
+                ? !!updatedUser.isEmailVerified
+                : verificationMethod === 'phone'
+                  ? !!updatedUser.isPhoneVerified
+                  : verificationMethod === 'both'
+                    ? !!updatedUser.isEmailVerified && !!updatedUser.isPhoneVerified
+                    : !!updatedUser.isEmailVerified;
+
+          // Fire onboarding completed only on the transition to "complete" to avoid duplicate welcome emails.
+          if (!wasOnboardingCompleteBefore && isOnboardingCompleteNow) {
+            await this.hookRegistry.executeOnboardingCompleted(updatedUser, {
+              verificationMethod,
+              source: 'phone_verification',
+              completedAt: new Date(),
+            });
+          }
         }
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
+          error: hookError,
+          userId: user.id,
+        });
       }
-    } catch (hookError) {
-      // Non-blocking: Log but continue
-      const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
-      this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
-        error: hookError,
-        userId: user.id,
-      });
     }
 
     return { message: 'Phone verified successfully. Please log in to continue.' };
@@ -700,7 +709,8 @@ export class PhoneVerificationService {
     // This prevents updating updatedAt timestamp when phone is already verified
     // We use the verification status from when user was loaded at the start
     // ============================================================================
-    if (!wasPhoneVerified) {
+    const phoneWasJustVerified = !wasPhoneVerified;
+    if (phoneWasJustVerified) {
       // Use update() with explicit WHERE clause to ensure the change is persisted
       // This bypasses entity tracking issues and ensures the update is committed
       await this.userRepo.update(
@@ -745,8 +755,9 @@ export class PhoneVerificationService {
     // ============================================================================
     // Hook: Execute user profile updated hooks
     // ============================================================================
-    // Only fire hook if phone was actually verified (not already verified)
-    if (!wasPhoneVerified) {
+    // Always fire hook when verification occurs (phone was just verified)
+    // This ensures hook fires consistently whenever phone verification succeeds
+    if (phoneWasJustVerified) {
       try {
         // Refetch user to get complete updated state
         const updatedUser = (await this.userRepo.findOne({ where: { id: user.id } })) as IUser | null;
@@ -754,13 +765,13 @@ export class PhoneVerificationService {
           // Get client info from ClientInfoService
           const clientInfo = this.clientInfoService.get();
 
-          // Execute hooks (non-blocking)
+          // Execute hooks (non-blocking) with actual old/new values
           await this.hookRegistry.executeUserProfileUpdated({
             user: updatedUser,
             changedFields: [
               {
                 fieldName: 'isPhoneVerified',
-                oldValue: false,
+                oldValue: wasPhoneVerified,
                 newValue: true,
               },
             ],

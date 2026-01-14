@@ -22,7 +22,7 @@ import type { BaseUser } from '../entities';
  * Test implementation of BaseSocialAuthProviderService
  */
 class TestSocialAuthProviderService extends BaseSocialAuthProviderService {
-  readonly providerName = 'test';
+  readonly providerName = 'google';
 
   async getAuthUrl(state?: string): Promise<string> {
     return `https://test.com/auth?state=${state || 'generated-state'}`;
@@ -106,7 +106,7 @@ describe('BaseSocialAuthProviderService', () => {
         },
       },
       social: {
-        test: {
+        google: {
           enabled: true,
           allowSignup: true,
           autoLink: false,
@@ -260,7 +260,7 @@ describe('BaseSocialAuthProviderService', () => {
   describe('validateState', () => {
     it('should validate state via ISocialAuthStateStore', async () => {
       await (service as any).validateState('valid-state');
-      expect(mockStateStore.validateAndConsumeCsrfState).toHaveBeenCalledWith('test', 'valid-state');
+      expect(mockStateStore.validateAndConsumeCsrfState).toHaveBeenCalledWith('google', 'valid-state');
     });
 
     it('should propagate state validation errors', async () => {
@@ -275,7 +275,7 @@ describe('BaseSocialAuthProviderService', () => {
     it('should generate state via ISocialAuthStateStore', async () => {
       const state = await (service as any).generateState();
       expect(state).toBe('generated-state');
-      expect(mockStateStore.createCsrfState).toHaveBeenCalledWith('test');
+      expect(mockStateStore.createCsrfState).toHaveBeenCalledWith('google');
     });
   });
 
@@ -292,7 +292,7 @@ describe('BaseSocialAuthProviderService', () => {
       expect(result).toBeDefined();
       expect(mockUserRepository.create).toHaveBeenCalled();
       expect(mockUserRepository.save).toHaveBeenCalled();
-      expect(mockStateStore.validateAndConsumeCsrfState).toHaveBeenCalledWith('test', 'valid-state');
+      expect(mockStateStore.validateAndConsumeCsrfState).toHaveBeenCalledWith('google', 'valid-state');
     });
 
     describe('preSignup hook', () => {
@@ -319,7 +319,7 @@ describe('BaseSocialAuthProviderService', () => {
             verified: true,
           }),
           'social',
-          'test',
+          'google',
           false, // adminSignup flag
         );
         expect(mockUserRepository.save).toHaveBeenCalled();
@@ -395,7 +395,7 @@ describe('BaseSocialAuthProviderService', () => {
       mockUserRepository.save.mockResolvedValue(mockUser as any);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      const result = await service.verifyToken({ idToken: 'id-token' });
+      const result = await service.verifyToken({ idToken: 'id-token', provider: 'google' });
 
       expect(result).toBeDefined();
       expect(mockUserRepository.create).toHaveBeenCalled();
@@ -414,7 +414,7 @@ describe('BaseSocialAuthProviderService', () => {
       it('should execute preSignup hook before user creation for native token verification', async () => {
         mockHookRegistry.executePreSignup.mockResolvedValue(undefined);
 
-        await service.verifyToken({ idToken: 'id-token' });
+        await service.verifyToken({ idToken: 'id-token', provider: 'google' });
 
         expect(mockHookRegistry.executePreSignup).toHaveBeenCalledTimes(1);
         expect(mockHookRegistry.executePreSignup).toHaveBeenCalledWith(
@@ -426,7 +426,7 @@ describe('BaseSocialAuthProviderService', () => {
             verified: true,
           }),
           'social',
-          'test',
+          'google',
           false, // adminSignup flag
         );
         expect(mockUserRepository.save).toHaveBeenCalled();
@@ -439,7 +439,7 @@ describe('BaseSocialAuthProviderService', () => {
         );
 
         try {
-          await service.verifyToken({ idToken: 'id-token' });
+          await service.verifyToken({ idToken: 'id-token', provider: 'google' });
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -458,7 +458,7 @@ describe('BaseSocialAuthProviderService', () => {
         );
 
         try {
-          await service.verifyToken({ idToken: 'id-token' });
+          await service.verifyToken({ idToken: 'id-token', provider: 'google' });
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -472,7 +472,7 @@ describe('BaseSocialAuthProviderService', () => {
     });
 
     it('should throw error when provider is not enabled', async () => {
-      (mockConfig.social as any).test.enabled = false;
+      (mockConfig.social as any).google.enabled = false;
       const newService = new TestSocialAuthProviderService(
         mockConfig,
         mockLogger,
@@ -491,7 +491,7 @@ describe('BaseSocialAuthProviderService', () => {
       );
 
       try {
-        await newService.verifyToken({ idToken: 'id-token' });
+        await newService.verifyToken({ idToken: 'id-token', provider: 'google' });
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -510,7 +510,7 @@ describe('BaseSocialAuthProviderService', () => {
 
       expect(result.message).toContain('account linked successfully');
       expect(mockSocialAuthService.createOrUpdateSocialAccount).toHaveBeenCalled();
-      expect(mockStateStore.validateAndConsumeCsrfState).toHaveBeenCalledWith('test', 'valid-state');
+      expect(mockStateStore.validateAndConsumeCsrfState).toHaveBeenCalledWith('google', 'valid-state');
     });
 
     it('should throw error when account is already linked', async () => {
@@ -518,10 +518,10 @@ describe('BaseSocialAuthProviderService', () => {
       // The check happens after getOAuthProfile, so we need to mock the service to return an account
       // when called with the provider name and profile.id from getOAuthProfile
       mockSocialAuthService.findSocialAccountByProvider.mockImplementation((provider: string, providerId: string) => {
-        if (provider === 'test' && providerId === 'test-user-id') {
+        if (provider === 'google' && providerId === 'test-user-id') {
           return Promise.resolve({
             id: 1,
-            provider: 'test',
+            provider: 'google',
             providerId: 'test-user-id',
             user: { id: 2 }, // Different user
           } as any);

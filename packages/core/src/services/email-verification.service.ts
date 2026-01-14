@@ -380,16 +380,22 @@ export class EmailVerificationService {
               ? !!user.isEmailVerified && !!user.isPhoneVerified
               : !!user.isEmailVerified;
 
+    // Store initial verification status to detect changes
+    const wasEmailVerified = Boolean(user.isEmailVerified);
+
     // Mark token as used
     verificationToken.usedAt = new Date();
     await this.verificationTokenRepo.save(verificationToken);
 
     // Update user - use internal id for database update
-    await this.userRepo.update(user.id, {
-      isEmailVerified: true,
-      // Auto-activate if not already active
-      isActive: true,
-    });
+    // Only update if not already verified to avoid unnecessary DB write
+    if (!wasEmailVerified) {
+      await this.userRepo.update(user.id, {
+        isEmailVerified: true,
+        // Auto-activate if not already active
+        isActive: true,
+      });
+    }
 
     // ============================================================================
     // Audit: Record email verification success
@@ -417,59 +423,63 @@ export class EmailVerificationService {
     // ============================================================================
     // Hook: Execute user profile updated hooks
     // ============================================================================
-    try {
-      // Refetch user to get complete updated state
-      const updatedUser = (await this.userRepo.findOne({ where: { id: user.id } })) as IUser | null;
-      if (updatedUser) {
-        // Get client info from ClientInfoService
-        const clientInfo = this.clientInfoService.get();
+    // Fire hook if verification status changed (false→true OR true→false)
+    // This ensures hook fires consistently on any status change
+    if (wasEmailVerified !== true) {
+      try {
+        // Refetch user to get complete updated state
+        const updatedUser = (await this.userRepo.findOne({ where: { id: user.id } })) as IUser | null;
+        if (updatedUser) {
+          // Get client info from ClientInfoService
+          const clientInfo = this.clientInfoService.get();
 
-        // Execute hooks (non-blocking)
-        await this.hookRegistry.executeUserProfileUpdated({
-          user: updatedUser,
-          changedFields: [
-            {
-              fieldName: 'isEmailVerified',
-              oldValue: false,
-              newValue: true,
+          // Execute hooks (non-blocking) with actual old/new values
+          await this.hookRegistry.executeUserProfileUpdated({
+            user: updatedUser,
+            changedFields: [
+              {
+                fieldName: 'isEmailVerified',
+                oldValue: wasEmailVerified,
+                newValue: true,
+              },
+            ],
+            updateSource: 'email_verification',
+            clientInfo: {
+              ipAddress: clientInfo.ipAddress,
+              userAgent: clientInfo.userAgent,
+              ipCountry: clientInfo.ipCountry,
+              ipCity: clientInfo.ipCity,
             },
-          ],
-          updateSource: 'email_verification',
-          clientInfo: {
-            ipAddress: clientInfo.ipAddress,
-            userAgent: clientInfo.userAgent,
-            ipCountry: clientInfo.ipCountry,
-            ipCity: clientInfo.ipCity,
-          },
-        });
-
-        const isOnboardingCompleteNow =
-          verificationMethod === 'none'
-            ? true
-            : verificationMethod === 'email'
-              ? !!updatedUser.isEmailVerified
-              : verificationMethod === 'phone'
-                ? !!updatedUser.isPhoneVerified
-                : verificationMethod === 'both'
-                  ? !!updatedUser.isEmailVerified && !!updatedUser.isPhoneVerified
-                  : !!updatedUser.isEmailVerified;
-
-        // Fire onboarding completed only on the transition to "complete" to avoid duplicate welcome emails.
-        if (!wasOnboardingCompleteBefore && isOnboardingCompleteNow) {
-          await this.hookRegistry.executeOnboardingCompleted(updatedUser, {
-            verificationMethod,
-            source: 'email_verification',
-            completedAt: new Date(),
           });
+
+          const isOnboardingCompleteNow =
+            verificationMethod === 'none'
+              ? true
+              : verificationMethod === 'email'
+                ? !!updatedUser.isEmailVerified
+                : verificationMethod === 'phone'
+                  ? !!updatedUser.isPhoneVerified
+                  : verificationMethod === 'both'
+                    ? !!updatedUser.isEmailVerified && !!updatedUser.isPhoneVerified
+                    : !!updatedUser.isEmailVerified;
+
+          // Fire onboarding completed only on the transition to "complete" to avoid duplicate welcome emails.
+          if (!wasOnboardingCompleteBefore && isOnboardingCompleteNow) {
+            await this.hookRegistry.executeOnboardingCompleted(updatedUser, {
+              verificationMethod,
+              source: 'email_verification',
+              completedAt: new Date(),
+            });
+          }
         }
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
+          error: hookError,
+          userId: user.id,
+        });
       }
-    } catch (hookError) {
-      // Non-blocking: Log but continue
-      const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
-      this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
-        error: hookError,
-        userId: user.id,
-      });
     }
 
     // TODO: maybe refactor to return user save user query in parent function
@@ -521,6 +531,8 @@ export class EmailVerificationService {
     })) as IUser | null;
 
     const verificationMethod = this.config.signup?.verificationMethod ?? 'email';
+    // If user is missing (edge case), we still mark token used and attempt the update,
+    // but we skip audit + hooks since we can't reliably build metadata without the user entity.
     const wasOnboardingCompleteBefore = !user
       ? false
       : verificationMethod === 'none'
@@ -533,12 +545,17 @@ export class EmailVerificationService {
               ? !!user.isEmailVerified && !!user.isPhoneVerified
               : !!user.isEmailVerified;
 
-    // Update user
-    await this.userRepo.update(verificationToken.userId, {
-      isEmailVerified: true,
-      // Auto-activate if not already active
-      isActive: true,
-    });
+    // Store initial verification status to detect changes
+    const wasEmailVerified = Boolean(user?.isEmailVerified);
+
+    // Update user - only update if not already verified to avoid unnecessary DB write
+    if (!wasEmailVerified) {
+      await this.userRepo.update(verificationToken.userId, {
+        isEmailVerified: true,
+        // Auto-activate if not already active
+        isActive: true,
+      });
+    }
 
     // ============================================================================
     // Audit: Record email verification success (token-based)
@@ -560,13 +577,17 @@ export class EmailVerificationService {
         const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
         this.logger?.error?.(`Failed to record EMAIL_VERIFIED audit event (token-based): ${errorMessage}`, {
           error: auditError,
-          userId: user?.id,
+          userId: user.id,
         });
       }
+    }
 
-      // ============================================================================
-      // Hook: Execute user profile updated hooks
-      // ============================================================================
+    // ============================================================================
+    // Hook: Execute user profile updated hooks
+    // ============================================================================
+    // Fire hook if verification status changed (false→true OR true→false)
+    // This ensures hook fires consistently on any status change
+    if (user && wasEmailVerified !== true) {
       try {
         // Refetch user to get complete updated state
         const updatedUser = (await this.userRepo.findOne({ where: { id: user.id } })) as IUser | null;
@@ -574,13 +595,13 @@ export class EmailVerificationService {
           // Get client info from ClientInfoService
           const clientInfo = this.clientInfoService.get();
 
-          // Execute hooks (non-blocking)
+          // Execute hooks (non-blocking) with actual old/new values
           await this.hookRegistry.executeUserProfileUpdated({
             user: updatedUser,
             changedFields: [
               {
                 fieldName: 'isEmailVerified',
-                oldValue: false,
+                oldValue: wasEmailVerified,
                 newValue: true,
               },
             ],
@@ -604,6 +625,7 @@ export class EmailVerificationService {
                     ? !!updatedUser.isEmailVerified && !!updatedUser.isPhoneVerified
                     : !!updatedUser.isEmailVerified;
 
+          // Fire onboarding completed only on the transition to "complete" to avoid duplicate welcome emails.
           if (!wasOnboardingCompleteBefore && isOnboardingCompleteNow) {
             await this.hookRegistry.executeOnboardingCompleted(updatedUser, {
               verificationMethod,
@@ -617,7 +639,7 @@ export class EmailVerificationService {
         const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
         this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
           error: hookError,
-          userId: user?.id,
+          userId: user.id,
         });
       }
     }
