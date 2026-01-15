@@ -63,7 +63,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   mfa: {
-    enabled: false,
+    enabled: true,
     enforcement: 'OPTIONAL',
     gracePeriod: 0,
     requireForSocialLogin: false,
@@ -121,20 +121,20 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   tokenDelivery: {
-    method: 'cookies',
+    method: 'hybrid',
     cookieOptions: {
       secure: true,
       sameSite: 'none',
-      domain: '.angular.dev1.noorix.com',
+      // domain: '.angular.dev1.noorix.com',
     },
   },
   security: {
     csrf: {
       cookieName: 'nauth_csrf_token',
       headerName: 'x-csrf-token',
-      cookieOptions: {
-        domain: '.angular.dev1.noorix.com',
-      },
+      // cookieOptions: {
+      //   domain: '.angular.dev1.noorix.com',
+      // },
     },
   },
   geoLocation: {
@@ -150,7 +150,7 @@ export const authConfig: NAuthModuleConfig = {
     redirect: {
       frontendBaseUrl: 'http://localhost:4200',
       allowAbsoluteReturnTo: false,
-      allowedReturnToOrigins: ['https://angular.dev1.noorix.com'],
+      allowedReturnToOrigins: ['https://angular.dev1.noorix.com', 'http://localhost:4200', 'http://localhost:3000'],
     },
     google: {
       enabled: true, // Enable Google OAuth (default: false)

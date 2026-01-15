@@ -71,6 +71,11 @@ export class DashboardComponent {
   isLoggingOut = signal<boolean>(false);
 
   /**
+   * Last OAuth state (temporary for testing)
+   */
+  lastOauthState = signal<string | null>(null);
+
+  /**
    * Logout menu items for split button
    * Using computed signal to ensure reactivity
    */
@@ -171,6 +176,40 @@ export class DashboardComponent {
       await this.router.navigate(['/login']);
     } finally {
       this.isLoggingOut.set(false);
+    }
+  }
+
+  /**
+   * Get last OAuth state (temporary for testing).
+   *
+   * Retrieves and displays the appState from the most recent social login redirect.
+   */
+  async showLastOauthState(): Promise<void> {
+    try {
+      const state = await this.auth.getLastOauthState();
+      this.lastOauthState.set(state);
+
+      if (state) {
+        this.messageService.add({
+          severity: 'info',
+          summary: 'Last OAuth State',
+          detail: `appState: ${state}`,
+          life: 5000,
+        });
+      } else {
+        this.messageService.add({
+          severity: 'info',
+          summary: 'Last OAuth State',
+          detail: 'No OAuth state found (null)',
+          life: 3000,
+        });
+      }
+    } catch (err: unknown) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: err instanceof Error ? err.message : 'Failed to get OAuth state',
+      });
     }
   }
 }

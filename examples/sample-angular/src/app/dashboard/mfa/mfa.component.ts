@@ -156,17 +156,20 @@ export class MfaComponent implements OnInit, OnDestroy {
       const client = this.auth.getClient();
 
       // Load MFA status and devices in parallel
-      const [status, devicesData] = await Promise.all([
+      const [status, devicesResponse] = await Promise.all([
         client.getMfaStatus(),
-        client.getMfaDevices() as Promise<MFADevice[]>,
+        client.getMfaDevices(),
       ]);
 
       this.mfaStatus.set(status);
 
+      // Extract devices array from response (backend returns { devices: MFADevice[] })
+      const devicesData: MFADevice[] = Array.isArray(devicesResponse)
+        ? (devicesResponse as MFADevice[])
+        : ((devicesResponse as { devices?: MFADevice[] })?.devices ?? []);
+
       // Deduplicate devices by ID (in case backend returns duplicates)
-      const uniqueDevices = devicesData
-        ? Array.from(new Map(devicesData.map((d) => [d.id, d])).values())
-        : [];
+      const uniqueDevices = Array.from(new Map(devicesData.map((d: MFADevice) => [d.id, d])).values());
 
       this.devices.set(uniqueDevices);
     } catch {

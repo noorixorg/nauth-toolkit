@@ -179,7 +179,13 @@ describe('PasswordResetService', () => {
         { userId: mockUser.id, type: 'password_reset', usedAt: IsNull() },
         { usedAt: expect.any(Date) },
       );
-      expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalled();
+      expect(mockEmailProvider.sendPasswordResetEmail).toHaveBeenCalledWith(
+        mockUser.email,
+        expect.any(String), // token
+        expect.any(String), // code
+        undefined, // link (not provided)
+        expect.any(Number), // expiryMinutes
+      );
       expect(result.deliveryMedium).toBe('email');
       expect(result.destination).toContain('@');
     });

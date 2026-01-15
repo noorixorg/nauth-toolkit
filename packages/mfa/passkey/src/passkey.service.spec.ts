@@ -196,9 +196,11 @@ describe('PasskeyService', () => {
       const mockVerification = {
         verified: true,
         registrationInfo: {
-          credentialID: Buffer.from('credential-id'),
-          credentialPublicKey: Buffer.from('public-key'),
-          counter: 0,
+          credential: {
+            id: Buffer.from('credential-id'),
+            publicKey: Buffer.from('public-key'),
+            counter: 0,
+          },
         },
       };
 
@@ -228,9 +230,11 @@ describe('PasskeyService', () => {
       const mockVerification = {
         verified: true,
         registrationInfo: {
-          credentialID: Buffer.from('backend-cred-id'),
-          credentialPublicKey: Buffer.from('public-key'),
-          counter: 0,
+          credential: {
+            id: Buffer.from('backend-cred-id'),
+            publicKey: Buffer.from('public-key'),
+            counter: 0,
+          },
         },
       };
 
@@ -246,9 +250,11 @@ describe('PasskeyService', () => {
       const mockVerification = {
         verified: true,
         registrationInfo: {
-          credentialID: Buffer.from('credential-id'),
-          credentialPublicKey: Buffer.from('public-key'),
-          counter: 0,
+          credential: {
+            id: Buffer.from('credential-id'),
+            publicKey: Buffer.from('public-key'),
+            counter: 0,
+          },
         },
       };
 

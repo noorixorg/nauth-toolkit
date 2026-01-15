@@ -170,8 +170,9 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
 
       if (this.isAuthenticatedFlow()) {
         // Authenticated flow: use setupMfaDevice (no challenge session needed)
+        // Backend returns { setupData: { autoCompleted: true, deviceId: ... } } or { setupData: { maskedPhone: ... } }
         const setupResult = await this.auth.getClient().setupMfaDevice(method);
-        result = { setupData: setupResult as Record<string, unknown> };
+        result = setupResult as { setupData: Record<string, unknown> };
       } else {
         // Challenge flow: use getSetupData (requires challenge session)
         const challenge = this.challenge();

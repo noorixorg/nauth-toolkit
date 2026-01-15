@@ -37,6 +37,7 @@ import { ChallengeRouter } from './challenge-router';
 
 const USER_KEY = 'nauth_user';
 const CHALLENGE_KEY = 'nauth_challenge_session';
+const OAUTH_STATE_KEY = 'nauth_oauth_state';
 const hasWindow = (): boolean =>
   typeof globalThis !== 'undefined' && typeof (globalThis as { window?: unknown }).window !== 'undefined';
 
@@ -994,13 +995,24 @@ export class NAuthClient {
 
   /**
    * Build request headers for authentication.
+   *
+   * @param auth - Whether to include authentication headers
+   * @param method - HTTP method (GET, POST, PUT, DELETE, PATCH)
+   * @returns Headers object with auth, CSRF, and device trust headers
    * @private
    */
-  private async buildHeaders(auth: boolean): Promise<Record<string, string>> {
+  private async buildHeaders(
+    auth: boolean,
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' = 'GET',
+  ): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...this.config.headers,
     };
+
+    // Set Content-Type for mutating requests
+    if (method !== 'GET') {
+      headers['Content-Type'] = 'application/json';
+    }
 
     // Add access token in JSON mode
     if (auth && this.config.tokenDelivery === 'json') {
@@ -1033,8 +1045,17 @@ export class NAuthClient {
       }
     }
 
-    // Add CSRF token for mutating requests in cookies mode
-    if (this.config.tokenDelivery === 'cookies' && hasWindow()) {
+    // ============================================================================
+    // CSRF Token (Cookies mode, mutating requests only)
+    // ============================================================================
+    // CSRF protection is required for mutating HTTP methods (POST, PUT, PATCH, DELETE)
+    // to prevent cross-site request forgery attacks when using cookie-based auth.
+    const mutatingMethods: readonly ('POST' | 'PUT' | 'PATCH' | 'DELETE')[] = ['POST', 'PUT', 'PATCH', 'DELETE'];
+    if (
+      this.config.tokenDelivery === 'cookies' &&
+      hasWindow() &&
+      (mutatingMethods as readonly string[]).includes(method)
+    ) {
       const csrfToken = this.getCsrfToken();
       if (csrfToken) {
         headers[this.config.csrf.headerName] = csrfToken;
@@ -1060,7 +1081,7 @@ export class NAuthClient {
    */
   private async get<T>(path: string, auth = false): Promise<T> {
     const url = this.buildUrl(path);
-    const headers = await this.buildHeaders(auth);
+    const headers = await this.buildHeaders(auth, 'GET');
     const credentials = this.config.tokenDelivery === 'cookies' ? 'include' : 'omit';
 
     const response = await this.config.httpAdapter.request<T>({
@@ -1078,7 +1099,7 @@ export class NAuthClient {
    */
   private async post<T>(path: string, body: unknown, auth = false): Promise<T> {
     const url = this.buildUrl(path);
-    const headers = await this.buildHeaders(auth);
+    const headers = await this.buildHeaders(auth, 'POST');
     const credentials = this.config.tokenDelivery === 'cookies' ? 'include' : 'omit';
 
     const response = await this.config.httpAdapter.request<T>({
@@ -1097,7 +1118,7 @@ export class NAuthClient {
    */
   private async put<T>(path: string, body: unknown, auth = false): Promise<T> {
     const url = this.buildUrl(path);
-    const headers = await this.buildHeaders(auth);
+    const headers = await this.buildHeaders(auth, 'PUT');
     const credentials = this.config.tokenDelivery === 'cookies' ? 'include' : 'omit';
 
     const response = await this.config.httpAdapter.request<T>({
@@ -1116,7 +1137,7 @@ export class NAuthClient {
    */
   private async delete<T>(path: string, auth = false): Promise<T> {
     const url = this.buildUrl(path);
-    const headers = await this.buildHeaders(auth);
+    const headers = await this.buildHeaders(auth, 'DELETE');
     const credentials = this.config.tokenDelivery === 'cookies' ? 'include' : 'omit';
 
     const response = await this.config.httpAdapter.request<T>({
@@ -1161,5 +1182,55 @@ export class NAuthClient {
    */
   getChallengeRouter(): ChallengeRouter {
     return this.challengeRouter;
+  }
+
+  /**
+   * Store OAuth appState from social redirect callback.
+   *
+   * This is called automatically by the social redirect callback guard
+   * when appState is present in the callback URL. The stored state can
+   * be retrieved using getLastOauthState().
+   *
+   * @param appState - OAuth appState value from callback URL
+   *
+   * @example
+   * ```typescript
+   * await client.storeOauthState('invite-code-123');
+   * ```
+   */
+  async storeOauthState(appState: string): Promise<void> {
+    if (appState && appState.trim() !== '') {
+      await this.config.storage.setItem(OAUTH_STATE_KEY, appState);
+    }
+  }
+
+  /**
+   * Get the last OAuth appState from social redirect callback.
+   *
+   * Returns the appState that was stored during the most recent social
+   * login redirect callback. This is useful for restoring UI state,
+   * applying invite codes, or tracking referral information.
+   *
+   * The state is automatically cleared after retrieval to prevent reuse.
+   *
+   * @returns The stored appState, or null if none exists
+   *
+   * @example
+   * ```typescript
+   * const appState = await client.getLastOauthState();
+   * if (appState) {
+   *   // Apply invite code or restore UI state
+   *   console.log('OAuth state:', appState);
+   * }
+   * ```
+   */
+  async getLastOauthState(): Promise<string | null> {
+    const stored = await this.config.storage.getItem(OAUTH_STATE_KEY);
+    if (stored) {
+      // Clear after retrieval to prevent reuse
+      await this.config.storage.removeItem(OAUTH_STATE_KEY);
+      return stored;
+    }
+    return null;
   }
 }

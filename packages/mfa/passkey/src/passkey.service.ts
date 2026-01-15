@@ -5,12 +5,10 @@ import {
   verifyAuthenticationResponse,
   type VerifiedRegistrationResponse,
   type VerifiedAuthenticationResponse,
+  type RegistrationResponseJSON,
+  type AuthenticationResponseJSON,
+  type AuthenticatorTransportFuture,
 } from '@simplewebauthn/server';
-import type {
-  RegistrationResponseJSON,
-  AuthenticationResponseJSON,
-  AuthenticatorTransportFuture,
-} from '@simplewebauthn/types';
 import {
   NAuthConfig,
   PasskeyConfig,
@@ -174,7 +172,8 @@ export class PasskeyService {
       throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Passkey registration failed verification');
     }
 
-    const { credentialID, credentialPublicKey, counter } = verification.registrationInfo;
+    const { credential: registrationCredential } = verification.registrationInfo;
+    const { id: credentialID, publicKey: credentialPublicKey, counter } = registrationCredential;
 
     // Use client-provided transports or try to extract from verification
     let finalTransports: string[] = transports || [];
@@ -296,17 +295,8 @@ export class PasskeyService {
 
     let verification: VerifiedAuthenticationResponse;
     try {
-      // Convert base64url credential ID to Buffer
+      // Convert base64url public key to Buffer
       // Note: Database may store as base64 or base64url, try both formats
-      let credentialIDBuffer: Buffer;
-      try {
-        // Try base64url first (current format)
-        credentialIDBuffer = Buffer.from(device.credentialId, 'base64url');
-      } catch {
-        // Fallback to standard base64 (legacy format)
-        credentialIDBuffer = Buffer.from(device.credentialId, 'base64');
-      }
-
       let publicKeyBuffer: Buffer;
       try {
         // Try base64url first (current format)
@@ -321,12 +311,12 @@ export class PasskeyService {
         expectedChallenge,
         expectedOrigin: Array.isArray(passkeyConfig.origin) ? passkeyConfig.origin : [passkeyConfig.origin],
         expectedRPID: passkeyConfig.rpId,
-        authenticator: {
-          credentialID: new Uint8Array(credentialIDBuffer),
-          credentialPublicKey: new Uint8Array(publicKeyBuffer),
+        credential: {
+          id: device.credentialId,
+          publicKey: new Uint8Array(publicKeyBuffer),
           counter: device.counter,
           transports: (device.transports as AuthenticatorTransportFuture[]) || undefined,
-        } as unknown as Parameters<typeof verifyAuthenticationResponse>[0]['authenticator'],
+        },
         requireUserVerification: passkeyConfig.userVerification === 'required',
       });
     } catch (error) {

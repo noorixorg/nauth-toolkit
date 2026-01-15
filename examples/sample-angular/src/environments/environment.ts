@@ -6,6 +6,5 @@
  */
 export const environment = {
   production: false,
-  apiBaseUrl: 'https://api.angular.dev1.noorix.com',
+  apiBaseUrl: 'http://localhost:3000',
 };
-

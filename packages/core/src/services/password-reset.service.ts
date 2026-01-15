@@ -142,13 +142,8 @@ export class PasswordResetService {
 
       const expiryMinutes = Math.ceil(expiresIn / 60);
 
-      // Use sendPasswordResetEmail if link is provided, otherwise sendVerificationEmail for code-only
-      if (resetLink) {
-        await this.emailProvider.sendPasswordResetEmail(user.email, token, resetLink, expiryMinutes);
-      } else {
-        // Code-only reset (backward compatible)
-        await this.emailProvider.sendVerificationEmail(user.email, code);
-      }
+      // Always use sendPasswordResetEmail with code (and optional link)
+      await this.emailProvider.sendPasswordResetEmail(user.email, token, code, resetLink, expiryMinutes);
       this.logger?.log?.(`Password reset ${resetLink ? 'code and link' : 'code'} sent via email to user ${user.sub}`);
 
       // Audit

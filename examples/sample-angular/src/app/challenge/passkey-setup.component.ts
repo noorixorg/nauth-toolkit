@@ -9,7 +9,11 @@ import {
   output,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthService, AuthResponse, NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client-angular/standalone';
+import {
+  AuthService,
+  AuthResponse,
+  NAUTH_CLIENT_CONFIG,
+} from '@nauth-toolkit/client-angular/standalone';
 import {
   AuthChallenge,
   MFASetupResponse,
@@ -365,9 +369,10 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
     try {
       if (this.isAuthenticatedFlow()) {
         // Authenticated flow - use direct MFA setup endpoint
+        // Backend returns { setupData: { options: {...} } }
         const client = this.auth.getClient();
-        const setupData = (await client.setupMfaDevice('passkey')) as Record<string, unknown>;
-        this.setupData.set({ setupData });
+        const result = await client.setupMfaDevice('passkey');
+        this.setupData.set(result as GetSetupDataResponse);
         this.challengeData.set(null);
         // Create a synthetic challenge for internal component logic
         this.challenge.set({
@@ -417,9 +422,15 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
           throw new Error(`Invalid challenge type: ${challenge.challengeName}`);
         }
       }
+      // Mark session as loaded to prevent duplicate loads
+      const session = this.currentSession();
+      if (session) {
+        this.lastLoadedSession = session;
+      }
     } catch (err) {
       this.handleError(err);
     } finally {
+      this.isLoadingData = false;
       this.loading.set(false);
     }
   }

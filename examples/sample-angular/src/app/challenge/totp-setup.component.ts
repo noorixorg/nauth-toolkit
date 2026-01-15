@@ -14,7 +14,11 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { AuthService, AuthResponse, NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client-angular/standalone';
+import {
+  AuthService,
+  AuthResponse,
+  NAUTH_CLIENT_CONFIG,
+} from '@nauth-toolkit/client-angular/standalone';
 import {
   AuthChallenge,
   MFASetupResponse,
@@ -195,9 +199,10 @@ export class TotpSetupComponent implements OnInit, AfterViewInit, OnDestroy {
       // Use different API based on flow type
       if (this.isAuthenticatedFlow()) {
         // Authenticated flow - use direct MFA setup endpoint
+        // Backend returns { setupData: { secret, qrCode, ... } }
         const client = this.auth.getClient();
-        const setupData = (await client.setupMfaDevice('totp')) as Record<string, unknown>;
-        response = { setupData };
+        const result = await client.setupMfaDevice('totp');
+        response = result as GetSetupDataResponse;
       } else {
         // Challenge flow - use challenge-based endpoint
         const session = this.session();

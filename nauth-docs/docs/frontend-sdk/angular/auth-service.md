@@ -580,6 +580,53 @@ const result = await this.auth.verifyNativeSocial({
 
 ---
 
+### getLastOauthState()
+
+Get the last OAuth appState from social redirect callback.
+
+Returns the appState that was stored during the most recent social login redirect callback. This is useful for restoring UI state, applying invite codes, or tracking referral information.
+
+The state is automatically stored when the callback guard processes the redirect URL, and is automatically cleared after retrieval to prevent reuse.
+
+```typescript
+async getLastOauthState(): Promise<string | null>
+```
+
+**Returns**
+
+- `Promise<string | null>` - The stored appState, or null if none exists
+
+**Example**
+
+```typescript
+// After social login redirect completes (e.g., in dashboard component)
+ngOnInit() {
+  this.checkOauthState();
+}
+
+async checkOauthState() {
+  const appState = await this.auth.getLastOauthState();
+  if (appState) {
+    // Apply invite code or restore UI state
+    console.log('OAuth state:', appState);
+    // Example: this.applyInviteCode(appState);
+  }
+}
+```
+
+**Note**
+
+- The appState is also passed as a query parameter to the success route (e.g., `/dashboard?appState=invite-code-123`)
+- You can read it from the URL query parameters using `ActivatedRoute` instead if preferred
+- The state is cleared after retrieval, so call this method only once per OAuth flow
+
+**See**
+
+- [Social Authentication Guide](/docs/frontend-sdk/guides/social-auth)
+- [Social Login Feature](/docs/features/social-login)
+
+---
+
 ### refresh()
 
 Refresh tokens.

@@ -73,10 +73,15 @@ function clearCsrfCookie(baseUrl: string, cookieName: string): void {
 
 /**
  * Get CSRF token from cookie.
+ *
+ * @param cookieName - Name of the CSRF cookie (from config.csrf.cookieName)
+ * @returns CSRF token value or null if not found
  */
 function getCsrfToken(cookieName: string): string | null {
   if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(new RegExp(`(^| )${cookieName}=([^;]+)`));
+  // Escape special regex characters in cookie name to prevent injection
+  const escapedCookieName = cookieName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = document.cookie.match(new RegExp(`(^| )${escapedCookieName}=([^;]+)`));
   return match ? decodeURIComponent(match[2]) : null;
 }
 
@@ -101,6 +106,7 @@ function buildRetryRequest(
   if (tokenDelivery === 'cookies' && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(originalReq.method)) {
     const csrfCookieName = csrfConfig?.cookieName ?? 'nauth_csrf_token';
     const csrfHeaderName = csrfConfig?.headerName ?? 'x-csrf-token';
+    // Always refresh CSRF token on retry (even if it exists, get fresh one)
     const freshCsrfToken = getCsrfToken(csrfCookieName);
     if (freshCsrfToken) {
       return originalReq.clone({ setHeaders: { [csrfHeaderName]: freshCsrfToken } });
@@ -151,16 +157,38 @@ export function createNAuthAuthHttpInterceptor(params: {
   // ============================================================================
   // Build request for cookies mode (withCredentials + CSRF)
   // ============================================================================
+  // IMPORTANT: When using AngularHttpAdapter, headers from buildHeaders() are passed
+  // to HttpClient.request() as a plain object. Angular converts these to HttpHeaders
+  // and creates an HttpRequest. However, we cannot rely on buildHeaders() to add CSRF
+  // in Angular context because:
+  // 1. hasWindow() might return false in SSR contexts
+  // 2. Headers might not be properly merged into the HttpRequest that interceptors receive
+  // 3. The interceptor is the authoritative place for CSRF in Angular apps
+  //
+  // Therefore, the interceptor ALWAYS adds CSRF for mutating methods in cookies mode,
+  // regardless of whether buildHeaders() added it (for vanilla clients).
   let authReq = req;
   if (tokenDelivery === 'cookies') {
     authReq = authReq.clone({ withCredentials: true });
+    // Add CSRF token for mutating methods (POST, PUT, PATCH, DELETE)
+    // Always add it here - don't rely on buildHeaders() in Angular context
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+      // Respect user's CSRF config, fallback to defaults if not provided
+      // These defaults must match the backend's CSRF configuration
       const csrfCookieName = config.csrf?.cookieName ?? 'nauth_csrf_token';
       const csrfHeaderName = config.csrf?.headerName ?? 'x-csrf-token';
+
+      // Get CSRF token from cookie using the configured cookie name
       const csrfToken = getCsrfToken(csrfCookieName);
+
       if (csrfToken) {
+        // Use setHeaders which will override if already exists (from buildHeaders)
+        // This ensures CSRF is always present for DELETE and other mutating methods
         authReq = authReq.clone({ setHeaders: { [csrfHeaderName]: csrfToken } });
       }
+      // Note: If csrfToken is null, the header won't be added.
+      // This is expected if the cookie doesn't exist (e.g., before first login).
+      // The backend should handle missing CSRF tokens appropriately.
     }
   }
 

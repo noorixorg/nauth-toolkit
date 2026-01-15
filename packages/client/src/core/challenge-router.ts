@@ -2,6 +2,8 @@ import { AuthResponse, AuthChallenge } from '../types/auth.types';
 import { AuthResponseContext } from '../types/config.types';
 import { ResolvedNAuthClientConfig } from './config';
 
+const OAUTH_STATE_KEY = 'nauth_oauth_state';
+
 /**
  * Challenge router - handles automatic navigation after auth operations.
  *
@@ -62,7 +64,9 @@ export class ChallengeRouter {
     if (response.challengeName) {
       await this.navigateToChallenge(response);
     } else {
-      await this.navigateToSuccess();
+      // Retrieve stored appState for social redirect flows
+      const queryParams = await this.getStoredOauthState();
+      await this.navigateToSuccess(queryParams);
     }
   }
 
@@ -78,10 +82,51 @@ export class ChallengeRouter {
 
   /**
    * Navigate to success URL.
+   *
+   * @param queryParams - Optional query parameters to append to the success URL
+   *
+   * @example
+   * ```typescript
+   * await router.navigateToSuccess({ appState: 'invite-code-123' });
+   * ```
    */
-  async navigateToSuccess(): Promise<void> {
-    const url = this.config.redirects?.success || '/';
+  async navigateToSuccess(queryParams?: Record<string, string>): Promise<void> {
+    let url = this.config.redirects?.success || '/';
+
+    // Append query parameters if provided
+    // Build path with query string (not full URL) to work with both
+    // Angular Router (navigateByUrl) and window.location
+    if (queryParams && Object.keys(queryParams).length > 0) {
+      const searchParams = new URLSearchParams();
+      Object.entries(queryParams).forEach(([key, value]) => {
+        if (value) {
+          searchParams.set(key, value);
+        }
+      });
+      const queryString = searchParams.toString();
+      url = queryString ? `${url}${url.includes('?') ? '&' : '?'}${queryString}` : url;
+    }
+
     await this.navigate(url);
+  }
+
+  /**
+   * Retrieve stored OAuth appState from storage.
+   *
+   * @returns Query params object with appState if present, undefined otherwise
+   */
+  private async getStoredOauthState(): Promise<Record<string, string> | undefined> {
+    try {
+      const stored = await this.config.storage.getItem(OAUTH_STATE_KEY);
+      if (stored) {
+        // Clear after retrieval to prevent reuse
+        await this.config.storage.removeItem(OAUTH_STATE_KEY);
+        return { appState: stored };
+      }
+    } catch {
+      // Ignore storage errors
+    }
+    return undefined;
   }
 
   /**

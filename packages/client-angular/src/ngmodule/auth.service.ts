@@ -687,6 +687,30 @@ export class AuthService {
     return this.client.unlinkSocialAccount(provider);
   }
 
+  /**
+   * Get the last OAuth appState from social redirect callback.
+   *
+   * Returns the appState that was stored during the most recent social
+   * login redirect callback. This is useful for restoring UI state,
+   * applying invite codes, or tracking referral information.
+   *
+   * The state is automatically cleared after retrieval to prevent reuse.
+   *
+   * @returns The stored appState, or null if none exists
+   *
+   * @example
+   * ```typescript
+   * const appState = await this.auth.getLastOauthState();
+   * if (appState) {
+   *   // Apply invite code or restore UI state
+   *   console.log('OAuth state:', appState);
+   * }
+   * ```
+   */
+  async getLastOauthState(): Promise<string | null> {
+    return this.client.getLastOauthState();
+  }
+
   // ============================================================================
   // MFA Management
   // ============================================================================
@@ -884,10 +908,7 @@ export class AuthService {
   /**
    * Expose underlying NAuthClient for advanced scenarios.
    *
-   * @deprecated All core functionality is now exposed directly on AuthService as Promises.
-   * Use the direct methods on AuthService instead (e.g., `auth.changePassword()` instead of `auth.getClient().changePassword()`).
-   * This method is kept for backward compatibility only and may be removed in a future version.
-   *
+
    * @returns The underlying NAuthClient instance
    *
    * @example

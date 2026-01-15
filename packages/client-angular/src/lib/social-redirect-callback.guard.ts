@@ -2,7 +2,6 @@ import { inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { type CanActivateFn } from '@angular/router';
 import { AuthService } from '../ngmodule/auth.service';
-import { NAUTH_CLIENT_CONFIG } from '../ngmodule/tokens';
 import { NAuthClientError, NAuthErrorCode } from '@nauth-toolkit/client';
 
 /**
@@ -40,7 +39,17 @@ export const socialRedirectCallbackGuard: CanActivateFn = async (): Promise<bool
   const params = new URLSearchParams(window.location.search);
   const error = params.get('error');
   const exchangeToken = params.get('exchangeToken');
+  const appState = params.get('appState');
   const router = auth.getChallengeRouter();
+
+  // ============================================================================
+  // Extract and store appState if present
+  // ============================================================================
+  // WHY: appState is round-tripped from the OAuth flow and should be stored
+  // for retrieval via getLastOauthState() and passed to the success route.
+  if (appState) {
+    await auth.getClient().storeOauthState(appState);
+  }
 
   // Provider error: redirect to oauthError
   if (error) {
@@ -62,7 +71,8 @@ export const socialRedirectCallbackGuard: CanActivateFn = async (): Promise<bool
     // `currentUser` is still null even though cookies were set successfully.
     try {
       await auth.getProfile();
-      await router.navigateToSuccess();
+      // Pass appState as query param to success route
+      await router.navigateToSuccess(appState ? { appState } : undefined);
     } catch (err) {
       // Only treat auth failures (401/403) as OAuth errors
       // Network errors or other issues might be temporary - still try success route
@@ -80,13 +90,16 @@ export const socialRedirectCallbackGuard: CanActivateFn = async (): Promise<bool
       } else {
         // For network errors or other issues, proceed to success route
         // The auth guard will handle authentication state on the next route
-        await router.navigateToSuccess();
+        // Pass appState as query param to success route
+        await router.navigateToSuccess(appState ? { appState } : undefined);
       }
     }
     return false;
   }
 
   // Exchange token - SDK handles navigation automatically
+  // Note: appState will be passed via query params when navigateToSuccess is called
+  // by the challenge router after successful exchange
   await auth.exchangeSocialRedirect(exchangeToken);
   return false;
 };

@@ -481,9 +481,27 @@ On the frontend, the backend will redirect you back to `returnTo` with:
 - **JSON mode**: `exchangeToken` + `appState` - frontend must always call `/auth/social/exchange` to receive tokens or challenge in response body
 - `appState` if you supplied it (optional, non-secret)
 
-If you’re using Angular, the simplest approach is the guard-only callback route:
+If you're using Angular, the simplest approach is the guard-only callback route:
 
 - [`socialRedirectCallbackGuard`](/docs/frontend-sdk/angular/oauth-callback-guard)
+
+### Accessing appState
+
+The `appState` from the callback URL is automatically:
+1. **Stored** in the SDK's storage (accessible via `getLastOauthState()`)
+2. **Passed as a query parameter** to the success route (e.g., `/dashboard?appState=invite-code-123`)
+
+You can retrieve the stored `appState` using:
+
+```typescript
+// Angular
+const appState = await this.auth.getLastOauthState();
+
+// Vanilla JS
+const appState = await client.getLastOauthState();
+```
+
+The state is automatically cleared after retrieval to prevent reuse. You can also read it directly from the URL query parameters on your success page.
 
 ## What happens in each delivery mode
 

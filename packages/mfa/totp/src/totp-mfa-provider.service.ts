@@ -132,7 +132,7 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
     }
 
     // Verify code
-    const result = this.totpService.verifyCodeWithDetails(dto.secret, dto.code);
+    const result = await this.totpService.verifyCodeWithDetails(dto.secret, dto.code);
     if (!result.valid) {
       throw new NAuthException(AuthErrorCode.VERIFICATION_CODE_INVALID, result.error || 'Invalid TOTP code');
     }
@@ -200,7 +200,7 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
     }
 
     // Verify code
-    const isValid = this.totpService.verifyCode(device.secret, totpCode);
+    const isValid = await this.totpService.verifyCode(device.secret, totpCode);
 
     if (isValid) {
       // Update device usage

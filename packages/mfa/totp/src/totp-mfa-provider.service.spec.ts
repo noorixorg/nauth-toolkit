@@ -112,8 +112,8 @@ describe('TOTPMFAProviderService', () => {
     // Create mock TOTP service
     mockTotpService = {
       generateSecret: jest.fn(),
-      verifyCode: jest.fn(),
-      verifyCodeWithDetails: jest.fn(),
+      verifyCode: jest.fn().mockResolvedValue(true),
+      verifyCodeWithDetails: jest.fn().mockResolvedValue({ valid: true }),
       isValidSecret: jest.fn(),
     } as any;
 
@@ -229,7 +229,7 @@ describe('TOTPMFAProviderService', () => {
       };
 
       mockTotpService.isValidSecret.mockReturnValue(true);
-      mockTotpService.verifyCodeWithDetails.mockReturnValue({ valid: true });
+      mockTotpService.verifyCodeWithDetails.mockResolvedValue({ valid: true });
       mockMfaDeviceRepository.create.mockReturnValue(mockDevice as any);
       mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
       // Mock getUserDevices to return empty array (no existing devices)
@@ -263,7 +263,7 @@ describe('TOTPMFAProviderService', () => {
 
     it('should throw error for invalid code', async () => {
       mockTotpService.isValidSecret.mockReturnValue(true);
-      mockTotpService.verifyCodeWithDetails.mockReturnValue({ valid: false, error: 'Invalid code' });
+      mockTotpService.verifyCodeWithDetails.mockResolvedValue({ valid: false, error: 'Invalid code' });
 
       try {
         await service.verifySetup(mockUser, verifyDto);
@@ -286,7 +286,7 @@ describe('TOTPMFAProviderService', () => {
       };
 
       mockTotpService.isValidSecret.mockReturnValue(true);
-      mockTotpService.verifyCodeWithDetails.mockReturnValue({ valid: true });
+      mockTotpService.verifyCodeWithDetails.mockResolvedValue({ valid: true });
       mockMfaDeviceRepository.create.mockReturnValue(mockDevice as any);
       mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
       // Mock getUserDevices to return empty array (no existing devices)
@@ -314,7 +314,7 @@ describe('TOTPMFAProviderService', () => {
       };
 
       mockTotpService.isValidSecret.mockReturnValue(true);
-      mockTotpService.verifyCodeWithDetails.mockReturnValue({ valid: true });
+      mockTotpService.verifyCodeWithDetails.mockResolvedValue({ valid: true });
       mockMfaDeviceRepository.create.mockReturnValue(mockDevice as any);
       mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
       // Mock getUserDevices to return empty array (no existing devices)
@@ -342,7 +342,7 @@ describe('TOTPMFAProviderService', () => {
       };
 
       mockTotpService.isValidSecret.mockReturnValue(true);
-      mockTotpService.verifyCodeWithDetails.mockReturnValue({ valid: true });
+      mockTotpService.verifyCodeWithDetails.mockResolvedValue({ valid: true });
       mockMfaDeviceRepository.create.mockReturnValue(mockDevice as any);
       mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
       // Mock getUserDevices to return empty array (no existing devices)
@@ -375,7 +375,7 @@ describe('TOTPMFAProviderService', () => {
 
     it('should verify TOTP code successfully', async () => {
       mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
-      mockTotpService.verifyCode.mockReturnValue(true);
+      mockTotpService.verifyCode.mockResolvedValue(true);
       mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
 
       const result = await service.verify(mockUser, '123456');
@@ -413,7 +413,7 @@ describe('TOTPMFAProviderService', () => {
 
     it('should return false when code verification fails', async () => {
       mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
-      mockTotpService.verifyCode.mockReturnValue(false);
+      mockTotpService.verifyCode.mockResolvedValue(false);
 
       const result = await service.verify(mockUser, '123456');
 
@@ -423,7 +423,7 @@ describe('TOTPMFAProviderService', () => {
 
     it('should verify against specific device when deviceId provided', async () => {
       mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
-      mockTotpService.verifyCode.mockReturnValue(true);
+      mockTotpService.verifyCode.mockResolvedValue(true);
       mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
 
       await service.verify(mockUser, '123456', 1);
@@ -440,7 +440,7 @@ describe('TOTPMFAProviderService', () => {
     it('should update device usage on successful verification', async () => {
       const deviceWithUsage = { ...mockDevice, lastUsedAt: new Date(), usageCount: 1 };
       mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
-      mockTotpService.verifyCode.mockReturnValue(true);
+      mockTotpService.verifyCode.mockResolvedValue(true);
       mockMfaDeviceRepository.save.mockResolvedValue(deviceWithUsage as any);
 
       await service.verify(mockUser, '123456');

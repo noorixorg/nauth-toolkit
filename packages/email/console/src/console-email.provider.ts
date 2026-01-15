@@ -66,30 +66,35 @@ export class ConsoleEmailProvider implements EmailProvider {
   }
 
   /**
-   * Send password reset email with optional link
+   * Send password reset email with code and optional link
    *
    * Logs email details to console for debugging.
    *
    * @param to - Recipient email address
-   * @param token - Password reset token
+   * @param _token - Password reset token (for validation, not logged)
+   * @param code - Password reset code (e.g., "123456")
    * @param link - Optional password reset link (e.g., "https://example.com/reset?token=xxx")
-   * @param expiryMinutes - Link expiry time in minutes
+   * @param expiryMinutes - Code/link expiry time in minutes
    */
   async sendPasswordResetEmail(
     to: string,
     _token: string,
+    code: string,
     link?: string,
     expiryMinutes: number = 60,
   ): Promise<void> {
-    // NOTE: Do not log secrets (tokens/links) to console.
-    let message = 'Password reset email sent (simulated)';
+    let message = `Your password reset code is: ${code}`;
     if (link) {
-      message += `\nReset link provided (expires in ${expiryMinutes} minutes)`;
+      message += `\nOr use this link: ${link}`;
     }
-    this.logger.log('----------------------------------------------');
-    this.logger.log(`EMAIL: ${message}`);
+    message += `\nThis code expires in ${expiryMinutes} minutes.`;
+
+    this.logger.log(`\n${'='.repeat(60)}`);
+    this.logger.log('EMAIL: Password Reset (simulated)');
+    this.logger.log('='.repeat(60));
     this.logger.log(`To: ${to}`);
-    this.logger.log('----------------------------------------------');
+    this.logger.log(`Message: ${message}`);
+    this.logger.log(`${'='.repeat(60)}\n`);
   }
 
   /**

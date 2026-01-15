@@ -24,7 +24,11 @@ export class GetUserAuthHistoryDTO {
    *
    * The service will automatically resolve this to the internal userId
    * for efficient database queries.
+   *
+   * Note: This is optional in the DTO because controllers set it from the authenticated user.
+   * It will be validated when set by the controller.
    */
+  @IsOptional()
   @IsUUID('4', { message: 'userSub must be a valid UUID v4 format' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
@@ -32,7 +36,7 @@ export class GetUserAuthHistoryDTO {
     }
     return value;
   })
-  userSub!: string;
+  userSub?: string;
 
   /**
    * Page number (1-indexed)

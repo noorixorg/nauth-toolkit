@@ -453,15 +453,18 @@ export class NodemailerProvider implements EmailProvider {
   }
 
   /**
-   * Send password reset email with link
+   * Send password reset email with code and optional link
    *
    * @param to - Recipient email address
-   * @param token - Password reset token
-   * @param link - Password reset link
+   * @param _token - Password reset token (for validation, not used in template)
+   * @param code - Password reset code (e.g., "123456")
+   * @param link - Password reset link (optional)
+   * @param expiryMinutes - Code/link expiry time in minutes
    */
   async sendPasswordResetEmail(
     to: string,
     _token: string,
+    code: string,
     link?: string,
     expiryMinutes: number = 60,
     variables: TemplateVariables = {},
@@ -470,6 +473,7 @@ export class NodemailerProvider implements EmailProvider {
       ...this.globalVariables,
       userName: to.split('@')[0],
       userEmail: to,
+      code,
       expiryMinutes,
       ...variables,
     };
