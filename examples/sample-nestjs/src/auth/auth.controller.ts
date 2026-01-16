@@ -153,6 +153,7 @@ export class CustomAuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   async forgotPassword(@Body() dto: ForgotPasswordDTO): Promise<ForgotPasswordResponseDTO> {
+    dto.baseUrl = 'https://localhost:4200/reset-password';
     return await this.authService.forgotPassword(dto);
   }
 
@@ -1170,7 +1171,7 @@ export class CustomAuthController {
       throw new BadRequestException('MFA service is not available');
     }
 
-    dto.userSub = user.sub;
+    dto.identifier = user.sub;
     dto.grantedBy = user.email || null; // Use user's email as grantedBy for audit trail
     return await this.mfaService.setMFAExemption(dto);
   }

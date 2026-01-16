@@ -48,7 +48,7 @@ If you're reading this for the first time, this is the shortest path to success:
 | Template Type | When Sent | Required Variables | Optional Variables |
 |--------------|-----------|-------------------|-------------------|
 | `verification` | Email address verification during signup | `code`, `expiryMinutes` | `link` (only when `signup.emailVerification.baseUrl` is configured) |
-| `passwordReset` | User requests password reset | `expiryMinutes` | `link` (only when baseUrl provided in forgotPassword request) |
+| `passwordReset` | User requests password reset | `code`, `expiryMinutes` | `link` (only when baseUrl provided in forgotPassword request) |
 | `adminPasswordReset` | Admin initiates password reset | `code`, `expiryMinutes` | `link` (only when baseUrl provided) |
 | `welcome` | After onboarding is complete: immediately after signup when `signup.verificationMethod = 'none'`, otherwise after the required verification(s) succeed (`email` / `phone` / `both`) | None | None |
 
@@ -117,7 +117,7 @@ The password reset flow supports both code-only and code+link delivery:
 - **Code is always sent** (mandatory) - Users can always reset using the verification code
 - **Link is optional** - Only sent when `baseUrl` is provided in the `forgotPassword` request
 
-When `baseUrl` is provided, the system generates a reset link as `${baseUrl}?token=<token>` and includes it in the email. Your `passwordReset` template should handle both scenarios using Handlebars conditionals:
+When `baseUrl` is provided, the system generates a reset link as `${baseUrl}?code=<code>` and includes it in the email. Your `passwordReset` template should handle both scenarios using Handlebars conditionals:
 
 ```handlebars
 {{#if link}}

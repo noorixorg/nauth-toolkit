@@ -47,7 +47,6 @@ export interface NAuthEndpoints {
   mfaRemove: string;
   mfaPreferred: string;
   mfaBackupCodes: string;
-  mfaExemption: string;
   socialLinked: string;
   socialLink: string;
   socialUnlink: string;

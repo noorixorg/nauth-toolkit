@@ -14,6 +14,7 @@ import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { ClientInfoService } from './client-info.service';
 import { HookRegistryService } from './hook-registry.service';
 import { ensureValidatedDto, ensureValidatedDtoSync } from '../utils/dto-validator';
+import { isUUID } from 'class-validator';
 import {
   GetAvailableMethodsDTO,
   GetAvailableMethodsResponseDTO,
@@ -71,6 +72,55 @@ import {
  */
 export class MFAService {
   private readonly providers = new Map<string, IMFAProviderService>();
+
+  /**
+   * Resolve a user entity by flexible identifier.
+   *
+   * WHY: Admin APIs typically accept a generic identifier (email/username/phone/sub) for consistency.
+   * MFA exemption is admin-only, so we support the same ergonomics.
+   *
+   * @param identifier - User identifier (email/username/phone/sub)
+   * @returns User entity, or null when not found
+   */
+  private async findUserByIdentifier(identifier: string): Promise<BaseUser | null> {
+    const trimmed = identifier.trim();
+
+    // Try UUID-as-sub first (fast path)
+    if (isUUID(trimmed)) {
+      return await this.userRepository.findOne({ where: { sub: trimmed } });
+    }
+
+    const identifierType = this.config?.login?.identifierType;
+
+    // ============================================================================
+    // Identifier routing (match AuthService behavior for consistency)
+    // ============================================================================
+    // If the deployment constrains login identifiers, respect it here to avoid ambiguity.
+    if (identifierType === 'email') {
+      return await this.userRepository.findOne({ where: { email: trimmed.toLowerCase() } });
+    }
+
+    if (identifierType === 'username') {
+      return await this.userRepository.findOne({ where: { username: trimmed } });
+    }
+
+    if (identifierType === 'phone') {
+      return await this.userRepository.findOne({ where: { phone: trimmed } });
+    }
+
+    // Default / email_or_username: try email then username, finally phone (best-effort).
+    const byEmail = await this.userRepository.findOne({ where: { email: trimmed.toLowerCase() } });
+    if (byEmail) {
+      return byEmail;
+    }
+
+    const byUsername = await this.userRepository.findOne({ where: { username: trimmed } });
+    if (byUsername) {
+      return byUsername;
+    }
+
+    return await this.userRepository.findOne({ where: { phone: trimmed } });
+  }
 
   constructor(
     private readonly mfaDeviceRepository: Repository<BaseMFADevice>,
@@ -755,7 +805,7 @@ export class MFAService {
    * SECURITY: This admin-only operation updates the user's MFA exemption status, logs the action,
    * and records an audit event. MFA exemption bypasses MFA at login, but all other security controls remain enforced.
    *
-   * @param dto - Request DTO with user sub, exempt flag, reason, and grantedBy
+   * @param dto - Request DTO with identifier, exempt flag, reason, and grantedBy
    * @returns Response DTO with updated exemption fields
    * @throws {NAuthException} If the user is not found
    *
@@ -763,7 +813,7 @@ export class MFAService {
    * ```typescript
    * // Grant MFA exemption
    * await mfaService.setMFAExemption({
-   *   userSub: 'user-uuid',
+   *   identifier: 'user@example.com',
    *   exempt: true,
    *   reason: 'Business partner requires MFA bypass',
    *   grantedBy: 'admin@example.com'
@@ -771,7 +821,7 @@ export class MFAService {
    *
    * // Revoke MFA exemption
    * await mfaService.setMFAExemption({
-   *   userSub: 'user-uuid',
+   *   identifier: 'user@example.com',
    *   exempt: false,
    *   reason: 'MFA now mandatory for this user',
    *   grantedBy: 'admin@example.com'
@@ -780,13 +830,18 @@ export class MFAService {
    */
   async setMFAExemption(dto: SetMFAExemptionDTO): Promise<SetMFAExemptionResponseDTO> {
     dto = await ensureValidatedDto(SetMFAExemptionDTO, dto);
-    // Find user by sub (external identifier)
-    const userEntity = await this.userRepository.findOne({ where: { sub: dto.userSub } });
+
+    // ============================================================================
+    // SECURITY: Resolve the TARGET user from the DTO (admin-only API)
+    // ============================================================================
+    // Use `identifier` (email/username/phone/sub).
+    const userEntity = await this.findUserByIdentifier(dto.identifier);
     if (!userEntity) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
 
     const user = userEntity as unknown as IUser;
+    const targetSub = userEntity.sub;
 
     // Prepare update
     const updateFields: Record<string, unknown> = {
@@ -799,15 +854,15 @@ export class MFAService {
     // If revoking exemption and MFA is required, check if user needs to set up MFA
     // Note: This is just for logging - actual MFA setup requirement is checked by state machine on next login
     if (!dto.exempt && userEntity.mfaExempt === true && !userEntity.mfaEnabled) {
-      this.logger?.warn?.(`MFA exemption revoked for user ${dto.userSub} - MFA setup will be required on next login`);
+      this.logger?.warn?.(`MFA exemption revoked for user ${targetSub} - MFA setup will be required on next login`);
     }
 
     // Update user in database
     await this.userRepository.update(userEntity.id, updateFields);
 
     // Log the exemption change for audit trail
-    this.logger?.log?.(`MFA exemption ${dto.exempt ? 'granted' : 'revoked'} for user ${dto.userSub}`, {
-      userSub: dto.userSub,
+    this.logger?.log?.(`MFA exemption ${dto.exempt ? 'granted' : 'revoked'} for user ${targetSub}`, {
+      userSub: targetSub,
       exempt: dto.exempt,
       reason: dto.reason || 'No reason provided',
       grantedBy: dto.grantedBy || 'System',

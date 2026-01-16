@@ -364,7 +364,6 @@ See the [API Reference](./api/overview) for type requirements.
 | `mfaRemove`        | `/mfa/remove`               | Remove MFA device        |
 | `mfaPreferred`     | `/mfa/preferred`            | Set preferred MFA        |
 | `mfaBackupCodes`   | `/mfa/backup-codes`         | Generate backup codes    |
-| `mfaExemption`     | `/mfa/exemption`            | Set MFA exemption        |
 | `socialRedirectStart` | `/social/:provider/redirect` | Start web social login redirect |
 | `socialExchange`   | `/social/exchange`          | Exchange `exchangeToken` (json/hybrid or cookies-with-challenge) |
 | `socialVerify`     | `/social/:provider/verify`  | Verify native social     |

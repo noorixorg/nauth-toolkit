@@ -49,7 +49,6 @@ export const defaultEndpoints: NAuthEndpoints = {
   mfaRemove: '/mfa/method',
   mfaPreferred: '/mfa/preferred-method',
   mfaBackupCodes: '/mfa/backup-codes/generate',
-  mfaExemption: '/mfa/exemption',
   socialLinked: '/social/linked',
   socialLink: '/social/link',
   socialUnlink: '/social/unlink',

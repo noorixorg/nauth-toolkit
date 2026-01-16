@@ -130,47 +130,79 @@ export class PasswordResetService {
     // ============================================================================
     // Build reset link if baseUrl provided
     // ============================================================================
-    const resetLink = options?.baseUrl ? `${options.baseUrl}?token=${token}` : undefined;
+    // ============================================================================
+    // Build reset link if baseUrl provided
+    // ============================================================================
+    // WHY: Consumer apps should be able to stay code-only (no token vs code branching).
+    // Links therefore carry the same verification code as a query param.
+    const resetLink = options?.baseUrl ? `${options.baseUrl}?code=${code}` : undefined;
 
     // ============================================================================
     // Deliver code (and optional link)
     // ============================================================================
     if (delivery === 'email') {
       if (!user.email) {
+        this.logger?.debug?.('Password reset requested but user has no email address', { userId: user.id });
         return { deliveryMedium: 'email', expiresIn };
       }
 
       const expiryMinutes = Math.ceil(expiresIn / 60);
-
-      // Always use sendPasswordResetEmail with code (and optional link)
-      await this.emailProvider.sendPasswordResetEmail(user.email, token, code, resetLink, expiryMinutes);
-      this.logger?.log?.(`Password reset ${resetLink ? 'code and link' : 'code'} sent via email to user ${user.sub}`);
-
-      // Audit
-      await this.auditService?.recordEvent({
+      this.logger?.debug?.('Sending password reset email', {
         userId: user.id,
-        eventType: AuthAuditEventType.PASSWORD_RESET_REQUESTED,
-        eventStatus: 'INFO',
-        authMethod: 'password',
-        description: 'Password reset requested (email)',
-        metadata: {
-          medium: 'email',
-          tokenId: saved.id,
-        },
+        email: this.maskEmail(user.email),
+        hasLink: !!resetLink,
+        expiryMinutes,
       });
 
-      return {
-        destination: this.maskEmail(user.email),
-        deliveryMedium: 'email',
-        expiresIn,
-      };
+      try {
+        // Always use sendPasswordResetEmail with code (and optional link)
+        await this.emailProvider.sendPasswordResetEmail(user.email, token, code, resetLink, expiryMinutes);
+        this.logger?.log?.(`Password reset ${resetLink ? 'code and link' : 'code'} sent via email to user ${user.sub}`);
+
+        // Audit
+        await this.auditService?.recordEvent({
+          userId: user.id,
+          eventType: AuthAuditEventType.PASSWORD_RESET_REQUESTED,
+          eventStatus: 'INFO',
+          authMethod: 'password',
+          description: 'Password reset requested (email)',
+          metadata: {
+            medium: 'email',
+            tokenId: saved.id,
+          },
+        });
+
+        return {
+          destination: this.maskEmail(user.email),
+          deliveryMedium: 'email',
+          expiresIn,
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorCode = error instanceof NAuthException ? error.code : AuthErrorCode.INTERNAL_ERROR;
+
+        this.logger?.error?.(
+          `Failed to send password reset email to user ${user.sub} (${this.maskEmail(user.email)}): ${errorMessage} [${errorCode}]`,
+          { error, userId: user.id },
+        );
+
+        // Re-throw to let AuthService handle (it will log and return non-enumerating response)
+        throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, `Failed to send password reset email: ${errorMessage}`, {
+          originalError: errorMessage,
+          originalErrorCode: errorCode,
+          userId: user.id,
+          email: this.maskEmail(user.email),
+        });
+      }
     }
 
     // SMS delivery
     if (!this.smsProvider) {
+      this.logger?.debug?.('Password reset requested but SMS provider not configured', { userId: user.id });
       return { deliveryMedium: 'sms', expiresIn };
     }
     if (!user.phone) {
+      this.logger?.debug?.('Password reset requested but user has no phone number', { userId: user.id });
       return { deliveryMedium: 'sms', expiresIn };
     }
     // Calculate expiry minutes for template variables
@@ -183,17 +215,41 @@ export class PasswordResetService {
       (this.config.email?.globalVariables?.appName as string | undefined) ||
       (smsConfig?.templates?.globalVariables?.appName as string | undefined);
 
-    // Send SMS with template support
-    await this.smsProvider.sendOTP(user.phone, code, 'passwordReset', {
+    this.logger?.debug?.('Sending password reset SMS', {
+      userId: user.id,
+      phone: this.maskPhone(user.phone),
       expiryMinutes,
-      appName,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      userName: user.username,
-      userEmail: user.email,
-      phone: user.phone,
     });
-    this.logger?.log?.(`Password reset code sent via SMS to user ${user.sub}`);
+
+    try {
+      // Send SMS with template support
+      await this.smsProvider.sendOTP(user.phone, code, 'passwordReset', {
+        expiryMinutes,
+        appName,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        userName: user.username,
+        userEmail: user.email,
+        phone: user.phone,
+      });
+      this.logger?.log?.(`Password reset code sent via SMS to user ${user.sub}`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorCode = error instanceof NAuthException ? error.code : AuthErrorCode.INTERNAL_ERROR;
+
+      this.logger?.error?.(
+        `Failed to send password reset SMS to user ${user.sub} (${this.maskPhone(user.phone)}): ${errorMessage} [${errorCode}]`,
+        { error, userId: user.id },
+      );
+
+      // Re-throw to let AuthService handle (it will log and return non-enumerating response)
+      throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, `Failed to send password reset SMS: ${errorMessage}`, {
+        originalError: errorMessage,
+        originalErrorCode: errorCode,
+        userId: user.id,
+        phone: this.maskPhone(user.phone),
+      });
+    }
 
     await this.auditService?.recordEvent({
       userId: user.id,
@@ -294,7 +350,11 @@ export class PasswordResetService {
     // ============================================================================
     // Build reset link if baseUrl provided
     // ============================================================================
-    const resetLink = options.baseUrl ? `${options.baseUrl}?token=${token}` : undefined;
+    // ============================================================================
+    // Build reset link if baseUrl provided
+    // ============================================================================
+    // WHY: Keep consumer apps code-only and consistent. Links include `code=...`.
+    const resetLink = options.baseUrl ? `${options.baseUrl}?code=${code}` : undefined;
 
     // ============================================================================
     // Deliver code (and optional link)

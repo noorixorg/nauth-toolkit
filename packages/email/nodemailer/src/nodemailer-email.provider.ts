@@ -1,4 +1,12 @@
-import { EmailProvider, TemplateType, TemplateVariables, LoggerService, TemplateEngine } from '@nauth-toolkit/core';
+import {
+  EmailProvider,
+  TemplateType,
+  TemplateVariables,
+  LoggerService,
+  TemplateEngine,
+  NAuthException,
+  AuthErrorCode,
+} from '@nauth-toolkit/core';
 import { HandlebarsTemplateEngine } from './templates/handlebars-template.engine';
 import * as nodemailer from 'nodemailer';
 import type { Transporter, SendMailOptions, TransportOptions } from 'nodemailer';
@@ -428,6 +436,8 @@ export class NodemailerProvider implements EmailProvider {
     expiryMinutes: number = 60,
     variables: TemplateVariables = {},
   ): Promise<void> {
+    this.logger?.debug?.('Preparing verification email', { to, hasLink: !!link, expiryMinutes });
+
     const templateVariables: TemplateVariables = {
       ...this.globalVariables,
       userName: to.split('@')[0],
@@ -442,14 +452,37 @@ export class NodemailerProvider implements EmailProvider {
       templateVariables.link = link;
     }
 
-    const email = await this.templateEngine.render(TemplateType.VERIFICATION, templateVariables);
+    let email;
+    try {
+      this.logger?.debug?.('Rendering verification email template');
+      email = await this.templateEngine.render(TemplateType.VERIFICATION, templateVariables);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.error?.(
+        `Failed to render verification email template (${TemplateType.VERIFICATION}): ${errorMessage}`,
+        { error },
+      );
+      throw new NAuthException(
+        AuthErrorCode.INTERNAL_ERROR,
+        `Failed to render verification email template: ${errorMessage}`,
+        { originalError: errorMessage, templateType: TemplateType.VERIFICATION },
+      );
+    }
 
-    await this.sendMail({
-      to,
-      subject: email.subject,
-      html: email.html,
-      text: email.text,
-    });
+    try {
+      await this.sendMail({
+        to,
+        subject: email.subject,
+        html: email.html,
+        text: email.text,
+      });
+    } catch (error) {
+      // sendMail already logs errors, but we add context here
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.error?.(`Verification email delivery failed for ${to}: ${errorMessage}`);
+      // Re-throw to let caller handle
+      throw error;
+    }
   }
 
   /**
@@ -469,6 +502,8 @@ export class NodemailerProvider implements EmailProvider {
     expiryMinutes: number = 60,
     variables: TemplateVariables = {},
   ): Promise<void> {
+    this.logger?.debug?.('Preparing password reset email', { to, hasLink: !!link, expiryMinutes });
+
     const templateVariables: TemplateVariables = {
       ...this.globalVariables,
       userName: to.split('@')[0],
@@ -483,14 +518,37 @@ export class NodemailerProvider implements EmailProvider {
       templateVariables.link = link;
     }
 
-    const email = await this.templateEngine.render(TemplateType.PASSWORD_RESET, templateVariables);
+    let email;
+    try {
+      this.logger?.debug?.('Rendering password reset email template');
+      email = await this.templateEngine.render(TemplateType.PASSWORD_RESET, templateVariables);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.error?.(
+        `Failed to render password reset email template (${TemplateType.PASSWORD_RESET}): ${errorMessage}`,
+        { error },
+      );
+      throw new NAuthException(
+        AuthErrorCode.INTERNAL_ERROR,
+        `Failed to render password reset email template: ${errorMessage}`,
+        { originalError: errorMessage, templateType: TemplateType.PASSWORD_RESET },
+      );
+    }
 
-    await this.sendMail({
-      to,
-      subject: email.subject,
-      html: email.html,
-      text: email.text,
-    });
+    try {
+      await this.sendMail({
+        to,
+        subject: email.subject,
+        html: email.html,
+        text: email.text,
+      });
+    } catch (error) {
+      // sendMail already logs errors, but we add context here
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.error?.(`Password reset email delivery failed for ${to}: ${errorMessage}`);
+      // Re-throw to let caller handle (password-reset.service will catch and log)
+      throw error;
+    }
   }
 
   /**
@@ -509,6 +567,8 @@ export class NodemailerProvider implements EmailProvider {
     expiryMinutes: number = 60,
     variables: TemplateVariables = {},
   ): Promise<void> {
+    this.logger?.debug?.('Preparing admin password reset email', { to, hasLink: !!link, expiryMinutes });
+
     const templateVariables: TemplateVariables = {
       ...this.globalVariables,
       userName: to.split('@')[0],
@@ -523,14 +583,37 @@ export class NodemailerProvider implements EmailProvider {
       templateVariables.link = link;
     }
 
-    const email = await this.templateEngine.render(TemplateType.ADMIN_PASSWORD_RESET, templateVariables);
+    let email;
+    try {
+      this.logger?.debug?.('Rendering admin password reset email template');
+      email = await this.templateEngine.render(TemplateType.ADMIN_PASSWORD_RESET, templateVariables);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.error?.(
+        `Failed to render admin password reset email template (${TemplateType.ADMIN_PASSWORD_RESET}): ${errorMessage}`,
+        { error },
+      );
+      throw new NAuthException(
+        AuthErrorCode.INTERNAL_ERROR,
+        `Failed to render admin password reset email template: ${errorMessage}`,
+        { originalError: errorMessage, templateType: TemplateType.ADMIN_PASSWORD_RESET },
+      );
+    }
 
-    await this.sendMail({
-      to,
-      subject: email.subject,
-      html: email.html,
-      text: email.text,
-    });
+    try {
+      await this.sendMail({
+        to,
+        subject: email.subject,
+        html: email.html,
+        text: email.text,
+      });
+    } catch (error) {
+      // sendMail already logs errors, but we add context here
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.error?.(`Admin password reset email delivery failed for ${to}: ${errorMessage}`);
+      // Re-throw to let caller handle
+      throw error;
+    }
   }
 
   /**

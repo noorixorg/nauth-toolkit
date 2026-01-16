@@ -150,6 +150,29 @@ describe('HandlebarsTemplateEngine', () => {
     });
   });
 
+  describe('default templates (regression)', () => {
+    it('should render PASSWORD_RESET with code even when link is not provided', async () => {
+      const engineWithDefaults = new HandlebarsTemplateEngine({
+        useDefaultTemplates: true,
+      });
+
+      const result = await engineWithDefaults.render(TemplateType.PASSWORD_RESET, {
+        appName: 'Test App',
+        userName: 'testuser',
+        userEmail: 'test@example.com',
+        code: '123456',
+        expiryMinutes: 15,
+        // NOTE: link intentionally omitted; template must not break or render "undefined"
+      });
+
+      expect(result.subject).toContain('Password Reset');
+      expect(result.html).toContain('123456');
+      expect(result.text ?? '').toContain('123456');
+      expect(result.html.toLowerCase()).not.toContain('undefined');
+      expect((result.text ?? '').toLowerCase()).not.toContain('undefined');
+    });
+  });
+
   describe('hasTemplate', () => {
     it('should return true for registered templates', () => {
       engine.registerTemplate('test', {

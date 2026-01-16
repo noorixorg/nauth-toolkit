@@ -238,29 +238,23 @@ export class AdminResetPasswordResponseDTO {
 /**
  * Confirm Admin Reset Password DTO
  *
- * User completes admin-initiated password reset with code OR token.
- * Accepts either short code from email/SMS OR long token from link.
+ * User completes admin-initiated password reset with a verification code.
+ *
+ * NOTE:
+ * - Link support is optional, but links carry the same verification `code` as a query parameter
+ *   (e.g., `...?code=123456`) to keep consumer apps consistent (code-only).
  *
  * Security:
- * - One of code or token is required
- * - Token-based: No attempt tracking (single use, long random)
- * - Code-based: Attempt tracking (max 3 attempts)
+ * - Code is required
+ * - Attempt tracking enforced (max attempts configured in password reset service)
  * - Always revokes all sessions on completion
  * - Always sets mustChangePassword flag
  *
  * @example
  * ```typescript
- * // With code (from email/SMS)
  * await authService.confirmAdminResetPassword({
  *   identifier: 'user@example.com',
  *   code: '123456',
- *   newPassword: 'NewSecurePass123!'
- * });
- *
- * // With token (from link)
- * await authService.confirmAdminResetPassword({
- *   identifier: 'user@example.com',
- *   token: '64-char-hex-token-from-link',
  *   newPassword: 'NewSecurePass123!'
  * });
  * ```
@@ -303,7 +297,7 @@ export class ConfirmAdminResetPasswordDTO {
    * Validation:
    * - Must be string
    * - Length 6-10 characters
-   * - Optional (token OR code required)
+   * - Required
    *
    * Sanitization:
    * - Trimmed
@@ -312,8 +306,8 @@ export class ConfirmAdminResetPasswordDTO {
    *
    * @example "123456"
    */
-  @IsOptional()
   @IsString({ message: 'Code must be a string' })
+  @IsNotEmpty({ message: 'Code is required' })
   @Length(6, 10, { message: 'Code must be between 6 and 10 characters' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
@@ -321,31 +315,7 @@ export class ConfirmAdminResetPasswordDTO {
     }
     return value;
   })
-  code?: string;
-
-  /**
-   * Verification token from link (64-char hex)
-   *
-   * Validation:
-   * - Must be string
-   * - Optional (token OR code required)
-   *
-   * Sanitization:
-   * - Trimmed
-   *
-   * WHY: Long token from link, single-use, no attempt tracking needed
-   *
-   * @example "a1b2c3d4..."
-   */
-  @IsOptional()
-  @IsString({ message: 'Token must be a string' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim();
-    }
-    return value;
-  })
-  token?: string;
+  code!: string;
 
   /**
    * New password

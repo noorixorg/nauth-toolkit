@@ -3570,14 +3570,14 @@ export class AuthService {
   }
 
   /**
-   * Complete admin-initiated password reset with verification code or token.
+   * Complete admin-initiated password reset with a verification code.
    *
-   * Accepts either:
-   * - code: Short numeric code from email/SMS (6-10 digits, attempt tracking)
-   * - token: Long hex token from link (64 chars, single use, no attempts)
+   * NOTE:
+   * - Links (when provided) should include the same verification code as a query parameter
+   *   (e.g., `...?code=123456`) to keep consumer apps code-only and consistent.
    *
    * Security:
-   * - Verifies code/token via PasswordResetService
+   * - Verifies code via PasswordResetService
    * - Enforces password policy and history
    * - Always revokes all sessions on completion
    * - Does not force password change (user already set new password)
@@ -3589,17 +3589,9 @@ export class AuthService {
    *
    * @example
    * ```typescript
-   * // With code
    * await authService.confirmAdminResetPassword({
    *   identifier: 'user@example.com',
    *   code: '123456',
-   *   newPassword: 'NewSecurePass123!'
-   * });
-   *
-   * // With token from link
-   * await authService.confirmAdminResetPassword({
-   *   identifier: 'user@example.com',
-   *   token: '64-char-hex-token',
    *   newPassword: 'NewSecurePass123!'
    * });
    * ```
@@ -3609,16 +3601,6 @@ export class AuthService {
     dto = await ensureValidatedDto(ConfirmAdminResetPasswordDTO, dto);
 
     this.logger?.log?.(`Confirm admin password reset for identifier: ${dto.identifier}`);
-
-    // ============================================================================
-    // Validate that either code or token is provided
-    // ============================================================================
-    if (!dto.code && !dto.token) {
-      throw new NAuthException(
-        AuthErrorCode.INVALID_CREDENTIALS,
-        'Either code or token is required to confirm password reset',
-      );
-    }
 
     // ============================================================================
     // Find User by Identifier
@@ -3649,17 +3631,9 @@ export class AuthService {
     }
 
     // ============================================================================
-    // Verify code or token
+    // Verify code
     // ============================================================================
-    const codeOrToken = dto.code || dto.token;
-    if (!codeOrToken) {
-      throw new NAuthException(
-        AuthErrorCode.INVALID_CREDENTIALS,
-        'Either code or token is required to confirm password reset',
-      );
-    }
-
-    await this.passwordResetService.consumeValidCode(user, codeOrToken, 'admin_password_reset');
+    await this.passwordResetService.consumeValidCode(user, dto.code, 'admin_password_reset');
 
     // ============================================================================
     // Update password
@@ -3679,8 +3653,7 @@ export class AuthService {
           eventStatus: 'SUCCESS',
           description: 'User completed admin-initiated password reset',
           metadata: {
-            usedCode: !!dto.code,
-            usedToken: !!dto.token,
+            usedCode: true,
           },
         },
       },

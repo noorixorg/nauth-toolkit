@@ -347,7 +347,6 @@ See [`NAuthEndpoints`](./types/nauth-endpoints) for the complete interface and a
 | `logoutAll`             | `/logout/all`                |
 | `mfaBackupCodes`        | `/mfa/backup-codes/generate` |
 | `mfaDevices`            | `/mfa/devices`               |
-| `mfaExemption`          | `/mfa/exemption`             |
 | `mfaPreferred`          | `/mfa/preferred-method`      |
 | `mfaRemove`             | `/mfa/method`                |
 | `mfaSetupData`          | `/mfa/setup-data`            |

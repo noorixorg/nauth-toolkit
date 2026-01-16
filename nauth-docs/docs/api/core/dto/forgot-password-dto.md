@@ -115,7 +115,7 @@ Response for a confirmed password reset.
 }
 ```
 
-When `baseUrl` is provided, the system generates a reset link as `${baseUrl}?token=<token>` and sends both the code and the link to the user. The code is always sent (mandatory), while the link is optional and only included when `baseUrl` is provided.
+When `baseUrl` is provided, the system generates a reset link as `${baseUrl}?code=<code>` and sends both the code and the link to the user. The code is always sent (mandatory), while the link is optional and only included when `baseUrl` is provided.
 
 **Confirm Reset:**
 

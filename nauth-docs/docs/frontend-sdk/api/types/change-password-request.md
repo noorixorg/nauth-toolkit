@@ -19,16 +19,16 @@ import { ChangePasswordRequest } from '@nauth-toolkit/client';
 
 ## Properties
 
-| Property          | Type     | Required | Description                           |
-| ----------------- | -------- | -------- | ------------------------------------- |
-| `currentPassword` | `string` | Yes      | Current password for verification     |
-| `newPassword`     | `string` | Yes      | New password (must meet requirements) |
+| Property      | Type     | Required | Description                           |
+| ------------- | -------- | -------- | ------------------------------------- |
+| `oldPassword` | `string` | Yes      | Current password for verification     |
+| `newPassword` | `string` | Yes      | New password (must meet requirements) |
 
 ## Example
 
 ```json
 {
-  "currentPassword": "oldPassword123",
+  "oldPassword": "oldPassword123",
   "newPassword": "newSecurePassword456!"
 }
 ```

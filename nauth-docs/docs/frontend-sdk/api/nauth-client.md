@@ -453,12 +453,12 @@ async resendCode(session: string): Promise<{ destination: string }>
 
 ### resetPasswordWithCode()
 
-Reset password with code or token (generic method for both admin-initiated and user-initiated resets).
+Reset password with verification code (generic method for both admin-initiated and user-initiated resets).
 
 ```typescript
 async resetPasswordWithCode(
   identifier: string,
-  codeOrToken: string,
+  code: string,
   newPassword: string
 ): Promise<ResetPasswordWithCodeResponse>
 ```
@@ -468,7 +468,7 @@ async resetPasswordWithCode(
 | Parameter     | Type     | Description                              |
 | ------------- | -------- | ---------------------------------------- |
 | `identifier`  | `string` | User identifier (email, username, phone) |
-| `codeOrToken` | `string` | Verification code (6-10 digits) OR token |
+| `code`        | `string` | Verification code (6-10 digits)          |
 | `newPassword` | `string` | New password (min 8 characters)          |
 
 **Returns**
@@ -478,11 +478,7 @@ async resetPasswordWithCode(
 **Example**
 
 ```typescript
-// With code from email
 await client.resetPasswordWithCode('user@example.com', '123456', 'NewPass123!');
-
-// With token from link
-await client.resetPasswordWithCode('user@example.com', '64-char-token-from-url', 'NewPass123!');
 ```
 
 ---
@@ -971,33 +967,6 @@ async generateBackupCodes(): Promise<string[]>
 const codes = await client.generateBackupCodes();
 console.log('Backup codes:', codes); // ['ABC123', 'DEF456', ...]
 // Store these securely - they won't be shown again
-```
-
----
-
-### setMfaExemption()
-
-Set MFA exemption for user (admin/test scenarios).
-
-```typescript
-async setMfaExemption(exempt: boolean, reason?: string): Promise<void>
-```
-
-**Parameters**
-
-| Parameter | Type      | Description                                  |
-| --------- | --------- | -------------------------------------------- |
-| `exempt`  | `boolean` | Whether to exempt user from MFA requirements |
-| `reason`  | `string`  | Optional reason for exemption (for audit)    |
-
-:::warning Backend Configuration Required
-This method requires the backend to have MFA exemption functionality enabled. If this endpoint is not implemented, you will receive a [`NAuthClientError`](./nauth-client-error) with status code `404` or `501`. This is typically an admin-only feature.
-:::
-
-**Example**
-
-```typescript
-await client.setMfaExemption(true, 'Test account');
 ```
 
 ---

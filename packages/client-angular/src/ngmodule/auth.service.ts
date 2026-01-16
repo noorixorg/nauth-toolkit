@@ -825,22 +825,6 @@ export class AuthService {
     return this.client.generateBackupCodes();
   }
 
-  /**
-   * Set MFA exemption (admin/test scenarios).
-   *
-   * @param exempt - Whether to exempt user from MFA
-   * @param reason - Optional reason for exemption
-   * @returns Promise that resolves when exemption is set
-   *
-   * @example
-   * ```typescript
-   * await this.auth.setMfaExemption(true, 'Test account');
-   * ```
-   */
-  async setMfaExemption(exempt: boolean, reason?: string): Promise<void> {
-    return this.client.setMfaExemption(exempt, reason);
-  }
-
   // ============================================================================
   // Device Trust
   // ============================================================================

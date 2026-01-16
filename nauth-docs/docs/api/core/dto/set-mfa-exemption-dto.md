@@ -42,7 +42,7 @@ import { SetMFAExemptionDTO, SetMFAExemptionResponseDTO } from '@nauth-toolkit/c
 
 | Property    | Type            | Required | Description                                                      |
 | ----------- | --------------- | -------- | ---------------------------------------------------------------- |
-| `userSub`   | `string`        | Yes      | User sub. UUID v4 format. Trimmed and lowercased.               |
+| `identifier` | `string`       | Yes      | User identifier (email, username, phone, or sub/UUID). Trimmed. |
 | `exempt`    | `boolean`       | Yes      | Grant exemption (true) or revoke exemption (false).              |
 | `reason`    | `string \| null` | No       | Reason for exemption status change. Max 500 characters. Trimmed. |
 | `grantedBy` | `string \| null` | No       | Identifier of admin performing action. Max 255 characters. Trimmed. |
@@ -59,7 +59,7 @@ import { SetMFAExemptionDTO, SetMFAExemptionResponseDTO } from '@nauth-toolkit/c
 
 ```json
 {
-  "userSub": "a21b654c-2746-4168-acee-c175083a65cd",
+  "identifier": "a21b654c-2746-4168-acee-c175083a65cd",
   "exempt": true,
   "reason": "Business partner requires MFA bypass",
   "grantedBy": "admin@example.com"

@@ -1,8 +1,8 @@
 ---
 title: ResetPasswordWithCodeRequest
-description: Request payload for resetting password with verification code or token (works for both admin-initiated and user-initiated resets)
+description: Request payload for resetting password with verification code (works for both admin-initiated and user-initiated resets)
 sidebar_position: 162
-keywords: [password, reset, code, token, request, dto, api]
+keywords: [password, reset, code, request, dto, api]
 image: /img/api-social-card.png
 ---
 
@@ -11,7 +11,7 @@ image: /img/api-social-card.png
 **Package:** `@nauth-toolkit/client`
 **Type:** Request
 
-Request payload for resetting password with code or token. Generic method that works for both admin-initiated (adminResetPassword) and user-initiated (forgotPassword) password resets.
+Request payload for resetting password with a verification code. Generic method that works for both admin-initiated (adminResetPassword) and user-initiated (forgotPassword) password resets.
 
 ```typescript
 import { ResetPasswordWithCodeRequest } from '@nauth-toolkit/client';
@@ -21,10 +21,9 @@ import { ResetPasswordWithCodeRequest } from '@nauth-toolkit/client';
 
 | Property      | Type     | Required | Description                                                                        |
 | ------------- | -------- | -------- | ---------------------------------------------------------------------------------- |
-| `code`        | `string` | No       | Verification code from email/SMS (6-10 digits). One of `code` or `token` required. |
+| `code`        | `string` | Yes      | Verification code from email/SMS (6-10 digits).                                    |
 | `identifier`  | `string` | Yes      | User identifier (email, username, phone)                                           |
 | `newPassword` | `string` | Yes      | New password (min 8 characters)                                                    |
-| `token`       | `string` | No       | Verification token from link (64-char hex). One of `code` or `token` required.     |
 
 ## Example
 

@@ -413,7 +413,7 @@ export class NAuthClient {
    * Change user password.
    */
   async changePassword(oldPassword: string, newPassword: string): Promise<void> {
-    const payload: ChangePasswordRequest = { currentPassword: oldPassword, newPassword };
+    const payload: ChangePasswordRequest = { oldPassword, newPassword };
     await this.post(this.config.endpoints.changePassword, payload, true);
   }
 
@@ -446,45 +446,34 @@ export class NAuthClient {
   }
 
   /**
-   * Reset password with code or token (works for both admin-initiated and user-initiated resets).
+   * Reset password with verification code (works for both admin-initiated and user-initiated resets).
    *
-   * Accepts either:
-   * - code: Short numeric code from email/SMS (6-10 digits)
-   * - token: Long hex token from reset link (64 chars)
+   * NOTE:
+   * - Links (when provided by the backend email provider) include the same verification code as a query param
+   *   (e.g., `...?code=123456`) so consumer apps stay code-only and consistent.
    *
    * WHY: Generic method that works for both admin-initiated (adminResetPassword) and
    * user-initiated (forgotPassword) password resets. Uses same backend endpoint.
    *
    * @param identifier - User identifier (email, username, phone)
-   * @param codeOrToken - Verification code OR token from link (one required)
+   * @param code - Verification code from email/SMS (6-10 digits)
    * @param newPassword - New password
    * @returns Success response
    * @throws {NAuthClientError} When reset fails
    *
    * @example
    * ```typescript
-   * // With code from email
    * await client.resetPasswordWithCode('user@example.com', '123456', 'NewPass123!');
-   *
-   * // With token from link
-   * await client.resetPasswordWithCode('user@example.com', '64-char-token', 'NewPass123!');
    * ```
    */
   async resetPasswordWithCode(
     identifier: string,
-    codeOrToken: string,
+    code: string,
     newPassword: string,
   ): Promise<ResetPasswordWithCodeResponse> {
-    // ============================================================================
-    // Detect if input is token (>10 chars) or code (<=10 chars)
-    // ============================================================================
-    // WHY: Tokens are 64-char hex (from crypto.randomBytes(32).toString('hex'))
-    // Codes are 6-10 digits. Use length to distinguish.
-    const isToken = codeOrToken.length > 10;
-
     const payload: ResetPasswordWithCodeRequest = {
       identifier,
-      ...(isToken ? { token: codeOrToken } : { code: codeOrToken }),
+      code,
       newPassword,
     };
 
@@ -578,15 +567,10 @@ export class NAuthClient {
   }
 
   /**
-   * Set MFA exemption (admin/test scenarios).
+   * ============================================================================
+   * Event System
+   * ============================================================================
    */
-  async setMfaExemption(exempt: boolean, reason?: string): Promise<void> {
-    await this.post(this.config.endpoints.mfaExemption, { exempt, reason }, true);
-  }
-
-  // ============================================================================
-  // Event System
-  // ============================================================================
 
   /**
    * Subscribe to authentication events.

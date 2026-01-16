@@ -12,6 +12,7 @@ import { NAuthLogger } from '../utils/nauth-logger';
 import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { ClientInfoService } from './client-info.service';
+import { SetMFAExemptionDTO } from '../dto';
 
 /**
  * MFA Service Unit Tests
@@ -126,6 +127,73 @@ describe('MFAService', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  // ============================================================================
+  // setMFAExemption() Method
+  // ============================================================================
+
+  describe('setMFAExemption', () => {
+    it('should throw when user is not found', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      const dto = new SetMFAExemptionDTO();
+      dto.identifier = 'missing@example.com';
+      dto.exempt = true;
+      dto.reason = 'Admin override';
+      dto.grantedBy = 'admin@example.com';
+
+      await expect(service.setMFAExemption(dto)).rejects.toThrow(NAuthException);
+    });
+
+    it('should grant exemption by resolving user via UUID sub identifier', async () => {
+      const userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      const userEntity = {
+        id: 42,
+        sub: userSub,
+        mfaEnabled: false,
+        mfaExempt: false,
+      } as unknown as BaseUser;
+
+      mockUserRepository.findOne.mockImplementation(async (opts: unknown) => {
+        const typed = opts as { where?: Partial<BaseUser>; select?: string[] };
+        if (typed.where?.sub === userSub) {
+          return userEntity;
+        }
+        if (typed.where?.id === userEntity.id && Array.isArray(typed.select)) {
+          return {
+            mfaExempt: true,
+            mfaExemptReason: 'Admin override',
+            mfaExemptGrantedAt: new Date('2024-01-01T00:00:00.000Z'),
+          } as unknown as BaseUser;
+        }
+        return null;
+      });
+
+      mockUserRepository.update.mockResolvedValue({} as never);
+
+      const dto = new SetMFAExemptionDTO();
+      dto.identifier = userSub;
+      dto.exempt = true;
+      dto.reason = 'Admin override';
+      dto.grantedBy = 'admin@example.com';
+
+      const result = await service.setMFAExemption(dto);
+
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: userSub } });
+      expect(mockUserRepository.update).toHaveBeenCalledWith(userEntity.id, expect.objectContaining({ mfaExempt: true }));
+      expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: userEntity.id,
+          eventType: AuthAuditEventType.MFA_EXEMPTION_GRANTED,
+        }),
+      );
+      expect(result).toEqual({
+        mfaExempt: true,
+        mfaExemptReason: 'Admin override',
+        mfaExemptGrantedAt: new Date('2024-01-01T00:00:00.000Z'),
+      });
+    });
   });
 
   // ============================================================================

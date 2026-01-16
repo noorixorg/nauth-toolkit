@@ -782,7 +782,7 @@ fastify.post('/auth/change-password', async (req, reply) => {
 
 ### confirmAdminResetPassword()
 
-Complete admin-initiated password reset with verification code or token.
+Complete admin-initiated password reset with a verification code.
 
 ```typescript
 async confirmAdminResetPassword(dto: ConfirmAdminResetPasswordDTO): Promise<ConfirmAdminResetPasswordResponseDTO>
@@ -803,12 +803,12 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed b
 | Code                          | When                                                              | Details                |
 | ----------------------------- | ----------------------------------------------------------------- | ---------------------- |
 | `NOT_FOUND`                   | User not found                                                    | `undefined`            |
-| `PASSWORD_RESET_CODE_INVALID` | Code/token invalid                                                | `undefined`            |
-| `PASSWORD_RESET_CODE_EXPIRED` | Code/token expired                                                | `undefined`            |
+| `PASSWORD_RESET_CODE_INVALID` | Code invalid                                                      | `undefined`            |
+| `PASSWORD_RESET_CODE_EXPIRED` | Code expired                                                      | `undefined`            |
 | `PASSWORD_RESET_MAX_ATTEMPTS` | Max attempts exceeded (code only)                                 | `undefined`            |
 | `WEAK_PASSWORD`               | Policy violation                                                  | `{ errors: string[] }` |
 | `PASSWORD_REUSED`             | Only if `password.historyCount` is configured AND password reused | `undefined`            |
-| `INVALID_CREDENTIALS`         | Neither code nor token provided                                   | `undefined`            |
+| `INVALID_CREDENTIALS`         | Invalid input data                                                | `undefined`            |
 | `SERVICE_UNAVAILABLE`         | Password reset service missing                                    | `undefined`            |
 
 **WEAK_PASSWORD details**

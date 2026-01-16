@@ -47,7 +47,6 @@ interface NAuthEndpoints {
   mfaRemove: string;
   mfaPreferred: string;
   mfaBackupCodes: string;
-  mfaExemption: string;
 
   // Social Authentication
   socialRedirectStart: string;
@@ -93,7 +92,6 @@ interface NAuthEndpoints {
   mfaRemove: '/mfa/method',
   mfaPreferred: '/mfa/preferred-method',
   mfaBackupCodes: '/mfa/backup-codes/generate',
-  mfaExemption: '/mfa/exemption',
   socialLinked: '/social/linked',
   socialLink: '/social/link',
   socialUnlink: '/social/unlink',

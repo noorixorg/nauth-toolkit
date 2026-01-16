@@ -39,7 +39,7 @@ export interface UpdateProfileRequest {
  * Change password request.
  */
 export interface ChangePasswordRequest {
-  currentPassword: string;
+  oldPassword: string;
   newPassword: string;
 }
 
@@ -78,12 +78,11 @@ export interface ConfirmForgotPasswordResponse {
 }
 
 /**
- * Reset password with code/token request (generic for both admin-initiated and user-initiated resets).
+ * Reset password with code request (generic for both admin-initiated and user-initiated resets).
  */
 export interface ResetPasswordWithCodeRequest {
   identifier: string;
-  code?: string;
-  token?: string;
+  code: string;
   newPassword: string;
 }
 
