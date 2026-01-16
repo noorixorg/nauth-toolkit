@@ -2,7 +2,10 @@
  * DTO for requesting MFA challenge data
  *
  * Used to get method-specific challenge information during MFA verification.
- * Currently only passkey method requires challenge data (WebAuthn options).
+ * Supports:
+ * - Passkey: Returns WebAuthn authentication options
+ * - SMS: Sends SMS code and returns masked phone number
+ * - Email: Sends email code and returns masked email address
  *
  * Security:
  * - Session token length limited (prevents DoS)
@@ -10,11 +13,26 @@
  *
  * @example
  * ```typescript
+ * // Passkey: Get WebAuthn options
  * const challengeData = await authService.getChallengeData({
  *   session: 'challenge-session-token',
  *   method: 'passkey'
  * });
- * // Returns: { publicKey: { challenge: '...', ... } }
+ * // Returns: { challengeData: { challenge: '...', allowCredentials: [...], ... } }
+ *
+ * // SMS: Send code and get masked phone
+ * const challengeData = await authService.getChallengeData({
+ *   session: 'challenge-session-token',
+ *   method: 'sms'
+ * });
+ * // Returns: { challengeData: '***-***-1234' }
+ *
+ * // Email: Send code and get masked email
+ * const challengeData = await authService.getChallengeData({
+ *   session: 'challenge-session-token',
+ *   method: 'email'
+ * });
+ * // Returns: { challengeData: 'u***r@example.com' }
  * ```
  */
 
@@ -23,10 +41,12 @@ import { Transform } from 'class-transformer';
 
 /**
  * MFA method enum for challenge data
- * Currently only passkey requires challenge data
+ * Supports passkey (WebAuthn options), SMS (sends code), and Email (sends code)
  */
 export enum MFAChallengeMethod {
   PASSKEY = 'passkey',
+  SMS = 'sms',
+  EMAIL = 'email',
 }
 
 /**
@@ -60,10 +80,10 @@ export class GetChallengeDataDTO {
    * MFA method requiring challenge data
    *
    * Validation:
-   * - Must be 'passkey' (only method that needs challenge data)
+   * - Must be 'passkey' (WebAuthn options), 'sms' (sends code), or 'email' (sends code)
    */
   @IsEnum(MFAChallengeMethod, {
-    message: 'Method must be: passkey',
+    message: 'Method must be: passkey, sms, or email',
   })
   method!: MFAChallengeMethod;
 }

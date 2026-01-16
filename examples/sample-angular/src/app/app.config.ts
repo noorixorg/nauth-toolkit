@@ -87,10 +87,10 @@ export const appConfig: ApplicationConfig = {
         authPathPrefix: '/auth',
         tokenDelivery: 'cookies',
         debug: true,
-        // csrf: {
-        //   cookieName: 'nauth_csrf_token',
-        //   headerName: 'x-csrf-token',
-        // },
+        csrf: {
+          cookieName: 'nauth_csrf_token',
+          headerName: 'x-csrf-token',
+        },
         // CSRF not needed in JSON mode (Bearer tokens are CSRF-safe)
         // Only configure csrf when using tokenDelivery: 'cookies' or 'hybrid'
         endpoints: {

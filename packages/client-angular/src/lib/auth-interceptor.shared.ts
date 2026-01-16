@@ -172,6 +172,9 @@ export function createNAuthAuthHttpInterceptor(params: {
     authReq = authReq.clone({ withCredentials: true });
     // Add CSRF token for mutating methods (POST, PUT, PATCH, DELETE)
     // Always add it here - don't rely on buildHeaders() in Angular context
+    // Add CSRF token for mutating methods (POST, PUT, PATCH, DELETE)
+    // This runs for ALL requests in cookies mode, not just auth API requests
+    // This ensures CSRF protection for all mutating operations
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
       // Respect user's CSRF config, fallback to defaults if not provided
       // These defaults must match the backend's CSRF configuration
@@ -185,10 +188,13 @@ export function createNAuthAuthHttpInterceptor(params: {
         // Use setHeaders which will override if already exists (from buildHeaders)
         // This ensures CSRF is always present for DELETE and other mutating methods
         authReq = authReq.clone({ setHeaders: { [csrfHeaderName]: csrfToken } });
+      } else {
+        // CSRF token not found - this could happen if:
+        // 1. Cookie doesn't exist (before first login, after logout, or cookie expired)
+        // 2. Cookie name mismatch (check config.csrf.cookieName matches backend)
+        // 3. Cookie is httpOnly and can't be read (but CSRF cookies should be readable)
+        // The backend should handle missing CSRF tokens appropriately (return 403 or similar)
       }
-      // Note: If csrfToken is null, the header won't be added.
-      // This is expected if the cookie doesn't exist (e.g., before first login).
-      // The backend should handle missing CSRF tokens appropriately.
     }
   }
 

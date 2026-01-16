@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/core",
-  "version": "0.1.85",
+  "version": "0.1.86",
   "description": "Core authentication toolkit for Node JS",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

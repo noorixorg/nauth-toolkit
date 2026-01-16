@@ -64,7 +64,7 @@ export const authConfig: NAuthModuleConfig = {
   },
   mfa: {
     enabled: true,
-    enforcement: 'OPTIONAL',
+    enforcement: 'REQUIRED',
     gracePeriod: 0,
     requireForSocialLogin: false,
     allowedMethods: [MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.TOTP, MFAMethod.PASSKEY],
@@ -100,7 +100,7 @@ export const authConfig: NAuthModuleConfig = {
     },
     rememberDevices: 'user_opt_in',
     rememberDeviceDays: 30,
-    bypassMFAForTrustedDevices: true, // does not apply to Adaptptive MFA
+    bypassMFAForTrustedDevices: false, // does not apply to Adaptptive MFA
   },
 
   password: {

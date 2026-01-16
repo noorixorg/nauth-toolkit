@@ -930,8 +930,13 @@ export class MFAService {
   /**
    * Get MFA challenge data during MFA_REQUIRED challenge
    *
-   * Currently only used for passkey authentication to get WebAuthn options.
-   * SMS/TOTP codes are sent automatically when the challenge is created.
+   * Supports multiple MFA methods:
+   * - Passkey: Returns WebAuthn authentication options
+   * - SMS: Sends SMS code and returns masked phone number (string)
+   * - Email: Sends email code and returns masked email address (string)
+   *
+   * Note: SMS codes are automatically sent when challenge is created if SMS is preferred method.
+   * This endpoint allows switching to a different method or requesting a new code.
    *
    * @param dto - Request DTO with session token and method
    * @returns Response DTO with provider-specific challenge data
@@ -939,11 +944,26 @@ export class MFAService {
    *
    * @example
    * ```typescript
+   * // Passkey: Get WebAuthn options
    * const result = await mfaService.getChallengeData({
    *   session: 'session-token',
    *   method: 'passkey'
    * });
    * // Returns: { challengeData: { challenge: '...', allowCredentials: [...], ... } }
+   *
+   * // SMS: Send code and get masked phone
+   * const result = await mfaService.getChallengeData({
+   *   session: 'session-token',
+   *   method: 'sms'
+   * });
+   * // Returns: { challengeData: '***-***-1234' }
+   *
+   * // Email: Send code and get masked email
+   * const result = await mfaService.getChallengeData({
+   *   session: 'session-token',
+   *   method: 'email'
+   * });
+   * // Returns: { challengeData: 'u***r@example.com' }
    * ```
    */
   async getChallengeData(dto: GetChallengeDataDTO): Promise<GetChallengeDataResponseDTO> {
