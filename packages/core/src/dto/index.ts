@@ -31,6 +31,7 @@ export * from './get-challenge-data.dto';
 export * from './get-challenge-data-response.dto';
 export * from './get-available-methods.dto';
 export * from './get-mfa-status.dto';
+export * from './admin-get-mfa-status.dto';
 export * from './get-user-devices.dto';
 export * from './has-provider.dto';
 export * from './list-providers-response.dto';

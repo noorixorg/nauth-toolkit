@@ -44,7 +44,6 @@ import {
   Public,
   IUser,
   NAuthConfig,
-  ContextStorage,
   RespondChallengeDTO,
   TokenResponse,
   MFAService,
@@ -95,7 +94,7 @@ import {
   GetLinkedAccountsResponseDTO,
   LinkSocialAccountResponseDTO,
   UnlinkSocialAccountResponseDTO,
-  GetMFAStatusDTO,
+  AdminGetMFAStatusDTO,
   GetUserByIdDTO,
   GetUserAuthHistoryDTO,
   GetUserAuthHistoryResponseDTO,
@@ -949,8 +948,12 @@ export class CustomAuthController {
    * @returns MFA status including enabled methods, configured devices, etc.
    */
   @Get('mfa/status')
-  async getMFAStatus(): Promise<GetMFAStatusResponseDTO> {
-    return await this.authService.getMFAStatus();
+  async getMfaStatus(): Promise<GetMFAStatusResponseDTO> {
+    if (!this.mfaService) {
+      throw new BadRequestException('MFA service is not available');
+    }
+
+    return await this.mfaService.getMfaStatus();
   }
 
   /**
@@ -961,14 +964,14 @@ export class CustomAuthController {
    * @param dto - GetMFAStatusDTO with user sub
    * @returns MFA status including enabled methods, configured devices, etc.
    */
-  @Post('admin/mfa/status')
+  @Get('admin/users/:sub/mfa/status')
   @HttpCode(HttpStatus.OK)
-  async adminGetMFAStatus(@Body() dto: GetMFAStatusDTO): Promise<GetMFAStatusResponseDTO> {
+  async adminGetMfaStatus(@Param() dto: AdminGetMFAStatusDTO): Promise<GetMFAStatusResponseDTO> {
     if (!this.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
 
-    return await this.mfaService.getMFAStatus(dto);
+    return await this.mfaService.adminGetMfaStatus(dto);
   }
 
   /**
@@ -1042,14 +1045,8 @@ export class CustomAuthController {
       throw new BadRequestException('MFA service is not available');
     }
 
-    // Get user from context for provider.verifySetup
-    const currentUser = ContextStorage.get<IUser>('CURRENT_USER');
-    if (!currentUser) {
-      throw new BadRequestException('Authentication required');
-    }
-
     const provider = this.mfaService.getProvider(dto.methodName);
-    const deviceId = await provider.verifySetup(currentUser, dto.setupData);
+    const deviceId = await provider.verifySetup(dto.setupData);
 
     // Note: Backup codes are generated separately via generateBackupCodes() if needed
     // They are not returned from verifySetup for security reasons
@@ -1135,7 +1132,10 @@ export class CustomAuthController {
    */
   @Post('admin/mfa/exemption')
   @HttpCode(HttpStatus.OK)
-  async setMFAExemption(@Body() dto: SetMFAExemptionDTO): Promise<SetMFAExemptionResponseDTO> {
+  async setMFAExemption(
+    @Body() dto: SetMFAExemptionDTO,
+    @CurrentUser() adminUser: IUser,
+  ): Promise<SetMFAExemptionResponseDTO> {
     if (!this.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
@@ -1143,10 +1143,7 @@ export class CustomAuthController {
     // Admin API - sub comes from DTO (target user)
     // grantedBy can be set by admin in request, or get from admin context
     if (!dto.grantedBy) {
-      const adminUser = ContextStorage.get<IUser>('CURRENT_USER');
-      if (adminUser) {
-        dto.grantedBy = adminUser.email || null;
-      }
+      dto.grantedBy = adminUser?.email || null;
     }
     return await this.mfaService.setMFAExemption(dto);
   }

@@ -3,7 +3,6 @@ import { Repository } from 'typeorm';
 import {
   BaseMFADevice,
   BaseUser,
-  IUser,
   NAuthConfig,
   NAuthLogger,
   NAuthException,
@@ -79,7 +78,8 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
    * // Client displays setup.qrCode and setup.manualEntryKey
    * ```
    */
-  async setup(user: IUser, _setupData?: unknown): Promise<SetupTOTPResponseDTO> {
+  async setup(_setupData?: unknown): Promise<SetupTOTPResponseDTO> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Setting up TOTP for user: ${user.sub}`);
 
     // Check if TOTP is allowed
@@ -121,7 +121,8 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
    * });
    * ```
    */
-  async verifySetup(user: IUser, verificationData: unknown, deviceName?: string): Promise<number> {
+  async verifySetup(verificationData: unknown, deviceName?: string): Promise<number> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying TOTP setup for user: ${user.sub}`);
 
     const dto = verificationData as VerifyTOTPSetupDTO;
@@ -179,7 +180,8 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
    * const isValid = await provider.verify(user, '123456');
    * ```
    */
-  async verify(user: IUser, code: unknown, deviceId?: number): Promise<boolean> {
+  async verify(code: unknown, deviceId?: number): Promise<boolean> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying TOTP code for user: ${user.sub}`);
 
     const totpCode = code as string;

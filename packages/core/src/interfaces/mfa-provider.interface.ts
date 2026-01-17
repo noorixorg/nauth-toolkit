@@ -1,5 +1,3 @@
-import { IUser } from './entities.interface';
-
 /**
  * MFA Provider Service Interface
  *
@@ -16,11 +14,11 @@ import { IUser } from './entities.interface';
  * export class TOTPMFAProviderService extends BaseMFAProviderService implements IMFAProviderService {
  *   readonly methodName = 'totp';
  *
- *   async setup(user: IUser): Promise<unknown> {
+ *   async setup(): Promise<unknown> {
  *     // TOTP-specific setup logic
  *   }
  *
- *   async verify(user: IUser, code: string, deviceId?: number): Promise<boolean> {
+ *   async verify(code: string, deviceId?: number): Promise<boolean> {
  *     // TOTP verification logic
  *   }
  * }
@@ -59,7 +57,7 @@ export interface IMFAProviderService {
    * const options = await passkeyProvider.setup(user);
    * ```
    */
-  setup(user: IUser, setupData?: unknown): Promise<unknown>;
+  setup(setupData?: unknown): Promise<unknown>;
 
   /**
    * Verify and complete MFA setup
@@ -84,7 +82,7 @@ export interface IMFAProviderService {
    * const deviceId = await passkeyProvider.verifySetup(user, { credential: {...}, challenge: '...' });
    * ```
    */
-  verifySetup(user: IUser, verificationData: unknown, deviceName?: string): Promise<number>;
+  verifySetup(verificationData: unknown, deviceName?: string): Promise<number>;
 
   /**
    * Verify MFA code/credential during authentication
@@ -109,7 +107,7 @@ export interface IMFAProviderService {
    * const isValid = await passkeyProvider.verify(user, { credential: {...}, challenge: '...' });
    * ```
    */
-  verify(user: IUser, code: unknown, deviceId?: number): Promise<boolean>;
+  verify(code: unknown, deviceId?: number): Promise<boolean>;
 
   /**
    * Send verification code/challenge for authentication
@@ -130,7 +128,7 @@ export interface IMFAProviderService {
    * const options = await passkeyProvider.sendChallenge(user); // { challenge: '...', ... }
    * ```
    */
-  sendChallenge?(user: IUser): Promise<unknown>; // Optional - only providers like SMS need it
+  sendChallenge?(): Promise<unknown>; // Optional - only providers like SMS need it
 
   /**
    * Generate backup codes for user
@@ -147,7 +145,7 @@ export interface IMFAProviderService {
    * // Returns: ['ABC12345', 'DEF67890', ...]
    * ```
    */
-  generateBackupCodes?(user: IUser): Promise<string[]>; // Optional - provided by BaseMFAProviderService
+  generateBackupCodes?(): Promise<string[]>; // Optional - provided by BaseMFAProviderService
 }
 
 // Helper type to check if a provider implements sendChallenge

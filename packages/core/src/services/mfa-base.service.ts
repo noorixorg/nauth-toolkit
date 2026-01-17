@@ -13,6 +13,7 @@ import { IMFAProviderService } from '../interfaces/mfa-provider.interface';
 import { MFADeviceMethod, MFADeviceMethods } from '../enums/mfa-method.enum';
 import { ChallengeService } from './challenge.service';
 import { HookRegistryService } from './hook-registry.service';
+import { ContextStorage } from '../utils/context-storage';
 
 /**
  * Base MFA Provider Service
@@ -82,10 +83,31 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
     return allowedMethods.includes(this.methodName as MFADeviceMethod);
   }
 
+  // ============================================================================
+  // Context helpers
+  // ============================================================================
+
+  /**
+   * Resolve the current authenticated user from request context.
+   *
+   * Security: MFA providers must never accept user identity from consumer apps.
+   * The user is derived from request-scoped context (AuthGuard / adapter sets CURRENT_USER).
+   *
+   * @returns Current authenticated user
+   * @throws {NAuthException} FORBIDDEN when user context is missing
+   */
+  protected getCurrentUserOrThrow(): IUser {
+    const currentUser = ContextStorage.get<IUser>('CURRENT_USER');
+    if (!currentUser) {
+      throw new NAuthException(AuthErrorCode.FORBIDDEN, 'Authentication required');
+    }
+    return currentUser;
+  }
+
   // Abstract methods to be implemented by providers
-  abstract setup(user: IUser, setupData?: unknown): Promise<unknown>;
-  abstract verifySetup(user: IUser, verificationData: unknown, deviceName?: string): Promise<number>;
-  abstract verify(user: IUser, code: unknown, deviceId?: number): Promise<boolean>;
+  abstract setup(setupData?: unknown): Promise<unknown>;
+  abstract verifySetup(verificationData: unknown, deviceName?: string): Promise<number>;
+  abstract verify(code: unknown, deviceId?: number): Promise<boolean>;
   // sendChallenge is optional - only providers like SMS need it
   // TOTP doesn't need it (user generates code locally)
 
@@ -424,7 +446,8 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
    * @param user - User to generate codes for
    * @returns Generated backup codes (plain text - shown only once)
    */
-  async generateBackupCodes(user: IUser): Promise<string[]> {
+  async generateBackupCodes(): Promise<string[]> {
+    const user = this.getCurrentUserOrThrow();
     const userEntity = user as unknown as Record<string, unknown>;
     const config = this.config.mfa?.backup;
     const codeCount = config?.codeCount || 10;

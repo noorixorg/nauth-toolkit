@@ -5,6 +5,7 @@ import {
   BaseMFADevice,
   BaseUser,
   IUser,
+  ContextStorage,
   NAuthConfig,
   NAuthLogger,
   NAuthException,
@@ -13,6 +14,18 @@ import {
   EmailVerificationService,
 } from '@nauth-toolkit/core';
 import { SetupEmailMFADTO, VerifyEmailMFASetupDTO } from './dto/mfa.dto';
+
+/**
+ * Execute a provider call with a CURRENT_USER bound into request context.
+ *
+ * Providers no longer accept `IUser` parameters; they derive the user from ContextStorage.
+ */
+async function runAs<T>(user: IUser, callback: () => Promise<T>): Promise<T> {
+  return await ContextStorage.run(async () => {
+    ContextStorage.set('CURRENT_USER', user);
+    return await callback();
+  });
+}
 
 /**
  * Email MFA Provider Service Unit Tests
@@ -174,7 +187,7 @@ describe('EmailMFAProviderService', () => {
     it('should send verification Email', async () => {
       mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 1 } as any);
 
-      await service.setup(mockUser, setupDto);
+      await runAs(mockUser, async () => await service.setup(setupDto));
 
       expect(mockEmailVerificationService.sendVerificationEmail).toHaveBeenCalled();
       expect(mockLogger.log).toHaveBeenCalledWith((expect as any).stringContaining('Setting up Email MFA'));
@@ -184,7 +197,7 @@ describe('EmailMFAProviderService', () => {
       mockConfig.mfa!.allowedMethods = [MFAMethod.TOTP as any];
 
       try {
-        await service.setup(mockUser, setupDto);
+        await runAs(mockUser, async () => await service.setup(setupDto));
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -235,7 +248,7 @@ describe('EmailMFAProviderService', () => {
       mockUserRepository.findOne.mockResolvedValue({ ...verifiedUser, mfaEnabled: false } as any);
       mockUserRepository.save.mockResolvedValue({ ...verifiedUser, mfaEnabled: true } as any);
 
-      const result = await service.setup(verifiedUser, setupDto);
+      const result = await runAs(verifiedUser, async () => await service.setup(setupDto));
 
       expect(result).toEqual({ deviceId: 1, autoCompleted: true });
       expect(mockEmailVerificationService.sendVerificationEmail).not.toHaveBeenCalled();
@@ -274,7 +287,7 @@ describe('EmailMFAProviderService', () => {
       mockUserRepository.findOne.mockResolvedValue({ ...mockUser, mfaEnabled: false } as any);
       mockUserRepository.save.mockResolvedValue({ ...mockUser, mfaEnabled: true } as any);
 
-      const result = await service.verifySetup(mockUser, verifyDto);
+      const result = await runAs(mockUser, async () => await service.verifySetup(verifyDto));
 
       expect(result).toBe(1);
       expect(mockEmailVerificationService.verifyEmailWithCode).toHaveBeenCalledWith(
@@ -292,7 +305,7 @@ describe('EmailMFAProviderService', () => {
       const dtoWithoutCode = { ...verifyDto, code: '' };
 
       try {
-        await service.verifySetup(mockUser, dtoWithoutCode);
+        await runAs(mockUser, async () => await service.verifySetup(dtoWithoutCode));
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -327,7 +340,7 @@ describe('EmailMFAProviderService', () => {
       );
 
       try {
-        await service.verifySetup(mockUser, verifyDto);
+        await runAs(mockUser, async () => await service.verifySetup(verifyDto));
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -356,7 +369,7 @@ describe('EmailMFAProviderService', () => {
       mockUserRepository.findOne.mockResolvedValue({ ...mockUser, mfaEnabled: false } as any);
       mockUserRepository.save.mockResolvedValue({ ...mockUser, mfaEnabled: true } as any);
 
-      await service.verifySetup(mockUser, verifyDto, 'Custom Device Name');
+      await runAs(mockUser, async () => await service.verifySetup(verifyDto, 'Custom Device Name'));
 
       // Device is created via transaction manager's getRepository
       expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
@@ -387,7 +400,7 @@ describe('EmailMFAProviderService', () => {
       mockUserRepository.findOne.mockResolvedValue({ ...verifiedUser, mfaEnabled: false } as any);
       mockUserRepository.save.mockResolvedValue({ ...verifiedUser, mfaEnabled: true } as any);
 
-      await service.verifySetup(verifiedUser, verifyDto);
+      await runAs(verifiedUser, async () => await service.verifySetup(verifyDto));
 
       expect(mockEmailVerificationService.verifyEmailWithCode).not.toHaveBeenCalled();
       // Device is created via transaction manager's getRepository
@@ -416,7 +429,7 @@ describe('EmailMFAProviderService', () => {
       mockUserRepository.findOne.mockResolvedValue({ ...mockUser, mfaEnabled: false } as any);
       mockUserRepository.save.mockResolvedValue({ ...mockUser, mfaEnabled: true } as any);
 
-      const result = await service.verifySetup(mockUser, verifyDtoWithoutEmail);
+      const result = await runAs(mockUser, async () => await service.verifySetup(verifyDtoWithoutEmail));
 
       expect(result).toBe(1);
       // Device is created via transaction manager's getRepository
@@ -436,7 +449,7 @@ describe('EmailMFAProviderService', () => {
       } as unknown as IUser;
 
       try {
-        await service.verifySetup(mockUserNoEmail, verifyDtoWithoutEmail);
+        await runAs(mockUserNoEmail, async () => await service.verifySetup(verifyDtoWithoutEmail));
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -454,7 +467,7 @@ describe('EmailMFAProviderService', () => {
     it('should verify Email code successfully', async () => {
       mockEmailVerificationService.verifyEmailWithCode.mockResolvedValue({ message: 'Verified' });
 
-      const result = await service.verify(mockUser, '123456');
+      const result = await runAs(mockUser, async () => await service.verify('123456'));
 
       expect(result).toBe(true);
       expect(mockEmailVerificationService.verifyEmailWithCode).toHaveBeenCalledWith(
@@ -467,7 +480,7 @@ describe('EmailMFAProviderService', () => {
     });
 
     it('should return false for invalid code format', async () => {
-      const result = await service.verify(mockUser, null as any);
+      const result = await runAs(mockUser, async () => await service.verify(null as any));
 
       expect(result).toBe(false);
       expect(mockLogger.warn).toHaveBeenCalledWith('Invalid Email code format');
@@ -497,7 +510,7 @@ describe('EmailMFAProviderService', () => {
       );
 
       try {
-        await service.verify(mockUser, '123456');
+        await runAs(mockUser, async () => await service.verify('123456'));
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -520,7 +533,7 @@ describe('EmailMFAProviderService', () => {
       mockEmailVerificationService.verifyEmailWithCode.mockResolvedValue({ message: 'Verified' });
       mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
 
-      await service.verify(mockUser, '123456', 1);
+      await runAs(mockUser, async () => await service.verify('123456', 1));
 
       expect(mockMfaDeviceRepository.findOne).toHaveBeenCalled();
       expect(mockMfaDeviceRepository.save).toHaveBeenCalled();
@@ -546,7 +559,7 @@ describe('EmailMFAProviderService', () => {
       mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
       mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 1 } as any);
 
-      const result = await service.sendChallenge(mockUser);
+      const result = await runAs(mockUser, async () => await service.sendChallenge());
 
       expect(result).toBe('u***r@example.com');
       expect(mockEmailVerificationService.sendVerificationEmail).toHaveBeenCalled();
@@ -557,7 +570,7 @@ describe('EmailMFAProviderService', () => {
       mockMfaDeviceRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.sendChallenge(mockUser);
+        await runAs(mockUser, async () => await service.sendChallenge());
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -580,7 +593,7 @@ describe('EmailMFAProviderService', () => {
       mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
       mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 1 } as any);
 
-      const result = await service.sendChallenge(mockUser);
+      const result = await runAs(mockUser, async () => await service.sendChallenge());
 
       expect(result).toBe('u***r@example.com');
       expect(mockEmailVerificationService.sendVerificationEmail).toHaveBeenCalled();
@@ -608,7 +621,7 @@ describe('EmailMFAProviderService', () => {
       mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
 
       try {
-        await service.sendChallenge(mockUserNoEmail as any);
+        await runAs(mockUserNoEmail as any, async () => await service.sendChallenge());
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);

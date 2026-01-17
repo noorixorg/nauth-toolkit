@@ -3,7 +3,6 @@ import { Repository } from 'typeorm';
 import {
   BaseMFADevice,
   BaseUser,
-  IUser,
   IMFADevice,
   NAuthConfig,
   NAuthLogger,
@@ -87,7 +86,8 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
    * // Client calls navigator.credentials.create({ publicKey: options.options })
    * ```
    */
-  async setup(user: IUser, _setupData?: unknown): Promise<SetupPasskeyResponseDTO> {
+  async setup(_setupData?: unknown): Promise<SetupPasskeyResponseDTO> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Setting up passkey for user: ${user.sub}`);
 
     // Check if passkey is allowed
@@ -136,7 +136,8 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
    * }, 'iPhone 15 Pro');
    * ```
    */
-  async verifySetup(user: IUser, verificationData: unknown, deviceName?: string): Promise<number> {
+  async verifySetup(verificationData: unknown, deviceName?: string): Promise<number> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying passkey setup for user: ${user.sub}`);
 
     // Extract credential and challenge from verificationData
@@ -257,7 +258,8 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
    * });
    * ```
    */
-  async verify(user: IUser, code: unknown, deviceId?: number): Promise<boolean> {
+  async verify(code: unknown, deviceId?: number): Promise<boolean> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying passkey for user: ${user.sub}`);
 
     // Extract credential and challenge
@@ -337,7 +339,8 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
    * // Client calls navigator.credentials.get({ publicKey: options.options })
    * ```
    */
-  async sendChallenge(user: IUser): Promise<GetPasskeyChallengeResponseDTO> {
+  async sendChallenge(): Promise<GetPasskeyChallengeResponseDTO> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Generating passkey challenge for user: ${user.sub}`);
 
     // Get user's passkey devices

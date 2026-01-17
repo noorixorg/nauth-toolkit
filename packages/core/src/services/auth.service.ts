@@ -68,7 +68,6 @@ import { TrustDeviceResponseDTO } from '../dto/trust-device-response.dto';
 import { IsTrustedDeviceResponseDTO } from '../dto/is-trusted-device-response.dto';
 import { ResendVerificationEmailDTO } from '../dto/verify-email.dto';
 import { SendVerificationSMSDTO, ResendVerificationSMSDTO } from '../dto/verify-phone.dto';
-import { GetMFAStatusResponseDTO } from '../dto/get-mfa-status.dto';
 import { GetUserAuthHistoryDTO } from '../dto/get-user-auth-history.dto';
 import { AdminGetUserAuthHistoryDTO, GetUserAuthHistoryResponseDTO } from '../dto/admin-get-user-auth-history.dto';
 import { PasswordResetService } from './password-reset.service';
@@ -1409,7 +1408,7 @@ export class AuthService {
             );
           }
 
-          const result = await provider.sendChallenge(user);
+          const result = await provider.sendChallenge?.();
           this.logger?.debug?.(`${method.toUpperCase()} MFA code resent: user=${user.sub}`);
 
           // Provider returns masked phone or email
@@ -2430,45 +2429,6 @@ export class AuthService {
     });
 
     return { sessions: sessionInfos };
-  }
-
-  /**
-   * Get MFA status for current authenticated user
-   *
-   * Returns comprehensive MFA status including enabled status, configured methods,
-   * available methods, backup codes, and exemption information.
-   *
-   * Usage Patterns:
-   * - **User viewing own MFA status**: User views their MFA configuration (protected endpoint)
-   *
-   * Security:
-   * - Uses authenticated user context for sub
-   * - Endpoint MUST be protected by authentication guards
-   *
-   * @returns MFA status response
-   * @throws {NAuthException} FORBIDDEN if user not authenticated
-   * @throws {NAuthException} NOT_FOUND if user not found
-   *
-   * @example User viewing own MFA status
-   * ```typescript
-   * @UseGuards(AuthGuard)
-   * @Get('mfa/status')
-   * async getMFAStatus() {
-   *   return this.authService.getMFAStatus();
-   * }
-   * ```
-   */
-  async getMFAStatus(): Promise<GetMFAStatusResponseDTO> {
-    if (!this.mfaService) {
-      throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'MFA service is not available');
-    }
-
-    // Get current authenticated user from context
-    const currentUser = this.getCurrentUserOrThrow();
-
-    // Call MFA service with user's sub
-    // Pass as plain object to ensure proper transformation by ensureValidatedDto
-    return await this.mfaService.getMFAStatus({ sub: currentUser.sub });
   }
 
   /**

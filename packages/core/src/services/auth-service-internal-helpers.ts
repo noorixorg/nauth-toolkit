@@ -35,6 +35,7 @@ import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
+import { ContextStorage } from '../utils/context-storage';
 
 /**
  * Internal helper service for AuthService
@@ -62,6 +63,42 @@ export class AuthServiceInternalHelpers {
     private readonly logger: NAuthLogger,
     private readonly hookRegistry: HookRegistryService,
   ) {}
+
+  // ============================================================================
+  // Context helpers
+  // ============================================================================
+
+  /**
+   * Execute a callback with a specific user bound into CURRENT_USER context.
+   *
+   * MFA providers must derive the user from request-scoped context. During challenge flows
+   * we bind the resolved user explicitly to avoid taking user identity from consumer inputs.
+   *
+   * @param user - User to bind into context
+   * @param callback - Callback to execute
+   * @returns Callback result
+   */
+  private async withUserContext<T>(user: IUser, callback: () => Promise<T>): Promise<T> {
+    const store = ContextStorage.getStore();
+    if (!store) {
+      return await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', user);
+        return await callback();
+      });
+    }
+
+    const previousUser = ContextStorage.get<IUser>('CURRENT_USER');
+    ContextStorage.set('CURRENT_USER', user);
+    try {
+      return await callback();
+    } finally {
+      if (previousUser) {
+        ContextStorage.set('CURRENT_USER', previousUser);
+      } else {
+        ContextStorage.delete('CURRENT_USER');
+      }
+    }
+  }
 
   // ============================================================================
   // Challenge Response Handlers
@@ -662,7 +699,9 @@ export class AuthServiceInternalHelpers {
     let deviceId: number;
 
     try {
-      deviceId = await provider.verifySetup(user, setupData);
+      deviceId = await this.withUserContext(user as unknown as IUser, async () => {
+        return await provider.verifySetup(setupData);
+      });
       this.logger?.log?.(`MFA device setup completed: method=${method}, deviceId=${deviceId}`);
     } catch (error) {
       this.logger?.warn?.(`MFA setup verification failed: method=${method}, user=${user.sub}`);

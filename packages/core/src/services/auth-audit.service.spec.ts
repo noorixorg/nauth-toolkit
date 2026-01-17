@@ -122,14 +122,14 @@ describe('AuthAuditService', () => {
       expect(mockAuditRepository.save).toHaveBeenCalled();
     });
 
-    it('should resolve userSub to userId when userId not provided', async () => {
+    it('should resolve sub to userId when userId not provided', async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockAuditRepository.create.mockReturnValue(mockAuditRecord as any);
       mockAuditRepository.save.mockResolvedValue(mockAuditRecord as any);
       mockClientInfoService.get.mockReturnValue({} as ClientInfo);
 
       const result = await service.recordEvent({
-        userSub: 'a21b654c-2746-4168-acee-c175083a65cd',
+        sub: 'a21b654c-2746-4168-acee-c175083a65cd',
         eventType: AuthAuditEventType.LOGIN_SUCCESS,
         eventStatus: 'SUCCESS',
       });
@@ -141,11 +141,11 @@ describe('AuthAuditService', () => {
       expect(mockAuditRepository.create).toHaveBeenCalledWith((expect as any).objectContaining({ userId: 1 }));
     });
 
-    it('should return null when userSub provided but user not found', async () => {
+    it('should return null when sub provided but user not found', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       const result = await service.recordEvent({
-        userSub: 'b21b654c-2746-4168-acee-c175083a65cd',
+        sub: 'b21b654c-2746-4168-acee-c175083a65cd',
         eventType: AuthAuditEventType.LOGIN_SUCCESS,
         eventStatus: 'SUCCESS',
       });
@@ -156,30 +156,30 @@ describe('AuthAuditService', () => {
       );
     });
 
-    it('should not query database when userSub is not a UUID', async () => {
+    it('should not query database when sub is not a UUID', async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
 
       const result = await service.recordEvent({
-        userSub: 'example@email.com',
+        sub: 'example@email.com',
         eventType: AuthAuditEventType.LOGIN_SUCCESS,
         eventStatus: 'SUCCESS',
       });
 
       expect(result).toBeNull();
       expect(mockUserRepository.findOne).not.toHaveBeenCalled();
-      expect(mockLogger.warn).toHaveBeenCalledWith('Cannot record audit event - invalid userSub format (expected UUID)', {
-        userSub: 'example@email.com',
+      expect(mockLogger.warn).toHaveBeenCalledWith('Cannot record audit event - invalid sub format (expected UUID)', {
+        sub: 'example@email.com',
       });
     });
 
-    it('should return null when neither userId nor userSub provided', async () => {
+    it('should return null when neither userId nor sub provided', async () => {
       const result = await service.recordEvent({
         eventType: AuthAuditEventType.LOGIN_SUCCESS,
         eventStatus: 'SUCCESS',
       } as any);
 
       expect(result).toBeNull();
-      expect(mockLogger.warn).toHaveBeenCalledWith('Cannot record audit event - userId or userSub required');
+      expect(mockLogger.warn).toHaveBeenCalledWith('Cannot record audit event - userId or sub required');
     });
 
     it('should auto-extract client info from ClientInfoService when available', async () => {

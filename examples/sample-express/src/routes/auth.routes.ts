@@ -409,7 +409,7 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
       }
 
       const user = nauth.helpers.getCurrentUser();
-      const status = await nauth.mfaService.getMFAStatus(user!);
+      const status = await nauth.mfaService.getMfaStatus();
 
       res.json({
         enabled: status.enabled,
@@ -566,7 +566,7 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
           grantedBy: user!.email || undefined,
         });
 
-        const status = await nauth.mfaService.getMFAStatus(user!);
+        const status = await nauth.mfaService.getMfaStatus();
 
         res.json({
           message: exempt ? 'MFA exemption granted successfully' : 'MFA exemption revoked successfully',

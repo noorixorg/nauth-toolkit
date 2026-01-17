@@ -3,7 +3,6 @@ import { Repository } from 'typeorm';
 import {
   BaseMFADevice,
   BaseUser,
-  IUser,
   NAuthConfig,
   NAuthLogger,
   NAuthException,
@@ -86,10 +85,8 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
    * // If email not verified: { maskedEmail: 'u***r@example.com' } (Email code sent)
    * ```
    */
-  async setup(
-    user: IUser,
-    setupData?: unknown,
-  ): Promise<{ deviceId: number; autoCompleted: true } | { maskedEmail: string }> {
+  async setup(setupData?: unknown): Promise<{ deviceId: number; autoCompleted: true } | { maskedEmail: string }> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Setting up Email MFA for user: ${user.sub}`);
 
     // Check if Email is allowed
@@ -119,7 +116,6 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
       this.logger?.log?.(`Email already verified for user ${user.sub}, auto-completing Email MFA setup`);
       // Auto-create MFA device without code verification
       const deviceId = await this.verifySetup(
-        user,
         {
           email,
           code: '', // Code not needed when email is verified
@@ -180,7 +176,8 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
    * });
    * ```
    */
-  async verifySetup(user: IUser, verificationData: unknown, deviceName?: string): Promise<number> {
+  async verifySetup(verificationData: unknown, deviceName?: string): Promise<number> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying Email MFA setup for user: ${user.sub}`);
 
     const dto = verificationData as VerifyEmailMFASetupDTO;
@@ -279,7 +276,8 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
    * const isValid = await provider.verify(user, '123456');
    * ```
    */
-  async verify(user: IUser, code: unknown, deviceId?: number): Promise<boolean> {
+  async verify(code: unknown, deviceId?: number): Promise<boolean> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying Email code for user: ${user.sub}`);
 
     // Check if email verification service is available
@@ -362,7 +360,8 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
    * // Returns: 'u***r@example.com'
    * ```
    */
-  async sendChallenge(user: IUser): Promise<string> {
+  async sendChallenge(): Promise<string> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Sending Email MFA code for user: ${user.sub}`);
 
     // Get user entity

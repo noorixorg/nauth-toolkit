@@ -343,7 +343,7 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
       }
 
       const user = nauth.helpers.getCurrentUser();
-      const status = await mfaService.getMFAStatus(user!);
+      const status = await mfaService.getMfaStatus();
 
       return {
         enabled: status.enabled,
@@ -469,7 +469,7 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
         grantedBy: user!.email || undefined,
       });
 
-      const status = await mfaService.getMFAStatus(user!);
+      const status = await mfaService.getMfaStatus();
 
       return {
         message: exempt ? 'MFA exemption granted successfully' : 'MFA exemption revoked successfully',

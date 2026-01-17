@@ -135,7 +135,8 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | DTO                                                      | Description               | Documentation                     |
 | -------------------------------------------------------- | ------------------------- | --------------------------------- |
 | [GetAvailableMethodsDTO](./get-available-methods-dto)    | Get available MFA methods | User sub                          |
-| [GetMFAStatusDTO](./get-mfa-status-dto)                  | Get MFA status            | User sub                          |
+| [GetMFAStatusResponseDTO](./get-mfa-status-dto)          | MFA status response       | Status fields                     |
+| [AdminGetMFAStatusDTO](./admin-get-mfa-status-dto)       | Admin get MFA status      | Target user sub                   |
 | [GetSetupDataDTO](./get-setup-data-dto)                  | Get MFA setup data        | Challenge session and method      |
 | [GetSetupDataResponseDTO](./get-setup-data-response-dto) | Setup data response       | Provider-specific setup data      |
 | [GetUserDevicesDTO](./get-user-devices-dto)              | Get user MFA devices      | User sub                          |

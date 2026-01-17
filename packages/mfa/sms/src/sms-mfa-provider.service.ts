@@ -3,7 +3,6 @@ import { Repository } from 'typeorm';
 import {
   BaseMFADevice,
   BaseUser,
-  IUser,
   NAuthConfig,
   NAuthLogger,
   NAuthException,
@@ -87,10 +86,8 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
    * // If phone not verified: { maskedPhone: '***-***-7890' } (SMS code sent)
    * ```
    */
-  async setup(
-    user: IUser,
-    setupData?: unknown,
-  ): Promise<{ deviceId: number; autoCompleted: true } | { maskedPhone: string }> {
+  async setup(setupData?: unknown): Promise<{ deviceId: number; autoCompleted: true } | { maskedPhone: string }> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Setting up SMS MFA for user: ${user.sub}`);
 
     // Check if SMS is allowed
@@ -120,7 +117,6 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
       this.logger?.log?.(`Phone already verified for user ${user.sub}, auto-completing SMS MFA setup`);
       // Auto-create MFA device without code verification
       const deviceId = await this.verifySetup(
-        user,
         {
           phoneNumber,
           code: '', // Code not needed when phone is verified
@@ -188,7 +184,8 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
    * });
    * ```
    */
-  async verifySetup(user: IUser, verificationData: unknown, deviceName?: string): Promise<number> {
+  async verifySetup(verificationData: unknown, deviceName?: string): Promise<number> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying SMS MFA setup for user: ${user.sub}`);
 
     const dto = verificationData as VerifySMSMFASetupDTO;
@@ -276,7 +273,8 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
    * const isValid = await provider.verify(user, '123456');
    * ```
    */
-  async verify(user: IUser, code: unknown, deviceId?: number): Promise<boolean> {
+  async verify(code: unknown, deviceId?: number): Promise<boolean> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying SMS code for user: ${user.sub}`);
 
     // Check if phone verification service is available
@@ -359,7 +357,8 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
    * // Returns: '***-***-1234'
    * ```
    */
-  async sendChallenge(user: IUser): Promise<string> {
+  async sendChallenge(): Promise<string> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Sending SMS MFA code for user: ${user.sub}`);
 
     // Get user entity

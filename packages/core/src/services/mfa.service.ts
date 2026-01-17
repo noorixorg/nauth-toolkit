@@ -21,7 +21,7 @@ import {
   GetAvailableMethodsResponseDTO,
   GetChallengeDataDTO,
   GetChallengeDataResponseDTO,
-  GetMFAStatusDTO,
+  AdminGetMFAStatusDTO,
   GetMFAStatusResponseDTO,
   GetSetupDataDTO,
   GetSetupDataResponseDTO,
@@ -68,13 +68,90 @@ import {
  *   @Post('mfa/verify')
  *   async verifyMFA(@Body() dto: { method: string; code: string }) {
  *     const provider = this.mfaService.getProvider(dto.method);
- *     return await provider.verify(user, dto.code);
+ *     return await provider.verify(dto.code);
  *   }
  * }
  * ```
  */
 export class MFAService {
   private readonly providers = new Map<string, IMFAProviderService>();
+
+  // ============================================================================
+  // MFA Status (User + Admin)
+  // ============================================================================
+
+  /**
+   * Shared implementation for retrieving MFA status by target user sub.
+   *
+   * @param sub - Target user sub (UUID v4)
+   * @returns Comprehensive MFA status
+   */
+  private async getMfaStatusBySub(sub: string): Promise<GetMFAStatusResponseDTO> {
+    // Get user entity with MFA-related fields
+    // Note: mfaExemptGrantedBy is intentionally excluded as it's sensitive admin information
+    const userEntity = await this.userRepository.findOne({
+      select: [
+        'id',
+        'mfaEnabled',
+        'backupCodes',
+        'preferredMfaMethod',
+        'mfaExempt',
+        'mfaExemptReason',
+        'mfaExemptGrantedAt',
+      ],
+      where: { sub },
+    });
+
+    if (!userEntity) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    const enabled = userEntity.mfaEnabled || false;
+
+    // Get available methods (all registered & allowed methods)
+    const availableMethodsResult = await this.getAvailableMethods({ sub });
+
+    // Add 'backup' to available methods if backup codes are enabled in config
+    const finalAvailableMethods = [...availableMethodsResult.availableMethods];
+    if (this.config?.mfa?.backup?.enabled) {
+      if (!finalAvailableMethods.includes(MFAMethod.BACKUP)) {
+        finalAvailableMethods.push(MFAMethod.BACKUP);
+      }
+    }
+
+    // Get user's configured devices for the target user
+    const devicesResult = await this.mfaDeviceRepository.find({
+      where: { userId: (userEntity as unknown as { id: number }).id, isActive: true },
+      order: { createdAt: 'DESC' },
+    } as Record<string, unknown>);
+    const configuredMethods = [
+      ...new Set((devicesResult as IMFADevice[]).filter((d) => d.isActive).map((d) => d.type)),
+    ] as MFADeviceMethod[];
+
+    // Determine if MFA is required based on config and user state
+    const required = enabled && configuredMethods.length > 0;
+
+    // Check backup codes
+    const hasBackupCodes = !!(userEntity as unknown as { backupCodes?: unknown[] }).backupCodes?.length;
+
+    return {
+      enabled,
+      required,
+      configuredMethods,
+      availableMethods: finalAvailableMethods,
+      hasBackupCodes,
+      preferredMethod: (userEntity as unknown as { preferredMfaMethod?: unknown }).preferredMfaMethod as
+        | MFADeviceMethod
+        | undefined,
+      mfaExempt: (userEntity as unknown as { mfaExempt?: boolean }).mfaExempt || false,
+      mfaExemptReason: ((userEntity as unknown as { mfaExemptReason?: string | null }).mfaExemptReason ?? null) as
+        | string
+        | null,
+      mfaExemptGrantedAt: ((userEntity as unknown as { mfaExemptGrantedAt?: Date | null }).mfaExemptGrantedAt ??
+        null) as Date | null,
+    };
+  }
+
   // ============================================================================
   // Internal helpers (shared by user + admin APIs)
   // ============================================================================
@@ -454,6 +531,38 @@ export class MFAService {
   }
 
   /**
+   * Execute a callback with a specific user bound into CURRENT_USER context.
+   *
+   * This is required for flows where the user is resolved outside of request auth context
+   * (e.g., challenge sessions) but providers must still derive the user from context.
+   *
+   * @param user - User to bind into context
+   * @param callback - Callback to execute
+   * @returns Callback result
+   */
+  private async withUserContext<T>(user: IUser, callback: () => Promise<T>): Promise<T> {
+    const store = ContextStorage.getStore();
+    if (!store) {
+      return await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', user);
+        return await callback();
+      });
+    }
+
+    const previousUser = ContextStorage.get<IUser>('CURRENT_USER');
+    ContextStorage.set('CURRENT_USER', user);
+    try {
+      return await callback();
+    } finally {
+      if (previousUser) {
+        ContextStorage.set('CURRENT_USER', previousUser);
+      } else {
+        ContextStorage.delete('CURRENT_USER');
+      }
+    }
+  }
+
+  /**
    * Register an MFA provider
    *
    * Called automatically by provider modules during initialization.
@@ -631,9 +740,11 @@ export class MFAService {
       throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Backup code verification not available');
     }
 
-    // Get provider and verify
+    // Get provider and verify (provider derives user from context)
     const provider = this.getProvider(dto.methodName);
-    const isValid = await provider.verify(user, dto.code, dto.deviceId);
+    const isValid = await this.withUserContext(user, async () => {
+      return await provider.verify(dto.code, dto.deviceId);
+    });
     return { valid: isValid };
   }
 
@@ -655,10 +766,8 @@ export class MFAService {
   async setup(dto: SetupMFADTO): Promise<SetupMFAResponseDTO> {
     dto = await ensureValidatedDto(SetupMFADTO, dto);
     // Get user from authenticated context (already has all fields)
-    const user = this.getCurrentUserOrThrow();
-
     const provider = this.getProvider(dto.methodName);
-    const setupData = await provider.setup(user, dto.setupData);
+    const setupData = await provider.setup(dto.setupData);
     return {
       setupData: setupData as Record<string, unknown>,
     };
@@ -689,93 +798,24 @@ export class MFAService {
   }
 
   /**
-   * Get comprehensive MFA status for a user
+   * Get comprehensive MFA status for the current authenticated user (self-service).
    *
-   * Returns complete MFA configuration status including:
-   * - Whether MFA is enabled/required
-   * - Configured and available methods
-   * - Preferred method
-   * - Backup codes status
-   * - MFA exemption information
-   *
-   * This method encapsulates all business logic for MFA status,
-   * ensuring consumer apps don't need to query databases or build responses manually.
-   *
-   * @param dto - Request DTO with user sub
    * @returns Response DTO with complete MFA status
-   *
-   * @example
-   * ```typescript
-   * @Get('mfa/status')
-   * async getMFAStatus(@CurrentUser() user: IUser) {
-   *   return await this.mfaService.getMFAStatus({ sub: user.sub });
-   * }
-   * ```
    */
-  async getMFAStatus(dto: GetMFAStatusDTO): Promise<GetMFAStatusResponseDTO> {
-    dto = await ensureValidatedDto(GetMFAStatusDTO, dto);
-    // Get user entity with MFA-related fields
-    // Note: mfaExemptGrantedBy is intentionally excluded as it's sensitive admin information
-    const userEntity = await this.userRepository.findOne({
-      select: [
-        'id',
-        'mfaEnabled',
-        'backupCodes',
-        'preferredMfaMethod',
-        'mfaExempt',
-        'mfaExemptReason',
-        'mfaExemptGrantedAt',
-      ],
-      where: { sub: dto.sub },
-    });
+  async getMfaStatus(): Promise<GetMFAStatusResponseDTO> {
+    const currentUser = this.getCurrentUserOrThrow();
+    return await this.getMfaStatusBySub(currentUser.sub);
+  }
 
-    if (!userEntity) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
-    }
-
-    const enabled = userEntity.mfaEnabled || false;
-
-    // Get available methods (all registered & allowed methods)
-    const availableMethodsResult = await this.getAvailableMethods({ sub: dto.sub });
-
-    // Add 'backup' to available methods if backup codes are enabled in config
-    const finalAvailableMethods = [...availableMethodsResult.availableMethods];
-    if (this.config?.mfa?.backup?.enabled) {
-      if (!finalAvailableMethods.includes(MFAMethod.BACKUP)) {
-        finalAvailableMethods.push(MFAMethod.BACKUP);
-      }
-    }
-
-    // Get user's configured devices
-    // NOTE:
-    // `getUserDevices()` is a self-service method that uses CURRENT_USER from context.
-    // Here we must load devices for the target user identified by `dto.sub` (admin/user lookup),
-    // so we query by the resolved internal user ID.
-    const devicesResult = await this.mfaDeviceRepository.find({
-      where: { userId: userEntity.id, isActive: true },
-      order: { createdAt: 'DESC' },
-    } as Record<string, unknown>);
-    const configuredMethods = [
-      ...new Set((devicesResult as IMFADevice[]).filter((d) => d.isActive).map((d) => d.type)),
-    ] as MFADeviceMethod[];
-
-    // Determine if MFA is required based on config and user state
-    const required = enabled && configuredMethods.length > 0;
-
-    // Check backup codes
-    const hasBackupCodes = !!userEntity.backupCodes && userEntity.backupCodes.length > 0;
-
-    return {
-      enabled,
-      required,
-      configuredMethods,
-      availableMethods: finalAvailableMethods,
-      hasBackupCodes,
-      preferredMethod: userEntity.preferredMfaMethod as MFADeviceMethod | undefined,
-      mfaExempt: userEntity.mfaExempt || false,
-      mfaExemptReason: userEntity.mfaExemptReason || null,
-      mfaExemptGrantedAt: userEntity.mfaExemptGrantedAt || null,
-    };
+  /**
+   * Get comprehensive MFA status for a target user (admin-only).
+   *
+   * @param dto - Admin request DTO with target user sub
+   * @returns Response DTO with complete MFA status
+   */
+  async adminGetMfaStatus(dto: AdminGetMFAStatusDTO): Promise<GetMFAStatusResponseDTO> {
+    dto = await ensureValidatedDto(AdminGetMFAStatusDTO, dto);
+    return await this.getMfaStatusBySub(dto.sub);
   }
 
   /**
@@ -1090,7 +1130,9 @@ export class MFAService {
     };
     this.logger?.debug?.(`Passing challengeSessionId=${challengeSession.id} to ${dto.method} provider for MFA setup`);
     const provider = this.getProvider(dto.method);
-    const result = await provider.setup(user, setupDataWithSession);
+    const result = await this.withUserContext(user, async () => {
+      return await provider.setup(setupDataWithSession);
+    });
 
     this.logger?.debug?.(`MFA setup data generated: method=${dto.method}, user=${user.sub}`);
 
@@ -1172,7 +1214,9 @@ export class MFAService {
       );
     }
 
-    const challengeData = await provider.sendChallenge(user);
+    const challengeData = await this.withUserContext(user, async () => {
+      return await provider.sendChallenge?.();
+    });
 
     // For passkey, store the challenge in session metadata for verification
     if (dto.method === 'passkey') {

@@ -6,6 +6,7 @@ import {
   BaseMFADevice,
   BaseUser,
   IUser,
+  ContextStorage,
   NAuthConfig,
   NAuthLogger,
   NAuthException,
@@ -13,6 +14,18 @@ import {
   MFAMethod,
 } from '@nauth-toolkit/core';
 import { SetupTOTPResponseDTO, VerifyTOTPSetupDTO } from './dto/mfa.dto';
+
+/**
+ * Execute a provider call with a CURRENT_USER bound into request context.
+ *
+ * Providers no longer accept `IUser` parameters; they derive the user from ContextStorage.
+ */
+async function runAs<T>(user: IUser, callback: () => Promise<T>): Promise<T> {
+  return await ContextStorage.run(async () => {
+    ContextStorage.set('CURRENT_USER', user);
+    return await callback();
+  });
+}
 
 /**
  * TOTP MFA Provider Service Unit Tests
@@ -185,7 +198,7 @@ describe('TOTPMFAProviderService', () => {
 
       mockTotpService.generateSecret.mockResolvedValue(setupResponse);
 
-      const result = await service.setup(mockUser);
+      const result = await runAs(mockUser, async () => await service.setup());
 
       expect(result).toEqual(setupResponse);
       expect(mockTotpService.generateSecret).toHaveBeenCalledWith('user@example.com');
@@ -196,7 +209,7 @@ describe('TOTPMFAProviderService', () => {
       mockConfig.mfa!.allowedMethods = [MFAMethod.SMS as any];
 
       try {
-        await service.setup(mockUser);
+        await runAs(mockUser, async () => await service.setup());
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -238,7 +251,7 @@ describe('TOTPMFAProviderService', () => {
       mockUserRepository.findOne.mockResolvedValue({ ...mockUser, mfaEnabled: false } as any);
       mockUserRepository.save.mockResolvedValue({ ...mockUser, mfaEnabled: true } as any);
 
-      const result = await service.verifySetup(mockUser, verifyDto);
+      const result = await runAs(mockUser, async () => await service.verifySetup(verifyDto));
 
       expect(result).toBe(1);
       expect(mockTotpService.isValidSecret).toHaveBeenCalledWith('JBSWY3DPEHPK3PXP');
@@ -252,7 +265,7 @@ describe('TOTPMFAProviderService', () => {
       mockTotpService.isValidSecret.mockReturnValue(false);
 
       try {
-        await service.verifySetup(mockUser, verifyDto);
+        await runAs(mockUser, async () => await service.verifySetup(verifyDto));
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -266,7 +279,7 @@ describe('TOTPMFAProviderService', () => {
       mockTotpService.verifyCodeWithDetails.mockResolvedValue({ valid: false, error: 'Invalid code' });
 
       try {
-        await service.verifySetup(mockUser, verifyDto);
+        await runAs(mockUser, async () => await service.verifySetup(verifyDto));
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -296,7 +309,7 @@ describe('TOTPMFAProviderService', () => {
       mockUserRepository.save.mockResolvedValue({ ...mockUser, mfaEnabled: true } as any);
 
       const dtoWithName = { ...verifyDto, deviceName: 'Custom Device Name' };
-      await service.verifySetup(mockUser, dtoWithName, 'Override Name');
+      await runAs(mockUser, async () => await service.verifySetup(dtoWithName, 'Override Name'));
 
       // Device is created via transaction manager's getRepository
       expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
@@ -323,7 +336,7 @@ describe('TOTPMFAProviderService', () => {
       mockUserRepository.findOne.mockResolvedValue({ ...mockUser, mfaEnabled: false } as any);
       mockUserRepository.save.mockResolvedValue({ ...mockUser, mfaEnabled: true } as any);
 
-      await service.verifySetup(mockUser, verifyDto);
+      await runAs(mockUser, async () => await service.verifySetup(verifyDto));
 
       // Device is created via transaction manager's getRepository
       expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
@@ -351,7 +364,7 @@ describe('TOTPMFAProviderService', () => {
       mockUserRepository.findOne.mockResolvedValue(userWithMfa as any);
       mockUserRepository.save.mockResolvedValue(userWithMfa as any);
 
-      await service.verifySetup(userWithMfa, verifyDto);
+      await runAs(userWithMfa, async () => await service.verifySetup(verifyDto));
 
       // Device is created via transaction manager's getRepository
       expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
@@ -378,7 +391,7 @@ describe('TOTPMFAProviderService', () => {
       mockTotpService.verifyCode.mockResolvedValue(true);
       mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
 
-      const result = await service.verify(mockUser, '123456');
+      const result = await runAs(mockUser, async () => await service.verify('123456'));
 
       expect(result).toBe(true);
       expect(mockMfaDeviceRepository.findOne).toHaveBeenCalled();
@@ -387,7 +400,7 @@ describe('TOTPMFAProviderService', () => {
     });
 
     it('should return false for invalid code format', async () => {
-      const result = await service.verify(mockUser, null as any);
+      const result = await runAs(mockUser, async () => await service.verify(null as any));
 
       expect(result).toBe(false);
       expect(mockLogger.warn).toHaveBeenCalledWith('Invalid TOTP code format');
@@ -396,7 +409,7 @@ describe('TOTPMFAProviderService', () => {
     it('should return false when device not found', async () => {
       mockMfaDeviceRepository.findOne.mockResolvedValue(null);
 
-      const result = await service.verify(mockUser, '123456');
+      const result = await runAs(mockUser, async () => await service.verify('123456'));
 
       expect(result).toBe(false);
       expect(mockLogger.warn).toHaveBeenCalledWith((expect as any).stringContaining('No active TOTP device found'));
@@ -406,7 +419,7 @@ describe('TOTPMFAProviderService', () => {
       const deviceWithoutSecret = { ...mockDevice, secret: null };
       mockMfaDeviceRepository.findOne.mockResolvedValue(deviceWithoutSecret as any);
 
-      const result = await service.verify(mockUser, '123456');
+      const result = await runAs(mockUser, async () => await service.verify('123456'));
 
       expect(result).toBe(false);
     });
@@ -415,7 +428,7 @@ describe('TOTPMFAProviderService', () => {
       mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
       mockTotpService.verifyCode.mockResolvedValue(false);
 
-      const result = await service.verify(mockUser, '123456');
+      const result = await runAs(mockUser, async () => await service.verify('123456'));
 
       expect(result).toBe(false);
       expect(mockLogger.warn).toHaveBeenCalledWith((expect as any).stringContaining('TOTP code verification failed'));
@@ -426,7 +439,7 @@ describe('TOTPMFAProviderService', () => {
       mockTotpService.verifyCode.mockResolvedValue(true);
       mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
 
-      await service.verify(mockUser, '123456', 1);
+      await runAs(mockUser, async () => await service.verify('123456', 1));
 
       expect(mockMfaDeviceRepository.findOne).toHaveBeenCalledWith(
         (expect as any).objectContaining({
@@ -443,7 +456,7 @@ describe('TOTPMFAProviderService', () => {
       mockTotpService.verifyCode.mockResolvedValue(true);
       mockMfaDeviceRepository.save.mockResolvedValue(deviceWithUsage as any);
 
-      await service.verify(mockUser, '123456');
+      await runAs(mockUser, async () => await service.verify('123456'));
 
       expect(mockMfaDeviceRepository.save).toHaveBeenCalled();
     });

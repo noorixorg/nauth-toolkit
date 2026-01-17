@@ -4,6 +4,7 @@ import { BaseMFADevice, BaseUser } from '../entities';
 import { IUser, IMFADevice } from '../interfaces/entities.interface';
 import { IMFAProviderService } from '../interfaces/mfa-provider.interface';
 import { NAuthException } from '../exceptions/nauth.exception';
+import { AuthErrorCode } from '../enums/error-codes.enum';
 import { MFAMethod, MFADeviceMethod } from '../enums/mfa-method.enum';
 import { ChallengeService } from './challenge.service';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
@@ -14,6 +15,8 @@ import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { ClientInfoService } from './client-info.service';
 import { SetMFAExemptionDTO } from '../dto';
 import { ContextStorage } from '../utils/context-storage';
+import { SetupMFADTO } from '../dto/setup-mfa.dto';
+import { SetPreferredMethodDTO } from '../dto/set-preferred-method.dto';
 
 /**
  * MFA Service Unit Tests
@@ -139,7 +142,7 @@ describe('MFAService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       const dto = new SetMFAExemptionDTO();
-      dto.identifier = 'missing@example.com';
+      dto.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       dto.exempt = true;
       dto.reason = 'Admin override';
       dto.grantedBy = 'admin@example.com';
@@ -174,7 +177,7 @@ describe('MFAService', () => {
       mockUserRepository.update.mockResolvedValue({} as never);
 
       const dto = new SetMFAExemptionDTO();
-      dto.identifier = userSub;
+      dto.sub = userSub;
       dto.exempt = true;
       dto.reason = 'Admin override';
       dto.grantedBy = 'admin@example.com';
@@ -343,7 +346,7 @@ describe('MFAService', () => {
       const result = await service.verifyCode({ sub: mockUser.sub!, methodName: 'totp', code: '123456' });
 
       expect(result).toEqual({ valid: true });
-      expect(mockProvider1.verify).toHaveBeenCalledWith(mockUser as IUser, '123456', undefined);
+      expect(mockProvider1.verify).toHaveBeenCalledWith('123456', undefined);
     });
 
     it('should throw error when provider not registered', async () => {
@@ -395,7 +398,7 @@ describe('MFAService', () => {
 
       await service.verifyCode({ sub: mockUser.sub!, methodName: 'totp', code: '123456', deviceId: 1 });
 
-      expect(mockProvider1.verify).toHaveBeenCalledWith(mockUser as IUser, '123456', 1);
+      expect(mockProvider1.verify).toHaveBeenCalledWith('123456', 1);
     });
   });
 
@@ -406,22 +409,29 @@ describe('MFAService', () => {
   describe('setup', () => {
     beforeEach(() => {
       service.registerProvider(mockProvider1);
-      mockUserRepository.findOne = jest.fn().mockResolvedValue(mockUser);
     });
 
     it('should route setup to correct provider', async () => {
       const setupData = { secret: 'test-secret', qrCode: 'data:image/png;base64,...' };
       mockProvider1.setup.mockResolvedValue(setupData);
 
-      const result = await service.setup({ sub: mockUser.sub!, methodName: 'totp' });
+      const result = await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser as IUser);
+        const dto = Object.assign(new SetupMFADTO(), { methodName: 'totp' });
+        return await service.setup(dto);
+      });
 
       expect(result).toEqual({ setupData });
-      expect(mockProvider1.setup).toHaveBeenCalledWith(mockUser as IUser, undefined);
+      expect(mockProvider1.setup).toHaveBeenCalledWith(undefined);
     });
 
     it('should throw error when provider not registered', async () => {
       try {
-        await service.setup({ sub: mockUser.sub!, methodName: 'sms' });
+        await ContextStorage.run(async () => {
+          ContextStorage.set('CURRENT_USER', mockUser as IUser);
+          const dto = Object.assign(new SetupMFADTO(), { methodName: 'sms' });
+          return await service.setup(dto);
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -432,9 +442,13 @@ describe('MFAService', () => {
       const setupData = { secret: 'test-secret' };
       mockProvider1.setup.mockResolvedValue(setupData);
 
-      await service.setup({ sub: mockUser.sub!, methodName: 'totp', setupData: { phoneNumber: '+1234567890' } });
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser as IUser);
+        const dto = Object.assign(new SetupMFADTO(), { methodName: 'totp', setupData: { phoneNumber: '+1234567890' } });
+        return await service.setup(dto);
+      });
 
-      expect(mockProvider1.setup).toHaveBeenCalledWith(mockUser as IUser, { phoneNumber: '+1234567890' });
+      expect(mockProvider1.setup).toHaveBeenCalledWith({ phoneNumber: '+1234567890' });
     });
   });
 
@@ -547,7 +561,7 @@ describe('MFAService', () => {
         .mockResolvedValueOnce(devices as any) // getUserDevices call
         .mockResolvedValueOnce([]); // After deletion - no devices remain
       mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
-      mockUserRepository.save.mockResolvedValue(userEntity as any);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
       const result = await ContextStorage.run(async () => {
@@ -556,9 +570,10 @@ describe('MFAService', () => {
       });
 
       expect(result.mfaDisabled).toBe(true);
-      expect(userEntity.mfaEnabled).toBe(false);
-      expect(userEntity.mfaMethods).toEqual([]);
-      expect(userEntity.preferredMfaMethod).toBeNull();
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { id: 1 } as any,
+        { mfaEnabled: false, mfaMethods: [], preferredMfaMethod: null } as any,
+      );
     });
 
     it('should create MFA_SETUP_REQUIRED challenge when MFA disabled and enforcement is REQUIRED', async () => {
@@ -617,7 +632,7 @@ describe('MFAService', () => {
 
       mockMfaDeviceRepository.find.mockResolvedValueOnce(devices as any).mockResolvedValueOnce([devices[1]] as any);
       mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
-      mockUserRepository.save.mockResolvedValue(userEntity as any);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
@@ -626,7 +641,10 @@ describe('MFAService', () => {
         return await service.removeDevices({ methodType: 'totp' } as any);
       });
 
-      expect(userEntity.preferredMfaMethod).toBe('sms');
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { id: 1 } as any,
+        expect.objectContaining({ preferredMfaMethod: 'sms' }) as any,
+      );
       expect(mockMfaDeviceRepository.update).toHaveBeenCalledWith({ id: 2 } as any, { isPrimary: true } as any);
     });
 
@@ -672,13 +690,16 @@ describe('MFAService', () => {
         { ...mockDevice, id: 2, type: 'sms' as MFADeviceMethod, isActive: true },
       ];
 
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
       mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
       mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      await service.setPreferredMethod({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'sms' });
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', userEntity as unknown as IUser);
+        const dto = Object.assign(new SetPreferredMethodDTO(), { methodType: 'sms' });
+        return await service.setPreferredMethod(dto);
+      });
 
       expect(mockUserRepository.update).toHaveBeenCalledWith({ id: 1 } as any, { preferredMfaMethod: 'sms' } as any);
       expect(mockMfaDeviceRepository.update).toHaveBeenCalledWith({ id: 2 } as any, { isPrimary: true } as any);
@@ -686,7 +707,11 @@ describe('MFAService', () => {
 
     it('should throw error when method type is invalid', async () => {
       try {
-        await service.setPreferredMethod({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'invalid' });
+        await ContextStorage.run(async () => {
+          ContextStorage.set('CURRENT_USER', mockUser as IUser);
+          const dto = Object.assign(new SetPreferredMethodDTO(), { methodType: 'invalid' });
+          return await service.setPreferredMethod(dto);
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -695,14 +720,13 @@ describe('MFAService', () => {
     });
 
     it('should throw error when user not found', async () => {
-      mockUserRepository.findOne.mockResolvedValue(null);
-
       try {
-        await service.setPreferredMethod({ userSub: 'b21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
+        const dto = Object.assign(new SetPreferredMethodDTO(), { methodType: 'totp' });
+        await service.setPreferredMethod(dto);
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
-        expect(error.message).toContain('User not found');
+        expect((error as NAuthException).code).toBe(AuthErrorCode.FORBIDDEN);
       }
     });
 
@@ -710,11 +734,14 @@ describe('MFAService', () => {
       const userEntity = { ...mockUser, id: 1 };
       const devices = [{ ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true }];
 
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
       mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
 
       try {
-        await service.setPreferredMethod({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'sms' });
+        await ContextStorage.run(async () => {
+          ContextStorage.set('CURRENT_USER', userEntity as unknown as IUser);
+          const dto = Object.assign(new SetPreferredMethodDTO(), { methodType: 'sms' });
+          return await service.setPreferredMethod(dto);
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -730,13 +757,16 @@ describe('MFAService', () => {
         { ...mockDevice, id: 3, type: 'sms' as MFADeviceMethod, isActive: true },
       ];
 
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
       mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
       mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      await service.setPreferredMethod({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'sms' });
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', userEntity as unknown as IUser);
+        const dto = Object.assign(new SetPreferredMethodDTO(), { methodType: 'sms' });
+        return await service.setPreferredMethod(dto);
+      });
 
       // Should set device 2 (first SMS device) as primary
       expect(mockMfaDeviceRepository.update).toHaveBeenCalledWith({ id: 2 } as any, { isPrimary: true } as any);
@@ -752,13 +782,16 @@ describe('MFAService', () => {
         { ...mockDevice, id: 2, type: 'sms' as MFADeviceMethod, isActive: true },
       ];
 
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
       mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
       mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      await service.setPreferredMethod({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'sms' });
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', userEntity as unknown as IUser);
+        const dto = Object.assign(new SetPreferredMethodDTO(), { methodType: 'sms' });
+        return await service.setPreferredMethod(dto);
+      });
 
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({

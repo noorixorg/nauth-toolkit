@@ -890,8 +890,8 @@ export class AuthController {
 
   @UseGuards(AuthGuard)
   @Get('mfa/status')
-  async getMFAStatus(@CurrentUser() user: IUser) {
-    return await this.mfaService.getMFAStatus(user);
+  async getMfaStatus() {
+    return await this.mfaService.getMfaStatus();
   }
 }
 ```
@@ -902,12 +902,11 @@ export class AuthController {
 ```typescript
 router.get('/mfa/status', nauth.helpers.requireAuth(), async (req, res, next) => {
   try {
-    const user = nauth.helpers.getCurrentUser();
-    if (!user || !nauth.mfaService) {
+    if (!nauth.mfaService) {
       return res.status(400).json({ error: 'MFA service is not available' });
     }
 
-    const status = await nauth.mfaService.getMFAStatus(user);
+    const status = await nauth.mfaService.getMfaStatus();
     res.json(status);
   } catch (error) {
     next(error);
@@ -923,12 +922,11 @@ fastify.get(
   '/mfa/status',
   { preHandler: nauth.helpers.requireAuth() as any },
   nauth.adapter.wrapRouteHandler(async () => {
-    const user = nauth.helpers.getCurrentUser();
-    if (!user || !nauth.mfaService) {
+    if (!nauth.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
 
-    return nauth.mfaService.getMFAStatus(user);
+    return nauth.mfaService.getMfaStatus();
   }),
 );
 ```

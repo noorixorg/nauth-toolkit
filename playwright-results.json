@@ -112,8 +112,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -124,7 +124,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.420Z",
+                      "startTime": "2026-01-17T06:28:19.616Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -141,7 +141,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-0de0b01526bfc2bd9d5a",
+              "id": "68c0f7b4fc8ce30f3e44-14ecd6a972f6ba6a770f",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -172,8 +172,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -184,7 +184,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.421Z",
+                      "startTime": "2026-01-17T06:28:19.617Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -201,7 +201,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-5b9303fad499ac45d564",
+              "id": "68c0f7b4fc8ce30f3e44-2043383d34bb6cfd853d",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -232,8 +232,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -244,7 +244,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.421Z",
+                      "startTime": "2026-01-17T06:28:19.617Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -261,7 +261,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-70f628c489c058cb42b6",
+              "id": "68c0f7b4fc8ce30f3e44-34b55c5320e5db843600",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -292,8 +292,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -304,7 +304,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.421Z",
+                      "startTime": "2026-01-17T06:28:19.618Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -321,7 +321,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-0cfa27a73c5ad0cf62b6",
+              "id": "68c0f7b4fc8ce30f3e44-fa1a3a3a035542e562f9",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -352,8 +352,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -364,7 +364,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.421Z",
+                      "startTime": "2026-01-17T06:28:19.618Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -381,7 +381,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-be4687448f671920827f",
+              "id": "68c0f7b4fc8ce30f3e44-0f7ccdbd9ed3117cf2b3",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -412,8 +412,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -424,7 +424,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.421Z",
+                      "startTime": "2026-01-17T06:28:19.618Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -441,7 +441,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-f06cd40207fbe3174212",
+              "id": "68c0f7b4fc8ce30f3e44-8dc000233b6643be9d90",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -449,67 +449,7 @@
           ]
         },
         {
-          "title": "Complete Lifecycle: email-phone-mfa-required-cookies [SKIPPED - doesn't match current config]",
-          "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
-          "line": 21,
-          "column": 19,
-          "specs": [
-            {
-              "title": "Skipped - config does not match current auth.config.ts",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [
-                    {
-                      "type": "skip",
-                      "location": {
-                        "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
-                        "line": 21,
-                        "column": 19
-                      }
-                    }
-                  ],
-                  "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "skipped",
-                      "duration": 0,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.422Z",
-                      "annotations": [
-                        {
-                          "type": "skip",
-                          "location": {
-                            "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
-                            "line": 21,
-                            "column": 19
-                          }
-                        }
-                      ],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "skipped"
-                }
-              ],
-              "id": "68c0f7b4fc8ce30f3e44-0a0752f6245dbb58bbff",
-              "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
-              "line": 22,
-              "column": 11
-            }
-          ]
-        },
-        {
-          "title": "Complete Lifecycle: email-phone-mfa-required-json | @email-phone @mfa-required",
+          "title": "Complete Lifecycle: email-phone-mfa-required-cookies | @email-phone @mfa-required",
           "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
           "line": 29,
           "column": 8,
@@ -534,7 +474,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json",
+                          "description": "Config: email-phone-mfa-required-cookies",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 61,
@@ -543,7 +483,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | Verification: both | MFA: REQUIRED (grace: 0d)",
+                          "description": "Token Delivery: cookies | Verification: both | MFA: REQUIRED (grace: 0d)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 61,
@@ -561,23 +501,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 0,
                           "parallelIndex": 0,
                           "status": "passed",
-                          "duration": 479,
+                          "duration": 666,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:36:53.422Z",
+                          "startTime": "2026-01-17T06:28:19.618Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json",
+                              "description": "Config: email-phone-mfa-required-cookies",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 61,
@@ -586,7 +526,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | Verification: both | MFA: REQUIRED (grace: 0d)",
+                              "description": "Token Delivery: cookies | Verification: both | MFA: REQUIRED (grace: 0d)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 61,
@@ -609,7 +549,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "68c0f7b4fc8ce30f3e44-ee06c8ec5bd775b2fc89",
+                  "id": "68c0f7b4fc8ce30f3e44-2efd3ef01c4e5760bf56",
                   "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
                   "line": 61,
                   "column": 11
@@ -627,7 +567,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json",
+                          "description": "Config: email-phone-mfa-required-cookies",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 135,
@@ -636,7 +576,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | Verification: both | MFA: REQUIRED",
+                          "description": "Token Delivery: cookies | Verification: both | MFA: REQUIRED",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 135,
@@ -663,27 +603,27 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 0,
                           "parallelIndex": 0,
                           "status": "passed",
-                          "duration": 3140,
+                          "duration": 3279,
                           "errors": [],
                           "stdout": [
                             {
-                              "text": "Resend code succeeded: destination=t***4@example.com\n"
+                              "text": "Resend code succeeded: destination=t***3@example.com\n"
                             }
                           ],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:36:53.927Z",
+                          "startTime": "2026-01-17T06:28:20.321Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json",
+                              "description": "Config: email-phone-mfa-required-cookies",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 135,
@@ -692,7 +632,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | Verification: both | MFA: REQUIRED",
+                              "description": "Token Delivery: cookies | Verification: both | MFA: REQUIRED",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 135,
@@ -724,7 +664,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "68c0f7b4fc8ce30f3e44-3476b9a1bb4e668f11e3",
+                  "id": "68c0f7b4fc8ce30f3e44-d775d5e75ad5b4c6e00d",
                   "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
                   "line": 135,
                   "column": 11
@@ -742,7 +682,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json",
+                          "description": "Config: email-phone-mfa-required-cookies",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 200,
@@ -751,7 +691,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | Verification: both | MFA: REQUIRED (grace: 0d)",
+                          "description": "Token Delivery: cookies | Verification: both | MFA: REQUIRED (grace: 0d)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 200,
@@ -778,27 +718,27 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 0,
                           "parallelIndex": 0,
                           "status": "passed",
-                          "duration": 3062,
+                          "duration": 3164,
                           "errors": [],
                           "stdout": [
                             {
-                              "text": "Resend code succeeded: destination=***-***-4275\n"
+                              "text": "Resend code succeeded: destination=***-***-5769\n"
                             }
                           ],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:36:57.078Z",
+                          "startTime": "2026-01-17T06:28:23.637Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json",
+                              "description": "Config: email-phone-mfa-required-cookies",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 200,
@@ -807,7 +747,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | Verification: both | MFA: REQUIRED (grace: 0d)",
+                              "description": "Token Delivery: cookies | Verification: both | MFA: REQUIRED (grace: 0d)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 200,
@@ -839,7 +779,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "68c0f7b4fc8ce30f3e44-443e9aa61a4f4d973cec",
+                  "id": "68c0f7b4fc8ce30f3e44-39b3919f0c82040df012",
                   "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
                   "line": 200,
                   "column": 11
@@ -857,7 +797,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json",
+                          "description": "Config: email-phone-mfa-required-cookies",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 274,
@@ -866,7 +806,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | MFA: REQUIRED (grace: 0d)",
+                          "description": "Token Delivery: cookies | MFA: REQUIRED (grace: 0d)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 274,
@@ -893,23 +833,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 0,
                           "parallelIndex": 0,
                           "status": "passed",
-                          "duration": 70,
+                          "duration": 174,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:37:00.146Z",
+                          "startTime": "2026-01-17T06:28:26.812Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json",
+                              "description": "Config: email-phone-mfa-required-cookies",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 274,
@@ -918,7 +858,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | MFA: REQUIRED (grace: 0d)",
+                              "description": "Token Delivery: cookies | MFA: REQUIRED (grace: 0d)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 274,
@@ -950,7 +890,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "68c0f7b4fc8ce30f3e44-cd8f536940626126ce94",
+                  "id": "68c0f7b4fc8ce30f3e44-978c815140093c3a4dd9",
                   "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
                   "line": 274,
                   "column": 11
@@ -968,7 +908,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json",
+                          "description": "Config: email-phone-mfa-required-cookies",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 433,
@@ -977,7 +917,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | User should be verified from previous steps",
+                          "description": "Token Delivery: cookies | User should be verified from previous steps",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 433,
@@ -995,23 +935,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 0,
                           "parallelIndex": 0,
                           "status": "passed",
-                          "duration": 3148,
+                          "duration": 3284,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:37:00.222Z",
+                          "startTime": "2026-01-17T06:28:26.994Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json",
+                              "description": "Config: email-phone-mfa-required-cookies",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 433,
@@ -1020,7 +960,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | User should be verified from previous steps",
+                              "description": "Token Delivery: cookies | User should be verified from previous steps",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 433,
@@ -1043,7 +983,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "68c0f7b4fc8ce30f3e44-8516f2fcf34f1721291d",
+                  "id": "68c0f7b4fc8ce30f3e44-a1146cf3917340e04e17",
                   "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
                   "line": 433,
                   "column": 11
@@ -1061,7 +1001,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json",
+                          "description": "Config: email-phone-mfa-required-cookies",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 553,
@@ -1070,7 +1010,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | Uses refresh token from previous login",
+                          "description": "Token Delivery: cookies | Uses refresh token from previous login",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 553,
@@ -1088,23 +1028,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 0,
                           "parallelIndex": 0,
                           "status": "passed",
-                          "duration": 16,
+                          "duration": 42,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:37:03.376Z",
+                          "startTime": "2026-01-17T06:28:30.285Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json",
+                              "description": "Config: email-phone-mfa-required-cookies",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 553,
@@ -1113,7 +1053,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | Uses refresh token from previous login",
+                              "description": "Token Delivery: cookies | Uses refresh token from previous login",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 553,
@@ -1136,7 +1076,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "68c0f7b4fc8ce30f3e44-fd83b83a773b7bfae985",
+                  "id": "68c0f7b4fc8ce30f3e44-8aa510d9fb64eff10dc0",
                   "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
                   "line": 553,
                   "column": 11
@@ -1154,7 +1094,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json",
+                          "description": "Config: email-phone-mfa-required-cookies",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 596,
@@ -1163,7 +1103,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | MFA: REQUIRED | Simulates location change",
+                          "description": "Token Delivery: cookies | MFA: REQUIRED | Simulates location change",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 596,
@@ -1199,8 +1139,8 @@
                         }
                       ],
                       "expectedStatus": "skipped",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 0,
@@ -1211,11 +1151,11 @@
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:37:03.397Z",
+                          "startTime": "2026-01-17T06:28:30.332Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json",
+                              "description": "Config: email-phone-mfa-required-cookies",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 596,
@@ -1224,7 +1164,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | MFA: REQUIRED | Simulates location change",
+                              "description": "Token Delivery: cookies | MFA: REQUIRED | Simulates location change",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 596,
@@ -1265,7 +1205,7 @@
                       "status": "skipped"
                     }
                   ],
-                  "id": "68c0f7b4fc8ce30f3e44-2da3e5985ba19b44fce3",
+                  "id": "68c0f7b4fc8ce30f3e44-251c210cd7c28a9c8244",
                   "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
                   "line": 596,
                   "column": 11
@@ -1283,7 +1223,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json",
+                          "description": "Config: email-phone-mfa-required-cookies",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 636,
@@ -1292,7 +1232,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | Validates token/cookie invalidation",
+                          "description": "Token Delivery: cookies | Validates token/cookie invalidation",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                             "line": 636,
@@ -1310,23 +1250,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 0,
                           "parallelIndex": 0,
                           "status": "passed",
-                          "duration": 14,
+                          "duration": 24,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:37:03.405Z",
+                          "startTime": "2026-01-17T06:28:30.340Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json",
+                              "description": "Config: email-phone-mfa-required-cookies",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 636,
@@ -1335,7 +1275,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | Validates token/cookie invalidation",
+                              "description": "Token Delivery: cookies | Validates token/cookie invalidation",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
                                 "line": 636,
@@ -1358,12 +1298,72 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "68c0f7b4fc8ce30f3e44-807b6adaae1bf38daf3f",
+                  "id": "68c0f7b4fc8ce30f3e44-9af368bed92b096c9a56",
                   "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
                   "line": 636,
                   "column": 11
                 }
               ]
+            }
+          ]
+        },
+        {
+          "title": "Complete Lifecycle: email-phone-mfa-required-json [SKIPPED - doesn't match current config]",
+          "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
+          "line": 21,
+          "column": 19,
+          "specs": [
+            {
+              "title": "Skipped - config does not match current auth.config.ts",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                        "line": 21,
+                        "column": 19
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-17T06:28:30.371Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                            "line": 21,
+                            "column": 19
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "68c0f7b4fc8ce30f3e44-368043fbeaf1bee318db",
+              "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
+              "line": 22,
+              "column": 11
             }
           ]
         },
@@ -1391,8 +1391,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -1403,7 +1403,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1420,7 +1420,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-4eff66189f85c209db75",
+              "id": "68c0f7b4fc8ce30f3e44-738b95f91948a8429cee",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -1451,8 +1451,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -1463,7 +1463,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1480,7 +1480,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-b35c76baae962b5621ce",
+              "id": "68c0f7b4fc8ce30f3e44-014487a10c1bc6b29f58",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -1511,8 +1511,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -1523,7 +1523,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1540,7 +1540,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-50b2d75e3cc0eb0b7685",
+              "id": "68c0f7b4fc8ce30f3e44-a39ee28b25cd45daa0b9",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -1571,8 +1571,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -1583,7 +1583,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1600,7 +1600,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-330b271d2f9e00730535",
+              "id": "68c0f7b4fc8ce30f3e44-9d5c5b79f3febf229f69",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -1631,8 +1631,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -1643,7 +1643,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1660,7 +1660,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-dd65640d2aa139f13382",
+              "id": "68c0f7b4fc8ce30f3e44-4c32f1afddeb13f93f8c",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -1691,8 +1691,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -1703,7 +1703,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1720,7 +1720,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-9a6889bff1380449ccaf",
+              "id": "68c0f7b4fc8ce30f3e44-a375628545c2c42422de",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -1751,8 +1751,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -1763,7 +1763,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1780,7 +1780,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-2f79de6f5ffaa07ba038",
+              "id": "68c0f7b4fc8ce30f3e44-c2b0e68eb33e8a207ea9",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -1811,8 +1811,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -1823,7 +1823,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1840,7 +1840,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-840224b9e5b67c5b64b9",
+              "id": "68c0f7b4fc8ce30f3e44-a17b77f1589161790509",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -1871,8 +1871,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -1883,7 +1883,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1900,7 +1900,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-1cef6cd7105c99929f9a",
+              "id": "68c0f7b4fc8ce30f3e44-888017dd21769b8fa139",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -1931,8 +1931,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -1943,7 +1943,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1960,7 +1960,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-1f50c84dbb7f5d4fd627",
+              "id": "68c0f7b4fc8ce30f3e44-005ad475c868196b9d5e",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -1991,8 +1991,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -2003,7 +2003,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2020,7 +2020,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-747d544e256bb247f7fa",
+              "id": "68c0f7b4fc8ce30f3e44-abb473848b97eaeb09ef",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -2051,8 +2051,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -2063,7 +2063,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2080,7 +2080,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-5bf712910b09c310ef0c",
+              "id": "68c0f7b4fc8ce30f3e44-c288f22baf7d24694700",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -2111,8 +2111,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -2123,7 +2123,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2140,7 +2140,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-550a8f77d8e1d7a1cc64",
+              "id": "68c0f7b4fc8ce30f3e44-6f1217382ff11f6e500e",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -2171,8 +2171,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -2183,7 +2183,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2200,7 +2200,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-cd6c197dfd178647a1a5",
+              "id": "68c0f7b4fc8ce30f3e44-b2df0165bb2e41e4ea01",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -2231,8 +2231,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -2243,7 +2243,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2260,7 +2260,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-4cfa09f98d2c9932fef0",
+              "id": "68c0f7b4fc8ce30f3e44-cf3e5ef797a36129b82e",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -2291,8 +2291,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 0,
@@ -2303,7 +2303,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:03.425Z",
+                      "startTime": "2026-01-17T06:28:30.371Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2320,7 +2320,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "68c0f7b4fc8ce30f3e44-9778b8f78bc3d41788eb",
+              "id": "68c0f7b4fc8ce30f3e44-78753c1e371eb9d734f2",
               "file": "specs/auth-lifecycle/complete-lifecycle.spec.ts",
               "line": 22,
               "column": 11
@@ -2360,8 +2360,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -2372,7 +2372,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.419Z",
+                      "startTime": "2026-01-17T06:28:19.628Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2389,7 +2389,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-6d412489ada1f437da52",
+              "id": "d6093f894ad0cd3ab658-5dbae1c4a9b77e7dcbb0",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 34,
               "column": 13
@@ -2420,8 +2420,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -2432,7 +2432,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.421Z",
+                      "startTime": "2026-01-17T06:28:19.628Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2449,7 +2449,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-c533ac12231e2523867a",
+              "id": "d6093f894ad0cd3ab658-a83292f72611a0c77b5f",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 34,
               "column": 13
@@ -2480,8 +2480,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -2492,7 +2492,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.421Z",
+                      "startTime": "2026-01-17T06:28:19.629Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2509,7 +2509,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-8fbc0159b34979fcb833",
+              "id": "d6093f894ad0cd3ab658-0c84d8b7b3217b2f5d27",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 34,
               "column": 13
@@ -2540,8 +2540,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -2552,7 +2552,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.422Z",
+                      "startTime": "2026-01-17T06:28:19.629Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2569,7 +2569,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-ce3b3ef788c44658e321",
+              "id": "d6093f894ad0cd3ab658-96006b5107013d68d932",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 34,
               "column": 13
@@ -2600,8 +2600,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -2612,7 +2612,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.422Z",
+                      "startTime": "2026-01-17T06:28:19.629Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2629,7 +2629,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-535efe63e6df98e8451d",
+              "id": "d6093f894ad0cd3ab658-bf35ce06f045af3e523a",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 34,
               "column": 13
@@ -2660,8 +2660,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -2672,7 +2672,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.422Z",
+                      "startTime": "2026-01-17T06:28:19.629Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2689,7 +2689,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-5ec6a4df8e972f136910",
+              "id": "d6093f894ad0cd3ab658-0820419473240d4ef817",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 34,
               "column": 13
@@ -2720,8 +2720,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -2732,7 +2732,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.423Z",
+                      "startTime": "2026-01-17T06:28:19.629Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2749,7 +2749,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-35452fedafe6f003d580",
+              "id": "d6093f894ad0cd3ab658-818fb89a4155f2eb9ec9",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 225,
               "column": 13
@@ -2780,8 +2780,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -2792,7 +2792,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.423Z",
+                      "startTime": "2026-01-17T06:28:19.629Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2809,7 +2809,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-90fbe29179795a2bfd49",
+              "id": "d6093f894ad0cd3ab658-b6cf6ae9baae3ad86c4d",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 225,
               "column": 13
@@ -2840,8 +2840,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -2852,7 +2852,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.423Z",
+                      "startTime": "2026-01-17T06:28:19.629Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2869,7 +2869,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-04ad6a00a9738c7aa45c",
+              "id": "d6093f894ad0cd3ab658-fbecdc87983ad4781d48",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 225,
               "column": 13
@@ -2900,8 +2900,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -2912,7 +2912,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.424Z",
+                      "startTime": "2026-01-17T06:28:19.629Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2929,7 +2929,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-ec41d1d25a19b6e7ff28",
+              "id": "d6093f894ad0cd3ab658-04885a695631c3698371",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 225,
               "column": 13
@@ -2960,8 +2960,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -2972,7 +2972,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.425Z",
+                      "startTime": "2026-01-17T06:28:19.630Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2989,7 +2989,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-e0e07df8151e2d313097",
+              "id": "d6093f894ad0cd3ab658-d11944d5f8272d383e03",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 225,
               "column": 13
@@ -3020,8 +3020,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -3032,7 +3032,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.425Z",
+                      "startTime": "2026-01-17T06:28:19.630Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -3049,7 +3049,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-80eca290f9097c20c0a5",
+              "id": "d6093f894ad0cd3ab658-dc48c8b364df51793514",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 225,
               "column": 13
@@ -3080,8 +3080,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -3092,7 +3092,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.425Z",
+                      "startTime": "2026-01-17T06:28:19.630Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -3109,7 +3109,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-73302fc3a20ae4468497",
+              "id": "d6093f894ad0cd3ab658-314a129ae0396128dbc3",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 425,
               "column": 13
@@ -3140,8 +3140,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -3152,7 +3152,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.425Z",
+                      "startTime": "2026-01-17T06:28:19.630Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -3169,7 +3169,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-d8091cd47d111fa94ae1",
+              "id": "d6093f894ad0cd3ab658-5cb00bef4f8a1a1090f6",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 425,
               "column": 13
@@ -3177,67 +3177,7 @@
           ]
         },
         {
-          "title": "Deferred Verification - Both (3a: Skip Email): email-phone-mfa-required-cookies [SKIPPED - doesn't match current config]",
-          "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
-          "line": 424,
-          "column": 10,
-          "specs": [
-            {
-              "title": "Skipped - config does not match current auth.config.ts",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [
-                    {
-                      "type": "skip",
-                      "location": {
-                        "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
-                        "line": 424,
-                        "column": 10
-                      }
-                    }
-                  ],
-                  "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "skipped",
-                      "duration": 0,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.425Z",
-                      "annotations": [
-                        {
-                          "type": "skip",
-                          "location": {
-                            "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
-                            "line": 424,
-                            "column": 10
-                          }
-                        }
-                      ],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "skipped"
-                }
-              ],
-              "id": "d6093f894ad0cd3ab658-0f69ba7b39efa17dadd3",
-              "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
-              "line": 425,
-              "column": 13
-            }
-          ]
-        },
-        {
-          "title": "Deferred Verification - Both (3a: Skip Email): email-phone-mfa-required-json | @email-phone @mfa-required",
+          "title": "Deferred Verification - Both (3a: Skip Email): email-phone-mfa-required-cookies | @email-phone @mfa-required",
           "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
           "line": 430,
           "column": 10,
@@ -3262,7 +3202,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3a: Skip Email)",
+                          "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3a: Skip Email)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 461,
@@ -3271,7 +3211,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | Verification: both",
+                          "description": "Token Delivery: cookies | Verification: both",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 461,
@@ -3298,23 +3238,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 487,
+                          "duration": 700,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:36:53.425Z",
+                          "startTime": "2026-01-17T06:28:19.630Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3a: Skip Email)",
+                              "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3a: Skip Email)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 461,
@@ -3323,7 +3263,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | Verification: both",
+                              "description": "Token Delivery: cookies | Verification: both",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 461,
@@ -3355,7 +3295,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "d6093f894ad0cd3ab658-b900ad7bcc7102e7cd2f",
+                  "id": "d6093f894ad0cd3ab658-7b1892fb6286490a5db6",
                   "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
                   "line": 461,
                   "column": 13
@@ -3373,7 +3313,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3a: Skip Email)",
+                          "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3a: Skip Email)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 510,
@@ -3382,7 +3322,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | Email not verified, phone not verified",
+                          "description": "Token Delivery: cookies | Email not verified, phone not verified",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 510,
@@ -3400,23 +3340,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 100,
+                          "duration": 200,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:36:53.929Z",
+                          "startTime": "2026-01-17T06:28:20.353Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3a: Skip Email)",
+                              "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3a: Skip Email)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 510,
@@ -3425,7 +3365,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | Email not verified, phone not verified",
+                              "description": "Token Delivery: cookies | Email not verified, phone not verified",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 510,
@@ -3448,7 +3388,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "d6093f894ad0cd3ab658-ccf642e0ab622d9501eb",
+                  "id": "d6093f894ad0cd3ab658-fb3abacd7ac3dadac834",
                   "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
                   "line": 510,
                   "column": 13
@@ -3466,7 +3406,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3a: Skip Email)",
+                          "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3a: Skip Email)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 541,
@@ -3475,7 +3415,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | Completing email verification from login challenge",
+                          "description": "Token Delivery: cookies | Completing email verification from login challenge",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 541,
@@ -3493,23 +3433,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 2062,
+                          "duration": 2141,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:36:54.037Z",
+                          "startTime": "2026-01-17T06:28:20.568Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3a: Skip Email)",
+                              "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3a: Skip Email)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 541,
@@ -3518,7 +3458,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | Completing email verification from login challenge",
+                              "description": "Token Delivery: cookies | Completing email verification from login challenge",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 541,
@@ -3541,7 +3481,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "d6093f894ad0cd3ab658-83099ab57096bf1826ec",
+                  "id": "d6093f894ad0cd3ab658-22a8ce5ccb9949e4f363",
                   "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
                   "line": 541,
                   "column": 13
@@ -3559,7 +3499,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3a: Skip Email)",
+                          "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3a: Skip Email)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 581,
@@ -3568,7 +3508,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | Email verified, phone not verified",
+                          "description": "Token Delivery: cookies | Email verified, phone not verified",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 581,
@@ -3586,23 +3526,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 89,
+                          "duration": 110,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:36:56.106Z",
+                          "startTime": "2026-01-17T06:28:22.717Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3a: Skip Email)",
+                              "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3a: Skip Email)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 581,
@@ -3611,7 +3551,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | Email verified, phone not verified",
+                              "description": "Token Delivery: cookies | Email verified, phone not verified",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 581,
@@ -3634,7 +3574,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "d6093f894ad0cd3ab658-895e3b719371c25b997e",
+                  "id": "d6093f894ad0cd3ab658-832fd026ac35993adced",
                   "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
                   "line": 581,
                   "column": 13
@@ -3652,7 +3592,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3a: Skip Email)",
+                          "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3a: Skip Email)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 612,
@@ -3661,7 +3601,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | Completing phone verification",
+                          "description": "Token Delivery: cookies | Completing phone verification",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 612,
@@ -3679,23 +3619,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 2055,
+                          "duration": 2097,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:36:56.203Z",
+                          "startTime": "2026-01-17T06:28:22.838Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3a: Skip Email)",
+                              "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3a: Skip Email)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 612,
@@ -3704,7 +3644,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | Completing phone verification",
+                              "description": "Token Delivery: cookies | Completing phone verification",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 612,
@@ -3727,7 +3667,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "d6093f894ad0cd3ab658-ad9fcc76da89720a9c63",
+                  "id": "d6093f894ad0cd3ab658-5fc5051a41715a0b9639",
                   "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
                   "line": 612,
                   "column": 13
@@ -3737,7 +3677,7 @@
           ]
         },
         {
-          "title": "Deferred Verification - Both (3b: Skip Phone): email-phone-mfa-required-json | @email-phone @mfa-required",
+          "title": "Deferred Verification - Both (3b: Skip Phone): email-phone-mfa-required-cookies | @email-phone @mfa-required",
           "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
           "line": 681,
           "column": 10,
@@ -3762,7 +3702,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3b: Skip Phone)",
+                          "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 712,
@@ -3771,7 +3711,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | Verification: both",
+                          "description": "Token Delivery: cookies | Verification: both",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 712,
@@ -3789,23 +3729,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 93,
+                          "duration": 168,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:36:58.270Z",
+                          "startTime": "2026-01-17T06:28:24.950Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3b: Skip Phone)",
+                              "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 712,
@@ -3814,7 +3754,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | Verification: both",
+                              "description": "Token Delivery: cookies | Verification: both",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 712,
@@ -3837,7 +3777,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "d6093f894ad0cd3ab658-807683227a18c2476581",
+                  "id": "d6093f894ad0cd3ab658-a2c18f68ef042433fbfd",
                   "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
                   "line": 712,
                   "column": 13
@@ -3855,7 +3795,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3b: Skip Phone)",
+                          "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 745,
@@ -3864,7 +3804,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | Completing email verification at signup",
+                          "description": "Token Delivery: cookies | Completing email verification at signup",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 745,
@@ -3882,23 +3822,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 2049,
+                          "duration": 2057,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:36:58.369Z",
+                          "startTime": "2026-01-17T06:28:25.126Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3b: Skip Phone)",
+                              "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 745,
@@ -3907,7 +3847,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | Completing email verification at signup",
+                              "description": "Token Delivery: cookies | Completing email verification at signup",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 745,
@@ -3930,7 +3870,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "d6093f894ad0cd3ab658-b5ecb9b807e96c366209",
+                  "id": "d6093f894ad0cd3ab658-e2fa66084a6fd457f22f",
                   "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
                   "line": 745,
                   "column": 13
@@ -3948,7 +3888,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3b: Skip Phone)",
+                          "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 785,
@@ -3957,7 +3897,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | Email verified, phone not verified",
+                          "description": "Token Delivery: cookies | Email verified, phone not verified",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 785,
@@ -3984,8 +3924,8 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 1,
@@ -3996,11 +3936,11 @@
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:37:00.424Z",
+                          "startTime": "2026-01-17T06:28:27.193Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3b: Skip Phone)",
+                              "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 785,
@@ -4009,7 +3949,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | Email verified, phone not verified",
+                              "description": "Token Delivery: cookies | Email verified, phone not verified",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 785,
@@ -4041,7 +3981,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "d6093f894ad0cd3ab658-59d90484c19860f699ea",
+                  "id": "d6093f894ad0cd3ab658-172f16b28d6f655b2960",
                   "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
                   "line": 785,
                   "column": 13
@@ -4059,7 +3999,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3b: Skip Phone)",
+                          "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 814,
@@ -4068,7 +4008,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | Email verified, phone not verified",
+                          "description": "Token Delivery: cookies | Email verified, phone not verified",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 814,
@@ -4095,23 +4035,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 94,
+                          "duration": 113,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:37:00.428Z",
+                          "startTime": "2026-01-17T06:28:27.197Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3b: Skip Phone)",
+                              "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 814,
@@ -4120,7 +4060,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | Email verified, phone not verified",
+                              "description": "Token Delivery: cookies | Email verified, phone not verified",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 814,
@@ -4152,7 +4092,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "d6093f894ad0cd3ab658-3eabfd64149f43ab1816",
+                  "id": "d6093f894ad0cd3ab658-145f7723d947b08af0e4",
                   "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
                   "line": 814,
                   "column": 13
@@ -4170,7 +4110,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3b: Skip Phone)",
+                          "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 856,
@@ -4179,7 +4119,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | Completing phone verification from login challenge",
+                          "description": "Token Delivery: cookies | Completing phone verification from login challenge",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 856,
@@ -4197,23 +4137,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 2053,
+                          "duration": 2130,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:37:00.528Z",
+                          "startTime": "2026-01-17T06:28:27.318Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3b: Skip Phone)",
+                              "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 856,
@@ -4222,7 +4162,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | Completing phone verification from login challenge",
+                              "description": "Token Delivery: cookies | Completing phone verification from login challenge",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 856,
@@ -4245,7 +4185,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "d6093f894ad0cd3ab658-f01dd8dfbf7499590a52",
+                  "id": "d6093f894ad0cd3ab658-3899301dfad56845012f",
                   "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
                   "line": 856,
                   "column": 13
@@ -4263,7 +4203,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3b: Skip Phone)",
+                          "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 912,
@@ -4272,7 +4212,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | MFA: REQUIRED (grace: 0d)",
+                          "description": "Token Delivery: cookies | MFA: REQUIRED (grace: 0d)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 912,
@@ -4299,23 +4239,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 64,
+                          "duration": 82,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:37:02.588Z",
+                          "startTime": "2026-01-17T06:28:29.455Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3b: Skip Phone)",
+                              "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 912,
@@ -4324,7 +4264,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | MFA: REQUIRED (grace: 0d)",
+                              "description": "Token Delivery: cookies | MFA: REQUIRED (grace: 0d)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 912,
@@ -4356,7 +4296,7 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "d6093f894ad0cd3ab658-847659e54dc8f215dd26",
+                  "id": "d6093f894ad0cd3ab658-06fd3069ae5ace1e0d8f",
                   "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
                   "line": 912,
                   "column": 13
@@ -4374,7 +4314,7 @@
                       "annotations": [
                         {
                           "type": "testId",
-                          "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3b: Skip Phone)",
+                          "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 1003,
@@ -4383,7 +4323,7 @@
                         },
                         {
                           "type": "testDetails",
-                          "description": "Token Delivery: json | User is now fully verified",
+                          "description": "Token Delivery: cookies | User is now fully verified",
                           "location": {
                             "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                             "line": 1003,
@@ -4401,23 +4341,23 @@
                         }
                       ],
                       "expectedStatus": "passed",
-                      "projectId": "json",
-                      "projectName": "json",
+                      "projectId": "cookies",
+                      "projectName": "cookies",
                       "results": [
                         {
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 3141,
+                          "duration": 3290,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-17T04:37:02.658Z",
+                          "startTime": "2026-01-17T06:28:29.544Z",
                           "annotations": [
                             {
                               "type": "testId",
-                              "description": "Config: email-phone-mfa-required-json - Deferred Both Verification (3b: Skip Phone)",
+                              "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 1003,
@@ -4426,7 +4366,7 @@
                             },
                             {
                               "type": "testDetails",
-                              "description": "Token Delivery: json | User is now fully verified",
+                              "description": "Token Delivery: cookies | User is now fully verified",
                               "location": {
                                 "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
                                 "line": 1003,
@@ -4449,12 +4389,72 @@
                       "status": "expected"
                     }
                   ],
-                  "id": "d6093f894ad0cd3ab658-1af5e7e0010fc4cf1ab1",
+                  "id": "d6093f894ad0cd3ab658-66ac027e9657cdb6e0ed",
                   "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
                   "line": 1003,
                   "column": 13
                 }
               ]
+            }
+          ]
+        },
+        {
+          "title": "Deferred Verification - Both (3a: Skip Email): email-phone-mfa-required-json [SKIPPED - doesn't match current config]",
+          "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
+          "line": 424,
+          "column": 10,
+          "specs": [
+            {
+              "title": "Skipped - config does not match current auth.config.ts",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
+                        "line": 424,
+                        "column": 10
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-17T06:28:32.841Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
+                            "line": 424,
+                            "column": 10
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d6093f894ad0cd3ab658-fb4342969c1e20e1792d",
+              "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
+              "line": 425,
+              "column": 13
             }
           ]
         },
@@ -4482,8 +4482,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -4494,7 +4494,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:05.805Z",
+                      "startTime": "2026-01-17T06:28:32.841Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -4511,7 +4511,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-13cf14513a2ef8dbb48a",
+              "id": "d6093f894ad0cd3ab658-26243bf9818e94081104",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 425,
               "column": 13
@@ -4542,8 +4542,8 @@
                     }
                   ],
                   "expectedStatus": "skipped",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 1,
@@ -4554,7 +4554,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:37:05.805Z",
+                      "startTime": "2026-01-17T06:28:32.841Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -4571,7 +4571,7 @@
                   "status": "skipped"
                 }
               ],
-              "id": "d6093f894ad0cd3ab658-b588646c6c7555e3f57c",
+              "id": "d6093f894ad0cd3ab658-1dc85a61bf294b6bf583",
               "file": "specs/auth-lifecycle/deferred-verification.spec.ts",
               "line": 425,
               "column": 13
@@ -4602,19 +4602,19 @@
                   "timeout": 60000,
                   "annotations": [],
                   "expectedStatus": "passed",
-                  "projectId": "json",
-                  "projectName": "json",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
                   "results": [
                     {
                       "workerIndex": 2,
                       "parallelIndex": 2,
                       "status": "passed",
-                      "duration": 5,
+                      "duration": 6,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-17T04:36:53.405Z",
+                      "startTime": "2026-01-17T06:28:19.628Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -4622,7 +4622,7 @@
                   "status": "expected"
                 }
               ],
-              "id": "7b6735f4ca4f1ba2ae00-70eb1de94a89c01e072b",
+              "id": "7b6735f4ca4f1ba2ae00-76542971aa62d1f66fe5",
               "file": "specs/current-config.spec.ts",
               "line": 77,
               "column": 9
@@ -4634,8 +4634,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-01-17T04:36:51.892Z",
-    "duration": 13940.089,
+    "startTime": "2026-01-17T06:28:17.322Z",
+    "duration": 15551.704,
     "expected": 20,
     "skipped": 41,
     "unexpected": 0,

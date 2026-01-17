@@ -283,42 +283,25 @@ fastify.get(
 
 ---
 
-### getMFAStatus()
+### getMfaStatus()
 
-Get comprehensive MFA status for a user including enabled status, configured methods, available methods, backup codes, and exemption information.
+Get comprehensive MFA status for the current authenticated user including enabled status, configured methods, available methods, backup codes, and exemption information.
 
 ```typescript
-async getMFAStatus(dto: GetMFAStatusDTO): Promise<GetMFAStatusResponseDTO>
+async getMfaStatus(): Promise<GetMFAStatusResponseDTO>
 ```
-
-**Parameters**
-
-- `dto` - [`GetMFAStatusDTO`](../dto/get-mfa-status-dto)
 
 **Returns**
 
-- [`GetMFAStatusResponseDTO`](../dto/get-mfa-status-dto) - `{ enabled: boolean, required: boolean, configuredMethods: MFADeviceMethod[], availableMethods: string[], hasBackupCodes: boolean, preferredMethod?: MFADeviceMethod, mfaExempt: boolean, mfaExemptReason: string | null, mfaExemptGrantedAt: Date | null }`
+- [`GetMFAStatusResponseDTO`](../dto/get-mfa-status-dto)
 
 **Errors**
 
-| Code                | When                 | Details                                          |
-| ------------------- | -------------------- | ------------------------------------------------ |
-| `VALIDATION_FAILED` | DTO validation fails | `{ validationErrors: Record<string, string[]> }` |
-| `NOT_FOUND`         | User not found       | `undefined`                                      |
+| Code        | When                                 | Details     |
+| ----------- | ------------------------------------ | ----------- |
+| `FORBIDDEN` | Not authenticated (no user in context) | `undefined` |
 
 Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
-
-**VALIDATION_FAILED details**
-
-When DTO validation fails, `details` includes:
-
-```json
-{
-  "validationErrors": {
-    "sub": ["User sub must be a valid UUID v4 format"]
-  }
-}
-```
 
 **Example**
 
@@ -327,8 +310,8 @@ When DTO validation fails, `details` includes:
 
 ```typescript
 @Get('mfa/status')
-async getStatus(@CurrentUser() user: IUser) {
-  return await this.mfaService.getMFAStatus({ sub: user.sub });
+async getStatus() {
+  return await this.mfaService.getMfaStatus();
 }
 ```
 
@@ -337,7 +320,7 @@ async getStatus(@CurrentUser() user: IUser) {
 
 ```typescript
 app.get('/mfa/status', requireAuth(), async (req, res) => {
-  const result = await nauth.mfaService.getMFAStatus({ sub: req.user.sub });
+  const result = await nauth.mfaService.getMfaStatus();
   res.json(result);
 });
 ```
@@ -350,14 +333,49 @@ fastify.get(
   '/mfa/status',
   { preHandler: nauth.helpers.requireAuth() },
   nauth.adapter.wrapRouteHandler(async () => {
-    const user = nauth.helpers.getCurrentUser();
-    return nauth.mfaService.getMFAStatus({ sub: user.sub });
+    return nauth.mfaService.getMfaStatus();
   }),
 );
 ```
 
 </TabItem>
 </Tabs>
+
+---
+
+### adminGetMfaStatus()
+
+Get comprehensive MFA status for a target user (admin operation).
+
+```typescript
+async adminGetMfaStatus(dto: AdminGetMFAStatusDTO): Promise<GetMFAStatusResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminGetMFAStatusDTO`](../dto/admin-get-mfa-status-dto)
+
+**Returns**
+
+- [`GetMFAStatusResponseDTO`](../dto/get-mfa-status-dto)
+
+**Errors**
+
+| Code                | When                 | Details                                          |
+| ------------------- | -------------------- | ------------------------------------------------ |
+| `VALIDATION_FAILED` | DTO validation fails | `{ validationErrors: Record<string, string[]> }` |
+| `NOT_FOUND`         | User not found       | `undefined`                                      |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+**Example (NestJS)**
+
+```typescript
+@Post('admin/mfa/status')
+async adminGetStatus(@Body() dto: AdminGetMFAStatusDTO) {
+  return await this.mfaService.adminGetMfaStatus(dto);
+}
+```
 
 ---
 
