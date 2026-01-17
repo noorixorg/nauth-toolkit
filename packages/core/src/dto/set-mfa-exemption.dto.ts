@@ -7,7 +7,7 @@
  * @example
  * ```typescript
  * const result = await mfaService.setMFAExemption({
- *   identifier: 'user@example.com', // email, username, phone, or user sub (UUID)
+ *   sub: 'a21b654c-2746-4168-acee-c175083a65cd', // User sub (UUID v4)
  *   exempt: true,
  *   reason: 'Business partner requires MFA bypass',
  *   grantedBy: 'admin@example.com'
@@ -15,7 +15,7 @@
  * ```
  */
 
-import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 /**
@@ -25,28 +25,26 @@ import { Transform } from 'class-transformer';
  */
 export class SetMFAExemptionDTO {
   /**
-   * Target user identifier
+   * User's unique identifier (UUID v4)
    *
-   * Can be any supported identifier:
-   * - user sub (UUID)
-   * - email
-   * - username
-   * - phone (E.164)
+   * Validation:
+   * - Must be a valid UUID v4 format
+   * - Matches DB constraint: char(36) or uuid
    *
    * Sanitization:
    * - Trimmed
+   * - Lowercased for consistency
    *
-   * @example "user@example.com"
+   * @example "a21b654c-2746-4168-acee-c175083a65cd"
    */
-  @IsString({ message: 'Identifier must be a string' })
-  @MaxLength(255, { message: 'Identifier must not exceed 255 characters' })
+  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
-      return value.trim();
+      return value.trim().toLowerCase();
     }
     return value;
   })
-  identifier!: string;
+  sub!: string;
 
   /**
    * Whether to grant exemption (true) or revoke exemption (false)

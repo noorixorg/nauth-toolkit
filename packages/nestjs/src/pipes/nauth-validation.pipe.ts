@@ -51,6 +51,12 @@ export class NAuthValidationPipe implements PipeTransform {
       return value;
     }
 
+    // Skip validation if value is undefined (GET requests, endpoints without @Body() decorator)
+    // This prevents validation errors when NestJS passes undefined for request bodies
+    if (value === undefined) {
+      return value;
+    }
+
     // Validate and transform using nauth-toolkit's stable error contract
     return ensureValidatedDto(metatype as unknown as new () => object, value);
   }

@@ -38,7 +38,6 @@ export const defaultEndpoints: NAuthEndpoints = {
   getChallengeData: '/challenge/challenge-data',
   profile: '/profile',
   changePassword: '/change-password',
-  requestPasswordChange: '/request-password-change',
   forgotPassword: '/forgot-password',
   confirmForgotPassword: '/forgot-password/confirm',
   confirmAdminResetPassword: '/admin/reset-password/confirm',

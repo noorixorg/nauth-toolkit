@@ -114,5 +114,5 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the following code
 
 ## Used By
 
-- [AuthService.updateVerifiedStatus()](../services/auth-service#updateverifiedstatus)
+- [AuthService.updateVerifiedStatus()](../services/admin-auth-service#updateverifiedstatus)
 

@@ -233,7 +233,7 @@ export class AuthResponseDTO {
    *
    * @example "a21b654c-2746-4168-acee-c175083a65cd"
    */
-  userSub?: string;
+  sub?: string;
 }
 
 /**

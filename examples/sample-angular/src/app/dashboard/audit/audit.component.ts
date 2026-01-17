@@ -174,14 +174,14 @@ export class AuditComponent implements OnInit {
     this.error.set(null);
 
     try {
-      const params: Record<string, string | number> = {
+      const params: Record<string, string | number | string[]> = {
         page: this.page(),
         limit: this.limit(),
       };
 
       const statuses = this.selectedStatuses();
       if (statuses.length > 0) {
-        params['eventStatus'] = statuses.join(',');
+        params['eventStatus'] = statuses;
       }
 
       if (this.dateRange() && this.dateRange()!.length === 2) {

@@ -56,5 +56,5 @@ import { DisableUserDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AuthService.disableUser()](../services/auth-service#disableuser)
+- [AuthService.disableUser()](../services/admin-auth-service#disableuser)
 

@@ -1,7 +1,7 @@
 ---
 title: GetUserAuthHistoryDTO
-description: Request DTO for getting paginated user authentication history with filtering options
-keywords: [dto, request, audit, history, authentication, api]
+description: Request DTO for getting paginated user authentication history (user self-service) with filtering options
+keywords: [dto, request, audit, history, authentication, api, user, self-service]
 image: /img/api-social-card.png
 ---
 import Tabs from '@theme/Tabs';
@@ -11,8 +11,13 @@ import TabItem from '@theme/TabItem';
 
 **Package:** `@nauth-toolkit/core`
 **Type:** DTO (Request)
+**Context:** User Self-Service
 
-Request DTO for getting paginated authentication history for a user with optional filtering by event types, status, and date ranges.
+Request DTO for getting paginated authentication history for the current authenticated user with optional filtering by event types, status, and date ranges.
+
+:::note User Self-Service
+This DTO is for user self-service operations. The `sub` is automatically derived from the authenticated user's context. For admin operations, use [`AdminGetUserAuthHistoryDTO`](./admin-get-user-auth-history-dto) instead.
+:::
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
@@ -42,7 +47,6 @@ import { GetUserAuthHistoryDTO } from '@nauth-toolkit/core';
 
 | Property      | Type                      | Required | Description                                                      |
 | ------------- | ------------------------- | -------- | ----------------------------------------------------------------- |
-| `userSub`     | `string`                  | Yes      | External user identifier (UUID v4). Trimmed and lowercased.       |
 | `page`        | `number`                  | No       | Page number (1-indexed). Default: 1                              |
 | `limit`       | `number`                  | No       | Number of records per page. Default: 50. Max: 500.               |
 | `startDate`   | `Date`                    | No       | Filter events from this date onwards                             |
@@ -50,11 +54,14 @@ import { GetUserAuthHistoryDTO } from '@nauth-toolkit/core';
 | `eventTypes`  | [`AuthAuditEventType[]`](../enums/auth-audit-event-type)    | No       | Filter by specific event types                                   |
 | `eventStatus` | [`AuthAuditEventStatus[]`](../enums/auth-audit-event-status)  | No       | Filter by event status. Allowed: `SUCCESS`, `FAILURE`, `INFO`, `SUSPICIOUS`. |
 
+:::note
+The `sub` field is not included in this DTO. It is automatically derived from the authenticated user's context when using [`AuthService.getUserAuthHistory()`](../services/auth-service#getuserauthhistory).
+:::
+
 ## Example
 
 ```json
 {
-  "userSub": "550e8400-e29b-41d4-a716-446655440000",
   "page": 1,
   "limit": 50,
   "eventTypes": ["LOGIN_SUCCESS", "LOGIN_FAILED"],
@@ -64,7 +71,11 @@ import { GetUserAuthHistoryDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AuthAuditService.getUserAuthHistory()](../services/auth-audit-service#getuserauthhistory)
+- [AuthService.getUserAuthHistory()](../services/auth-service#getuserauthhistory) - User self-service method
+
+## Related DTOs
+
+- [AdminGetUserAuthHistoryDTO](./admin-get-user-auth-history-dto) - Admin version with `sub` field
 
 ## Related APIs
 

@@ -75,4 +75,4 @@ import { DeleteUserResponseDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AuthService.deleteUser()](../services/auth-service#deleteuser)
+- [AuthService.deleteUser()](../services/admin-auth-service#deleteuser)

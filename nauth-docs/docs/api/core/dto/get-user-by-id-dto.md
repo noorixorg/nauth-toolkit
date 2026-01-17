@@ -54,4 +54,4 @@ import { GetUserByIdDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AuthService.getUserById()](../services/auth-service#getuserbyid)
+- [AuthService.getUserById()](../services/admin-auth-service#getuserbyid)

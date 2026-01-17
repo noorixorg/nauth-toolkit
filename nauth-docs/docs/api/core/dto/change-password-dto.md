@@ -56,5 +56,4 @@ import { ChangePasswordDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [ChangePasswordRequestDTO](./change-password-request-dto) - Extends this DTO
 - [AuthService.changePassword()](../services/auth-service#changepassword)

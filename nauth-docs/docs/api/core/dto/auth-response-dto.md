@@ -53,7 +53,7 @@ import { AuthResponseDTO } from '@nauth-toolkit/core';
 | `challengeName`           | [`AuthChallenge`](./auth-challenge-dto)           | Conditional | Challenge type. Present when challenge required.                 |
 | `session`                | `string`                  | Conditional | Challenge session token (UUID v4). Present when challenge required. |
 | `challengeParameters`    | `Record<string, unknown>` | Conditional | Challenge-specific parameters. Present when challenge required.  |
-| `userSub`                | `string`                  | Conditional | User identifier (UUID v4). Present in both success and challenge responses. |
+| `sub`                    | `string`                  | Conditional | User identifier (UUID v4). Present in both success and challenge responses. |
 
 
 ## Example
@@ -93,7 +93,7 @@ import { AuthResponseDTO } from '@nauth-toolkit/core';
     "email": "user@example.com",
     "codeDeliveryDestination": "u***@example.com"
   },
-  "userSub": "b32c765d-3857-5279-bdff-d286194b76de"
+  "sub": "b32c765d-3857-5279-bdff-d286194b76de"
 }
 ```
 

@@ -1,16 +1,16 @@
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { AuthAuditEventStatus } from '../entities/auth-audit.entity';
-import { IAuthAudit } from '../interfaces/entities.interface';
-import { IsArray, IsDate, IsEnum, IsIn, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { IsArray, IsDate, IsEnum, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 
 /**
- * Request DTO for getting user authentication history
+ * Request DTO for getting user authentication history (user self-service)
+ *
+ * User self-service DTO - no userSub field. Service gets user from authenticated context.
  *
  * @example
  * ```typescript
- * const result = await auditService.getUserAuthHistory({
- *   userSub: 'user-uuid',
+ * const result = await authService.getUserAuthHistory({
  *   page: 1,
  *   limit: 50,
  *   eventTypes: [AuthAuditEventType.LOGIN_SUCCESS],
@@ -19,25 +19,6 @@ import { Transform, Type } from 'class-transformer';
  * ```
  */
 export class GetUserAuthHistoryDTO {
-  /**
-   * External user identifier (UUID)
-   *
-   * The service will automatically resolve this to the internal userId
-   * for efficient database queries.
-   *
-   * Note: This is optional in the DTO because controllers set it from the authenticated user.
-   * It will be validated when set by the controller.
-   */
-  @IsOptional()
-  @IsUUID('4', { message: 'userSub must be a valid UUID v4 format' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim().toLowerCase();
-    }
-    return value;
-  })
-  userSub?: string;
-
   /**
    * Page number (1-indexed)
    *
@@ -97,6 +78,35 @@ export class GetUserAuthHistoryDTO {
   @IsOptional()
   @IsArray({ message: 'eventTypes must be an array' })
   @IsEnum(AuthAuditEventType, { each: true, message: 'eventTypes must contain only AuthAuditEventType values' })
+  @Transform(({ value }: { value: unknown }) => {
+    // Support query params like:
+    // - ?eventTypes=LOGIN_SUCCESS
+    // - ?eventTypes=LOGIN_SUCCESS&eventTypes=LOGIN_FAILED
+    // - ?eventTypes=LOGIN_SUCCESS,LOGIN_FAILED
+    if (value === undefined || value === null) {
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((v) => (typeof v === 'string' ? v.trim() : v)).filter((v) => v !== '');
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '') {
+        return value;
+      }
+
+      const parts = trimmed
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
+
+      return parts.length > 0 ? parts : value;
+    }
+
+    return value;
+  })
   eventTypes?: AuthAuditEventType[];
 
   /**
@@ -110,35 +120,34 @@ export class GetUserAuthHistoryDTO {
     each: true,
     message: 'eventStatus must contain only: SUCCESS, FAILURE, INFO, SUSPICIOUS',
   })
+  @Transform(({ value }: { value: unknown }) => {
+    // Support query params like:
+    // - ?eventStatus=FAILURE
+    // - ?eventStatus=SUCCESS&eventStatus=FAILURE
+    // - ?eventStatus=SUCCESS,FAILURE
+    if (value === undefined || value === null) {
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((v) => (typeof v === 'string' ? v.trim() : v)).filter((v) => v !== '');
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed === '') {
+        return value;
+      }
+
+      const parts = trimmed
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
+
+      return parts.length > 0 ? parts : value;
+    }
+
+    return value;
+  })
   eventStatus?: AuthAuditEventStatus[];
-}
-
-/**
- * Response DTO for paginated user authentication history
- */
-export class GetUserAuthHistoryResponseDTO {
-  /**
-   * Array of audit records
-   */
-  data!: IAuthAudit[];
-
-  /**
-   * Total number of records matching the query
-   */
-  total!: number;
-
-  /**
-   * Current page number
-   */
-  page!: number;
-
-  /**
-   * Number of records per page
-   */
-  limit!: number;
-
-  /**
-   * Total number of pages
-   */
-  totalPages!: number;
 }

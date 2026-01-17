@@ -2,11 +2,11 @@
  * Admin Reset Password Request DTO
  *
  * Request DTO for admin-initiated password reset workflow.
- * Allows resetting a user's password by identifier (email, username, phone, or sub).
+ * Allows resetting a user's password by sub (UUID).
  *
  * Security:
  * - Admin-only operation (should be protected by admin guard)
- * - User identifier validated
+ * - User sub validated
  * - Code + optional link delivery (like email verification)
  * - Configurable expiry (default: 1 hour)
  * - Optional immediate session revocation
@@ -16,7 +16,7 @@
  * ```typescript
  * // With link for consumer app custom UI
  * await authService.adminResetPassword({
- *   identifier: 'user@example.com',
+ *   sub: 'a21b654c-2746-4168-acee-c175083a65cd',
  *   baseUrl: 'https://myapp.com/reset-password',
  *   deliveryMethod: 'email',
  *   revokeSessions: true
@@ -24,7 +24,7 @@
  *
  * // Code only (no link)
  * await authService.adminResetPassword({
- *   identifier: 'user@example.com',
+ *   sub: 'a21b654c-2746-4168-acee-c175083a65cd',
  *   deliveryMethod: 'email'
  * });
  * ```
@@ -43,6 +43,7 @@ import {
   Min,
   Max,
   Length,
+  IsUUID,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -51,35 +52,25 @@ import { Transform } from 'class-transformer';
  */
 export class AdminResetPasswordDTO {
   /**
-   * User identifier (email, username, phone, or sub/UUID)
+   * User sub (UUID)
    *
    * Validation:
-   * - Must be a string
-   * - Min 1 character
-   * - Max 255 characters
+   * - Must be a valid UUID v4
    *
    * Sanitization:
    * - Trimmed
-   * - Lowercased if email format detected
+   * - Lowercased for consistency
    *
-   * @example "user@example.com" | "johndoe" | "+1234567890" | "uuid"
+   * @example "a21b654c-2746-4168-acee-c175083a65cd"
    */
-  @IsString({ message: 'Identifier must be a string' })
-  @IsNotEmpty({ message: 'Identifier is required' })
-  @MinLength(1, { message: 'Identifier is required' })
-  @MaxLength(255, { message: 'Identifier must not exceed 255 characters' })
+  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
   @Transform(({ value }: { value: unknown }) => {
     if (typeof value === 'string') {
-      const trimmed = value.trim();
-      // If it contains @, treat as email and lowercase
-      if (trimmed.includes('@')) {
-        return trimmed.toLowerCase();
-      }
-      return trimmed;
+      return value.trim().toLowerCase();
     }
     return value;
   })
-  identifier!: string;
+  sub!: string;
 
   /**
    * Delivery method for reset code
@@ -253,7 +244,7 @@ export class AdminResetPasswordResponseDTO {
  * @example
  * ```typescript
  * await authService.confirmAdminResetPassword({
- *   identifier: 'user@example.com',
+ *   sub: 'a21b654c-2746-4168-acee-c175083a65cd',
  *   code: '123456',
  *   newPassword: 'NewSecurePass123!'
  * });
@@ -261,35 +252,25 @@ export class AdminResetPasswordResponseDTO {
  */
 export class ConfirmAdminResetPasswordDTO {
   /**
-   * User identifier (email, username, phone, or sub/UUID)
+   * User sub (UUID)
    *
    * Validation:
-   * - Must be a string
-   * - Min 1 character
-   * - Max 255 characters
+   * - Must be a valid UUID v4
    *
    * Sanitization:
    * - Trimmed
-   * - Lowercased if email format detected
+   * - Lowercased for consistency
    *
-   * @example "user@example.com"
+   * @example "a21b654c-2746-4168-acee-c175083a65cd"
    */
-  @IsString({ message: 'Identifier must be a string' })
-  @IsNotEmpty({ message: 'Identifier is required' })
-  @MinLength(1, { message: 'Identifier is required' })
-  @MaxLength(255, { message: 'Identifier must not exceed 255 characters' })
+  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
   @Transform(({ value }: { value: unknown }) => {
     if (typeof value === 'string') {
-      const trimmed = value.trim();
-      // If it contains @, treat as email and lowercase
-      if (trimmed.includes('@')) {
-        return trimmed.toLowerCase();
-      }
-      return trimmed;
+      return value.trim().toLowerCase();
     }
     return value;
   })
-  identifier!: string;
+  sub!: string;
 
   /**
    * Verification code from email/SMS (6-10 digits)

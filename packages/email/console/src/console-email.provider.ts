@@ -223,7 +223,7 @@ export class ConsoleEmailProvider implements EmailProvider {
     context: {
       deviceType?: string;
       deviceName?: string;
-      removedBy?: 'user' | 'system';
+      removedBy?: 'user' | 'admin' | 'system';
       reason?: string;
       remainingDeviceCount?: number;
     } = {},

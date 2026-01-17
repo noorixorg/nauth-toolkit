@@ -1,48 +1,28 @@
 /**
  * DTO for setting preferred MFA method
  *
- * Used to set the preferred MFA method for a user.
+ * Used to set the preferred MFA method for the current authenticated user.
  * Updates the user's preferred method and device primary flags.
+ * User sub is obtained from authenticated context automatically.
  *
  * @example
  * ```typescript
  * await mfaService.setPreferredMethod({
- *   userSub: 'user-uuid',
  *   methodType: 'totp'
  * });
  * ```
  */
 
-import { IsEnum, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsEnum, IsString, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { MFAMethod } from '../enums/mfa-method.enum';
 
 /**
  * DTO for setting preferred MFA method
+ *
+ * User self-service DTO - no userSub field. Service gets user from authenticated context.
  */
 export class SetPreferredMethodDTO {
-  /**
-   * User's unique identifier (UUID v4)
-   *
-   * Validation:
-   * - Must be a valid UUID v4 format
-   * - Matches DB constraint: char(36) or uuid
-   *
-   * Sanitization:
-   * - Trimmed
-   * - Lowercased for consistency
-   *
-   * @example "a21b654c-2746-4168-acee-c175083a65cd"
-   */
-  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim().toLowerCase();
-    }
-    return value;
-  })
-  userSub!: string;
-
   /**
    * MFA method type to set as preferred
    *

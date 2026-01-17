@@ -1,47 +1,28 @@
 /**
  * DTO for removing MFA devices
  *
- * Used to remove all MFA devices of a specific method type for a user.
+ * Used to remove all MFA devices of a specific method type for the current authenticated user.
  * Automatically disables MFA if this was the last device.
+ * User sub is obtained from authenticated context automatically.
  *
  * @example
  * ```typescript
  * const result = await mfaService.removeDevices({
- *   userSub: 'user-uuid',
  *   methodType: 'totp'
  * });
  * ```
  */
 
-import { IsEnum, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsEnum, IsString, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { MFAMethod } from '../enums/mfa-method.enum';
 
 /**
  * DTO for removing MFA devices
+ *
+ * User self-service DTO - no userSub field. Service gets user from authenticated context.
  */
 export class RemoveDevicesDTO {
-  /**
-   * User's unique identifier (UUID v4)
-   *
-   * Validation:
-   * - Must be a valid UUID v4 format
-   * - Matches DB constraint: char(36) or uuid
-   *
-   * Sanitization:
-   * - Trimmed
-   * - Lowercased for consistency
-   *
-   * @example "a21b654c-2746-4168-acee-c175083a65cd"
-   */
-  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim().toLowerCase();
-    }
-    return value;
-  })
-  userSub!: string;
 
   /**
    * MFA method type to remove

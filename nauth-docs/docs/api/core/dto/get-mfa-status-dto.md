@@ -1,7 +1,7 @@
 ---
 title: GetMFAStatusDTO
-description: Request and response DTOs for retrieving comprehensive MFA status including enabled status, configured methods, available methods, backup codes, and exemption information.
-keywords: [mfa, status, dto, request, response, enabled, methods, api]
+description: Request and response DTOs for retrieving comprehensive MFA status (admin-only) including enabled status, configured methods, available methods, backup codes, and exemption information.
+keywords: [mfa, status, dto, request, response, enabled, methods, api, admin]
 image: /img/api-social-card.png
 ---
 import Tabs from '@theme/Tabs';
@@ -11,8 +11,13 @@ import TabItem from '@theme/TabItem';
 
 **Package:** `@nauth-toolkit/core`
 **Type:** DTO (Request/Response)
+**Context:** Admin Only
 
-Data transfer objects for getting comprehensive MFA status for a user.
+Data transfer objects for getting comprehensive MFA status for a user. This DTO requires the `sub` field and is used for admin operations.
+
+:::warning Admin Only
+This DTO requires the `sub` field to specify the target user. For user self-service operations, use [`AuthService.getMFAStatus()`](../services/auth-service#getmfastatus) which takes no DTO and automatically uses the authenticated user's context.
+:::
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
@@ -84,5 +89,9 @@ import { GetMFAStatusDTO, GetMFAStatusResponseDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [MFAService.getMFAStatus()](../services/mfa-service#getmfastatus)
+- [MFAService.getMFAStatus()](../services/mfa-service#getmfastatus) - Admin operation (requires `sub`)
+
+## Related APIs
+
+- [AuthService.getMFAStatus()](../services/auth-service#getmfastatus) - User self-service method (no DTO needed)
 

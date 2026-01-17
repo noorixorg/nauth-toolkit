@@ -113,5 +113,5 @@ import { AdminSignupDTO, AdminSignupResponseDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AuthService.adminSignup()](../services/auth-service#adminsignup)
+- [AdminAuthService.signup()](../services/admin-auth-service#signup)
 

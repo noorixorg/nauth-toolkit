@@ -80,6 +80,6 @@ import { UserResponseDto } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AuthService.getUserById()](../services/auth-service#getuserbyid)
-- [AuthService.getUserByEmail()](../services/auth-service#getuserbyemail)
+- [AdminAuthService.getUserById()](../services/admin-auth-service#getuserbyid)
+- [AdminAuthService.getUserByEmail()](../services/admin-auth-service#getuserbyemail)
 - [AuthService.updateUserAttributes()](../services/auth-service#updateuserattributes)

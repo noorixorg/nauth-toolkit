@@ -106,7 +106,7 @@ export class AuthService {
       ...config,
       httpAdapter: adapter,
       navigationHandler,
-      onAuthStateChange: (user) => {
+      onAuthStateChange: (user: AuthUser | null) => {
         this.currentUserSubject.next(user);
         this.isAuthenticatedSubject.next(Boolean(user));
         config.onAuthStateChange?.(user);
@@ -114,7 +114,7 @@ export class AuthService {
     });
 
     // Forward all client events to Observable stream
-    this.client.on('*', (event) => {
+    this.client.on('*', (event: AuthEvent) => {
       this.authEventsSubject.next(event);
     });
 
@@ -413,20 +413,6 @@ export class AuthService {
    */
   async changePassword(oldPassword: string, newPassword: string): Promise<void> {
     return this.client.changePassword(oldPassword, newPassword);
-  }
-
-  /**
-   * Request password change (must change on next login).
-   *
-   * @returns Promise that resolves when request is sent
-   *
-   * @example
-   * ```typescript
-   * await this.auth.requestPasswordChange();
-   * ```
-   */
-  async requestPasswordChange(): Promise<void> {
-    return this.client.requestPasswordChange();
   }
 
   // ============================================================================
@@ -876,12 +862,15 @@ export class AuthService {
    * const history = await this.auth.getAuditHistory({
    *   page: 1,
    *   limit: 20,
-   *   eventType: 'LOGIN_SUCCESS'
+   *   eventTypes: ['LOGIN_SUCCESS'],
+   *   eventStatus: ['FAILURE'],
    * });
    * console.log('Audit history:', history);
    * ```
    */
-  async getAuditHistory(params?: Record<string, string | number | boolean>): Promise<AuditHistoryResponse> {
+  async getAuditHistory(
+    params?: Record<string, string | number | boolean | Array<string | number | boolean>>,
+  ): Promise<AuditHistoryResponse> {
     return this.client.getAuditHistory(params);
   }
 

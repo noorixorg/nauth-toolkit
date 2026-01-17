@@ -123,7 +123,7 @@ export class UserSessionInfo {
  *
  * @example
  * ```typescript
- * const response = await authService.getUserSessions(dto);
+ * const response = await authService.getUserSessions();
  * // response.sessions = [{ sessionId: '123', authMethod: 'password', ... }, ...]
  * ```
  */

@@ -19,6 +19,7 @@ import {
   PhoneVerificationService,
   MFAService,
   AuthService,
+  AdminAuthService,
   SocialAuthService,
   NAuthException,
   AuthErrorCode,
@@ -72,6 +73,7 @@ export interface NAuthServices {
   authFlowStateMachine: AuthFlowStateMachineService;
   authChallengeHelperService: AuthChallengeHelperService;
   authService: AuthService;
+  adminAuthService: AdminAuthService;
   socialProviderRegistry: SocialProviderRegistry;
   socialAuthService: SocialAuthService;
   hookRegistry: HookRegistryService;
@@ -426,6 +428,33 @@ export function initServices(
     auditService,
   );
 
+  const adminAuthService = new AdminAuthService(
+    repositories.userRepository,
+    repositories.loginAttemptRepository,
+    passwordService,
+    sessionService,
+    challengeService,
+    authChallengeHelperService,
+    emailVerificationService,
+    clientInfoService,
+    accountLockoutStorageService,
+    config,
+    logger,
+    hookRegistry,
+    auditService,
+    phoneVerificationService,
+    repositories.mfaDeviceRepository,
+    trustedDeviceService,
+    passwordResetService,
+    socialAuthService,
+    repositories.sessionRepository,
+    repositories.verificationTokenRepository,
+    repositories.socialAccountRepository,
+    repositories.challengeSessionRepository,
+    repositories.authAuditRepository,
+    repositories.trustedDeviceRepository || undefined,
+  );
+
   // ============================================================================
   // 13. GeoLocation Service (Conditional)
   // ============================================================================
@@ -469,6 +498,7 @@ export function initServices(
     authFlowStateMachine,
     authChallengeHelperService,
     authService,
+    adminAuthService,
     socialProviderRegistry,
     socialAuthService,
     hookRegistry,

@@ -434,9 +434,10 @@ export interface MFADeviceRemovedMetadata {
    * Who removed the device
    *
    * - 'user': User removed their own device
+   * - 'admin': Admin removed a user's device
    * - 'system': System removed device (e.g., after email/phone change)
    */
-  removedBy: 'user' | 'system';
+  removedBy: 'user' | 'admin' | 'system';
 
   /**
    * Reason for removal

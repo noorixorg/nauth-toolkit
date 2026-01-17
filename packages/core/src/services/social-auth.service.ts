@@ -7,7 +7,8 @@ import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { NAuthLogger } from '../utils/nauth-logger';
-import { ChangePasswordRequestDTO } from '../dto/change-password-request.dto';
+import { ChangePasswordDTO } from '../dto/change-password.dto';
+import { ContextStorage } from '../utils/context-storage';
 import { SocialProviderRegistry } from './social-provider-registry.service';
 import {
   LinkSocialAccountDTO,
@@ -55,6 +56,20 @@ import { ensureValidatedDto } from '../utils/dto-validator';
  * ```
  */
 export class SocialAuthService {
+  /**
+   * Get current user from authenticated context
+   *
+   * @returns Current authenticated user
+   * @throws {NAuthException} If user not found in context
+   */
+  private getCurrentUserOrThrow(): IUser {
+    const currentUser = ContextStorage.get<IUser>('CURRENT_USER');
+    if (!currentUser) {
+      throw new NAuthException(AuthErrorCode.FORBIDDEN, 'Authentication required');
+    }
+    return currentUser;
+  }
+
   constructor(
     private readonly providerRegistry: SocialProviderRegistry,
     private readonly userRepository: Repository<BaseUser>,
@@ -91,9 +106,11 @@ export class SocialAuthService {
    */
   async linkSocialAccount(dto: LinkSocialAccountDTO): Promise<LinkSocialAccountResponseDTO> {
     dto = await ensureValidatedDto(LinkSocialAccountDTO, dto);
-    const { userId, provider, code, state } = dto;
+    // Get user from authenticated context
+    const currentUser = this.getCurrentUserOrThrow();
+    const { provider, code, state } = dto;
     const providerInstance = this.providerRegistry.getProvider(provider);
-    const result = await providerInstance.linkAccount(userId, code, state);
+    const result = await providerInstance.linkAccount(currentUser.sub, code, state);
     return { ...result, provider };
   }
 
@@ -135,14 +152,11 @@ export class SocialAuthService {
    */
   async getLinkedAccounts(dto: GetLinkedAccountsDTO): Promise<GetLinkedAccountsResponseDTO> {
     dto = await ensureValidatedDto(GetLinkedAccountsDTO, dto);
-    const { userId } = dto;
-    const user = (await this.userRepository.findOne({ where: { sub: userId } })) as IUser | null;
-    if (!user) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
-    }
+    // Get user from authenticated context (already has id)
+    const currentUser = this.getCurrentUserOrThrow();
 
     const socialAccounts = (await this.socialAccountRepository.find({
-      where: { userId: user.id },
+      where: { userId: currentUser.id },
       order: { linkedAt: 'DESC' },
     })) as ISocialAccount[];
 
@@ -171,14 +185,12 @@ export class SocialAuthService {
    */
   async unlinkSocialAccount(dto: UnlinkSocialAccountDTO): Promise<UnlinkSocialAccountResponseDTO> {
     dto = await ensureValidatedDto(UnlinkSocialAccountDTO, dto);
-    const { userId, provider } = dto;
-    const user = (await this.userRepository.findOne({ where: { sub: userId } })) as IUser | null;
-    if (!user) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
-    }
+    // Get user from authenticated context (already has id)
+    const currentUser = this.getCurrentUserOrThrow();
+    const { provider } = dto;
 
     const socialAccount = (await this.socialAccountRepository.findOne({
-      where: { userId: user.id, provider },
+      where: { userId: currentUser.id, provider },
     })) as ISocialAccount | null;
 
     if (!socialAccount) {
@@ -192,14 +204,14 @@ export class SocialAuthService {
     await this.socialAccountRepository.remove(socialAccount);
 
     // Update user's social auth flags
-    await this.updateUserSocialFlags(user.id as number);
+    await this.updateUserSocialFlags(currentUser.id);
 
     // ============================================================================
     // Audit: Record social account unlink
     // ============================================================================
     try {
       await this.auditService?.recordEvent({
-        userId: user.id,
+        userId: currentUser.id,
         eventType: AuthAuditEventType.SOCIAL_ACCOUNT_UNLINKED,
         eventStatus: 'INFO',
         authMethod: provider,
@@ -214,7 +226,7 @@ export class SocialAuthService {
       const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
       this.logger?.error?.(`Failed to record SOCIAL_ACCOUNT_UNLINKED audit event: ${errorMessage}`, {
         error: auditError,
-        userId: user.id,
+        userId: currentUser.id,
         provider,
       });
     }
@@ -240,8 +252,8 @@ export class SocialAuthService {
    */
   async canSetPassword(dto: CanSetPasswordDTO): Promise<CanSetPasswordResponseDTO> {
     dto = await ensureValidatedDto(CanSetPasswordDTO, dto);
-    const { userId } = dto;
-    const user = (await this.userRepository.findOne({ where: { sub: userId } })) as IUser | null;
+    const { sub } = dto;
+    const user = (await this.userRepository.findOne({ where: { sub } })) as IUser | null;
     if (!user) {
       return { canSetPassword: false };
     }
@@ -266,8 +278,8 @@ export class SocialAuthService {
    */
   async setPasswordForSocialUser(dto: SetPasswordForSocialUserDTO): Promise<SetPasswordForSocialUserResponseDTO> {
     dto = await ensureValidatedDto(SetPasswordForSocialUserDTO, dto);
-    const { userId, password } = dto;
-    const user = await this.userRepository.findOne({ where: { sub: userId } });
+    const { sub, password } = dto;
+    const user = await this.userRepository.findOne({ where: { sub } });
     if (!user) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
@@ -280,16 +292,18 @@ export class SocialAuthService {
 
     // Use AuthService to set password (includes validation and hashing)
     // For social-only users, we bypass old password validation since they don't have one
-    // Note: This requires type casting as ChangePasswordRequestDTO requires oldPassword, but
-    // the auth service will handle the case where user has no passwordHash
     if (!this.authService) {
       throw new NAuthException(
         AuthErrorCode.INTERNAL_ERROR,
         'AuthService is not available. This is a configuration error.',
       );
     }
-    const changePasswordDto = new ChangePasswordRequestDTO();
-    changePasswordDto.sub = userId; // userId is the sub (external UUID) in this context
+    const currentUser = ContextStorage.get<IUser>('CURRENT_USER');
+    if (!currentUser || currentUser.sub !== sub) {
+      throw new NAuthException(AuthErrorCode.FORBIDDEN, 'Forbidden');
+    }
+
+    const changePasswordDto = new ChangePasswordDTO();
     changePasswordDto.oldPassword = ''; // Social-only users don't have a password
     changePasswordDto.newPassword = password;
     await this.authService.changePassword(changePasswordDto);

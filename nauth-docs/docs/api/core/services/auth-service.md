@@ -50,655 +50,17 @@ Automatically injected by your framework adapter. No manual instantiation requir
 
 ## Methods
 
-### adminResetPassword()
-
-Admin-only: Initiate code-based password reset workflow with email/SMS delivery.
-
-```typescript
-async adminResetPassword(dto: AdminResetPasswordDTO): Promise<AdminResetPasswordResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`AdminResetPasswordDTO`](../dto/admin-reset-password-dto)
-
-**Returns**
-
-- [`AdminResetPasswordResponseDTO`](../dto/admin-reset-password-dto)
-
-**Errors**
-
-Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
-
-| Code                  | When                           | Details     |
-| --------------------- | ------------------------------ | ----------- |
-| `NOT_FOUND`           | User not found                 | `undefined` |
-| `SERVICE_UNAVAILABLE` | Password reset service missing | `undefined` |
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-@Controller('admin')
-@UseGuards(AdminGuard)
-export class AdminController {
-  constructor(private authService: AuthService) {}
-
-  @Post('reset-password/initiate')
-  async initiateReset(@Body() dto: AdminResetPasswordDTO) {
-    return this.authService.adminResetPassword(dto);
-  }
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-app.post('/admin/reset-password/initiate', nauth.helpers.requireAuth(), requireAdmin, async (req, res) => {
-  const result = await nauth.authService.adminResetPassword(req.body);
-  res.json(result);
-});
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-fastify.post(
-  '/admin/reset-password/initiate',
-  { preHandler: [nauth.helpers.requireAuth(), requireAdmin] },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return nauth.authService.adminResetPassword(req.body);
-  }),
-);
-```
-
-</TabItem>
-</Tabs>
-
-:::warning Authorization
-Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
-:::
-
----
-
-### adminSetPassword()
-
-Admin-only: Reset user password by identifier.
-
-```typescript
-async adminSetPassword(dto: AdminSetPasswordDTO): Promise<AdminSetPasswordResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`AdminSetPasswordDTO`](../dto/admin-set-password-dto)
-
-**Returns**
-
-- [`AdminSetPasswordResponseDTO`](../dto/admin-set-password-dto)
-
-**Errors**
-
-Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
-
-| Code              | When                                                              | Details                |
-| ----------------- | ----------------------------------------------------------------- | ---------------------- |
-| `NOT_FOUND`       | User not found                                                    | `undefined`            |
-| `WEAK_PASSWORD`   | Policy violation                                                  | `{ errors: string[] }` |
-| `PASSWORD_REUSED` | Only if `password.historyCount` is configured AND password reused | `undefined`            |
-
-**WEAK_PASSWORD details**
-
-Example strings returned in `errors`:
-
-```json
-{
-  "errors": [
-    "Password must be at least 8 characters long",
-    "Password must contain at least one uppercase letter",
-    "Password must contain at least one number",
-    "Password must contain at least one special character !@#$%^&*()_+=[{}|;:,.<>?-]"
-  ]
-}
-```
-
-::::info Social accounts
-Admins can also use this method to **set the first password** for a social-only (social-first) account. This makes the account both password + social enabled.
-::::
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-@Controller('admin')
-@UseGuards(AuthGuard)
-export class AdminController {
-  constructor(private authService: AuthService) {}
-
-  @Post('reset-password')
-  async resetPassword(@Body() dto: AdminSetPasswordDTO) {
-    // API should not be exposed to normal users, this is an admin function
-    return this.authService.adminSetPassword(dto);
-  }
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-app.post('/admin/reset-password', nauth.helpers.requireAuth(), requireAdmin, async (req, res) => {
-  const result = await nauth.authService.adminSetPassword(req.body);
-  res.json(result);
-});
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-fastify.post(
-  '/admin/reset-password',
-  { preHandler: [nauth.helpers.requireAuth(), requireAdmin] },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return nauth.authService.adminSetPassword(req.body);
-  }),
-);
-```
-
-</TabItem>
-</Tabs>
-
-:::warning Authorisation
-Please ensure you implement Admin authorisation as required. This method does not check admin status - protect routes with your own permission guards.
-:::
-
----
-
-### adminSignup()
-
-Admin-only: Create user account with override capabilities.
-
-```typescript
-async adminSignup(dto: AdminSignupDTO): Promise<AdminSignupResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`AdminSignupDTO`](../dto/admin-signup-dto)
-
-**Returns**
-
-- [`AdminSignupResponseDTO`](../dto/admin-signup-dto)
-
-**Errors**
-
-Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
-
-| Code              | When                                                                 | Details                               |
-| ----------------- | -------------------------------------------------------------------- | ------------------------------------- |
-| `EMAIL_EXISTS`    | Email already exists                                                 | `undefined`                           |
-| `USERNAME_EXISTS` | Username already exists                                              | `undefined`                           |
-| `PHONE_EXISTS`    | Only if `signup.allowDuplicatePhones = false` AND phone provided     | `undefined`                           |
-| `WEAK_PASSWORD`   | Policy violation OR password missing when `generatePassword = false` | `undefined` \| `{ errors: string[] }` |
-
-**WEAK_PASSWORD details**
-
-When password validation fails, `details` includes an array of error strings:
-
-```json
-{
-  "errors": [
-    "Password must be at least 8 characters long",
-    "Password must contain at least one uppercase letter",
-    "Password must contain at least one number",
-    "Password must contain at least one special character !@#$%^&*()_+=[{}|;:,.<>?-]"
-  ]
-}
-```
-
-When `generatePassword = false` and `password` is missing, `details` is `undefined`.
-
-:::note Admin capabilities
-
-- Can Bypass email/phone verification requirements by setting _isPhoneVerified_ and _isEmailVerified_ to true
-- Force password change on first login
-- Auto-generate secure passwords
-- Skip signup.enabled check
-  :::
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-@Controller('admin')
-@UseGuards(AuthGuard)
-export class AdminController {
-  constructor(private authService: AuthService) {}
-
-  @Post('create-user')
-  async createUser(@Body() dto: AdminSignupDTO) {
-    // API should not be exposed to normal users, this is an admin function
-    return this.authService.adminSignup(dto);
-  }
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-app.post('/admin/create-user', nauth.helpers.requireAuth(), requireAdmin, async (req, res) => {
-  const result = await nauth.authService.adminSignup(req.body);
-  res.json(result);
-});
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-fastify.post(
-  '/admin/create-user',
-  { preHandler: [nauth.helpers.requireAuth(), requireAdmin] },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return nauth.authService.adminSignup(req.body);
-  }),
-);
-```
-
-</TabItem>
-</Tabs>
-
-:::warning Authorisation
-Please ensure you implement Admin authorisation as required. This method does not check admin status - protect routes with your own permission guards.
-:::
-
----
-
-### adminSignupSocial()
-
-Admin-only: Import social user from external platform with social account linkage.
-
-```typescript
-async adminSignupSocial(dto: AdminSignupSocialDTO): Promise<AdminSignupSocialResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`AdminSignupSocialDTO`](../dto/admin-signup-social-dto)
-
-**Returns**
-
-- [`AdminSignupSocialResponseDTO`](../dto/admin-signup-social-response-dto)
-
-**Errors**
-
-Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
-
-| Code                    | When                                                             | Details                               |
-| ----------------------- | ---------------------------------------------------------------- | ------------------------------------- |
-| `EMAIL_EXISTS`          | Email already exists                                             | `undefined`                           |
-| `USERNAME_EXISTS`       | Username already exists                                          | `undefined`                           |
-| `PHONE_EXISTS`          | Only if `signup.allowDuplicatePhones = false` AND phone provided | `undefined`                           |
-| `SOCIAL_ACCOUNT_EXISTS` | Provider + providerId combination already exists                 | `undefined`                           |
-| `SOCIAL_CONFIG_MISSING` | Social auth not configured                                       | `undefined`                           |
-| `WEAK_PASSWORD`         | Policy violation (only if password provided)                     | `undefined` \| `{ errors: string[] }` |
-
-**WEAK_PASSWORD details**
-
-When password validation fails (only relevant for hybrid social+password accounts), `details` includes an array of error strings:
-
-```json
-{
-  "errors": ["Password must be at least 8 characters long", "Password must contain at least one uppercase letter"]
-}
-```
-
-:::note Admin capabilities
-
-- Import social users with pre-linked social accounts
-- Create social-only users (no password) or hybrid users (social + password)
-- Email automatically verified (like normal social signup)
-- Bypass phone verification requirement (optional)
-- Suitable for migrating users from Cognito, Auth0, or other platforms
-- Social account (provider + providerId) must be unique
-- User flags `hasSocialAuth` and `socialProviders` automatically updated
-
-:::
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-@Controller('admin')
-@UseGuards(AuthGuard)
-export class AdminController {
-  constructor(private authService: AuthService) {}
-
-  @Post('import-social-user')
-  async importSocialUser(@Body() dto: AdminSignupSocialDTO) {
-    // Import user from external platform (e.g., Cognito migration)
-    return this.authService.adminSignupSocial(dto);
-  }
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-app.post('/admin/import-social-user', nauth.helpers.requireAuth(), requireAdmin, async (req, res) => {
-  const result = await nauth.authService.adminSignupSocial(req.body);
-  res.json(result);
-});
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-fastify.post(
-  '/admin/import-social-user',
-  { preHandler: [nauth.helpers.requireAuth(), requireAdmin] },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return nauth.authService.adminSignupSocial(req.body);
-  }),
-);
-```
-
-</TabItem>
-</Tabs>
-
-**Use Case: Cognito Migration**
-
-```typescript
-// Migrate Cognito user with Google social login
-// Note: Email is automatically verified for social imports (like normal social signup)
-const result = await authService.adminSignupSocial({
-  email: 'user@example.com',
-  provider: 'google',
-  providerId: cognitoUser.identities[0].userId,
-  providerEmail: cognitoUser.identities[0].providerAttributes.email,
-  socialMetadata: cognitoUser.identities[0].providerAttributes,
-  firstName: cognitoUser.given_name,
-  lastName: cognitoUser.family_name,
-});
-```
-
-:::warning Authorization
-Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
-:::
-
----
-
-### deleteUser()
-
-Hard delete user with complete cascade cleanup. Permanently removes user and ALL associated data including sessions, verification tokens, MFA devices, trusted devices, social accounts, login attempts, challenge sessions, and audit logs.
-
-```typescript
-async deleteUser(dto: DeleteUserDTO): Promise<DeleteUserResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`DeleteUserDTO`](../dto/delete-user-dto)
-
-**Returns**
-
-- [`DeleteUserResponseDTO`](../dto/delete-user-response-dto) - Deletion confirmation with cascade counts
-
-**Errors**
-
-Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
-
-| Code             | When                        | Details     |
-| ---------------- | --------------------------- | ----------- |
-| `USER_NOT_FOUND` | User with sub doesn't exist | `undefined` |
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-@Injectable()
-export class AdminService {
-  constructor(private readonly authService: AuthService) {}
-
-  async deleteUser(sub: string) {
-    const result = await this.authService.deleteUser({ sub });
-    console.log(`Deleted ${result.deletedRecords.sessions} sessions`);
-    return result;
-  }
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-app.delete('/admin/users/:sub', async (req, res) => {
-  const result = await nauth.authService.deleteUser({
-    sub: req.params.sub,
-  });
-  res.json(result);
-});
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-fastify.delete(
-  '/admin/users/:sub',
-  { preHandler: nauth.helpers.adminOnly() },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return nauth.authService.deleteUser({ sub: req.params.sub });
-  }),
-);
-```
-
-</TabItem>
-</Tabs>
-
-:::warning Authorization
-Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
-:::
-
-:::danger Irreversible Operation
-This operation permanently deletes all user data and cannot be undone. All associated records (sessions, tokens, devices, etc.) are deleted from the database.
-:::
-
----
-
-### disableUser()
-
-Administrative permanent account locking. Sets permanent lock (lockedUntil=NULL) and immediately revokes all active sessions. Reuses existing rate-limit lock fields.
-
-```typescript
-async disableUser(dto: DisableUserDTO): Promise<DisableUserResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`DisableUserDTO`](../dto/disable-user-dto)
-
-**Returns**
-
-- [`DisableUserResponseDTO`](../dto/disable-user-response-dto) - User object and revoked session count
-
-**Errors**
-
-Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
-
-| Code             | When                        | Details     |
-| ---------------- | --------------------------- | ----------- |
-| `USER_NOT_FOUND` | User with sub doesn't exist | `undefined` |
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-@Injectable()
-export class AdminService {
-  constructor(private readonly authService: AuthService) {}
-
-  async disableUser(sub: string, reason: string) {
-    const result = await this.authService.disableUser({ sub, reason });
-    console.log(`Revoked ${result.revokedSessions} sessions`);
-    return result;
-  }
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-app.post('/admin/users/:sub/disable', async (req, res) => {
-  const result = await nauth.authService.disableUser({
-    sub: req.params.sub,
-    reason: req.body.reason,
-  });
-  res.json(result);
-});
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-fastify.post(
-  '/admin/users/:sub/disable',
-  { preHandler: nauth.helpers.adminOnly() },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return nauth.authService.disableUser({
-      sub: req.params.sub,
-      reason: req.body.reason,
-    });
-  }),
-);
-```
-
-</TabItem>
-</Tabs>
-
-:::note Permanent vs Temporary Locks
-Rate limiting sets temporary locks with `lockedUntil` = future date. Admin `disableUser()` sets `lockedUntil = NULL` for permanent locks.
-:::
-
-:::warning Authorization
-Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
-:::
-
----
-
-### enableUser()
-
-Administrative account unlocking. Clears all lock fields (isLocked, lockReason, lockedAt, lockedUntil) and resets failed login attempts counter. Reverses the effect of disableUser() or rate-limit lockouts.
-
-```typescript
-async enableUser(dto: EnableUserDTO): Promise<EnableUserResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`EnableUserDTO`](../dto/enable-user-dto)
-
-**Returns**
-
-- [`EnableUserResponseDTO`](../dto/enable-user-response-dto) - User object with updated lock status
-
-**Errors**
-
-Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
-
-| Code             | When                        | Details     |
-| ---------------- | --------------------------- | ----------- |
-| `USER_NOT_FOUND` | User with sub doesn't exist | `undefined` |
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-@Injectable()
-export class AdminService {
-  constructor(private readonly authService: AuthService) {}
-
-  async enableUser(sub: string) {
-    const result = await this.authService.enableUser({ sub });
-    console.log(`User unlocked: ${result.user.email}`);
-    return result;
-  }
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-app.post('/admin/users/:sub/enable', async (req, res) => {
-  const result = await nauth.authService.enableUser({
-    sub: req.params.sub,
-  });
-  res.json(result);
-});
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-fastify.post(
-  '/admin/users/:sub/enable',
-  { preHandler: nauth.helpers.adminOnly() },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return nauth.authService.enableUser({
-      sub: req.params.sub,
-    });
-  }),
-);
-```
-
-</TabItem>
-</Tabs>
-
-:::note Unlocking Accounts
-This method clears all lock fields including temporary rate-limit locks. Use this to unlock accounts that were locked by either `disableUser()` or automatic rate limiting.
-:::
-
-:::warning Authorization
-Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
-:::
-
----
-
 ### changePassword()
 
 Change user's password. Requires current password verification. All user sessions are revoked on successful password change.
 
 ```typescript
-async changePassword(dto: ChangePasswordRequestDTO): Promise<ChangePasswordResponseDTO>
+async changePassword(dto: ChangePasswordDTO): Promise<ChangePasswordResponseDTO>
 ```
 
 **Parameters**
 
-- `dto` - [`ChangePasswordRequestDTO`](../dto/change-password-request-dto)
+- `dto` - [`ChangePasswordDTO`](../dto/change-password-dto) - **No `sub` field required** - user is automatically derived from authenticated context
 
 **Returns**
 
@@ -739,7 +101,7 @@ This method **requires an existing password**. Social-only users (users who sign
 - Users without a password (such as those registered via OAuth/social login) can **set their initial password** by using either the [`SocialAuthService.setPasswordForSocialUser()`](./social-auth-service) method or the [`forgotPassword()`](#forgotpassword) and [`confirmForgotPassword()`](#confirmforgotpassword) flow.
 - Once a password has been set, the `changePassword()` method is available for future password changes.
 
-An administrator can also assign a password using the `adminSetPassword()` function.
+An administrator can also assign a password using the [`AdminAuthService.setPassword()`](./admin-auth-service#setpassword) method.
 :::
 
 **Example**
@@ -749,7 +111,6 @@ An administrator can also assign a password using the `adminSetPassword()` funct
 
 ```typescript
 await authService.changePassword({
-  sub: 'a21b654c-2746-4168-acee-c175083a65cd',
   oldPassword: 'OldPass123!',
   newPassword: 'NewPass456!',
 });
@@ -773,92 +134,6 @@ fastify.post('/auth/change-password', async (req, reply) => {
   const result = await nauth.authService.changePassword(req.body);
   reply.send(result);
 });
-```
-
-</TabItem>
-</Tabs>
-
----
-
-### confirmAdminResetPassword()
-
-Complete admin-initiated password reset with a verification code.
-
-```typescript
-async confirmAdminResetPassword(dto: ConfirmAdminResetPasswordDTO): Promise<ConfirmAdminResetPasswordResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`ConfirmAdminResetPasswordDTO`](../dto/confirm-admin-reset-password-dto)
-
-**Returns**
-
-- [`ConfirmAdminResetPasswordResponseDTO`](../dto/confirm-admin-reset-password-dto)
-
-**Errors**
-
-Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
-
-| Code                          | When                                                              | Details                |
-| ----------------------------- | ----------------------------------------------------------------- | ---------------------- |
-| `NOT_FOUND`                   | User not found                                                    | `undefined`            |
-| `PASSWORD_RESET_CODE_INVALID` | Code invalid                                                      | `undefined`            |
-| `PASSWORD_RESET_CODE_EXPIRED` | Code expired                                                      | `undefined`            |
-| `PASSWORD_RESET_MAX_ATTEMPTS` | Max attempts exceeded (code only)                                 | `undefined`            |
-| `WEAK_PASSWORD`               | Policy violation                                                  | `{ errors: string[] }` |
-| `PASSWORD_REUSED`             | Only if `password.historyCount` is configured AND password reused | `undefined`            |
-| `INVALID_CREDENTIALS`         | Invalid input data                                                | `undefined`            |
-| `SERVICE_UNAVAILABLE`         | Password reset service missing                                    | `undefined`            |
-
-**WEAK_PASSWORD details**
-
-Example strings returned in `errors`:
-
-```json
-{
-  "errors": [
-    "Password must be at least 8 characters long",
-    "Password must contain at least one uppercase letter",
-    "Password must contain at least one number",
-    "Password must contain at least one special character !@#$%^&*()_+=[{}|;:,.<>?-]"
-  ]
-}
-```
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-@Post('admin/reset-password/confirm')
-async confirmReset(@Body() dto: ConfirmAdminResetPasswordDTO) {
-  return this.authService.confirmAdminResetPassword(dto);
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-app.post('/admin/reset-password/confirm', async (req, res) => {
-  const result = await nauth.authService.confirmAdminResetPassword(req.body);
-  res.json(result);
-});
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-fastify.post(
-  '/admin/reset-password/confirm',
-  { preHandler: nauth.helpers.public() },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return nauth.authService.confirmAdminResetPassword(req.body);
-  }),
-);
 ```
 
 </TabItem>
@@ -1046,121 +321,6 @@ fastify.post('/auth/forgot-password', async (req, reply) => {
 
 ---
 
-### getUserByEmail()
-
-Retrieve user by email address. Returns `null` if user not found or if `requireEmailVerified` is `true` and email is not verified.
-
-```typescript
-async getUserByEmail(dto: GetUserByEmailDTO): Promise<UserResponseDto | null>
-```
-
-**Parameters**
-
-- `dto` - [`GetUserByEmailDTO`](../dto/get-user-by-email-dto)
-
-**Returns**
-
-- [`UserResponseDto`](../dto/user-response-dto) or `null` if not found or email verification requirement not met
-
-**Errors**
-
-Errors: None. This method returns `null` instead of throwing when user is not found.
-
-:::note Internal use
-This method is primarily for use by social auth providers. For general user lookup, use `getUserById()`.
-:::
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-const user = await authService.getUserByEmail({
-  email: 'user@example.com',
-  requireEmailVerified: true,
-});
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-const user = await nauth.authService.getUserByEmail({
-  email: 'user@example.com',
-  requireEmailVerified: true,
-});
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-const user = await nauth.authService.getUserByEmail({
-  email: 'user@example.com',
-  requireEmailVerified: true,
-});
-```
-
-</TabItem>
-</Tabs>
-
----
-
-### getUserById()
-
-Retrieve user by unique identifier (sub). Returns `null` if user not found.
-
-```typescript
-async getUserById(dto: GetUserByIdDTO): Promise<UserResponseDto | null>
-```
-
-**Parameters**
-
-- `dto` - [`GetUserByIdDTO`](../dto/get-user-by-id-dto)
-
-**Returns**
-
-- [`UserResponseDto`](../dto/user-response-dto) or `null` if not found
-
-**Errors**
-
-Errors: None. This method returns `null` instead of throwing when user is not found.
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-const user = await authService.getUserById({
-  sub: 'a21b654c-2746-4168-acee-c175083a65cd',
-});
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-const user = await nauth.authService.getUserById({
-  sub: 'a21b654c-2746-4168-acee-c175083a65cd',
-});
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-const user = await nauth.authService.getUserById({
-  sub: 'a21b654c-2746-4168-acee-c175083a65cd',
-});
-```
-
-</TabItem>
-</Tabs>
-
----
-
 ### getUserForAuthContext()
 
 Get user for authentication context with sensitive fields removed. This method ensures consistent user object shape across platforms (core + NestJS) with sensitive fields removed and `hasPasswordHash` flag added.
@@ -1226,15 +386,15 @@ const user = await nauth.authService.getUserForAuthContext('user-uuid-123');
 
 ### getUserSessions()
 
-Get all active sessions for a user. Returns session details including device info, location, authentication method, and timestamps. Current session is marked with `isCurrent: true`.
+Get all active sessions for the current authenticated user. Returns session details including device info, location, authentication method, and timestamps. Current session is marked with `isCurrent: true`.
 
 ```typescript
-async getUserSessions(dto: GetUserSessionsDTO): Promise<GetUserSessionsResponseDTO>
+async getUserSessions(): Promise<GetUserSessionsResponseDTO>
 ```
 
 **Parameters**
 
-- `dto` - [`GetUserSessionsDTO`](../dto/get-user-sessions-dto) - Contains user `sub` identifier
+None - user is automatically derived from authenticated context
 
 **Returns**
 
@@ -1269,7 +429,7 @@ This method requires authentication. For user endpoints, extract `sub` from auth
 @UseGuards(AuthGuard)
 @Get('sessions')
 async getSessions(@CurrentUser() user: IUser) {
-  return this.authService.getUserSessions({ sub: user.sub });
+  return this.authService.getUserSessions();
 }
 ```
 
@@ -1278,8 +438,7 @@ async getSessions(@CurrentUser() user: IUser) {
 
 ```typescript
 app.get('/sessions', nauth.helpers.requireAuth(), async (req, res) => {
-  const user = nauth.helpers.getCurrentUser();
-  const result = await nauth.authService.getUserSessions({ sub: user.sub });
+  const result = await nauth.authService.getUserSessions();
   res.json(result);
 });
 ```
@@ -1292,8 +451,7 @@ fastify.get(
   '/sessions',
   { preHandler: nauth.helpers.requireAuth() },
   nauth.adapter.wrapRouteHandler(async () => {
-    const user = nauth.helpers.getCurrentUser();
-    return nauth.authService.getUserSessions({ sub: user.sub });
+    return nauth.authService.getUserSessions();
   }),
 );
 ```
@@ -1303,25 +461,31 @@ fastify.get(
 
 ---
 
-### getUsers()
+### getMFAStatus()
 
-Get paginated list of users with advanced filtering. Supports pagination, boolean filters, exact match filters, date filters with operators (gt, gte, lt, lte, eq), and flexible sorting.
+Get comprehensive MFA status for the current authenticated user. Returns enabled status, configured methods, available methods, backup codes, and exemption information.
 
 ```typescript
-async getUsers(dto: GetUsersDTO): Promise<GetUsersResponseDTO>
+async getMFAStatus(): Promise<GetMFAStatusResponseDTO>
 ```
-
-**Parameters**
-
-- `dto` - [`GetUsersDTO`](../dto/get-users-dto)
 
 **Returns**
 
-- [`GetUsersResponseDTO`](../dto/get-users-response-dto) - Paginated user list with metadata
+- [`GetMFAStatusResponseDTO`](../dto/get-mfa-status-dto#getmfastatusresponsedto-response) - Comprehensive MFA status
+
+**Behavior**
+
+- Automatically uses the authenticated user's context (no DTO needed)
+- Returns MFA configuration, enabled methods, available methods, and exemption status
+- Requires authenticated session
 
 **Errors**
 
-This method does not throw errors. Returns empty results if no users match filters.
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
+
+| Code            | When                    | Details     |
+| --------------- | ----------------------- | ----------- |
+| `INTERNAL_ERROR` | MFA service not available | `undefined` |
 
 **Example**
 
@@ -1329,33 +493,100 @@ This method does not throw errors. Returns empty results if no users match filte
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-@Injectable()
-export class AdminService {
-  constructor(private readonly authService: AuthService) {}
-
-  async listUsers(page: number, limit: number) {
-    const result = await this.authService.getUsers({
-      page,
-      limit,
-      isEmailVerified: true,
-      sortBy: 'createdAt',
-      sortOrder: 'DESC',
-    });
-    return result;
-  }
-}
+const status = await authService.getMFAStatus();
+// status.enabled - boolean
+// status.configuredMethods - Array<MFADeviceMethod>
+// status.availableMethods - Array<string>
+// status.hasBackupCodes - boolean
+// status.preferredMethod - MFADeviceMethod?
+// status.mfaExempt - boolean
 ```
 
 </TabItem>
 <TabItem value="express" label="Express">
 
 ```typescript
-app.get('/admin/users', async (req, res) => {
-  const result = await nauth.authService.getUsers({
+app.get('/auth/mfa/status', nauth.helpers.requireAuth(), async (req, res) => {
+  const status = await nauth.authService.getMFAStatus();
+  res.json(status);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.get(
+  '/auth/mfa/status',
+  { preHandler: nauth.helpers.requireAuth() },
+  nauth.adapter.wrapRouteHandler(async () => {
+    return nauth.authService.getMFAStatus();
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+### getUserAuthHistory()
+
+Get paginated authentication audit history for the current authenticated user. Returns login attempts, password changes, MFA events, device trust events, and risk factors.
+
+```typescript
+async getUserAuthHistory(dto?: GetUserAuthHistoryDTO): Promise<GetUserAuthHistoryResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`GetUserAuthHistoryDTO`](../dto/get-user-auth-history-dto) (optional) - Filtering and pagination options. **No `sub` field required** - user is automatically derived from the authenticated user's context.
+
+**Returns**
+
+- [`GetUserAuthHistoryResponseDTO`](../dto/get-user-auth-history-response-dto) - Paginated audit events
+
+**Behavior**
+
+- Automatically uses the authenticated user's context (no `sub` needed in DTO)
+- Supports filtering by event types, status, and date ranges
+- Supports pagination with configurable page size (max 500)
+
+**Errors**
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
+
+| Code            | When                    | Details     |
+| --------------- | ----------------------- | ----------- |
+| `INTERNAL_ERROR` | Audit service not available | `undefined` |
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+const result = await authService.getUserAuthHistory({
+  page: 1,
+  limit: 50,
+  eventTypes: [AuthAuditEventType.LOGIN_SUCCESS],
+  startDate: new Date('2025-01-01'),
+});
+// result.data - IAuthAudit[]
+// result.total - number
+// result.page - number
+// result.limit - number
+// result.totalPages - number
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.get('/auth/audit/history', nauth.helpers.requireAuth(), async (req, res) => {
+  const result = await nauth.authService.getUserAuthHistory({
     page: parseInt(req.query.page) || 1,
-    limit: parseInt(req.query.limit) || 10,
-    email: req.query.email,
-    isEmailVerified: req.query.isEmailVerified === 'true',
+    limit: parseInt(req.query.limit) || 50,
   });
   res.json(result);
 });
@@ -1366,16 +597,12 @@ app.get('/admin/users', async (req, res) => {
 
 ```typescript
 fastify.get(
-  '/admin/users',
-  { preHandler: nauth.helpers.adminOnly() },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return nauth.authService.getUsers({
-      page: req.query.page || 1,
-      limit: req.query.limit || 10,
-      isEmailVerified: req.query.isEmailVerified,
-      hasSocialAuth: req.query.hasSocialAuth,
-      sortBy: req.query.sortBy || 'createdAt',
-      sortOrder: req.query.sortOrder || 'DESC',
+  '/auth/audit/history',
+  { preHandler: nauth.helpers.requireAuth() },
+  nauth.adapter.wrapRouteHandler(async () => {
+    return nauth.authService.getUserAuthHistory({
+      page: 1,
+      limit: 50,
     });
   }),
 );
@@ -1383,14 +610,6 @@ fastify.get(
 
 </TabItem>
 </Tabs>
-
-:::note Data Privacy
-Returns sanitized user data (no `passwordHash`, secrets, or sensitive fields). All users have access to standard `UserResponseDto` fields only.
-:::
-
-:::warning Authorization
-Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
-:::
 
 ---
 
@@ -1457,16 +676,16 @@ async login(dto: LoginDTO): Promise<AuthResponseDTO>
 - [`AuthResponseDTO`](../dto/auth-response-dto) - Response format depends on outcome and `tokenDelivery.method`:
   - **Success (JSON mode)**: Contains `accessToken`, `refreshToken`, `accessTokenExpiresAt`, `refreshTokenExpiresAt`, `user`, `authMethod`, `trusted`, `deviceToken` (if trusted)
   - **Success (Cookies mode)**: Contains `user`, `authMethod`, `trusted`, `deviceToken` (if trusted). Tokens are delivered via httpOnly cookies only.
-  - **Challenge**: Contains `challengeName`, `session`, `challengeParameters`, `userSub` (same format regardless of tokenDelivery method)
+  - **Challenge**: Contains `challengeName`, `session`, `challengeParameters`, `sub` (same format regardless of tokenDelivery method)
   - **Blocked**: Throws exception (no response body)
 
 **Response Variations by Token Delivery Mode**
 
 | Mode                                            | Success Response Body                                                                                                  | Challenge Response Body                                    | Notes                                                                       |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------- |
-| **JSON** (`tokenDelivery.method: 'json'`)       | `{ accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt, user, authMethod, trusted?, deviceToken? }` | `{ challengeName, session, challengeParameters, userSub }` | Tokens present in response body; client must store securely                 |
-| **Cookies** (`tokenDelivery.method: 'cookies'`) | `{ user, authMethod, trusted?, deviceToken? }` (tokens removed)                                                        | `{ challengeName, session, challengeParameters, userSub }` | Tokens NOT in body (httpOnly cookies only); client reads via secure context |
-| **Hybrid** (`tokenDelivery.method: 'hybrid'`)   | Depends on `hybridPolicy`: web=cookies, mobile=json                                                                    | `{ challengeName, session, challengeParameters, userSub }` | Policy-driven: web clients get cookies, mobile/API gets JSON tokens         |
+| **JSON** (`tokenDelivery.method: 'json'`)       | `{ accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt, user, authMethod, trusted?, deviceToken? }` | `{ challengeName, session, challengeParameters, sub }` | Tokens present in response body; client must store securely                 |
+| **Cookies** (`tokenDelivery.method: 'cookies'`) | `{ user, authMethod, trusted?, deviceToken? }` (tokens removed)                                                        | `{ challengeName, session, challengeParameters, sub }` | Tokens NOT in body (httpOnly cookies only); client reads via secure context |
+| **Hybrid** (`tokenDelivery.method: 'hybrid'`)   | Depends on `hybridPolicy`: web=cookies, mobile=json                                                                    | `{ challengeName, session, challengeParameters, sub }` | Policy-driven: web clients get cookies, mobile/API gets JSON tokens         |
 
 :::note Token Delivery
 If client checks `result.accessToken`, behavior differs by `tokenDelivery.method`. In cookies mode, tokens are NOT in the response body—they're in httpOnly cookies set by framework adapters.
@@ -1477,11 +696,11 @@ If client checks `result.accessToken`, behavior differs by `tokenDelivery.method
 | Outcome                          | When                                                                                              | Response Body                                                                       |
 | -------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | **Success**                      | Credentials valid, no challenges required, risk assessment passes                                 | Tokens + user data (format depends on `tokenDelivery.method`)                       |
-| **Email verification challenge** | Email not verified AND `emailVerification.required = true`                                        | `{ challengeName: 'VERIFY_EMAIL', session, challengeParameters, userSub }`          |
-| **Phone verification challenge** | Phone not verified AND `phoneVerification.required = true`                                        | `{ challengeName: 'VERIFY_PHONE', session, challengeParameters, userSub }`          |
-| **MFA setup challenge**          | MFA required AND user has no MFA device configured                                                | `{ challengeName: 'MFA_SETUP_REQUIRED', session, challengeParameters, userSub }`    |
-| **MFA verification challenge**   | MFA required AND user has MFA device configured                                                   | `{ challengeName: 'MFA_REQUIRED', session, challengeParameters, userSub }`          |
-| **Force password change**        | Password expired (>= `password.expiryDays` old) OR `mustChangePassword` flag set                  | `{ challengeName: 'FORCE_CHANGE_PASSWORD', session, challengeParameters, userSub }` |
+| **Email verification challenge** | Email not verified AND `emailVerification.required = true`                                        | `{ challengeName: 'VERIFY_EMAIL', session, challengeParameters, sub }`          |
+| **Phone verification challenge** | Phone not verified AND `phoneVerification.required = true`                                        | `{ challengeName: 'VERIFY_PHONE', session, challengeParameters, sub }`          |
+| **MFA setup challenge**          | MFA required AND user has no MFA device configured                                                | `{ challengeName: 'MFA_SETUP_REQUIRED', session, challengeParameters, sub }`    |
+| **MFA verification challenge**   | MFA required AND user has MFA device configured                                                   | `{ challengeName: 'MFA_REQUIRED', session, challengeParameters, sub }`          |
+| **Force password change**        | Password expired (>= `password.expiryDays` old) OR `mustChangePassword` flag set                  | `{ challengeName: 'FORCE_CHANGE_PASSWORD', session, challengeParameters, sub }` |
 | **Blocked (adaptive risk)**      | `mfa.enforcement = 'ADAPTIVE'` AND adaptive risk evaluation resolves to `action = 'block_signin'` (via `mfa.adaptive.riskLevels`) | **Throws** `SIGNIN_BLOCKED_HIGH_RISK` (no body returned)                            |
 
 **Errors**
@@ -1588,7 +807,7 @@ Challenge:
   "challengeParameters": {
     "methods": ["totp", "sms"]
   },
-  "userSub": "b32c765d-3857-5279-bdff-d286194b76de"
+  "sub": "b32c765d-3857-5279-bdff-d286194b76de"
 }
 ```
 
@@ -1619,7 +838,7 @@ Challenge (same format as JSON mode):
   "challengeParameters": {
     "methods": ["totp", "sms"]
   },
-  "userSub": "b32c765d-3857-5279-bdff-d286194b76de"
+  "sub": "b32c765d-3857-5279-bdff-d286194b76de"
 }
 ```
 
@@ -1635,7 +854,7 @@ async logout(dto: LogoutDTO): Promise<LogoutResponseDTO>
 
 **Parameters**
 
-- `dto` - [`LogoutDTO`](../dto/logout-dto) - Contains optional `sub` (user identifier for validation) and optional `forgetMe` flag
+- `dto` - [`LogoutDTO`](../dto/logout-dto) - **No `sub` field required** - user is automatically derived from authenticated context. Contains optional `forgetMe` flag
 
 **Returns**
 
@@ -1646,7 +865,6 @@ async logout(dto: LogoutDTO): Promise<LogoutResponseDTO>
 - Revokes the current authenticated session
 - If `forgetMe` is `true` and trusted device feature is enabled, also revokes the trusted device token
 - Session ID is automatically extracted from JWT token in request context
-- The `sub` field is optional and can be provided for additional validation
 
 **Errors**
 
@@ -1665,13 +883,11 @@ This method requires the user to be authenticated. The endpoint is protected and
 ```typescript
 // Normal logout (device remains trusted)
 await authService.logout({
-  sub: 'a21b654c-2746-4168-acee-c175083a65cd',
   forgetMe: false,
 });
 
 // Logout and forget device (device untrusted, MFA required on next login)
 await authService.logout({
-  sub: 'a21b654c-2746-4168-acee-c175083a65cd',
   forgetMe: true,
 });
 ```
@@ -1688,7 +904,7 @@ async logoutAll(dto: LogoutAllDTO): Promise<LogoutAllResponseDTO>
 
 **Parameters**
 
-- `dto` - [`LogoutAllDTO`](../dto/logout-all-dto) - Contains `sub` (user identifier) and optional `forgetDevices` flag
+- `dto` - [`LogoutAllDTO`](../dto/logout-all-dto) - **No `sub` field required** - user is automatically derived from authenticated context. Contains optional `forgetDevices` flag
 
 **Returns**
 
@@ -1727,15 +943,8 @@ This method requires authentication. For user endpoints, extract `sub` from auth
 // User-initiated (user context)
 @UseGuards(AuthGuard)
 @Post('logout/all')
-async logoutAll(@CurrentUser() user: IUser, @Body() body: { forgetDevices?: boolean }) {
-  return this.authService.logoutAll({ sub: user.sub, forgetDevices: body.forgetDevices });
-}
-
-// Admin-initiated (admin manages any user)
-@UseGuards(AuthGuard, AdminGuard)
-@Post('admin/users/:sub/logout-all')
-async adminLogoutAll(@Param('sub') sub: string, @Body() body: { forgetDevices?: boolean }) {
-  return this.authService.logoutAll({ sub, forgetDevices: body.forgetDevices });
+async logoutAll(@Body() body: { forgetDevices?: boolean }) {
+  return this.authService.logoutAll({ forgetDevices: body.forgetDevices });
 }
 ```
 
@@ -1745,18 +954,7 @@ async adminLogoutAll(@Param('sub') sub: string, @Body() body: { forgetDevices?: 
 ```typescript
 // User-initiated
 app.post('/logout/all', nauth.helpers.requireAuth(), async (req, res) => {
-  const user = nauth.helpers.getCurrentUser();
   const result = await nauth.authService.logoutAll({
-    sub: user.sub,
-    forgetDevices: req.body.forgetDevices,
-  });
-  res.json(result);
-});
-
-// Admin-initiated
-app.post('/admin/users/:sub/logout-all', nauth.helpers.requireAuth(), requireAdmin, async (req, res) => {
-  const result = await nauth.authService.logoutAll({
-    sub: req.params.sub,
     forgetDevices: req.body.forgetDevices,
   });
   res.json(result);
@@ -1772,21 +970,7 @@ fastify.post(
   '/logout/all',
   { preHandler: nauth.helpers.requireAuth() },
   nauth.adapter.wrapRouteHandler(async (req) => {
-    const user = nauth.helpers.getCurrentUser();
     return nauth.authService.logoutAll({
-      sub: user.sub,
-      forgetDevices: req.body.forgetDevices,
-    });
-  }),
-);
-
-// Admin-initiated
-fastify.post(
-  '/admin/users/:sub/logout-all',
-  { preHandler: [nauth.helpers.requireAuth(), requireAdmin] },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return nauth.authService.logoutAll({
-      sub: req.params.sub,
       forgetDevices: req.body.forgetDevices,
     });
   }),
@@ -1808,7 +992,7 @@ async logoutSession(dto: LogoutSessionDTO): Promise<LogoutSessionResponseDTO>
 
 **Parameters**
 
-- `dto` - [`LogoutSessionDTO`](../dto/logout-session-dto) - Contains `sessionId` and user `sub` identifier
+- `dto` - [`LogoutSessionDTO`](../dto/logout-session-dto) - **No `sub` field required** - user is automatically derived from authenticated context. Contains `sessionId`
 
 **Returns**
 
@@ -1849,15 +1033,8 @@ This method requires authentication. For user endpoints, extract `sub` from auth
 // User logging out own session
 @UseGuards(AuthGuard)
 @Delete('sessions/:sessionId')
-async logoutSession(@CurrentUser() user: IUser, @Param('sessionId') sessionId: string) {
-  return this.authService.logoutSession({ sub: user.sub, sessionId });
-}
-
-// Admin revoking any user's session
-@UseGuards(AuthGuard, AdminGuard)
-@Delete('admin/users/:sub/sessions/:sessionId')
-async adminRevokeSession(@Param('sub') sub: string, @Param('sessionId') sessionId: string) {
-  return this.authService.logoutSession({ sub, sessionId });
+async logoutSession(@Param('sessionId') sessionId: string) {
+  return this.authService.logoutSession({ sessionId });
 }
 ```
 
@@ -1867,18 +1044,7 @@ async adminRevokeSession(@Param('sub') sub: string, @Param('sessionId') sessionI
 ```typescript
 // User logging out own session
 app.delete('/sessions/:sessionId', nauth.helpers.requireAuth(), async (req, res) => {
-  const user = nauth.helpers.getCurrentUser();
   const result = await nauth.authService.logoutSession({
-    sub: user.sub,
-    sessionId: req.params.sessionId,
-  });
-  res.json(result);
-});
-
-// Admin revoking any user's session
-app.delete('/admin/users/:sub/sessions/:sessionId', nauth.helpers.requireAuth(), requireAdmin, async (req, res) => {
-  const result = await nauth.authService.logoutSession({
-    sub: req.params.sub,
     sessionId: req.params.sessionId,
   });
   res.json(result);
@@ -1894,21 +1060,7 @@ fastify.delete(
   '/sessions/:sessionId',
   { preHandler: nauth.helpers.requireAuth() },
   nauth.adapter.wrapRouteHandler(async (req) => {
-    const user = nauth.helpers.getCurrentUser();
     return nauth.authService.logoutSession({
-      sub: user.sub,
-      sessionId: req.params.sessionId,
-    });
-  }),
-);
-
-// Admin revoking any user's session
-fastify.delete(
-  '/admin/users/:sub/sessions/:sessionId',
-  { preHandler: [nauth.helpers.requireAuth(), requireAdmin] },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return nauth.authService.logoutSession({
-      sub: req.params.sub,
       sessionId: req.params.sessionId,
     });
   }),
@@ -2057,15 +1209,15 @@ async respondToChallenge(dto: RespondChallengeDTO): Promise<AuthResponseDTO>
 - [`AuthResponseDTO`](../dto/auth-response-dto) - Response format depends on outcome and `tokenDelivery.method`:
   - **Success (JSON mode)**: Contains `accessToken`, `refreshToken`, `accessTokenExpiresAt`, `refreshTokenExpiresAt`, `user`, `authMethod`, `trusted`, `deviceToken` (if trusted)
   - **Success (Cookies mode)**: Contains `user`, `authMethod`, `trusted`, `deviceToken` (if trusted). Tokens are delivered via httpOnly cookies only.
-  - **Challenge**: Contains `challengeName`, `session`, `challengeParameters`, `userSub` (same format regardless of tokenDelivery method)
+  - **Challenge**: Contains `challengeName`, `session`, `challengeParameters`, `sub` (same format regardless of tokenDelivery method)
 
 **Response Variations by Token Delivery Mode**
 
 | Mode                                            | Success Response Body                                                                                                  | Challenge Response Body                                    | Notes                                                                       |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------- |
-| **JSON** (`tokenDelivery.method: 'json'`)       | `{ accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt, user, authMethod, trusted?, deviceToken? }` | `{ challengeName, session, challengeParameters, userSub }` | Tokens present in response body; client must store securely                 |
-| **Cookies** (`tokenDelivery.method: 'cookies'`) | `{ user, authMethod, trusted?, deviceToken? }` (tokens removed)                                                        | `{ challengeName, session, challengeParameters, userSub }` | Tokens NOT in body (httpOnly cookies only); client reads via secure context |
-| **Hybrid** (`tokenDelivery.method: 'hybrid'`)   | Depends on `hybridPolicy`: web=cookies, mobile=json                                                                    | `{ challengeName, session, challengeParameters, userSub }` | Policy-driven: web clients get cookies, mobile/API gets JSON tokens         |
+| **JSON** (`tokenDelivery.method: 'json'`)       | `{ accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt, user, authMethod, trusted?, deviceToken? }` | `{ challengeName, session, challengeParameters, sub }` | Tokens present in response body; client must store securely                 |
+| **Cookies** (`tokenDelivery.method: 'cookies'`) | `{ user, authMethod, trusted?, deviceToken? }` (tokens removed)                                                        | `{ challengeName, session, challengeParameters, sub }` | Tokens NOT in body (httpOnly cookies only); client reads via secure context |
+| **Hybrid** (`tokenDelivery.method: 'hybrid'`)   | Depends on `hybridPolicy`: web=cookies, mobile=json                                                                    | `{ challengeName, session, challengeParameters, sub }` | Policy-driven: web clients get cookies, mobile/API gets JSON tokens         |
 
 **Phone Verification Notes:**
 
@@ -2146,43 +1298,6 @@ const result = await authService.respondToChallenge(dto);
 
 ---
 
-### setMustChangePassword()
-
-Force user to change password on next login. Sets the `mustChangePassword` flag, which triggers a `FORCE_CHANGE_PASSWORD` challenge on the user's next login attempt.
-
-**Note:** This operation is only available for users with password authentication. Social-only accounts (users without a password hash) cannot be forced to change password.
-
-```typescript
-async setMustChangePassword(dto: SetMustChangePasswordDTO): Promise<SetMustChangePasswordResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`SetMustChangePasswordDTO`](../dto/set-must-change-password-dto)
-
-**Returns**
-
-- [`SetMustChangePasswordResponseDTO`](../dto/set-must-change-password-response-dto) - Contains `{ success: boolean }`
-
-**Errors**
-
-Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
-
-| Code                          | When                                                         | Details     |
-| ----------------------------- | ------------------------------------------------------------ | ----------- |
-| `NOT_FOUND`                   | User not found (by `sub` identifier)                         | `undefined` |
-| `PASSWORD_CHANGE_NOT_ALLOWED` | User has no password (social-only account, no password hash) | `undefined` |
-
-**Example**
-
-```typescript
-await authService.setMustChangePassword({
-  userId: 'a21b654c-2746-4168-acee-c175083a65cd',
-});
-```
-
----
-
 ### signup()
 
 Register new user account.
@@ -2200,15 +1315,15 @@ async signup(dto: SignupDTO): Promise<AuthResponseDTO>
 - [`AuthResponseDTO`](../dto/auth-response-dto) - Response format depends on outcome and `tokenDelivery.method`:
   - **Success (JSON mode)**: Contains `accessToken`, `refreshToken`, `accessTokenExpiresAt`, `refreshTokenExpiresAt`, `user`, `authMethod`, `trusted`, `deviceToken` (if trusted)
   - **Success (Cookies mode)**: Contains `user`, `authMethod`, `trusted`, `deviceToken` (if trusted). Tokens are delivered via httpOnly cookies only.
-  - **Challenge**: Contains `challengeName`, `session`, `challengeParameters`, `userSub` (same format regardless of tokenDelivery method)
+  - **Challenge**: Contains `challengeName`, `session`, `challengeParameters`, `sub` (same format regardless of tokenDelivery method)
 
 **Response Variations by Token Delivery Mode**
 
 | Mode                                            | Success Response Body                                                                                                  | Challenge Response Body                                    | Notes                                                                       |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------- |
-| **JSON** (`tokenDelivery.method: 'json'`)       | `{ accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt, user, authMethod, trusted?, deviceToken? }` | `{ challengeName, session, challengeParameters, userSub }` | Tokens present in response body; client must store securely                 |
-| **Cookies** (`tokenDelivery.method: 'cookies'`) | `{ user, authMethod, trusted?, deviceToken? }` (tokens removed)                                                        | `{ challengeName, session, challengeParameters, userSub }` | Tokens NOT in body (httpOnly cookies only); client reads via secure context |
-| **Hybrid** (`tokenDelivery.method: 'hybrid'`)   | Depends on `hybridPolicy`: web=cookies, mobile=json                                                                    | `{ challengeName, session, challengeParameters, userSub }` | Policy-driven: web clients get cookies, mobile/API gets JSON tokens         |
+| **JSON** (`tokenDelivery.method: 'json'`)       | `{ accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt, user, authMethod, trusted?, deviceToken? }` | `{ challengeName, session, challengeParameters, sub }` | Tokens present in response body; client must store securely                 |
+| **Cookies** (`tokenDelivery.method: 'cookies'`) | `{ user, authMethod, trusted?, deviceToken? }` (tokens removed)                                                        | `{ challengeName, session, challengeParameters, sub }` | Tokens NOT in body (httpOnly cookies only); client reads via secure context |
+| **Hybrid** (`tokenDelivery.method: 'hybrid'`)   | Depends on `hybridPolicy`: web=cookies, mobile=json                                                                    | `{ challengeName, session, challengeParameters, sub }` | Policy-driven: web clients get cookies, mobile/API gets JSON tokens         |
 
 **Errors**
 
@@ -2296,12 +1411,12 @@ Update user profile information (firstName, lastName, username, email, phone, me
 - Metadata is merged with existing metadata (set key to `null` to delete)
 
 ```typescript
-async updateUserAttributes(dto: UpdateUserAttributesRequestDTO): Promise<UserResponseDTO>
+async updateUserAttributes(dto: UpdateUserAttributesDTO): Promise<UserResponseDTO>
 ```
 
 **Parameters**
 
-- `dto` - [`UpdateUserAttributesRequestDTO`](../dto/update-user-attributes-request-dto)
+- `dto` - [`UpdateUserAttributesDTO`](../dto/update-user-attributes-dto) - **No `sub` field required** - user is automatically derived from authenticated context
 
 **Returns**
 
@@ -2331,7 +1446,6 @@ When uniqueness constraints are violated, `details` includes a `conflicts` array
 ```typescript
 // Update basic profile fields
 const updatedUser = await authService.updateUserAttributes({
-  sub: 'a21b654c-2746-4168-acee-c175083a65cd',
   username: 'newusername',
   firstName: 'John',
   lastName: 'Doe',
@@ -2339,7 +1453,6 @@ const updatedUser = await authService.updateUserAttributes({
 
 // Add or update metadata
 await authService.updateUserAttributes({
-  sub: 'user-uuid',
   metadata: {
     department: 'Engineering',
     role: 'Senior Developer',
@@ -2348,7 +1461,6 @@ await authService.updateUserAttributes({
 
 // Delete metadata keys by setting to null
 await authService.updateUserAttributes({
-  sub: 'user-uuid',
   metadata: {
     temporaryField: null,
     oldKey: null,
@@ -2357,7 +1469,6 @@ await authService.updateUserAttributes({
 
 // Mix profile updates with metadata operations
 await authService.updateUserAttributes({
-  sub: 'user-uuid',
   firstName: 'Jane',
   metadata: {
     department: 'Product',
@@ -2382,85 +1493,6 @@ If the deleted device(s) were the only MFA method(s), MFA is **disabled** for th
 - Set `retainVerification: true` only when transferring between trusted systems
 - Notify users when their MFA devices are removed due to profile changes
 - Guide users through MFA setup after email/phone changes if MFA is required
-
----
-
-### updateVerifiedStatus()
-
-Update email and/or phone verification status directly. Intended for admin use cases such as migration or offline validation.
-
-**Important behaviors:**
-
-- Cannot set `isEmailVerified: true` if user does not have an email address
-- Cannot set `isPhoneVerified: true` if user does not have a phone number
-- Can set verification to `false` even if email/phone doesn't exist (default state)
-- Only updates provided fields (partial update)
-- Records audit events with `performedBy` from authenticated admin context
-
-```typescript
-async updateVerifiedStatus(dto: UpdateVerifiedStatusRequestDTO): Promise<UserResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`UpdateVerifiedStatusRequestDTO`](../dto/update-verified-status-request-dto)
-
-**Returns**
-
-- [`UserResponseDTO`](../dto/user-response-dto) - Updated user object
-
-**Errors**
-
-Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
-
-| Code                | When                                                                                                            | Details     |
-| ------------------- | --------------------------------------------------------------------------------------------------------------- | ----------- |
-| `NOT_FOUND`         | User not found (by `sub` identifier) or user not found after update                                             | `undefined` |
-| `VALIDATION_FAILED` | Trying to set `isEmailVerified: true` when user has no email, or `isPhoneVerified: true` when user has no phone | `undefined` |
-
-**Example**
-
-```typescript
-// Update email verification only
-const updatedUser = await authService.updateVerifiedStatus({
-  sub: 'user-uuid',
-  isEmailVerified: true,
-});
-
-// Update both email and phone verification
-const updatedUser = await authService.updateVerifiedStatus({
-  sub: 'user-uuid',
-  isEmailVerified: true,
-  isPhoneVerified: false,
-});
-
-// Set verification to false (allowed even if email/phone doesn't exist)
-const updatedUser = await authService.updateVerifiedStatus({
-  sub: 'user-uuid',
-  isEmailVerified: false,
-});
-```
-
-:::info Admin Use Case
-This method is intended for administrative operations such as:
-
-- Migrating users from external systems with pre-verified emails/phones
-- Offline validation workflows
-- Manual verification status corrections
-
-The `performedBy` field in audit events is automatically populated from the authenticated admin's context.
-:::
-
-**Audit Events**
-
-- `EMAIL_VERIFIED` - When `isEmailVerified` is updated
-- `PHONE_VERIFIED` - When `isPhoneVerified` is updated
-
-Both events include metadata:
-
-- `previousStatus` - Previous verification status
-- `newStatus` - New verification status
-- `updateMethod: 'admin_direct'` - Indicates admin-initiated update
 
 ---
 

@@ -26,7 +26,7 @@ import {
   MFASetupResponse,
 } from '../dto/challenge-response.dto';
 import { AuthResponseDTO } from '../dto/auth-response.dto';
-import { UpdateUserAttributesRequestDTO } from '../dto/update-user-attributes-request.dto';
+import { UserUpdateDTO } from '../dto/user-update.dto';
 import { VerifyEmailWithCodeDTO } from '../dto/verify-email.dto';
 import { SendVerificationSMSDTO } from '../dto/verify-phone.dto';
 import { VerifyPhoneWithCodeBySubDTO } from '../dto/verify-phone-by-sub.dto';
@@ -864,7 +864,7 @@ export class AuthServiceInternalHelpers {
    * @param updateData - User fields to check for uniqueness
    * @throws {NAuthException} If a unique constraint is violated for email, phone, or username
    */
-  async validateUniquenessConstraints(userId: number, updateData: UpdateUserAttributesRequestDTO): Promise<void> {
+  async validateUniquenessConstraints(userId: number, updateData: UserUpdateDTO): Promise<void> {
     const conflicts: string[] = [];
 
     // Check email uniqueness

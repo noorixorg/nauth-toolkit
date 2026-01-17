@@ -1,6 +1,6 @@
 ---
 title: AdminSetPasswordDTO
-description: Admin-only password reset DTOs for resetting user passwords by identifier with configurable force change and session revocation.
+description: Admin-only password reset DTOs for resetting user passwords by sub with configurable force change and session revocation.
 keywords: [admin, password, reset, dto, request, response, api]
 image: /img/api-social-card.png
 ---
@@ -12,7 +12,7 @@ import TabItem from '@theme/TabItem';
 **Package:** `@nauth-toolkit/core`
 **Type:** DTO (Request/Response)
 
-Data transfer objects for admin-initiated password reset by identifier (email, username, phone, or sub).
+Data transfer objects for admin-initiated password reset by sub (UUID).
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
@@ -42,7 +42,7 @@ import { AdminSetPasswordDTO, AdminSetPasswordResponseDTO } from '@nauth-toolkit
 
 | Property             | Type      | Required | Description                                                                                      |
 | -------------------- | --------- | -------- | ------------------------------------------------------------------------------------------------ |
-| `identifier`         | `string`  | Yes      | User identifier. Email, username, phone, or sub/UUID. 1-255 chars. Trimmed, lowercased if email. |
+| `sub`                | `string`  | Yes      | User sub (UUID v4). Trimmed, lowercased for consistency.                                        |
 | `newPassword`        | `string`  | Yes      | New password. 8-128 characters. Not trimmed.                                                     |
 | `mustChangePassword` | `boolean` | No       | Require password change on next login. Default: true.                                            |
 | `revokeSessions`     | `boolean` | No       | Revoke all active sessions. Default: true.                                                       |
@@ -59,7 +59,7 @@ import { AdminSetPasswordDTO, AdminSetPasswordResponseDTO } from '@nauth-toolkit
 
 ```json
 {
-  "identifier": "user@example.com",
+  "sub": "a21b654c-2746-4168-acee-c175083a65cd",
   "newPassword": "NewSecurePassword123!",
   "mustChangePassword": true,
   "revokeSessions": true
@@ -68,4 +68,4 @@ import { AdminSetPasswordDTO, AdminSetPasswordResponseDTO } from '@nauth-toolkit
 
 ## Used By
 
-- [AuthService.adminSetPassword()](../services/auth-service#adminsetpassword)
+- [AdminAuthService.setPassword()](../services/admin-auth-service#setpassword)

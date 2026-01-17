@@ -11,6 +11,12 @@
 export * from './services/auth.service';
 
 /**
+ * Administrative authentication service
+ * Handles admin-only user and session management
+ */
+export * from './services/admin-auth.service';
+
+/**
  * Multi-Factor Authentication service
  * Manages MFA setup, verification, and device management
  */

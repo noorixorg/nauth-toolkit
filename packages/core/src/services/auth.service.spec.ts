@@ -25,6 +25,7 @@
 
 import { Repository } from 'typeorm';
 import { AuthService } from './auth.service';
+import { AdminAuthService } from './admin-auth.service';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { PasswordService } from './password.service';
 import { JwtService } from './jwt.service';
@@ -45,9 +46,10 @@ import { AdminSignupDTO } from '../dto/admin-signup.dto';
 import { AdminSignupSocialDTO } from '../dto/admin-signup-social.dto';
 import { LoginDTO } from '../dto/login.dto';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
-import { ChangePasswordRequestDTO } from '../dto/change-password-request.dto';
-import { UpdateUserAttributesRequestDTO } from '../dto/update-user-attributes-request.dto';
+import { ChangePasswordDTO } from '../dto/change-password.dto';
+import { UpdateUserAttributesDTO } from '../dto/update-user-attributes.dto';
 import { UpdateVerifiedStatusRequestDTO } from '../dto/update-verified-status-request.dto';
+import { UserResponseDto } from '../dto/user-response.dto';
 import { LogoutDTO } from '../dto/logout.dto';
 import { LogoutAllDTO } from '../dto/logout-all.dto';
 import { RefreshTokenDTO } from '../dto/refresh-token.dto';
@@ -58,6 +60,7 @@ import { NAuthLogger } from '../utils/nauth-logger';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { RiskFactor } from '../enums/risk-factor.enum';
+import { ContextStorage } from '../utils/context-storage';
 import {
   VerifyEmailResponse,
   VerifyPhoneResponse,
@@ -98,13 +101,14 @@ const createRespondChallengeDto = (data: unknown): RespondChallengeDTO => {
 };
 
 /**
- * Create an UpdateUserAttributesRequestDTO for tests.
+ * Create an UpdateUserAttributesDTO for tests.
  */
 const createUpdateUserAttributesDto = (
-  sub: string,
-  data: Omit<Partial<UpdateUserAttributesRequestDTO>, 'sub'>,
-): UpdateUserAttributesRequestDTO => {
-  const dto = Object.assign(new UpdateUserAttributesRequestDTO(), { sub, ...data });
+  subOrData: string | Partial<UpdateUserAttributesDTO>,
+  maybeData?: Partial<UpdateUserAttributesDTO>,
+): UpdateUserAttributesDTO => {
+  const data = typeof subOrData === 'string' ? (maybeData ?? {}) : subOrData;
+  const dto = Object.assign(new UpdateUserAttributesDTO(), data);
   markDtoAsValidated(dto);
   return dto;
 };
@@ -122,15 +126,22 @@ const createUpdateVerifiedStatusDto = (
 };
 
 /**
- * Create a ChangePasswordRequestDTO for tests.
+ * Create a ChangePasswordDTO for tests.
  */
-const createChangePasswordRequestDto = (
-  sub: string,
-  data: Omit<Partial<ChangePasswordRequestDTO>, 'sub'>,
-): ChangePasswordRequestDTO => {
-  const dto = Object.assign(new ChangePasswordRequestDTO(), { sub, ...data });
+const createChangePasswordDto = (data: Partial<ChangePasswordDTO>): ChangePasswordDTO => {
+  const dto = Object.assign(new ChangePasswordDTO(), data);
   markDtoAsValidated(dto);
   return dto;
+};
+
+/**
+ * Run a test callback with an authenticated user in context storage.
+ */
+const runWithCurrentUser = async <T>(user: IUser, fn: () => Promise<T>): Promise<T> => {
+  return await ContextStorage.run(async () => {
+    ContextStorage.set('CURRENT_USER', user);
+    return await fn();
+  });
 };
 
 /**
@@ -162,6 +173,7 @@ const createRefreshTokenDto = (refreshToken: string): RefreshTokenDTO => {
 
 describe('AuthService', () => {
   let service: AuthService;
+  let adminService: AdminAuthService;
   let mockUserRepository: jest.Mocked<Repository<BaseUser>>;
   let mockLoginAttemptRepository: jest.Mocked<Repository<BaseLoginAttempt>>;
   let mockMfaDeviceRepository: jest.Mocked<Repository<BaseMFADevice>>;
@@ -458,6 +470,27 @@ describe('AuthService', () => {
       mockAuditService,
       mockPhoneVerificationService,
       mockMfaService,
+      mockMfaDeviceRepository,
+      mockTrustedDeviceService,
+      undefined, // passwordResetService (not needed for most tests)
+      mockSocialAuthService,
+    );
+
+    adminService = new AdminAuthService(
+      mockUserRepository,
+      mockLoginAttemptRepository,
+      mockPasswordService,
+      mockSessionService,
+      mockChallengeService,
+      mockChallengeHelper,
+      mockEmailVerificationService,
+      mockClientInfoService,
+      mockAccountLockoutStorage,
+      mockConfig,
+      mockLogger,
+      mockHookRegistry,
+      mockAuditService,
+      mockPhoneVerificationService,
       mockMfaDeviceRepository,
       mockTrustedDeviceService,
       undefined, // passwordResetService (not needed for most tests)
@@ -2408,7 +2441,6 @@ describe('AuthService', () => {
   // ============================================================================
 
   describe('logout()', () => {
-    const mockSub = 'user-123';
     const mockSessionId = '1';
 
     beforeEach(() => {
@@ -2421,19 +2453,19 @@ describe('AuthService', () => {
 
     describe('Successful logout', () => {
       it('should revoke session on logout', async () => {
-        await service.logout(createLogoutDto({ sub: mockSub }));
+        await service.logout(createLogoutDto({}));
 
         expect(mockSessionService.revokeSession).toHaveBeenCalledWith(1, 'User logout', undefined);
       });
 
       it('should revoke session with audit metadata', async () => {
-        await service.logout(createLogoutDto({ sub: mockSub, forgetMe: false }));
+        await service.logout(createLogoutDto({ forgetMe: false }));
 
         expect(mockSessionService.revokeSession).toHaveBeenCalledWith(1, 'User logout', undefined);
       });
 
       it('should complete logout successfully', async () => {
-        await service.logout(createLogoutDto({ sub: mockSub }));
+        await service.logout(createLogoutDto({}));
 
         expect(mockSessionService.revokeSession).toHaveBeenCalled();
       });
@@ -2443,7 +2475,7 @@ describe('AuthService', () => {
       it('should not throw when sessionId is missing and should return success', async () => {
         mockClientInfo.sessionId = undefined;
 
-        const result = await service.logout(createLogoutDto({ sub: mockSub }));
+        const result = await service.logout(createLogoutDto({}));
 
         expect(result).toEqual({ success: true });
         expect(mockSessionService.revokeSession).not.toHaveBeenCalled();
@@ -2460,7 +2492,7 @@ describe('AuthService', () => {
         const clearCookie = jest.fn();
         mockClientInfoService.getResponse.mockReturnValue({ clearCookie } as any);
 
-        const result = await service.logout(createLogoutDto({ sub: mockSub, forgetMe: true }));
+        const result = await service.logout(createLogoutDto({ forgetMe: true }));
 
         expect(result).toEqual({ success: true });
         expect(mockSessionService.revokeSession).not.toHaveBeenCalled();
@@ -2479,7 +2511,7 @@ describe('AuthService', () => {
         };
         mockClientInfo.deviceToken = 'device-token-123';
 
-        await service.logout(createLogoutDto({ sub: mockSub, forgetMe: true }));
+        await service.logout(createLogoutDto({ forgetMe: true }));
 
         expect(mockSessionService.revokeSession).toHaveBeenCalledWith(
           1,
@@ -2497,7 +2529,7 @@ describe('AuthService', () => {
       });
 
       it('should not revoke trusted device when forgetMe is false', async () => {
-        await service.logout(createLogoutDto({ sub: mockSub, forgetMe: false }));
+        await service.logout(createLogoutDto({ forgetMe: false }));
 
         expect(mockTrustedDeviceService.revokeTrustedDevice).not.toHaveBeenCalled();
       });
@@ -2509,7 +2541,7 @@ describe('AuthService', () => {
         };
         mockClientInfo.deviceToken = undefined;
 
-        await service.logout(createLogoutDto({ sub: mockSub, forgetMe: true }));
+        await service.logout(createLogoutDto({ forgetMe: true }));
 
         // Should still revoke session, but not call revokeTrustedDevice
         expect(mockSessionService.revokeSession).toHaveBeenCalled();
@@ -2523,7 +2555,7 @@ describe('AuthService', () => {
         };
         mockClientInfo.deviceToken = 'device-token-123';
 
-        await service.logout(createLogoutDto({ sub: mockSub, forgetMe: true }));
+        await service.logout(createLogoutDto({ forgetMe: true }));
 
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -2539,7 +2571,7 @@ describe('AuthService', () => {
         mockSessionService.revokeSession.mockRejectedValue(new Error('Session not found'));
 
         try {
-          await service.logout(createLogoutDto({ sub: mockSub }));
+          await service.logout(createLogoutDto({}));
           fail('Should have thrown Error');
         } catch (error: any) {
           expect(error).toBeInstanceOf(Error);
@@ -2555,7 +2587,7 @@ describe('AuthService', () => {
         (mockTrustedDeviceService.revokeTrustedDevice as jest.Mock).mockRejectedValue(new Error('Device not found'));
 
         // Should still complete logout even if device removal fails
-        await service.logout(createLogoutDto({ sub: mockSub, forgetMe: true }));
+        await service.logout(createLogoutDto({ forgetMe: true }));
 
         expect(mockSessionService.revokeSession).toHaveBeenCalled();
         expect(mockLogger.debug).toHaveBeenCalled();
@@ -2569,7 +2601,7 @@ describe('AuthService', () => {
         mockClientInfo.deviceToken = 'device-token-123';
         mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-        await service.logout(createLogoutDto({ sub: mockSub, forgetMe: true }));
+        await service.logout(createLogoutDto({ forgetMe: true }));
 
         // Should still complete logout despite audit error
         expect(mockSessionService.revokeSession).toHaveBeenCalled();
@@ -2593,7 +2625,9 @@ describe('AuthService', () => {
 
     describe('Successful logout all', () => {
       it('should revoke all user sessions', async () => {
-        await service.logoutAll(createLogoutAllDto({ sub: mockSub }));
+        await runWithCurrentUser({ ...mockUser, sub: mockSub }, async () => {
+          await service.logoutAll(createLogoutAllDto({}));
+        });
 
         expect(mockUserRepository.findOne).toHaveBeenCalledWith({
           where: { sub: mockSub } as any,
@@ -2602,13 +2636,17 @@ describe('AuthService', () => {
       });
 
       it('should return number of revoked sessions', async () => {
-        const result = await service.logoutAll(createLogoutAllDto({ sub: mockSub }));
+        const result = await runWithCurrentUser({ ...mockUser, sub: mockSub }, async () => {
+          return await service.logoutAll(createLogoutAllDto({}));
+        });
 
         expect(result.revokedCount).toBe(5);
       });
 
       it('should complete logoutAll successfully', async () => {
-        const result = await service.logoutAll(createLogoutAllDto({ sub: mockSub }));
+        const result = await runWithCurrentUser({ ...mockUser, sub: mockSub }, async () => {
+          return await service.logoutAll(createLogoutAllDto({}));
+        });
 
         expect(result.revokedCount).toBe(5);
         expect(mockSessionService.revokeAllUserSessions).toHaveBeenCalled();
@@ -2620,7 +2658,9 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockResolvedValue(null);
 
         try {
-          await service.logoutAll(createLogoutAllDto({ sub: mockSub }));
+          await runWithCurrentUser({ ...mockUser, sub: mockSub }, async () => {
+            await service.logoutAll(createLogoutAllDto({}));
+          });
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2634,7 +2674,9 @@ describe('AuthService', () => {
         mockSessionService.revokeAllUserSessions.mockRejectedValue(new Error('Database error'));
 
         try {
-          await service.logoutAll(createLogoutAllDto({ sub: mockSub }));
+          await runWithCurrentUser({ ...mockUser, sub: mockSub }, async () => {
+            await service.logoutAll(createLogoutAllDto({}));
+          });
           fail('Should have thrown Error');
         } catch (error: any) {
           expect(error).toBeInstanceOf(Error);
@@ -2643,7 +2685,9 @@ describe('AuthService', () => {
 
       it('should complete logoutAll even if errors occur', async () => {
         // logoutAll doesn't directly record audit events, so this test just verifies it completes
-        const result = await service.logoutAll(createLogoutAllDto({ sub: mockSub }));
+        const result = await runWithCurrentUser({ ...mockUser, sub: mockSub }, async () => {
+          return await service.logoutAll(createLogoutAllDto({}));
+        });
 
         expect(result.revokedCount).toBe(5);
       });
@@ -2662,6 +2706,11 @@ describe('AuthService', () => {
 
     let userBySub: IUser;
     let userById: IUser;
+    const runChangePassword = async (user: IUser, dto: ChangePasswordDTO): Promise<void> => {
+      await runWithCurrentUser(user, async () => {
+        await service.changePassword(dto);
+      });
+    };
 
     beforeEach(() => {
       // IMPORTANT: use fresh objects for each test to avoid cross-test mutation
@@ -2691,7 +2740,7 @@ describe('AuthService', () => {
 
     describe('Successful password change', () => {
       it('should change password successfully', async () => {
-        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+        await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
 
         expect(mockPasswordService.verifyPassword).toHaveBeenCalledWith(
           changePasswordDto.oldPassword,
@@ -2706,7 +2755,7 @@ describe('AuthService', () => {
       });
 
       it('should update password hash in database', async () => {
-        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+        await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
 
         expect(mockUserRepository.save).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -2718,20 +2767,20 @@ describe('AuthService', () => {
       });
 
       it('should add old password to history', async () => {
-        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+        await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
 
         expect(mockPasswordService.addToHistory).toHaveBeenCalledWith([], 'hashed-password');
         expect(mockSessionService.revokeAllUserSessions).toHaveBeenCalledWith(mockUser.id, 'Password changed');
       });
 
       it('should revoke all sessions after password change', async () => {
-        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+        await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
 
         expect(mockSessionService.revokeAllUserSessions).toHaveBeenCalledWith(mockUser.id, 'Password changed');
       });
 
       it('should record PASSWORD_CHANGED audit event', async () => {
-        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+        await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
 
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -2748,7 +2797,7 @@ describe('AuthService', () => {
         mockPasswordService.verifyPassword.mockResolvedValue(false);
 
         try {
-          await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+          await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2763,7 +2812,7 @@ describe('AuthService', () => {
         } as any);
 
         try {
-          await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+          await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2780,7 +2829,7 @@ describe('AuthService', () => {
         mockPasswordService.hashPassword.mockResolvedValue('hashed-password');
 
         // Service doesn't check if new hash equals old hash, so this should succeed
-        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+        await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
 
         expect(mockUserRepository.save).toHaveBeenCalled();
       });
@@ -2789,7 +2838,7 @@ describe('AuthService', () => {
         mockPasswordService.isPasswordInHistory.mockResolvedValue(true);
 
         try {
-          await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+          await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2803,7 +2852,7 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockResolvedValue(null);
 
         try {
-          await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+          await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2818,7 +2867,7 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockResolvedValue(socialUser as any);
 
         try {
-          await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+          await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2835,7 +2884,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithHistory as any)
           .mockResolvedValueOnce({ ...userWithHistory } as any);
 
-        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+        await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
 
         expect(mockPasswordService.isPasswordInHistory).toHaveBeenCalledWith(changePasswordDto.newPassword, [
           'hashed-password',
@@ -2850,7 +2899,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithNoHistory as any)
           .mockResolvedValueOnce({ ...userWithNoHistory } as any);
 
-        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+        await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
 
         expect(mockPasswordService.addToHistory).toHaveBeenCalledWith([], 'hashed-password');
       });
@@ -2861,7 +2910,7 @@ describe('AuthService', () => {
         mockUserRepository.save.mockRejectedValue(new Error('Database error'));
 
         try {
-          await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+          await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
           fail('Should have thrown Error');
         } catch (error: any) {
           expect(error).toBeInstanceOf(Error);
@@ -2871,7 +2920,7 @@ describe('AuthService', () => {
       it('should handle audit logging errors gracefully', async () => {
         mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+        await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
 
         // Should still complete password change despite audit error
         expect(mockUserRepository.save).toHaveBeenCalled();
@@ -2885,7 +2934,7 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockResolvedValue(userWithNullHash as any);
 
         try {
-          await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+          await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -2898,7 +2947,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithNoHistory as any)
           .mockResolvedValueOnce({ ...userWithNoHistory } as any);
 
-        await service.changePassword(createChangePasswordRequestDto(mockUser.sub, changePasswordDto));
+        await runChangePassword(mockUser, createChangePasswordDto(changePasswordDto));
 
         expect(mockPasswordService.addToHistory).toHaveBeenCalledWith([], 'hashed-password');
       });
@@ -2911,7 +2960,7 @@ describe('AuthService', () => {
 
   describe('adminSetPassword()', () => {
     const adminSetPasswordDto = {
-      identifier: 'test@example.com',
+      sub: mockUser.sub,
       newPassword: 'NewSecurePassword123!',
       mustChangePassword: true,
       revokeSessions: true,
@@ -2926,401 +2975,54 @@ describe('AuthService', () => {
       mockUserRepository.save.mockResolvedValue(mockUser as any);
     });
 
-    describe('Successful password reset', () => {
-      it('should successfully reset password with valid identifier (email)', async () => {
-        // WHY: adminSetPassword first checks by sub (UUID), then calls updateUserPassword()
-        // which loads the full entity by internal ID. Ensure the ID lookup returns the user.
-        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
-          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
-          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
-            return mockUser as any;
-          }
-          return null;
-        });
-        mockUserRepository.createQueryBuilder = jest.fn(() => ({
-          where: jest.fn().mockReturnThis(),
-          orWhere: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(mockUser as any),
-        })) as any;
+    it('should successfully reset password for a valid sub', async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
 
-        const result = await service.adminSetPassword(adminSetPasswordDto);
+      const result = await adminService.setPassword(adminSetPasswordDto);
 
-        expect(mockPasswordService.validatePassword).toHaveBeenCalledWith(adminSetPasswordDto.newPassword, {
-          email: mockUser.email,
-          username: mockUser.username,
-        });
-        expect(mockPasswordService.hashPassword).toHaveBeenCalledWith(adminSetPasswordDto.newPassword);
-        expect(mockUserRepository.save).toHaveBeenCalled();
-        expect(mockSessionService.revokeAllUserSessions).toHaveBeenCalledWith(
-          mockUser.id,
-          'Password reset by administrator',
-        );
-        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
-          expect.objectContaining({
-            eventType: AuthAuditEventType.PASSWORD_RESET_COMPLETED,
-            eventStatus: 'SUCCESS',
-            reason: 'admin_reset',
-          }),
-        );
-        expect(result.success).toBe(true);
-        expect(result.mustChangePassword).toBe(true);
-        expect(result.sessionsRevoked).toBe(3);
-      });
-
-      it('should successfully reset password by UUID sub', async () => {
-        const uuidIdentifier = 'a21b654c-2746-4168-acee-c175083a65cd';
-        mockUserRepository.findOne.mockResolvedValue(mockUser as any);
-
-        const result = await service.adminSetPassword({
-          ...adminSetPasswordDto,
-          identifier: uuidIdentifier,
-        });
-
-        expect(mockUserRepository.findOne).toHaveBeenCalledWith({
-          where: { sub: uuidIdentifier },
-        });
-        expect(result.success).toBe(true);
-      });
-
-      it('should successfully reset password by username', async () => {
-        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
-          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
-          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
-            return mockUser as any;
-          }
-          return null;
-        });
-        mockUserRepository.createQueryBuilder = jest.fn(() => ({
-          where: jest.fn().mockReturnThis(),
-          orWhere: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(mockUser as any),
-        })) as any;
-
-        const result = await service.adminSetPassword({
-          ...adminSetPasswordDto,
-          identifier: 'testuser',
-        });
-
-        expect(result.success).toBe(true);
-      });
-
-      it('should successfully reset password by phone', async () => {
-        const userWithPhone = { ...mockUser, phone: '+1234567890' };
-        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
-          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
-          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
-            return userWithPhone as any;
-          }
-          return null;
-        });
-        mockUserRepository.createQueryBuilder = jest.fn(() => ({
-          where: jest.fn().mockReturnThis(),
-          orWhere: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(userWithPhone as any),
-        })) as any;
-
-        const result = await service.adminSetPassword({
-          ...adminSetPasswordDto,
-          identifier: '+1234567890',
-        });
-
-        expect(result.success).toBe(true);
-      });
-
-      it('should set mustChangePassword flag correctly (true by default)', async () => {
-        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
-          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
-          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
-            return mockUser as any;
-          }
-          return null;
-        });
-        mockUserRepository.createQueryBuilder = jest.fn(() => ({
-          where: jest.fn().mockReturnThis(),
-          orWhere: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(mockUser as any),
-        })) as any;
-
-        const dtoWithoutFlag = {
-          identifier: 'test@example.com',
-          newPassword: 'NewSecurePassword123!',
-        };
-
-        const result = await service.adminSetPassword(dtoWithoutFlag);
-
-        expect(mockUserRepository.save).toHaveBeenCalledWith(
-          expect.objectContaining({
-            mustChangePassword: true,
-          }),
-        );
-        expect(result.mustChangePassword).toBe(true);
-      });
-
-      it('should respect mustChangePassword: false option', async () => {
-        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
-          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
-          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
-            return mockUser as any;
-          }
-          return null;
-        });
-        mockUserRepository.createQueryBuilder = jest.fn(() => ({
-          where: jest.fn().mockReturnThis(),
-          orWhere: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(mockUser as any),
-        })) as any;
-
-        const result = await service.adminSetPassword({
-          ...adminSetPasswordDto,
-          mustChangePassword: false,
-        });
-
-        expect(mockUserRepository.save).toHaveBeenCalledWith(
-          expect.objectContaining({
-            mustChangePassword: false,
-          }),
-        );
-        expect(result.mustChangePassword).toBe(false);
-      });
-
-      it('should revoke sessions by default', async () => {
-        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
-          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
-          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
-            return mockUser as any;
-          }
-          return null;
-        });
-        mockUserRepository.createQueryBuilder = jest.fn(() => ({
-          where: jest.fn().mockReturnThis(),
-          orWhere: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(mockUser as any),
-        })) as any;
-
-        const dtoWithoutRevoke = {
-          identifier: 'test@example.com',
-          newPassword: 'NewSecurePassword123!',
-        };
-
-        await service.adminSetPassword(dtoWithoutRevoke);
-
-        expect(mockSessionService.revokeAllUserSessions).toHaveBeenCalled();
-      });
-
-      it('should respect revokeSessions: false option', async () => {
-        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
-          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
-          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
-            return mockUser as any;
-          }
-          return null;
-        });
-        mockUserRepository.createQueryBuilder = jest.fn(() => ({
-          where: jest.fn().mockReturnThis(),
-          orWhere: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(mockUser as any),
-        })) as any;
-
-        const result = await service.adminSetPassword({
-          ...adminSetPasswordDto,
-          revokeSessions: false,
-        });
-
-        expect(mockSessionService.revokeAllUserSessions).not.toHaveBeenCalled();
-        expect(result.sessionsRevoked).toBe(0);
-      });
-
-      it('should update password history correctly', async () => {
-        const userWithHistory = { ...mockUser, passwordHistory: ['hash1', 'hash2'] };
-        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
-          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
-          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
-            return userWithHistory as any;
-          }
-          return null;
-        });
-        mockUserRepository.createQueryBuilder = jest.fn(() => ({
-          where: jest.fn().mockReturnThis(),
-          orWhere: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(userWithHistory as any),
-        })) as any;
-
-        await service.adminSetPassword(adminSetPasswordDto);
-
-        expect(mockPasswordService.addToHistory).toHaveBeenCalledWith(['hash1', 'hash2'], mockUser.passwordHash);
-      });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: mockUser.sub } });
+      expect(result.success).toBe(true);
+      expect(result.mustChangePassword).toBe(true);
+      expect(result.sessionsRevoked).toBe(3);
     });
 
-    describe('Error handling', () => {
-      it('should throw NOT_FOUND for non-existent user', async () => {
-        mockUserRepository.findOne.mockResolvedValue(null);
-        mockUserRepository.createQueryBuilder = jest.fn(() => ({
-          where: jest.fn().mockReturnThis(),
-          orWhere: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(null),
-        })) as any;
+    it('should default mustChangePassword to true', async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
 
-        try {
-          await service.adminSetPassword(adminSetPasswordDto);
-          fail('Should have thrown NAuthException');
-        } catch (error: any) {
-          expect(error).toBeInstanceOf(NAuthException);
-          expect(error.code).toBe(AuthErrorCode.NOT_FOUND);
-        }
+      const result = await adminService.setPassword({
+        ...adminSetPasswordDto,
+        mustChangePassword: undefined,
       });
 
-      it('should allow admin to set first password for social-only users', async () => {
-        const socialOnlyUser = { ...mockUser, passwordHash: null, passwordHistory: null };
-        // updateUserPassword() loads the full entity by internal ID.
-        mockUserRepository.findOne.mockResolvedValue(socialOnlyUser as any);
-        mockUserRepository.createQueryBuilder = jest.fn(() => ({
-          where: jest.fn().mockReturnThis(),
-          orWhere: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(socialOnlyUser as any),
-        })) as any;
+      expect(result.mustChangePassword).toBe(true);
+    });
 
-        const result = await service.adminSetPassword(adminSetPasswordDto);
+    it('should skip session revocation when revokeSessions is false', async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockSessionService.revokeAllUserSessions.mockClear();
 
-        expect(result.success).toBe(true);
-        expect(result.mustChangePassword).toBe(true);
-        expect(result.sessionsRevoked).toBe(3);
+      await adminService.setPassword({
+        ...adminSetPasswordDto,
+        revokeSessions: false,
       });
 
-      it('should throw WEAK_PASSWORD for invalid passwords', async () => {
-        // Mock user lookup by identifier (email/username/phone) - adminSetPassword uses findUserByIdentifier
-        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
-          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
-          // Handle lookup by sub (UUID)
-          if (
-            where &&
-            typeof where === 'object' &&
-            (where as { sub?: unknown }).sub === adminSetPasswordDto.identifier
-          ) {
-            return mockUser as any;
-          }
-          // Handle lookup by id (for updateUserPassword internal call)
-          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
-            return mockUser as any;
-          }
-          return null;
-        });
-        // Mock findUserByIdentifier (uses createQueryBuilder)
-        mockUserRepository.createQueryBuilder = jest.fn(() => ({
-          where: jest.fn().mockReturnThis(),
-          orWhere: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(mockUser as any),
-        })) as any;
-        mockPasswordService.validatePassword.mockResolvedValue({
-          valid: false,
-          errors: ['Password too weak', 'Missing uppercase'],
-        });
+      expect(mockSessionService.revokeAllUserSessions).not.toHaveBeenCalled();
+    });
 
-        try {
-          await service.adminSetPassword(adminSetPasswordDto);
-          fail('Should have thrown NAuthException');
-        } catch (error: any) {
-          expect(error).toBeInstanceOf(NAuthException);
-          expect(error.code).toBe(AuthErrorCode.WEAK_PASSWORD);
-          // NAuthException uses 'details' not 'metadata'
-          expect(error.details?.errors).toEqual(['Password too weak', 'Missing uppercase']);
-        }
-      });
+    it('should throw NAuthException if user not found', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
 
-      it('should throw PASSWORD_REUSED when password in history', async () => {
-        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
-          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
-          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
-            return mockUser as any;
-          }
-          return null;
-        });
-        mockUserRepository.createQueryBuilder = jest.fn(() => ({
-          where: jest.fn().mockReturnThis(),
-          orWhere: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(mockUser as any),
-        })) as any;
-        mockPasswordService.isPasswordInHistory.mockResolvedValue(true);
-
-        try {
-          await service.adminSetPassword(adminSetPasswordDto);
-          fail('Should have thrown NAuthException');
-        } catch (error: any) {
-          expect(error).toBeInstanceOf(NAuthException);
-          expect(error.code).toBe(AuthErrorCode.PASSWORD_REUSED);
-        }
-      });
-
-      it('should record audit event with correct metadata', async () => {
-        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
-          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
-          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
-            return mockUser as any;
-          }
-          return null;
-        });
-        mockUserRepository.createQueryBuilder = jest.fn(() => ({
-          where: jest.fn().mockReturnThis(),
-          orWhere: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(mockUser as any),
-        })) as any;
-
-        await service.adminSetPassword(adminSetPasswordDto);
-
-        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
-          expect.objectContaining({
-            userId: mockUser.id,
-            eventType: AuthAuditEventType.PASSWORD_RESET_COMPLETED,
-            eventStatus: 'SUCCESS',
-            reason: 'admin_reset',
-            description: 'Password reset by administrator',
-            metadata: expect.objectContaining({
-              identifier: adminSetPasswordDto.identifier,
-              mustChangePassword: true,
-              wasSocialOnly: false,
-              sessionsRevoked: 3,
-            }),
-          }),
-        );
-      });
-
-      it('should handle audit service errors gracefully', async () => {
-        mockUserRepository.findOne.mockImplementation(async (args: unknown) => {
-          const where = (args as { where?: Record<string, unknown> } | undefined)?.where;
-          if (where && typeof where === 'object' && (where as { id?: unknown }).id === mockUser.id) {
-            return mockUser as any;
-          }
-          return null;
-        });
-        mockUserRepository.createQueryBuilder = jest.fn(() => ({
-          where: jest.fn().mockReturnThis(),
-          orWhere: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(mockUser as any),
-        })) as any;
-        mockAuditService.recordEvent.mockRejectedValue(new Error('Audit service error'));
-
-        // Should not throw, just log error
-        const result = await service.adminSetPassword(adminSetPasswordDto);
-
-        expect(result.success).toBe(true);
-      });
+      try {
+        await adminService.setPassword(adminSetPasswordDto);
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.NOT_FOUND);
+      }
     });
   });
 
-  // ============================================================================
+// ============================================================================
   // updateUserAttributes Tests
   // ============================================================================
 
@@ -3329,6 +3031,11 @@ describe('AuthService', () => {
       firstName: 'Updated',
       lastName: 'Name',
       email: 'updated@example.com',
+    };
+    const runUpdateUserAttributes = async (dto: UpdateUserAttributesDTO): Promise<UserResponseDto> => {
+      return await runWithCurrentUser(mockUser, async () => {
+        return await service.updateUserAttributes(dto);
+      });
     };
 
     beforeEach(() => {
@@ -3351,7 +3058,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(null) // Email uniqueness check
           .mockResolvedValueOnce({ ...mockUser, ...updateData } as any); // Final fetch by id
 
-        const result = await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, updateData));
+        const result = await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, updateData));
 
         expect(mockUserRepository.findOne).toHaveBeenCalledWith({
           where: { sub: mockUser.sub } as any,
@@ -3366,7 +3073,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(mockUser as any)
           .mockResolvedValueOnce({ ...mockUser, firstName: 'John', lastName: 'Doe' } as any);
 
-        await service.updateUserAttributes(
+        await runUpdateUserAttributes(
           createUpdateUserAttributesDto(mockUser.sub, {
             firstName: 'John',
             lastName: 'Doe',
@@ -3389,7 +3096,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(null) // Username uniqueness check
           .mockResolvedValueOnce({ ...mockUser, username: 'newusername' } as any);
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { username: 'newusername' }));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { username: 'newusername' }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3406,7 +3113,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(null) // Email uniqueness check
           .mockResolvedValueOnce({ ...mockUser, email: 'newemail@example.com', isEmailVerified: false } as any);
 
-        await service.updateUserAttributes(
+        await runUpdateUserAttributes(
           createUpdateUserAttributesDto(mockUser.sub, { email: 'newemail@example.com' }),
         );
 
@@ -3427,7 +3134,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ ...mockUser, phone: '+1987654321', isPhoneVerified: false } as any);
         mockMfaDeviceRepository.find.mockResolvedValue([]);
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3448,7 +3155,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ ...verifiedUser, email: 'newemail@example.com', phone: '+1987654321' } as any); // Final fetch by id
         mockMfaDeviceRepository.find.mockResolvedValue([]);
 
-        await service.updateUserAttributes(
+        await runUpdateUserAttributes(
           createUpdateUserAttributesDto(mockUser.sub, {
             email: 'newemail@example.com',
             phone: '+1987654321',
@@ -3477,7 +3184,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ ...unverifiedUser, email: 'newemail@example.com', phone: '+1987654321' } as any); // Final fetch by id
         mockMfaDeviceRepository.find.mockResolvedValue([]);
 
-        await service.updateUserAttributes(
+        await runUpdateUserAttributes(
           createUpdateUserAttributesDto(mockUser.sub, {
             email: 'newemail@example.com',
             phone: '+1987654321',
@@ -3503,7 +3210,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithMetadata as any) // Initial lookup by sub
           .mockResolvedValueOnce({ ...userWithMetadata, metadata: { key1: 'value1', key2: 'value2' } } as any); // Final fetch by id
 
-        await service.updateUserAttributes(
+        await runUpdateUserAttributes(
           createUpdateUserAttributesDto(mockUser.sub, { metadata: { key2: 'value2' } }),
         );
 
@@ -3525,7 +3232,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(null) // Email uniqueness check
           .mockResolvedValueOnce({ ...mockUser, ...updateData } as any);
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, updateData));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, updateData));
 
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -3559,7 +3266,7 @@ describe('AuthService', () => {
 
         mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: 'new@example.com' }));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: 'new@example.com' }));
 
         expect(mockMfaDeviceRepository.delete).toHaveBeenCalledWith(1);
       });
@@ -3585,7 +3292,7 @@ describe('AuthService', () => {
 
         mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: 'new@example.com' }));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: 'new@example.com' }));
 
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -3625,7 +3332,7 @@ describe('AuthService', () => {
 
         mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
 
         expect(mockMfaDeviceRepository.delete).toHaveBeenCalledWith(1);
       });
@@ -3652,7 +3359,7 @@ describe('AuthService', () => {
 
         mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
 
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -3691,7 +3398,7 @@ describe('AuthService', () => {
 
         mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: 'new@example.com' }));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: 'new@example.com' }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3726,7 +3433,7 @@ describe('AuthService', () => {
 
         mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3748,7 +3455,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ id: 999 } as any); // Second call for email uniqueness check
 
         try {
-          await service.updateUserAttributes(
+          await runUpdateUserAttributes(
             createUpdateUserAttributesDto(mockUser.sub, { email: 'existing@example.com' }),
           );
           fail('Should have thrown NAuthException');
@@ -3765,7 +3472,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ id: 999 } as any); // Second call for phone uniqueness check
 
         try {
-          await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1234567890' }));
+          await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1234567890' }));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -3780,7 +3487,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ id: 999 } as any); // Second call for username uniqueness check
 
         try {
-          await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { username: 'existinguser' }));
+          await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { username: 'existinguser' }));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -3795,7 +3502,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(null) // Email uniqueness check (not found = OK, because it's the same user)
           .mockResolvedValueOnce(mockUser as any); // Final fetch by id
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: mockUser.email }));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: mockUser.email }));
 
         expect(mockUserRepository.update).toHaveBeenCalled();
       });
@@ -3806,7 +3513,7 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockResolvedValue(null);
 
         try {
-          await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, updateData));
+          await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, updateData));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -3832,7 +3539,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce([] as any); // Check for remaining active devices
         mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
 
         expect(mockMfaDeviceRepository.find).toHaveBeenCalled();
         // Code uses delete() not update() for SMS MFA devices
@@ -3846,7 +3553,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithPhone as any) // Initial lookup
           .mockResolvedValueOnce(userWithPhone as any); // Final fetch
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { firstName: 'New' }));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { firstName: 'New' }));
 
         expect(mockMfaDeviceRepository.find).not.toHaveBeenCalled();
       });
@@ -3864,7 +3571,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce([] as any); // Check for remaining active devices
         mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
 
-        await service.updateUserAttributes(
+        await runUpdateUserAttributes(
           createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321', retainVerification: true }),
         );
 
@@ -3888,7 +3595,7 @@ describe('AuthService', () => {
         mockUserRepository.update.mockRejectedValue(new Error('Database error'));
 
         try {
-          await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, updateData));
+          await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, updateData));
           fail('Should have thrown Error');
         } catch (error: any) {
           expect(error).toBeInstanceOf(Error);
@@ -3903,7 +3610,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ ...mockUser, ...updateData } as any); // Final fetch by id
         mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, updateData));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, updateData));
 
         // Should still complete update despite audit error
         expect(mockUserRepository.update).toHaveBeenCalled();
@@ -3920,7 +3627,7 @@ describe('AuthService', () => {
         mockMfaDeviceRepository.find.mockRejectedValue(new Error('Database error'));
 
         // Should still complete update despite MFA device error
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
 
         expect(mockUserRepository.update).toHaveBeenCalled();
         expect(mockLogger.warn).toHaveBeenCalled();
@@ -3934,7 +3641,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(mockUser as any)
           .mockResolvedValueOnce({ ...mockUser, firstName: 'NewFirst' } as any);
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { firstName: 'NewFirst' }));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { firstName: 'NewFirst' }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3951,7 +3658,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithMetadata as any) // Initial lookup by sub
           .mockResolvedValueOnce(userWithMetadata as any); // Final fetch by id
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { metadata: {} }));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { metadata: {} }));
 
         expect(mockUserRepository.update).toHaveBeenCalled();
       });
@@ -3963,7 +3670,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithNullMetadata as any) // Initial lookup by sub
           .mockResolvedValueOnce({ ...userWithNullMetadata, metadata: { key: 'value' } } as any); // Final fetch by id
 
-        await service.updateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { metadata: { key: 'value' } }));
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { metadata: { key: 'value' } }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3982,7 +3689,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithMetadata as any)
           .mockResolvedValueOnce({ ...userWithMetadata, metadata: { existing: 'updated', keep: 'value2', new: 'value3' } } as any);
 
-        await service.updateUserAttributes(
+        await runUpdateUserAttributes(
           createUpdateUserAttributesDto(mockUser.sub, {
             metadata: { existing: 'updated', new: 'value3' },
           }),
@@ -4007,7 +3714,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithMetadata as any)
           .mockResolvedValueOnce({ ...userWithMetadata, metadata: { key2: 'value2' } } as any);
 
-        await service.updateUserAttributes(
+        await runUpdateUserAttributes(
           createUpdateUserAttributesDto(mockUser.sub, {
             metadata: { key1: null, key3: null },
           }),
@@ -4036,7 +3743,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithMetadata as any)
           .mockResolvedValueOnce({ ...userWithMetadata, metadata: { update: 'new', keep: 'value', add: 'new' } } as any);
 
-        await service.updateUserAttributes(
+        await runUpdateUserAttributes(
           createUpdateUserAttributesDto(mockUser.sub, {
             metadata: { delete: null, update: 'new', add: 'new' },
           }),
@@ -4068,7 +3775,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithMetadata as any)
           .mockResolvedValueOnce({ ...userWithMetadata, metadata: {} } as any);
 
-        await service.updateUserAttributes(
+        await runUpdateUserAttributes(
           createUpdateUserAttributesDto(mockUser.sub, {
             metadata: { key1: null, key2: null },
           }),
@@ -4101,7 +3808,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithEmail as any) // Initial lookup by sub
           .mockResolvedValueOnce({ ...userWithEmail, isEmailVerified: true } as any); // Final fetch by id
 
-        const result = await service.updateVerifiedStatus(
+        const result = await adminService.updateVerifiedStatus(
           createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }),
         );
 
@@ -4120,7 +3827,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithPhone as any) // Initial lookup by sub
           .mockResolvedValueOnce({ ...userWithPhone, isPhoneVerified: true } as any); // Final fetch by id
 
-        const result = await service.updateVerifiedStatus(
+        const result = await adminService.updateVerifiedStatus(
           createUpdateVerifiedStatusDto(mockUser.sub, { isPhoneVerified: true }),
         );
 
@@ -4149,7 +3856,7 @@ describe('AuthService', () => {
             isPhoneVerified: true,
           } as any); // Final fetch by id
 
-        const result = await service.updateVerifiedStatus(
+        const result = await adminService.updateVerifiedStatus(
           createUpdateVerifiedStatusDto(mockUser.sub, {
             isEmailVerified: true,
             isPhoneVerified: true,
@@ -4173,7 +3880,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithoutEmail as any) // Initial lookup by sub
           .mockResolvedValueOnce({ ...userWithoutEmail, isEmailVerified: false } as any); // Final fetch by id
 
-        const result = await service.updateVerifiedStatus(
+        const result = await adminService.updateVerifiedStatus(
           createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: false }),
         );
 
@@ -4192,7 +3899,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithoutPhone as any) // Initial lookup by sub
           .mockResolvedValueOnce({ ...userWithoutPhone, isPhoneVerified: false } as any); // Final fetch by id
 
-        const result = await service.updateVerifiedStatus(
+        const result = await adminService.updateVerifiedStatus(
           createUpdateVerifiedStatusDto(mockUser.sub, { isPhoneVerified: false }),
         );
 
@@ -4221,7 +3928,7 @@ describe('AuthService', () => {
             // isPhoneVerified should remain true
           } as any); // Final fetch by id
 
-        const result = await service.updateVerifiedStatus(
+        const result = await adminService.updateVerifiedStatus(
           createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }),
         );
 
@@ -4258,7 +3965,7 @@ describe('AuthService', () => {
             // isEmailVerified should remain true
           } as any); // Final fetch by id
 
-        const result = await service.updateVerifiedStatus(
+        const result = await adminService.updateVerifiedStatus(
           createUpdateVerifiedStatusDto(mockUser.sub, { isPhoneVerified: true }),
         );
 
@@ -4282,7 +3989,7 @@ describe('AuthService', () => {
       it('should return current user if no fields provided', async () => {
         mockUserRepository.findOne.mockResolvedValueOnce(mockUser as any); // Initial lookup by sub
 
-        const result = await service.updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, {}));
+        const result = await adminService.updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, {}));
 
         expect(mockUserRepository.update).not.toHaveBeenCalled();
         expect(result.sub).toBe(mockUser.sub);
@@ -4294,7 +4001,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithEmail as any) // Initial lookup by sub
           .mockResolvedValueOnce({ ...userWithEmail, isEmailVerified: true } as any); // Final fetch by id
 
-        await service.updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }));
+        await adminService.updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }));
 
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -4317,7 +4024,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithPhone as any) // Initial lookup by sub
           .mockResolvedValueOnce({ ...userWithPhone, isPhoneVerified: true } as any); // Final fetch by id
 
-        await service.updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isPhoneVerified: true }));
+        await adminService.updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isPhoneVerified: true }));
 
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
@@ -4350,7 +4057,7 @@ describe('AuthService', () => {
             isPhoneVerified: true,
           } as any); // Final fetch by id
 
-        await service.updateVerifiedStatus(
+        await adminService.updateVerifiedStatus(
           createUpdateVerifiedStatusDto(mockUser.sub, {
             isEmailVerified: true,
             isPhoneVerified: true,
@@ -4376,9 +4083,9 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockReset();
         mockUserRepository.findOne.mockResolvedValueOnce(userWithoutEmail as any); // Initial lookup by sub
 
-        const error = await service
+        const error = await adminService
           .updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }))
-          .catch((e) => e);
+          .catch((error: unknown) => error);
         expect(error).toBeInstanceOf(NAuthException);
         expect(error.message).toBe('Cannot set email verification to true: user does not have an email address');
 
@@ -4390,9 +4097,9 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockReset();
         mockUserRepository.findOne.mockResolvedValueOnce(userWithoutPhone as any); // Initial lookup by sub
 
-        const error = await service
+        const error = await adminService
           .updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isPhoneVerified: true }))
-          .catch((e) => e);
+          .catch((error: unknown) => error);
         expect(error).toBeInstanceOf(NAuthException);
         expect(error.message).toBe('Cannot set phone verification to true: user does not have a phone number');
 
@@ -4403,9 +4110,9 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockReset();
         mockUserRepository.findOne.mockResolvedValueOnce(null);
 
-        const error = await service
+        const error = await adminService
           .updateVerifiedStatus(createUpdateVerifiedStatusDto('non-existent-sub', { isEmailVerified: true }))
-          .catch((e) => e);
+          .catch((error: unknown) => error);
         expect(error).toBeInstanceOf(NAuthException);
         expect(error.message).toBe('User not found');
 
@@ -4422,7 +4129,7 @@ describe('AuthService', () => {
         mockAuditService.recordEvent.mockRejectedValue(new Error('Audit service error'));
 
         // Should not throw, just log error
-        const result = await service.updateVerifiedStatus(
+        const result = await adminService.updateVerifiedStatus(
           createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }),
         );
 
@@ -4439,7 +4146,7 @@ describe('AuthService', () => {
 
         const error = await service
           .updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }))
-          .catch((e) => e);
+          .catch((error: unknown) => error);
         expect(error).toBeInstanceOf(NAuthException);
         expect(error.message).toBe('Failed to reload user after update');
       });
@@ -5416,7 +5123,7 @@ describe('AuthService', () => {
       mockUserRepository.create.mockReturnValue(createdUser as any);
       mockUserRepository.save.mockResolvedValue(createdUser as any);
 
-      const result = await service.adminSignup(adminSignupDto);
+      const result = await adminService.signup(adminSignupDto);
 
       expect(mockUserRepository.create).toHaveBeenCalledWith(
         (expect as any).objectContaining({
@@ -5440,7 +5147,7 @@ describe('AuthService', () => {
       mockUserRepository.create.mockReturnValue(createdUser as any);
       mockUserRepository.save.mockResolvedValue(createdUser as any);
 
-      const result = await service.adminSignup({
+      const result = await adminService.signup({
         ...adminSignupDto,
         isEmailVerified: true,
       });
@@ -5461,7 +5168,7 @@ describe('AuthService', () => {
       mockUserRepository.create.mockReturnValue(createdUser as any);
       mockUserRepository.save.mockResolvedValue(createdUser as any);
 
-      const result = await service.adminSignup({
+      const result = await adminService.signup({
         ...adminSignupDto,
         isPhoneVerified: true,
       });
@@ -5482,7 +5189,7 @@ describe('AuthService', () => {
       mockUserRepository.create.mockReturnValue(createdUser as any);
       mockUserRepository.save.mockResolvedValue(createdUser as any);
 
-      const result = await service.adminSignup({
+      const result = await adminService.signup({
         ...adminSignupDto,
         mustChangePassword: true,
       });
@@ -5503,7 +5210,7 @@ describe('AuthService', () => {
       mockUserRepository.save.mockResolvedValue(createdUser as any);
       mockPasswordService.hashPassword.mockResolvedValue('hashed-generated-password');
 
-      const result = await service.adminSignup({
+      const result = await adminService.signup({
         ...adminSignupDto,
         generatePassword: true,
         password: undefined,
@@ -5520,7 +5227,7 @@ describe('AuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
 
       try {
-        await service.adminSignup(adminSignupDto);
+        await adminService.signup(adminSignupDto);
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -5534,7 +5241,7 @@ describe('AuthService', () => {
         .mockResolvedValueOnce(mockUser as any); // Username check fails
 
       try {
-        await service.adminSignup(adminSignupDto);
+        await adminService.signup(adminSignupDto);
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -5550,7 +5257,7 @@ describe('AuthService', () => {
         .mockResolvedValueOnce(mockUser as any); // Phone check fails
 
       try {
-        await service.adminSignup({
+        await adminService.signup({
           ...adminSignupDto,
           phone: '+1234567890',
         });
@@ -5569,7 +5276,7 @@ describe('AuthService', () => {
       });
 
       try {
-        await service.adminSignup(adminSignupDto);
+        await adminService.signup(adminSignupDto);
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -5581,7 +5288,7 @@ describe('AuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.adminSignup({
+        await adminService.signup({
           ...adminSignupDto,
           password: undefined,
           generatePassword: false,
@@ -5602,7 +5309,7 @@ describe('AuthService', () => {
       mockUserRepository.create.mockReturnValue(createdUser as any);
       mockUserRepository.save.mockResolvedValue(createdUser as any);
 
-      await service.adminSignup(adminSignupDto);
+      await adminService.signup(adminSignupDto);
 
       expect(mockAuditService?.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({
@@ -5629,11 +5336,11 @@ describe('AuthService', () => {
         .mockResolvedValueOnce('hashed-password-1')
         .mockResolvedValueOnce('hashed-password-2');
 
-      const result1 = await service.adminSignup({
+      const result1 = await adminService.signup({
         email: 'user1@example.com',
         generatePassword: true,
       });
-      const result2 = await service.adminSignup({
+      const result2 = await adminService.signup({
         email: 'user2@example.com',
         generatePassword: true,
       });
@@ -5653,7 +5360,7 @@ describe('AuthService', () => {
       mockUserRepository.save.mockResolvedValue(createdUser as any);
 
       // Should not throw even though signup is disabled
-      const result = await service.adminSignup(adminSignupDto);
+      const result = await adminService.signup(adminSignupDto);
 
       expect(result.user).toBeDefined();
     });
@@ -5666,7 +5373,7 @@ describe('AuthService', () => {
       mockUserRepository.create.mockReturnValue(createdUser as any);
       mockUserRepository.save.mockResolvedValue(createdUser as any);
 
-      const result = await service.adminSignup(adminSignupDto);
+      const result = await adminService.signup(adminSignupDto);
 
       // Should return user object, not AuthResponseDTO with challenge
       expect(result.user).toBeDefined();
@@ -5683,7 +5390,7 @@ describe('AuthService', () => {
       mockUserRepository.create.mockReturnValue(createdUser as any);
       mockUserRepository.save.mockResolvedValue(createdUser as any);
 
-      await service.adminSignup({
+      await adminService.signup({
         ...adminSignupDto,
         isEmailVerified: true,
       });
@@ -5720,7 +5427,7 @@ describe('AuthService', () => {
       mockUserRepository.save.mockResolvedValue(createdUser as any);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      const result = await service.adminSignupSocial(adminSignupSocialDto);
+      const result = await adminService.signupSocial(adminSignupSocialDto);
 
       expect(mockUserRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -5755,7 +5462,7 @@ describe('AuthService', () => {
       mockUserRepository.save.mockResolvedValue(createdUser as any);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      const result = await service.adminSignupSocial(hybridDto);
+      const result = await adminService.signupSocial(hybridDto);
 
       expect(mockPasswordService.validatePassword).toHaveBeenCalled();
       expect(mockPasswordService.hashPassword).toHaveBeenCalledWith('SecurePass123!');
@@ -5776,7 +5483,7 @@ describe('AuthService', () => {
       mockUserRepository.save.mockResolvedValue(createdUser as any);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      const result = await service.adminSignupSocial({
+      const result = await adminService.signupSocial({
         ...adminSignupSocialDto,
       });
 
@@ -5796,7 +5503,7 @@ describe('AuthService', () => {
       mockUserRepository.save.mockResolvedValue(createdUser as any);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      const result = await service.adminSignupSocial({
+      const result = await adminService.signupSocial({
         ...adminSignupSocialDto,
         isPhoneVerified: true,
       });
@@ -5812,8 +5519,8 @@ describe('AuthService', () => {
     it('should throw EMAIL_EXISTS if email already registered', async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser); // Email exists
 
-      await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
-      await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toMatchObject({
+      await expect(adminService.signupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
+      await expect(adminService.signupSocial(adminSignupSocialDto)).rejects.toMatchObject({
         code: AuthErrorCode.EMAIL_EXISTS,
       });
 
@@ -5829,7 +5536,7 @@ describe('AuthService', () => {
         .mockResolvedValueOnce(null) // Email check passes
         .mockResolvedValueOnce(mockUser); // Username exists
 
-      const error = await service.adminSignupSocial(dtoWithUsername).catch((e) => e);
+      const error = await adminService.signupSocial(dtoWithUsername).catch((error: unknown) => error);
 
       expect(error).toBeInstanceOf(NAuthException);
       expect(error.code).toBe(AuthErrorCode.USERNAME_EXISTS);
@@ -5841,7 +5548,7 @@ describe('AuthService', () => {
         .mockResolvedValueOnce(null) // Email check passes
         .mockResolvedValueOnce(mockUser); // Phone exists
 
-      const error = await service.adminSignupSocial(dtoWithPhone).catch((e) => e);
+      const error = await adminService.signupSocial(dtoWithPhone).catch((error: unknown) => error);
 
       expect(error).toBeInstanceOf(NAuthException);
       expect(error.code).toBe(AuthErrorCode.PHONE_EXISTS);
@@ -5857,7 +5564,7 @@ describe('AuthService', () => {
       mockUserRepository.save.mockResolvedValue(createdUser as any);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      const result = await service.adminSignupSocial(dtoWithPhone);
+      const result = await adminService.signupSocial(dtoWithPhone);
 
       expect(mockUserRepository.findOne).toHaveBeenCalledTimes(1); // Only email check, no phone check
       expect(result.user).toBeDefined();
@@ -5872,8 +5579,8 @@ describe('AuthService', () => {
         providerId: 'google_12345',
       } as any);
 
-      await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
-      await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toMatchObject({
+      await expect(adminService.signupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
+      await expect(adminService.signupSocial(adminSignupSocialDto)).rejects.toMatchObject({
         code: AuthErrorCode.SOCIAL_ACCOUNT_EXISTS,
       });
     });
@@ -5923,8 +5630,8 @@ describe('AuthService', () => {
         errors: ['Password must be at least 8 characters'],
       });
 
-      await expect(service.adminSignupSocial(hybridDto)).rejects.toThrow(NAuthException);
-      await expect(service.adminSignupSocial(hybridDto)).rejects.toMatchObject({
+      await expect(adminService.signupSocial(hybridDto)).rejects.toThrow(NAuthException);
+      await expect(adminService.signupSocial(hybridDto)).rejects.toMatchObject({
         code: AuthErrorCode.WEAK_PASSWORD,
         details: { errors: ['Password must be at least 8 characters'] },
       });
@@ -5938,7 +5645,7 @@ describe('AuthService', () => {
       mockUserRepository.save.mockResolvedValue(createdUser as any);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      await service.adminSignupSocial(adminSignupSocialDto);
+      await adminService.signupSocial(adminSignupSocialDto);
 
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -5966,8 +5673,8 @@ describe('AuthService', () => {
         detail: 'Key (email)=(social-user@example.com) already exists',
       });
 
-      await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
-      await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toMatchObject({
+      await expect(adminService.signupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
+      await expect(adminService.signupSocial(adminSignupSocialDto)).rejects.toMatchObject({
         code: AuthErrorCode.EMAIL_EXISTS,
       });
     });
@@ -5983,7 +5690,7 @@ describe('AuthService', () => {
         detail: 'Key (provider, providerId)=(google, google_12345) already exists',
       });
 
-      await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toThrow();
+      await expect(adminService.signupSocial(adminSignupSocialDto)).rejects.toThrow();
     });
 
     it('should return social account confirmation in response', async () => {
@@ -5994,7 +5701,7 @@ describe('AuthService', () => {
       mockUserRepository.save.mockResolvedValue(createdUser as any);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      const result = await service.adminSignupSocial(adminSignupSocialDto);
+      const result = await adminService.signupSocial(adminSignupSocialDto);
 
       expect(result.socialAccount).toEqual({
         provider: 'google',
@@ -6014,7 +5721,7 @@ describe('AuthService', () => {
       mockUserRepository.save.mockResolvedValue(createdUser as any);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      const result = await service.adminSignupSocial(dtoWithoutProviderEmail);
+      const result = await adminService.signupSocial(dtoWithoutProviderEmail);
 
       expect(mockSocialAuthService.createOrUpdateSocialAccount).toHaveBeenCalledWith(
         expect.anything(),
@@ -6039,7 +5746,7 @@ describe('AuthService', () => {
       it('should execute preSignup hook before user creation for admin social signup', async () => {
         mockHookRegistry.executePreSignup.mockResolvedValue(undefined);
 
-        await service.adminSignupSocial(adminSignupSocialDto);
+        await adminService.signupSocial(adminSignupSocialDto);
 
         expect(mockHookRegistry.executePreSignup).toHaveBeenCalledTimes(1);
         expect(mockHookRegistry.executePreSignup).toHaveBeenCalledWith(
@@ -6063,8 +5770,8 @@ describe('AuthService', () => {
           new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, customMessage),
         );
 
-        await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
-        await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toMatchObject({
+        await expect(adminService.signupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
+        await expect(adminService.signupSocial(adminSignupSocialDto)).rejects.toMatchObject({
           code: AuthErrorCode.PRESIGNUP_FAILED,
           message: customMessage,
         });
@@ -6080,8 +5787,8 @@ describe('AuthService', () => {
           new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, 'External validation failed'),
         );
 
-        await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
-        await expect(service.adminSignupSocial(adminSignupSocialDto)).rejects.toMatchObject({
+        await expect(adminService.signupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
+        await expect(adminService.signupSocial(adminSignupSocialDto)).rejects.toMatchObject({
           code: AuthErrorCode.PRESIGNUP_FAILED,
           message: 'External validation failed',
         });
@@ -6112,7 +5819,7 @@ describe('AuthService', () => {
     it('should execute preSignup hook with adminSignup=true for admin signup', async () => {
       mockHookRegistry.executePreSignup.mockResolvedValue(undefined);
 
-      await service.adminSignup(adminSignupDto);
+      await adminService.signup(adminSignupDto);
 
       expect(mockHookRegistry.executePreSignup).toHaveBeenCalledTimes(1);
       expect(mockHookRegistry.executePreSignup).toHaveBeenCalledWith(
@@ -6135,7 +5842,7 @@ describe('AuthService', () => {
       );
 
       try {
-        await service.adminSignup(adminSignupDto);
+        await adminService.signup(adminSignupDto);
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);

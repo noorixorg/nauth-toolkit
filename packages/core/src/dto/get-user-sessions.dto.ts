@@ -8,7 +8,7 @@ import { Transform } from 'class-transformer';
  * ```typescript
  * const dto = new GetUserSessionsDTO();
  * dto.sub = 'user-uuid-123';
- * const sessions = await authService.getUserSessions(dto);
+ * const sessions = await adminAuthService.getUserSessions(dto);
  * ```
  */
 export class GetUserSessionsDTO {

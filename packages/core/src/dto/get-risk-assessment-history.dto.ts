@@ -11,23 +11,23 @@ import { Transform } from 'class-transformer';
  * @example
  * ```typescript
  * const result = await auditService.getRiskAssessmentHistory({
- *   userSub: 'user-uuid',
+ *   sub: 'user-uuid',
  *   limit: 50,
  * });
  * ```
  */
 export class GetRiskAssessmentHistoryDTO {
   /**
-   * User identifier
+   * User's unique identifier (UUID v4)
    */
-  @IsUUID('4', { message: 'userSub must be a valid UUID v4 format' })
+  @IsUUID('4', { message: 'sub must be a valid UUID v4 format' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       return value.trim().toLowerCase();
     }
     return value;
   })
-  userSub!: string;
+  sub!: string;
 
   /**
    * Maximum number of records to return

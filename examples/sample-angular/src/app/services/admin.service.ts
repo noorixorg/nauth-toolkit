@@ -213,7 +213,12 @@ export interface AdminSetPasswordRequest {
  * Admin-initiated password reset request DTO
  */
 export interface AdminResetPasswordRequest {
-  identifier: string;
+  /**
+   * Target user sub (UUID v4)
+   *
+   * NOTE: Admin reset-password endpoints require `sub` (not email/phone).
+   */
+  sub: string;
   deliveryMethod?: 'email' | 'sms';
   baseUrl?: string;
   codeExpiresIn?: number;
@@ -539,7 +544,7 @@ export class AdminService {
    * @example
    * ```typescript
    * const result = await adminService.adminResetPassword({
-   *   identifier: 'user@example.com',
+   *   sub: 'a21b654c-2746-4168-acee-c175083a65cd',
    *   deliveryMethod: 'email',
    *   baseUrl: 'https://myapp.com/reset-password',
    *   reason: 'User reported account compromise'

@@ -36,7 +36,6 @@ export interface NAuthEndpoints {
   getChallengeData: string;
   profile: string;
   changePassword: string;
-  requestPasswordChange: string;
   forgotPassword: string;
   confirmForgotPassword: string;
   confirmAdminResetPassword: string;

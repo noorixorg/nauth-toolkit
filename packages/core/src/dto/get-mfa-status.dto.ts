@@ -1,14 +1,18 @@
 /**
- * DTO for getting MFA status
+ * DTO for getting MFA status (admin-only)
  *
- * Used to retrieve comprehensive MFA status for a user including enabled status,
- * configured methods, available methods, backup codes, and exemption information.
+ * Admin DTO - requires sub field. Used by AdminAuthService.
+ * User self-service version uses AuthService.getMFAStatus() which takes no DTO.
  *
  * @example
  * ```typescript
+ * // Admin version
  * const status = await mfaService.getMFAStatus({
  *   sub: 'user-uuid'
  * });
+ *
+ * // User version (no DTO needed)
+ * const status = await authService.getMFAStatus();
  * ```
  */
 
@@ -17,7 +21,7 @@ import { Transform } from 'class-transformer';
 import { MFADeviceMethod } from '../enums/mfa-method.enum';
 
 /**
- * DTO for getting MFA status
+ * DTO for getting MFA status (admin-only)
  */
 export class GetMFAStatusDTO {
   /**

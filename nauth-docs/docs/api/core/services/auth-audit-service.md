@@ -139,7 +139,7 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with code:
 
 ```typescript
 const result = await this.auditService.getRiskAssessmentHistory({
-  userSub: 'user-uuid',
+  sub: 'user-uuid',
   limit: 50,
 });
 ```
@@ -200,7 +200,7 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with code:
 
 ```typescript
 const result = await this.auditService.getSuspiciousActivity({
-  userSub: 'user-uuid',
+  sub: 'user-uuid',
   limit: 50,
 });
 ```
@@ -232,15 +232,15 @@ const result = await nauth.authAuditService.getSuspiciousActivity({
 
 ### getUserAuthHistory()
 
-Get paginated authentication history for a user.
+Get paginated authentication history for a user (admin operation).
 
 ```typescript
-async getUserAuthHistory(dto: GetUserAuthHistoryDTO): Promise<GetUserAuthHistoryResponseDTO>
+async getUserAuthHistory(dto: AdminGetUserAuthHistoryDTO): Promise<GetUserAuthHistoryResponseDTO>
 ```
 
 **Parameters**
 
-- `dto` - [`GetUserAuthHistoryDTO`](../dto/get-user-auth-history-dto)
+- `dto` - [`AdminGetUserAuthHistoryDTO`](../dto/admin-get-user-auth-history-dto) - Admin DTO with required `sub` field
 
 **Errors**
 
@@ -266,7 +266,7 @@ export class MyService {
 
   async example() {
     const result = await this.auditService.getUserAuthHistory({
-      userSub: 'user-uuid',
+      sub: 'user-uuid', // Required: target user's sub
       page: 1,
       limit: 50,
       eventTypes: [AuthAuditEventType.LOGIN_SUCCESS],
@@ -286,7 +286,7 @@ export class MyService {
 ```typescript
 app.get('/user/history', async (req, res) => {
   const result = await nauth.authAuditService.getUserAuthHistory({
-    userSub: req.user.sub,
+    sub: req.user.sub,
     page: 1,
     limit: 50,
   });
@@ -304,7 +304,7 @@ fastify.get(
   nauth.adapter.wrapRouteHandler(async () => {
     const user = nauth.helpers.getCurrentUser();
     return nauth.authAuditService.getUserAuthHistory({
-      userSub: user.sub,
+      sub: user.sub,
       page: 1,
       limit: 50,
     });
@@ -319,7 +319,8 @@ fastify.get(
 
 ## Related APIs
 
-- [GetUserAuthHistoryDTO](../dto/get-user-auth-history-dto)
+- [AdminGetUserAuthHistoryDTO](../dto/admin-get-user-auth-history-dto) - Admin DTO for getUserAuthHistory
+- [GetUserAuthHistoryDTO](../dto/get-user-auth-history-dto) - User self-service DTO (used by AuthService)
 - [GetEventsByTypeDTO](../dto/get-events-by-type-dto)
 - [GetSuspiciousActivityDTO](../dto/get-suspicious-activity-dto)
 - [GetRiskAssessmentHistoryDTO](../dto/get-risk-assessment-history-dto)

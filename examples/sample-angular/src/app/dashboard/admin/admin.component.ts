@@ -716,7 +716,7 @@ export class AdminComponent implements OnInit {
       const baseUrl = `${window.location.origin}/admin-reset-password`;
 
       const result = await this.adminService.adminResetPassword({
-        identifier: user.email || user.phone || user.sub,
+        sub: user.sub,
         deliveryMethod: formValue.deliveryMethod,
         baseUrl,
         revokeSessions: formValue.revokeSessions,

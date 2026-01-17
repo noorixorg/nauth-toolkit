@@ -54,4 +54,4 @@ import { SetMustChangePasswordDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AuthService.setMustChangePassword()](../services/auth-service#setmustchangepassword)
+- [AuthService.setMustChangePassword()](../services/admin-auth-service#setmustchangepassword)

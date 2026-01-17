@@ -56,4 +56,4 @@ import { GetUserByEmailDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AuthService.getUserByEmail()](../services/auth-service#getuserbyemail)
+- [AuthService.getUserByEmail()](../services/admin-auth-service#getuserbyemail)

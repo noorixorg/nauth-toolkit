@@ -143,7 +143,7 @@ export class LoginComponent implements OnInit {
 
     try {
       await this.auth.loginWithSocial(provider, {
-        returnTo: '/auth/callback/mobile',
+        returnTo: '/auth/callback',
         appState: 'invite-code-123',
       });
     } catch (err: unknown) {

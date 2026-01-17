@@ -1,40 +1,37 @@
 /**
- * Update User Attributes Request DTO
+ * Admin Update User Attributes DTO
  *
- * Request DTO for updating user profile information (includes user sub).
+ * Request DTO for administrators to update a user's profile information.
  *
  * Security:
- * - User sub validated (UUID)
+ * - Requires target user sub (UUID)
  * - All fields validated according to UserUpdateDTO rules
  * - Uniqueness constraints enforced
  *
  * @example
  * ```typescript
- * const result = await authService.updateUserAttributes({
+ * const result = await adminAuthService.updateUserAttributes({
  *   sub: 'user-uuid',
  *   username: 'newusername',
  *   firstName: 'John',
- *   lastName: 'Doe'
+ *   lastName: 'Doe',
  * });
  * ```
  */
 
-import { IsUUID, IsOptional, ValidateIf } from 'class-validator';
+import { IsUUID } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { UserUpdateDTO } from './user-update.dto';
 
 /**
- * Request DTO for updating user attributes (includes user sub)
+ * Request DTO for admin updating user attributes (includes sub)
  */
-export class UpdateUserAttributesRequestDTO extends UserUpdateDTO {
+export class AdminUpdateUserAttributesDTO extends UserUpdateDTO {
   /**
    * User's unique identifier (UUID v4)
    *
-   * Optional at controller level - filled from authenticated user's JWT.
-   * Validated only when provided (service layer will ensure it's set).
-   *
    * Validation:
-   * - Must be a valid UUID v4 format when provided
+   * - Must be a valid UUID v4 format
    * - Matches DB constraint: char(36) or uuid
    *
    * Sanitization:
@@ -43,7 +40,6 @@ export class UpdateUserAttributesRequestDTO extends UserUpdateDTO {
    *
    * @example "a21b654c-2746-4168-acee-c175083a65cd"
    */
-  @ValidateIf((o) => o.sub !== undefined && o.sub !== null && o.sub !== '')
   @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
@@ -51,6 +47,5 @@ export class UpdateUserAttributesRequestDTO extends UserUpdateDTO {
     }
     return value;
   })
-  @IsOptional()
-  sub?: string;
+  sub!: string;
 }

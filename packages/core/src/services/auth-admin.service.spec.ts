@@ -5,10 +5,9 @@
  */
 
 import { Repository } from 'typeorm';
-import { AuthService } from './auth.service';
+import { AdminAuthService } from './admin-auth.service';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { PasswordService } from './password.service';
-import { JwtService } from './jwt.service';
 import { SessionService } from './session.service';
 import { EmailVerificationService } from './email-verification.service';
 import { PhoneVerificationService } from './phone-verification.service';
@@ -18,7 +17,6 @@ import { ChallengeService } from './challenge.service';
 import { AuthChallengeHelperService } from './auth-challenge-helper.service';
 import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { TrustedDeviceService } from './trusted-device.service';
-import { MFAService } from './mfa.service';
 import { SocialAuthService } from './social-auth.service';
 import { HookRegistryService } from './hook-registry.service';
 import { DeleteUserDTO } from '../dto/delete-user.dto';

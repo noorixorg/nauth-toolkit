@@ -12,26 +12,26 @@ import { Transform } from 'class-transformer';
  *
  * // Get suspicious activity for specific user
  * const result = await auditService.getSuspiciousActivity({
- *   userSub: 'user-uuid',
+ *   sub: 'user-uuid',
  *   limit: 50,
  * });
  * ```
  */
 export class GetSuspiciousActivityDTO {
   /**
-   * Optional user identifier to filter by specific user
+   * Optional user's unique identifier (UUID v4) to filter by specific user
    *
    * If not provided, returns suspicious activity for all users.
    */
   @IsOptional()
-  @IsUUID('4', { message: 'userSub must be a valid UUID v4 format' })
+  @IsUUID('4', { message: 'sub must be a valid UUID v4 format' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       return value.trim().toLowerCase();
     }
     return value;
   })
-  userSub?: string;
+  sub?: string;
 
   /**
    * Maximum number of records to return

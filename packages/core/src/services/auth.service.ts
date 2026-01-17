@@ -27,17 +27,13 @@ import { RiskFactor } from '../enums/risk-factor.enum';
 import { MFAService } from './mfa.service';
 import { ContextStorage } from '../utils/context-storage';
 import { SignupDTO } from '../dto/signup.dto';
-import { AdminSignupDTO, AdminSignupResponseDTO } from '../dto/admin-signup.dto';
-import { AdminSignupSocialDTO, AdminSignupSocialResponseDTO } from '../dto/admin-signup-social.dto';
-import { DeleteUserDTO, DeleteUserResponseDTO } from '../dto/delete-user.dto';
-import { GetUsersDTO, GetUsersResponseDTO } from '../dto/get-users.dto';
-import { DisableUserDTO, DisableUserResponseDTO } from '../dto/disable-user.dto';
-import { EnableUserDTO, EnableUserResponseDTO } from '../dto/enable-user.dto';
+// Admin DTOs moved to AdminAuthService
 import { LoginDTO } from '../dto/login.dto';
-import { ChangePasswordRequestDTO } from '../dto/change-password-request.dto';
+import { ChangePasswordDTO } from '../dto/change-password.dto';
 import { ChangePasswordResponseDTO } from '../dto/change-password-response.dto';
-import { UpdateUserAttributesRequestDTO } from '../dto/update-user-attributes-request.dto';
-import { UpdateVerifiedStatusRequestDTO } from '../dto/update-verified-status-request.dto';
+import { UpdateUserAttributesDTO } from '../dto/update-user-attributes.dto';
+import { AdminUpdateUserAttributesDTO } from '../dto/admin-update-user-attributes.dto';
+// Admin-only verification updates are handled by AdminAuthService
 import { UserResponseDto } from '../dto/user-response.dto';
 import { AuthResponseDTO, TokenResponse, toAuthResponseUser } from '../dto/auth-response.dto';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
@@ -52,36 +48,29 @@ import {
   MFASetupResponse,
 } from '../dto/challenge-response.dto';
 import { RespondChallengeDTO } from '../dto/respond-challenge.dto';
-import { GetUserByEmailDTO } from '../dto/get-user-by-email.dto';
-import { GetUserByIdDTO } from '../dto/get-user-by-id.dto';
+// Admin-only lookups are handled by AdminAuthService
 import { LogoutDTO } from '../dto/logout.dto';
 import { LogoutResponseDTO } from '../dto/logout-response.dto';
 import { LogoutAllDTO } from '../dto/logout-all.dto';
 import { LogoutAllResponseDTO } from '../dto/logout-all-response.dto';
-import { GetUserSessionsDTO } from '../dto/get-user-sessions.dto';
 import { GetUserSessionsResponseDTO, UserSessionInfo } from '../dto/get-user-sessions-response.dto';
 import { LogoutSessionDTO } from '../dto/logout-session.dto';
 import { LogoutSessionResponseDTO } from '../dto/logout-session-response.dto';
 import { RefreshTokenDTO } from '../dto/refresh-token.dto';
 import { ResendCodeDTO } from '../dto/resend-code.dto';
 import { ResendCodeResponseDTO } from '../dto/resend-code-response.dto';
-import { SetMustChangePasswordDTO } from '../dto/set-must-change-password.dto';
-import { SetMustChangePasswordResponseDTO } from '../dto/set-must-change-password-response.dto';
-import { AdminSetPasswordDTO, AdminSetPasswordResponseDTO } from '../dto/admin-set-password.dto';
-import {
-  AdminResetPasswordDTO,
-  AdminResetPasswordResponseDTO,
-  ConfirmAdminResetPasswordDTO,
-  ConfirmAdminResetPasswordResponseDTO,
-} from '../dto/admin-reset-password.dto';
+import { ValidateAccessTokenDTO } from '../dto/validate-access-token.dto';
+import { ValidateAccessTokenResponseDTO } from '../dto/validate-access-token-response.dto';
+// Admin-only password workflows are handled by AdminAuthService
 import { ForgotPasswordDTO, ForgotPasswordResponseDTO } from '../dto/forgot-password.dto';
 import { ConfirmForgotPasswordDTO, ConfirmForgotPasswordResponseDTO } from '../dto/confirm-forgot-password.dto';
 import { TrustDeviceResponseDTO } from '../dto/trust-device-response.dto';
 import { IsTrustedDeviceResponseDTO } from '../dto/is-trusted-device-response.dto';
 import { ResendVerificationEmailDTO } from '../dto/verify-email.dto';
 import { SendVerificationSMSDTO, ResendVerificationSMSDTO } from '../dto/verify-phone.dto';
-import { ValidateAccessTokenDTO } from '../dto/validate-access-token.dto';
-import { ValidateAccessTokenResponseDTO } from '../dto/validate-access-token-response.dto';
+import { GetMFAStatusResponseDTO } from '../dto/get-mfa-status.dto';
+import { GetUserAuthHistoryDTO } from '../dto/get-user-auth-history.dto';
+import { AdminGetUserAuthHistoryDTO, GetUserAuthHistoryResponseDTO } from '../dto/admin-get-user-auth-history.dto';
 import { PasswordResetService } from './password-reset.service';
 import { SocialAuthService } from './social-auth.service';
 import { HookRegistryService } from './hook-registry.service';
@@ -92,9 +81,7 @@ import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
-import { isUUID } from 'class-validator';
 import * as crypto from 'crypto';
-import { generateSecurePassword } from '../utils/password-generator';
 import { ensureValidatedDto } from '../utils/dto-validator';
 import { clearAuthCookies as clearAuthCookiesCompat } from '../utils/cookies.util';
 
@@ -109,6 +96,25 @@ import { clearAuthCookies as clearAuthCookiesCompat } from '../utils/cookies.uti
 const DUMMY_ARGON2_HASH =
   '$argon2id$v=19$m=65536,t=3,p=4$RFVNTVlfU0FMVF9GT1JfVElNSU5H$dummyhashfordummyhashfordummyhash1234567890';
 
+/**
+ * Core user-facing authentication service
+ *
+ * This service implements **self-service** authentication flows for the currently authenticated user:
+ * - Signup, login, challenge completion, refresh token rotation
+ * - Logout / logout-all / logout-session (self-management)
+ * - Profile management and password change (self-management)
+ *
+ * Admin-only operations (explicit targeting via `sub`) are intentionally owned by {@link AdminAuthService}.
+ *
+ * @example
+ * ```typescript
+ * // Login (self-service)
+ * const result = await authService.login({ identifier: 'user@example.com', password: 'Password123!' });
+ *
+ * // Refresh (self-service; cookies or JSON depending on config)
+ * const refreshed = await authService.refreshToken({ refreshToken: '...' });
+ * ```
+ */
 export class AuthService {
   private readonly helpers: AuthServiceInternalHelpers;
   private readonly userService: UserService;
@@ -432,657 +438,6 @@ export class AuthService {
   }
 
   // ============================================================================
-  // Admin Signup
-  // ============================================================================
-
-  /**
-   * Administrative user creation with override capabilities
-   *
-   * Allows administrators to create user accounts with:
-   * - Bypass email/phone verification requirements
-   * - Force password change on first login
-   * - Auto-generate secure passwords
-   *
-   * Security:
-   * - No built-in authentication - endpoint must be protected by framework adapter
-   * - All duplicate checks still enforced
-   * - Password policy still enforced (unless auto-generated)
-   * - Audit trail records admin-created accounts
-   *
-   * @param dto - Admin signup DTO with override flags
-   * @returns User object and optionally generated password
-   * @throws {NAuthException} EMAIL_EXISTS | USERNAME_EXISTS | PHONE_EXISTS | WEAK_PASSWORD
-   *
-   * @example
-   * ```typescript
-   * // Create user with pre-verified email
-   * const result = await authService.adminSignup({
-   *   email: 'user@example.com',
-   *   password: 'SecurePass123!',
-   *   isEmailVerified: true,
-   * });
-   *
-   * // Create user with auto-generated password
-   * const result = await authService.adminSignup({
-   *   email: 'user@example.com',
-   *   generatePassword: true,
-   *   isEmailVerified: true,
-   *   mustChangePassword: true,
-   * });
-   * // result.generatedPassword contains the temporary password
-   * ```
-   */
-  async adminSignup(dto: AdminSignupDTO): Promise<AdminSignupResponseDTO> {
-    // Ensure DTO is validated (supports direct usage without framework validation)
-    dto = await ensureValidatedDto(AdminSignupDTO, dto);
-
-    // Get client info from request context (transparent!)
-    const clientInfo = this.clientInfoService.get();
-
-    this.logger?.log?.(`Admin signup attempt for email: ${dto.email}`);
-    this.logger?.debug?.(
-      `Admin signup details: { email: ${dto.email}, username: ${dto.username || 'none'}, ip: ${clientInfo.ipAddress} }`,
-    );
-
-    // Skip signup.enabled check (admin bypass)
-
-    // Check if user already exists (email and username)
-    this.logger?.debug?.(`Checking if user exists: ${dto.email}`);
-    const existingUserByEmail = await this.userRepository.findOne({
-      where: { email: dto.email },
-    });
-
-    if (existingUserByEmail) {
-      this.logger?.warn?.(`Admin signup failed - user already exists: ${dto.email}`);
-      throw new NAuthException(AuthErrorCode.EMAIL_EXISTS, 'User with this email already exists');
-    }
-
-    // Check for duplicate username if provided
-    if (dto.username) {
-      this.logger?.debug?.(`Checking if username exists: ${dto.username}`);
-      const existingUserByUsername = await this.userRepository.findOne({
-        where: { username: dto.username },
-      });
-
-      if (existingUserByUsername) {
-        this.logger?.warn?.(`Admin signup failed - username already exists: ${dto.username}`);
-        throw new NAuthException(AuthErrorCode.USERNAME_EXISTS, 'Username is already taken');
-      }
-    }
-
-    // Check for duplicate phone if provided and duplicates not allowed
-    if (dto.phone && !this.config.signup?.allowDuplicatePhones) {
-      this.logger?.debug?.(`Checking if phone exists: ${dto.phone}`);
-      const existingUserByPhone = await this.userRepository.findOne({
-        where: { phone: dto.phone },
-      });
-
-      if (existingUserByPhone) {
-        this.logger?.warn?.(`Admin signup failed - phone already exists: ${dto.phone}`);
-        throw new NAuthException(AuthErrorCode.PHONE_EXISTS, 'Phone number is already registered');
-      }
-    }
-
-    // Handle password
-    let passwordHash: string;
-    let generatedPassword: string | undefined;
-
-    if (dto.generatePassword) {
-      // Generate secure random password
-      generatedPassword = generateSecurePassword(16);
-      this.logger?.debug?.(`Generated password for admin-created user: ${dto.email}`);
-      passwordHash = await this.passwordService.hashPassword(generatedPassword);
-    } else {
-      // Validate password policy
-      if (!dto.password) {
-        throw new NAuthException(AuthErrorCode.WEAK_PASSWORD, 'Password is required when generatePassword is false');
-      }
-
-      this.logger?.debug?.('Validating password against policy');
-      const passwordValidation = await this.passwordService.validatePassword(dto.password, {
-        email: dto.email,
-        username: dto.username,
-      });
-
-      if (!passwordValidation.valid) {
-        this.logger?.warn?.(`Password validation failed for ${dto.email}: ${passwordValidation.errors.join(', ')}`);
-        throw new NAuthException(AuthErrorCode.WEAK_PASSWORD, passwordValidation.errors.join(', '), {
-          errors: passwordValidation.errors,
-        });
-      }
-
-      // Hash password
-      passwordHash = await this.passwordService.hashPassword(dto.password);
-    }
-
-    // ============================================================================
-    // Lifecycle Hook: preSignup
-    // ============================================================================
-    // Execute preSignup hook before user creation (admin signup)
-    // Hook can throw NAuthException with PRESIGNUP_FAILED to block signup with custom message
-    await this.hookRegistry.executePreSignup(dto, 'password', undefined, true);
-
-    // Create user with override flags
-    this.logger?.debug?.(
-      `Creating admin user record for: ${dto.email} || ${dto.username} || ${dto.phone} (isEmailVerified: ${dto.isEmailVerified || false}, isPhoneVerified: ${dto.isPhoneVerified || false})`,
-    );
-    const user = this.userRepository.create({
-      email: dto.email,
-      username: dto.username,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      phone: dto.phone,
-      passwordHash,
-      passwordChangedAt: new Date(),
-      isEmailVerified: dto.isEmailVerified ?? false, // Use DTO value or default to false
-      isPhoneVerified: dto.isPhoneVerified ?? false, // Use DTO value or default to false
-      mustChangePassword: dto.mustChangePassword ?? false, // Use DTO value or default to false
-      isActive: true, // Always active
-      metadata: dto.metadata,
-    });
-
-    let savedUser: IUser;
-    try {
-      savedUser = (await this.userRepository.save(user)) as unknown as IUser;
-      this.logger?.log?.(`Admin user created successfully: ${dto.email} (sub: ${savedUser.sub})`);
-
-      // ============================================================================
-      // Audit: Record account creation by admin
-      // ============================================================================
-      try {
-        await this.auditService?.recordEvent({
-          userId: savedUser.id,
-          eventType: AuthAuditEventType.ACCOUNT_CREATED,
-          eventStatus: 'INFO',
-          authMethod: 'admin',
-          // Client info automatically included from context
-          metadata: {
-            email: savedUser.email,
-            username: savedUser.username || null,
-            createdByAdmin: true,
-            adminIdentifier: clientInfo.ipAddress || 'unknown',
-            isEmailVerified: savedUser.isEmailVerified,
-            isPhoneVerified: savedUser.isPhoneVerified,
-            mustChangePassword: savedUser.mustChangePassword,
-            passwordGenerated: !!generatedPassword,
-          },
-        });
-      } catch (auditError) {
-        // Non-blocking: Log but continue
-        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-        this.logger?.error?.(`Failed to record ACCOUNT_CREATED audit event: ${errorMessage}`, {
-          error: auditError,
-          userId: savedUser.id,
-        });
-      }
-    } catch (error: unknown) {
-      // Handle database constraint violations gracefully
-      if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
-        // PostgreSQL unique constraint violation
-        const dbError = error as { code: string; detail?: string; message?: string };
-        if (dbError.detail?.includes('email')) {
-          this.logger?.warn?.(`Admin signup failed - email constraint violation: ${dto.email}`);
-          throw new NAuthException(AuthErrorCode.EMAIL_EXISTS, 'User with this email already exists');
-        } else if (dbError.detail?.includes('username')) {
-          this.logger?.warn?.(`Admin signup failed - username constraint violation: ${dto.username}`);
-          throw new NAuthException(AuthErrorCode.USERNAME_EXISTS, 'Username is already taken');
-        } else if (dbError.detail?.includes('phone')) {
-          this.logger?.warn?.(`Admin signup failed - phone constraint violation: ${dto.phone}`);
-          throw new NAuthException(AuthErrorCode.PHONE_EXISTS, 'Phone number is already registered');
-        } else {
-          this.logger?.error?.(`Admin signup failed - database constraint violation: ${dbError.message}`);
-          throw new NAuthException(AuthErrorCode.EMAIL_EXISTS, 'User with this information already exists', {
-            conflictType: 'unknown',
-          });
-        }
-      }
-
-      // Re-throw other database errors
-      const errorMessage = error instanceof Error ? error.message : 'Unknown database error';
-      this.logger?.error?.(`Admin signup failed - database error: ${errorMessage}`);
-      throw error;
-    }
-
-    // ============================================================================
-    // Lifecycle Hook: afterSignup
-    // ============================================================================
-    // Execute afterSignup hook immediately after account creation (non-blocking)
-    await this.hookRegistry.executePostSignup(savedUser, {
-      signupType: 'password',
-      adminSignup: true,
-    });
-
-    // No tokens, no challenge system, no verification emails - pure user creation
-    // Return sanitized user object (excludes passwordHash and other sensitive fields)
-    const userDto = UserResponseDto.fromEntity(savedUser);
-    return {
-      user: userDto,
-      generatedPassword,
-    };
-  }
-
-  // ============================================================================
-  // Admin Social Signup
-  // ============================================================================
-
-  /**
-   * Administrative social user import with override capabilities
-   *
-   * Allows administrators to import existing social users from external platforms
-   * (e.g., Cognito, Auth0) into nauth with:
-   * - Bypass email/phone verification requirements
-   * - Optional password for hybrid social+password accounts
-   * - Social account linkage (provider + providerId)
-   * - Automatic user flag updates (hasSocialAuth)
-   *
-   * Use case: Migrating users from external authentication platforms while
-   * preserving their social login connections for transparent future logins.
-   *
-   * Security:
-   * - No built-in authentication - endpoint must be protected by framework adapter
-   * - All duplicate checks enforced (email, username, phone, provider+providerId)
-   * - Password policy enforced if password provided
-   * - Audit trail records admin-imported social accounts
-   *
-   * @param dto - Admin social signup DTO with social account details
-   * @returns User object and social account confirmation
-   * @throws {NAuthException} EMAIL_EXISTS | USERNAME_EXISTS | PHONE_EXISTS | SOCIAL_ACCOUNT_EXISTS | WEAK_PASSWORD
-   *
-   * @example
-   * ```typescript
-   * // Import social-only user from Cognito
-   * // Note: Email is automatically verified for social imports (like normal social signup)
-   * const result = await authService.adminSignupSocial({
-   *   email: 'user@example.com',
-   *   provider: 'google',
-   *   providerId: 'google_12345',
-   *   providerEmail: 'user@gmail.com',
-   *   socialMetadata: { sub: 'google_12345', given_name: 'John' },
-   * });
-   *
-   * // Import hybrid user with password + social
-   * const result = await authService.adminSignupSocial({
-   *   email: 'user@example.com',
-   *   password: 'SecurePass123!',
-   *   provider: 'apple',
-   *   providerId: 'apple_67890',
-   * });
-   * ```
-   */
-  async adminSignupSocial(dto: AdminSignupSocialDTO): Promise<AdminSignupSocialResponseDTO> {
-    // Ensure DTO is validated (supports direct usage without framework validation)
-    dto = await ensureValidatedDto(AdminSignupSocialDTO, dto);
-
-    // Get client info from request context (transparent!)
-    const clientInfo = this.clientInfoService.get();
-
-    this.logger?.log?.(`Admin social signup attempt for email: ${dto.email}, provider: ${dto.provider}`);
-    this.logger?.debug?.(
-      `Admin social signup details: { email: ${dto.email}, username: ${dto.username || 'none'}, provider: ${dto.provider}, providerId: ${dto.providerId}, ip: ${clientInfo.ipAddress} }`,
-    );
-
-    // Skip signup.enabled check (admin bypass)
-
-    // Check if user already exists (email and username)
-    this.logger?.debug?.(`Checking if user exists: ${dto.email}`);
-    const existingUserByEmail = await this.userRepository.findOne({
-      where: { email: dto.email },
-    });
-
-    if (existingUserByEmail) {
-      this.logger?.warn?.(`Admin social signup failed - user already exists: ${dto.email}`);
-      throw new NAuthException(AuthErrorCode.EMAIL_EXISTS, 'User with this email already exists');
-    }
-
-    // Check for duplicate username if provided
-    if (dto.username) {
-      this.logger?.debug?.(`Checking if username exists: ${dto.username}`);
-      const existingUserByUsername = await this.userRepository.findOne({
-        where: { username: dto.username },
-      });
-
-      if (existingUserByUsername) {
-        this.logger?.warn?.(`Admin social signup failed - username already exists: ${dto.username}`);
-        throw new NAuthException(AuthErrorCode.USERNAME_EXISTS, 'Username is already taken');
-      }
-    }
-
-    // Check for duplicate phone if provided and duplicates not allowed
-    if (dto.phone && !this.config.signup?.allowDuplicatePhones) {
-      this.logger?.debug?.(`Checking if phone exists: ${dto.phone}`);
-      const existingUserByPhone = await this.userRepository.findOne({
-        where: { phone: dto.phone },
-      });
-
-      if (existingUserByPhone) {
-        this.logger?.warn?.(`Admin social signup failed - phone already exists: ${dto.phone}`);
-        throw new NAuthException(AuthErrorCode.PHONE_EXISTS, 'Phone number is already registered');
-      }
-    }
-
-    // Check for duplicate provider+providerId
-    if (!this.socialAuthService) {
-      this.logger?.error?.('SocialAuthService not available - cannot import social user');
-      throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Social authentication is not configured');
-    }
-
-    this.logger?.debug?.(`Checking if social account exists: ${dto.provider}:${dto.providerId}`);
-    const existingSocialAccount = await this.socialAuthService.findSocialAccountByProvider(
-      dto.provider,
-      dto.providerId,
-    );
-
-    if (existingSocialAccount) {
-      this.logger?.warn?.(
-        `Admin social signup failed - social account already exists: ${dto.provider}:${dto.providerId}`,
-      );
-      throw new NAuthException(AuthErrorCode.SOCIAL_ACCOUNT_EXISTS, 'This social account is already registered');
-    }
-
-    // Handle password (optional for hybrid accounts)
-    let passwordHash: string | null;
-
-    if (dto.password) {
-      // Validate password policy
-      this.logger?.debug?.('Validating password against policy');
-      const passwordValidation = await this.passwordService.validatePassword(dto.password, {
-        email: dto.email,
-        username: dto.username,
-      });
-
-      if (!passwordValidation.valid) {
-        this.logger?.warn?.(`Password validation failed for ${dto.email}: ${passwordValidation.errors.join(', ')}`);
-        throw new NAuthException(AuthErrorCode.WEAK_PASSWORD, passwordValidation.errors.join(', '), {
-          errors: passwordValidation.errors,
-        });
-      }
-
-      // Hash password
-      passwordHash = await this.passwordService.hashPassword(dto.password);
-    } else {
-      // Social-only user: no password (NULL in database)
-      passwordHash = null;
-    }
-
-    // ============================================================================
-    // Lifecycle Hook: preSignup
-    // ============================================================================
-    // Execute preSignup hook before user creation (admin social signup)
-    // Hook can throw NAuthException with PRESIGNUP_FAILED to block signup with custom message
-    // Convert AdminSignupSocialDTO to profile-like structure for hook
-    const profileData = {
-      email: dto.email,
-      id: dto.providerId,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      verified: true, // Admin signup always has verified email
-      raw: dto.socialMetadata,
-    };
-    await this.hookRegistry.executePreSignup(profileData, 'social', dto.provider, true);
-
-    // Create user with override flags
-    // Note: Email is always verified for social imports (like normal social signup)
-    this.logger?.debug?.(
-      `Creating admin social user record for: ${dto.email} || ${dto.username} || ${dto.phone} (isEmailVerified: true [auto-verified for social], isPhoneVerified: ${dto.isPhoneVerified || false})`,
-    );
-    const user = this.userRepository.create({
-      email: dto.email,
-      username: dto.username,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      phone: dto.phone,
-      passwordHash, // null for social-only, hashed string for hybrid accounts
-      passwordChangedAt: dto.password ? new Date() : null, // Only set if password provided
-      isEmailVerified: true, // Always verified for social imports (like normal social signup)
-      isPhoneVerified: dto.isPhoneVerified ?? false, // Use DTO value or default to false
-      mustChangePassword: dto.mustChangePassword ?? false, // Use DTO value or default to false
-      isActive: true, // Always active
-      metadata: dto.metadata,
-      hasSocialAuth: true, // Set immediately since we know this is a social user
-      socialProviders: [dto.provider], // Set immediately with the provider from DTO
-    });
-
-    let savedUser: IUser;
-    try {
-      savedUser = (await this.userRepository.save(user)) as unknown as IUser;
-      this.logger?.log?.(
-        `Admin social user created successfully: ${dto.email} (sub: ${savedUser.sub}, provider: ${dto.provider})`,
-      );
-
-      // Create social account linkage
-      this.logger?.debug?.(`Creating social account linkage: ${dto.provider}:${dto.providerId}`);
-      await this.socialAuthService.createOrUpdateSocialAccount(
-        savedUser.id as number,
-        dto.provider,
-        dto.providerId,
-        dto.providerEmail || null,
-        dto.socialMetadata,
-      );
-      this.logger?.log?.(`Social account linked successfully: ${dto.provider}:${dto.providerId}`);
-
-      // Update savedUser in memory to reflect the updated social flags (no additional query needed)
-      // updateUserSocialFlags() has already updated the DB, we just sync the in-memory object
-      savedUser.hasSocialAuth = true;
-      savedUser.socialProviders = [dto.provider];
-
-      // ============================================================================
-      // Lifecycle Hook: afterSignup
-      // ============================================================================
-      // Execute afterSignup hook immediately after account creation (non-blocking)
-      // Extract profile picture from social metadata if available
-      const profilePicture =
-        dto.socialMetadata && typeof dto.socialMetadata === 'object' && 'picture' in dto.socialMetadata
-          ? (dto.socialMetadata.picture as string | null)
-          : null;
-
-      await this.hookRegistry.executePostSignup(savedUser, {
-        signupType: 'social',
-        provider: dto.provider,
-        adminSignup: true,
-        socialMetadata: dto.socialMetadata || null,
-        profilePicture,
-      });
-
-      // ============================================================================
-      // Audit: Record account creation by admin (social import)
-      // ============================================================================
-      try {
-        await this.auditService?.recordEvent({
-          userId: savedUser.id,
-          eventType: AuthAuditEventType.ACCOUNT_CREATED,
-          eventStatus: 'INFO',
-          authMethod: 'admin-social',
-          // Client info automatically included from context
-          metadata: {
-            email: savedUser.email,
-            username: savedUser.username || null,
-            createdByAdmin: true,
-            adminIdentifier: clientInfo.ipAddress || 'unknown',
-            isEmailVerified: savedUser.isEmailVerified,
-            isPhoneVerified: savedUser.isPhoneVerified,
-            mustChangePassword: savedUser.mustChangePassword,
-            provider: dto.provider,
-            providerId: dto.providerId,
-            hasPassword: !!dto.password,
-            socialImport: true,
-          },
-        });
-      } catch (auditError) {
-        // Non-blocking: Log but continue
-        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-        this.logger?.error?.(`Failed to record ACCOUNT_CREATED audit event: ${errorMessage}`, {
-          error: auditError,
-          userId: savedUser.id,
-        });
-      }
-    } catch (error: unknown) {
-      // Handle database constraint violations gracefully
-      if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
-        // PostgreSQL unique constraint violation
-        const dbError = error as { code: string; detail?: string; message?: string };
-        if (dbError.detail?.includes('email')) {
-          this.logger?.warn?.(`Admin social signup failed - email constraint violation: ${dto.email}`);
-          throw new NAuthException(AuthErrorCode.EMAIL_EXISTS, 'User with this email already exists');
-        } else if (dbError.detail?.includes('username')) {
-          this.logger?.warn?.(`Admin social signup failed - username constraint violation: ${dto.username}`);
-          throw new NAuthException(AuthErrorCode.USERNAME_EXISTS, 'Username is already taken');
-        } else if (dbError.detail?.includes('phone')) {
-          this.logger?.warn?.(`Admin social signup failed - phone constraint violation: ${dto.phone}`);
-          throw new NAuthException(AuthErrorCode.PHONE_EXISTS, 'Phone number is already registered');
-        } else if (dbError.detail?.includes('provider') && dbError.detail?.includes('providerId')) {
-          this.logger?.warn?.(
-            `Admin social signup failed - social account constraint violation: ${dto.provider}:${dto.providerId}`,
-          );
-          throw new NAuthException(AuthErrorCode.SOCIAL_ACCOUNT_EXISTS, 'This social account is already registered');
-        } else {
-          this.logger?.error?.(`Admin social signup failed - database constraint violation: ${dbError.message}`);
-          throw new NAuthException(AuthErrorCode.EMAIL_EXISTS, 'User with this information already exists', {
-            conflictType: 'unknown',
-          });
-        }
-      }
-
-      // Re-throw other database errors
-      const errorMessage = error instanceof Error ? error.message : 'Unknown database error';
-      this.logger?.error?.(`Admin social signup failed - database error: ${errorMessage}`);
-      throw error;
-    }
-
-    // No tokens, no challenge system, no verification emails - pure user creation with social linkage
-    // Return sanitized user object and social account confirmation
-    const userDto = UserResponseDto.fromEntity(savedUser);
-    return {
-      user: userDto,
-      socialAccount: {
-        provider: dto.provider,
-        providerId: dto.providerId,
-        providerEmail: dto.providerEmail || null,
-      },
-    };
-  }
-
-  // ============================================================================
-  // Admin User Management
-  // ============================================================================
-
-  /**
-   * Administrative user deletion with complete cascade cleanup
-   *
-   * HARD DELETE - Permanently removes user and ALL associated data including:
-   * - Sessions, verification tokens, MFA devices, trusted devices
-   * - Social accounts, login attempts, challenge sessions, audit logs
-   *
-   * Security:
-   * - NO built-in authentication - endpoint MUST be protected by admin guards
-   * - Records admin action in separate audit log (not deleted with user)
-   * - Irreversible operation - all data permanently removed
-   *
-   * @param dto - User sub to delete
-   * @returns Deletion confirmation with cascade counts
-   * @throws {NAuthException} USER_NOT_FOUND
-   *
-   * @example
-   * ```typescript
-   * const result = await authService.deleteUser({ sub: 'user-uuid-123' });
-   * console.log(`Deleted user: ${result.deletedUserId}`);
-   * console.log(`Deleted ${result.deletedRecords.sessions} sessions`);
-   * ```
-   */
-  async deleteUser(dto: DeleteUserDTO): Promise<DeleteUserResponseDTO> {
-    return await this.userService.deleteUser(dto);
-  }
-
-  /**
-   * Get paginated list of users with advanced filtering
-   *
-   * Supports pagination, boolean filters, exact match filters,
-   * date filters with operators (gt, gte, lt, lte, eq), and flexible sorting.
-   *
-   * Security:
-   * - NO built-in authentication - endpoint MUST be protected by admin guards
-   * - Returns sanitized user data (no passwordHash, secrets)
-   *
-   * @param dto - Filters, pagination, sorting
-   * @returns Paginated user list with metadata
-   *
-   * @example
-   * ```typescript
-   * const result = await authService.getUsers({
-   *   page: 1,
-   *   limit: 20,
-   *   isEmailVerified: true,
-   *   hasSocialAuth: true,
-   *   createdAt: { operator: 'gte', value: new Date('2024-01-01') },
-   *   sortBy: 'createdAt',
-   *   sortOrder: 'DESC'
-   * });
-   * ```
-   */
-  async getUsers(dto: GetUsersDTO): Promise<GetUsersResponseDTO> {
-    return await this.userService.getUsers(dto);
-  }
-
-  /**
-   * Administrative permanent account locking
-   *
-   * Sets permanent lock (lockedUntil=NULL) and immediately revokes all active sessions.
-   * Reuses existing rate-limit lock fields (isLocked, lockReason, lockedAt, lockedUntil).
-   *
-   * Permanent vs Temporary locks:
-   * - Rate limiting: lockedUntil = future date (temporary auto-unlock)
-   * - Admin disableUser: lockedUntil = NULL (permanent manual lock)
-   *
-   * Security:
-   * - NO built-in authentication - endpoint MUST be protected by admin guards
-   * - Revokes all sessions immediately (forced logout)
-   * - Records ACCOUNT_DISABLED audit event with admin identifier
-   *
-   * @param dto - User sub and optional reason
-   * @returns User object with updated lock status and revoked session count
-   * @throws {NAuthException} USER_NOT_FOUND
-   *
-   * @example
-   * ```typescript
-   * const result = await authService.disableUser({
-   *   sub: 'user-uuid-123',
-   *   reason: 'Suspicious activity detected'
-   * });
-   * console.log(`Revoked ${result.revokedSessions} sessions`);
-   * ```
-   */
-  async disableUser(dto: DisableUserDTO): Promise<DisableUserResponseDTO> {
-    return await this.userService.disableUser(dto);
-  }
-
-  /**
-   * Enable (unlock) user account
-   *
-   * Unlocks a previously locked user account by clearing all lock fields.
-   * This reverses the effect of disableUser() or rate-limit lockouts.
-   *
-   * Security:
-   * - NO built-in authentication - endpoint MUST be protected by admin guards
-   * - Clears lock fields (isLocked, lockReason, lockedAt, lockedUntil)
-   * - Resets failed login attempts counter
-   * - Records ACCOUNT_ENABLED audit event with admin identifier
-   *
-   * @param dto - User sub to enable
-   * @returns User object with updated lock status
-   * @throws {NAuthException} USER_NOT_FOUND
-   *
-   * @example
-   * ```typescript
-   * const result = await authService.enableUser({
-   *   sub: 'user-uuid-123'
-   * });
-   * console.log(`User unlocked: ${result.user.email}`);
-   * ```
-   */
-  async enableUser(dto: EnableUserDTO): Promise<EnableUserResponseDTO> {
-    return await this.userService.enableUser(dto);
-  }
-
-  // ============================================================================
   // User Login
   // ============================================================================
   /**
@@ -1134,7 +489,7 @@ export class AuthService {
           // ============================================================================
           // We do not have a resolved user yet because IP lockout happens before the normal
           // identifier validation + user lookup. Resolve it here to avoid passing a non-UUID
-          // (email/username/phone) into `userSub`.
+          // (email/username/phone) into a `sub` field.
           const userForAudit = await this.helpers.findUserByIdentifier(dto.identifier, identifierType);
           if (fireAndForget) {
             if (userForAudit?.id) {
@@ -1248,7 +603,7 @@ export class AuthService {
               this.logger?.error?.(`Failed to record LOGIN_FAILED audit event (fire-and-forget): ${errorMessage}`, {
                 error: err,
                 userId: user.id,
-                userSub: user.sub,
+                sub: user.sub,
               });
             });
         } else {
@@ -1329,7 +684,7 @@ export class AuthService {
               this.logger?.error?.(`Failed to record LOGIN_BLOCKED audit event (fire-and-forget): ${errorMessage}`, {
                 error: err,
                 userId: user.id,
-                userSub: user.sub,
+                sub: user.sub,
               });
             });
         } else {
@@ -1539,7 +894,7 @@ export class AuthService {
             this.logger?.error?.(`Failed to record LOGIN_SUCCESS audit event (fire-and-forget): ${errorMessage}`, {
               error: err,
               userId: user.id,
-              userSub: user.sub,
+              sub: user.sub,
             });
           });
       } else {
@@ -1750,7 +1105,7 @@ export class AuthService {
           this.logger?.error?.(`Failed to record LOGIN_SUCCESS audit event (fire-and-forget): ${errorMessage}`, {
             error: err,
             userId: user.id,
-            userSub: user.sub,
+            sub: user.sub,
           });
         });
     } else {
@@ -2266,296 +1621,315 @@ export class AuthService {
    * ```
    */
   async refreshToken(dto: RefreshTokenDTO): Promise<TokenResponse> {
-    // Ensure DTO is validated (supports direct usage without framework validation)
-    dto = await ensureValidatedDto(RefreshTokenDTO, dto);
-
-    // After validation, refreshToken must be present (validation ensures it's a valid string)
-    // Controller should have filled it from cookies if it was missing in cookies mode
-    if (!dto.refreshToken) {
-      // Best-effort: clear cookies in cookie/hybrid delivery so clients don't keep sending stale cookies.
-      this.clearAuthCookiesOnRefreshFailure(AuthErrorCode.TOKEN_INVALID);
-      throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'Refresh token is required');
-    }
-
-    // Extract to const for type narrowing (TypeScript doesn't narrow optional properties)
-    const refreshToken: string = dto.refreshToken;
-    const tokenHash = this.jwtService.hashToken(refreshToken);
-
-    // ============================================================================
-    // CRITICAL SECURITY FIX #1 & #2: Distributed Lock + Reuse Detection
-    // ============================================================================
-
-    // CRITICAL: We need to get session ID for locking, but we must lock BEFORE validation
-    // to prevent race conditions. So we do a quick, lightweight lookup first.
-    // Find session by refresh token hash - this is fast and allows us to get session ID
-    const session = await this.sessionService.findByRefreshToken(tokenHash);
-
-    if (!session || session.isRevoked) {
-      // Validate token to get user info for error message
-      const validation = await this.jwtService.validateRefreshToken(refreshToken);
-      const userId = validation.payload?.sub || 'unknown';
-      this.logger?.debug?.(
-        `Session not found or revoked for user ${userId}. Possible issue where token are not cleared on logout`,
-      );
-
-      // Best-effort: clear cookies in cookie/hybrid delivery so clients don't keep sending stale cookies.
-      this.clearAuthCookiesOnRefreshFailure(AuthErrorCode.SESSION_NOT_FOUND);
-      throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found or revoked');
-    }
-
-    // Acquire distributed lock using SESSION ID (not token hash)
-    // THIS MUST HAPPEN BEFORE VALIDATION to prevent race conditions
-    // where multiple requests validate the same token before any lock is acquired
-    const lockKey = `session-refresh:${session.id}`;
-    this.logger?.debug?.(
-      `[REFRESH DEBUG] Attempting to acquire lock ${lockKey} for token hash ${tokenHash.substring(0, 16)}...`,
-    );
-    let lockAcquired = false;
     try {
-      const lockStartTime = Date.now();
-      lockAcquired = await this.sessionService.acquireRefreshLock(lockKey, 10000);
-      const lockDuration = Date.now() - lockStartTime;
+      // Ensure DTO is validated (supports direct usage without framework validation)
+      dto = await ensureValidatedDto(RefreshTokenDTO, dto);
 
-      if (!lockAcquired) {
-        this.logger?.warn?.(
-          `[REFRESH DEBUG] Lock ${lockKey} NOT acquired - refresh already in progress for session ${session.id}`,
-        );
-        throw new NAuthException(AuthErrorCode.RATE_LIMIT_LOGIN, 'Token refresh already in progress', {
-          retryAfter: 5,
-        });
+      // After validation, refreshToken must be present (validation ensures it's a valid string)
+      // Controller should have filled it from cookies if it was missing in cookies mode
+      if (!dto.refreshToken) {
+        // Best-effort: clear cookies in cookie/hybrid delivery so clients don't keep sending stale cookies.
+        this.clearAuthCookiesOnRefreshFailure(AuthErrorCode.TOKEN_INVALID);
+        throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'Refresh token is required');
       }
 
+      // Extract to const for type narrowing (TypeScript doesn't narrow optional properties)
+      const refreshToken: string = dto.refreshToken;
+      const tokenHash = this.jwtService.hashToken(refreshToken);
+
+      // ============================================================================
+      // CRITICAL SECURITY FIX #1 & #2: Distributed Lock + Reuse Detection
+      // ============================================================================
+
+      // CRITICAL: We need to get session ID for locking, but we must lock BEFORE validation
+      // to prevent race conditions. So we do a quick, lightweight lookup first.
+      // Find session by refresh token hash - this is fast and allows us to get session ID
+      const session = await this.sessionService.findByRefreshToken(tokenHash);
+
+      if (!session || session.isRevoked) {
+        // Validate token to get user info for error message
+        const validation = await this.jwtService.validateRefreshToken(refreshToken);
+        const userId = validation.payload?.sub || 'unknown';
+        this.logger?.debug?.(
+          `Session not found or revoked for user ${userId}. Possible issue where token are not cleared on logout`,
+        );
+
+        // Best-effort: clear cookies in cookie/hybrid delivery so clients don't keep sending stale cookies.
+        this.clearAuthCookiesOnRefreshFailure(AuthErrorCode.SESSION_NOT_FOUND);
+        throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found or revoked');
+      }
+
+      // Acquire distributed lock using SESSION ID (not token hash)
+      // THIS MUST HAPPEN BEFORE VALIDATION to prevent race conditions
+      // where multiple requests validate the same token before any lock is acquired
+      const lockKey = `session-refresh:${session.id}`;
       this.logger?.debug?.(
-        `[REFRESH DEBUG] Lock ${lockKey} acquired successfully in ${lockDuration}ms for token hash ${tokenHash.substring(0, 16)}...`,
+        `[REFRESH DEBUG] Attempting to acquire lock ${lockKey} for token hash ${tokenHash.substring(0, 16)}...`,
       );
+      let lockAcquired = false;
+      try {
+        const lockStartTime = Date.now();
+        lockAcquired = await this.sessionService.acquireRefreshLock(lockKey, 10000);
+        const lockDuration = Date.now() - lockStartTime;
 
-      // CRITICAL: Check for token reuse IMMEDIATELY after acquiring lock
-      // If same session + cookie race → return current tokens (don't reissue)
-      // If different session → invalidate that session and reject (attack)
-      if (this.config.jwt.refreshToken.reuseDetection) {
-        const isAlreadyUsed = await this.sessionService.isRefreshTokenUsed(tokenHash);
-        if (isAlreadyUsed) {
-          // Decode token to get sessionId from JWT payload (without full validation)
-          // This allows us to check if the token belongs to the session we found
-          const tokenPayload = this.jwtService.decodeToken(refreshToken);
-          const tokenSessionId = tokenPayload?.sessionId;
+        if (!lockAcquired) {
+          this.logger?.warn?.(
+            `[REFRESH DEBUG] Lock ${lockKey} NOT acquired - refresh already in progress for session ${session.id}`,
+          );
+          throw new NAuthException(AuthErrorCode.RATE_LIMIT_LOGIN, 'Token refresh already in progress', {
+            retryAfter: 5,
+          });
+        }
 
-          // Get current session state to ensure it's still valid
-          const currentSession = (await this.sessionService.findByIdLight(session.id)) as unknown as ISession | null;
-          if (!currentSession || currentSession.isRevoked) {
-            throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found or revoked');
-          }
+        this.logger?.debug?.(
+          `[REFRESH DEBUG] Lock ${lockKey} acquired successfully in ${lockDuration}ms for token hash ${tokenHash.substring(0, 16)}...`,
+        );
 
-          // Check if token's sessionId matches the session we found
-          // If they match → cookie race (same session)
-          // If they don't match → attack (token stolen from different session)
-          if (tokenSessionId && tokenSessionId === session.id.toString()) {
-            // Same session - this is a cookie race condition
-            // Return the current valid tokens (user already has them from first request)
+        // CRITICAL: Check for token reuse IMMEDIATELY after acquiring lock
+        // If same session + cookie race → return current tokens (don't reissue)
+        // If different session → invalidate that session and reject (attack)
+        if (this.config.jwt.refreshToken.reuseDetection) {
+          const isAlreadyUsed = await this.sessionService.isRefreshTokenUsed(tokenHash);
+          if (isAlreadyUsed) {
+            // Decode token to get sessionId from JWT payload (without full validation)
+            // This allows us to check if the token belongs to the session we found
+            const tokenPayload = this.jwtService.decodeToken(refreshToken);
+            const tokenSessionId = tokenPayload?.sessionId;
 
-            this.logger?.debug?.(
-              `[REFRESH DEBUG] Token hash ${tokenHash.substring(0, 16)}... already used for same session ${session.id} - cookie race detected, returning current tokens`,
-            );
-
-            // Get user info
-            const user = (await this.userRepository.findOne({
-              where: { id: currentSession.userId },
-            })) as IUser | null;
-
-            if (!user) {
-              throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+            // Get current session state to ensure it's still valid
+            const currentSession = (await this.sessionService.findByIdLight(session.id)) as unknown as ISession | null;
+            if (!currentSession || currentSession.isRevoked) {
+              throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found or revoked');
             }
 
-            // Generate tokens from current session state (same as what the first request returned)
-            // These will match what the user already has, so no change needed
-            // Note: deviceId not included in token - session.deviceId is source of truth
-            const newTokens = await this.jwtService.generateTokenPair({
-              userId: user.sub,
-              email: user.email,
-              sessionId: currentSession.id.toString(),
-              tokenFamily: currentSession.tokenFamily,
-            });
+            // Check if token's sessionId matches the session we found
+            // If they match → cookie race (same session)
+            // If they don't match → attack (token stolen from different session)
+            if (tokenSessionId && tokenSessionId === session.id.toString()) {
+              // Same session - this is a cookie race condition
+              // Return the current valid tokens (user already has them from first request)
 
-            // Update session with these tokens (they're already there, but ensures consistency)
-            await this.sessionService.updateTokens(
-              currentSession.id,
-              this.jwtService.hashToken(newTokens.accessToken),
-              this.jwtService.hashToken(newTokens.refreshToken),
-            );
+              this.logger?.debug?.(
+                `[REFRESH DEBUG] Token hash ${tokenHash.substring(0, 16)}... already used for same session ${session.id} - cookie race detected, returning current tokens`,
+              );
 
-            // Decode tokens to get expiry times
-            const accessTokenValidation = await this.jwtService.validateAccessToken(newTokens.accessToken);
-            const refreshTokenValidation = await this.jwtService.validateRefreshToken(newTokens.refreshToken);
+              // Get user info
+              const user = (await this.userRepository.findOne({
+                where: { id: currentSession.userId },
+              })) as IUser | null;
 
-            // Return success with current tokens
-            return {
-              accessToken: newTokens.accessToken,
-              refreshToken: newTokens.refreshToken,
-              accessTokenExpiresAt: accessTokenValidation.payload?.exp || 0,
-              refreshTokenExpiresAt: refreshTokenValidation.payload?.exp || 0,
-            };
-          } else {
-            // Different session - this is an attack!
-            // A refresh token from one session cannot be used by another session
+              if (!user) {
+                throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+              }
+
+              // Generate tokens from current session state (same as what the first request returned)
+              // These will match what the user already has, so no change needed
+              // Note: deviceId not included in token - session.deviceId is source of truth
+              const newTokens = await this.jwtService.generateTokenPair({
+                userId: user.sub,
+                email: user.email,
+                sessionId: currentSession.id.toString(),
+                tokenFamily: currentSession.tokenFamily,
+              });
+
+              // Update session with these tokens (they're already there, but ensures consistency)
+              await this.sessionService.updateTokens(
+                currentSession.id,
+                this.jwtService.hashToken(newTokens.accessToken),
+                this.jwtService.hashToken(newTokens.refreshToken),
+              );
+
+              // Decode tokens to get expiry times
+              const accessTokenValidation = await this.jwtService.validateAccessToken(newTokens.accessToken);
+              const refreshTokenValidation = await this.jwtService.validateRefreshToken(newTokens.refreshToken);
+
+              // Return success with current tokens
+              return {
+                accessToken: newTokens.accessToken,
+                refreshToken: newTokens.refreshToken,
+                accessTokenExpiresAt: accessTokenValidation.payload?.exp || 0,
+                refreshTokenExpiresAt: refreshTokenValidation.payload?.exp || 0,
+              };
+            } else {
+              // Different session - this is an attack!
+              // A refresh token from one session cannot be used by another session
+              this.logger?.error?.(
+                `[REFRESH DEBUG] Token hash ${tokenHash.substring(0, 16)}... already used for different session - ATTACK DETECTED! Token sessionId: ${tokenSessionId}, Found session: ${session.id}. Revoking session ${session.id}`,
+              );
+
+              // Revoke the session that's trying to use a stolen token
+              await this.sessionService.revokeSession(session.id, 'Token reuse detected - possible token theft');
+
+              // Audit the attack
+              let userForAudit: IUser | null = null;
+              try {
+                userForAudit = (await this.userRepository.findOne({
+                  where: { id: session.userId },
+                })) as IUser | null;
+                if (userForAudit) {
+                  await this.auditService?.recordEvent({
+                    userId: userForAudit.id,
+                    eventType: AuthAuditEventType.SUSPICIOUS_ACTIVITY,
+                    eventStatus: 'SUSPICIOUS',
+                    riskFactor: 90,
+                    riskFactors: [RiskFactor.TOKEN_THEFT_ATTEMPT, RiskFactor.REFRESH_TOKEN_REUSE_DIFFERENT_SESSION],
+                    reason: 'Refresh token reuse from different session',
+                    // Client info automatically included from context
+                    description:
+                      'Refresh token from another session attempted to be used. Session revoked as security measure.',
+                    metadata: {
+                      sessionId: session.id,
+                      tokenSessionId,
+                      tokenHash: `${tokenHash.substring(0, 16)}...`,
+                      detectedAt: new Date().toISOString(),
+                      action: 'session_revoked',
+                    },
+                  });
+                }
+              } catch (auditError) {
+                const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+                this.logger?.error?.(
+                  `Failed to record SUSPICIOUS_ACTIVITY audit event (token reuse): ${errorMessage}`,
+                  {
+                    error: auditError,
+                    userId: userForAudit?.id || session.userId,
+                  },
+                );
+              }
+
+              throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'Refresh token has already been used');
+            }
+          }
+        }
+
+        // NOW validate the refresh token (after lock is acquired and reuse check)
+        // This ensures only one request can validate at a time per session
+        const validation = await this.jwtService.validateRefreshToken(refreshToken);
+
+        if (!validation.valid || !validation.payload) {
+          throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'Invalid refresh token');
+        }
+
+        const payload = validation.payload;
+
+        // Re-check session after acquiring lock (it might have been revoked/updated)
+        // Since we have the lock, no other request can modify this session, but it might have been revoked
+        // We already have currentSession from the early reuse check, but re-fetch to ensure it's still valid
+        const lockedSession = (await this.sessionService.findByIdLight(session.id)) as unknown as ISession | null;
+        if (!lockedSession || lockedSession.isRevoked || lockedSession.id !== session.id) {
+          this.logger?.debug?.(
+            `Session changed after lock acquisition for user ${payload.sub}. Session may have been revoked.`,
+          );
+          throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found or revoked');
+        }
+
+        // ============================================================================
+        // NOTE: We still do the atomic mark operation below as a double-check
+        // The early check above handles cookie race conditions where old tokens
+        // are sent before new cookies are received
+        // ============================================================================
+
+        // Mark token as used BEFORE generating new tokens (prevents reuse)
+        if (this.config.jwt.refreshToken.reuseDetection) {
+          const refreshTokenTTL = this.jwtService.getRefreshTokenTTL();
+          const marked = await this.sessionService.markRefreshTokenAsUsed(tokenHash, refreshTokenTTL);
+
+          if (!marked) {
+            // Token was already marked as used - reuse detected!
             this.logger?.error?.(
-              `[REFRESH DEBUG] Token hash ${tokenHash.substring(0, 16)}... already used for different session - ATTACK DETECTED! Token sessionId: ${tokenSessionId}, Found session: ${session.id}. Revoking session ${session.id}`,
+              `Token reuse detected for user ${payload.sub} - atomic mark failed, revoking entire token family ${payload.tokenFamily}`,
             );
 
-            // Revoke the session that's trying to use a stolen token
-            await this.sessionService.revokeSession(session.id, 'Token reuse detected - possible token theft');
-
-            // Audit the attack
-            let userForAudit: IUser | null = null;
+            // Audit the reuse attempt
             try {
-              userForAudit = (await this.userRepository.findOne({
-                where: { id: session.userId },
+              const userForAudit = (await this.userRepository.findOne({
+                where: { sub: payload.sub },
               })) as IUser | null;
               if (userForAudit) {
                 await this.auditService?.recordEvent({
                   userId: userForAudit.id,
                   eventType: AuthAuditEventType.SUSPICIOUS_ACTIVITY,
                   eventStatus: 'SUSPICIOUS',
-                  riskFactor: 90,
-                  riskFactors: [RiskFactor.TOKEN_THEFT_ATTEMPT, RiskFactor.REFRESH_TOKEN_REUSE_DIFFERENT_SESSION],
-                  reason: 'Refresh token reuse from different session',
+                  riskFactor: 75,
+                  riskFactors: [RiskFactor.TOKEN_REUSE_ATTEMPT],
+                  reason: 'Token reuse attempt blocked',
                   // Client info automatically included from context
                   description:
-                    'Refresh token from another session attempted to be used. Session revoked as security measure.',
+                    'Refresh token reuse attempt detected via atomic operation. Legitimate user session preserved.',
                   metadata: {
-                    sessionId: session.id,
-                    tokenSessionId,
-                    tokenHash: `${tokenHash.substring(0, 16)}...`,
+                    tokenFamily: payload.tokenFamily,
                     detectedAt: new Date().toISOString(),
-                    action: 'session_revoked',
+                    action: 'reuse_blocked_atomic',
                   },
                 });
               }
             } catch (auditError) {
-              const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-              this.logger?.error?.(`Failed to record SUSPICIOUS_ACTIVITY audit event (token reuse): ${errorMessage}`, {
-                error: auditError,
-                userId: userForAudit?.id || session.userId,
-              });
+              this.logger?.warn?.('Failed to record SUSPICIOUS_ACTIVITY audit event', { error: auditError });
             }
 
             throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'Refresh token has already been used');
           }
+
+          this.logger?.debug?.(`Marked refresh token as used for session ${lockedSession.id}`);
         }
-      }
 
-      // NOW validate the refresh token (after lock is acquired and reuse check)
-      // This ensures only one request can validate at a time per session
-      const validation = await this.jwtService.validateRefreshToken(refreshToken);
+        // Generate new token pair with same family
+        // Note: deviceId not included in token - session.deviceId is source of truth
+        const newTokens = await this.jwtService.generateTokenPair({
+          userId: payload.sub,
+          email: payload.email,
+          sessionId: lockedSession.id.toString(), // Convert integer to string for JWT
+          tokenFamily: payload.tokenFamily,
+        });
 
-      if (!validation.valid || !validation.payload) {
-        throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'Invalid refresh token');
-      }
-
-      const payload = validation.payload;
-
-      // Re-check session after acquiring lock (it might have been revoked/updated)
-      // Since we have the lock, no other request can modify this session, but it might have been revoked
-      // We already have currentSession from the early reuse check, but re-fetch to ensure it's still valid
-      const lockedSession = (await this.sessionService.findByIdLight(session.id)) as unknown as ISession | null;
-      if (!lockedSession || lockedSession.isRevoked || lockedSession.id !== session.id) {
-        this.logger?.debug?.(
-          `Session changed after lock acquisition for user ${payload.sub}. Session may have been revoked.`,
+        // Update session with new token hashes (token rotation)
+        // This automatically invalidates the old tokens as they won't match the session
+        await this.sessionService.updateTokens(
+          lockedSession.id,
+          this.jwtService.hashToken(newTokens.accessToken),
+          this.jwtService.hashToken(newTokens.refreshToken),
         );
-        throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found or revoked');
-      }
 
-      // ============================================================================
-      // NOTE: We still do the atomic mark operation below as a double-check
-      // The early check above handles cookie race conditions where old tokens
-      // are sent before new cookies are received
-      // ============================================================================
+        this.logger?.log?.(`Token refreshed successfully for user ${payload.sub}`);
 
-      // Mark token as used BEFORE generating new tokens (prevents reuse)
-      if (this.config.jwt.refreshToken.reuseDetection) {
-        const refreshTokenTTL = this.jwtService.getRefreshTokenTTL();
-        const marked = await this.sessionService.markRefreshTokenAsUsed(tokenHash, refreshTokenTTL);
+        // Decode new tokens to get expiry times
+        const accessTokenValidation = await this.jwtService.validateAccessToken(newTokens.accessToken);
+        const refreshTokenValidation = await this.jwtService.validateRefreshToken(newTokens.refreshToken);
 
-        if (!marked) {
-          // Token was already marked as used - reuse detected!
-          this.logger?.error?.(
-            `Token reuse detected for user ${payload.sub} - atomic mark failed, revoking entire token family ${payload.tokenFamily}`,
-          );
-
-          // Audit the reuse attempt
-          try {
-            const userForAudit = (await this.userRepository.findOne({
-              where: { sub: payload.sub },
-            })) as IUser | null;
-            if (userForAudit) {
-              await this.auditService?.recordEvent({
-                userId: userForAudit.id,
-                eventType: AuthAuditEventType.SUSPICIOUS_ACTIVITY,
-                eventStatus: 'SUSPICIOUS',
-                riskFactor: 75,
-                riskFactors: [RiskFactor.TOKEN_REUSE_ATTEMPT],
-                reason: 'Token reuse attempt blocked',
-                // Client info automatically included from context
-                description:
-                  'Refresh token reuse attempt detected via atomic operation. Legitimate user session preserved.',
-                metadata: {
-                  tokenFamily: payload.tokenFamily,
-                  detectedAt: new Date().toISOString(),
-                  action: 'reuse_blocked_atomic',
-                },
-              });
-            }
-          } catch (auditError) {
-            this.logger?.warn?.('Failed to record SUSPICIOUS_ACTIVITY audit event', { error: auditError });
-          }
-
-          throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'Refresh token has already been used');
+        return {
+          accessToken: newTokens.accessToken,
+          refreshToken: newTokens.refreshToken,
+          accessTokenExpiresAt: accessTokenValidation.payload?.exp || 0,
+          refreshTokenExpiresAt: refreshTokenValidation.payload?.exp || 0,
+        };
+      } catch (error: unknown) {
+        // Best-effort cookie cleanup for session-invalid refresh errors.
+        if (error instanceof NAuthException) {
+          this.clearAuthCookiesOnRefreshFailure(error.code);
         }
-
-        this.logger?.debug?.(`Marked refresh token as used for session ${lockedSession.id}`);
+        throw error;
+      } finally {
+        // Always release lock, even if error occurs
+        // Only release if we successfully acquired it
+        if (lockAcquired) {
+          await this.sessionService.releaseRefreshLock(lockKey);
+          this.logger?.debug?.(`[REFRESH DEBUG] Released lock ${lockKey}`);
+        }
       }
-
-      // Generate new token pair with same family
-      // Note: deviceId not included in token - session.deviceId is source of truth
-      const newTokens = await this.jwtService.generateTokenPair({
-        userId: payload.sub,
-        email: payload.email,
-        sessionId: lockedSession.id.toString(), // Convert integer to string for JWT
-        tokenFamily: payload.tokenFamily,
-      });
-
-      // Update session with new token hashes (token rotation)
-      // This automatically invalidates the old tokens as they won't match the session
-      await this.sessionService.updateTokens(
-        lockedSession.id,
-        this.jwtService.hashToken(newTokens.accessToken),
-        this.jwtService.hashToken(newTokens.refreshToken),
-      );
-
-      this.logger?.log?.(`Token refreshed successfully for user ${payload.sub}`);
-
-      // Decode new tokens to get expiry times
-      const accessTokenValidation = await this.jwtService.validateAccessToken(newTokens.accessToken);
-      const refreshTokenValidation = await this.jwtService.validateRefreshToken(newTokens.refreshToken);
-
-      return {
-        accessToken: newTokens.accessToken,
-        refreshToken: newTokens.refreshToken,
-        accessTokenExpiresAt: accessTokenValidation.payload?.exp || 0,
-        refreshTokenExpiresAt: refreshTokenValidation.payload?.exp || 0,
-      };
     } catch (error: unknown) {
-      // Best-effort cookie cleanup for session-invalid refresh errors.
+      // Catch any errors that occur before the lock acquisition try block
+      // Convert non-NAuthException errors to proper NAuthException to prevent 500 errors
       if (error instanceof NAuthException) {
         this.clearAuthCookiesOnRefreshFailure(error.code);
+        throw error;
       }
-      throw error;
-    } finally {
-      // Always release lock, even if error occurs
-      // Only release if we successfully acquired it
-      if (lockAcquired) {
-        await this.sessionService.releaseRefreshLock(lockKey);
-        this.logger?.debug?.(`[REFRESH DEBUG] Released lock ${lockKey}`);
-      }
+      // Log unexpected errors and convert to NAuthException
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.error?.(`Unexpected error in refreshToken: ${errorMessage}`, {
+        error,
+      });
+      this.clearAuthCookiesOnRefreshFailure(AuthErrorCode.TOKEN_INVALID);
+      throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'An error occurred while refreshing the token');
     }
   }
 
@@ -2585,22 +1959,30 @@ export class AuthService {
       return;
     }
 
-    const responseFromContext = this.clientInfoService.getResponse();
-    if (!responseFromContext) return;
+    try {
+      const responseFromContext = this.clientInfoService.getResponse();
+      if (!responseFromContext) return;
 
-    const response = responseFromContext as unknown as {
-      clearCookie?: (name: string, options?: unknown) => void;
-      cookie?: Function;
-      setCookie?: Function;
-    };
+      const response = responseFromContext as unknown as {
+        clearCookie?: (name: string, options?: unknown) => void;
+        cookie?: Function;
+        setCookie?: Function;
+      };
 
-    if (typeof response.clearCookie === 'function') {
-      this.helpers.clearAuthCookies(response, false);
-      return;
-    }
+      if (typeof response.clearCookie === 'function') {
+        this.helpers.clearAuthCookies(response, false);
+        return;
+      }
 
-    if (typeof response.cookie === 'function' || typeof response.setCookie === 'function') {
-      clearAuthCookiesCompat(response, this.config, this.config.tokenDelivery?.cookieOptions, false);
+      if (typeof response.cookie === 'function' || typeof response.setCookie === 'function') {
+        clearAuthCookiesCompat(response, this.config, this.config.tokenDelivery?.cookieOptions, false);
+      }
+    } catch (error) {
+      // Best-effort cookie clearing - don't let failures prevent proper error handling
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.warn?.(`Failed to clear auth cookies on refresh failure: ${errorMessage}`, {
+        error,
+      });
     }
   }
 
@@ -2625,9 +2007,8 @@ export class AuthService {
    * - Requires authentication - session ID must be present in request context
    * - Endpoint MUST be protected by authentication guards
    * - User cannot specify which session to logout (always current session)
-   * - Optional sub validation for additional security
    *
-   * @param dto - Logout options (optional sub for validation, optional forgetMe flag)
+   * @param dto - Logout options (optional forgetMe flag)
    * @returns Success status
    * @throws {NAuthException} SESSION_NOT_FOUND if session ID not found in request context
    *
@@ -2636,10 +2017,7 @@ export class AuthService {
    * @UseGuards(AuthGuard)
    * @Get('logout')
    * async logout(@CurrentUser() user: IUser, @Query('forgetMe') forgetMe?: string) {
-   *   const dto = new LogoutDTO();
-   *   dto.sub = user.sub; // Optional validation
-   *   dto.forgetMe = forgetMe === 'true';
-   *   return this.authService.logout(dto);
+   *   return this.authService.logout({ forgetMe: forgetMe === 'true' });
    * }
    * ```
    */
@@ -2774,16 +2152,13 @@ export class AuthService {
    * Optionally revokes all trusted devices if forgetDevices flag is set.
    *
    * Usage Patterns:
-   * - **User-initiated**: User logs out from all their own sessions (protected endpoint, user provides their own sub)
-   * - **Admin-initiated**: Admin force-logs out any user (admin-protected endpoint, admin provides target user's sub)
+   * - **User-initiated**: User logs out from all their own sessions (protected endpoint)
    *
    * Security:
-   * - Requires explicit sub parameter
-   * - NO built-in authentication - endpoint MUST be protected by guards
-   * - For user endpoints: Extract sub from authenticated user context (@CurrentUser)
-   * - For admin endpoints: Accept sub from route parameter and protect with admin guards
+   * - Uses authenticated user context for sub
+   * - Endpoint MUST be protected by authentication guards
    *
-   * @param dto - User sub and optional forgetDevices flag
+   * @param dto - Logout options (forgetDevices flag)
    * @returns Number of sessions revoked
    * @throws {NAuthException} NOT_FOUND if user not found
    *
@@ -2793,17 +2168,17 @@ export class AuthService {
    * @UseGuards(AuthGuard)
    * @Post('logout/all')
    * async logoutAll(@CurrentUser() user: IUser, @Body() body: { forgetDevices?: boolean }) {
-   *   return this.authService.logoutAll({ sub: user.sub, forgetDevices: body.forgetDevices });
+   *   return this.authService.logoutAll({ forgetDevices: body.forgetDevices });
    * }
    * ```
    *
    * @example Admin-initiated (admin manages any user)
    * ```typescript
-   * // Admin provides target user's sub
+   * // Use AdminAuthService.logoutAll with target sub
    * @UseGuards(AuthGuard, AdminGuard)
    * @Post('admin/users/:sub/logout-all')
    * async adminLogoutAll(@Param('sub') sub: string, @Body() body: { forgetDevices?: boolean }) {
-   *   return this.authService.logoutAll({ sub, forgetDevices: body.forgetDevices });
+   *   return this.adminAuthService.logoutAll({ sub, forgetDevices: body.forgetDevices });
    * }
    * ```
    */
@@ -2811,8 +2186,11 @@ export class AuthService {
     // Ensure DTO is validated (supports direct usage without framework validation)
     dto = await ensureValidatedDto(LogoutAllDTO, dto);
 
+    // Get current authenticated user from context
+    const currentUser = this.getCurrentUserOrThrow();
+
     // Get user by sub to get internal id
-    const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
+    const user = (await this.userRepository.findOne({ where: { sub: currentUser.sub } })) as IUser | null;
     if (!user) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
@@ -2853,6 +2231,7 @@ export class AuthService {
               description: `Global signout: All trusted devices revoked (${revokedDevicesCount} device(s))`,
               metadata: {
                 reason: 'global_logout_forget_devices',
+                initiatedBy: 'user',
                 revokedDevicesCount,
                 devices: revokedDevices.map((d) => ({
                   id: d.id,
@@ -2964,16 +2343,12 @@ export class AuthService {
    * Current session (if called from authenticated context) is marked with isCurrent=true.
    *
    * Usage Patterns:
-   * - **User viewing own sessions**: User views their active sessions (protected endpoint, user provides their own sub)
-   * - **Admin viewing any user's sessions**: Admin views any user's sessions (admin-protected endpoint, admin provides target user's sub)
+   * - **User viewing own sessions**: User views their active sessions (protected endpoint)
    *
    * Security:
-   * - Requires explicit sub parameter
-   * - NO built-in authentication - endpoint MUST be protected by guards
-   * - For user endpoints: Extract sub from authenticated user context (@CurrentUser)
-   * - For admin endpoints: Accept sub from route parameter and protect with admin guards
+   * - Uses authenticated user context for sub
+   * - Endpoint MUST be protected by authentication guards
    *
-   * @param dto - Contains user sub
    * @returns Array of sessions with device info, auth method, and isCurrent flag
    * @throws {NAuthException} NOT_FOUND if user not found
    *
@@ -2982,7 +2357,7 @@ export class AuthService {
    * @UseGuards(AuthGuard)
    * @Get('sessions')
    * async getSessions(@CurrentUser() user: IUser) {
-   *   return this.authService.getUserSessions({ sub: user.sub });
+   *   return this.authService.getUserSessions();
    * }
    * ```
    *
@@ -2991,16 +2366,16 @@ export class AuthService {
    * @UseGuards(AuthGuard, AdminGuard)
    * @Get('admin/users/:sub/sessions')
    * async adminGetSessions(@Param('sub') sub: string) {
-   *   return this.authService.getUserSessions({ sub });
+   *   return this.adminAuthService.getUserSessions({ sub });
    * }
    * ```
    */
-  async getUserSessions(dto: GetUserSessionsDTO): Promise<GetUserSessionsResponseDTO> {
-    // Ensure DTO is validated (supports direct usage without framework validation)
-    dto = await ensureValidatedDto(GetUserSessionsDTO, dto);
+  async getUserSessions(): Promise<GetUserSessionsResponseDTO> {
+    // Get current authenticated user from context
+    const currentUser = this.getCurrentUserOrThrow();
 
     // Get user by sub to get internal id
-    const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
+    const user = (await this.userRepository.findOne({ where: { sub: currentUser.sub } })) as IUser | null;
     if (!user) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
@@ -3058,6 +2433,89 @@ export class AuthService {
   }
 
   /**
+   * Get MFA status for current authenticated user
+   *
+   * Returns comprehensive MFA status including enabled status, configured methods,
+   * available methods, backup codes, and exemption information.
+   *
+   * Usage Patterns:
+   * - **User viewing own MFA status**: User views their MFA configuration (protected endpoint)
+   *
+   * Security:
+   * - Uses authenticated user context for sub
+   * - Endpoint MUST be protected by authentication guards
+   *
+   * @returns MFA status response
+   * @throws {NAuthException} FORBIDDEN if user not authenticated
+   * @throws {NAuthException} NOT_FOUND if user not found
+   *
+   * @example User viewing own MFA status
+   * ```typescript
+   * @UseGuards(AuthGuard)
+   * @Get('mfa/status')
+   * async getMFAStatus() {
+   *   return this.authService.getMFAStatus();
+   * }
+   * ```
+   */
+  async getMFAStatus(): Promise<GetMFAStatusResponseDTO> {
+    if (!this.mfaService) {
+      throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'MFA service is not available');
+    }
+
+    // Get current authenticated user from context
+    const currentUser = this.getCurrentUserOrThrow();
+
+    // Call MFA service with user's sub
+    // Pass as plain object to ensure proper transformation by ensureValidatedDto
+    return await this.mfaService.getMFAStatus({ sub: currentUser.sub });
+  }
+
+  /**
+   * Get authentication audit history for current authenticated user
+   *
+   * Returns paginated audit trail of authentication events for the user:
+   * - Login attempts (success/failure)
+   * - Password changes
+   * - MFA setup/verification
+   * - Device trust events
+   * - Device information, location, risk factors
+   *
+   * Usage Patterns:
+   * - **User viewing own audit history**: User views their authentication history (protected endpoint)
+   *
+   * Security:
+   * - Uses authenticated user context for sub
+   * - Endpoint MUST be protected by authentication guards
+   *
+   * @param dto - Optional query parameters for filtering and pagination
+   * @returns Paginated audit history response
+   * @throws {NAuthException} FORBIDDEN if user not authenticated
+   * @throws {NAuthException} NOT_FOUND if user not found
+   *
+   * @example User viewing own audit history
+   * ```typescript
+   * @UseGuards(AuthGuard)
+   * @Get('audit/history')
+   * async getAuditHistory(@Query() query: GetUserAuthHistoryDTO) {
+   *   return this.authService.getUserAuthHistory(query);
+   * }
+   * ```
+   */
+  async getUserAuthHistory(dto: GetUserAuthHistoryDTO = {}): Promise<GetUserAuthHistoryResponseDTO> {
+    if (!this.auditService) {
+      throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Audit service is not available');
+    }
+
+    // Get current authenticated user from context
+    const currentUser = this.getCurrentUserOrThrow();
+
+    // Convert to admin DTO with sub from context
+    const adminDto = Object.assign(new AdminGetUserAuthHistoryDTO(), { ...dto, sub: currentUser.sub });
+    return await this.auditService.getUserAuthHistory(adminDto);
+  }
+
+  /**
    * Logout a specific session by ID
    *
    * Revokes a specific session for a user. Validates session belongs to requesting user.
@@ -3065,17 +2523,14 @@ export class AuthService {
    * Useful for "sign out from device" functionality in user dashboards.
    *
    * Usage Patterns:
-   * - **User logging out own session**: User revokes specific session (protected endpoint, user provides their own sub)
-   * - **Admin revoking any user's session**: Admin revokes specific session for any user (admin-protected endpoint, admin provides target user's sub)
+   * - **User logging out own session**: User revokes specific session (protected endpoint)
    *
    * Security:
-   * - Requires explicit sub parameter
+   * - Uses authenticated user context for sub
    * - Validates session belongs to user (prevents unauthorized session revocation)
-   * - NO built-in authentication - endpoint MUST be protected by guards
-   * - For user endpoints: Extract sub from authenticated user context (@CurrentUser)
-   * - For admin endpoints: Accept sub from route parameter and protect with admin guards
+   * - Endpoint MUST be protected by authentication guards
    *
-   * @param dto - Contains sessionId and user sub
+   * @param dto - Contains sessionId
    * @returns Success status and whether it was the current session
    * @throws {NAuthException} NOT_FOUND if user not found
    * @throws {NAuthException} SESSION_NOT_FOUND if session not found
@@ -3086,7 +2541,7 @@ export class AuthService {
    * @UseGuards(AuthGuard)
    * @Delete('sessions/:sessionId')
    * async logoutSession(@CurrentUser() user: IUser, @Param('sessionId') sessionId: string) {
-   *   return this.authService.logoutSession({ sub: user.sub, sessionId });
+   *   return this.authService.logoutSession({ sessionId });
    * }
    * ```
    *
@@ -3095,7 +2550,7 @@ export class AuthService {
    * @UseGuards(AuthGuard, AdminGuard)
    * @Delete('admin/users/:sub/sessions/:sessionId')
    * async adminRevokeSession(@Param('sub') sub: string, @Param('sessionId') sessionId: string) {
-   *   return this.authService.logoutSession({ sub, sessionId });
+   *   return this.adminAuthService.revokeUserSession({ sub, sessionId });
    * }
    * ```
    */
@@ -3103,8 +2558,11 @@ export class AuthService {
     // Ensure DTO is validated (supports direct usage without framework validation)
     dto = await ensureValidatedDto(LogoutSessionDTO, dto);
 
+    // Get current authenticated user from context
+    const currentUser = this.getCurrentUserOrThrow();
+
     // Get user by sub to get internal id
-    const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
+    const user = (await this.userRepository.findOne({ where: { sub: currentUser.sub } })) as IUser | null;
     if (!user) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
@@ -3133,7 +2591,7 @@ export class AuthService {
 
     // Revoke the session
     await this.sessionService.revokeSession(sessionId, 'User requested logout', {
-      requestedBy: dto.sub,
+      requestedBy: currentUser.sub,
       wasCurrentSession,
     });
 
@@ -3187,51 +2645,64 @@ export class AuthService {
    * checks password reuse policy, and updates the user's password hash and history.
    * Executes configured pre-change hooks if provided.
    *
-   * @param sub - External user identifier (sub/UUID)
    * @param dto - ChangePasswordDTO containing old and new password
    * @returns void
    * @throws {NAuthException} If the user is not found, current password is incorrect, the new password is weak, password reuse is detected, or password change is disallowed by hooks.
    *
    * @example
    * ```typescript
-   * await authService.changePassword('user-uuid', {
+   * await authService.changePassword({
    *   oldPassword: 'currentPass123!',
    *   newPassword: 'newStr0ngPass!@#',
    * });
    * ```
    */
-  async changePassword(dto: ChangePasswordRequestDTO): Promise<ChangePasswordResponseDTO> {
+  async changePassword(dto: ChangePasswordDTO): Promise<ChangePasswordResponseDTO> {
     // Ensure DTO is validated (supports direct usage without framework validation)
-    dto = await ensureValidatedDto(ChangePasswordRequestDTO, dto);
+    dto = await ensureValidatedDto(ChangePasswordDTO, dto);
+
+    // Get current authenticated user from context
+    const currentUser = this.getCurrentUserOrThrow();
 
     // Get user by sub
-    const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
+    const user = (await this.userRepository.findOne({ where: { sub: currentUser.sub } })) as IUser | null;
 
-    if (!user || !user.passwordHash) {
+    if (!user) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    // ============================================================================
+    // Social-only accounts: allow setting first password without old password
+    // ============================================================================
+    if (!user.passwordHash) {
+      if (dto.oldPassword !== '') {
+        throw new NAuthException(AuthErrorCode.PASSWORD_CHANGE_NOT_ALLOWED, 'Password change not allowed');
+      }
     }
 
     // ============================================================================
     // Lifecycle Hook: beforePasswordChange (TODO: Implement provider-based hook)
     // ============================================================================
     // TODO: Implement provider-based hook for beforePasswordChange
-    // const allowed = await this.hookRegistry.executeBeforePasswordChange(dto.sub, dto.oldPassword);
+    // const allowed = await this.hookRegistry.executeBeforePasswordChange(currentUser.sub, dto.oldPassword);
     // if (!allowed) {
     //   throw new NAuthException(AuthErrorCode.PASSWORD_CHANGE_NOT_ALLOWED, 'Password change not allowed');
     // }
 
-    // Verify old password
-    const isValid = await this.passwordService.verifyPassword(dto.oldPassword, user.passwordHash);
+    if (user.passwordHash) {
+      // Verify old password
+      const isValid = await this.passwordService.verifyPassword(dto.oldPassword, user.passwordHash);
 
-    if (!isValid) {
-      throw new NAuthException(AuthErrorCode.PASSWORD_INCORRECT, 'Current password is incorrect');
+      if (!isValid) {
+        throw new NAuthException(AuthErrorCode.PASSWORD_INCORRECT, 'Current password is incorrect');
+      }
     }
 
     // ============================================================================
     // Lifecycle Hook: afterPasswordChange (TODO: Implement provider-based hook)
     // ============================================================================
     // TODO: Implement provider-based hook for afterPasswordChange
-    // await this.hookRegistry.executeAfterPasswordChange(dto.sub);
+    // await this.hookRegistry.executeAfterPasswordChange(currentUser.sub);
 
     await this.helpers.updateUserPassword(
       {
@@ -3257,54 +2728,39 @@ export class AuthService {
    *
    * Updates user fields (name, email, phone, username, metadata) and enforces unique constraints and verification rules.
    *
-   * @param dto - UpdateUserAttributesRequestDTO containing sub and fields to update
+   * @param dto - UpdateUserAttributesDTO containing fields to update
    * @returns Updated user object
    * @throws {NAuthException} If user not found or unique constraint violated
    *
    * @example
-   * await authService.updateUserAttributes({ sub: 'user-uuid', email: 'test@example.com' });
+   * await authService.updateUserAttributes({ email: 'test@example.com' });
    */
-  async updateUserAttributes(dto: UpdateUserAttributesRequestDTO): Promise<UserResponseDto> {
-    return await this.userService.updateUserAttributes(dto);
+  async updateUserAttributes(dto: UpdateUserAttributesDTO): Promise<UserResponseDto> {
+    const currentUser = this.getCurrentUserOrThrow();
+    const adminDto = Object.assign(new AdminUpdateUserAttributesDTO(), { sub: currentUser.sub, ...dto });
+    return await this.userService.updateUserAttributes(adminDto);
   }
 
   /**
-   * Update email and/or phone verification status.
+   * Get user for authentication context
    *
-   * Intended for admin use cases such as migration or offline validation.
-   * Updates verification status without requiring actual verification codes.
+   * Loads user by sub (external identifier) with all fields needed for auth context.
+   * Computes hasPasswordHash from passwordHash, then removes passwordHash and other sensitive fields.
    *
-   * Validation:
-   * - Cannot set verified=true if email/phone doesn't exist
-   * - Can set verified=false even if email/phone doesn't exist (default state)
-   * - Only updates provided fields (partial update)
+   * This method is used by AuthHandler and AuthGuard to load authenticated users.
+   * It ensures consistent user object shape across platforms (core + NestJS).
    *
-   * Audit:
-   * - Records EMAIL_VERIFIED or PHONE_VERIFIED audit events
-   * - Includes performedBy from authenticated admin context
-   *
-   * @param dto - Request DTO containing sub and verification status flags
-   * @returns Updated user object
-   * @throws {NAuthException} If user not found or trying to verify non-existent email/phone
+   * @param sub - External user identifier (UUID)
+   * @returns User object with hasPasswordHash flag, without sensitive fields
+   * @throws {NAuthException} If user not found or account is inactive
    *
    * @example
    * ```typescript
-   * // Update email verification only
-   * await authService.updateVerifiedStatus({
-   *   sub: 'user-uuid',
-   *   isEmailVerified: true
-   * });
-   *
-   * // Update both email and phone verification
-   * await authService.updateVerifiedStatus({
-   *   sub: 'user-uuid',
-   *   isEmailVerified: true,
-   *   isPhoneVerified: false
-   * });
+   * const user = await authService.getUserForAuthContext('user-uuid');
    * ```
    */
-  async updateVerifiedStatus(dto: UpdateVerifiedStatusRequestDTO): Promise<UserResponseDto> {
-    return await this.userService.updateVerifiedStatus(dto);
+  async getUserForAuthContext(sub: string): Promise<IUser> {
+    return await this.userService.getUserForAuthContext(sub);
   }
 
   /**
@@ -3343,7 +2799,6 @@ export class AuthService {
    * ```
    */
   async validateAccessToken(dto: ValidateAccessTokenDTO): Promise<ValidateAccessTokenResponseDTO> {
-    // Ensure DTO is validated (supports direct usage without framework validation)
     dto = await ensureValidatedDto(ValidateAccessTokenDTO, dto);
 
     const result = await this.jwtService.validateAccessToken(dto.accessToken);
@@ -3353,423 +2808,6 @@ export class AuthService {
       payload: result.payload,
       error: result.error,
       errorType: result.errorType,
-    };
-  }
-
-  // ============================================================================
-  // Helper Methods
-  // ============================================================================
-  // NOTE: Private helper methods have been moved to AuthServiceInternalHelpers
-  // Use this.helpers.methodName() to access them
-
-  /**
-   * Get user for authentication context
-   *
-   * Loads user by sub (external identifier) with all fields needed for auth context.
-   * Computes hasPasswordHash from passwordHash, then removes passwordHash and other sensitive fields.
-   *
-   * This method is used by AuthHandler and AuthGuard to load authenticated users.
-   * It ensures consistent user object shape across platforms (core + NestJS).
-   *
-   * @param sub - External user identifier (UUID)
-   * @returns User object with hasPasswordHash flag, without sensitive fields
-   * @throws {NAuthException} If user not found or account is inactive
-   *
-   * @example
-   * ```typescript
-   * const user = await authService.getUserForAuthContext('user-uuid-123');
-   * // user.hasPasswordHash === true/false
-   * // user.passwordHash === undefined (removed)
-   * ```
-   */
-  async getUserForAuthContext(sub: string): Promise<IUser> {
-    return await this.userService.getUserForAuthContext(sub);
-  }
-
-  /**
-   * Get user by external identifier (sub/UUID).
-   *
-   * @param dto - GetUserByIdDTO containing sub
-   * @returns User response DTO or null if not found
-   *
-   * @example
-   * ```typescript
-   * const user = await authService.getUserById({ sub: 'user-uuid' });
-   * ```
-   */
-  async getUserById(dto: GetUserByIdDTO): Promise<UserResponseDto | null> {
-    return await this.userService.getUserById(dto);
-  }
-
-  /**
-   * Get user by email address.
-   *
-   * @param dto - GetUserByEmailDTO containing email and optional requireEmailVerified
-   * @returns User response DTO or null if not found
-   * @internal - For use by social auth providers
-   *
-   * @example
-   * ```typescript
-   * const user = await authService.getUserByEmail({ email: 'user@example.com', requireEmailVerified: true });
-   * ```
-   */
-  async getUserByEmail(dto: GetUserByEmailDTO): Promise<UserResponseDto | null> {
-    return await this.userService.getUserByEmail(dto);
-  }
-
-  /**
-   * Require user to change password at next login.
-   *
-   * Throws if user not found or has no password set (e.g. social login only).
-   *
-   * @param dto - SetMustChangePasswordDTO containing userId (sub)
-   * @returns Success response
-   * @throws {NAuthException} If user is not found or cannot change password
-   *
-   * @example
-   * ```typescript
-   * await authService.setMustChangePassword({ userId: 'user-uuid-123' });
-   * ```
-   */
-  async setMustChangePassword(dto: SetMustChangePasswordDTO): Promise<SetMustChangePasswordResponseDTO> {
-    return await this.userService.setMustChangePassword(dto);
-  }
-
-  /**
-   * Admin-only: Initiate a code-based password reset workflow.
-   *
-   * Unlike adminSetPassword(), this sends a verification code (and optional link)
-   * to the user via email/SMS and allows them to set their own password.
-   *
-   * Features:
-   * - Code + optional link delivery (like email verification)
-   * - Optional immediate session revocation
-   * - Configurable expiry (default 1 hour)
-   * - Admin-specific email template
-   * - No rate limiting (admin bypass)
-   * - Separate audit trail with reason
-   *
-   * Security:
-   * - Admin-only operation (protect route with admin guard)
-   * - Non-enumerating (throws NOT_FOUND if user doesn't exist)
-   * - Separate token type ('admin_password_reset')
-   * - Audit logging with reason
-   *
-   * @param dto - Admin reset password request
-   * @returns Response with masked destination, expiry, and sessions revoked count
-   * @throws {NAuthException} NOT_FOUND when user not found
-   *
-   * @example
-   * ```typescript
-   * // With link for custom UI
-   * const result = await authService.adminResetPassword({
-   *   identifier: 'user@example.com',
-   *   baseUrl: 'https://myapp.com/reset-password',
-   *   revokeSessions: true,
-   *   reason: 'User reported compromise'
-   * });
-   * // result: { success: true, destination: 'u***r@example.com', expiresIn: 3600, sessionsRevoked: 3 }
-   *
-   * // Code only (no link)
-   * const result = await authService.adminResetPassword({
-   *   identifier: 'user@example.com'
-   * });
-   * ```
-   */
-  async adminResetPassword(dto: AdminResetPasswordDTO): Promise<AdminResetPasswordResponseDTO> {
-    // Ensure DTO is validated (supports direct usage without framework validation)
-    dto = await ensureValidatedDto(AdminResetPasswordDTO, dto);
-
-    this.logger?.log?.(`Admin password reset requested for identifier: ${dto.identifier}`);
-    this.logger?.debug?.(
-      `Reset details: { identifier: ${dto.identifier}, deliveryMethod: ${dto.deliveryMethod ?? 'email'}, revokeSessions: ${dto.revokeSessions ?? false}, baseUrl: ${dto.baseUrl ?? 'none'}, reason: ${dto.reason ?? 'none'} }`,
-    );
-
-    // ============================================================================
-    // Find User by Identifier
-    // ============================================================================
-    // Support multiple identifier types: email, username, phone, or sub (UUID)
-    let user: IUser | null = null;
-
-    // Try to find by sub (UUID) first if it looks like a UUID.
-    // WHY: Many deployments treat `sub` as the primary immutable identifier.
-    if (isUUID(dto.identifier)) {
-      this.logger?.debug?.(`Identifier appears to be UUID, searching by sub: ${dto.identifier}`);
-      user = (await this.userRepository.findOne({ where: { sub: dto.identifier } })) as IUser | null;
-    }
-
-    // If not found by sub, try by identifier (email, username, phone)
-    if (!user) {
-      this.logger?.debug?.(`Searching by identifier (email/username/phone): ${dto.identifier}`);
-      user = await this.helpers.findUserByIdentifier(dto.identifier);
-    }
-
-    if (!user) {
-      this.logger?.warn?.(`Admin password reset failed - user not found: ${dto.identifier}`);
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
-    }
-
-    if (!this.passwordResetService) {
-      this.logger?.error?.('Password reset service not available');
-      throw new NAuthException(
-        AuthErrorCode.SERVICE_UNAVAILABLE,
-        'Password reset service is not configured. Please configure an email provider.',
-      );
-    }
-
-    // ============================================================================
-    // Optionally revoke sessions immediately (before sending reset email)
-    // ============================================================================
-    const revokeSessions = dto.revokeSessions ?? false;
-    let sessionsRevoked = 0;
-
-    if (revokeSessions) {
-      sessionsRevoked = await this.sessionService.revokeAllUserSessions(user.id, 'Admin initiated password reset');
-      this.logger?.log?.(`Revoked ${sessionsRevoked} sessions for user ${user.sub}`);
-    }
-
-    // ============================================================================
-    // Request admin reset with code + link
-    // ============================================================================
-    const delivery = dto.deliveryMethod || 'email';
-    const expiresIn = dto.codeExpiresIn || 3600; // Default 1 hour
-
-    const result = await this.passwordResetService.requestAdminReset(user, delivery, {
-      expiresIn,
-      baseUrl: dto.baseUrl, // Consumer app can build custom UI
-    });
-
-    // ============================================================================
-    // Audit Logging
-    // ============================================================================
-    await this.auditService?.recordEvent({
-      userId: user.id,
-      eventType: AuthAuditEventType.ADMIN_PASSWORD_RESET_INITIATED,
-      eventStatus: 'INFO',
-      authMethod: 'password',
-      description: dto.reason || 'Admin initiated password reset',
-      reason: dto.reason, // Store reason in audit event
-      metadata: {
-        medium: delivery,
-        expiresIn,
-        sessionsRevoked,
-        hasBaseUrl: !!dto.baseUrl,
-      },
-    });
-
-    // ============================================================================
-    // Return Response
-    // ============================================================================
-    return {
-      success: true,
-      destination: result.destination,
-      deliveryMedium: result.deliveryMedium,
-      expiresIn: result.expiresIn,
-      sessionsRevoked: revokeSessions ? sessionsRevoked : undefined,
-    };
-  }
-
-  /**
-   * Complete admin-initiated password reset with a verification code.
-   *
-   * NOTE:
-   * - Links (when provided) should include the same verification code as a query parameter
-   *   (e.g., `...?code=123456`) to keep consumer apps code-only and consistent.
-   *
-   * Security:
-   * - Verifies code via PasswordResetService
-   * - Enforces password policy and history
-   * - Always revokes all sessions on completion
-   * - Does not force password change (user already set new password)
-   * - Records audit event
-   *
-   * @param dto - Confirm admin reset password request
-   * @returns Success response
-   * @throws {NAuthException} NOT_FOUND | PASSWORD_RESET_CODE_INVALID | PASSWORD_RESET_CODE_EXPIRED | PASSWORD_RESET_MAX_ATTEMPTS | WEAK_PASSWORD | PASSWORD_REUSED | INVALID_CREDENTIALS
-   *
-   * @example
-   * ```typescript
-   * await authService.confirmAdminResetPassword({
-   *   identifier: 'user@example.com',
-   *   code: '123456',
-   *   newPassword: 'NewSecurePass123!'
-   * });
-   * ```
-   */
-  async confirmAdminResetPassword(dto: ConfirmAdminResetPasswordDTO): Promise<ConfirmAdminResetPasswordResponseDTO> {
-    // Ensure DTO is validated (supports direct usage without framework validation)
-    dto = await ensureValidatedDto(ConfirmAdminResetPasswordDTO, dto);
-
-    this.logger?.log?.(`Confirm admin password reset for identifier: ${dto.identifier}`);
-
-    // ============================================================================
-    // Find User by Identifier
-    // ============================================================================
-    let user: IUser | null = null;
-
-    if (isUUID(dto.identifier)) {
-      this.logger?.debug?.(`Identifier appears to be UUID, searching by sub: ${dto.identifier}`);
-      user = (await this.userRepository.findOne({ where: { sub: dto.identifier } })) as IUser | null;
-    }
-
-    if (!user) {
-      this.logger?.debug?.(`Searching by identifier (email/username/phone): ${dto.identifier}`);
-      user = await this.helpers.findUserByIdentifier(dto.identifier);
-    }
-
-    if (!user) {
-      this.logger?.warn?.(`Confirm admin reset failed - user not found: ${dto.identifier}`);
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
-    }
-
-    if (!this.passwordResetService) {
-      this.logger?.error?.('Password reset service not available');
-      throw new NAuthException(
-        AuthErrorCode.SERVICE_UNAVAILABLE,
-        'Password reset service is not configured. Please configure an email provider.',
-      );
-    }
-
-    // ============================================================================
-    // Verify code
-    // ============================================================================
-    await this.passwordResetService.consumeValidCode(user, dto.code, 'admin_password_reset');
-
-    // ============================================================================
-    // Update password
-    // ============================================================================
-    // WHY: User already set a new password via this reset flow, so no need to force
-    // another password change on next login (unlike adminSetPassword where admin sets
-    // a password the user doesn't know)
-    await this.helpers.updateUserPassword(
-      {
-        user,
-        newPassword: dto.newPassword,
-        mustChangePassword: false, // User already set new password, no need to force change again
-        revokeSessions: true, // Always revoke on completion
-        revokeReason: 'Admin-initiated password reset completed',
-        audit: {
-          eventType: AuthAuditEventType.ADMIN_PASSWORD_RESET_COMPLETED,
-          eventStatus: 'SUCCESS',
-          description: 'User completed admin-initiated password reset',
-          metadata: {
-            usedCode: true,
-          },
-        },
-      },
-      this.passwordService,
-      this.auditService,
-    );
-
-    // ============================================================================
-    // Return Response
-    // ============================================================================
-    return {
-      success: true,
-    };
-  }
-
-  /**
-   * Admin-only: Reset a user's password by identifier.
-   *
-   * Allows administrators to reset a user's password using any identifier
-   * (email, username, phone, or sub). Automatically revokes sessions and optionally
-   * requires password change on next login using the existing challenge system.
-   *
-   * SECURITY: This is an admin-only operation. Ensure proper authorization
-   * checks are in place before calling this method.
-   *
-   * @param dto - Admin reset password request
-   * @returns Response with success status and session revocation count
-   * @throws {NAuthException} If user not found, user has no password (social-only), or password validation fails
-   *
-   * @example
-   * ```typescript
-   * // Reset with force password change
-   * const result = await authService.adminSetPassword({
-   *   identifier: 'user@example.com',
-   *   newPassword: 'NewSecurePassword123!',
-   *   mustChangePassword: true,
-   *   revokeSessions: true
-   * });
-   *
-   * // Reset without forcing password change
-   * const result = await authService.adminSetPassword({
-   *   identifier: 'a21b654c-2746-4168-acee-c175083a65cd',
-   *   newPassword: 'NewSecurePassword123!',
-   *   mustChangePassword: false
-   * });
-   * ```
-   */
-  async adminSetPassword(dto: AdminSetPasswordDTO): Promise<AdminSetPasswordResponseDTO> {
-    // Ensure DTO is validated (supports direct usage without framework validation)
-    dto = await ensureValidatedDto(AdminSetPasswordDTO, dto);
-
-    this.logger?.log?.(`Admin password reset requested for identifier: ${dto.identifier}`);
-    this.logger?.debug?.(
-      `Reset details: { identifier: ${dto.identifier}, mustChangePassword: ${dto.mustChangePassword ?? true}, revokeSessions: ${dto.revokeSessions ?? true} }`,
-    );
-
-    // ============================================================================
-    // Find User by Identifier
-    // ============================================================================
-    // Support multiple identifier types: email, username, phone, or sub (UUID)
-    let user: IUser | null = null;
-
-    // Try to find by sub (UUID) first if it looks like a UUID.
-    // WHY: Many deployments treat `sub` as the primary immutable identifier.
-    if (isUUID(dto.identifier)) {
-      this.logger?.debug?.(`Identifier appears to be UUID, searching by sub: ${dto.identifier}`);
-      user = (await this.userRepository.findOne({ where: { sub: dto.identifier } })) as IUser | null;
-    }
-
-    // If not found by sub, try by identifier (email, username, phone)
-    if (!user) {
-      this.logger?.debug?.(`Searching by identifier (email/username/phone): ${dto.identifier}`);
-      user = await this.helpers.findUserByIdentifier(dto.identifier);
-    }
-
-    if (!user) {
-      this.logger?.warn?.(`Password reset failed - user not found: ${dto.identifier}`);
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
-    }
-
-    const mustChangePassword = dto.mustChangePassword ?? true; // Default to true for security
-    const revokeSessions = dto.revokeSessions !== false;
-    const wasSocialOnly = !user.passwordHash;
-
-    const { sessionsRevoked } = await this.helpers.updateUserPassword(
-      {
-        user,
-        newPassword: dto.newPassword,
-        mustChangePassword,
-        revokeSessions,
-        revokeReason: 'Password reset by administrator',
-        audit: {
-          eventType: AuthAuditEventType.PASSWORD_RESET_COMPLETED,
-          eventStatus: 'SUCCESS',
-          reason: 'admin_reset',
-          description: 'Password reset by administrator',
-          metadata: {
-            identifier: dto.identifier,
-            mustChangePassword,
-            // WHY: Admins can set the first password for social-only accounts so users can login via either route later.
-            // This flag helps downstream observability without exposing anything to clients.
-            wasSocialOnly,
-          },
-        },
-      },
-      this.passwordService,
-      this.auditService,
-    );
-
-    // ============================================================================
-    // Return Response
-    // ============================================================================
-    return {
-      success: true,
-      mustChangePassword,
-      sessionsRevoked,
     };
   }
 
@@ -3922,5 +2960,16 @@ export class AuthService {
     );
 
     return { success: true, mustChangePassword: false };
+  }
+
+  // ============================================================================
+  // Helper Methods
+  // ============================================================================
+  private getCurrentUserOrThrow(): IUser {
+    const currentUser = ContextStorage.get<IUser>('CURRENT_USER');
+    if (!currentUser) {
+      throw new NAuthException(AuthErrorCode.FORBIDDEN, 'Authentication required');
+    }
+    return currentUser;
   }
 }

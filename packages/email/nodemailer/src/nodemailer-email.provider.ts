@@ -755,7 +755,7 @@ export class NodemailerProvider implements EmailProvider {
     context: {
       deviceType?: string;
       deviceName?: string;
-      removedBy?: 'user' | 'system';
+      removedBy?: 'user' | 'admin' | 'system';
       reason?: string;
       remainingDeviceCount?: number;
     } = {},

@@ -40,9 +40,12 @@ import { RemoveDevicesDTO, RemoveDevicesResponseDTO } from '@nauth-toolkit/core'
 
 ## RemoveDevicesDTO (Request)
 
+:::note User Self-Service
+This DTO is for user self-service operations. The user is automatically derived from the authenticated user's context. No `sub` field is required or allowed.
+:::
+
 | Property    | Type     | Required | Description                                                      |
 | ----------- | -------- | -------- | ---------------------------------------------------------------- |
-| `userSub`   | `string` | Yes      | User sub. UUID v4 format. Trimmed and lowercased.               |
 | `methodType` | `string` | Yes      | MFA method type to remove. Must be: totp, sms, email, passkey. Max 50 characters. Trimmed and lowercased. |
 
 ## RemoveDevicesResponseDTO (Response)
@@ -56,7 +59,6 @@ import { RemoveDevicesDTO, RemoveDevicesResponseDTO } from '@nauth-toolkit/core'
 
 ```json
 {
-  "userSub": "a21b654c-2746-4168-acee-c175083a65cd",
   "methodType": "totp"
 }
 ```

@@ -217,7 +217,7 @@ export class AuthChallengeHelperService {
       challengeName,
       session: challengeSession.sessionToken,
       challengeParameters,
-      userSub: user.sub,
+      sub: user.sub,
     };
 
     return response;
@@ -291,7 +291,7 @@ export class AuthChallengeHelperService {
         allowedMethods,
         instructions: 'Multi-factor authentication setup is required before you can login',
       },
-      userSub: user.sub,
+      sub: user.sub,
     } as AuthResponseDTO;
   }
 
@@ -645,7 +645,7 @@ export class AuthChallengeHelperService {
       // - deviceToken parameter passed from AuthService / state machine
       deviceToken: finalDeviceToken,
       user: toAuthResponseUser(user),
-      userSub: user.sub,
+      sub: user.sub,
     };
 
     return response;

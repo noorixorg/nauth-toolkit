@@ -13,6 +13,7 @@ import { InternalAuthAuditService as AuthAuditService } from './auth-audit.servi
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { ClientInfoService } from './client-info.service';
 import { SetMFAExemptionDTO } from '../dto';
+import { ContextStorage } from '../utils/context-storage';
 
 /**
  * MFA Service Unit Tests
@@ -448,13 +449,14 @@ describe('MFAService', () => {
         { ...mockDevice, id: 2, isPrimary: false },
       ];
 
-      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
 
-      const result = await service.getUserDevices({ sub: 'a21b654c-2746-4168-acee-c175083a65cd' });
+      const result = await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser as IUser);
+        return await service.getUserDevices({});
+      });
 
       expect(result).toEqual({ devices: devices as any });
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'a21b654c-2746-4168-acee-c175083a65cd' } });
       expect(mockMfaDeviceRepository.find).toHaveBeenCalledWith({
         where: { userId: 1, isActive: true },
         order: { createdAt: 'DESC' },
@@ -464,8 +466,10 @@ describe('MFAService', () => {
     it('should return empty array when no devices found', async () => {
       mockMfaDeviceRepository.find.mockResolvedValue([]);
 
-      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
-      const result = await service.getUserDevices({ sub: 'a21b654c-2746-4168-acee-c175083a65cd' });
+      const result = await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser as IUser);
+        return await service.getUserDevices({});
+      });
 
       expect(result).toEqual({ devices: [] });
     });
@@ -487,7 +491,6 @@ describe('MFAService', () => {
         { ...mockDevice, id: 2, type: 'sms' as MFADeviceMethod, isActive: true },
       ];
 
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
       mockMfaDeviceRepository.find
         .mockResolvedValueOnce(devices as any) // getUserDevices call
         .mockResolvedValueOnce([devices[1]] as any); // After deletion
@@ -495,7 +498,10 @@ describe('MFAService', () => {
       mockUserRepository.save.mockResolvedValue(userEntity as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      const result = await service.removeDevices({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
+      const result = await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', userEntity as IUser);
+        return await service.removeDevices({ methodType: 'totp' } as any);
+      });
 
       expect(result.deletedCount).toBe(1);
       expect(result.mfaDisabled).toBe(false);
@@ -504,7 +510,10 @@ describe('MFAService', () => {
 
     it('should throw error when method type is invalid', async () => {
       try {
-        await service.removeDevices({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'invalid' });
+        await ContextStorage.run(async () => {
+          ContextStorage.set('CURRENT_USER', mockUser as IUser);
+          return await service.removeDevices({ methodType: 'invalid' } as any);
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -512,27 +521,17 @@ describe('MFAService', () => {
       }
     });
 
-    it('should throw error when user not found', async () => {
-      mockUserRepository.findOne.mockResolvedValue(null);
-
-      try {
-        await service.removeDevices({ userSub: 'b21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
-        fail('Should have thrown NAuthException');
-      } catch (error: any) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect(error.message).toContain('User entity not found');
-      }
-    });
-
     it('should throw error when no devices of method type found', async () => {
       const userEntity = { ...mockUser, id: 1 };
       const devices = [{ ...mockDevice, id: 1, type: 'sms' as MFADeviceMethod, isActive: true }];
 
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
       mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
 
       try {
-        await service.removeDevices({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
+        await ContextStorage.run(async () => {
+          ContextStorage.set('CURRENT_USER', userEntity as IUser);
+          return await service.removeDevices({ methodType: 'totp' } as any);
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -544,7 +543,6 @@ describe('MFAService', () => {
       const userEntity = { ...mockUser, id: 1, mfaEnabled: true, mfaMethods: ['totp'] };
       const devices = [{ ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true }];
 
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
       mockMfaDeviceRepository.find
         .mockResolvedValueOnce(devices as any) // getUserDevices call
         .mockResolvedValueOnce([]); // After deletion - no devices remain
@@ -552,7 +550,10 @@ describe('MFAService', () => {
       mockUserRepository.save.mockResolvedValue(userEntity as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      const result = await service.removeDevices({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
+      const result = await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', userEntity as IUser);
+        return await service.removeDevices({ methodType: 'totp' } as any);
+      });
 
       expect(result.mfaDisabled).toBe(true);
       expect(userEntity.mfaEnabled).toBe(false);
@@ -586,14 +587,16 @@ describe('MFAService', () => {
         mockClientInfoService,
       );
 
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
       mockMfaDeviceRepository.find.mockResolvedValueOnce(devices as any).mockResolvedValueOnce([]);
       mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
       mockUserRepository.save.mockResolvedValue(userEntity as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
       mockChallengeService.createChallengeSession.mockResolvedValue({} as any);
 
-      await serviceWithEnforcement.removeDevices({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', userEntity as IUser);
+        return await serviceWithEnforcement.removeDevices({ methodType: 'totp' } as any);
+      });
 
       expect(mockChallengeService.createChallengeSession).toHaveBeenCalledWith(
         userEntity as IUser,
@@ -612,14 +615,16 @@ describe('MFAService', () => {
         { ...mockDevice, id: 2, type: 'sms' as MFADeviceMethod, isActive: true },
       ];
 
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
       mockMfaDeviceRepository.find.mockResolvedValueOnce(devices as any).mockResolvedValueOnce([devices[1]] as any);
       mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
       mockUserRepository.save.mockResolvedValue(userEntity as any);
       mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      await service.removeDevices({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', userEntity as IUser);
+        return await service.removeDevices({ methodType: 'totp' } as any);
+      });
 
       expect(userEntity.preferredMfaMethod).toBe('sms');
       expect(mockMfaDeviceRepository.update).toHaveBeenCalledWith({ id: 2 } as any, { isPrimary: true } as any);
@@ -629,13 +634,15 @@ describe('MFAService', () => {
       const userEntity = { ...mockUser, id: 1 };
       const devices = [{ ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true }];
 
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
       mockMfaDeviceRepository.find.mockResolvedValueOnce(devices as any).mockResolvedValueOnce([]);
       mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
       mockUserRepository.save.mockResolvedValue(userEntity as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      await service.removeDevices({ userSub: 'a21b654c-2746-4168-acee-c175083a65cd', methodType: 'totp' });
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', userEntity as IUser);
+        return await service.removeDevices({ methodType: 'totp' } as any);
+      });
 
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({

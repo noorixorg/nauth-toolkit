@@ -1,8 +1,9 @@
+import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
 import { MFAMethod, NAuthModuleConfig, createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
 import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
-import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+// import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
 import { Logger } from '@nestjs/common';
-import { SendEmailCommand, SESv2Client } from '@aws-sdk/client-sesv2';
+// import { SendEmailCommand, SESv2Client } from '@aws-sdk/client-sesv2';
 
 // AWS SES SDK imports (install: yarn add @aws-sdk/client-sesv2)
 
@@ -22,10 +23,10 @@ export const authConfig: NAuthModuleConfig = {
     algorithm: 'HS256',
     issuer: 'com.noorix.nauth',
     audience: ['web', 'mobile'],
-    accessToken: { secret: process.env.JWT_SECRET, expiresIn: '10s' },
+    accessToken: { secret: process.env.JWT_SECRET, expiresIn: '1h' },
     refreshToken: {
       secret: process.env.JWT_REFRESH_SECRET as string,
-      expiresIn: '1d',
+      expiresIn: '30d',
       rotation: true,
     },
   },
@@ -121,7 +122,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   tokenDelivery: {
-    method: 'hybrid',
+    method: 'cookies',
     cookieOptions: {
       secure: true,
       sameSite: 'none',
@@ -188,21 +189,21 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
 
-  // emailProvider: new ConsoleEmailProvider(),
+  emailProvider: new ConsoleEmailProvider(),
 
-  emailProvider: new NodemailerEmailProvider({
-    transport: {
-      SES: {
-        sesClient: new SESv2Client({
-          region: process.env.AWS_REGION || 'ap-southeast-2',
-        }),
-        SendEmailCommand,
-      },
-    },
-    defaults: {
-      from: 'Nauth App <noreply@noorix.com>',
-    },
-  }),
+  // emailProvider: new NodemailerEmailProvider({
+  //   transport: {
+  //     SES: {
+  //       sesClient: new SESv2Client({
+  //         region: process.env.AWS_REGION || 'ap-southeast-2',
+  //       }),
+  //       SendEmailCommand,
+  //     },
+  //   },
+  //   defaults: {
+  //     from: 'Nauth App <noreply@noorix.com>',
+  //   },
+  // }),
 
   email: {
     // Canonical template globals location (no templates.globalVariables)

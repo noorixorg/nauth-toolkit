@@ -54,7 +54,7 @@ import { EnableUserDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AuthService.enableUser()](../services/auth-service#enableuser)
+- [AuthService.enableUser()](../services/admin-auth-service#enableuser)
 
 
 

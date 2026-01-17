@@ -28,7 +28,7 @@ import { AuthErrorCode } from '../enums/error-codes.enum';
 import { GetUsersDTO, GetUsersResponseDTO } from '../dto/get-users.dto';
 import { GetUserByIdDTO } from '../dto/get-user-by-id.dto';
 import { GetUserByEmailDTO } from '../dto/get-user-by-email.dto';
-import { UpdateUserAttributesRequestDTO } from '../dto/update-user-attributes-request.dto';
+import { AdminUpdateUserAttributesDTO } from '../dto/admin-update-user-attributes.dto';
 import { UpdateVerifiedStatusRequestDTO } from '../dto/update-verified-status-request.dto';
 import { DeleteUserDTO, DeleteUserResponseDTO } from '../dto/delete-user.dto';
 import { DisableUserDTO, DisableUserResponseDTO } from '../dto/disable-user.dto';
@@ -343,7 +343,7 @@ export class UserService {
    *
    * Updates user fields (name, email, phone, username, metadata) and enforces unique constraints and verification rules.
    *
-   * @param dto - UpdateUserAttributesRequestDTO containing sub and fields to update
+   * @param dto - AdminUpdateUserAttributesDTO containing sub and fields to update
    * @returns Updated user object
    * @throws {NAuthException} If user not found or unique constraint violated
    *
@@ -352,9 +352,9 @@ export class UserService {
    * await userService.updateUserAttributes({ sub: 'user-uuid', email: 'test@example.com' });
    * ```
    */
-  async updateUserAttributes(dto: UpdateUserAttributesRequestDTO): Promise<UserResponseDto> {
+  async updateUserAttributes(dto: AdminUpdateUserAttributesDTO): Promise<UserResponseDto> {
     // Ensure DTO is validated (supports direct usage without framework validation)
-    dto = await ensureValidatedDto(UpdateUserAttributesRequestDTO, dto);
+    dto = await ensureValidatedDto(AdminUpdateUserAttributesDTO, dto);
 
     // Find user by sub (external identifier)
     const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
@@ -1588,7 +1588,7 @@ export class UserService {
     // Ensure DTO is validated (supports direct usage without framework validation)
     dto = await ensureValidatedDto(SetMustChangePasswordDTO, dto);
 
-    const user = await this.userRepository.findOne({ where: { sub: dto.userId } });
+    const user = await this.userRepository.findOne({ where: { sub: dto.sub } });
 
     if (!user) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
@@ -1598,7 +1598,7 @@ export class UserService {
     // Pure social users cannot be forced to change password
     if (!user.passwordHash) {
       this.logger?.warn?.(
-        `Cannot force password change for user ${dto.userId} - user doesn't have a password (pure social signup)`,
+        `Cannot force password change for user ${dto.sub} - user doesn't have a password (pure social signup)`,
       );
       throw new NAuthException(
         AuthErrorCode.PASSWORD_CHANGE_NOT_ALLOWED,
@@ -1606,9 +1606,9 @@ export class UserService {
       );
     }
 
-    await this.userRepository.update({ sub: dto.userId }, { mustChangePassword: true });
+    await this.userRepository.update({ sub: dto.sub }, { mustChangePassword: true });
 
-    this.logger?.log?.(`Must-change-password flag set for user: ${dto.userId}`);
+    this.logger?.log?.(`Must-change-password flag set for user: ${dto.sub}`);
 
     return { success: true };
   }

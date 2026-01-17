@@ -10,23 +10,7 @@ import { Transform } from 'class-transformer';
  * - Code and state validated for length
  */
 export class LinkSocialAccountDTO {
-  /**
-   * User identifier (UUID v4)
-   *
-   * Validation:
-   * - Must be valid UUID v4 format
-   *
-   * Sanitization:
-   * - Trimmed and lowercased
-   */
-  @IsUUID('4', { message: 'User ID must be a valid UUID v4 format' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim().toLowerCase();
-    }
-    return value;
-  })
-  userId!: string;
+  // No userId field - user obtained from context
 
   /**
    * Social provider name (e.g., 'google', 'apple', 'facebook')
@@ -111,23 +95,7 @@ export class LinkSocialAccountResponseDTO {
  * - User ID validated as UUID v4
  */
 export class GetLinkedAccountsDTO {
-  /**
-   * User identifier (UUID v4)
-   *
-   * Validation:
-   * - Must be valid UUID v4 format
-   *
-   * Sanitization:
-   * - Trimmed and lowercased
-   */
-  @IsUUID('4', { message: 'User ID must be a valid UUID v4 format' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim().toLowerCase();
-    }
-    return value;
-  })
-  userId!: string;
+  // No userId field - user obtained from context
 }
 
 /**
@@ -153,23 +121,7 @@ export class GetLinkedAccountsResponseDTO {
  * - Provider name validated
  */
 export class UnlinkSocialAccountDTO {
-  /**
-   * User identifier (UUID v4)
-   *
-   * Validation:
-   * - Must be valid UUID v4 format
-   *
-   * Sanitization:
-   * - Trimmed and lowercased
-   */
-  @IsUUID('4', { message: 'User ID must be a valid UUID v4 format' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim().toLowerCase();
-    }
-    return value;
-  })
-  userId!: string;
+  // No userId field - user obtained from context
 
   /**
    * Social provider name (e.g., 'google', 'apple', 'facebook')
@@ -206,7 +158,7 @@ export class UnlinkSocialAccountResponseDTO {
  * DTO for checking if user can set password
  *
  * Security:
- * - User ID validated as UUID v4
+ * - User sub validated as UUID v4
  */
 export class CanSetPasswordDTO {
   /**
@@ -218,14 +170,14 @@ export class CanSetPasswordDTO {
    * Sanitization:
    * - Trimmed and lowercased
    */
-  @IsUUID('4', { message: 'User ID must be a valid UUID v4 format' })
+  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       return value.trim().toLowerCase();
     }
     return value;
   })
-  userId!: string;
+  sub!: string;
 }
 
 /**
@@ -242,7 +194,7 @@ export class CanSetPasswordResponseDTO {
  * DTO for setting password for social-only user
  *
  * Security:
- * - User ID validated as UUID v4
+ * - User sub validated as UUID v4
  * - Password validated for strength (delegated to AuthService)
  */
 export class SetPasswordForSocialUserDTO {
@@ -255,14 +207,14 @@ export class SetPasswordForSocialUserDTO {
    * Sanitization:
    * - Trimmed and lowercased
    */
-  @IsUUID('4', { message: 'User ID must be a valid UUID v4 format' })
+  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       return value.trim().toLowerCase();
     }
     return value;
   })
-  userId!: string;
+  sub!: string;
 
   /**
    * New password

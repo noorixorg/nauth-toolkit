@@ -82,6 +82,6 @@ Email is automatically verified for all social imports (like normal social signu
 
 ## Related
 
-- [`AuthService.adminSignupSocial()`](../services/auth-service#adminsignupsocial) - Uses this DTO
+- [`AdminAuthService.signupSocial()`](../services/admin-auth-service#signupsocial) - Uses this DTO
 - [`AdminSignupDTO`](./admin-signup-dto) - For password-only admin signup
 

@@ -2,18 +2,18 @@
  * Admin Set Password Request DTO
  *
  * Request DTO for admin-initiated password reset.
- * Allows resetting a user's password by identifier (email, username, phone, or sub).
+ * Allows resetting a user's password by sub (UUID).
  *
  * Security:
  * - Admin-only operation (should be protected by admin guard)
- * - User identifier validated
+ * - User sub validated
  * - Password policy enforced
  * - Session revocation configurable
  *
  * @example
  * ```typescript
  * await authService.adminSetPassword({
- *   identifier: 'user@example.com',
+ *   sub: 'a21b654c-2746-4168-acee-c175083a65cd',
  *   newPassword: 'NewSecurePassword123!',
  *   mustChangePassword: true,
  *   revokeSessions: true
@@ -21,7 +21,7 @@
  * ```
  */
 
-import { IsString, IsOptional, IsBoolean, MinLength, MaxLength, IsNotEmpty } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, MinLength, MaxLength, IsNotEmpty, IsUUID } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 /**
@@ -29,35 +29,25 @@ import { Transform } from 'class-transformer';
  */
 export class AdminSetPasswordDTO {
   /**
-   * User identifier (email, username, phone, or sub/UUID)
+   * User sub (UUID)
    *
    * Validation:
-   * - Must be a string
-   * - Min 1 character
-   * - Max 255 characters
+   * - Must be a valid UUID v4
    *
    * Sanitization:
    * - Trimmed
-   * - Lowercased if email format detected
+   * - Lowercased for consistency
    *
-   * @example "user@example.com" | "johndoe" | "+1234567890" | "a21b654c-2746-4168-acee-c175083a65cd"
+   * @example "a21b654c-2746-4168-acee-c175083a65cd"
    */
-  @IsString({ message: 'Identifier must be a string' })
-  @IsNotEmpty({ message: 'Identifier is required' })
-  @MinLength(1, { message: 'Identifier is required' })
-  @MaxLength(255, { message: 'Identifier must not exceed 255 characters' })
+  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
-      const trimmed = value.trim();
-      // If it contains @, treat as email and lowercase
-      if (trimmed.includes('@')) {
-        return trimmed.toLowerCase();
-      }
-      return trimmed;
+      return value.trim().toLowerCase();
     }
     return value;
   })
-  identifier!: string;
+  sub!: string;
 
   /**
    * New password

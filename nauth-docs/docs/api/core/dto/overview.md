@@ -68,7 +68,7 @@ All DTOs are automatically validated by framework adapters. No manual validation
 
 | DTO                                                                | Description                  | Documentation                                                                       |
 | ------------------------------------------------------------------ | ---------------------------- | ----------------------------------------------------------------------------------- |
-| [AdminSetPasswordDTO](./admin-set-password-dto)                    | Admin password reset         | Set user password by identifier                                                     |
+| [AdminSetPasswordDTO](./admin-set-password-dto)                    | Admin password reset         | Set user password by sub                                                            |
 | [AdminSignupDTO](./admin-signup-dto)                               | Admin user creation          | Create user with override capabilities (bypass verification, force password change) |
 | [AdminSignupSocialDTO](./admin-signup-social-dto)                  | Admin social user import     | Import social users from external platforms (Cognito, Auth0) with social linkage    |
 | [AdminSignupSocialResponseDTO](./admin-signup-social-response-dto) | Admin social import response | User object and social account confirmation                                         |
@@ -80,12 +80,15 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [EnableUserResponseDTO](./enable-user-response-dto)                | Admin unlock response        | Unlock confirmation with updated user status                                        |
 | [GetUsersDTO](./get-users-dto)                                     | Admin user listing           | Paginated user search with advanced filtering                                       |
 | [GetUsersResponseDTO](./get-users-response-dto)                    | Admin listing response       | User list with pagination metadata                                                  |
+| [AdminLogoutAllDTO](./admin-logout-all-dto)                        | Admin global logout          | Revoke all sessions for a target user                                              |
+| [AdminUpdateUserAttributesDTO](./admin-update-user-attributes-dto) | Admin user update            | Update user profile attributes with required sub                                   |
+| [AdminRevokeSessionDTO](./admin-revoke-session-dto)                | Admin session revoke         | Revoke a specific session for a target user                                        |
 
 ## Password Management DTOs
 
 | DTO                                                                         | Description                    | Documentation                        |
 | --------------------------------------------------------------------------- | ------------------------------ | ------------------------------------ |
-| [ChangePasswordRequestDTO](./change-password-request-dto)                   | Change password request        | Current and new password             |
+| [ChangePasswordDTO](./change-password-dto)                                  | Change password request        | Current and new password             |
 | [ChangePasswordResponseDTO](./change-password-response-dto)                 | Change password response       | Success confirmation                 |
 | [ForgotPasswordDTO](./forgot-password-dto)                                  | Forgot password flow           | Request reset code and confirm reset |
 | [ResetPasswordDTO](./reset-password-dto)                                    | Reset password request         | Reset token and new password         |
@@ -167,7 +170,7 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | ---------------------------------------------------------------------- | ---------------------- | -------------------------------------------- |
 | [GetUserByEmailDTO](./get-user-by-email-dto)                           | Get user by email      | Email address                                |
 | [GetUserByIdDTO](./get-user-by-id-dto)                                 | Get user by ID         | User sub (UUID)                              |
-| [UpdateUserAttributesRequestDTO](./update-user-attributes-request-dto) | Update user attributes | User sub and attributes                      |
+| [UpdateUserAttributesDTO](./update-user-attributes-dto)                | Update user attributes | User attributes (self-service)              |
 | [UserResponseDTO](./user-response-dto)                                 | User profile data      | User information (excludes sensitive fields) |
 | [UserUpdateDTO](./user-update-dto)                                     | User update request    | User profile fields                          |
 

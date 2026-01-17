@@ -66,6 +66,6 @@ import { AdminSignupSocialResponseDTO } from '@nauth-toolkit/core';
 
 ## Related
 
-- [`AuthService.adminSignupSocial()`](../services/auth-service#adminsignupsocial) - Returns this DTO
+- [`AdminAuthService.signupSocial()`](../services/admin-auth-service#signupsocial) - Returns this DTO
 - [`AdminSignupSocialDTO`](./admin-signup-social-dto) - Request DTO
 

@@ -9,7 +9,7 @@ import { NAuthException } from '../exceptions/nauth.exception';
 import { ClientInfoService } from './client-info.service';
 import { ClientInfo } from '../interfaces/client-info.interface';
 import { RiskFactor } from '../enums/risk-factor.enum';
-import { GetUserAuthHistoryDTO } from '../dto/get-user-auth-history.dto';
+import { AdminGetUserAuthHistoryDTO } from '../dto/admin-get-user-auth-history.dto';
 import { GetEventsByTypeDTO } from '../dto/get-events-by-type.dto';
 import { GetSuspiciousActivityDTO } from '../dto/get-suspicious-activity.dto';
 import { GetRiskAssessmentHistoryDTO } from '../dto/get-risk-assessment-history.dto';
@@ -358,8 +358,8 @@ describe('AuthAuditService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockAuditRecord as any], 1]);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       const result = await service.getUserAuthHistory(request);
 
       expect(result.data).toEqual([mockAuditRecord as any]);
@@ -374,8 +374,8 @@ describe('AuthAuditService', () => {
     it('should throw error when user not found', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'b21b654c-2746-4168-acee-c175083a65cd';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'b21b654c-2746-4168-acee-c175083a65cd';
       try {
         await service.getUserAuthHistory(request);
         fail('Should have thrown NAuthException');
@@ -389,8 +389,8 @@ describe('AuthAuditService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockAuditRecord as any], 100]);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       request.page = 2;
       request.limit = 25;
       const result = await service.getUserAuthHistory(request);
@@ -409,8 +409,8 @@ describe('AuthAuditService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockAuditRecord as any], 1]);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       request.startDate = startDate;
       request.endDate = endDate;
       await service.getUserAuthHistory(request);
@@ -423,8 +423,8 @@ describe('AuthAuditService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockAuditRecord as any], 1]);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       request.eventTypes = [AuthAuditEventType.LOGIN_SUCCESS, AuthAuditEventType.LOGIN_FAILED];
       await service.getUserAuthHistory(request);
 
@@ -437,8 +437,8 @@ describe('AuthAuditService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockAuditRecord as any], 1]);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       request.eventStatus = ['SUCCESS', 'FAILURE'] as AuthAuditEventStatus[];
       await service.getUserAuthHistory(request);
 
@@ -451,8 +451,8 @@ describe('AuthAuditService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockAuditRecord as any], 1]);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       await service.getUserAuthHistory(request);
 
       // orderBy is called with 2 args but mock signature shows 1, so check it was called
@@ -463,8 +463,8 @@ describe('AuthAuditService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockAuditRecord as any], 100]);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       request.limit = 30;
       const result = await service.getUserAuthHistory(request);
 
@@ -565,7 +565,7 @@ describe('AuthAuditService', () => {
       mockQueryBuilder.getMany.mockResolvedValue([mockAuditRecord as any]);
 
       const request = new GetSuspiciousActivityDTO();
-      request.userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       const result = await service.getSuspiciousActivity(request);
 
       expect(result.data).toEqual([mockAuditRecord as any]);
@@ -580,7 +580,7 @@ describe('AuthAuditService', () => {
 
       try {
         const request = new GetSuspiciousActivityDTO();
-        request.userSub = 'b21b654c-2746-4168-acee-c175083a65cd';
+        request.sub = 'b21b654c-2746-4168-acee-c175083a65cd';
         await service.getSuspiciousActivity(request);
         fail('Should have thrown NAuthException');
       } catch (error: any) {
@@ -620,7 +620,7 @@ describe('AuthAuditService', () => {
       mockQueryBuilder.getMany.mockResolvedValue([mockAuditRecord as any]);
 
       const request = new GetRiskAssessmentHistoryDTO();
-      request.userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       const result = await service.getRiskAssessmentHistory(request);
 
       expect(result.data).toEqual([mockAuditRecord as any]);
@@ -641,7 +641,7 @@ describe('AuthAuditService', () => {
 
       try {
         const request = new GetRiskAssessmentHistoryDTO();
-        request.userSub = 'b21b654c-2746-4168-acee-c175083a65cd';
+        request.sub = 'b21b654c-2746-4168-acee-c175083a65cd';
         await service.getRiskAssessmentHistory(request);
         fail('Should have thrown NAuthException');
       } catch (error: any) {
@@ -655,7 +655,7 @@ describe('AuthAuditService', () => {
       mockQueryBuilder.getMany.mockResolvedValue([mockAuditRecord as any]);
 
       const request = new GetRiskAssessmentHistoryDTO();
-      request.userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       request.limit = 50;
       await service.getRiskAssessmentHistory(request);
 
@@ -667,7 +667,7 @@ describe('AuthAuditService', () => {
       mockQueryBuilder.getMany.mockResolvedValue([mockAuditRecord as any]);
 
       const request = new GetRiskAssessmentHistoryDTO();
-      request.userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       await service.getRiskAssessmentHistory(request);
 
       // orderBy is called with 2 args but mock signature shows 1, so check it was called

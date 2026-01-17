@@ -32,7 +32,7 @@ import { AuthResponse } from '@nauth-toolkit/client';
 | `challengeName`         | [`AuthChallenge`](./auth-challenge)      | Challenge type (if auth incomplete)                                       |
 | `session`               | `string`                                 | Challenge session token (required for challenge responses)                |
 | `challengeParameters`   | `Record<string, unknown>`                | Challenge-specific data (e.g., masked email/phone, available MFA methods) |
-| `userSub`               | `string`                                 | User subject identifier                                                   |
+| `sub`                   | `string`                                 | User subject identifier                                                   |
 
 ## Example
 
@@ -73,7 +73,7 @@ import { AuthResponse } from '@nauth-toolkit/client';
     "email": "user@example.com",
     "codeDeliveryDestination": "u***r@example.com"
   },
-  "userSub": "user_123"
+  "sub": "user_123"
 }
 ```
 
@@ -88,7 +88,7 @@ import { AuthResponse } from '@nauth-toolkit/client';
     "codeDeliveryDestination": "***-***-1234",
     "requiresPhoneCollection": "false"
   },
-  "userSub": "user_123"
+  "sub": "user_123"
 }
 ```
 
@@ -102,7 +102,7 @@ When phone collection is required (user has no phone number):
     "requiresPhoneCollection": "true",
     "instructions": "You must add a phone number and verify it to continue"
   },
-  "userSub": "user_123"
+  "sub": "user_123"
 }
 ```
 
@@ -118,7 +118,7 @@ When phone collection is required (user has no phone number):
     "maskedEmail": "m***2@example.com",
     "availableMethods": ["sms", "email", "totp", "backup"]
   },
-  "userSub": "user_123"
+  "sub": "user_123"
 }
 ```
 

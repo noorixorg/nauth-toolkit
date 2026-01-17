@@ -146,7 +146,31 @@ export async function ensureValidatedDto<T extends object>(dtoClass: new () => T
   // ============================================================================
   // Transform plain input into a DTO instance (ensures @Transform decorators run)
   // ============================================================================
-  const dto: T = input instanceof dtoClass ? input : plainToInstance(dtoClass, input as Record<string, unknown>);
+  // Handle undefined/null input (e.g., empty request body for cookie-based endpoints)
+  // Also ensure input is an object (not a primitive) to prevent class-validator errors
+  let normalizedInput: Record<string, unknown>;
+  if (input === undefined || input === null) {
+    normalizedInput = {};
+  } else if (typeof input !== 'object' || Array.isArray(input)) {
+    // Hard-fail on non-object values (prevents type confusion attacks)
+    throw new NAuthException(
+      AuthErrorCode.VALIDATION_FAILED,
+      'Invalid input: expected an object, received a primitive or array',
+    );
+  } else {
+    normalizedInput = input as Record<string, unknown>;
+  }
+  // Always use plainToInstance to ensure proper transformation and metadata setup
+  // Even if input is already an instance, plainToInstance ensures decorators are properly applied
+  const dto: T = plainToInstance(dtoClass, normalizedInput);
+
+  // Ensure dto is a valid object instance (plainToInstance should never return undefined, but defensive check)
+  if (!dto || typeof dto !== 'object') {
+    throw new NAuthException(
+      AuthErrorCode.VALIDATION_FAILED,
+      'Failed to create DTO instance: plainToInstance returned invalid value',
+    );
+  }
 
   // ============================================================================
   // Skip re-validation if an adapter already validated this DTO
@@ -158,13 +182,17 @@ export async function ensureValidatedDto<T extends object>(dtoClass: new () => T
   // ============================================================================
   // Validate DTO (runtime enforcement of decorators)
   // ============================================================================
+  // Check if input was empty (undefined/null normalized to {}) - if so, relax forbidUnknownValues
+  // This handles empty DTOs (like GetLinkedAccountsDTO) that have no properties/decorators
+  const isEmptyInput = Object.keys(normalizedInput).length === 0;
   const errors = await validate(dto as object, {
     // WHY: Remove unknown keys to prevent untrusted payload fields from leaking into persistence/logs.
     whitelist: true,
     // WHY: Keep backward compatibility by stripping rather than rejecting unknown keys.
     forbidNonWhitelisted: false,
     // WHY: Hard-fail on non-object / unknown values (e.g., passing a number or array).
-    forbidUnknownValues: true,
+    // Exception: If input was empty (normalized from undefined), allow empty DTOs (no decorators)
+    forbidUnknownValues: !isEmptyInput,
   });
 
   if (errors.length > 0) {
@@ -205,7 +233,31 @@ export function ensureValidatedDtoSync<T extends object>(dtoClass: new () => T, 
   // ============================================================================
   // Transform plain input into a DTO instance (ensures @Transform decorators run)
   // ============================================================================
-  const dto: T = input instanceof dtoClass ? input : plainToInstance(dtoClass, input as Record<string, unknown>);
+  // Handle undefined/null input (e.g., empty request body for cookie-based endpoints)
+  // Also ensure input is an object (not a primitive) to prevent class-validator errors
+  let normalizedInput: Record<string, unknown>;
+  if (input === undefined || input === null) {
+    normalizedInput = {};
+  } else if (typeof input !== 'object' || Array.isArray(input)) {
+    // Hard-fail on non-object values (prevents type confusion attacks)
+    throw new NAuthException(
+      AuthErrorCode.VALIDATION_FAILED,
+      'Invalid input: expected an object, received a primitive or array',
+    );
+  } else {
+    normalizedInput = input as Record<string, unknown>;
+  }
+  // Always use plainToInstance to ensure proper transformation and metadata setup
+  // Even if input is already an instance, plainToInstance ensures decorators are properly applied
+  const dto: T = plainToInstance(dtoClass, normalizedInput);
+
+  // Ensure dto is a valid object instance (plainToInstance should never return undefined, but defensive check)
+  if (!dto || typeof dto !== 'object') {
+    throw new NAuthException(
+      AuthErrorCode.VALIDATION_FAILED,
+      'Failed to create DTO instance: plainToInstance returned invalid value',
+    );
+  }
 
   // ============================================================================
   // Skip re-validation if an adapter already validated this DTO
@@ -217,10 +269,14 @@ export function ensureValidatedDtoSync<T extends object>(dtoClass: new () => T, 
   // ============================================================================
   // Validate DTO (runtime enforcement of decorators)
   // ============================================================================
+  // Check if input was empty (undefined/null normalized to {}) - if so, relax forbidUnknownValues
+  // This handles empty DTOs (like GetLinkedAccountsDTO) that have no properties/decorators
+  const isEmptyInput = Object.keys(normalizedInput).length === 0;
   const errors = validateSync(dto as object, {
     whitelist: true,
     forbidNonWhitelisted: false,
-    forbidUnknownValues: true,
+    // Exception: If input was empty (normalized from undefined), allow empty DTOs (no decorators)
+    forbidUnknownValues: !isEmptyInput,
   });
 
   if (errors.length > 0) {

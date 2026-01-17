@@ -509,8 +509,7 @@ Allows authenticated users to change their password.
 
 ```typescript
 import { Controller, Post, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
-import { AuthService, ChangePasswordRequestDTO, AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
-import type { IUser } from '@nauth-toolkit/nestjs';
+import { AuthService, ChangePasswordDTO, AuthGuard } from '@nauth-toolkit/nestjs';
 
 @Controller('auth')
 export class AuthController {
@@ -519,12 +518,8 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
-  async changePassword(
-    @CurrentUser() user: IUser,
-    @Body() body: { oldPassword: string; newPassword: string },
-  ): Promise<{ message: string }> {
-    const dto = new ChangePasswordRequestDTO();
-    dto.sub = user.sub;
+  async changePassword(@Body() body: { oldPassword: string; newPassword: string }): Promise<{ message: string }> {
+    const dto = new ChangePasswordDTO();
     dto.oldPassword = body.oldPassword;
     dto.newPassword = body.newPassword;
 
@@ -545,8 +540,7 @@ router.post('/change-password', nauth.helpers.requireAuth(), async (req, res, ne
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const dto = new ChangePasswordRequestDTO();
-    dto.sub = user.sub;
+    const dto = new ChangePasswordDTO();
     dto.oldPassword = req.body.oldPassword;
     dto.newPassword = req.body.newPassword;
 
@@ -571,8 +565,7 @@ fastify.post(
       throw new UnauthorizedException('Unauthorized');
     }
 
-    const dto = new ChangePasswordRequestDTO();
-    dto.sub = user.sub;
+    const dto = new ChangePasswordDTO();
     dto.oldPassword = (req.body as any).oldPassword;
     dto.newPassword = (req.body as any).newPassword;
 
@@ -585,7 +578,7 @@ fastify.post(
 </TabItem>
 </Tabs>
 
-**Request DTO:** [`ChangePasswordRequestDTO`](/docs/api/core/dto/change-password-request-dto)
+**Request DTO:** [`ChangePasswordDTO`](/docs/api/core/dto/change-password-dto)
 
 ```json
 {

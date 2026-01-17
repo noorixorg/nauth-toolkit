@@ -128,6 +128,60 @@ fastify.get(
 
 ---
 
+### adminRemoveDevices()
+
+Admin-only helper to remove a user's MFA devices by method type.
+
+```typescript
+async adminRemoveDevices(dto: AdminRemoveDevicesDTO): Promise<RemoveDevicesResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminRemoveDevicesDTO`](../dto/admin-remove-devices-dto)
+
+**Returns**
+
+- [`RemoveDevicesResponseDTO`](../dto/remove-devices-dto)
+
+**Example (NestJS)**
+
+```typescript
+@Post('admin/mfa/remove-devices')
+async adminRemoveDevices(@Body() dto: AdminRemoveDevicesDTO) {
+  return await this.mfaService.adminRemoveDevices(dto);
+}
+```
+
+---
+
+### adminSetPreferredMethod()
+
+Admin-only helper to set a user's preferred MFA method.
+
+```typescript
+async adminSetPreferredMethod(dto: AdminSetPreferredMethodDTO): Promise<SetPreferredMethodResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminSetPreferredMethodDTO`](../dto/admin-set-preferred-method-dto)
+
+**Returns**
+
+- [`SetPreferredMethodResponseDTO`](../dto/set-preferred-method-dto)
+
+**Example (NestJS)**
+
+```typescript
+@Post('admin/mfa/preferred-method')
+async adminSetPreferred(@Body() dto: AdminSetPreferredMethodDTO) {
+  return await this.mfaService.adminSetPreferredMethod(dto);
+}
+```
+
+---
+
 ### getChallengeData()
 
 Get MFA challenge data during MFA_REQUIRED challenge. Currently only used for passkey authentication to get WebAuthn options. For passkey method, stores challenge in session metadata for verification.
@@ -636,7 +690,6 @@ When DTO validation fails, `details` includes:
 ```json
 {
   "validationErrors": {
-    "userSub": ["User sub must be a valid UUID v4 format"],
     "methodType": ["Method type must be one of: totp, sms, email, passkey"]
   }
 }
@@ -651,8 +704,8 @@ When invalid method type or no devices found, `details` is `undefined`.
 
 ```typescript
 @Delete('mfa/devices/:method')
-async removeMethod(@CurrentUser() user: IUser, @Param('method') method: string) {
-  return await this.mfaService.removeDevices({ userSub: user.sub, methodType: method });
+async removeMethod(@Param('method') method: string) {
+  return await this.mfaService.removeDevices({ methodType: method });
 }
 ```
 
@@ -662,7 +715,6 @@ async removeMethod(@CurrentUser() user: IUser, @Param('method') method: string) 
 ```typescript
 app.delete('/mfa/devices/:method', requireAuth(), async (req, res) => {
   const result = await nauth.mfaService.removeDevices({
-    userSub: req.user.sub,
     methodType: req.params.method,
   });
   res.json(result);
@@ -678,9 +730,7 @@ fastify.delete(
   '/mfa/devices/:method',
   { preHandler: nauth.helpers.requireAuth() },
   nauth.adapter.wrapRouteHandler(async (req, reply) => {
-    const user = nauth.helpers.getCurrentUser();
     return nauth.mfaService.removeDevices({
-      userSub: user.sub,
       methodType: req.params.method,
     });
   }),
@@ -724,7 +774,7 @@ When DTO validation fails, `details` includes:
 ```json
 {
   "validationErrors": {
-    "userSub": ["User sub must be a valid UUID v4 format"],
+    "sub": ["User sub must be a valid UUID v4 format"],
     "exempt": ["Exempt must be a boolean"],
     "reason": ["Reason must not exceed 500 characters"],
     "grantedBy": ["Granted by must not exceed 255 characters"]
@@ -806,7 +856,6 @@ When DTO validation fails, `details` includes:
 ```json
 {
   "validationErrors": {
-    "userSub": ["User sub must be a valid UUID v4 format"],
     "methodType": ["Method type must be one of: totp, sms, email, passkey"]
   }
 }
@@ -821,9 +870,8 @@ When invalid method type or method not configured, `details` is `undefined`.
 
 ```typescript
 @Put('mfa/preferred')
-async setPreferred(@CurrentUser() user: IUser, @Body() body: { method: string }) {
+async setPreferred(@Body() body: { method: string }) {
   return await this.mfaService.setPreferredMethod({
-    userSub: user.sub,
     methodType: body.method
   });
 }
@@ -835,7 +883,6 @@ async setPreferred(@CurrentUser() user: IUser, @Body() body: { method: string })
 ```typescript
 app.put('/mfa/preferred', requireAuth(), async (req, res) => {
   const result = await nauth.mfaService.setPreferredMethod({
-    userSub: req.user.sub,
     methodType: req.body.method,
   });
   res.json(result);
@@ -851,9 +898,7 @@ fastify.put(
   '/mfa/preferred',
   { preHandler: nauth.helpers.requireAuth() },
   nauth.adapter.wrapRouteHandler(async (req, reply) => {
-    const user = nauth.helpers.getCurrentUser();
     return nauth.mfaService.setPreferredMethod({
-      userSub: user.sub,
       methodType: req.body.method,
     });
   }),
@@ -997,7 +1042,6 @@ When provider not registered, method not enabled, service unavailable, or email 
 @Post('mfa/setup/totp')
 async setupTOTP(@CurrentUser() user: IUser) {
   const result = await this.mfaService.setup({
-    sub: user.sub,
     methodName: 'totp',
     // setupData not required for TOTP
   });
@@ -1012,7 +1056,6 @@ async setupTOTP(@CurrentUser() user: IUser) {
 ```typescript
 app.post('/mfa/setup/totp', requireAuth(), async (req, res) => {
   const result = await nauth.mfaService.setup({
-    sub: req.user.sub,
     methodName: 'totp',
   });
   res.json(result);
@@ -1027,9 +1070,7 @@ fastify.post(
   '/mfa/setup/totp',
   { preHandler: nauth.helpers.requireAuth() },
   nauth.adapter.wrapRouteHandler(async () => {
-    const user = nauth.helpers.getCurrentUser();
     return nauth.mfaService.setup({
-      sub: user.sub,
       methodName: 'totp',
     });
   }),
@@ -1317,7 +1358,7 @@ All methods throw `NAuthException` on errors. Handle errors consistently across 
 
 ```typescript
 try {
-  await this.mfaService.setPreferredMethod({ userSub: user.sub, methodType: method });
+  await this.mfaService.setPreferredMethod({ methodType: method });
 } catch (error) {
   if (error instanceof NAuthException) {
     console.log(error.code);
@@ -1330,7 +1371,7 @@ try {
 
 ```typescript
 try {
-  await nauth.mfaService.setPreferredMethod({ userSub: user.sub, methodType: method });
+  await nauth.mfaService.setPreferredMethod({ methodType: method });
 } catch (error) {
   if (error instanceof NAuthException) {
     res.status(error.statusCode).json(error.toJSON());
@@ -1344,7 +1385,7 @@ try {
 
 ```typescript
 try {
-  await nauth.mfaService.setPreferredMethod({ userSub: user.sub, methodType: method });
+  await nauth.mfaService.setPreferredMethod({ methodType: method });
 } catch (error) {
   if (error instanceof NAuthException) {
     res.status(error.statusCode).json(error.toJSON());

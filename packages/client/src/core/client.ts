@@ -20,6 +20,7 @@ import {
 } from '../types/auth.types';
 import { NAuthClientConfig } from '../types/config.types';
 import { GetChallengeDataResponse, GetSetupDataResponse, MFAStatus } from '../types/mfa.types';
+import { AuditHistoryResponse } from '../types/audit.types';
 import { LinkedAccountsResponse, SocialLoginOptions, SocialVerifyRequest, SocialProvider } from '../types/social.types';
 import {
   AuthUser,
@@ -32,7 +33,6 @@ import {
   ResetPasswordWithCodeResponse,
   UpdateProfileRequest,
 } from '../types/user.types';
-import { AuditHistoryResponse } from '../types/audit.types';
 import { ChallengeRouter } from './challenge-router';
 
 const USER_KEY = 'nauth_user';
@@ -494,14 +494,15 @@ export class NAuthClient {
   }
 
   /**
-   * Request password change (must change on next login).
-   */
-  async requestPasswordChange(): Promise<void> {
-    await this.post(this.config.endpoints.requestPasswordChange, {}, true);
-  }
-
-  /**
-   * Get MFA status.
+   * Get MFA status for current user.
+   *
+   * @returns Promise of MFA status
+   *
+   * @example
+   * ```typescript
+   * const status = await this.client.getMfaStatus();
+   * console.log('MFA enabled:', status.enabled);
+   * ```
    */
   async getMfaStatus(): Promise<MFAStatus> {
     return this.get<MFAStatus>(this.config.endpoints.mfaStatus, true);
@@ -555,7 +556,7 @@ export class NAuthClient {
    * @returns Success message
    */
   async setPreferredMfaMethod(method: 'totp' | 'sms' | 'email' | 'passkey'): Promise<{ message: string }> {
-    return this.post<{ message: string }>(this.config.endpoints.mfaPreferred, { method }, true);
+    return this.post<{ message: string }>(this.config.endpoints.mfaPreferred, { methodType: method }, true);
   }
 
   /**
@@ -773,28 +774,38 @@ export class NAuthClient {
   }
 
   /**
-   * Get paginated audit history for the current user.
+   * Get authentication audit history for current user.
    *
-   * Returns authentication and security events with full audit details including:
-   * - Event type (login, logout, MFA, etc.)
-   * - Event status (success, failure, suspicious)
-   * - Device information, location, risk factors
-   *
-   * @param params - Query parameters for filtering and pagination
-   * @returns Paginated audit history response
+   * @param params - Optional query parameters (page, limit, eventType, etc.)
+   * @returns Paginated audit history
    *
    * @example
    * ```typescript
    * const history = await client.getAuditHistory({
    *   page: 1,
    *   limit: 20,
-   *   eventType: 'LOGIN_SUCCESS'
+   *   eventTypes: ['LOGIN_SUCCESS'],
+   *   eventStatus: ['FAILURE'],
    * });
    * ```
    */
-  async getAuditHistory(params?: Record<string, string | number | boolean>): Promise<AuditHistoryResponse> {
-    const entries: [string, string][] = Object.entries(params ?? {}).map(([k, v]) => [k, String(v)]);
-    const query = entries.length > 0 ? `?${new URLSearchParams(entries).toString()}` : '';
+  async getAuditHistory(
+    params?: Record<string, string | number | boolean | Array<string | number | boolean>>,
+  ): Promise<AuditHistoryResponse> {
+    const searchParams = new URLSearchParams();
+
+    for (const [key, rawValue] of Object.entries(params ?? {})) {
+      if (Array.isArray(rawValue)) {
+        for (const item of rawValue) {
+          searchParams.append(key, String(item));
+        }
+        continue;
+      }
+
+      searchParams.append(key, String(rawValue));
+    }
+
+    const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
     const path = `${this.config.endpoints.auditHistory}${query}`;
     return this.get<AuditHistoryResponse>(path, true);
   }

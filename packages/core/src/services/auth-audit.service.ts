@@ -9,7 +9,7 @@ import { AuthErrorCode } from '../enums/error-codes.enum';
 import { ClientInfoService } from './client-info.service';
 import { ensureValidatedDto } from '../utils/dto-validator';
 import { RiskFactor } from '../enums/risk-factor.enum';
-import { GetUserAuthHistoryDTO, GetUserAuthHistoryResponseDTO } from '../dto/get-user-auth-history.dto';
+import { AdminGetUserAuthHistoryDTO, GetUserAuthHistoryResponseDTO } from '../dto/admin-get-user-auth-history.dto';
 import { GetEventsByTypeDTO, GetEventsByTypeResponseDTO } from '../dto/get-events-by-type.dto';
 import { GetSuspiciousActivityDTO, GetSuspiciousActivityResponseDTO } from '../dto/get-suspicious-activity.dto';
 import {
@@ -27,7 +27,7 @@ import { isUUID } from 'class-validator';
  */
 export interface CreateAuthAuditEventDTO {
   userId?: number; // Internal user ID (preferred)
-  userSub?: string; // External user identifier (will lookup userId)
+  sub?: string; // External user identifier (will lookup userId)
   eventType: AuthAuditEventType;
   eventStatus: AuthAuditEventStatus;
   riskFactor?: number | null;
@@ -56,11 +56,11 @@ export interface CreateAuthAuditEventDTO {
  * - Efficient queries using userId (internal integer ID)
  * - Pagination support for large datasets
  * - Query filtering by event type, status, date ranges
- * - User history queries (resolves userSub to userId automatically)
+ * - User history queries (resolves sub to userId automatically)
  *
  * **Design Notes:**
- * - Only stores `userId` (integer) - no userSub duplication
- * - All methods accepting userSub resolve to userId before querying
+ * - Only stores `userId` (integer) - no sub duplication
+ * - All methods accepting sub resolve to userId before querying
  * - Risk tracking fields are infrastructure for future adaptive MFA (no business logic)
  *
  * **Note:** This is the public API class. Event recording is handled internally
@@ -68,9 +68,9 @@ export interface CreateAuthAuditEventDTO {
  *
  * @example
  * ```typescript
- * // Get user history (accepts userSub, resolves to userId)
+ * // Get user history (accepts sub, resolves to userId)
  * const history = await auditService.getUserAuthHistory({
- *   userSub: 'user-uuid',
+ *   sub: 'user-uuid',
  *   page: 1,
  *   limit: 50,
  *   startDate: new Date('2025-01-01'),
@@ -92,17 +92,17 @@ export class AuthAuditService {
   /**
    * Get paginated authentication history for a user
    *
-   * Accepts userSub (external identifier) and resolves to userId for efficient queries.
+   * Accepts sub (external identifier) and resolves to userId for efficient queries.
    * Supports filtering by event types, status, and date ranges.
    *
-   * @param request - Request DTO containing userSub and filtering options
+   * @param request - Request DTO containing sub and filtering options
    * @returns Response DTO with paginated audit records
    * @throws {NAuthException} If user not found
    *
    * @example
    * ```typescript
    * const history = await auditService.getUserAuthHistory({
-   *   userSub: 'user-uuid',
+   *   sub: 'user-uuid',
    *   page: 1,
    *   limit: 50,
    *   eventTypes: [AuthAuditEventType.LOGIN_SUCCESS, AuthAuditEventType.LOGIN_FAILED],
@@ -110,10 +110,10 @@ export class AuthAuditService {
    * });
    * ```
    */
-  async getUserAuthHistory(request: GetUserAuthHistoryDTO): Promise<GetUserAuthHistoryResponseDTO> {
-    request = await ensureValidatedDto(GetUserAuthHistoryDTO, request);
-    // Resolve userSub to userId
-    const user = (await this.userRepository.findOne({ where: { sub: request.userSub } })) as IUser | null;
+  async getUserAuthHistory(request: AdminGetUserAuthHistoryDTO): Promise<GetUserAuthHistoryResponseDTO> {
+    request = await ensureValidatedDto(AdminGetUserAuthHistoryDTO, request);
+    // Resolve sub to userId
+    const user = (await this.userRepository.findOne({ where: { sub: request.sub } })) as IUser | null;
     if (!user) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
@@ -215,7 +215,7 @@ export class AuthAuditService {
    *
    * Returns events with SUSPICIOUS status or SUSPICIOUS_ACTIVITY event type.
    *
-   * @param request - Request DTO containing optional userSub and limit
+   * @param request - Request DTO containing optional sub and limit
    * @returns Response DTO with array of suspicious audit events
    *
    * @example
@@ -225,7 +225,7 @@ export class AuthAuditService {
    *
    * // Get suspicious activity for specific user
    * const userSuspicious = await auditService.getSuspiciousActivity({
-   *   userSub: 'user-uuid',
+   *   sub: 'user-uuid',
    *   limit: 50,
    * });
    * ```
@@ -242,8 +242,8 @@ export class AuthAuditService {
       });
 
     // Filter by user if provided
-    if (request.userSub) {
-      const user = (await this.userRepository.findOne({ where: { sub: request.userSub } })) as IUser | null;
+    if (request.sub) {
+      const user = (await this.userRepository.findOne({ where: { sub: request.sub } })) as IUser | null;
       if (!user) {
         throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
       }
@@ -266,14 +266,14 @@ export class AuthAuditService {
    * Returns events where risk assessment was performed (ADAPTIVE_MFA_RISK_ASSESSED,
    * ADAPTIVE_MFA_TRIGGERED, ADAPTIVE_MFA_BYPASSED).
    *
-   * @param request - Request DTO containing userSub and limit
+   * @param request - Request DTO containing sub and limit
    * @returns Response DTO with array of risk assessment audit events
    * @throws {NAuthException} If user not found
    *
    * @example
    * ```typescript
    * const riskHistory = await auditService.getRiskAssessmentHistory({
-   *   userSub: 'user-uuid',
+   *   sub: 'user-uuid',
    *   limit: 50,
    * });
    * ```
@@ -282,8 +282,8 @@ export class AuthAuditService {
     request = await ensureValidatedDto(GetRiskAssessmentHistoryDTO, request);
     const limit = request.limit || 100;
 
-    // Resolve userSub to userId
-    const user = (await this.userRepository.findOne({ where: { sub: request.userSub } })) as IUser | null;
+    // Resolve sub to userId
+    const user = (await this.userRepository.findOne({ where: { sub: request.sub } })) as IUser | null;
     if (!user) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
@@ -373,7 +373,7 @@ export class InternalAuthAuditService extends AuthAuditService {
    *
    * @param data - Audit event data (only event-specific fields needed)
    * @param data.userId - Internal user ID (preferred, more efficient)
-   * @param data.userSub - External user identifier (will lookup userId if userId not provided)
+   * @param data.sub - External user identifier (will lookup userId if userId not provided)
    * @param data.eventType - Type of event
    * @param data.eventStatus - Event classification status
    * @returns Created audit record
@@ -400,14 +400,14 @@ export class InternalAuthAuditService extends AuthAuditService {
    */
   async recordEvent(data: CreateAuthAuditEventDTO): Promise<IAuthAudit | null> {
     try {
-      // Resolve userId if userSub provided
+      // Resolve userId if sub provided
       let userId = data.userId;
-      if (!userId && data.userSub) {
-        // `userSub` is expected to be a UUID in most deployments (e.g., Postgres UUID column).
+      if (!userId && data.sub) {
+        // `sub` is expected to be a UUID in most deployments (e.g., Postgres UUID column).
         // Avoid hitting the database (and avoid adapter-level type-cast errors) when an invalid value is provided.
-        if (!isUUID(data.userSub)) {
-          this.logger?.warn?.('Cannot record audit event - invalid userSub format (expected UUID)', {
-            userSub: data.userSub,
+        if (!isUUID(data.sub)) {
+          this.logger?.warn?.('Cannot record audit event - invalid sub format (expected UUID)', {
+            sub: data.sub,
           });
           return null;
         }
@@ -415,23 +415,23 @@ export class InternalAuthAuditService extends AuthAuditService {
           // NOTE: In some adapters (e.g., Postgres) `sub` may be a UUID column. If a caller accidentally
           // passes a non-UUID here (e.g., an email/username), the query can throw. Auditing must never
           // break auth flows, so we treat lookup failures as "user not found".
-          const user = (await this.userRepository.findOne({ where: { sub: data.userSub } })) as IUser | null;
+          const user = (await this.userRepository.findOne({ where: { sub: data.sub } })) as IUser | null;
           if (!user) {
-            this.logger?.warn?.(`Cannot record audit event - user not found: ${data.userSub}`);
+            this.logger?.warn?.(`Cannot record audit event - user not found: ${data.sub}`);
             return null;
           }
           userId = user.id;
         } catch (lookupError: unknown) {
           const errorMessage = lookupError instanceof Error ? lookupError.message : 'Unknown error';
-          this.logger?.warn?.(`Cannot record audit event - failed to resolve userSub: ${errorMessage}`, {
-            userSub: data.userSub,
+          this.logger?.warn?.(`Cannot record audit event - failed to resolve sub: ${errorMessage}`, {
+            sub: data.sub,
           });
           return null;
         }
       }
 
       if (!userId) {
-        this.logger?.warn?.('Cannot record audit event - userId or userSub required');
+        this.logger?.warn?.('Cannot record audit event - userId or sub required');
         return null;
       }
 

@@ -43,7 +43,7 @@ import { ConfirmAdminResetPasswordDTO, ConfirmAdminResetPasswordResponseDTO } fr
 | Property      | Type     | Required | Description                                                                                      |
 | ------------- | -------- | -------- | ------------------------------------------------------------------------------------------------ |
 | `code`        | `string` | Yes      | Verification code from email/SMS. 6-10 characters. Trimmed.                                      |
-| `identifier`  | `string` | Yes      | User identifier. Email, username, phone, or sub/UUID. 1-255 chars. Trimmed, lowercased if email. |
+| `sub`         | `string` | Yes      | User sub (UUID v4)                                      |
 | `newPassword` | `string` | Yes      | New password. 8-128 characters.                                                                  |
 
 ## ConfirmAdminResetPasswordResponseDTO (Response)
@@ -56,7 +56,7 @@ import { ConfirmAdminResetPasswordDTO, ConfirmAdminResetPasswordResponseDTO } fr
 
 ```json
 {
-  "identifier": "user@example.com",
+  "sub": "a21b654c-2746-4168-acee-c175083a65cd",
   "code": "123456",
   "newPassword": "NewSecurePass123!"
 }
@@ -64,4 +64,4 @@ import { ConfirmAdminResetPasswordDTO, ConfirmAdminResetPasswordResponseDTO } fr
 
 ## Used By
 
-- [AuthService.confirmAdminResetPassword()](../services/auth-service#confirmadminresetpassword)
+- [AdminAuthService.confirmResetPassword()](../services/admin-auth-service#confirmresetpassword)

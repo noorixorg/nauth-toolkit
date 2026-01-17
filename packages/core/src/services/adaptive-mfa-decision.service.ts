@@ -184,7 +184,7 @@ export class AdaptiveMFADecisionService {
     if (!user.email) {
       this.logger?.error?.(`User ${user.sub} missing email - cannot evaluate adaptive MFA`, {
         userId: user.id,
-        userSub: user.sub,
+        sub: user.sub,
       });
       throw new Error(`User email is required for adaptive MFA evaluation`);
     }
@@ -459,7 +459,7 @@ export class AdaptiveMFADecisionService {
     const blockKey = this.buildBlockKey(user.id, clientInfo);
     const blockData = {
       userId: user.id,
-      userSub: user.sub,
+      sub: user.sub,
       message,
       riskScore: payload.riskScore,
       riskFactors: payload.riskFactors,

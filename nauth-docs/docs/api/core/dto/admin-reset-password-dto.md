@@ -45,7 +45,7 @@ import { AdminResetPasswordDTO, AdminResetPasswordResponseDTO } from '@nauth-too
 | `baseUrl`        | `string`           | No       | Base URL for building reset link. Valid URL with http:// or https://. Max 2048 chars.            |
 | `codeExpiresIn`  | `number`           | No       | Code expiry in seconds. Min 300 (5 min), max 86400 (24 hours). Default: 3600 (1 hour).           |
 | `deliveryMethod` | `'email' \| 'sms'` | No       | Delivery channel. Default: `'email'`.                                                            |
-| `identifier`     | `string`           | Yes      | User identifier. Email, username, phone, or sub/UUID. 1-255 chars. Trimmed, lowercased if email. |
+| `sub`            | `string`           | Yes      | User sub (UUID v4). Trimmed, lowercased for consistency.                                        |
 | `reason`         | `string`           | No       | Reason for admin-initiated reset (for audit trail). Max 500 chars. Trimmed.                      |
 | `revokeSessions` | `boolean`          | No       | Revoke all active sessions immediately (before sending). Default: `false`.                       |
 
@@ -63,7 +63,7 @@ import { AdminResetPasswordDTO, AdminResetPasswordResponseDTO } from '@nauth-too
 
 ```json
 {
-  "identifier": "user@example.com",
+  "sub": "a21b654c-2746-4168-acee-c175083a65cd",
   "baseUrl": "https://myapp.com/reset-password",
   "deliveryMethod": "email",
   "revokeSessions": true,
@@ -73,5 +73,5 @@ import { AdminResetPasswordDTO, AdminResetPasswordResponseDTO } from '@nauth-too
 
 ## Used By
 
-- [AuthService.adminResetPassword()](../services/auth-service#adminresetpassword)
+- [AdminAuthService.resetPassword()](../services/admin-auth-service#resetpassword)
 

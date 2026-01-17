@@ -4,13 +4,13 @@
  * Request DTO for requiring a user to change their password on next login.
  *
  * Security:
- * - User ID validated (UUID)
+ * - User sub validated (UUID)
  * - Prevents unauthorized password change requirements
  *
  * @example
  * ```typescript
  * await authService.setMustChangePassword({
- *   userId: 'user-uuid'
+ *   sub: 'user-uuid'
  * });
  * ```
  */
@@ -35,12 +35,12 @@ export class SetMustChangePasswordDTO {
    *
    * @example "a21b654c-2746-4168-acee-c175083a65cd"
    */
-  @IsUUID('4', { message: 'User ID must be a valid UUID v4 format' })
+  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       return value.trim().toLowerCase();
     }
     return value;
   })
-  userId!: string;
+  sub!: string;
 }

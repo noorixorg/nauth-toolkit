@@ -36,7 +36,7 @@ export interface AuthResponse {
   challengeName?: AuthChallenge;
   session?: string;
   challengeParameters?: Record<string, unknown>;
-  userSub?: string;
+  sub?: string;
 }
 
 /**
@@ -88,7 +88,6 @@ export interface LoginRequest {
  * Logout request payload.
  */
 export interface LogoutRequest {
-  sub?: string;
   forgetMe?: boolean;
 }
 
@@ -101,7 +100,6 @@ export interface LogoutAllRequest {
    * Default: false (devices remain trusted)
    */
   forgetDevices?: boolean;
-  sub?: string;
 }
 
 /**

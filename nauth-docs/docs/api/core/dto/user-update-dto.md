@@ -112,5 +112,6 @@ The `metadata` field supports merge and delete operations:
 
 ## Used By
 
-- [UpdateUserAttributesRequestDTO](./update-user-attributes-request-dto) - Extends this DTO
+- [UpdateUserAttributesDTO](./update-user-attributes-dto) - Extends this DTO
+- [AdminUpdateUserAttributesDTO](./admin-update-user-attributes-dto) - Extends this DTO (admin)
 - [AuthService.updateUserAttributes()](../services/auth-service#updateuserattributes)

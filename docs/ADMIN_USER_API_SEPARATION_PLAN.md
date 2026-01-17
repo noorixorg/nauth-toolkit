@@ -82,7 +82,7 @@ This removes regex-based identifier type detection bloat and ensures consistency
 // User changes own password - no sub field
 class ChangePasswordDTO {
   @IsString()
-  currentPassword: string;
+  oldPassword: string;
 
   @IsString()
   newPassword: string;

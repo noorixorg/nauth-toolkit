@@ -79,5 +79,5 @@ import { GetUsersResponseDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AuthService.getUsers()](../services/auth-service#getusers)
+- [AuthService.getUsers()](../services/admin-auth-service#getusers)
 

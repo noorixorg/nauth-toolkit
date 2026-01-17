@@ -49,7 +49,7 @@ import { AuthChallengeResponseDTO } from '@nauth-toolkit/core';
 | `challengeName`       | [`AuthChallenge`](./auth-challenge-dto#authchallenge-enum) | Yes      | Challenge type. Must be: VERIFY_EMAIL, VERIFY_PHONE, MFA_REQUIRED, MFA_SETUP_REQUIRED, FORCE_CHANGE_PASSWORD. |
 | `session`             | `string`                               | Yes      | Challenge session token. UUID v4 format. Trimmed and lowercased.                                              |
 | `challengeParameters` | `Record<string, unknown>`              | Yes      | Challenge-specific parameters object.                                                                         |
-| `userSub`             | `string`                               | Yes      | User identifier. UUID v4 format. Trimmed and lowercased.                                                      |
+| `sub`                 | `string`                               | Yes      | User identifier. UUID v4 format. Trimmed and lowercased.                                                      |
 
 ## Example
 
@@ -61,7 +61,7 @@ import { AuthChallengeResponseDTO } from '@nauth-toolkit/core';
     "email": "user@example.com",
     "codeDeliveryDestination": "u***@example.com"
   },
-  "userSub": "b32c765d-3857-5279-bdff-d286194b76de"
+  "sub": "b32c765d-3857-5279-bdff-d286194b76de"
 }
 ```
 
