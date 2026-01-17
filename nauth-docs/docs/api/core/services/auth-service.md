@@ -683,6 +683,7 @@ async login(dto: LoginDTO): Promise<AuthResponseDTO>
 
 | Mode                                            | Success Response Body                                                                                                  | Challenge Response Body                                    | Notes                                                                       |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------- |
+
 | **JSON** (`tokenDelivery.method: 'json'`)       | `{ accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt, user, authMethod, trusted?, deviceToken? }` | `{ challengeName, session, challengeParameters, sub }` | Tokens present in response body; client must store securely                 |
 | **Cookies** (`tokenDelivery.method: 'cookies'`) | `{ user, authMethod, trusted?, deviceToken? }` (tokens removed)                                                        | `{ challengeName, session, challengeParameters, sub }` | Tokens NOT in body (httpOnly cookies only); client reads via secure context |
 | **Hybrid** (`tokenDelivery.method: 'hybrid'`)   | Depends on `hybridPolicy`: web=cookies, mobile=json                                                                    | `{ challengeName, session, challengeParameters, sub }` | Policy-driven: web clients get cookies, mobile/API gets JSON tokens         |
@@ -920,7 +921,7 @@ async logoutAll(dto: LogoutAllDTO): Promise<LogoutAllResponseDTO>
 **Usage Patterns**
 
 - **User-initiated**: User logs out from all their own sessions (protected endpoint, user provides their own sub)
-- **Admin-initiated**: Admin force-logs out any user (admin-protected endpoint, admin provides target user's sub)
+- **Admin-initiated**: Admin force-logs out any user (admin-protected endpoint, admin provides target user's sub) See logoutAll in AdminAuthService
 
 **Errors**
 
@@ -1574,7 +1575,7 @@ app.post('/validate-token', async (req, res) => {
   if (result.valid) {
     res.json({
       valid: true,
-      userId: result.payload.sub,
+        sub: result.payload.sub,
       email: result.payload.email,
       sessionId: result.payload.sessionId,
     });
@@ -1603,7 +1604,7 @@ fastify.post(
     if (result.valid) {
       return {
         valid: true,
-        userId: result.payload.sub,
+        sub: result.payload.sub,
         email: result.payload.email,
         sessionId: result.payload.sessionId,
       };

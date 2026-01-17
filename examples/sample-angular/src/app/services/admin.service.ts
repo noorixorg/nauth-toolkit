@@ -565,4 +565,38 @@ export class AdminService {
       throw error;
     }
   }
+
+  /**
+   * Global signout (admin-initiated)
+   *
+   * Administratively revokes all active sessions for a user across all devices.
+   * Optionally revokes all trusted devices if forgetDevices flag is set.
+   *
+   * @param sub - User UUID to sign out
+   * @param forgetDevices - If true, also revokes all trusted devices (default: false)
+   * @returns Number of sessions revoked
+   * @throws {Error} If API call fails
+   *
+   * @example
+   * ```typescript
+   * const result = await adminService.globalSignout('user-uuid', true);
+   * console.log(`Revoked ${result.revokedCount} sessions`);
+   * ```
+   */
+  async globalSignout(sub: string, forgetDevices = false): Promise<{ revokedCount: number }> {
+    try {
+      const response = await firstValueFrom(
+        this.http.post<{ revokedCount: number }>(`${this.baseUrl}/users/${sub}/logout-all`, {
+          forgetDevices,
+        }),
+      );
+      return response;
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'error' in error) {
+        const httpError = error as { error?: { message?: string; code?: string } };
+        throw new Error(httpError.error?.message || 'Failed to perform global signout');
+      }
+      throw error;
+    }
+  }
 }

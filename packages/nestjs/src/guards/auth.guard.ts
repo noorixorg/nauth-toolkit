@@ -137,7 +137,9 @@ export class AuthGuard implements CanActivate {
 
     if (session.isRevoked) {
       if (options.strict) {
-        throw new NAuthException(AuthErrorCode.TOKEN_REUSE_DETECTED, 'Session has been revoked');
+        // Session revocation can happen for many legitimate reasons (logout, logout-all, admin revoke).
+        // Using TOKEN_REUSE_DETECTED here is misleading and can cause clients to overreact (e.g., global signout).
+        throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session has been revoked');
       }
       return;
     }

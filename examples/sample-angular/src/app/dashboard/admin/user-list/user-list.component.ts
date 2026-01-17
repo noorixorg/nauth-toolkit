@@ -270,6 +270,14 @@ export class UserListComponent implements OnInit {
         separator: true,
       },
       {
+        label: 'Global Signout',
+        icon: 'pi pi-sign-out',
+        command: () => this.emitUserAction('globalSignout', user),
+      },
+      {
+        separator: true,
+      },
+      {
         label: user.isLocked ? 'Enable User' : 'Disable User',
         icon: user.isLocked ? 'pi pi-unlock' : 'pi pi-lock',
         command: () => this.emitUserAction(user.isLocked ? 'enableUser' : 'disableUser', user),

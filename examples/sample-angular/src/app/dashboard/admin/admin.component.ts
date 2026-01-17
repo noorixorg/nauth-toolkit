@@ -211,6 +211,14 @@ export class AdminComponent implements OnInit {
         separator: true,
       },
       {
+        label: 'Global Signout',
+        icon: 'pi pi-sign-out',
+        command: () => this.globalSignout(user),
+      },
+      {
+        separator: true,
+      },
+      {
         label: user.isLocked ? 'Enable User' : 'Disable User',
         icon: user.isLocked ? 'pi pi-unlock' : 'pi pi-lock',
         command: () => (user.isLocked ? this.enableUser(user) : this.disableUser(user)),
@@ -574,6 +582,9 @@ export class AdminComponent implements OnInit {
       case 'forcePasswordChange':
         this.forcePasswordChange(event.user);
         break;
+      case 'globalSignout':
+        this.globalSignout(event.user);
+        break;
       case 'enableUser':
         this.enableUser(event.user);
         break;
@@ -826,6 +837,39 @@ export class AdminComponent implements OnInit {
           this.messageService.add({
             severity: 'error',
             summary: 'Enable User Failed',
+            detail: errorMessage,
+          });
+        }
+      },
+    });
+  }
+
+  /**
+   * Global signout (admin-initiated)
+   *
+   * Revokes all active sessions for a user across all devices.
+   * Optionally revokes all trusted devices.
+   */
+  async globalSignout(user: User): Promise<void> {
+    this.confirmationService.confirm({
+      message: `Are you sure you want to sign out ${user.email} from all devices? This will revoke all active sessions.`,
+      header: 'Global Signout',
+      icon: 'pi pi-sign-out',
+      acceptButtonStyleClass: 'p-button-warning',
+      accept: async () => {
+        try {
+          const result = await this.adminService.globalSignout(user.sub, false);
+          this.messageService.add({
+            severity: 'success',
+            summary: 'Global Signout Successful',
+            detail: `${user.email} has been signed out from all devices. ${result.revokedCount} session(s) revoked.`,
+          });
+          this.loadUsers();
+        } catch (err: unknown) {
+          const errorMessage = err instanceof Error ? err.message : 'Failed to perform global signout';
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Global Signout Failed',
             detail: errorMessage,
           });
         }

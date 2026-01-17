@@ -124,9 +124,11 @@ export const authConfig: NAuthModuleConfig = {
   tokenDelivery: {
     method: 'cookies',
     cookieOptions: {
-      secure: true,
-      sameSite: 'none',
-      // domain: '.angular.dev1.noorix.com',
+      // Local dev (http://localhost:*): browsers (especially Safari) will ignore Secure cookies over HTTP.
+      // Production (https): use SameSite=None + Secure for cross-site cookie delivery.
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      // domain: process.env.NODE_ENV === 'production' ? '.angular.dev1.noorix.com' : undefined,
     },
   },
   security: {
@@ -314,7 +316,7 @@ export const authConfig: NAuthModuleConfig = {
 
   lockout: { enabled: false, maxAttempts: 5, duration: 300, resetOnSuccess: true },
   session: {
-    maxConcurrent: 2,
+    maxConcurrent: 5,
     disallowMultipleSessions: false,
     maxLifetime: '30d',
   },
