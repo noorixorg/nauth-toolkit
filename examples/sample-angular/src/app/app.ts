@@ -73,27 +73,15 @@ export class App implements OnInit, OnDestroy {
 
             if (!challengeName) return false;
 
-            // Only handle SMS and email challenges
+            // Skip all OTP-based challenges - the OTP component handles toasts for these
+            // to avoid duplicates. The OTP component has better context (session IDs, method detection, etc.)
             if (
               challengeName === AuthChallenge.VERIFY_PHONE ||
-              challengeName === AuthChallenge.VERIFY_EMAIL
+              challengeName === AuthChallenge.VERIFY_EMAIL ||
+              challengeName === AuthChallenge.MFA_REQUIRED ||
+              challengeName === AuthChallenge.MFA_SETUP_REQUIRED
             ) {
-              console.log('[App] SMS/Email challenge detected, will show toast');
-              return true;
-            }
-            if (challengeName === AuthChallenge.MFA_REQUIRED) {
-              const method = getMFAMethod(challenge);
-              const shouldHandle = method === 'sms' || method === 'email';
-              if (shouldHandle) {
-                console.log('[App] MFA_REQUIRED challenge with SMS/Email detected, will show toast');
-              }
-              return shouldHandle;
-            }
-            if (challengeName === AuthChallenge.MFA_SETUP_REQUIRED) {
-              // For MFA_SETUP_REQUIRED, method is not in challenge yet when getSetupData() is called
-              // The OTP component will handle it manually with the method from query params
-              // Skip app-level toast trigger to avoid duplicates - OTP component handles it
-              console.log('[App] MFA_SETUP_REQUIRED challenge - skipping app-level toast (OTP component handles it)');
+              console.log('[App] OTP-based challenge detected - skipping app-level toast (OTP component handles it)');
               return false;
             }
             console.log('[App] Challenge type not handled:', challengeName);

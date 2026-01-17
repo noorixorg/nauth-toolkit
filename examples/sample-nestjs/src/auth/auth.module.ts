@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { CustomAuthController } from './auth.controller';
+import { CustomAuthController, MobileAuthController } from './auth.controller';
 import { SocialRedirectController } from './social-redirect.controller';
 import { AuthModule, NAuthHooksModule } from '@nauth-toolkit/nestjs';
 import { GoogleSocialAuthModule } from '@nauth-toolkit/social-google/nestjs';
@@ -38,6 +38,6 @@ import { PreSignupDebugHook, PostSignupDebugHook } from './hooks';
     // Register lifecycle hooks - automatically discovered and registered
     NAuthHooksModule.forFeature([PreSignupDebugHook, PostSignupDebugHook]),
   ],
-  controllers: [CustomAuthController, SocialRedirectController],
+  controllers: [CustomAuthController, MobileAuthController, SocialRedirectController],
 })
 export class CustomAuthModule {}

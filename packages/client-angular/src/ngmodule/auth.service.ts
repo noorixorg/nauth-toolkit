@@ -7,6 +7,7 @@ import { AngularHttpAdapter } from './http-adapter';
 import {
   NAuthClient,
   NAuthClientConfig,
+  AuthResponseContext,
   ChallengeResponse,
   AuthResponse,
   TokenResponse,
@@ -102,10 +103,44 @@ export class AuthService {
           }
         : undefined);
 
+    // ============================================================================
+    // IMPORTANT: Challenge-state hydration BEFORE navigation (Angular guard safety)
+    // ============================================================================
+    // WHY: `NAuthClient.login()` auto-navigates via ChallengeRouter *before* returning.
+    // The Angular sample app uses a synchronous guard (`challengeRouteGuard`) that
+    // reads the current challenge via `AuthService.getCurrentChallenge()` (backed by
+    // `challengeSubject.value`). If navigation happens before `challengeSubject` is
+    // updated, the guard incorrectly redirects back to `/login`.
+    //
+    // Fix: intercept the SDK's auto-navigation hook (`onAuthResponse`), publish the
+    // challenge state immediately, then perform default navigation (or delegate to
+    // the user's custom `onAuthResponse` if provided).
+    const userOnAuthResponse = config.onAuthResponse;
+
     this.client = new NAuthClient({
       ...config,
       httpAdapter: adapter,
       navigationHandler,
+      onAuthResponse: async (response: AuthResponse, context: AuthResponseContext): Promise<void> => {
+        // Ensure guards can synchronously see the active challenge before navigation.
+        this.updateChallengeState(response);
+
+        // If the consumer provided their own handler, let them take full control.
+        if (userOnAuthResponse) {
+          await userOnAuthResponse(response, context);
+          return;
+        }
+
+        // Default navigation behavior (matches ChallengeRouter.handleAuthResponse)
+        const router = this.client.getChallengeRouter();
+        if (response.challengeName) {
+          await router.navigateToChallenge(response);
+          return;
+        }
+
+        const appState = await this.client.getLastOauthState();
+        await router.navigateToSuccess(appState ? { appState } : undefined);
+      },
       onAuthStateChange: (user: AuthUser | null) => {
         this.currentUserSubject.next(user);
         this.isAuthenticatedSubject.next(Boolean(user));

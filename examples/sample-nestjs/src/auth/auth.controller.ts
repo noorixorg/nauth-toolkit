@@ -598,13 +598,17 @@ export class CustomAuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(
-    @Body() dto: RefreshTokenDTO,
+    @Body() dto: RefreshTokenDTO | undefined,
     @Req() req: FastifyRequest & { cookies?: Record<string, string> },
   ): Promise<TokenResponse> {
-    if (!dto.refreshToken || (typeof dto.refreshToken === 'string' && dto.refreshToken.trim() === '')) {
-      dto.refreshToken = req?.cookies?.['nauth_refresh_token'];
+    // Cookies mode: the request body can be `undefined` (no JSON body).
+    // Ensure we never dereference an undefined DTO.
+    const dtoToUse: RefreshTokenDTO = dto ?? ({} as RefreshTokenDTO);
+
+    if (!dtoToUse.refreshToken || (typeof dtoToUse.refreshToken === 'string' && dtoToUse.refreshToken.trim() === '')) {
+      dtoToUse.refreshToken = req?.cookies?.['nauth_refresh_token'];
     }
-    return await this.authService.refreshToken(dto);
+    return await this.authService.refreshToken(dtoToUse);
   }
 
   /**
@@ -1255,5 +1259,58 @@ export class CustomAuthController {
 
     // Admin API - sub comes from query parameters (target user)
     return await this.auditService.getUserAuthHistory(query);
+  }
+}
+
+// ============================================================================
+// Mobile JSON API (Capacitor / Native Clients)
+// ============================================================================
+
+/**
+ * Mobile Authentication Controller (JSON token delivery)
+ *
+ * Playwright's `json` project expects the following endpoints:
+ * - POST /mobile/auth/signup
+ * - POST /mobile/auth/login
+ * - POST /mobile/auth/refresh
+ *
+ * These endpoints mirror the core AuthService methods, but always use `@TokenDelivery('json')`.
+ */
+@UseGuards(AuthGuard)
+@Controller('mobile/auth')
+export class MobileAuthController {
+  constructor(protected readonly authService: AuthService) {}
+
+  /**
+   * Mobile signup (JSON token delivery)
+   */
+  @Public()
+  @TokenDelivery('json')
+  @Post('signup')
+  @HttpCode(HttpStatus.CREATED)
+  async signup(@Body() dto: SignupDTO): Promise<AuthResponseDTO> {
+    return await this.authService.signup(dto);
+  }
+
+  /**
+   * Mobile login (JSON token delivery)
+   */
+  @Public()
+  @TokenDelivery('json')
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  async login(@Body() dto: LoginDTO): Promise<AuthResponseDTO> {
+    return await this.authService.login(dto);
+  }
+
+  /**
+   * Mobile refresh (JSON token delivery)
+   */
+  @Public()
+  @TokenDelivery('json')
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  async refresh(@Body() dto: RefreshTokenDTO): Promise<TokenResponse> {
+    return await this.authService.refreshToken(dto);
   }
 }
