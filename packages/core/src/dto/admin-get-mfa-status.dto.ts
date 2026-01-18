@@ -42,4 +42,3 @@ export class AdminGetMFAStatusDTO {
   })
   sub!: string;
 }
-

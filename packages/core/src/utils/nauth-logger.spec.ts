@@ -384,5 +384,106 @@ describe('NAuthLogger', () => {
 
       expect(mockLogger.log).toHaveBeenCalledWith('NAUTH: password=[REDACTED]');
     });
+
+    it('should handle object messages', () => {
+      logger.log({ message: 'User user@example.com logged in' });
+
+      const callArgs = (mockLogger.log as jest.Mock).mock.calls[0];
+      expect(callArgs[0]).toContain('NAUTH:');
+      expect(callArgs[0]).toContain('u***@***.com');
+    });
+
+    it('should handle non-string messages', () => {
+      logger.log(12345);
+
+      expect(mockLogger.log).toHaveBeenCalledWith('NAUTH: 12345');
+    });
+
+    it('should handle circular references in params', () => {
+      const circular: any = { a: 1 };
+      circular.self = circular;
+
+      logger.log('Message', circular);
+
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'NAUTH: Message',
+        '[Object with circular reference or invalid JSON]',
+      );
+    });
+
+    it('should filter logs by logLevel', () => {
+      const filteredLogger = new NAuthLogger({
+        instance: mockLogger,
+        logLevel: 'warn',
+      });
+
+      filteredLogger.log('This should not be logged');
+      filteredLogger.debug('This should not be logged');
+      filteredLogger.warn('This should be logged');
+      filteredLogger.error('This should be logged');
+
+      expect(mockLogger.log).not.toHaveBeenCalled();
+      expect(mockLogger.debug).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalled();
+      expect(mockLogger.error).toHaveBeenCalled();
+    });
+
+    it('should handle verbose level', () => {
+      const loggerWithVerbose = new NAuthLogger({
+        instance: mockLogger,
+        logLevel: 'verbose',
+      });
+
+      loggerWithVerbose.verbose('Verbose message');
+
+      expect(mockLogger.verbose).toHaveBeenCalledWith('NAUTH: Verbose message');
+    });
+
+    it('should handle logger without debug method', () => {
+      const loggerWithoutDebug = {
+        log: jest.fn(),
+        error: jest.fn(),
+        warn: jest.fn(),
+      } as any;
+
+      const logger = new NAuthLogger(loggerWithoutDebug);
+      logger.debug('Debug message');
+
+      expect(loggerWithoutDebug.log).not.toHaveBeenCalled();
+    });
+
+    it('should handle logger without verbose method', () => {
+      const loggerWithoutVerbose = {
+        log: jest.fn(),
+        error: jest.fn(),
+        warn: jest.fn(),
+      } as any;
+
+      const logger = new NAuthLogger(loggerWithoutVerbose);
+      logger.verbose('Verbose message');
+
+      expect(loggerWithoutVerbose.log).not.toHaveBeenCalled();
+    });
+
+    it('should redact params when PII redaction enabled', () => {
+      logger.log('Message', 'user@example.com', { ip: '192.168.1.100' });
+
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'NAUTH: Message',
+        expect.stringContaining('***'),
+        expect.any(Object),
+      );
+    });
+
+    it('should not redact params when PII redaction disabled', () => {
+      const loggerNoRedaction = new NAuthLogger({
+        instance: mockLogger,
+        enablePiiRedaction: false,
+      });
+
+      loggerNoRedaction.log('Message', 'user@example.com');
+
+      expect(mockLogger.log).toHaveBeenCalledWith('NAUTH: Message', 'user@example.com');
+    });
   });
 });

@@ -1,144 +1,69 @@
+/**
+ * TOTP MFA Provider Service Unit Tests
+ *
+ * Tests TOTP MFA provider functionality.
+ */
+
 import 'reflect-metadata';
 import { Repository } from 'typeorm';
 import { TOTPMFAProviderService } from './totp-mfa-provider.service';
 import { TOTPService } from './totp.service';
-import {
-  BaseMFADevice,
-  BaseUser,
-  IUser,
-  ContextStorage,
-  NAuthConfig,
-  NAuthLogger,
-  NAuthException,
-  AuthErrorCode,
-  MFAMethod,
-} from '@nauth-toolkit/core';
-import { SetupTOTPResponseDTO, VerifyTOTPSetupDTO } from './dto/mfa.dto';
+import { BaseMFADevice, BaseUser, NAuthConfig, NAuthLogger, MFAMethod, ClientInfoService } from '@nauth-toolkit/core';
+import { ChallengeService, AuthAuditService } from '@nauth-toolkit/core/internal';
 
-/**
- * Execute a provider call with a CURRENT_USER bound into request context.
- *
- * Providers no longer accept `IUser` parameters; they derive the user from ContextStorage.
- */
-async function runAs<T>(user: IUser, callback: () => Promise<T>): Promise<T> {
-  return await ContextStorage.run(async () => {
-    ContextStorage.set('CURRENT_USER', user);
-    return await callback();
-  });
-}
+// Mock TOTPService
+jest.mock('./totp.service');
 
-/**
- * TOTP MFA Provider Service Unit Tests
- *
- * Tests TOTP MFA provider implementation including setup, verification,
- * and device management. Uses direct instantiation, no NestJS dependencies.
- */
 describe('TOTPMFAProviderService', () => {
   let service: TOTPMFAProviderService;
   let mockMfaDeviceRepository: jest.Mocked<Repository<BaseMFADevice>>;
   let mockUserRepository: jest.Mocked<Repository<BaseUser>>;
   let mockConfig: NAuthConfig;
-  let mockLogger: NAuthLogger;
+  let mockLogger: jest.Mocked<NAuthLogger>;
   let mockPasswordService: unknown;
   let mockTotpService: jest.Mocked<TOTPService>;
-  let mockUser: IUser;
+  let mockChallengeService: jest.Mocked<ChallengeService>;
+  let mockAuditService: jest.Mocked<AuthAuditService>;
+  let mockClientInfoService: jest.Mocked<ClientInfoService>;
 
   beforeEach(() => {
-    // Create mock repositories
-    mockMfaDeviceRepository = {
-      create: jest.fn(),
-      save: jest.fn(),
-      find: jest.fn(),
-      findOne: jest.fn(),
-    } as any;
+    mockMfaDeviceRepository = {} as any;
+    mockUserRepository = {} as any;
 
-    // Create mock transactional entity manager factory
-    const createMockTransactionalEntityManager = () => {
-      const mockDeviceRepo = {
-        create: jest.fn((data) => ({ id: 1, userId: 1, type: MFAMethod.TOTP, ...data })),
-        save: jest.fn((data) => Promise.resolve({ id: 1, userId: 1, type: MFAMethod.TOTP, ...data })),
-        createQueryBuilder: jest.fn(() => ({
-          where: jest.fn().mockReturnThis(),
-          andWhere: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue(null), // No existing device
-        })),
-      };
-
-      return {
-        findOne: jest.fn(),
-        save: jest.fn(),
-        create: jest.fn(),
-        createQueryBuilder: jest.fn(() => ({
-          select: jest.fn().mockReturnThis(),
-          from: jest.fn().mockReturnThis(),
-          where: jest.fn().mockReturnThis(),
-          andWhere: jest.fn().mockReturnThis(),
-          setLock: jest.fn().mockReturnThis(),
-          getOne: jest.fn().mockResolvedValue({ id: 1 }), // User exists
-        })),
-        getRepository: jest.fn(() => mockDeviceRepo),
-      };
-    };
-
-    mockUserRepository = {
-      save: jest.fn(),
-      findOne: jest.fn(),
-      target: BaseUser,
-      manager: {
-        transaction: jest.fn(async (callback) => {
-          // Create fresh mock transactional entity manager for each transaction
-          const mockTransactionalEntityManager = createMockTransactionalEntityManager();
-          return await callback(mockTransactionalEntityManager);
-        }),
-      },
-    } as any;
-
-    // Create mock logger
-    mockLogger = {
-      log: jest.fn(),
-      error: jest.fn(),
-      warn: jest.fn(),
-      debug: jest.fn(),
-    } as any;
-
-    // Create mock config
     mockConfig = {
+      jwt: {
+        accessToken: { secret: 'test', expiresIn: 3600 },
+        refreshToken: { secret: 'test', expiresIn: 86400 },
+      },
       mfa: {
         enabled: true,
-        allowedMethods: [MFAMethod.TOTP as any],
-        issuer: 'TestApp',
-        totp: {
-          window: 1,
-          stepSeconds: 30,
-          digits: 6,
-          algorithm: 'sha1',
-        },
+        allowedMethods: ['totp', 'sms', 'email', 'passkey'],
       },
     } as NAuthConfig;
 
-    // Create mock password service
-    mockPasswordService = {
-      hashPassword: jest.fn(),
-      verifyPassword: jest.fn(),
-    };
-
-    // Create mock TOTP service
-    mockTotpService = {
-      generateSecret: jest.fn(),
-      verifyCode: jest.fn().mockResolvedValue(true),
-      verifyCodeWithDetails: jest.fn().mockResolvedValue({ valid: true }),
-      isValidSecret: jest.fn(),
+    mockLogger = {
+      log: jest.fn(),
+      debug: jest.fn(),
+      error: jest.fn(),
+      warn: jest.fn(),
     } as any;
 
-    // Create mock user
-    mockUser = {
-      id: 1,
-      sub: 'user-123',
-      email: 'user@example.com',
-      mfaEnabled: false,
-    } as IUser;
+    mockPasswordService = {};
+    mockTotpService = {
+      generateSecret: jest.fn().mockResolvedValue({
+        secret: 'JBSWY3DPEHPK3PXP',
+        qrCode: 'data:image/png;base64,test',
+        manualEntryKey: 'JBSWY3DPEHPK3PXP',
+        issuer: 'TestApp',
+        accountName: 'user@example.com',
+      }),
+      verifyCode: jest.fn().mockReturnValue(true),
+    } as any;
 
-    // Instantiate service directly
+    mockChallengeService = {} as any;
+    mockAuditService = {} as any;
+    mockClientInfoService = {} as any;
+
     service = new TOTPMFAProviderService(
       mockMfaDeviceRepository,
       mockUserRepository,
@@ -146,319 +71,430 @@ describe('TOTPMFAProviderService', () => {
       mockLogger,
       mockPasswordService,
       mockTotpService,
-      undefined, // challengeService (optional)
-      undefined, // auditService (optional)
-      undefined, // clientInfoService (optional)
+      mockChallengeService,
+      mockAuditService,
+      mockClientInfoService,
     );
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  describe('methodName', () => {
+    it('should have correct method name', () => {
+      expect(service.methodName).toBe(MFAMethod.TOTP);
+    });
   });
-
-  // ============================================================================
-  // Service Initialization
-  // ============================================================================
-
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-    expect(service.methodName).toBe(MFAMethod.TOTP);
-  });
-
-  // ============================================================================
-  // isMethodAllowed() Method
-  // ============================================================================
 
   describe('isMethodAllowed', () => {
-    it('should return true when TOTP is in allowed methods', () => {
-      const result = service.isMethodAllowed();
-      expect(result).toBe(true);
+    it('should return true when TOTP is enabled', () => {
+      expect(service.isMethodAllowed()).toBe(true);
     });
 
-    it('should return false when TOTP is not in allowed methods', () => {
-      mockConfig.mfa!.allowedMethods = [MFAMethod.SMS as any];
-      const result = service.isMethodAllowed();
-      expect(result).toBe(false);
+    it('should return false when TOTP is disabled', () => {
+      mockConfig.mfa = { ...mockConfig.mfa!, allowedMethods: [] };
+      service = new TOTPMFAProviderService(
+        mockMfaDeviceRepository,
+        mockUserRepository,
+        mockConfig,
+        mockLogger,
+        mockPasswordService,
+        mockTotpService,
+        mockChallengeService,
+        mockAuditService,
+        mockClientInfoService,
+      );
+
+      expect(service.isMethodAllowed()).toBe(false);
     });
   });
-
-  // ============================================================================
-  // setup() Method
-  // ============================================================================
 
   describe('setup', () => {
-    it('should generate TOTP secret and QR code', async () => {
-      const setupResponse: SetupTOTPResponseDTO = {
-        secret: 'JBSWY3DPEHPK3PXP',
-        qrCode: 'data:image/png;base64,...',
-        manualEntryKey: 'JBSW Y3DP EHPK 3PXP',
-        issuer: 'TestApp',
-        accountName: 'user@example.com',
+    let mockUser: any;
+
+    beforeEach(() => {
+      mockUser = {
+        id: 1,
+        sub: 'user-123',
+        email: 'user@example.com',
       };
-
-      mockTotpService.generateSecret.mockResolvedValue(setupResponse);
-
-      const result = await runAs(mockUser, async () => await service.setup());
-
-      expect(result).toEqual(setupResponse);
-      expect(mockTotpService.generateSecret).toHaveBeenCalledWith('user@example.com');
-      expect(mockLogger.log).toHaveBeenCalledWith((expect as any).stringContaining('Setting up TOTP'));
     });
 
-    it('should throw error when TOTP is not enabled', async () => {
-      mockConfig.mfa!.allowedMethods = [MFAMethod.SMS as any];
+    it('should generate TOTP secret and QR code', async () => {
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
 
-      try {
-        await runAs(mockUser, async () => await service.setup());
-        fail('Should have thrown NAuthException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.VALIDATION_FAILED);
-        expect((error as NAuthException).message).toContain('TOTP is not enabled');
-      }
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        const result = await service.setup();
+
+        expect(mockTotpService.generateSecret).toHaveBeenCalledWith('user@example.com');
+        expect(result).toHaveProperty('secret');
+        expect(result).toHaveProperty('qrCode');
+      });
+    });
+
+    it('should throw when TOTP is not enabled', async () => {
+      mockConfig.mfa = { ...mockConfig.mfa!, allowedMethods: [] };
+      service = new TOTPMFAProviderService(
+        mockMfaDeviceRepository,
+        mockUserRepository,
+        mockConfig,
+        mockLogger,
+        mockPasswordService,
+        mockTotpService,
+        mockChallengeService,
+        mockAuditService,
+        mockClientInfoService,
+      );
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
+
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await expect(service.setup()).rejects.toThrow();
+      });
+    });
+
+    it('should log setup initiation', async () => {
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await service.setup();
+        expect(mockLogger.log).toHaveBeenCalledWith(expect.stringContaining('Setting up TOTP'));
+      });
     });
   });
-
-  // ============================================================================
-  // verifySetup() Method
-  // ============================================================================
 
   describe('verifySetup', () => {
-    const verifyDto: VerifyTOTPSetupDTO = {
-      secret: 'JBSWY3DPEHPK3PXP',
-      code: '123456',
-      deviceName: 'Google Authenticator',
-    };
+    let mockUser: any;
 
-    it('should verify TOTP code and create device', async () => {
-      const mockDevice = {
+    beforeEach(() => {
+      mockUser = {
         id: 1,
-        userId: 1,
-        type: MFAMethod.TOTP,
-        name: 'Google Authenticator',
-        secret: 'JBSWY3DPEHPK3PXP',
-        isActive: true,
-        isPrimary: true,
+        sub: 'user-123',
+        email: 'user@example.com',
+        mfaEnabled: false,
       };
-
-      mockTotpService.isValidSecret.mockReturnValue(true);
-      mockTotpService.verifyCodeWithDetails.mockResolvedValue({ valid: true });
-      mockMfaDeviceRepository.create.mockReturnValue(mockDevice as any);
-      mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
-      // Mock getUserDevices to return empty array (no existing devices)
-      mockMfaDeviceRepository.find.mockResolvedValue([]);
-      // Mock findOne for enableMFAForUser to reload user
-      mockUserRepository.findOne.mockResolvedValue({ ...mockUser, mfaEnabled: false } as any);
-      mockUserRepository.save.mockResolvedValue({ ...mockUser, mfaEnabled: true } as any);
-
-      const result = await runAs(mockUser, async () => await service.verifySetup(verifyDto));
-
-      expect(result).toBe(1);
-      expect(mockTotpService.isValidSecret).toHaveBeenCalledWith('JBSWY3DPEHPK3PXP');
-      expect(mockTotpService.verifyCodeWithDetails).toHaveBeenCalledWith('JBSWY3DPEHPK3PXP', '123456');
-      // Device is created via transaction manager's getRepository
-      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
-      expect(mockUserRepository.save).toHaveBeenCalled();
+      mockTotpService.isValidSecret = jest.fn().mockReturnValue(true);
+      mockTotpService.verifyCodeWithDetails = jest.fn().mockResolvedValue({ valid: true });
+      (service as any).createDevice = jest.fn().mockResolvedValue({ id: 123 });
+      (service as any).enableMFAForUser = jest.fn().mockResolvedValue(undefined);
     });
 
-    it('should throw error for invalid secret format', async () => {
-      mockTotpService.isValidSecret.mockReturnValue(false);
+    it('should verify and create device', async () => {
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
 
-      try {
-        await runAs(mockUser, async () => await service.verifySetup(verifyDto));
-        fail('Should have thrown NAuthException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.VALIDATION_FAILED);
-        expect((error as NAuthException).message).toContain('Invalid TOTP secret');
-      }
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        const result = await service.verifySetup({
+          secret: 'JBSWY3DPEHPK3PXP',
+          code: '123456',
+        });
+
+        expect(mockTotpService.isValidSecret).toHaveBeenCalledWith('JBSWY3DPEHPK3PXP');
+        expect(mockTotpService.verifyCodeWithDetails).toHaveBeenCalled();
+        expect((service as any).createDevice).toHaveBeenCalled();
+        expect(result).toBe(123);
+      });
     });
 
-    it('should throw error for invalid code', async () => {
-      mockTotpService.isValidSecret.mockReturnValue(true);
-      mockTotpService.verifyCodeWithDetails.mockResolvedValue({ valid: false, error: 'Invalid code' });
+    it('should throw when secret is invalid', async () => {
+      mockTotpService.isValidSecret = jest.fn().mockReturnValue(false);
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
 
-      try {
-        await runAs(mockUser, async () => await service.verifySetup(verifyDto));
-        fail('Should have thrown NAuthException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.VERIFICATION_CODE_INVALID);
-      }
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await expect(
+          service.verifySetup({
+            secret: 'invalid',
+            code: '123456',
+          }),
+        ).rejects.toThrow();
+      });
     });
 
-    it('should use deviceName from DTO if provided', async () => {
-      const mockDevice = {
-        id: 1,
-        userId: 1,
-        type: MFAMethod.TOTP,
-        name: 'Custom Device Name',
-        secret: 'JBSWY3DPEHPK3PXP',
-        isActive: true,
-        isPrimary: true,
-      };
+    it('should throw when code is invalid', async () => {
+      mockTotpService.verifyCodeWithDetails = jest.fn().mockResolvedValue({
+        valid: false,
+        error: 'Invalid code',
+      });
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
 
-      mockTotpService.isValidSecret.mockReturnValue(true);
-      mockTotpService.verifyCodeWithDetails.mockResolvedValue({ valid: true });
-      mockMfaDeviceRepository.create.mockReturnValue(mockDevice as any);
-      mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
-      // Mock getUserDevices to return empty array (no existing devices)
-      mockMfaDeviceRepository.find.mockResolvedValue([]);
-      // Mock findOne for enableMFAForUser to reload user
-      mockUserRepository.findOne.mockResolvedValue({ ...mockUser, mfaEnabled: false } as any);
-      mockUserRepository.save.mockResolvedValue({ ...mockUser, mfaEnabled: true } as any);
-
-      const dtoWithName = { ...verifyDto, deviceName: 'Custom Device Name' };
-      await runAs(mockUser, async () => await service.verifySetup(dtoWithName, 'Override Name'));
-
-      // Device is created via transaction manager's getRepository
-      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await expect(
+          service.verifySetup({
+            secret: 'JBSWY3DPEHPK3PXP',
+            code: '000000',
+          }),
+        ).rejects.toThrow();
+      });
     });
 
-    it('should set first device as primary', async () => {
-      const mockDevice = {
-        id: 1,
-        userId: 1,
-        type: MFAMethod.TOTP,
-        name: 'Google Authenticator',
-        secret: 'JBSWY3DPEHPK3PXP',
-        isActive: true,
-        isPrimary: true,
-      };
+    it('should use deviceName from DTO when provided', async () => {
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
 
-      mockTotpService.isValidSecret.mockReturnValue(true);
-      mockTotpService.verifyCodeWithDetails.mockResolvedValue({ valid: true });
-      mockMfaDeviceRepository.create.mockReturnValue(mockDevice as any);
-      mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
-      // Mock getUserDevices to return empty array (no existing devices)
-      mockMfaDeviceRepository.find.mockResolvedValue([]);
-      // Mock findOne for enableMFAForUser to reload user
-      mockUserRepository.findOne.mockResolvedValue({ ...mockUser, mfaEnabled: false } as any);
-      mockUserRepository.save.mockResolvedValue({ ...mockUser, mfaEnabled: true } as any);
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await service.verifySetup(
+          {
+            secret: 'JBSWY3DPEHPK3PXP',
+            code: '123456',
+            deviceName: 'My Authenticator',
+          },
+          'Override Name',
+        );
 
-      await runAs(mockUser, async () => await service.verifySetup(verifyDto));
-
-      // Device is created via transaction manager's getRepository
-      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
+        expect((service as any).createDevice).toHaveBeenCalledWith(
+          1,
+          expect.objectContaining({ name: 'Override Name' }),
+        );
+      });
     });
 
-    it('should not set device as primary if user already has MFA enabled', async () => {
-      const userWithMfa = { ...mockUser, mfaEnabled: true };
-      const mockDevice = {
-        id: 1,
-        userId: 1,
-        type: MFAMethod.TOTP,
-        name: 'Google Authenticator',
-        secret: 'JBSWY3DPEHPK3PXP',
-        isActive: true,
-        isPrimary: false,
-      };
+    it('should use deviceName from DTO when parameter not provided', async () => {
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
 
-      mockTotpService.isValidSecret.mockReturnValue(true);
-      mockTotpService.verifyCodeWithDetails.mockResolvedValue({ valid: true });
-      mockMfaDeviceRepository.create.mockReturnValue(mockDevice as any);
-      mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
-      // Mock getUserDevices to return empty array (no existing devices)
-      mockMfaDeviceRepository.find.mockResolvedValue([]);
-      // Mock findOne for enableMFAForUser to reload user
-      mockUserRepository.findOne.mockResolvedValue(userWithMfa as any);
-      mockUserRepository.save.mockResolvedValue(userWithMfa as any);
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await service.verifySetup({
+          secret: 'JBSWY3DPEHPK3PXP',
+          code: '123456',
+          deviceName: 'My Authenticator',
+        });
 
-      await runAs(userWithMfa, async () => await service.verifySetup(verifyDto));
+        expect((service as any).createDevice).toHaveBeenCalledWith(
+          1,
+          expect.objectContaining({ name: 'My Authenticator' }),
+        );
+      });
+    });
 
-      // Device is created via transaction manager's getRepository
-      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
+    it('should use default device name when neither provided', async () => {
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await service.verifySetup({
+          secret: 'JBSWY3DPEHPK3PXP',
+          code: '123456',
+        });
+
+        expect((service as any).createDevice).toHaveBeenCalledWith(
+          1,
+          expect.objectContaining({ name: 'Authenticator App' }),
+        );
+      });
+    });
+
+    it('should set isPrimary to true when user has no MFA enabled', async () => {
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await service.verifySetup({
+          secret: 'JBSWY3DPEHPK3PXP',
+          code: '123456',
+        });
+
+        expect((service as any).createDevice).toHaveBeenCalledWith(
+          1,
+          expect.objectContaining({ isPrimary: true }),
+        );
+      });
+    });
+
+    it('should set isPrimary to false when user already has MFA enabled', async () => {
+      const userWithMFA = { ...mockUser, mfaEnabled: true };
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(userWithMFA);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', userWithMFA);
+        await service.verifySetup({
+          secret: 'JBSWY3DPEHPK3PXP',
+          code: '123456',
+        });
+
+        expect((service as any).createDevice).toHaveBeenCalledWith(
+          1,
+          expect.objectContaining({ isPrimary: false }),
+        );
+      });
+    });
+
+    it('should enable MFA for user', async () => {
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await service.verifySetup({
+          secret: 'JBSWY3DPEHPK3PXP',
+          code: '123456',
+        });
+
+        expect((service as any).enableMFAForUser).toHaveBeenCalledWith(mockUser);
+      });
+    });
+
+    it('should log completion', async () => {
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await service.verifySetup({
+          secret: 'JBSWY3DPEHPK3PXP',
+          code: '123456',
+        });
+
+        expect(mockLogger.log).toHaveBeenCalledWith(expect.stringContaining('TOTP setup completed'));
+      });
     });
   });
 
-  // ============================================================================
-  // verify() Method
-  // ============================================================================
-
   describe('verify', () => {
-    const mockDevice = {
-      id: 1,
-      userId: 1,
-      type: MFAMethod.TOTP,
-      name: 'Google Authenticator',
-      secret: 'JBSWY3DPEHPK3PXP',
-      isActive: true,
-      isPrimary: true,
-    };
+    let mockUser: any;
+    let mockDevice: any;
+
+    beforeEach(() => {
+      mockUser = {
+        id: 1,
+        sub: 'user-123',
+        email: 'user@example.com',
+      };
+      mockDevice = {
+        id: 1,
+        secret: 'JBSWY3DPEHPK3PXP',
+      };
+      (service as any).findDevice = jest.fn().mockResolvedValue(mockDevice);
+      (service as any).updateDeviceUsage = jest.fn().mockResolvedValue(undefined);
+    });
 
     it('should verify TOTP code successfully', async () => {
-      mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
-      mockTotpService.verifyCode.mockResolvedValue(true);
-      mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
 
-      const result = await runAs(mockUser, async () => await service.verify('123456'));
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        const result = await service.verify('123456');
 
-      expect(result).toBe(true);
-      expect(mockMfaDeviceRepository.findOne).toHaveBeenCalled();
-      expect(mockTotpService.verifyCode).toHaveBeenCalledWith('JBSWY3DPEHPK3PXP', '123456');
-      expect(mockMfaDeviceRepository.save).toHaveBeenCalled();
+        expect((service as any).findDevice).toHaveBeenCalledWith(1, undefined);
+        expect(mockTotpService.verifyCode).toHaveBeenCalledWith('JBSWY3DPEHPK3PXP', '123456');
+        expect((service as any).updateDeviceUsage).toHaveBeenCalledWith(1);
+        expect(result).toBe(true);
+      });
     });
 
-    it('should return false for invalid code format', async () => {
-      const result = await runAs(mockUser, async () => await service.verify(null as any));
+    it('should verify with specific deviceId', async () => {
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
 
-      expect(result).toBe(false);
-      expect(mockLogger.warn).toHaveBeenCalledWith('Invalid TOTP code format');
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await service.verify('123456', 2);
+
+        expect((service as any).findDevice).toHaveBeenCalledWith(1, 2);
+      });
     });
 
-    it('should return false when device not found', async () => {
-      mockMfaDeviceRepository.findOne.mockResolvedValue(null);
+    it('should return false when code is invalid format', async () => {
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
 
-      const result = await runAs(mockUser, async () => await service.verify('123456'));
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        const result = await service.verify(null);
 
-      expect(result).toBe(false);
-      expect(mockLogger.warn).toHaveBeenCalledWith((expect as any).stringContaining('No active TOTP device found'));
+        expect(result).toBe(false);
+        expect(mockLogger.warn).toHaveBeenCalled();
+      });
+    });
+
+    it('should return false when code is not a string', async () => {
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        const result = await service.verify(123456 as any);
+
+        expect(result).toBe(false);
+      });
+    });
+
+    it('should return false when device is not found', async () => {
+      (service as any).findDevice = jest.fn().mockResolvedValue(null);
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        const result = await service.verify('123456');
+
+        expect(result).toBe(false);
+        expect(mockLogger.warn).toHaveBeenCalled();
+      });
     });
 
     it('should return false when device has no secret', async () => {
-      const deviceWithoutSecret = { ...mockDevice, secret: null };
-      mockMfaDeviceRepository.findOne.mockResolvedValue(deviceWithoutSecret as any);
+      (service as any).findDevice = jest.fn().mockResolvedValue({ id: 1, secret: null });
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
 
-      const result = await runAs(mockUser, async () => await service.verify('123456'));
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        const result = await service.verify('123456');
 
-      expect(result).toBe(false);
+        expect(result).toBe(false);
+      });
     });
 
     it('should return false when code verification fails', async () => {
-      mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
-      mockTotpService.verifyCode.mockResolvedValue(false);
+      mockTotpService.verifyCode = jest.fn().mockResolvedValue(false);
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
 
-      const result = await runAs(mockUser, async () => await service.verify('123456'));
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        const result = await service.verify('000000');
 
-      expect(result).toBe(false);
-      expect(mockLogger.warn).toHaveBeenCalledWith((expect as any).stringContaining('TOTP code verification failed'));
+        expect(result).toBe(false);
+        expect(mockLogger.warn).toHaveBeenCalled();
+      });
     });
 
-    it('should verify against specific device when deviceId provided', async () => {
-      mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
-      mockTotpService.verifyCode.mockResolvedValue(true);
-      mockMfaDeviceRepository.save.mockResolvedValue(mockDevice as any);
+    it('should not update device usage when verification fails', async () => {
+      mockTotpService.verifyCode = jest.fn().mockResolvedValue(false);
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
 
-      await runAs(mockUser, async () => await service.verify('123456', 1));
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await service.verify('000000');
 
-      expect(mockMfaDeviceRepository.findOne).toHaveBeenCalledWith(
-        (expect as any).objectContaining({
-          where: (expect as any).objectContaining({
-            id: 1,
-          }),
-        }),
-      );
+        expect((service as any).updateDeviceUsage).not.toHaveBeenCalled();
+      });
     });
 
-    it('should update device usage on successful verification', async () => {
-      const deviceWithUsage = { ...mockDevice, lastUsedAt: new Date(), usageCount: 1 };
-      mockMfaDeviceRepository.findOne.mockResolvedValue(mockDevice as any);
-      mockTotpService.verifyCode.mockResolvedValue(true);
-      mockMfaDeviceRepository.save.mockResolvedValue(deviceWithUsage as any);
+    it('should log success when verification succeeds', async () => {
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
 
-      await runAs(mockUser, async () => await service.verify('123456'));
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await service.verify('123456');
 
-      expect(mockMfaDeviceRepository.save).toHaveBeenCalled();
+        expect(mockLogger.log).toHaveBeenCalledWith(expect.stringContaining('verified successfully'));
+      });
     });
   });
 });

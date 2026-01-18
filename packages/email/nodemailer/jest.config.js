@@ -26,4 +26,5 @@ module.exports = {
     '^@nauth-toolkit/core$': path.resolve(__dirname, '../../core/dist/index'),
     '^@nauth-toolkit/core/(.*)$': path.resolve(__dirname, '../../core/dist/$1'),
   },
+  setupFilesAfterEnv: [path.resolve(__dirname, '../../core/jest.setup.ts')],
 };

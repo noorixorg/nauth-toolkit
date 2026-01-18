@@ -143,6 +143,7 @@ describe('AppleSocialAuthService', () => {
         mockPhoneVerificationService,
         undefined,
         undefined,
+        undefined,
         mockTokenVerifier,
         mockSocialProviderSecretRepository,
       );
@@ -168,6 +169,7 @@ describe('AppleSocialAuthService', () => {
         mockPhoneVerificationService,
         undefined,
         undefined,
+        undefined,
         mockTokenVerifier,
         null,
       );
@@ -190,11 +192,12 @@ describe('AppleSocialAuthService', () => {
           mockClientInfoService,
           mockStateStore,
           mockUserRepository,
-          mockPhoneVerificationService,
-          undefined,
-          undefined,
-          mockTokenVerifier,
-          null,
+        mockPhoneVerificationService,
+        undefined,
+        undefined,
+        undefined,
+        mockTokenVerifier,
+        null,
         );
       }).toThrow(NAuthException);
     });
@@ -214,6 +217,7 @@ describe('AppleSocialAuthService', () => {
         mockStateStore,
         mockUserRepository,
         mockPhoneVerificationService,
+        undefined,
         undefined,
         undefined,
         mockTokenVerifier,
@@ -246,6 +250,7 @@ describe('AppleSocialAuthService', () => {
         mockStateStore,
         mockUserRepository,
         mockPhoneVerificationService,
+        undefined,
         undefined,
         undefined,
         mockTokenVerifier,
@@ -286,6 +291,7 @@ describe('AppleSocialAuthService', () => {
         mockStateStore,
         mockUserRepository,
         mockPhoneVerificationService,
+        undefined,
         undefined,
         undefined,
         mockTokenVerifier,
@@ -343,6 +349,57 @@ describe('AppleSocialAuthService', () => {
         expect(error).toBeInstanceOf(NAuthException);
         expect((error as NAuthException).code).toBe(AuthErrorCode.SOCIAL_EMAIL_REQUIRED);
       }
+    });
+
+    it('should throw error when email is missing', async () => {
+      const verifiedToken: VerifiedAppleTokenProfile = {
+        sub: 'apple-user-id',
+        email: null as any,
+        email_verified: true,
+        is_private_email: false,
+      };
+
+      (mockTokenVerifier.verifyAppleToken as jest.Mock).mockResolvedValue(verifiedToken);
+
+      try {
+        await (service as any).verifyNativeToken('id-token');
+        fail('Should have thrown NAuthException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect((error as NAuthException).code).toBe(AuthErrorCode.SOCIAL_EMAIL_REQUIRED);
+      }
+    });
+
+    it('should throw error when getAuthUrl called and OAuth is disabled', async () => {
+      const disabledConfig = {
+        ...mockConfig,
+        social: {
+          apple: {
+            enabled: false,
+          },
+        },
+      } as NAuthConfig;
+
+      const disabledService = new AppleSocialAuthService(
+        disabledConfig,
+        mockLogger,
+        mockAuthService,
+        mockSocialAuthService,
+        mockJwtService,
+        mockSessionService,
+        mockChallengeHelper,
+        mockClientInfoService,
+        mockStateStore,
+        mockUserRepository,
+        mockPhoneVerificationService,
+        undefined,
+        undefined,
+        undefined,
+        mockTokenVerifier,
+        mockSocialProviderSecretRepository,
+      );
+
+      await expect(disabledService.getAuthUrl()).rejects.toThrow(NAuthException);
     });
   });
 });

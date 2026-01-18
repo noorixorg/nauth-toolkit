@@ -11,6 +11,8 @@ module.exports = {
   // Transform ESM modules like jose
   transformIgnorePatterns: ['node_modules/(?!(jose)/)'],
   moduleNameMapper: {
-    '^@nauth-toolkit/core$': '<rootDir>/../../../core/src',
+    '^@nauth-toolkit/core$': '<rootDir>/../../../core/dist',
+    '^@nauth-toolkit/core/internal$': '<rootDir>/../../../core/dist/internal',
   },
+  setupFilesAfterEnv: ['<rootDir>/../../../core/jest.setup.ts'],
 };

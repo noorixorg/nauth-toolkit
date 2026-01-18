@@ -714,4 +714,274 @@ describe('AdminOperations', () => {
       expect(result.socialAccount.provider).toBe('google');
     });
   });
+
+  describe('Query String Building', () => {
+    it('should skip undefined and null values', async () => {
+      httpAdapter.setResponse({ users: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } });
+
+      await adminOps.getUsers({
+        page: 1,
+        limit: 10,
+        email: undefined,
+        phone: null as any,
+      });
+
+      const requests = httpAdapter.getRequests();
+      const url = requests[0].url;
+      expect(url).not.toContain('email');
+      expect(url).not.toContain('phone');
+    });
+
+    it('should handle array values in query string', async () => {
+      httpAdapter.setResponse({ users: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } });
+
+      const adminOpsWithArray = new AdminOperations(createTestConfig());
+      const adapter = (adminOpsWithArray as any).config.httpAdapter as MockHttpAdapter;
+      adapter.setResponse({ users: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } });
+
+      const buildQueryString = (adminOpsWithArray as any).buildQueryString.bind(adminOpsWithArray);
+      const queryString = buildQueryString({ tags: ['tag1', 'tag2'], page: 1 });
+
+      expect(queryString).toContain('tags=tag1');
+      expect(queryString).toContain('tags=tag2');
+      expect(queryString).toContain('page=1');
+    });
+
+    it('should handle date filter values in query string', async () => {
+      httpAdapter.setResponse({ users: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } });
+      const testDate = new Date('2024-01-01T00:00:00Z');
+
+      await adminOps.getUsers({
+        page: 1,
+        limit: 10,
+        createdAt: { operator: 'gte', value: testDate },
+      });
+
+      const requests = httpAdapter.getRequests();
+      const url = decodeURIComponent(requests[0].url);
+      expect(url).toContain('createdAt[operator]=gte');
+      expect(url).toContain('createdAt[value]');
+      expect(url).toContain(testDate.toISOString());
+    });
+
+    it('should handle nested objects in query string', async () => {
+      httpAdapter.setResponse({ users: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } });
+
+      await adminOps.getUsers({
+        page: 1,
+        limit: 10,
+        createdAt: { operator: 'gte', value: new Date('2024-01-01') } as any,
+      });
+
+      const requests = httpAdapter.getRequests();
+      const url = decodeURIComponent(requests[0].url);
+      expect(url).toContain('createdAt[operator]');
+      expect(url).toContain('createdAt[value]');
+    });
+  });
+
+  describe('JSON Mode Authentication', () => {
+    it('should include access token in headers for JSON mode', async () => {
+      const jsonConfig = createTestConfig({
+        tokenDelivery: 'json',
+      });
+      const jsonStorage = jsonConfig.storage as MockStorage;
+      await jsonStorage.setItem('nauth_access_token', 'test-token-123');
+      const jsonAdminOps = new AdminOperations(jsonConfig);
+      const jsonAdapter = jsonConfig.httpAdapter as MockHttpAdapter;
+      jsonAdapter.setResponse({ users: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } });
+
+      await jsonAdminOps.getUsers();
+
+      const requests = jsonAdapter.getRequests();
+      expect(requests[0].headers?.['Authorization']).toBe('Bearer test-token-123');
+    });
+
+    it('should include device token in headers for JSON mode', async () => {
+      const jsonConfig = createTestConfig({
+        tokenDelivery: 'json',
+      });
+      const jsonStorage = jsonConfig.storage as MockStorage;
+      await jsonStorage.setItem('nauth_device_token', 'device-token-123');
+      const jsonAdminOps = new AdminOperations(jsonConfig);
+      const jsonAdapter = jsonConfig.httpAdapter as MockHttpAdapter;
+      jsonAdapter.setResponse({ users: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } });
+
+      await jsonAdminOps.getUsers();
+
+      const requests = jsonAdapter.getRequests();
+      expect(requests[0].headers?.['X-Device-Token']).toBe('device-token-123');
+    });
+
+    it('should handle storage errors gracefully in JSON mode', async () => {
+      class FailingStorage implements NAuthStorageAdapter {
+        async getItem(): Promise<string | null> {
+          throw new Error('Storage error');
+        }
+        async setItem(): Promise<void> {}
+        async removeItem(): Promise<void> {}
+        async clear(): Promise<void> {}
+      }
+
+      const jsonConfig = createTestConfig({
+        tokenDelivery: 'json',
+        storage: new FailingStorage(),
+      });
+      const jsonAdminOps = new AdminOperations(jsonConfig);
+      const jsonAdapter = jsonConfig.httpAdapter as MockHttpAdapter;
+      jsonAdapter.setResponse({ users: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } });
+
+      await jsonAdminOps.getUsers();
+
+      const requests = jsonAdapter.getRequests();
+      expect(requests[0].headers?.['Authorization']).toBeUndefined();
+    });
+  });
+
+  describe('Cookies Mode CSRF', () => {
+    let originalWindow: any;
+    let originalDocument: any;
+
+    beforeEach(() => {
+      originalWindow = (global as any).window;
+      originalDocument = (global as any).document;
+      (global as any).window = {};
+      (global as any).document = {
+        cookie: 'nauth_csrf_token=test-csrf-token-123',
+      };
+    });
+
+    afterEach(() => {
+      (global as any).window = originalWindow;
+      (global as any).document = originalDocument;
+    });
+
+    it('should include CSRF token in headers for POST requests in cookies mode', async () => {
+      const cookiesConfig = createTestConfig({
+        tokenDelivery: 'cookies',
+      });
+      const cookiesAdminOps = new AdminOperations(cookiesConfig);
+      const cookiesAdapter = cookiesConfig.httpAdapter as MockHttpAdapter;
+      cookiesAdapter.setResponse({ user: { sub: 'test' } });
+
+      await cookiesAdminOps.createUser({
+        email: 'test@example.com',
+        password: 'password123',
+      });
+
+      const requests = cookiesAdapter.getRequests();
+      expect(requests[0].headers?.['x-csrf-token']).toBe('test-csrf-token-123');
+    });
+
+    it('should handle missing CSRF token gracefully', async () => {
+      Object.defineProperty(global, 'document', {
+        value: {
+          cookie: '',
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      const cookiesConfig = createTestConfig({
+        tokenDelivery: 'cookies',
+      });
+      const cookiesAdminOps = new AdminOperations(cookiesConfig);
+      const cookiesAdapter = cookiesConfig.httpAdapter as MockHttpAdapter;
+      cookiesAdapter.setResponse({ user: { sub: 'test' } });
+
+      await cookiesAdminOps.createUser({
+        email: 'test@example.com',
+        password: 'password123',
+      });
+
+      const requests = cookiesAdapter.getRequests();
+      expect(requests[0].headers?.['x-csrf-token']).toBeUndefined();
+    });
+  });
+
+  describe('Error Handling in HTTP Methods', () => {
+    it('should handle errors in POST method', async () => {
+      class PostErrorAdapter implements HttpAdapter {
+        async request<T>(): Promise<HttpResponse<T>> {
+          throw {
+            response: {
+              status: 400,
+              data: {
+                code: 'VALIDATION_FAILED',
+                message: 'Invalid input',
+              },
+            },
+          };
+        }
+      }
+
+      const errorConfig = createTestConfig({
+        httpAdapter: new PostErrorAdapter(),
+      });
+      const errorAdminOps = new AdminOperations(errorConfig);
+
+      await expect(
+        errorAdminOps.createUser({
+          email: 'test@example.com',
+          password: 'password123',
+        }),
+      ).rejects.toThrow(NAuthClientError);
+    });
+
+    it('should handle errors in DELETE method', async () => {
+      class DeleteErrorAdapter implements HttpAdapter {
+        async request<T>(): Promise<HttpResponse<T>> {
+          throw {
+            response: {
+              status: 404,
+              data: {
+                code: 'USER_NOT_FOUND',
+                message: 'User not found',
+              },
+            },
+          };
+        }
+      }
+
+      const errorConfig = createTestConfig({
+        httpAdapter: new DeleteErrorAdapter(),
+      });
+      const errorAdminOps = new AdminOperations(errorConfig);
+
+      await expect(errorAdminOps.deleteUser('test-uuid')).rejects.toThrow(NAuthClientError);
+    });
+
+    it('should extract error details from HTTP adapter response', async () => {
+      class DetailedErrorAdapter implements HttpAdapter {
+        async request<T>(): Promise<HttpResponse<T>> {
+          throw {
+            response: {
+              status: 500,
+              data: {
+                code: 'INTERNAL_ERROR',
+                message: 'Server error',
+                details: { stack: 'error stack' },
+              },
+            },
+          };
+        }
+      }
+
+      const errorConfig = createTestConfig({
+        httpAdapter: new DetailedErrorAdapter(),
+      });
+      const errorAdminOps = new AdminOperations(errorConfig);
+
+      try {
+        await errorAdminOps.getUser('test-uuid');
+        fail('Should have thrown error');
+      } catch (error) {
+        expect(error).toBeInstanceOf(NAuthClientError);
+        const clientError = error as NAuthClientError;
+        expect(clientError.code).toBe(NAuthErrorCode.INTERNAL_ERROR);
+        expect(clientError.message).toBe('Server error');
+        expect(clientError.details).toBeDefined();
+      }
+    });
+  });
 });

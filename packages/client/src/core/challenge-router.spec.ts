@@ -285,5 +285,101 @@ describe('ChallengeRouter', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/session-expired');
     });
   });
+
+  describe('navigateToSuccess', () => {
+    it('should include query parameters in URL', async () => {
+      mockConfig.navigationHandler = mockNavigate;
+
+      const router = new ChallengeRouter(mockConfig);
+
+      await router.navigateToSuccess({ returnTo: '/dashboard', source: 'signup' });
+
+      const callUrl = decodeURIComponent(mockNavigate.mock.calls[0][0]);
+      expect(callUrl).toMatch(/returnTo=\/dashboard/);
+      expect(callUrl).toContain('source=signup');
+    });
+
+    it('should handle URL with existing query parameters', async () => {
+      mockConfig.redirects!.success = '/dashboard?existing=param';
+      mockConfig.navigationHandler = mockNavigate;
+
+      const router = new ChallengeRouter(mockConfig);
+
+      await router.navigateToSuccess({ returnTo: '/dashboard' });
+
+      expect(mockNavigate).toHaveBeenCalledWith(
+        expect.stringMatching(/\/dashboard\?existing=param&returnTo=/),
+      );
+    });
+
+    it('should skip null and undefined query parameters', async () => {
+      mockConfig.navigationHandler = mockNavigate;
+
+      const router = new ChallengeRouter(mockConfig);
+
+      await router.navigateToSuccess({
+        returnTo: '/dashboard',
+        source: null as any,
+        extra: undefined as any,
+      });
+
+      const callUrl = decodeURIComponent(mockNavigate.mock.calls[0][0]);
+      expect(callUrl).toMatch(/returnTo=\/dashboard/);
+      expect(callUrl).not.toContain('source');
+      expect(callUrl).not.toContain('extra');
+    });
+  });
+
+  describe('getStoredOauthState', () => {
+    it('should handle storage errors gracefully', async () => {
+      const failingStorage = {
+        getItem: jest.fn().mockRejectedValue(new Error('Storage error')),
+        setItem: jest.fn(),
+        removeItem: jest.fn(),
+        clear: jest.fn(),
+      };
+
+      mockConfig.storage = failingStorage as any;
+      mockConfig.navigationHandler = mockNavigate;
+
+      const router = new ChallengeRouter(mockConfig);
+      const response: AuthResponse = {
+        user: { sub: '123', email: 'test@example.com', isEmailVerified: true },
+      };
+
+      await router.handleAuthResponse(response, { source: 'login' });
+
+      expect(mockNavigate).toHaveBeenCalled();
+    });
+  });
+
+  describe('buildMFAUrl', () => {
+    it('should return null when no mfaRoutes configured', () => {
+      const router = new ChallengeRouter(mockConfig);
+      const response: AuthResponse = {
+        challengeName: AuthChallenge.MFA_REQUIRED,
+        session: 'test-session',
+        challengeParameters: {
+          preferredMethod: 'sms',
+        },
+      };
+
+      const url = router.buildChallengeUrl(response);
+      expect(url).toBe('/auth/challenge/mfa-required');
+    });
+  });
+
+  describe('getChallengeUrl', () => {
+    it('should return challenge URL', () => {
+      const router = new ChallengeRouter(mockConfig);
+      const response: AuthResponse = {
+        challengeName: AuthChallenge.VERIFY_EMAIL,
+        session: 'test-session',
+      };
+
+      const url = router.getChallengeUrl(response);
+      expect(url).toBe('/auth/challenge/verify-email');
+    });
+  });
 });
 

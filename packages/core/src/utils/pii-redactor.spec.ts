@@ -126,5 +126,73 @@ describe('PiiRedactor', () => {
       const redacted = redactor.redactMessage(message);
       expect(redacted).toBe(message); // Should be unchanged
     });
+
+    it('should redact IPv6 addresses', () => {
+      const message = 'Login from 2001:0db8:85a3:0000:0000:8a2e:0370:7334';
+      const redacted = redactor.redactMessage(message);
+      expect(redacted).toContain('***');
+    });
+
+    it('should redact bearer tokens', () => {
+      const message = 'Authorization: Bearer abc123def456ghi789jkl012mno345pqr678stu901vwx234yz';
+      const redacted = redactor.redactMessage(message);
+      expect(redacted).toContain('[REDACTED_TOKEN]');
+    });
+
+    it('should redact long alphanumeric tokens', () => {
+      const message = 'Token: abc123def456ghi789jkl012mno345pqr678stu901vwx234yz567';
+      const redacted = redactor.redactMessage(message);
+      expect(redacted).toContain('[REDACTED_TOKEN]');
+    });
+
+    it('should handle email with short local part', () => {
+      const message = 'User ab@example.com logged in';
+      const redacted = redactor.redactMessage(message);
+      expect(redacted).toContain('a***@');
+    });
+
+    it('should redactObject handle nested objects', () => {
+      const metadata = {
+        user: {
+          email: 'user@example.com',
+          nested: {
+            phone: '+1234567890',
+          },
+        },
+      };
+      const redacted = redactor.redactMetadata(metadata);
+      expect((redacted?.user as any)?.email).toContain('***');
+      expect((redacted?.user as any)?.nested?.phone).toContain('***');
+    });
+
+    it('should handle Error objects in metadata', () => {
+      const error = new Error('Test error');
+      const metadata = {
+        error,
+        message: 'Error occurred',
+      };
+      const redacted = redactor.redactMetadata(metadata);
+      expect(redacted?.error).toBe(error);
+      expect(redacted?.message).toBeDefined();
+    });
+
+    it('should handle null values in metadata', () => {
+      const metadata = {
+        userId: '123',
+        email: null,
+        phone: null,
+      };
+      const redacted = redactor.redactMetadata(metadata);
+      expect(redacted?.userId).toBe('123');
+      expect(redacted?.email).toBeNull();
+    });
+
+    it('should handle array values in metadata', () => {
+      const metadata = {
+        emails: ['user1@example.com', 'user2@example.com'],
+      };
+      const redacted = redactor.redactMetadata(metadata);
+      expect(Array.isArray(redacted?.emails)).toBe(true);
+    });
   });
 });

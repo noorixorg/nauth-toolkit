@@ -70,7 +70,7 @@ describe('CookieTokenInterceptor', () => {
         return method;
       }),
       setAuthCookies: jest.fn((res: any, tokens: any) => {
-        // Mock implementation that actually sets cookies via res.cookie
+        // Mock implementation that actually sets cookies via res.cookie or res.setCookie
         // Check for exp claim in tokens (mimicking real behavior)
         if (tokens.accessToken) {
           const match = /exp=(\d+)/.exec(tokens.accessToken);
@@ -86,27 +86,29 @@ describe('CookieTokenInterceptor', () => {
           }
         }
 
-        if (res.cookie && cookiesSet) {
+        const setCookieFn = res.cookie || res.setCookie;
+        if (setCookieFn && cookiesSet) {
           const cookieOptions = { httpOnly: true, secure: true, sameSite: 'strict' as const, path: '/' };
           if (tokens.accessToken) {
-            res.cookie('nauth_access_token', tokens.accessToken, { ...cookieOptions, maxAge: 900000 });
+            setCookieFn('nauth_access_token', tokens.accessToken, { ...cookieOptions, maxAge: 900000 });
             cookiesSet.push({ name: 'nauth_access_token', value: tokens.accessToken, options: cookieOptions });
           }
           if (tokens.refreshToken) {
-            res.cookie('nauth_refresh_token', tokens.refreshToken, { ...cookieOptions, maxAge: 3600000 });
+            setCookieFn('nauth_refresh_token', tokens.refreshToken, { ...cookieOptions, maxAge: 3600000 });
             cookiesSet.push({ name: 'nauth_refresh_token', value: tokens.refreshToken, options: cookieOptions });
           }
           if (tokens.deviceToken) {
-            res.cookie('nauth_device_token', tokens.deviceToken, cookieOptions);
+            setCookieFn('nauth_device_token', tokens.deviceToken, cookieOptions);
             cookiesSet.push({ name: 'nauth_device_token', value: tokens.deviceToken, options: cookieOptions });
           }
         }
       }),
       setCsrfCookie: jest.fn(),
       setDeviceTokenCookie: jest.fn((res: any, deviceToken: string) => {
-        if (res.cookie && cookiesSet) {
+        const setCookieFn = res.cookie || res.setCookie;
+        if (setCookieFn && cookiesSet) {
           const cookieOptions = { httpOnly: true, secure: true, sameSite: 'strict' as const, path: '/' };
-          res.cookie('nauth_device_token', deviceToken, cookieOptions);
+          setCookieFn('nauth_device_token', deviceToken, cookieOptions);
           cookiesSet.push({ name: 'nauth_device_token', value: deviceToken, options: cookieOptions });
         }
       }),
@@ -367,6 +369,139 @@ describe('CookieTokenInterceptor', () => {
       expect(cookiesSet.length).toBe(0); // No cookies set
       expect(result.accessToken).toContain('access');
       expect(result.refreshToken).toContain('refresh');
+      done();
+    });
+  });
+
+  it('handles deviceToken-only response in cookies mode', (done) => {
+    const config = { tokenDelivery: { method: 'cookies' } } as unknown as NAuthConfig;
+    const { ctx, cookiesSet } = createHttpContextMock();
+    const tokenDeliveryService = createTokenDeliveryService(config, cookiesSet);
+    const interceptor = new CookieTokenInterceptor(tokenDeliveryService, reflector);
+
+    const next: CallHandler = {
+      handle: () =>
+        of({
+          deviceToken: 'device-token-123',
+        }),
+    } as any;
+
+    interceptor.intercept(ctx, next).subscribe((result: any) => {
+      expect(cookiesSet.find((c) => c.name === 'nauth_device_token')).toBeTruthy();
+      expect(result).toEqual({});
+      done();
+    });
+  });
+
+  it('handles non-HTTP context (e.g., WebSocket)', (done) => {
+    const config = { tokenDelivery: { method: 'cookies' } } as unknown as NAuthConfig;
+    const tokenDeliveryService = createTokenDeliveryService(config);
+    const interceptor = new CookieTokenInterceptor(tokenDeliveryService, reflector);
+
+    const wsContext = {
+      getType: () => 'ws',
+      switchToHttp: () => ({ getResponse: () => ({}), getRequest: () => ({}) }),
+      getHandler: () => ({}),
+    } as unknown as ExecutionContext;
+
+    const next: CallHandler = {
+      handle: () => of({ accessToken: 'token', refreshToken: 'refresh' }),
+    } as any;
+
+    interceptor.intercept(wsContext, next).subscribe((result: any) => {
+      expect(result.accessToken).toBe('token');
+      done();
+    });
+  });
+
+  it('handles array responses', (done) => {
+    const config = { tokenDelivery: { method: 'cookies' } } as unknown as NAuthConfig;
+    const { ctx } = createHttpContextMock();
+    const tokenDeliveryService = createTokenDeliveryService(config);
+    const interceptor = new CookieTokenInterceptor(tokenDeliveryService, reflector);
+
+    const next: CallHandler = {
+      handle: () => of([{ id: 1 }, { id: 2 }]),
+    } as any;
+
+    interceptor.intercept(ctx, next).subscribe((result: any) => {
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(2);
+      done();
+    });
+  });
+
+  it('handles cookie recipe from social redirect', (done) => {
+    const config = { tokenDelivery: { method: 'cookies' } } as unknown as NAuthConfig;
+    const cookiesSet: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
+    const res = {
+      cookie: (name: string, value: string, options: Record<string, unknown>) => {
+        cookiesSet.push({ name, value, options });
+      },
+    } as any;
+
+    const req = { headers: {} } as any;
+    req.__nauthCookieRecipe = [
+      { name: 'nauth_access_token', value: 'token-123', options: { httpOnly: true } },
+      { name: 'nauth_refresh_token', value: 'refresh-456', options: { httpOnly: true } },
+    ];
+
+    const ctx = {
+      getType: () => 'http',
+      switchToHttp: () => ({
+        getResponse: () => res,
+        getRequest: () => req,
+      }),
+      getHandler: () => ({}),
+    } as unknown as ExecutionContext;
+
+    const tokenDeliveryService = createTokenDeliveryService(config, cookiesSet);
+    const interceptor = new CookieTokenInterceptor(tokenDeliveryService, reflector);
+
+    const next: CallHandler = {
+      handle: () => of({ url: 'https://example.com/success' }),
+    } as any;
+
+    interceptor.intercept(ctx, next).subscribe((result: any) => {
+      expect(cookiesSet.find((c) => c.name === 'nauth_access_token')).toBeTruthy();
+      expect(cookiesSet.find((c) => c.name === 'nauth_refresh_token')).toBeTruthy();
+      expect(req.__nauthCookieRecipe).toBeUndefined();
+      done();
+    });
+  });
+
+  it('handles Fastify setCookie method', (done) => {
+    const config = { tokenDelivery: { method: 'cookies' } } as unknown as NAuthConfig;
+    const cookiesSet: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
+    const res = {
+      setCookie: (name: string, value: string, options: Record<string, unknown>) => {
+        cookiesSet.push({ name, value, options });
+      },
+    } as any;
+
+    const ctx = {
+      getType: () => 'http',
+      switchToHttp: () => ({ getResponse: () => res, getRequest: () => ({ headers: {} }) }),
+      getHandler: () => ({}),
+    } as unknown as ExecutionContext;
+
+    const tokenDeliveryService = createTokenDeliveryService(config, cookiesSet);
+    const interceptor = new CookieTokenInterceptor(tokenDeliveryService, reflector);
+
+    const next: CallHandler = {
+      handle: () =>
+        of({
+          accessToken: `access:exp=${Math.floor(Date.now() / 1000) + 900}`,
+          refreshToken: `refresh:exp=${Math.floor(Date.now() / 1000) + 3600}`,
+          accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 900,
+          refreshTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+          user: { sub: 'sub', email: 'a@b.c', isEmailVerified: true },
+        }),
+    } as any;
+
+    interceptor.intercept(ctx, next).subscribe((result: any) => {
+      expect(cookiesSet.length).toBeGreaterThan(0);
+      expect(result.accessToken).toBeUndefined();
       done();
     });
   });

@@ -138,6 +138,7 @@ describe('GoogleSocialAuthService', () => {
         mockPhoneVerificationService,
         mockAuditService,
         undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
 
@@ -167,6 +168,7 @@ describe('GoogleSocialAuthService', () => {
         mockPhoneVerificationService,
         mockAuditService,
         undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
 
@@ -192,6 +194,7 @@ describe('GoogleSocialAuthService', () => {
           mockPhoneVerificationService,
           mockAuditService,
           undefined, // trustedDeviceService
+          undefined, // hookRegistry
           mockTokenVerifier,
         );
         fail('Should have thrown NAuthException');
@@ -220,6 +223,7 @@ describe('GoogleSocialAuthService', () => {
           mockPhoneVerificationService,
           mockAuditService,
           undefined, // trustedDeviceService
+          undefined, // hookRegistry
           mockTokenVerifier,
         );
         fail('Should have thrown NAuthException');
@@ -247,6 +251,7 @@ describe('GoogleSocialAuthService', () => {
         mockPhoneVerificationService,
         mockAuditService,
         undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
 
@@ -269,6 +274,7 @@ describe('GoogleSocialAuthService', () => {
         mockPhoneVerificationService,
         mockAuditService,
         undefined, // trustedDeviceService
+        undefined, // hookRegistry
         undefined, // No token verifier provided
       );
 
@@ -297,6 +303,7 @@ describe('GoogleSocialAuthService', () => {
         mockPhoneVerificationService,
         mockAuditService,
         undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
     });
@@ -346,6 +353,7 @@ describe('GoogleSocialAuthService', () => {
         mockPhoneVerificationService,
         mockAuditService,
         undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
     });
@@ -399,6 +407,7 @@ describe('GoogleSocialAuthService', () => {
         mockPhoneVerificationService,
         mockAuditService,
         undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
 
@@ -433,6 +442,7 @@ describe('GoogleSocialAuthService', () => {
         mockPhoneVerificationService,
         mockAuditService,
         undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
     });
@@ -511,6 +521,7 @@ describe('GoogleSocialAuthService', () => {
           mockPhoneVerificationService,
           mockAuditService,
           undefined, // trustedDeviceService
+          undefined, // hookRegistry
           mockTokenVerifier,
       );
 
@@ -533,6 +544,7 @@ describe('GoogleSocialAuthService', () => {
         mockPhoneVerificationService,
         mockAuditService,
         undefined, // trustedDeviceService
+        undefined, // hookRegistry
         undefined, // No token verifier
       );
 
@@ -593,6 +605,68 @@ describe('GoogleSocialAuthService', () => {
         expect((error as NAuthException).code).toBe(AuthErrorCode.SOCIAL_EMAIL_REQUIRED);
         expect((error as NAuthException).message).toContain('Email is required and must be verified by Google');
       }
+    });
+
+    it('should throw error when getAuthUrl called and OAuth is disabled', async () => {
+      const disabledConfig = {
+        ...mockConfig,
+        social: {
+          google: {
+            enabled: false,
+          },
+        },
+      } as NAuthConfig;
+
+      const disabledService = new GoogleSocialAuthService(
+        disabledConfig,
+        mockLogger,
+        mockAuthService,
+        mockSocialAuthService,
+        mockJwtService,
+        mockSessionService,
+        mockChallengeHelper,
+        mockClientInfoService,
+        mockStateStore,
+        mockUserRepository,
+        mockPhoneVerificationService,
+        mockAuditService,
+        undefined,
+        undefined,
+        mockTokenVerifier,
+      );
+
+      await expect(disabledService.getAuthUrl()).rejects.toThrow(NAuthException);
+    });
+
+    it('should handle getOAuthProfile when OAuth client is null', async () => {
+      const disabledConfig = {
+        ...mockConfig,
+        social: {
+          google: {
+            enabled: false,
+          },
+        },
+      } as NAuthConfig;
+
+      const disabledService = new GoogleSocialAuthService(
+        disabledConfig,
+        mockLogger,
+        mockAuthService,
+        mockSocialAuthService,
+        mockJwtService,
+        mockSessionService,
+        mockChallengeHelper,
+        mockClientInfoService,
+        mockStateStore,
+        mockUserRepository,
+        mockPhoneVerificationService,
+        mockAuditService,
+        undefined,
+        undefined,
+        mockTokenVerifier,
+      );
+
+      await expect((disabledService as any).getOAuthProfile('code', 'state')).rejects.toThrow(NAuthException);
     });
   });
 });
