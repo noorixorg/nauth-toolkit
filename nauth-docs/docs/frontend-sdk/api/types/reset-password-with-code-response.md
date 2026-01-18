@@ -1,7 +1,6 @@
 ---
 title: ResetPasswordWithCodeResponse
 description: Response payload for password reset with verification code
-sidebar_position: 163
 keywords: [password, reset, code, response, dto, api]
 image: /img/api-social-card.png
 ---

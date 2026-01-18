@@ -1,7 +1,6 @@
 ---
 title: Guards
 description: Angular route guards for authentication
-sidebar_position: 4
 keywords: [angular, guard, route, authentication]
 image: /img/api-social-card.png
 ---

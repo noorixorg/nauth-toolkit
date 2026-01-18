@@ -1,7 +1,6 @@
 ---
 title: Challenge Handling
 description: Guide to handling authentication challenges (verification, MFA, password change)
-sidebar_position: 2
 keywords: [challenge, verification, mfa, email, phone, password]
 image: /img/api-social-card.png
 ---

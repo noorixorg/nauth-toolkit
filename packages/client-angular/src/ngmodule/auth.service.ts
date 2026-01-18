@@ -26,6 +26,7 @@ import {
   LinkedAccountsResponse,
   SocialVerifyRequest,
   AuditHistoryResponse,
+  AdminOperations,
 } from '@nauth-toolkit/client';
 
 /**
@@ -930,6 +931,46 @@ export class AuthService {
    */
   getClient(): NAuthClient {
     return this.client;
+  }
+
+  // ============================================================================
+  // Admin Operations
+  // ============================================================================
+
+  /**
+   * Admin operations (if enabled in config).
+   *
+   * Provides admin-level user management methods:
+   * - User CRUD operations
+   * - Password management
+   * - Session management
+   * - MFA management
+   * - Audit history
+   *
+   * Returns undefined if admin was not configured.
+   *
+   * @returns AdminOperations instance or undefined
+   *
+   * @example
+   * ```typescript
+   * // Check if admin is available
+   * if (this.auth.admin) {
+   *   const users = await this.auth.admin.getUsers({ page: 1 });
+   * }
+   *
+   * // With optional chaining
+   * await this.auth.admin?.deleteUser(sub);
+   *
+   * // Create user
+   * const result = await this.auth.admin?.createUser({
+   *   email: 'user@example.com',
+   *   password: 'SecurePass123!',
+   *   isEmailVerified: true,
+   * });
+   * ```
+   */
+  get admin(): AdminOperations | undefined {
+    return this.client.admin;
   }
 
   // ============================================================================

@@ -131,6 +131,9 @@ export const appConfig: ApplicationConfig = {
           oauthError: '/login',
           challengeBase: '/auth/challenge',
         },
+        admin: {
+          pathPrefix: '/admin',
+        },
       } satisfies NAuthClientConfig,
     },
     AngularHttpAdapter,

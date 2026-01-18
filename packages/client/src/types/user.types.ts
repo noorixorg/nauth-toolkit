@@ -1,5 +1,8 @@
 /**
  * Full user profile returned from profile endpoints.
+ *
+ * Matches UserResponseDto structure from backend.
+ * Used for both user-level and admin-level responses.
  */
 export interface AuthUser {
   sub: string;
@@ -10,8 +13,13 @@ export interface AuthUser {
   phone?: string | null;
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
-  isActive?: boolean;
-  mfaEnabled?: boolean;
+  isActive: boolean;
+  /**
+   * Account lock status
+   * Locked accounts cannot login until unlocked
+   */
+  isLocked: boolean;
+  mfaEnabled: boolean;
   socialProviders?: string[] | null;
   hasPasswordHash: boolean;
   /**
@@ -21,8 +29,8 @@ export interface AuthUser {
    * Use `hasPasswordHash` and `socialProviders` to determine what login methods the account supports.
    */
   sessionAuthMethod?: string | null;
-  createdAt?: string | Date;
-  updatedAt?: string | Date;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }
 
 /**

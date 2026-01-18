@@ -6,6 +6,7 @@ export * from './core/events';
 export * from './core/http-adapter';
 export * from './core/challenge-helpers';
 export * from './core/challenge-router';
+export * from './core/admin-operations';
 export * from './storage/interface';
 export * from './storage/browser';
 export * from './storage/memory';

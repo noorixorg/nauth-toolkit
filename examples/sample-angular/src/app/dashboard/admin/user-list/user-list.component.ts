@@ -11,8 +11,14 @@ import {
 } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { User, GetUsersRequest } from '../../../services/admin.service';
+import { AuthUser, GetUsersRequest } from '@nauth-toolkit/client';
 import { AccordionModule } from 'primeng/accordion';
+
+/**
+ * User type alias for backward compatibility
+ * Maps to AuthUser (same structure as backend UserResponseDto)
+ */
+type User = AuthUser;
 import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { DatePickerModule } from 'primeng/datepicker';
@@ -331,7 +337,7 @@ export class UserListComponent implements OnInit {
   /**
    * Get status tag severity
    */
-  getStatusSeverity(user: User): 'success' | 'danger' | 'warn' {
+  getStatusSeverity(user: AuthUser): 'success' | 'danger' | 'warn' {
     if (user.isLocked) return 'danger';
     if (!user.isActive) return 'warn';
     return 'success';

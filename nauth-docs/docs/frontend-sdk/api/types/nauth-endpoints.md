@@ -3,7 +3,6 @@ title: NAuthEndpoints
 description: Endpoint paths configuration for the client SDK
 keywords: [endpoints, configuration, api, paths]
 image: /img/api-social-card.png
-sidebar_position: 240
 ---
 
 # NAuthEndpoints

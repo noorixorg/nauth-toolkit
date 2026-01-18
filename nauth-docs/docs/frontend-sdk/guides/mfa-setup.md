@@ -1,7 +1,6 @@
 ---
 title: MFA Setup
 description: Guide to implementing multi-factor authentication setup and verification
-sidebar_position: 4
 keywords: [mfa, totp, sms, email, passkey, webauthn, 2fa]
 image: /img/api-social-card.png
 ---

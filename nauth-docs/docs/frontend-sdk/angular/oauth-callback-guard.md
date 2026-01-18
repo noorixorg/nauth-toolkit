@@ -1,7 +1,6 @@
 ---
 title: Social Redirect Callback Guard
 description: Drop-in route guard for handling web social login callbacks
-sidebar_position: 50
 keywords: [social, oauth, guard, redirect, callback, route, angular]
 image: /img/api-social-card.png
 ---

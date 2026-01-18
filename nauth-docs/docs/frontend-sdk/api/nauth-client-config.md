@@ -1,7 +1,6 @@
 ---
 title: NAuthClientConfig
 description: Configuration options for NAuthClient
-sidebar_position: 2
 keywords: [config, configuration, options, settings]
 image: /img/api-social-card.png
 ---
@@ -37,6 +36,7 @@ import { NAuthClientConfig } from '@nauth-toolkit/client';
 | `onAuthStateChange` | `(user: [AuthUser](./types/auth-user) \| null) => void`                                                                            | No       | Callback when authentication state changes                                                                                                                             |
 | `onError`           | `(error: [NAuthClientError](./nauth-client-error)) => void`                                                                        | No       | Global error handler                                                                                                                                                   |
 | `debug`             | `boolean`                                                                                                                          | No       | Enable debug logging                                                                                                                                                   |
+| `admin`             | `{ pathPrefix?: string; endpoints?: Partial<[NAuthAdminEndpoints](./types/nauth-admin-endpoints)>; headers?: Record<string, string> }` | No       | Admin operations configuration. When provided, enables `client.admin.*` methods. See [AdminOperations](./admin-operations) for details.                                |
 
 ### Redirect URLs
 

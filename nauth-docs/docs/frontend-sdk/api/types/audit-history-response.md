@@ -1,7 +1,6 @@
 ---
 title: AuditHistoryResponse
 description: Paginated response containing authentication and security audit events
-sidebar_position: 10
 keywords: [audit, history, events, security, pagination, api]
 image: /img/api-social-card.png
 ---

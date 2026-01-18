@@ -194,9 +194,12 @@ describe('AuthService', () => {
   let mockLogger: jest.Mocked<NAuthLogger>;
   let mockConfig: NAuthConfig;
 
+  // Test constants
+  const mockChallengeSessionId = 'c31b654c-2746-4168-acee-c175083a65cd';
+
   const mockUser: IUser = {
     id: 1,
-    sub: 'user-123',
+    sub: 'a21b654c-2746-4168-acee-c175083a65cd',
     email: 'test@example.com',
     username: 'testuser',
     phone: null,
@@ -2871,7 +2874,7 @@ describe('AuthService', () => {
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
-          expect(error.code).toBe(AuthErrorCode.NOT_FOUND);
+          expect(error.code).toBe(AuthErrorCode.PASSWORD_CHANGE_NOT_ALLOWED);
         }
       });
     });
@@ -4087,7 +4090,7 @@ describe('AuthService', () => {
           .updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }))
           .catch((error: unknown) => error);
         expect(error).toBeInstanceOf(NAuthException);
-        expect(error.message).toBe('Cannot set email verification to true: user does not have an email address');
+        expect((error as NAuthException).message).toBe('Cannot set email verification to true: user does not have an email address');
 
         expect(mockUserRepository.update).not.toHaveBeenCalled();
       });
@@ -4101,20 +4104,21 @@ describe('AuthService', () => {
           .updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isPhoneVerified: true }))
           .catch((error: unknown) => error);
         expect(error).toBeInstanceOf(NAuthException);
-        expect(error.message).toBe('Cannot set phone verification to true: user does not have a phone number');
+        expect((error as NAuthException).message).toBe('Cannot set phone verification to true: user does not have a phone number');
 
         expect(mockUserRepository.update).not.toHaveBeenCalled();
       });
 
       it('should throw error when user not found', async () => {
+        const nonExistentSub = 'b21b654c-2746-4168-acee-c175083a65cd';
         mockUserRepository.findOne.mockReset();
         mockUserRepository.findOne.mockResolvedValueOnce(null);
 
         const error = await adminService
-          .updateVerifiedStatus(createUpdateVerifiedStatusDto('non-existent-sub', { isEmailVerified: true }))
+          .updateVerifiedStatus(createUpdateVerifiedStatusDto(nonExistentSub, { isEmailVerified: true }))
           .catch((error: unknown) => error);
         expect(error).toBeInstanceOf(NAuthException);
-        expect(error.message).toBe('User not found');
+        expect((error as NAuthException).message).toBe('User not found');
 
         expect(mockUserRepository.update).not.toHaveBeenCalled();
       });
@@ -4144,11 +4148,11 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithEmail as any) // Initial lookup by sub
           .mockResolvedValueOnce(null); // Final fetch by id fails (after update)
 
-        const error = await service
+        const error = await adminService
           .updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }))
           .catch((error: unknown) => error);
         expect(error).toBeInstanceOf(NAuthException);
-        expect(error.message).toBe('Failed to reload user after update');
+        expect((error as NAuthException).message).toBe('Failed to reload user after update');
       });
     });
   });
@@ -4159,8 +4163,8 @@ describe('AuthService', () => {
 
   describe('respondToChallenge() - MFA_REQUIRED', () => {
     const mockChallengeSession = {
-      id: 'challenge-session-123',
-      sessionToken: 'challenge-session-123',
+      id: mockChallengeSessionId,
+      sessionToken: mockChallengeSessionId,
       user: mockUser,
       challengeName: AuthChallenge.MFA_REQUIRED,
       metadata: {},
@@ -4204,14 +4208,14 @@ describe('AuthService', () => {
     describe('Successful MFA verification', () => {
       it('should verify TOTP code successfully', async () => {
         const response: VerifyMFACodeResponse = {
-          session: 'challenge-session-123',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'totp',
           code: '123456',
         };
         const result = await service.respondToChallenge(createRespondChallengeDto(response));
 
-        expect(mockChallengeService.validateSession).toHaveBeenCalledWith('challenge-session-123');
+        expect(mockChallengeService.validateSession).toHaveBeenCalledWith(mockChallengeSessionId);
         // mfaService.verifyCode is called with an object { sub, methodName, code }
         expect(mockMfaService.verifyCode).toHaveBeenCalledWith({
           sub: mockUser.sub,
@@ -4219,7 +4223,7 @@ describe('AuthService', () => {
           code: '123456',
         });
         expect(mockChallengeService.validateAndConsumeSession).toHaveBeenCalledWith(
-          'challenge-session-123',
+          mockChallengeSessionId,
           AuthChallenge.MFA_REQUIRED,
         );
         expect(result).toBeDefined();
@@ -4231,7 +4235,7 @@ describe('AuthService', () => {
 
       it('should verify SMS code successfully', async () => {
         const response: VerifyMFACodeResponse = {
-          session: 'challenge-session-123',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'sms',
           code: '123456',
@@ -4248,7 +4252,7 @@ describe('AuthService', () => {
 
       it('should verify backup code successfully', async () => {
         const response: VerifyMFACodeResponse = {
-          session: 'challenge-session-123',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'backup',
           code: 'backup123',
@@ -4273,7 +4277,7 @@ describe('AuthService', () => {
         mockMfaService.verifyCode.mockResolvedValue({ valid: true } as any);
 
         const response: VerifyMFAPasskeyResponse = {
-          session: 'challenge-session-123',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'passkey',
           credential,
@@ -4294,7 +4298,7 @@ describe('AuthService', () => {
 
       it('should record MFA_VERIFICATION_SUCCESS audit event', async () => {
         const response: VerifyMFACodeResponse = {
-          session: 'challenge-session-123',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'totp',
           code: '123456',
@@ -4306,7 +4310,7 @@ describe('AuthService', () => {
             userId: mockUser.id,
             eventType: AuthAuditEventType.MFA_VERIFICATION_SUCCESS,
             eventStatus: 'SUCCESS',
-            challengeSessionId: 'challenge-session-123',
+            challengeSessionId: mockChallengeSessionId,
             authMethod: 'totp',
           }),
         );
@@ -4314,7 +4318,7 @@ describe('AuthService', () => {
 
       it('should update user last login after successful verification', async () => {
         const response: VerifyMFACodeResponse = {
-          session: 'challenge-session-123',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'totp',
           code: '123456',
@@ -4332,7 +4336,7 @@ describe('AuthService', () => {
         mockMfaService.verifyCode.mockResolvedValue({ valid: false } as any);
 
         const response: VerifyMFACodeResponse = {
-          session: 'challenge-session-123',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'totp',
           code: '123456',
@@ -4351,7 +4355,7 @@ describe('AuthService', () => {
         mockMfaService.verifyCode.mockResolvedValue({ valid: false } as any);
 
         const response: VerifyMFACodeResponse = {
-          session: 'challenge-session-123',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'totp',
           code: '123456',
@@ -4368,7 +4372,7 @@ describe('AuthService', () => {
             userId: mockUser.id,
             eventType: AuthAuditEventType.MFA_VERIFICATION_FAILED,
             eventStatus: 'FAILURE',
-            challengeSessionId: 'challenge-session-123',
+            challengeSessionId: mockChallengeSessionId,
             authMethod: 'totp',
           }),
         );
@@ -4378,7 +4382,7 @@ describe('AuthService', () => {
         mockMfaService.verifyCode.mockResolvedValue({ valid: false } as any);
 
         const response: VerifyMFACodeResponse = {
-          session: 'challenge-session-123',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'totp',
           code: '123456',
@@ -4395,7 +4399,7 @@ describe('AuthService', () => {
 
       it('should throw NAuthException if code is missing for non-passkey methods', async () => {
         const response: VerifyMFACodeResponse = {
-          session: 'challenge-session-123',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'totp',
           code: '', // Empty code
@@ -4412,7 +4416,7 @@ describe('AuthService', () => {
 
       it('should throw NAuthException if credential is missing for passkey', async () => {
         const response: VerifyMFAPasskeyResponse = {
-          session: 'challenge-session-123',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'passkey',
           credential: {} as any, // Empty credential - validation will fail
@@ -4431,7 +4435,7 @@ describe('AuthService', () => {
 
       it('should throw NAuthException if passkey challenge is missing in session', async () => {
         const response: VerifyMFAPasskeyResponse = {
-          session: 'challenge-session-123',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'passkey',
           credential: { id: 'passkey' },
@@ -4454,7 +4458,7 @@ describe('AuthService', () => {
         );
 
         const response: VerifyMFACodeResponse = {
-          session: 'invalid-session',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'totp',
           code: '123456',
@@ -4474,7 +4478,7 @@ describe('AuthService', () => {
         mockChallengeService.validateSession.mockResolvedValue(sessionWithoutUser as any);
 
         const response: VerifyMFACodeResponse = {
-          session: 'challenge-session-123',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'totp',
           code: '123456',
@@ -4512,7 +4516,7 @@ describe('AuthService', () => {
         );
 
         const response: VerifyMFACodeResponse = {
-          session: 'challenge-session-123',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'totp',
           code: '123456',
@@ -4531,7 +4535,7 @@ describe('AuthService', () => {
         mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
         const response: VerifyMFACodeResponse = {
-          session: 'challenge-session-123',
+          session: mockChallengeSessionId,
           type: 'MFA_REQUIRED',
           method: 'totp',
           code: '123456',
@@ -4718,8 +4722,8 @@ describe('AuthService', () => {
 
   describe('respondToChallenge()', () => {
     const mockChallengeSession = {
-      id: 'challenge-session-123',
-      sessionToken: 'session-token',
+      id: mockChallengeSessionId,
+      sessionToken: mockChallengeSessionId,
       user: mockUser,
       challengeName: AuthChallenge.VERIFY_EMAIL,
       metadata: {},
@@ -4761,13 +4765,13 @@ describe('AuthService', () => {
         } as any);
 
         const response: VerifyEmailResponse = {
-          session: 'session-token',
+          session: mockChallengeSessionId,
           type: 'VERIFY_EMAIL',
           code: '123456',
         };
         const result = await service.respondToChallenge(createRespondChallengeDto(response));
 
-        expect(mockChallengeService.validateSession).toHaveBeenCalledWith('session-token');
+        expect(mockChallengeService.validateSession).toHaveBeenCalledWith(mockChallengeSessionId);
         // verifyEmailWithCode is called with a DTO object
         expect(mockEmailVerificationService.verifyEmailWithCode).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -4777,7 +4781,7 @@ describe('AuthService', () => {
           }),
         );
         expect(mockChallengeService.validateAndConsumeSession).toHaveBeenCalledWith(
-          'session-token',
+          mockChallengeSessionId,
           AuthChallenge.VERIFY_EMAIL,
         );
         expect(mockChallengeHelper.determineAuthResponse).toHaveBeenCalled();
@@ -4810,13 +4814,13 @@ describe('AuthService', () => {
         } as any);
 
         const response: VerifyPhoneResponse = {
-          session: 'session-token',
+          session: mockChallengeSessionId,
           type: 'VERIFY_PHONE',
           code: '123456',
         };
         const result = await service.respondToChallenge(createRespondChallengeDto(response));
 
-        expect(mockChallengeService.validateSession).toHaveBeenCalledWith('session-token');
+        expect(mockChallengeService.validateSession).toHaveBeenCalledWith(mockChallengeSessionId);
         // verifyPhoneWithCodeBySub is called with a DTO object
         expect(mockPhoneVerificationService.verifyPhoneWithCodeBySub).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -4826,7 +4830,7 @@ describe('AuthService', () => {
           }),
         );
         expect(mockChallengeService.validateAndConsumeSession).toHaveBeenCalledWith(
-          'session-token',
+          mockChallengeSessionId,
           AuthChallenge.VERIFY_PHONE,
         );
         expect(result).toBeDefined();
@@ -4843,18 +4847,18 @@ describe('AuthService', () => {
         mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue(undefined as any);
         mockChallengeHelper.createChallengeResponse.mockResolvedValue({
           challengeName: AuthChallenge.VERIFY_PHONE,
-          session: 'challenge-session-token',
+          session: mockChallengeSessionId,
           challengeParameters: {},
         } as any);
 
         const response: CollectPhoneResponse = {
-          session: 'session-token',
+          session: mockChallengeSessionId,
           type: 'VERIFY_PHONE',
           phone: '+1234567890',
         };
         const result = await service.respondToChallenge(createRespondChallengeDto(response));
 
-        expect(mockChallengeService.validateSession).toHaveBeenCalledWith('session-token');
+        expect(mockChallengeService.validateSession).toHaveBeenCalledWith(mockChallengeSessionId);
         expect(mockUserRepository.update).toHaveBeenCalledWith({ sub: mockUser.sub }, { phone: '+1234567890' });
         // sendVerificationSMS is called with a DTO object
         expect(mockPhoneVerificationService.sendVerificationSMS).toHaveBeenCalledWith(
@@ -4877,7 +4881,7 @@ describe('AuthService', () => {
         mockChallengeService.validateSession.mockResolvedValue(phoneCollectSession as any);
 
         const response: CollectPhoneResponse = {
-          session: 'session-token',
+          session: mockChallengeSessionId,
           type: 'VERIFY_PHONE',
           phone: 'invalid-phone',
         };
@@ -4927,13 +4931,13 @@ describe('AuthService', () => {
         } as any);
 
         const response: ForceChangePasswordResponse = {
-          session: 'session-token',
+          session: mockChallengeSessionId,
           type: 'FORCE_CHANGE_PASSWORD',
           newPassword: 'NewPassword123!',
         };
         const result = await service.respondToChallenge(createRespondChallengeDto(response));
 
-        expect(mockChallengeService.validateSession).toHaveBeenCalledWith('session-token');
+        expect(mockChallengeService.validateSession).toHaveBeenCalledWith(mockChallengeSessionId);
         expect(mockPasswordService.validatePassword).toHaveBeenCalled();
         expect(mockPasswordService.hashPassword).toHaveBeenCalledWith('NewPassword123!');
         // updateUserPassword uses save() not update()
@@ -4949,7 +4953,7 @@ describe('AuthService', () => {
         mockChallengeService.validateSession.mockResolvedValue(passwordChangeSession as any);
 
         const response: ForceChangePasswordResponse = {
-          session: 'session-token',
+          session: mockChallengeSessionId,
           type: 'FORCE_CHANGE_PASSWORD',
           newPassword: '', // Empty password
         };
@@ -4983,9 +4987,9 @@ describe('AuthService', () => {
         });
 
         const response: ForceChangePasswordResponse = {
-          session: 'session-token',
+          session: mockChallengeSessionId,
           type: 'FORCE_CHANGE_PASSWORD',
-          newPassword: 'weak',
+          newPassword: 'weakpass', // Passes DTO validation (8+ chars) but fails strength validation
         };
 
         try {
@@ -5011,14 +5015,14 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockResolvedValue(updatedUser as any);
 
         const response: MFASetupResponse = {
-          session: 'session-token',
+          session: mockChallengeSessionId,
           type: 'MFA_SETUP_REQUIRED',
           method: 'totp',
           setupData: { code: '123456' },
         };
         const result = await service.respondToChallenge(createRespondChallengeDto(response));
 
-        expect(mockChallengeService.validateSession).toHaveBeenCalledWith('session-token');
+        expect(mockChallengeService.validateSession).toHaveBeenCalledWith(mockChallengeSessionId);
         expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: mockUser.sub } });
         expect(mockChallengeHelper.determineAuthResponse).toHaveBeenCalledWith({
           user: updatedUser,
@@ -5039,7 +5043,7 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockResolvedValue(null);
 
         const response: MFASetupResponse = {
-          session: 'session-token',
+          session: mockChallengeSessionId,
           type: 'MFA_SETUP_REQUIRED',
           method: 'totp',
           setupData: { code: '123456' },
@@ -5062,7 +5066,7 @@ describe('AuthService', () => {
         );
 
         const response: VerifyEmailResponse = {
-          session: 'invalid-session',
+          session: mockChallengeSessionId,
           type: 'VERIFY_EMAIL',
           code: '123456',
         };
@@ -5081,7 +5085,7 @@ describe('AuthService', () => {
         mockChallengeService.validateSession.mockResolvedValue(sessionWithoutUser as any);
 
         const response: VerifyEmailResponse = {
-          session: 'session-token',
+          session: mockChallengeSessionId,
           type: 'VERIFY_EMAIL',
           code: '123456',
         };
@@ -5539,7 +5543,7 @@ describe('AuthService', () => {
       const error = await adminService.signupSocial(dtoWithUsername).catch((error: unknown) => error);
 
       expect(error).toBeInstanceOf(NAuthException);
-      expect(error.code).toBe(AuthErrorCode.USERNAME_EXISTS);
+      expect((error as NAuthException).code).toBe(AuthErrorCode.USERNAME_EXISTS);
     });
 
     it('should throw PHONE_EXISTS if phone already registered and duplicates not allowed', async () => {
@@ -5551,7 +5555,7 @@ describe('AuthService', () => {
       const error = await adminService.signupSocial(dtoWithPhone).catch((error: unknown) => error);
 
       expect(error).toBeInstanceOf(NAuthException);
-      expect(error.code).toBe(AuthErrorCode.PHONE_EXISTS);
+      expect((error as NAuthException).code).toBe(AuthErrorCode.PHONE_EXISTS);
     });
 
     it('should allow duplicate phones if allowDuplicatePhones is true', async () => {
@@ -5586,12 +5590,11 @@ describe('AuthService', () => {
     });
 
     it('should throw SOCIAL_CONFIG_MISSING if SocialAuthService not available', async () => {
-      // Create service without SocialAuthService
-      const serviceWithoutSocial = new AuthService(
+      // Create AdminAuthService without SocialAuthService
+      const adminServiceWithoutSocial = new AdminAuthService(
         mockUserRepository,
         mockLoginAttemptRepository,
         mockPasswordService,
-        mockJwtService,
         mockSessionService,
         mockChallengeService,
         mockChallengeHelper,
@@ -5603,17 +5606,19 @@ describe('AuthService', () => {
         mockHookRegistry,
         mockAuditService,
         mockPhoneVerificationService,
-        mockMfaService,
         mockMfaDeviceRepository,
         mockTrustedDeviceService,
         undefined, // passwordResetService
         undefined, // socialAuthService - not provided
+        undefined, // sessionRepository
+        undefined, // verificationTokenRepository
+        undefined, // socialAccountRepository
       );
 
       mockUserRepository.findOne.mockResolvedValue(null);
 
-      await expect(serviceWithoutSocial.adminSignupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
-      await expect(serviceWithoutSocial.adminSignupSocial(adminSignupSocialDto)).rejects.toMatchObject({
+      await expect(adminServiceWithoutSocial.signupSocial(adminSignupSocialDto)).rejects.toThrow(NAuthException);
+      await expect(adminServiceWithoutSocial.signupSocial(adminSignupSocialDto)).rejects.toMatchObject({
         code: AuthErrorCode.SOCIAL_CONFIG_MISSING,
       });
     });
@@ -5651,7 +5656,7 @@ describe('AuthService', () => {
         expect.objectContaining({
           userId: 999,
           eventType: AuthAuditEventType.ACCOUNT_CREATED,
-          authMethod: 'admin-social',
+          authMethod: 'admin-social-google',
           metadata: expect.objectContaining({
             createdByAdmin: true,
             provider: 'google',
@@ -5727,7 +5732,7 @@ describe('AuthService', () => {
         expect.anything(),
         'google',
         'google_12345',
-        null, // providerEmail should be null
+        undefined, // providerEmail should be undefined when not provided
         expect.anything(),
       );
       expect(result.socialAccount.providerEmail).toBeNull();
@@ -5752,10 +5757,12 @@ describe('AuthService', () => {
         expect(mockHookRegistry.executePreSignup).toHaveBeenCalledWith(
           expect.objectContaining({
             email: adminSignupSocialDto.email,
-            id: adminSignupSocialDto.providerId,
+            providerId: adminSignupSocialDto.providerId,
             firstName: adminSignupSocialDto.firstName,
             lastName: adminSignupSocialDto.lastName,
-            verified: true,
+            provider: adminSignupSocialDto.provider,
+            providerEmail: adminSignupSocialDto.providerEmail,
+            socialMetadata: adminSignupSocialDto.socialMetadata,
           }),
           'social',
           adminSignupSocialDto.provider,

@@ -1,7 +1,6 @@
 ---
 title: Authentication Events
 description: Subscribe to authentication lifecycle events for reactive UI updates, analytics, and custom logic
-sidebar_position: 4
 keywords: [events, observables, reactive, lifecycle, analytics]
 image: /img/api-social-card.png
 ---

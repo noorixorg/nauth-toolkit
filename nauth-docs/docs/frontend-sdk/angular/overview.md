@@ -1,7 +1,6 @@
 ---
 title: Angular Overview
 description: Angular integration guide for nauth-toolkit client SDK
-sidebar_position: 1
 keywords: [angular, integration, service, interceptor, guard]
 image: /img/api-social-card.png
 ---

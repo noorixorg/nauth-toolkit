@@ -1,7 +1,6 @@
 ---
 title: ChangePasswordRequest
 description: Request payload for changing user password
-sidebar_position: 110
 keywords: [password, change, request, dto, api]
 image: /img/api-social-card.png
 ---

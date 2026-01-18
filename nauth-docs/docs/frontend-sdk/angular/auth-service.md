@@ -1,7 +1,6 @@
 ---
 title: AuthService
 description: Angular service for authentication operations
-sidebar_position: 2
 keywords: [angular, service, authentication, promise, async, await]
 image: /img/api-social-card.png
 ---

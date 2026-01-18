@@ -34,6 +34,7 @@ import {
   UpdateProfileRequest,
 } from '../types/user.types';
 import { ChallengeRouter } from './challenge-router';
+import { AdminOperations } from './admin-operations';
 
 const USER_KEY = 'nauth_user';
 const CHALLENGE_KEY = 'nauth_challenge_session';
@@ -62,6 +63,33 @@ export class NAuthClient {
   private currentUser: AuthUser | null = null;
 
   /**
+   * Admin operations (available if admin config provided).
+   *
+   * Provides admin-level user management methods:
+   * - User CRUD operations
+   * - Password management
+   * - Session management
+   * - MFA management
+   * - Audit history
+   *
+   * @example
+   * ```typescript
+   * const client = new NAuthClient({
+   *   baseUrl: 'https://api.example.com/auth',
+   *   tokenDelivery: 'cookies',
+   *   admin: {
+   *     pathPrefix: '/admin',
+   *   },
+   * });
+   *
+   * // Use admin operations
+   * const users = await client.admin.getUsers({ page: 1 });
+   * await client.admin.deleteUser('user-uuid');
+   * ```
+   */
+  public readonly admin?: AdminOperations;
+
+  /**
    * Create a new client instance.
    *
    * @param userConfig - Client configuration
@@ -73,6 +101,12 @@ export class NAuthClient {
     this.tokenManager = new TokenManager(storage);
     this.eventEmitter = new EventEmitter();
     this.challengeRouter = new ChallengeRouter(this.config);
+
+    // Initialize admin operations if configured
+    if (this.config.admin) {
+      this.admin = new AdminOperations(this.config);
+    }
+
     if (hasWindow()) {
       window.addEventListener('storage', this.handleStorageEvent);
     }

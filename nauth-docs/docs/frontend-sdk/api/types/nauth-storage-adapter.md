@@ -1,7 +1,6 @@
 ---
 title: NAuthStorageAdapter
 description: Interface for custom storage adapters used by the client SDK
-sidebar_position: 280
 keywords: [storage, adapter, interface, api]
 image: /img/api-social-card.png
 ---

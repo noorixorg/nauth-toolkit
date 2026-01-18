@@ -1,7 +1,6 @@
 ---
 title: Configuration
 description: Configuration guide for nauth-toolkit frontend SDK
-sidebar_position: 20
 keywords: [configuration, options, setup, csrf, endpoints]
 image: /img/api-social-card.png
 ---

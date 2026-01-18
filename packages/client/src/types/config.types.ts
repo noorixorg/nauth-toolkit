@@ -59,6 +59,46 @@ export interface NAuthEndpoints {
 }
 
 /**
+ * Admin endpoint paths for administrative operations.
+ */
+export interface NAuthAdminEndpoints {
+  /** POST /signup - Create user */
+  signup: string;
+  /** POST /signup-social - Import social user */
+  signupSocial: string;
+  /** GET /users - List users with filters */
+  getUsers: string;
+  /** GET /users/:sub - Get user by sub */
+  getUser: string;
+  /** DELETE /users/:sub - Delete user */
+  deleteUser: string;
+  /** POST /users/:sub/disable - Disable user account */
+  disableUser: string;
+  /** POST /users/:sub/enable - Enable user account */
+  enableUser: string;
+  /** POST /users/:sub/force-password-change - Force password change */
+  forcePasswordChange: string;
+  /** POST /set-password - Set password for user */
+  setPassword: string;
+  /** POST /reset-password/initiate - Initiate password reset */
+  resetPasswordInitiate: string;
+  /** GET /users/:sub/sessions - Get user sessions */
+  getUserSessions: string;
+  /** POST /users/:sub/logout-all - Logout all sessions */
+  logoutAll: string;
+  /** GET /users/:sub/mfa/status - Get MFA status */
+  getMfaStatus: string;
+  /** POST /mfa/preferred-method - Set preferred MFA method */
+  setPreferredMfaMethod: string;
+  /** POST /mfa/remove-devices - Remove MFA devices */
+  removeMfaDevices: string;
+  /** POST /mfa/exemption - Set MFA exemption */
+  setMfaExemption: string;
+  /** GET /audit/history - Get audit history */
+  getAuditHistory: string;
+}
+
+/**
  * Context provided to onAuthResponse callback.
  */
 export interface AuthResponseContext {
@@ -326,4 +366,48 @@ export interface NAuthClientConfig {
    * ```
    */
   httpAdapter?: HttpAdapter;
+
+  /**
+   * Admin operations configuration (optional).
+   * If provided, enables client.admin.* methods.
+   *
+   * @example
+   * ```typescript
+   * const client = new NAuthClient({
+   *   baseUrl: 'https://api.example.com/auth',
+   *   tokenDelivery: 'cookies',
+   *   admin: {
+   *     pathPrefix: '/admin',
+   *     endpoints: {
+   *       getUsers: '/users/list',  // Override specific endpoint
+   *     },
+   *     headers: {
+   *       'X-Admin-Context': 'dashboard',
+   *     },
+   *   },
+   * });
+   * ```
+   */
+  admin?: {
+    /**
+     * Path prefix for admin endpoints.
+     * Prepended to all admin endpoint paths.
+     * @default '/admin'
+     * @example '/admin' -> /auth/admin/users
+     */
+    pathPrefix?: string;
+
+    /**
+     * Custom admin endpoint overrides.
+     * Merged with default admin endpoints.
+     */
+    endpoints?: Partial<NAuthAdminEndpoints>;
+
+    /**
+     * Additional headers specific to admin requests.
+     * Merged with main client headers.
+     * @example { 'X-Admin-Role': 'super-admin' }
+     */
+    headers?: Record<string, string>;
+  };
 }

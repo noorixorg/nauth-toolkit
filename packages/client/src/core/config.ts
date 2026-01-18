@@ -1,6 +1,7 @@
 import {
   NAuthClientConfig,
   NAuthEndpoints,
+  NAuthAdminEndpoints,
   NAuthStorageAdapter,
   TokenDeliveryMode,
   HttpAdapter,
@@ -21,6 +22,11 @@ export type ResolvedNAuthClientConfig = Omit<
   deviceTrust: { headerName: string; storageKey: string };
   headers: Record<string, string>;
   timeout: number;
+  admin?: {
+    pathPrefix: string;
+    endpoints: NAuthAdminEndpoints;
+    headers: Record<string, string>;
+  };
 };
 
 /**
@@ -61,6 +67,29 @@ export const defaultEndpoints: NAuthEndpoints = {
 };
 
 /**
+ * Default admin endpoint paths matching backend admin controller.
+ */
+export const defaultAdminEndpoints: NAuthAdminEndpoints = {
+  signup: '/signup',
+  signupSocial: '/signup-social',
+  getUsers: '/users',
+  getUser: '/users/:sub',
+  deleteUser: '/users/:sub',
+  disableUser: '/users/:sub/disable',
+  enableUser: '/users/:sub/enable',
+  forcePasswordChange: '/users/:sub/force-password-change',
+  setPassword: '/set-password',
+  resetPasswordInitiate: '/reset-password/initiate',
+  getUserSessions: '/users/:sub/sessions',
+  logoutAll: '/users/:sub/logout-all',
+  getMfaStatus: '/users/:sub/mfa/status',
+  setPreferredMfaMethod: '/mfa/preferred-method',
+  removeMfaDevices: '/mfa/remove-devices',
+  setMfaExemption: '/mfa/exemption',
+  getAuditHistory: '/audit/history',
+};
+
+/**
  * Normalize user config with defaults.
  *
  * @param config - User supplied config
@@ -72,6 +101,24 @@ export const resolveConfig = (config: NAuthClientConfig, defaultAdapter: HttpAda
     ...defaultEndpoints,
     ...(config.endpoints ?? {}),
   };
+
+  // Resolve admin config if provided
+  let resolvedAdmin: ResolvedNAuthClientConfig['admin'];
+  if (config.admin) {
+    const resolvedAdminEndpoints: NAuthAdminEndpoints = {
+      ...defaultAdminEndpoints,
+      ...(config.admin.endpoints ?? {}),
+    };
+
+    resolvedAdmin = {
+      pathPrefix: config.admin.pathPrefix ?? '/admin',
+      endpoints: resolvedAdminEndpoints,
+      headers: {
+        ...config.headers,
+        ...(config.admin.headers ?? {}),
+      },
+    };
+  }
 
   return {
     ...config,
@@ -88,5 +135,6 @@ export const resolveConfig = (config: NAuthClientConfig, defaultAdapter: HttpAda
     endpoints: resolvedEndpoints,
     storage: config.storage as NAuthStorageAdapter,
     httpAdapter: config.httpAdapter ?? defaultAdapter,
+    admin: resolvedAdmin,
   };
 };

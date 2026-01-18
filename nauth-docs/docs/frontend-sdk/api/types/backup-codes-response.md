@@ -1,7 +1,6 @@
 ---
 title: BackupCodesResponse
 description: Response containing generated backup codes for MFA recovery
-sidebar_position: 100
 keywords: [mfa, backup, codes, recovery, response, api]
 image: /img/api-social-card.png
 ---

@@ -1,7 +1,6 @@
 ---
 title: AuthUser
 description: Complete user profile with authentication and MFA status
-sidebar_position: 90
 keywords: [user, profile, authentication, mfa, api]
 image: /img/api-social-card.png
 ---

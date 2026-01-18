@@ -1,7 +1,6 @@
 ---
 title: API Overview
 description: Complete API reference for the nauth-toolkit frontend SDK
-sidebar_position: 0
 keywords: [api, reference, sdk, client]
 image: /img/api-social-card.png
 ---

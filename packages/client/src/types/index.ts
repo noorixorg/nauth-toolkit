@@ -5,3 +5,4 @@ export * from './social.types';
 export * from './error.types';
 export * from './config.types';
 export * from './audit.types';
+export * from './admin.types';

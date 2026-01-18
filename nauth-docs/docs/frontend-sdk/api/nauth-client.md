@@ -1,7 +1,6 @@
 ---
 title: NAuthClient
 description: Core client class for nauth-toolkit frontend SDK
-sidebar_position: 1
 keywords: [client, sdk, authentication, api, methods]
 image: /img/api-social-card.png
 ---
@@ -1342,6 +1341,38 @@ See [`AuditHistoryResponse`](./types/audit-history-response) and [`AuthAuditEven
 
 ---
 
+## Admin Operations
+
+### admin
+
+Admin operations service for user and system management. Available when `admin` configuration is provided in [`NAuthClientConfig`](./nauth-client-config).
+
+```typescript
+public readonly admin?: AdminOperations
+```
+
+**Access**
+
+```typescript
+const client = new NAuthClient({
+  baseUrl: 'https://api.example.com/auth',
+  tokenDelivery: 'cookies',
+  admin: {
+    pathPrefix: '/admin',
+  },
+});
+
+// Access admin operations
+if (client.admin) {
+  const users = await client.admin.getUsers({ page: 1 });
+  await client.admin.deleteUser('user-uuid');
+}
+```
+
+**See [AdminOperations](./admin-operations) for complete API documentation.**
+
+---
+
 ## Related APIs
 
 - [NAuthClientConfig](./nauth-client-config) - Configuration options
@@ -1350,5 +1381,6 @@ See [`AuditHistoryResponse`](./types/audit-history-response) and [`AuthAuditEven
 - [ChallengeResponse](./types/challenge-response) - Challenge response union
 - [AuthUser](./types/auth-user) - User profile type
 - [MFAStatus](./types/mfa-status) - MFA configuration
+- [AdminOperations](./admin-operations) - Admin operations service
 - [Angular AuthService](../angular/auth-service) - Angular wrapper with Observables
 - [Angular Interceptor](../angular/interceptor) - HTTP interceptor for token management

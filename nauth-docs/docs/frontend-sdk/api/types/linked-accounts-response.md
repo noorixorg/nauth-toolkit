@@ -1,7 +1,6 @@
 ---
 title: LinkedAccountsResponse
 description: Response containing user's linked social authentication accounts
-sidebar_position: 190
 keywords: [social, linked, accounts, response, api]
 image: /img/api-social-card.png
 ---

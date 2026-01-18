@@ -1,7 +1,6 @@
 ---
 title: Interceptor
 description: Angular HTTP interceptor for authentication
-sidebar_position: 3
 keywords: [angular, interceptor, http, token, csrf, refresh]
 image: /img/api-social-card.png
 ---

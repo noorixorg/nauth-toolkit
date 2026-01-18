@@ -1,7 +1,6 @@
 ---
 title: NAuthRedirectsConfig
 description: Configuration interface for redirect URLs and challenge routing
-sidebar_position: 270
 keywords: [redirects, config, routing, challenges, navigation]
 image: /img/api-social-card.png
 ---

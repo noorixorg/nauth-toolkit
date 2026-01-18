@@ -1,7 +1,6 @@
 ---
 title: UpdateProfileRequest
 description: User profile update request with optional fields
-sidebar_position: 340
 keywords: [profile, update, request, dto, api]
 image: /img/api-social-card.png
 ---

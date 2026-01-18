@@ -1,7 +1,6 @@
 ---
 title: GetSetupDataResponse
 description: Response containing provider-specific MFA setup data
-sidebar_position: 180
 keywords: [mfa, setup, response, totp, qr, passkey, api]
 image: /img/api-social-card.png
 ---

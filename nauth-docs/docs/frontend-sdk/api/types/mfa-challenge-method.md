@@ -1,7 +1,6 @@
 ---
 title: MFAChallengeMethod
 description: Type alias for MFA methods used in challenge flows
-sidebar_position: 200
 keywords: [mfa, challenge, method, type, api]
 image: /img/api-social-card.png
 ---

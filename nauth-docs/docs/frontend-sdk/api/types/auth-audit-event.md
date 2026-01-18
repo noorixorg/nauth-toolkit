@@ -1,7 +1,6 @@
 ---
 title: AuthAuditEvent
 description: Individual authentication or security audit event record
-sidebar_position: 40
 keywords: [audit, event, security, logging, authentication, api]
 image: /img/api-social-card.png
 ---

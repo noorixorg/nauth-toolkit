@@ -1,7 +1,6 @@
 ---
 title: AuthChallenge
 description: Enum of authentication challenge types
-sidebar_position: 50
 keywords: [challenge, enum, authentication, verification, api]
 image: /img/api-social-card.png
 ---

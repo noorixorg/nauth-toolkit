@@ -1,7 +1,6 @@
 ---
 title: AuthAuditEventType
 description: Enum of authentication and security event types
-sidebar_position: 30
 keywords: [audit, event, type, enum, security, authentication, api]
 image: /img/api-social-card.png
 ---

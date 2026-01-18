@@ -1,7 +1,6 @@
 ---
 title: ResetPasswordWithCodeRequest
 description: Request payload for resetting password with verification code (works for both admin-initiated and user-initiated resets)
-sidebar_position: 162
 keywords: [password, reset, code, request, dto, api]
 image: /img/api-social-card.png
 ---

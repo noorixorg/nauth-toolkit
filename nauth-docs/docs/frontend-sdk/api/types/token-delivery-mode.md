@@ -1,7 +1,6 @@
 ---
 title: TokenDeliveryMode
 description: Type alias for token delivery modes (json or cookies)
-sidebar_position: 320
 keywords: [token, delivery, mode, type, api]
 image: /img/api-social-card.png
 ---

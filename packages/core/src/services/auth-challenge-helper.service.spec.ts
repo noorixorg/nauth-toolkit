@@ -255,7 +255,7 @@ describe('AuthChallengeHelperService', () => {
       expect(result.session).toBe('session-token-123');
       expect(result.challengeParameters?.email).toBe('test@example.com');
       expect(result.challengeParameters?.codeDeliveryDestination).toBeDefined();
-      expect(result.userSub).toBe('user-uuid-123');
+      expect(result.sub).toBe('user-uuid-123');
       expect(mockEmailVerificationService.sendVerificationEmail).toHaveBeenCalledWith(
         (expect as any).objectContaining({
           sub: 'user-uuid-123',
@@ -447,7 +447,7 @@ describe('AuthChallengeHelperService', () => {
       expect(result.session).toBe('session-token-setup');
       expect(result.challengeParameters?.allowedMethods).toEqual([MFAMethod.TOTP]);
       expect(result.challengeParameters?.instructions).toBeDefined();
-      expect(result.userSub).toBe('user-uuid-123');
+      expect(result.sub).toBe('user-uuid-123');
     });
 
     it('should use default allowedMethods when not specified', async () => {
@@ -495,7 +495,7 @@ describe('AuthChallengeHelperService', () => {
       expect(result.session).toBe('session-token-setup');
       expect(result.challengeParameters?.allowedMethods).toEqual([MFAMethod.TOTP]);
       expect(result.challengeParameters?.instructions).toBeDefined();
-      expect(result.userSub).toBe('user-uuid-123');
+      expect(result.sub).toBe('user-uuid-123');
     });
 
     it('should use default allowedMethods when not specified', async () => {

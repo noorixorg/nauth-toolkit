@@ -1,7 +1,6 @@
 ---
 title: ForgotPasswordResponse
 description: Response payload for starting account recovery (forgot password)
-sidebar_position: 160
 keywords: [password, reset, forgot, response, dto, api]
 image: /img/api-social-card.png
 ---

@@ -1,7 +1,6 @@
 ---
 title: MFAStatus
 description: User's multi-factor authentication status and configuration
-sidebar_position: 230
 keywords: [mfa, status, two-factor, authentication, api]
 image: /img/api-social-card.png
 ---

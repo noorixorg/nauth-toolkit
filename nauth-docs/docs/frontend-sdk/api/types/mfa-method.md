@@ -1,7 +1,6 @@
 ---
 title: MFAMethod
 description: Supported multi-factor authentication methods
-sidebar_position: 220
 keywords: [mfa, method, two-factor, authentication, api]
 image: /img/api-social-card.png
 ---

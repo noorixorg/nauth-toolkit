@@ -1,7 +1,6 @@
 ---
 title: Token Management
 description: Token storage, refresh, and cross-tab synchronization
-sidebar_position: 30
 keywords: [token, refresh, storage, sync, jwt, ssr]
 image: /img/api-social-card.png
 ---

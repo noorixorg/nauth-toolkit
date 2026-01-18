@@ -1,7 +1,6 @@
 ---
 title: Social Authentication
 description: Web redirect-first and native mobile social login with Google, Apple, and Facebook
-sidebar_position: 3
 keywords: [social, oauth, google, apple, facebook, login, mobile, native, capacitor]
 image: /img/api-social-card.png
 ---

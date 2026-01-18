@@ -1,7 +1,6 @@
 ---
 title: Frontend SDK
 description: Optional client SDK for simplified frontend integration with nauth-toolkit
-sidebar_position: 10
 keywords: [frontend, sdk, client, javascript, typescript, spa, authentication]
 image: /img/api-social-card.png
 ---

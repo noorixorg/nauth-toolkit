@@ -18,12 +18,20 @@ import {
   ValidationErrors,
 } from '@angular/forms';
 import {
-  AdminService,
   AdminSignupRequest,
+  AdminSignupResponse,
   AdminSignupSocialRequest,
-  User,
+  AdminSignupSocialResponse,
   GetUsersRequest,
-} from '../../services/admin.service';
+  AuthUser,
+} from '@nauth-toolkit/client';
+import { AuthService } from '@nauth-toolkit/client-angular/standalone';
+
+/**
+ * User type alias for backward compatibility
+ * Maps to AuthUser (same structure as backend UserResponseDto)
+ */
+type User = AuthUser;
 import { MessageService, MenuItem, ConfirmationService } from 'primeng/api';
 import { CardModule } from 'primeng/card';
 import { ButtonModule } from 'primeng/button';
@@ -106,9 +114,9 @@ function phoneValidator(control: AbstractControl): ValidationErrors | null {
 })
 export class AdminComponent implements OnInit {
   /**
-   * Admin service for API calls
+   * Auth service for admin operations
    */
-  private readonly adminService = inject(AdminService);
+  private readonly auth = inject(AuthService);
 
   /**
    * Form builder for reactive forms
@@ -142,7 +150,7 @@ export class AdminComponent implements OnInit {
   /**
    * Users data
    */
-  users = signal<User[]>([]);
+  users = signal<AuthUser[]>([]);
 
   /**
    * Total number of users
@@ -195,7 +203,7 @@ export class AdminComponent implements OnInit {
    * @param user - User to get menu items for
    * @returns Array of menu items
    */
-  getActionMenuItems(user: User): MenuItem[] {
+  getActionMenuItems(user: AuthUser): MenuItem[] {
     return [
       {
         label: 'Admin Reset Password',
@@ -541,7 +549,10 @@ export class AdminComponent implements OnInit {
         };
       }
 
-      const response = await this.adminService.getUsers(params);
+      if (!this.auth.admin) {
+        throw new Error('Admin operations not available');
+      }
+      const response = await this.auth.admin.getUsers(params);
 
       this.users.set(response.users);
       this.total.set(response.pagination.total);
@@ -673,7 +684,7 @@ export class AdminComponent implements OnInit {
   /**
    * Show action menu for user
    */
-  showActionMenu(event: Event, user: User): void {
+  showActionMenu(event: Event, user: AuthUser): void {
     this.selectedUser.set(user);
     this.actionMenuItems.set(this.getActionMenuItems(user));
     this.actionMenu.toggle(event);
@@ -726,7 +737,10 @@ export class AdminComponent implements OnInit {
       const formValue = this.adminResetPasswordForm.value;
       const baseUrl = `${window.location.origin}/admin-reset-password`;
 
-      const result = await this.adminService.adminResetPassword({
+      if (!this.auth.admin) {
+        throw new Error('Admin operations not available');
+      }
+      const result = await this.auth.admin.initiatePasswordReset({
         sub: user.sub,
         deliveryMethod: formValue.deliveryMethod,
         baseUrl,
@@ -764,7 +778,10 @@ export class AdminComponent implements OnInit {
       acceptButtonStyleClass: 'p-button-warning',
       accept: async () => {
         try {
-          await this.adminService.forcePasswordChange(user.sub);
+          if (!this.auth.admin) {
+            throw new Error('Admin operations not available');
+          }
+          await this.auth.admin.forcePasswordChange(user.sub);
           this.messageService.add({
             severity: 'success',
             summary: 'Password Change Required',
@@ -795,7 +812,10 @@ export class AdminComponent implements OnInit {
       acceptButtonStyleClass: 'p-button-danger',
       accept: async () => {
         try {
-          const response = await this.adminService.disableUser(user.sub);
+          if (!this.auth.admin) {
+            throw new Error('Admin operations not available');
+          }
+          const response = await this.auth.admin.disableUser(user.sub);
           this.messageService.add({
             severity: 'success',
             summary: 'User Disabled',
@@ -817,7 +837,7 @@ export class AdminComponent implements OnInit {
   /**
    * Enable user account
    */
-  async enableUser(user: User): Promise<void> {
+  async enableUser(user: AuthUser): Promise<void> {
     this.confirmationService.confirm({
       message: `Are you sure you want to enable (unlock) user ${user.email}? This will allow them to login again.`,
       header: 'Enable User',
@@ -825,7 +845,10 @@ export class AdminComponent implements OnInit {
       acceptButtonStyleClass: 'p-button-success',
       accept: async () => {
         try {
-          await this.adminService.enableUser(user.sub);
+          if (!this.auth.admin) {
+            throw new Error('Admin operations not available');
+          }
+          await this.auth.admin.enableUser(user.sub);
           this.messageService.add({
             severity: 'success',
             summary: 'User Enabled',
@@ -858,7 +881,10 @@ export class AdminComponent implements OnInit {
       acceptButtonStyleClass: 'p-button-warning',
       accept: async () => {
         try {
-          const result = await this.adminService.globalSignout(user.sub, false);
+          if (!this.auth.admin) {
+            throw new Error('Admin operations not available');
+          }
+          const result = await this.auth.admin.logoutAllSessions(user.sub, false);
           this.messageService.add({
             severity: 'success',
             summary: 'Global Signout Successful',
@@ -866,7 +892,8 @@ export class AdminComponent implements OnInit {
           });
           this.loadUsers();
         } catch (err: unknown) {
-          const errorMessage = err instanceof Error ? err.message : 'Failed to perform global signout';
+          const errorMessage =
+            err instanceof Error ? err.message : 'Failed to perform global signout';
           this.messageService.add({
             severity: 'error',
             summary: 'Global Signout Failed',
@@ -888,7 +915,10 @@ export class AdminComponent implements OnInit {
       acceptButtonStyleClass: 'p-button-danger',
       accept: async () => {
         try {
-          await this.adminService.deleteUser(user.sub);
+          if (!this.auth.admin) {
+            throw new Error('Admin operations not available');
+          }
+          await this.auth.admin.deleteUser(user.sub);
           this.messageService.add({
             severity: 'success',
             summary: 'User Deleted',
@@ -992,9 +1022,15 @@ export class AdminComponent implements OnInit {
       mustChangePassword: formValue.mustChangePassword || false,
     };
 
-    this.adminService
+    if (!this.auth.admin) {
+      this.importSocialLoading.set(false);
+      this.importSocialError.set('Admin operations not available');
+      return;
+    }
+
+    this.auth.admin
       .importSocialUser(dto)
-      .then((response) => {
+      .then((response: AdminSignupSocialResponse) => {
         this.importSocialLoading.set(false);
         this.importSocialSuccess.set(
           `Social user ${response.user.email} imported successfully. Provider: ${response.socialAccount.provider}`,
@@ -1044,9 +1080,15 @@ export class AdminComponent implements OnInit {
       dto.password = formValue.password;
     }
 
-    this.adminService
+    if (!this.auth.admin) {
+      this.createLoading.set(false);
+      this.createError.set('Admin operations not available');
+      return;
+    }
+
+    this.auth.admin
       .createUser(dto)
-      .then((response) => {
+      .then((response: AdminSignupResponse) => {
         this.createLoading.set(false);
         this.createSuccess.set(`User ${response.user.email} created successfully`);
         this.createUserForm.reset({

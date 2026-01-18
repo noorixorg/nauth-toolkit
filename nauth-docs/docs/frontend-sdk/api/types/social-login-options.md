@@ -1,7 +1,6 @@
 ---
 title: SocialLoginOptions
 description: Options for starting the redirect-first web social login flow
-sidebar_position: 300
 keywords: [social, oauth, web, redirect, options, api]
 image: /img/api-social-card.png
 ---

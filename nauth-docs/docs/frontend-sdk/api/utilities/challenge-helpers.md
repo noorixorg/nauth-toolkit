@@ -1,7 +1,6 @@
 ---
 title: Challenge Helpers
 description: Utility functions for working with authentication challenges
-sidebar_position: 200
 keywords: [challenge, helpers, utilities, mfa, verification, api]
 image: /img/api-social-card.png
 ---

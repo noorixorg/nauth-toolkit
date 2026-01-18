@@ -1,7 +1,6 @@
 ---
 title: TokenResponse
 description: Access and refresh token response from token refresh operations
-sidebar_position: 330
 keywords: [token, refresh, response, api]
 image: /img/api-social-card.png
 ---
