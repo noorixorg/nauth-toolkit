@@ -73,7 +73,6 @@ export class AdminSignupSocialDTO {
    *
    * Validation:
    * - 1-100 characters
-   * - Letters, spaces, hyphens, and apostrophes only
    * - Max 100 characters (DB limit)
    *
    * Sanitization:
@@ -84,9 +83,6 @@ export class AdminSignupSocialDTO {
   @IsString({ message: 'First name must be a string' })
   @MinLength(1, { message: 'First name must be at least 1 character' })
   @MaxLength(100, { message: 'First name must not exceed 100 characters' })
-  @Matches(/^[a-zA-Z\s\-']+$/, {
-    message: 'First name can only contain letters, spaces, hyphens, and apostrophes',
-  })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       return value.trim();
@@ -112,7 +108,6 @@ export class AdminSignupSocialDTO {
    *
    * Validation:
    * - 1-100 characters
-   * - Letters, spaces, hyphens, and apostrophes only
    * - Max 100 characters (DB limit)
    *
    * Sanitization:
@@ -123,9 +118,6 @@ export class AdminSignupSocialDTO {
   @IsString({ message: 'Last name must be a string' })
   @MinLength(1, { message: 'Last name must be at least 1 character' })
   @MaxLength(100, { message: 'Last name must not exceed 100 characters' })
-  @Matches(/^[a-zA-Z\s\-']+$/, {
-    message: 'Last name can only contain letters, spaces, hyphens, and apostrophes',
-  })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       return value.trim();

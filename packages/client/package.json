@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/client",
-  "version": "0.1.90",
+  "version": "0.1.91",
   "description": "Framework-agnostic frontend SDK for nauth-toolkit",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
