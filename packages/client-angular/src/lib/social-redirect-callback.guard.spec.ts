@@ -74,6 +74,8 @@ describe('socialRedirectCallbackGuard', () => {
       navigateToError: jest.fn().mockResolvedValue(undefined),
       navigateToSuccess: jest.fn().mockResolvedValue(undefined),
       handleAuthResponse: jest.fn().mockResolvedValue(undefined),
+      isErrorRedirectDisabled: jest.fn().mockReturnValue(false),
+      isSuccessRedirectDisabled: jest.fn().mockReturnValue(false),
     };
 
     mockClient = {
@@ -455,5 +457,137 @@ describe('socialRedirectCallbackGuard', () => {
       }),
       { source: 'social' }
     );
+  });
+
+  // ============================================================================
+  // Auto-redirect disabled tests
+  // ============================================================================
+  describe('auto-redirect disabled (null redirect URLs)', () => {
+    it('should return true when success redirect is disabled (exchangeToken present)', async () => {
+      mockSearchString = '?exchangeToken=token-123';
+      mockChallengeRouter.isSuccessRedirectDisabled.mockReturnValue(true);
+
+      const guard = socialRedirectCallbackGuard;
+      const mockRoute = {} as any;
+      const mockState = {} as any;
+      const result = await guard(mockRoute, mockState);
+
+      expect(result).toBe(true);
+      expect(mockAuthService.exchangeSocialRedirect).toHaveBeenCalledWith('token-123');
+      expect(mockChallengeRouter.isSuccessRedirectDisabled).toHaveBeenCalledWith({
+        source: 'social',
+        appState: undefined,
+      });
+    });
+
+    it('should return true when success redirect is disabled (cookie success path)', async () => {
+      mockSearchString = '?appState=state-456';
+      mockChallengeRouter.isSuccessRedirectDisabled.mockReturnValue(true);
+
+      const mockUser = {
+        sub: 'user-1',
+        email: 'test@example.com',
+        firstName: null,
+        lastName: null,
+        phone: null,
+        isEmailVerified: true,
+        isPhoneVerified: false,
+        isActive: true,
+        isLocked: false,
+        mfaEnabled: false,
+        socialProviders: null,
+        hasPasswordHash: true,
+        sessionAuthMethod: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      mockAuthService.getProfile.mockResolvedValue(mockUser);
+
+      const guard = socialRedirectCallbackGuard;
+      const mockRoute = {} as any;
+      const mockState = {} as any;
+      const result = await guard(mockRoute, mockState);
+
+      expect(result).toBe(true);
+      expect(mockAuthService.getProfile).toHaveBeenCalled();
+      expect(mockChallengeRouter.isSuccessRedirectDisabled).toHaveBeenCalledWith({
+        source: 'social',
+        appState: 'state-456',
+      });
+    });
+
+    it('should return true when oauthError redirect is disabled and error param is present', async () => {
+      mockSearchString = '?error=access_denied';
+      mockChallengeRouter.isErrorRedirectDisabled.mockReturnValue(true);
+
+      const guard = socialRedirectCallbackGuard;
+      const mockRoute = {} as any;
+      const mockState = {} as any;
+      const result = await guard(mockRoute, mockState);
+
+      expect(result).toBe(true);
+      expect(mockChallengeRouter.navigateToError).toHaveBeenCalledWith('oauth');
+      expect(mockChallengeRouter.isErrorRedirectDisabled).toHaveBeenCalledWith('oauth');
+    });
+
+    it('should return true when auth error occurs and oauthError redirect is disabled', async () => {
+      mockSearchString = '';
+      mockChallengeRouter.isErrorRedirectDisabled.mockReturnValue(true);
+
+      const authError = new NAuthClientError(NAuthErrorCode.AUTH_TOKEN_INVALID, 'Token invalid', {
+        statusCode: 401,
+      });
+      mockAuthService.getProfile.mockRejectedValue(authError);
+
+      const guard = socialRedirectCallbackGuard;
+      const mockRoute = {} as any;
+      const mockState = {} as any;
+      const result = await guard(mockRoute, mockState);
+
+      expect(result).toBe(true);
+      expect(mockChallengeRouter.navigateToError).toHaveBeenCalledWith('oauth');
+      expect(mockChallengeRouter.isErrorRedirectDisabled).toHaveBeenCalledWith('oauth');
+    });
+
+    it('should return false when auto-redirect is enabled (default behavior)', async () => {
+      mockSearchString = '?exchangeToken=token-123';
+      mockChallengeRouter.isSuccessRedirectDisabled.mockReturnValue(false);
+
+      const guard = socialRedirectCallbackGuard;
+      const mockRoute = {} as any;
+      const mockState = {} as any;
+      const result = await guard(mockRoute, mockState);
+
+      expect(result).toBe(false);
+      expect(mockAuthService.exchangeSocialRedirect).toHaveBeenCalledWith('token-123');
+    });
+
+    it('should return false when error redirect is enabled', async () => {
+      mockSearchString = '?error=access_denied';
+      mockChallengeRouter.isErrorRedirectDisabled.mockReturnValue(false);
+
+      const guard = socialRedirectCallbackGuard;
+      const mockRoute = {} as any;
+      const mockState = {} as any;
+      const result = await guard(mockRoute, mockState);
+
+      expect(result).toBe(false);
+      expect(mockChallengeRouter.navigateToError).toHaveBeenCalledWith('oauth');
+    });
+
+    it('should check isSuccessRedirectDisabled with appState in context', async () => {
+      mockSearchString = '?exchangeToken=token-123&appState=invite-code';
+      mockChallengeRouter.isSuccessRedirectDisabled.mockReturnValue(true);
+
+      const guard = socialRedirectCallbackGuard;
+      const mockRoute = {} as any;
+      const mockState = {} as any;
+      await guard(mockRoute, mockState);
+
+      expect(mockChallengeRouter.isSuccessRedirectDisabled).toHaveBeenCalledWith({
+        source: 'social',
+        appState: 'invite-code',
+      });
+    });
   });
 });

@@ -17,6 +17,7 @@ import { NAuthClientError, NAuthErrorCode, type AuthResponse } from '@nauth-tool
  * - If `exchangeToken` exists: exchanges it via backend (SDK handles navigation automatically).
  * - If no `exchangeToken`: treat as cookie-success path (SDK handles navigation automatically).
  * - If `error` exists: redirects to oauthError route.
+ * - If auto-redirect is disabled (redirectUrls set to null): returns true to activate the route.
  *
  * @example
  * ```typescript
@@ -52,15 +53,17 @@ export const socialRedirectCallbackGuard: CanActivateFn = async (): Promise<bool
     await auth.getClient().storeOauthState(appState);
   }
 
-  // Provider error: redirect to oauthError
+  // Provider error: redirect to oauthError (or activate route if auto-redirect disabled)
   if (error) {
     await router.navigateToError('oauth');
-    return false;
+    // Return true to activate route if oauthError redirect is disabled
+    return router.isErrorRedirectDisabled('oauth');
   }
 
   // No exchangeToken: cookie success path; hydrate then navigate to success.
   //
-  // Note: we do not "activate" the callback route to avoid consumers needing to render a page.
+  // Note: When auto-redirect is enabled, we do not "activate" the callback route to avoid
+  // consumers needing to render a page. When disabled, we activate the route.
   if (!exchangeToken) {
     // ============================================================================
     // Cookies mode: hydrate user state before redirecting
@@ -103,32 +106,41 @@ export const socialRedirectCallbackGuard: CanActivateFn = async (): Promise<bool
         source: 'social',
         appState: appState ?? undefined,
       });
-    } catch (err) {
+    } catch (error: unknown) {
       // Only treat auth failures (401/403) as OAuth errors
       // Network errors or other issues might be temporary - still try success route
-      const isAuthError =
-        err instanceof NAuthClientError &&
-        (err.statusCode === 401 ||
-          err.statusCode === 403 ||
-          err.code === NAuthErrorCode.AUTH_TOKEN_INVALID ||
-          err.code === NAuthErrorCode.AUTH_SESSION_EXPIRED ||
-          err.code === NAuthErrorCode.AUTH_SESSION_NOT_FOUND);
 
-      if (isAuthError) {
-        // Cookies weren't set properly - OAuth failed
-        await router.navigateToError('oauth');
-      } else {
-        // For network errors or other issues, proceed to success route
-        // The auth guard will handle authentication state on the next route
-        await router.navigateToSuccess(appState ? { appState } : undefined);
+      // Type guard: check if error is NAuthClientError
+      if (error instanceof NAuthClientError) {
+        const isAuthError =
+          error.statusCode === 401 ||
+          error.statusCode === 403 ||
+          error.code === NAuthErrorCode.AUTH_TOKEN_INVALID ||
+          error.code === NAuthErrorCode.AUTH_SESSION_EXPIRED ||
+          error.code === NAuthErrorCode.AUTH_SESSION_NOT_FOUND;
+
+        if (isAuthError) {
+          // Cookies weren't set properly - OAuth failed
+          await router.navigateToError('oauth');
+          return router.isErrorRedirectDisabled('oauth');
+        }
       }
+
+      // For network errors or other non-auth issues, proceed to success route
+      // The auth guard will handle authentication state on the next route
+      await router.navigateToSuccess(appState ? { appState } : undefined);
     }
-    return false;
+
+    // Return true if success redirect is disabled, allowing the callback component to render
+    return router.isSuccessRedirectDisabled({ source: 'social', appState: appState ?? undefined });
   }
 
   // Exchange token - SDK handles navigation automatically
   // Note: appState will be passed via query params when navigateToSuccess is called
   // by the challenge router after successful exchange
   await auth.exchangeSocialRedirect(exchangeToken);
-  return false;
+
+  // Return true if success redirect is disabled, allowing the callback component to render
+  // We use 'social' as source since this is the social OAuth callback flow
+  return router.isSuccessRedirectDisabled({ source: 'social', appState: appState ?? undefined });
 };

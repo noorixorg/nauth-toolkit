@@ -471,5 +471,129 @@ describe('ChallengeRouter', () => {
       expect(url).toBe('/auth/challenge/verify-email');
     });
   });
+
+  describe('isErrorRedirectDisabled', () => {
+    it('should return false when oauthError has a value', () => {
+      mockConfig.redirects = {
+        oauthError: '/login',
+      };
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      expect(router.isErrorRedirectDisabled('oauth')).toBe(false);
+    });
+
+    it('should return true when oauthError is null', () => {
+      mockConfig.redirects = {
+        oauthError: null,
+      };
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      expect(router.isErrorRedirectDisabled('oauth')).toBe(true);
+    });
+
+    it('should return false when sessionExpired has a value', () => {
+      mockConfig.redirects = {
+        sessionExpired: '/login',
+      };
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      expect(router.isErrorRedirectDisabled('session')).toBe(false);
+    });
+
+    it('should return true when sessionExpired is null', () => {
+      mockConfig.redirects = {
+        sessionExpired: null,
+      };
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      expect(router.isErrorRedirectDisabled('session')).toBe(true);
+    });
+
+    it('should return false when redirects config is not provided', () => {
+      mockConfig.redirects = undefined;
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      expect(router.isErrorRedirectDisabled('oauth')).toBe(false);
+      expect(router.isErrorRedirectDisabled('session')).toBe(false);
+    });
+  });
+
+  describe('isSuccessRedirectDisabled', () => {
+    it('should return false when loginSuccess has a value', () => {
+      mockConfig.redirects = {
+        loginSuccess: '/dashboard',
+      };
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      expect(router.isSuccessRedirectDisabled({ source: 'login' })).toBe(false);
+    });
+
+    it('should return true when loginSuccess is null', () => {
+      mockConfig.redirects = {
+        loginSuccess: null,
+      };
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      expect(router.isSuccessRedirectDisabled({ source: 'login' })).toBe(true);
+    });
+
+    it('should return false when signupSuccess has a value', () => {
+      mockConfig.redirects = {
+        signupSuccess: '/welcome',
+      };
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      expect(router.isSuccessRedirectDisabled({ source: 'signup' })).toBe(false);
+    });
+
+    it('should return true when signupSuccess is null', () => {
+      mockConfig.redirects = {
+        signupSuccess: null,
+      };
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      expect(router.isSuccessRedirectDisabled({ source: 'signup' })).toBe(true);
+    });
+
+    it('should return false when loginSuccess is disabled but signupSuccess is enabled', () => {
+      mockConfig.redirects = {
+        loginSuccess: null,
+        signupSuccess: '/welcome',
+      };
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      expect(router.isSuccessRedirectDisabled({ source: 'login' })).toBe(true);
+      expect(router.isSuccessRedirectDisabled({ source: 'signup' })).toBe(false);
+    });
+
+    it('should return true when legacy success redirect is null', () => {
+      mockConfig.redirects = {
+        success: null,
+      };
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      expect(router.isSuccessRedirectDisabled({ source: 'login' })).toBe(true);
+    });
+
+    it('should return false when redirects config is not provided', () => {
+      mockConfig.redirects = undefined;
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      expect(router.isSuccessRedirectDisabled({ source: 'login' })).toBe(false);
+    });
+
+    it('should use resolveSuccessUrl logic (fallback chain)', () => {
+      mockConfig.redirects = {
+        signupSuccess: null,
+        success: '/fallback',
+      };
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      // signup is null, so it returns true
+      expect(router.isSuccessRedirectDisabled({ source: 'signup' })).toBe(true);
+      // login is undefined, falls back to success which is not null
+      expect(router.isSuccessRedirectDisabled({ source: 'login' })).toBe(false);
+    });
+  });
 });
 

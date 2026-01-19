@@ -337,4 +337,37 @@ export class ChallengeRouter {
   getChallengeUrl(response: AuthResponse): string {
     return this.buildChallengeUrl(response);
   }
+
+  /**
+   * Check if the error redirect is disabled.
+   *
+   * WHY: Guards need to know if they should return true (activate route) or false
+   * (prevent activation) when auto-redirect is disabled via null redirect URLs.
+   *
+   * @param type - Type of error (oauth or session)
+   * @returns True if the error redirect is explicitly null, false otherwise
+   */
+  isErrorRedirectDisabled(type: 'oauth' | 'session'): boolean {
+    const redirects = this.config.redirects;
+    if (!redirects) {
+      return false;
+    }
+
+    const redirectUrl = type === 'oauth' ? redirects.oauthError : redirects.sessionExpired;
+    return redirectUrl === null;
+  }
+
+  /**
+   * Check if the success redirect is disabled for a given context.
+   *
+   * WHY: Guards need to know if they should return true (activate route) or false
+   * (prevent activation) when auto-redirect is disabled via null redirect URLs.
+   *
+   * @param context - Optional auth context to determine which success redirect to check
+   * @returns True if the success redirect is explicitly null, false otherwise
+   */
+  isSuccessRedirectDisabled(context?: AuthResponseContext): boolean {
+    const resolved = this.resolveSuccessUrl(context);
+    return resolved === null;
+  }
 }
