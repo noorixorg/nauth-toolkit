@@ -139,8 +139,10 @@ export class AuthService {
           return;
         }
 
-        const appState = await this.client.getLastOauthState();
-        await router.navigateToSuccess(appState ? { appState } : undefined);
+        // Prefer appState provided via context (social redirect guard / exchange flow).
+        // IMPORTANT: Do not consume/clear persisted OAuth state here; leave it available
+        // for consumers via getLastOauthState().
+        await router.navigateToSuccess(context.appState ? { appState: context.appState } : undefined, context);
       },
       onAuthStateChange: (user: AuthUser | null) => {
         this.currentUserSubject.next(user);

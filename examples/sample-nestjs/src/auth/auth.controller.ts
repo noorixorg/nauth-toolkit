@@ -1141,9 +1141,9 @@ export class CustomAuthController {
     }
 
     // Admin API - sub comes from DTO (target user)
-    // grantedBy can be set by admin in request, or get from admin context
+    // grantedBy: use admin's sub when not provided (for mfaExemptGrantedBy and audit performedBy)
     if (!dto.grantedBy) {
-      dto.grantedBy = adminUser?.email || null;
+      dto.grantedBy = adminUser?.sub ?? null;
     }
     return await this.mfaService.setMFAExemption(dto);
   }

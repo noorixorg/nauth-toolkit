@@ -126,7 +126,7 @@ export const appConfig: ApplicationConfig = {
         },
 
         redirects: {
-          success: '/dashboard',
+          loginSuccess: '/dashboard',
           sessionExpired: '/login',
           oauthError: '/login',
           challengeBase: '/auth/challenge',

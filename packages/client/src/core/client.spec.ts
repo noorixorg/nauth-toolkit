@@ -77,6 +77,145 @@ describe('NAuthClient', () => {
     expect(token).toBe('a1');
   });
 
+  it('auto-navigates to redirects.loginSuccess after login success', async () => {
+    const navigationHandler = jest.fn();
+    const client = new NAuthClient({
+      ...baseConfig,
+      navigationHandler,
+      redirects: {
+        loginSuccess: '/dashboard',
+      },
+    });
+    getFetchMock().mockResolvedValue({
+      ...createMockResponse({
+        ok: true,
+        status: 200,
+        body: {
+          accessToken: 'a1',
+          refreshToken: 'r1',
+          accessTokenExpiresAt: 10,
+          refreshTokenExpiresAt: 20,
+          user: { sub: 'u1', email: 'user@example.com', isEmailVerified: true, hasPasswordHash: true },
+        },
+      }),
+    });
+
+    await client.login('user@example.com', 'password');
+
+    expect(navigationHandler).toHaveBeenCalledWith('/dashboard');
+  });
+
+  it('auto-navigates to redirects.loginSuccess in cookies mode after login success', async () => {
+    const navigationHandler = jest.fn();
+    const client = new NAuthClient({
+      ...baseConfig,
+      tokenDelivery: 'cookies',
+      navigationHandler,
+      redirects: {
+        loginSuccess: '/dashboard',
+      },
+    });
+    getFetchMock().mockResolvedValue({
+      ...createMockResponse({
+        ok: true,
+        status: 200,
+        body: {
+          user: { sub: 'u1', email: 'user@example.com', isEmailVerified: true, hasPasswordHash: true },
+        },
+      }),
+    });
+
+    await client.login('user@example.com', 'password');
+
+    expect(navigationHandler).toHaveBeenCalledWith('/dashboard');
+  });
+
+  it('auto-navigates to redirects.signupSuccess after signup success', async () => {
+    const navigationHandler = jest.fn();
+    const client = new NAuthClient({
+      ...baseConfig,
+      navigationHandler,
+      redirects: {
+        loginSuccess: '/dashboard',
+        signupSuccess: '/onboarding',
+      },
+    });
+    getFetchMock().mockResolvedValue({
+      ...createMockResponse({
+        ok: true,
+        status: 200,
+        body: {
+          accessToken: 'a1',
+          refreshToken: 'r1',
+          accessTokenExpiresAt: 10,
+          refreshTokenExpiresAt: 20,
+          user: { sub: 'u1', email: 'user@example.com', isEmailVerified: true, hasPasswordHash: true },
+        },
+      }),
+    });
+
+    await client.signup({ email: 'user@example.com', password: 'password' });
+
+    expect(navigationHandler).toHaveBeenCalledWith('/onboarding');
+  });
+
+  it('skips auto-navigation when redirects.loginSuccess is explicitly disabled', async () => {
+    const navigationHandler = jest.fn();
+    const client = new NAuthClient({
+      ...baseConfig,
+      navigationHandler,
+      redirects: {
+        loginSuccess: null,
+      },
+    });
+    getFetchMock().mockResolvedValue({
+      ...createMockResponse({
+        ok: true,
+        status: 200,
+        body: {
+          accessToken: 'a1',
+          refreshToken: 'r1',
+          accessTokenExpiresAt: 10,
+          refreshTokenExpiresAt: 20,
+          user: { sub: 'u1', email: 'user@example.com', isEmailVerified: true, hasPasswordHash: true },
+        },
+      }),
+    });
+
+    await client.login('user@example.com', 'password');
+
+    expect(navigationHandler).not.toHaveBeenCalled();
+  });
+
+  it('skips auto-navigation when redirects.signupSuccess is explicitly disabled', async () => {
+    const navigationHandler = jest.fn();
+    const client = new NAuthClient({
+      ...baseConfig,
+      navigationHandler,
+      redirects: {
+        loginSuccess: '/dashboard',
+        signupSuccess: null,
+      },
+    });
+    getFetchMock().mockResolvedValue({
+      ...createMockResponse({
+        ok: true,
+        status: 200,
+        body: {
+          accessToken: 'a1',
+          refreshToken: 'r1',
+          accessTokenExpiresAt: 10,
+          refreshTokenExpiresAt: 20,
+          user: { sub: 'u1', email: 'user@example.com', isEmailVerified: true, hasPasswordHash: true },
+        },
+      }),
+    });
+
+    await client.signup({ email: 'user@example.com', password: 'password' });
+
+    expect(navigationHandler).not.toHaveBeenCalled();
+  });
+
   it('throws on non-OK response', async () => {
     const client = new NAuthClient(baseConfig);
     getFetchMock().mockResolvedValue(
@@ -937,6 +1076,94 @@ describe('NAuthClient', () => {
     (global as any).window = mockWindow;
     const client = new NAuthClient(baseConfig);
     await expect(client.exchangeSocialRedirect('')).rejects.toThrow('Missing exchangeToken');
+    delete (global as any).window;
+  });
+
+  it('exchangeSocialRedirect passes appState in context to onAuthResponse', async () => {
+    const mockWindow = {
+      location: { replace: jest.fn() },
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    };
+    (global as any).window = mockWindow;
+
+    const onAuthResponseMock = jest.fn();
+    const client = new NAuthClient({
+      ...baseConfig,
+      onAuthResponse: onAuthResponseMock,
+    });
+
+    // Store appState before calling exchangeSocialRedirect (simulating guard behavior)
+    await client.storeOauthState('invite-code-123');
+
+    getFetchMock().mockResolvedValue({
+      ...createMockResponse({
+        ok: true,
+        status: 200,
+        body: {
+          accessToken: 'a1',
+          refreshToken: 'r1',
+          accessTokenExpiresAt: 10,
+          refreshTokenExpiresAt: 20,
+          user: { sub: 'u1', email: 'user@example.com', isEmailVerified: true, hasPasswordHash: true },
+        },
+      }),
+    });
+
+    await client.exchangeSocialRedirect('exchange-token-123');
+
+    // Verify onAuthResponse was called with appState in context
+    expect(onAuthResponseMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accessToken: 'a1',
+        user: expect.objectContaining({ sub: 'u1' }),
+      }),
+      expect.objectContaining({
+        source: 'social',
+        appState: 'invite-code-123',
+      })
+    );
+
+    delete (global as any).window;
+  });
+
+  it('exchangeSocialRedirect auto-navigates with appState when no onAuthResponse', async () => {
+    const mockWindow = {
+      location: { replace: jest.fn() },
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    };
+    (global as any).window = mockWindow;
+
+    const client = new NAuthClient({
+      ...baseConfig,
+      redirects: {
+        loginSuccess: '/dashboard',
+      },
+    });
+
+    // Store appState before calling exchangeSocialRedirect (simulating guard behavior)
+    await client.storeOauthState('invite-code-456');
+
+    getFetchMock().mockResolvedValue({
+      ...createMockResponse({
+        ok: true,
+        status: 200,
+        body: {
+          accessToken: 'a1',
+          refreshToken: 'r1',
+          accessTokenExpiresAt: 10,
+          refreshTokenExpiresAt: 20,
+          user: { sub: 'u1', email: 'user@example.com', isEmailVerified: true, hasPasswordHash: true },
+        },
+      }),
+    });
+
+    await client.exchangeSocialRedirect('exchange-token-789');
+
+    // Verify navigation includes appState
+    expect(mockWindow.location.replace).toHaveBeenCalledWith('/dashboard?appState=invite-code-456');
+
     delete (global as any).window;
   });
 

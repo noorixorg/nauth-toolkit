@@ -73,6 +73,7 @@ describe('socialRedirectCallbackGuard', () => {
     mockChallengeRouter = {
       navigateToError: jest.fn().mockResolvedValue(undefined),
       navigateToSuccess: jest.fn().mockResolvedValue(undefined),
+      handleAuthResponse: jest.fn().mockResolvedValue(undefined),
     };
 
     mockClient = {
@@ -82,7 +83,23 @@ describe('socialRedirectCallbackGuard', () => {
     mockAuthService = {
       getChallengeRouter: jest.fn().mockReturnValue(mockChallengeRouter),
       getClient: jest.fn().mockReturnValue(mockClient),
-      getProfile: jest.fn().mockResolvedValue({ sub: 'user-1' }),
+      getProfile: jest.fn().mockResolvedValue({
+        sub: 'user-1',
+        email: 'test@example.com',
+        firstName: null,
+        lastName: null,
+        phone: null,
+        isEmailVerified: true,
+        isPhoneVerified: false,
+        isActive: true,
+        isLocked: false,
+        mfaEnabled: false,
+        socialProviders: null,
+        hasPasswordHash: true,
+        sessionAuthMethod: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }),
       exchangeSocialRedirect: jest.fn().mockResolvedValue({} as any),
     } as any;
 
@@ -139,6 +156,25 @@ describe('socialRedirectCallbackGuard', () => {
     // Set search before calling guard
     mockSearchString = '?appState=test-state';
     
+    const mockUser = {
+      sub: 'user-1',
+      email: 'test@example.com',
+      firstName: null,
+      lastName: null,
+      phone: null,
+      isEmailVerified: true,
+      isPhoneVerified: false,
+      isActive: true,
+      isLocked: false,
+      mfaEnabled: false,
+      socialProviders: null,
+      hasPasswordHash: true,
+      sessionAuthMethod: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockAuthService.getProfile.mockResolvedValue(mockUser);
+    
     const guard = socialRedirectCallbackGuard;
     const mockRoute = {} as any;
     const mockState = {} as any;
@@ -165,19 +201,24 @@ describe('socialRedirectCallbackGuard', () => {
   it('should handle cookie success path without exchangeToken', async () => {
     mockSearchString = '?appState=state-789';
     
-    const guard = socialRedirectCallbackGuard;
-    const mockRoute = {} as any;
-    const mockState = {} as any;
-    const result = await guard(mockRoute, mockState);
-
-    expect(result).toBe(false);
-    expect(mockAuthService.getProfile).toHaveBeenCalled();
-    expect(mockChallengeRouter.navigateToSuccess).toHaveBeenCalledWith({ appState: 'state-789' });
-    expect(mockAuthService.exchangeSocialRedirect).not.toHaveBeenCalled();
-  });
-
-  it('should handle cookie success path without appState', async () => {
-    mockSearchString = '';
+    const mockUser = {
+      sub: 'user-1',
+      email: 'test@example.com',
+      firstName: 'Test',
+      lastName: 'User',
+      phone: null,
+      isEmailVerified: true,
+      isPhoneVerified: false,
+      isActive: true,
+      isLocked: false,
+      mfaEnabled: false,
+      socialProviders: ['google'],
+      hasPasswordHash: false,
+      sessionAuthMethod: 'google',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockAuthService.getProfile.mockResolvedValue(mockUser);
     
     const guard = socialRedirectCallbackGuard;
     const mockRoute = {} as any;
@@ -186,7 +227,74 @@ describe('socialRedirectCallbackGuard', () => {
 
     expect(result).toBe(false);
     expect(mockAuthService.getProfile).toHaveBeenCalled();
-    expect(mockChallengeRouter.navigateToSuccess).toHaveBeenCalledWith(undefined);
+    expect(mockClient.storeOauthState).toHaveBeenCalledWith('state-789');
+    expect(mockChallengeRouter.handleAuthResponse).toHaveBeenCalledWith(
+      {
+        user: {
+          sub: 'user-1',
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          phone: null,
+          isEmailVerified: true,
+          isPhoneVerified: false,
+          socialProviders: ['google'],
+          hasPasswordHash: false,
+        },
+        authMethod: 'google',
+      },
+      { source: 'social', appState: 'state-789' }
+    );
+    expect(mockAuthService.exchangeSocialRedirect).not.toHaveBeenCalled();
+  });
+
+  it('should handle cookie success path without appState', async () => {
+    mockSearchString = '';
+    
+    const mockUser = {
+      sub: 'user-1',
+      email: 'test@example.com',
+      firstName: 'Test',
+      lastName: 'User',
+      phone: null,
+      isEmailVerified: true,
+      isPhoneVerified: false,
+      isActive: true,
+      isLocked: false,
+      mfaEnabled: false,
+      socialProviders: ['google'],
+      hasPasswordHash: false,
+      sessionAuthMethod: 'google',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockAuthService.getProfile.mockResolvedValue(mockUser);
+    
+    const guard = socialRedirectCallbackGuard;
+    const mockRoute = {} as any;
+    const mockState = {} as any;
+    const result = await guard(mockRoute, mockState);
+
+    expect(result).toBe(false);
+    expect(mockAuthService.getProfile).toHaveBeenCalled();
+    expect(mockChallengeRouter.handleAuthResponse).toHaveBeenCalledWith(
+      {
+        user: {
+          sub: 'user-1',
+          email: 'test@example.com',
+          firstName: 'Test',
+          lastName: 'User',
+          phone: null,
+          isEmailVerified: true,
+          isPhoneVerified: false,
+          socialProviders: ['google'],
+          hasPasswordHash: false,
+        },
+        authMethod: 'google',
+      },
+      { source: 'social', appState: undefined }
+    );
+    expect(mockClient.storeOauthState).not.toHaveBeenCalled();
   });
 
   it('should handle auth error (401) during profile fetch', async () => {
@@ -259,5 +367,93 @@ describe('socialRedirectCallbackGuard', () => {
 
     expect(result).toBe(false);
     expect(mockChallengeRouter.navigateToError).toHaveBeenCalledWith('oauth');
+  });
+
+  it('should call handleAuthResponse with synthetic AuthResponse in cookie success path', async () => {
+    mockSearchString = '?appState=invite-code-123';
+    
+    const mockUser = {
+      sub: 'user-abc',
+      email: 'john@example.com',
+      username: 'johndoe',
+      firstName: 'John',
+      lastName: 'Doe',
+      phone: '+1234567890',
+      isEmailVerified: true,
+      isPhoneVerified: true,
+      isActive: true,
+      isLocked: false,
+      mfaEnabled: true,
+      mfaExempt: false,
+      socialProviders: ['google', 'apple'],
+      hasPasswordHash: true,
+      sessionAuthMethod: 'google',
+      createdAt: '2024-01-01T00:00:00Z',
+      updatedAt: '2024-01-02T00:00:00Z',
+    };
+    mockAuthService.getProfile.mockResolvedValue(mockUser);
+    
+    const guard = socialRedirectCallbackGuard;
+    const mockRoute = {} as any;
+    const mockState = {} as any;
+    await guard(mockRoute, mockState);
+
+    // Verify handleAuthResponse was called with correct synthetic response
+    expect(mockChallengeRouter.handleAuthResponse).toHaveBeenCalledWith(
+      {
+        user: {
+          sub: 'user-abc',
+          email: 'john@example.com',
+          firstName: 'John',
+          lastName: 'Doe',
+          phone: '+1234567890',
+          isEmailVerified: true,
+          isPhoneVerified: true,
+          socialProviders: ['google', 'apple'],
+          hasPasswordHash: true,
+        },
+        authMethod: 'google',
+      },
+      { source: 'social', appState: 'invite-code-123' }
+    );
+
+    // Verify appState was stored
+    expect(mockClient.storeOauthState).toHaveBeenCalledWith('invite-code-123');
+  });
+
+  it('should handle sessionAuthMethod as undefined when null in cookie success path', async () => {
+    mockSearchString = '';
+    
+    const mockUser = {
+      sub: 'user-1',
+      email: 'test@example.com',
+      firstName: null,
+      lastName: null,
+      phone: null,
+      isEmailVerified: true,
+      isPhoneVerified: false,
+      isActive: true,
+      isLocked: false,
+      mfaEnabled: false,
+      socialProviders: null,
+      hasPasswordHash: true,
+      sessionAuthMethod: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    mockAuthService.getProfile.mockResolvedValue(mockUser);
+    
+    const guard = socialRedirectCallbackGuard;
+    const mockRoute = {} as any;
+    const mockState = {} as any;
+    await guard(mockRoute, mockState);
+
+    // Verify authMethod is undefined when sessionAuthMethod is null
+    expect(mockChallengeRouter.handleAuthResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        authMethod: undefined,
+      }),
+      { source: 'social' }
+    );
   });
 });

@@ -44,7 +44,7 @@ export const routes: Routes = [
     path: 'auth/callback',
     canActivate: [socialRedirectCallbackGuard],
     // Guard-only callback route. The guard handles exchanging `exchangeToken` (json/hybrid)
-    // and then redirects to `redirects.success` (dashboard).
+    // and then redirects to `redirects.loginSuccess` (dashboard).
     children: [],
   },
   {

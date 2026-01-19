@@ -2,7 +2,7 @@ import { inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { type CanActivateFn } from '@angular/router';
 import { AuthService } from '../ngmodule/auth.service';
-import { NAuthClientError, NAuthErrorCode } from '@nauth-toolkit/client';
+import { NAuthClientError, NAuthErrorCode, type AuthResponse } from '@nauth-toolkit/client';
 
 /**
  * Social redirect callback route guard.
@@ -40,6 +40,7 @@ export const socialRedirectCallbackGuard: CanActivateFn = async (): Promise<bool
   const error = params.get('error');
   const exchangeToken = params.get('exchangeToken');
   const appState = params.get('appState');
+
   const router = auth.getChallengeRouter();
 
   // ============================================================================
@@ -70,9 +71,38 @@ export const socialRedirectCallbackGuard: CanActivateFn = async (): Promise<bool
     // Without this, sync guards (`authGuard`) can immediately redirect to /login because
     // `currentUser` is still null even though cookies were set successfully.
     try {
-      await auth.getProfile();
-      // Pass appState as query param to success route
-      await router.navigateToSuccess(appState ? { appState } : undefined);
+      const user = await auth.getProfile();
+
+      // ============================================================================
+      // Route through handleAuthResponse to ensure onAuthResponse is called
+      // ============================================================================
+      // WHY: onAuthResponse should be called consistently for all auth completions,
+      // whether via exchange token or cookie success path. This allows apps to have
+      // a single handler for all authentication outcomes (login, signup, social).
+      //
+      // We construct a synthetic AuthResponse with the user data. Tokens are omitted
+      // because they're in httpOnly cookies, not accessible to the client.
+      const syntheticResponse: AuthResponse = {
+        user: {
+          sub: user.sub,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          phone: user.phone,
+          isEmailVerified: user.isEmailVerified,
+          isPhoneVerified: user.isPhoneVerified,
+          socialProviders: user.socialProviders,
+          hasPasswordHash: user.hasPasswordHash,
+        },
+        authMethod: user.sessionAuthMethod ?? undefined,
+      };
+
+      // Call handleAuthResponse which respects onAuthResponse callback
+      // Pass appState in context so onAuthResponse can access it
+      await router.handleAuthResponse(syntheticResponse, {
+        source: 'social',
+        appState: appState ?? undefined,
+      });
     } catch (err) {
       // Only treat auth failures (401/403) as OAuth errors
       // Network errors or other issues might be temporary - still try success route
@@ -90,7 +120,6 @@ export const socialRedirectCallbackGuard: CanActivateFn = async (): Promise<bool
       } else {
         // For network errors or other issues, proceed to success route
         // The auth guard will handle authentication state on the next route
-        // Pass appState as query param to success route
         await router.navigateToSuccess(appState ? { appState } : undefined);
       }
     }

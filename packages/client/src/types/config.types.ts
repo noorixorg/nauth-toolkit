@@ -110,6 +110,12 @@ export interface AuthResponseContext {
 
   /** Whether this was triggered from a guard */
   fromGuard?: boolean;
+
+  /**
+   * OAuth appState from social redirect callback.
+   * Only present when source is 'social' and appState was provided in the OAuth flow.
+   */
+  appState?: string;
 }
 
 /**
@@ -131,10 +137,42 @@ export interface MfaRoutesConfig {
  */
 export interface NAuthRedirectsConfig {
   /**
-   * URL to redirect to after successful authentication (login, signup, or OAuth).
+   * URL to redirect to after successful login (and most non-signup successes).
+   *
+   * Set to `null` to disable SDK auto-navigation.
+   * This is useful when you want to handle routing manually via framework adapters
+   * (e.g., Angular `authEvents$`) without using `onAuthResponse`.
+   *
    * @default '/'
    */
-  success?: string;
+  loginSuccess?: string | null;
+
+  /**
+   * URL to redirect to after successful signup (when no challenge is returned).
+   *
+   * Notes:
+   * - Challenges (MFA, verify-email, etc.) still route to challenge pages.
+   * - After a challenge completes, the context source becomes `'challenge'`, so
+   *   `loginSuccess` is used for the final success navigation.
+   *
+   * Set to `null` to disable SDK auto-navigation.
+   *
+   * @example Custom onboarding after signup
+   * ```typescript
+   * redirects: {
+   *   loginSuccess: '/dashboard',
+   *   signupSuccess: '/onboarding',
+   * }
+   * ```
+   */
+  signupSuccess?: string | null;
+
+  /**
+   * Legacy alias for `loginSuccess`.
+   *
+   * @deprecated Use `redirects.loginSuccess` instead.
+   */
+  success?: string | null;
 
   /**
    * URL to redirect to when session expires (refresh fails with 401).

@@ -289,6 +289,11 @@ export class UserListComponent implements OnInit {
         command: () => this.emitUserAction(user.isLocked ? 'enableUser' : 'disableUser', user),
       },
       {
+        label: user.mfaExempt ? 'Revoke MFA Exemption' : 'Grant MFA Exemption',
+        icon: 'pi pi-shield',
+        command: () => this.emitUserAction('mfaExemption', user),
+      },
+      {
         separator: true,
       },
       {

@@ -2,6 +2,7 @@ import { resolveConfig, ResolvedNAuthClientConfig } from './config';
 import { TokenManager } from './refresh';
 import { BrowserStorage } from '../storage/browser';
 import { InMemoryStorage } from '../storage/memory';
+import type { NAuthStorageAdapter } from '../storage/interface';
 import { EventEmitter, AuthEventType, AuthEventListener } from './events';
 import { NAuthClientError } from './errors';
 import { NAuthErrorCode } from '../types/error.types';
@@ -43,6 +44,18 @@ const hasWindow = (): boolean =>
   typeof globalThis !== 'undefined' && typeof (globalThis as { window?: unknown }).window !== 'undefined';
 
 /**
+ * Get sessionStorage-based storage for ephemeral OAuth state.
+ * Falls back to main storage if sessionStorage is unavailable.
+ */
+const getOauthStorage = (mainStorage: NAuthStorageAdapter): NAuthStorageAdapter => {
+  if (hasWindow() && typeof window.sessionStorage !== 'undefined') {
+    return new BrowserStorage(window.sessionStorage);
+  }
+  // Fallback to main storage (memory storage in SSR, localStorage in browser without sessionStorage)
+  return mainStorage;
+};
+
+/**
  * Choose default storage implementation.
  */
 const defaultStorage = () => {
@@ -60,6 +73,7 @@ export class NAuthClient {
   private readonly tokenManager: TokenManager;
   private readonly eventEmitter: EventEmitter;
   private readonly challengeRouter: ChallengeRouter;
+  private readonly oauthStorage: NAuthStorageAdapter;
   private currentUser: AuthUser | null = null;
 
   /**
@@ -100,7 +114,8 @@ export class NAuthClient {
     this.config = resolveConfig({ ...userConfig, storage }, defaultAdapter);
     this.tokenManager = new TokenManager(storage);
     this.eventEmitter = new EventEmitter();
-    this.challengeRouter = new ChallengeRouter(this.config);
+    this.oauthStorage = getOauthStorage(storage);
+    this.challengeRouter = new ChallengeRouter(this.config, this.oauthStorage);
 
     // Initialize admin operations if configured
     if (this.config.admin) {
@@ -681,7 +696,10 @@ export class NAuthClient {
       const fullUrl = this.buildUrl(startPath);
       const startUrl = new URL(fullUrl);
 
-      const returnTo = options?.returnTo ?? this.config.redirects?.success ?? '/';
+      const redirects = this.config.redirects;
+      // Default returnTo to configured post-login success route (best-effort).
+      // Consumers are expected to pass an explicit callback route (e.g. '/auth/callback').
+      const returnTo = options?.returnTo ?? redirects?.loginSuccess ?? redirects?.success ?? '/';
 
       startUrl.searchParams.set('returnTo', returnTo);
       // Only include action when deviating from the default ('login').
@@ -713,8 +731,14 @@ export class NAuthClient {
     const result = await this.post<AuthResponse>(this.config.endpoints.socialExchange, { exchangeToken: token });
     await this.handleAuthResponse(result);
 
-    // Auto-handle navigation
-    await this.challengeRouter.handleAuthResponse(result, { source: 'social' });
+    // Read appState from sessionStorage WITHOUT clearing (consumer may want to retrieve it later via getLastOauthState())
+    const appState = await this.oauthStorage.getItem(OAUTH_STATE_KEY);
+
+    // Auto-handle navigation with appState in context
+    await this.challengeRouter.handleAuthResponse(result, {
+      source: 'social',
+      appState: appState ?? undefined,
+    });
 
     return result;
   }
@@ -1220,6 +1244,8 @@ export class NAuthClient {
    * when appState is present in the callback URL. The stored state can
    * be retrieved using getLastOauthState().
    *
+   * Stores in sessionStorage (ephemeral) for better security.
+   *
    * @param appState - OAuth appState value from callback URL
    *
    * @example
@@ -1229,7 +1255,7 @@ export class NAuthClient {
    */
   async storeOauthState(appState: string): Promise<void> {
     if (appState && appState.trim() !== '') {
-      await this.config.storage.setItem(OAUTH_STATE_KEY, appState);
+      await this.oauthStorage.setItem(OAUTH_STATE_KEY, appState);
     }
   }
 
@@ -1241,6 +1267,7 @@ export class NAuthClient {
    * applying invite codes, or tracking referral information.
    *
    * The state is automatically cleared after retrieval to prevent reuse.
+   * Stored in sessionStorage (ephemeral) for better security.
    *
    * @returns The stored appState, or null if none exists
    *
@@ -1254,10 +1281,10 @@ export class NAuthClient {
    * ```
    */
   async getLastOauthState(): Promise<string | null> {
-    const stored = await this.config.storage.getItem(OAUTH_STATE_KEY);
+    const stored = await this.oauthStorage.getItem(OAUTH_STATE_KEY);
     if (stored) {
       // Clear after retrieval to prevent reuse
-      await this.config.storage.removeItem(OAUTH_STATE_KEY);
+      await this.oauthStorage.removeItem(OAUTH_STATE_KEY);
       return stored;
     }
     return null;

@@ -602,6 +602,9 @@ export class AdminComponent implements OnInit {
       case 'disableUser':
         this.disableUser(event.user);
         break;
+      case 'mfaExemption':
+        this.setMfaExemption(event.user);
+        break;
       case 'deleteUser':
         this.confirmDeleteUser(event.user);
         break;
@@ -860,6 +863,49 @@ export class AdminComponent implements OnInit {
           this.messageService.add({
             severity: 'error',
             summary: 'Enable User Failed',
+            detail: errorMessage,
+          });
+        }
+      },
+    });
+  }
+
+  /**
+   * Grant or revoke MFA exemption for a user.
+   *
+   * MFA exemption allows the user to bypass MFA at login.
+   * Admin-only; reason is optional for audit.
+   */
+  async setMfaExemption(user: User): Promise<void> {
+    const exempt = !user.mfaExempt;
+    const action = exempt ? 'grant' : 'revoke';
+    this.confirmationService.confirm({
+      message: `Are you sure you want to ${action} MFA exemption for ${user.email}? ${
+        exempt
+          ? 'They will bypass MFA at login.'
+          : 'They will be required to complete MFA when enforced.'
+      }`,
+      header: exempt ? 'Grant MFA Exemption' : 'Revoke MFA Exemption',
+      icon: 'pi pi-shield',
+      acceptButtonStyleClass: exempt ? 'p-button-warning' : 'p-button-secondary',
+      accept: async () => {
+        try {
+          if (!this.auth.admin) {
+            throw new Error('Admin operations not available');
+          }
+          await this.auth.admin.setMfaExemption(user.sub, exempt);
+          this.messageService.add({
+            severity: 'success',
+            summary: exempt ? 'MFA Exemption Granted' : 'MFA Exemption Revoked',
+            detail: `MFA exemption has been ${action === 'grant' ? 'granted' : 'revoked'} for ${user.email}.`,
+          });
+          this.loadUsers();
+        } catch (err: unknown) {
+          const errorMessage =
+            err instanceof Error ? err.message : 'Failed to update MFA exemption';
+          this.messageService.add({
+            severity: 'error',
+            summary: 'MFA Exemption Failed',
             detail: errorMessage,
           });
         }

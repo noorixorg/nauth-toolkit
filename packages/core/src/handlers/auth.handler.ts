@@ -68,7 +68,6 @@ export class AuthHandler {
 
       // Validate session
       const sessionId = validation.payload!.sessionId;
-      const userId = validation.payload!.sub; // Extract userId from token sub claim
       const session = await this.sessionService.findByIdLight(sessionId);
 
       if (!session) {
@@ -126,9 +125,10 @@ export class AuthHandler {
 
       this.logger?.debug?.(`User ${user.sub} authenticated successfully`);
 
-      // Update CLIENT_INFO with sessionId and userId
+      // Update CLIENT_INFO with sessionId, userId, and sub
       this.updateClientInfoSessionId(sessionId);
-      this.updateClientInfoUserId(userId);
+      this.updateClientInfoUserId(user.id);
+      this.updateClientInfoSub(user.sub);
 
       await next();
     } catch (error) {
@@ -203,7 +203,7 @@ export class AuthHandler {
   }
 
   /**
-   * Update CLIENT_INFO with user ID from token
+   * Update CLIENT_INFO with user ID from token (internal id)
    */
   private updateClientInfoUserId(userId: string | number): void {
     const clientInfo = ContextStorage.get<IClientInfo>('CLIENT_INFO');
@@ -214,6 +214,17 @@ export class AuthHandler {
         clientInfo.userId = userIdNumber;
         ContextStorage.set('CLIENT_INFO', clientInfo);
       }
+    }
+  }
+
+  /**
+   * Update CLIENT_INFO with user sub (UUID) from authenticated user
+   */
+  private updateClientInfoSub(sub: string): void {
+    const clientInfo = ContextStorage.get<IClientInfo>('CLIENT_INFO');
+    if (clientInfo && sub) {
+      clientInfo.sub = sub;
+      ContextStorage.set('CLIENT_INFO', clientInfo);
     }
   }
 }

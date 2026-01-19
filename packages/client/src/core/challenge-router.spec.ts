@@ -1,6 +1,7 @@
 import { ChallengeRouter } from './challenge-router';
 import { AuthResponse, AuthChallenge } from '../types/auth.types';
 import { ResolvedNAuthClientConfig } from './config';
+import { InMemoryStorage } from '../storage/memory';
 
 /**
  * Unit tests for ChallengeRouter.
@@ -14,21 +15,23 @@ import { ResolvedNAuthClientConfig } from './config';
 describe('ChallengeRouter', () => {
   let mockConfig: ResolvedNAuthClientConfig;
   let mockNavigate: jest.Mock;
+  let mockStorage: InMemoryStorage;
 
   beforeEach(() => {
     mockNavigate = jest.fn();
+    mockStorage = new InMemoryStorage();
     mockConfig = {
       baseUrl: 'https://api.example.com/auth',
       tokenDelivery: 'cookies',
-      endpoints: {} as any,
-      storage: {} as any,
-      httpAdapter: {} as any,
+      endpoints: {} as unknown as ResolvedNAuthClientConfig['endpoints'],
+      storage: mockStorage,
+      httpAdapter: {} as unknown as ResolvedNAuthClientConfig['httpAdapter'],
       csrf: { cookieName: 'csrf', headerName: 'x-csrf' },
       deviceTrust: { headerName: 'X-Device', storageKey: 'device' },
       headers: {},
       timeout: 30000,
       redirects: {
-        success: '/dashboard',
+        loginSuccess: '/dashboard',
         sessionExpired: '/login',
         oauthError: '/login',
         challengeBase: '/auth/challenge',
@@ -38,7 +41,7 @@ describe('ChallengeRouter', () => {
 
   describe('buildChallengeUrl', () => {
     it('should build default route for VERIFY_EMAIL', () => {
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         challengeName: AuthChallenge.VERIFY_EMAIL,
         session: 'test-session',
@@ -49,7 +52,7 @@ describe('ChallengeRouter', () => {
     });
 
     it('should build default route for FORCE_CHANGE_PASSWORD', () => {
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         challengeName: AuthChallenge.FORCE_CHANGE_PASSWORD,
         session: 'test-session',
@@ -65,7 +68,7 @@ describe('ChallengeRouter', () => {
         [AuthChallenge.VERIFY_EMAIL]: '/verify',
       };
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         challengeName: AuthChallenge.MFA_REQUIRED,
         session: 'test-session',
@@ -78,7 +81,7 @@ describe('ChallengeRouter', () => {
     it('should use query param mode when enabled', () => {
       mockConfig.redirects!.useSingleChallengeRoute = true;
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         challengeName: AuthChallenge.VERIFY_EMAIL,
         session: 'test-session',
@@ -89,7 +92,7 @@ describe('ChallengeRouter', () => {
     });
 
     it('should build passkey route for MFA_REQUIRED with passkey method', () => {
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         challengeName: AuthChallenge.MFA_REQUIRED,
         session: 'test-session',
@@ -103,7 +106,7 @@ describe('ChallengeRouter', () => {
     });
 
     it('should build selector route for MFA_REQUIRED with multiple methods', () => {
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         challengeName: AuthChallenge.MFA_REQUIRED,
         session: 'test-session',
@@ -117,7 +120,7 @@ describe('ChallengeRouter', () => {
     });
 
     it('should build default MFA route for single non-passkey method', () => {
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         challengeName: AuthChallenge.MFA_REQUIRED,
         session: 'test-session',
@@ -135,7 +138,7 @@ describe('ChallengeRouter', () => {
         passkey: '/auth/passkey-verify',
       };
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         challengeName: AuthChallenge.MFA_REQUIRED,
         session: 'test-session',
@@ -153,7 +156,7 @@ describe('ChallengeRouter', () => {
         selector: '/choose-mfa-method',
       };
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         challengeName: AuthChallenge.MFA_REQUIRED,
         session: 'test-session',
@@ -171,7 +174,7 @@ describe('ChallengeRouter', () => {
         default: '/verify-code',
       };
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         challengeName: AuthChallenge.MFA_REQUIRED,
         session: 'test-session',
@@ -193,7 +196,7 @@ describe('ChallengeRouter', () => {
         default: '/custom-default',
       };
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         challengeName: AuthChallenge.MFA_REQUIRED,
         session: 'test-session',
@@ -213,7 +216,7 @@ describe('ChallengeRouter', () => {
       const callback = jest.fn();
       mockConfig.onAuthResponse = callback;
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         challengeName: AuthChallenge.VERIFY_EMAIL,
         session: 'test-session',
@@ -227,7 +230,7 @@ describe('ChallengeRouter', () => {
     it('should navigate to challenge when no callback provided', async () => {
       mockConfig.navigationHandler = mockNavigate;
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         challengeName: AuthChallenge.VERIFY_EMAIL,
         session: 'test-session',
@@ -241,7 +244,7 @@ describe('ChallengeRouter', () => {
     it('should navigate to success when no challenge present', async () => {
       mockConfig.navigationHandler = mockNavigate;
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         user: { sub: '123', email: 'test@example.com', isEmailVerified: true },
       };
@@ -250,13 +253,80 @@ describe('ChallengeRouter', () => {
 
       expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
     });
+
+    it('should use signupSuccess when source is signup', async () => {
+      mockConfig.navigationHandler = mockNavigate;
+      mockConfig.redirects = { ...mockConfig.redirects, signupSuccess: '/onboarding' };
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      const response: AuthResponse = {
+        user: { sub: '123', email: 'test@example.com', isEmailVerified: true },
+      };
+
+      await router.handleAuthResponse(response, { source: 'signup' });
+
+      expect(mockNavigate).toHaveBeenCalledWith('/onboarding');
+    });
+
+    it('should skip auto-navigation when loginSuccess is explicitly disabled', async () => {
+      mockConfig.navigationHandler = mockNavigate;
+      mockConfig.redirects = {
+        ...(mockConfig.redirects ?? {}),
+        loginSuccess: null,
+      };
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      const response: AuthResponse = {
+        user: { sub: '123', email: 'test@example.com', isEmailVerified: true },
+      };
+
+      await router.handleAuthResponse(response, { source: 'login' });
+
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it('should skip auto-navigation when signupSuccess is explicitly disabled', async () => {
+      mockConfig.navigationHandler = mockNavigate;
+      mockConfig.redirects = {
+        ...(mockConfig.redirects ?? {}),
+        signupSuccess: null,
+      };
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      const response: AuthResponse = {
+        user: { sub: '123', email: 'test@example.com', isEmailVerified: true },
+      };
+
+      await router.handleAuthResponse(response, { source: 'signup' });
+
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it('should fall back to legacy redirects.success when loginSuccess is not provided', async () => {
+      mockConfig.navigationHandler = mockNavigate;
+      mockConfig.redirects = {
+        sessionExpired: '/login',
+        oauthError: '/login',
+        challengeBase: '/auth/challenge',
+        success: '/legacy-dashboard',
+      };
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      const response: AuthResponse = {
+        user: { sub: '123', email: 'test@example.com', isEmailVerified: true },
+      };
+
+      await router.handleAuthResponse(response, { source: 'login' });
+
+      expect(mockNavigate).toHaveBeenCalledWith('/legacy-dashboard');
+    });
   });
 
   describe('navigateToError', () => {
     it('should navigate to oauth error URL', async () => {
       mockConfig.navigationHandler = mockNavigate;
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       await router.navigateToError('oauth');
 
       expect(mockNavigate).toHaveBeenCalledWith('/login');
@@ -265,7 +335,7 @@ describe('ChallengeRouter', () => {
     it('should navigate to session error URL', async () => {
       mockConfig.navigationHandler = mockNavigate;
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       await router.navigateToError('session');
 
       expect(mockNavigate).toHaveBeenCalledWith('/login');
@@ -276,7 +346,7 @@ describe('ChallengeRouter', () => {
       mockConfig.redirects!.sessionExpired = '/session-expired';
       mockConfig.navigationHandler = mockNavigate;
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
 
       await router.navigateToError('oauth');
       expect(mockNavigate).toHaveBeenCalledWith('/oauth-error');
@@ -284,13 +354,33 @@ describe('ChallengeRouter', () => {
       await router.navigateToError('session');
       expect(mockNavigate).toHaveBeenCalledWith('/session-expired');
     });
+
+    it('should skip navigation when oauthError is explicitly disabled', async () => {
+      mockConfig.redirects = { ...(mockConfig.redirects ?? {}), oauthError: null as any };
+      mockConfig.navigationHandler = mockNavigate;
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      await router.navigateToError('oauth');
+
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it('should skip navigation when sessionExpired is explicitly disabled', async () => {
+      mockConfig.redirects = { ...(mockConfig.redirects ?? {}), sessionExpired: null as any };
+      mockConfig.navigationHandler = mockNavigate;
+
+      const router = new ChallengeRouter(mockConfig, mockStorage);
+      await router.navigateToError('session');
+
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
   });
 
   describe('navigateToSuccess', () => {
     it('should include query parameters in URL', async () => {
       mockConfig.navigationHandler = mockNavigate;
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
 
       await router.navigateToSuccess({ returnTo: '/dashboard', source: 'signup' });
 
@@ -300,10 +390,10 @@ describe('ChallengeRouter', () => {
     });
 
     it('should handle URL with existing query parameters', async () => {
-      mockConfig.redirects!.success = '/dashboard?existing=param';
+      mockConfig.redirects!.loginSuccess = '/dashboard?existing=param';
       mockConfig.navigationHandler = mockNavigate;
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
 
       await router.navigateToSuccess({ returnTo: '/dashboard' });
 
@@ -315,12 +405,12 @@ describe('ChallengeRouter', () => {
     it('should skip null and undefined query parameters', async () => {
       mockConfig.navigationHandler = mockNavigate;
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
 
       await router.navigateToSuccess({
         returnTo: '/dashboard',
-        source: null as any,
-        extra: undefined as any,
+        source: null,
+        extra: undefined,
       });
 
       const callUrl = decodeURIComponent(mockNavigate.mock.calls[0][0]);
@@ -342,7 +432,7 @@ describe('ChallengeRouter', () => {
       mockConfig.storage = failingStorage as any;
       mockConfig.navigationHandler = mockNavigate;
 
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         user: { sub: '123', email: 'test@example.com', isEmailVerified: true },
       };
@@ -355,7 +445,7 @@ describe('ChallengeRouter', () => {
 
   describe('buildMFAUrl', () => {
     it('should return null when no mfaRoutes configured', () => {
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         challengeName: AuthChallenge.MFA_REQUIRED,
         session: 'test-session',
@@ -371,7 +461,7 @@ describe('ChallengeRouter', () => {
 
   describe('getChallengeUrl', () => {
     it('should return challenge URL', () => {
-      const router = new ChallengeRouter(mockConfig);
+      const router = new ChallengeRouter(mockConfig, mockStorage);
       const response: AuthResponse = {
         challengeName: AuthChallenge.VERIFY_EMAIL,
         session: 'test-session',

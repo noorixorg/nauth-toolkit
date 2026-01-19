@@ -13,7 +13,7 @@ export type SocialProvider = 'google' | 'apple' | 'facebook';
 export interface SocialLoginOptions {
   /**
    * Frontend route (recommended) or URL to redirect to after the backend callback completes.
-   * Default: config.redirects.success || '/'
+   * Default: config.redirects.loginSuccess || config.redirects.success || '/'
    */
   returnTo?: string;
 

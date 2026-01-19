@@ -73,7 +73,9 @@ export class SetMFAExemptionDTO {
   reason?: string | null;
 
   /**
-   * Optional identifier of the admin performing this action
+   * Optional identifier of the admin performing this action.
+   * Typically the admin's sub (UUID) when set from authenticated context.
+   * Used for mfaExemptGrantedBy on the user and for audit performedBy.
    *
    * Validation:
    * - Max 255 characters

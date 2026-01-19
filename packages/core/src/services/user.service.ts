@@ -1316,21 +1316,19 @@ export class UserService {
       );
     } else {
       try {
-        // Get admin user ID from client info (the currently logged in user performing this action)
-        // This is extracted from the JWT token by interceptors/handlers
+        // Get admin sub (preferred) or userId from client info (the currently logged in user performing this action)
+        const adminSub = (clientInfo as { sub?: string })?.sub;
         const adminUserId = (clientInfo as { userId?: number })?.userId;
+        const performedBy =
+          adminSub ?? (adminUserId != null ? String(adminUserId) : null) ?? clientInfo.ipAddress ?? 'system';
 
-        // Set performedBy to the admin's user ID (who locked the account)
-        // This identifies which admin user performed the action in the audit trail
-        const performedBy = adminUserId ? String(adminUserId) : clientInfo.ipAddress || 'system';
-
-        if (adminUserId) {
+        if (adminSub || adminUserId) {
           this.logger?.debug?.(
-            `Admin user ID ${adminUserId} (currently logged in) is disabling account for user ${dto.sub}`,
+            `Admin (sub=${adminSub ?? 'n/a'}, id=${adminUserId ?? 'n/a'}) is disabling account for user ${dto.sub}`,
           );
         } else {
           this.logger?.warn?.(
-            `No admin user ID in clientInfo - performedBy will be set to IP address or 'system' for user ${dto.sub}`,
+            `No admin sub/userId in clientInfo - performedBy will be set to IP or 'system' for user ${dto.sub}`,
           );
         }
 
@@ -1347,7 +1345,8 @@ export class UserService {
             userSub: dto.sub,
             reason: updatedUser.lockReason,
             adminIdentifier: clientInfo.ipAddress || 'unknown',
-            adminUserId: adminUserId || null,
+            adminSub: adminSub || null,
+            adminUserId: adminUserId ?? null,
             revokedSessions: revokedCount,
             lockedAt: updatedUser.lockedAt,
             lockedUntil: updatedUser.lockedUntil,
@@ -1483,19 +1482,19 @@ export class UserService {
       );
     } else {
       try {
-        // Get admin user ID from client info (the currently logged in user performing this action)
+        // Get admin sub (preferred) or userId from client info (the currently logged in user performing this action)
+        const adminSub = (clientInfo as { sub?: string })?.sub;
         const adminUserId = (clientInfo as { userId?: number })?.userId;
+        const performedBy =
+          adminSub ?? (adminUserId != null ? String(adminUserId) : null) ?? clientInfo.ipAddress ?? 'system';
 
-        // Set performedBy to the admin's user ID (who unlocked the account)
-        const performedBy = adminUserId ? String(adminUserId) : clientInfo.ipAddress || 'system';
-
-        if (adminUserId) {
+        if (adminSub || adminUserId) {
           this.logger?.debug?.(
-            `Admin user ID ${adminUserId} (currently logged in) is enabling account for user ${dto.sub}`,
+            `Admin (sub=${adminSub ?? 'n/a'}, id=${adminUserId ?? 'n/a'}) is enabling account for user ${dto.sub}`,
           );
         } else {
           this.logger?.warn?.(
-            `No admin user ID in clientInfo - performedBy will be set to IP address or 'system' for user ${dto.sub}`,
+            `No admin sub/userId in clientInfo - performedBy will be set to IP or 'system' for user ${dto.sub}`,
           );
         }
 
@@ -1510,7 +1509,8 @@ export class UserService {
           metadata: {
             userSub: dto.sub,
             adminIdentifier: clientInfo.ipAddress || 'unknown',
-            adminUserId: adminUserId || null,
+            adminSub: adminSub || null,
+            adminUserId: adminUserId ?? null,
             previousLockReason: user.lockReason,
             previousLockedAt: user.lockedAt,
             previousLockedUntil: user.lockedUntil,

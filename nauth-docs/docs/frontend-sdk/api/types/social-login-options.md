@@ -16,7 +16,7 @@ Options for starting the redirect-first web social login flow via [`NAuthClient.
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
-| `returnTo` | `string` | No | Frontend route or URL to return to after backend finishes OAuth. Default: `config.redirects.success` or `'/'`. |
+| `returnTo` | `string` | No | Frontend route or URL to return to after backend finishes OAuth. Default: `config.redirects.loginSuccess` (or legacy `config.redirects.success`) or `'/'`. |
 | `appState` | `string` | No | Opaque, non-secret state to round-trip back to the frontend (URL-encoded). |
 | `action` | `'login' \| 'link'` | No | Flow action. Default: `'login'`. |
 

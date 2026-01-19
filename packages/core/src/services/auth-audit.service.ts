@@ -518,21 +518,21 @@ export class InternalAuthAuditService extends AuthAuditService {
 
       // ============================================================================
       // Auto-populate performedBy from client info context (if available)
+      // Prefer sub (UUID) over userId (internal id) for performedBy.
       // ============================================================================
       let performedBy: string | null = data.performedBy ?? null;
       if (!performedBy && this.clientInfoService) {
         try {
-          // Get userId from client info (extracted from JWT token by interceptors/handlers)
           const clientInfo = this.clientInfoService.get();
-          if (clientInfo?.userId) {
-            // Use the userId from client info as performedBy
-            // This captures who performed the action (could be admin performing action on another user)
+          if (clientInfo?.sub) {
+            performedBy = clientInfo.sub;
+          } else if (clientInfo?.userId != null) {
             performedBy = String(clientInfo.userId);
           }
         } catch (error) {
           // Non-blocking: If client info extraction fails, continue without performedBy
           this.logger?.debug?.(
-            `Failed to get userId from client info for performedBy: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            `Failed to get sub/userId from client info for performedBy: ${error instanceof Error ? error.message : 'Unknown error'}`,
           );
         }
       }

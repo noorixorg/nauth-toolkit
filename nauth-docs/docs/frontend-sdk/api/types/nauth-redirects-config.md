@@ -20,9 +20,11 @@ import { NAuthRedirectsConfig } from '@nauth-toolkit/client';
 
 | Property                  | Type                                      | Required | Default              | Description                                                          |
 | ------------------------- | ----------------------------------------- | -------- | -------------------- | -------------------------------------------------------------------- |
-| `success`                 | `string`                                  | No       | `'/'`                | URL to redirect after successful authentication (login, signup, OAuth) |
-| `sessionExpired`          | `string`                                  | No       | `'/login'`           | URL to redirect when session expires (refresh fails with 401)        |
-| `oauthError`              | `string`                                  | No       | `'/login'`           | URL to redirect when OAuth authentication fails                      |
+| `loginSuccess`            | `string \| null`                           | No       | `'/'`                | URL to redirect after successful login/social (no challenge). Set `null` to disable auto-navigation. |
+| `signupSuccess`           | `string \| null`                           | No       | `undefined`          | URL to redirect after successful signup (no challenge). Set `null` to disable auto-navigation. |
+| `success`                 | `string \| null`                           | No       | `undefined`          | Legacy alias for `loginSuccess`. Deprecated. Set `null` to disable auto-navigation. |
+| `sessionExpired`          | `string \| null`                           | No       | `'/login'`           | URL to redirect when session expires (refresh fails with 401). Set `null` to disable auto-navigation. |
+| `oauthError`              | `string \| null`                           | No       | `'/login'`           | URL to redirect when OAuth authentication fails. Set `null` to disable auto-navigation. |
 | `challengeBase`           | `string`                                  | No       | `'/auth/challenge'`  | Base URL for challenge routes. Challenge type appended by default     |
 | `challengeRoutes`         | `Partial<Record<[AuthChallenge](./auth-challenge), string>>` | No | `undefined`          | Custom route mapping for each challenge type. Overrides default route construction. See [AuthChallenge enum](./auth-challenge) for all challenge types. |
 | `useSingleChallengeRoute` | `boolean`                                 | No       | `false`              | When `true`, uses query param mode: `/auth/challenge?challenge=VERIFY_EMAIL`. When `false`, uses separate routes: `/auth/challenge/verify-email` |
@@ -53,7 +55,8 @@ The SDK builds challenge URLs in this order (highest to lowest priority):
 import { NAuthRedirectsConfig, AuthChallenge } from '@nauth-toolkit/client';
 
 const redirects: NAuthRedirectsConfig = {
-  success: '/dashboard',
+  loginSuccess: '/dashboard',
+  signupSuccess: '/onboarding',
   sessionExpired: '/login?expired=true',
   oauthError: '/login?error=oauth',
   challengeBase: '/auth/challenge',
@@ -87,7 +90,7 @@ const config: NAuthClientConfig = {
   baseUrl: 'https://api.example.com/auth',
   tokenDelivery: 'cookies',
   redirects: {
-    success: '/dashboard',
+    loginSuccess: '/dashboard',
     challengeBase: '/auth/challenge',
   },
 };

@@ -1,6 +1,6 @@
 import { AuthResponse, AuthChallenge } from '../types/auth.types';
-import { AuthResponseContext } from '../types/config.types';
 import { ResolvedNAuthClientConfig } from './config';
+import { AuthResponseContext, type NAuthStorageAdapter } from '../types/config.types';
 
 const OAUTH_STATE_KEY = 'nauth_oauth_state';
 
@@ -45,7 +45,10 @@ const OAUTH_STATE_KEY = 'nauth_oauth_state';
  * ```
  */
 export class ChallengeRouter {
-  constructor(private config: ResolvedNAuthClientConfig) {}
+  constructor(
+    private config: ResolvedNAuthClientConfig,
+    private oauthStorage: NAuthStorageAdapter,
+  ) {}
 
   /**
    * Handle auth response - either call callback or auto-navigate.
@@ -64,10 +67,46 @@ export class ChallengeRouter {
     if (response.challengeName) {
       await this.navigateToChallenge(response);
     } else {
-      // Retrieve stored appState for social redirect flows
-      const queryParams = await this.getStoredOauthState();
-      await this.navigateToSuccess(queryParams);
+      // Retrieve stored appState for social redirect flows (when not already in context)
+      const queryParams = context.appState ? { appState: context.appState } : await this.getStoredOauthState();
+      await this.navigateToSuccess(queryParams, context);
     }
+  }
+
+  /**
+   * Resolve the configured success URL based on context and explicit override keys.
+   *
+   * IMPORTANT:
+   * - `null` explicitly disables auto-navigation (caller should rely on framework events / custom routing).
+   * - `undefined` / missing keys fall back to other configured values or defaults.
+   * - Falls back to legacy `redirects.success` when new keys are not set.
+   *
+   * @param context - Auth response context
+   * @returns URL string, or null when auto-navigation is disabled
+   */
+  private resolveSuccessUrl(context?: AuthResponseContext): string | null {
+    const redirects = this.config.redirects;
+    if (!redirects) {
+      return '/';
+    }
+
+    const isSignup = context?.source === 'signup';
+
+    if (isSignup) {
+      if (redirects.signupSuccess === null) return null;
+      if (typeof redirects.signupSuccess === 'string') return redirects.signupSuccess;
+    }
+
+    if (!isSignup) {
+      if (redirects.loginSuccess === null) return null;
+      if (typeof redirects.loginSuccess === 'string') return redirects.loginSuccess;
+    }
+
+    // Backward-compatible fallback (legacy API)
+    if (redirects.success === null) return null;
+    if (typeof redirects.success === 'string') return redirects.success;
+
+    return '/';
   }
 
   /**
@@ -84,14 +123,23 @@ export class ChallengeRouter {
    * Navigate to success URL.
    *
    * @param queryParams - Optional query parameters to append to the success URL
+   * @param context - Optional auth context for selecting the success route
    *
    * @example
    * ```typescript
    * await router.navigateToSuccess({ appState: 'invite-code-123' });
    * ```
    */
-  async navigateToSuccess(queryParams?: Record<string, string>): Promise<void> {
-    let url = this.config.redirects?.success || '/';
+  async navigateToSuccess(
+    queryParams?: Record<string, string | null | undefined>,
+    context?: AuthResponseContext,
+  ): Promise<void> {
+    const resolved = this.resolveSuccessUrl(context);
+    if (resolved === null) {
+      return;
+    }
+
+    let url = resolved;
 
     // Append query parameters if provided
     // Build path with query string (not full URL) to work with both
@@ -111,16 +159,19 @@ export class ChallengeRouter {
   }
 
   /**
-   * Retrieve stored OAuth appState from storage.
+   * Retrieve stored OAuth appState from sessionStorage.
+   *
+   * NOTE: This method does NOT clear the storage. Only the public getLastOauthState() API clears it.
+   * This allows the SDK to read appState for auto-navigation while still making it available to
+   * consumers via the public API.
    *
    * @returns Query params object with appState if present, undefined otherwise
    */
   private async getStoredOauthState(): Promise<Record<string, string> | undefined> {
     try {
-      const stored = await this.config.storage.getItem(OAUTH_STATE_KEY);
+      const stored = await this.oauthStorage.getItem(OAUTH_STATE_KEY);
       if (stored) {
-        // Clear after retrieval to prevent reuse
-        await this.config.storage.removeItem(OAUTH_STATE_KEY);
+        // Do NOT clear - consumer may want to retrieve it via getLastOauthState()
         return { appState: stored };
       }
     } catch {
@@ -135,10 +186,12 @@ export class ChallengeRouter {
    * @param type - Type of error (oauth or session)
    */
   async navigateToError(type: 'oauth' | 'session'): Promise<void> {
-    const url =
-      type === 'oauth'
-        ? this.config.redirects?.oauthError || '/login'
-        : this.config.redirects?.sessionExpired || '/login';
+    const redirects = this.config.redirects;
+    const raw = type === 'oauth' ? redirects?.oauthError : redirects?.sessionExpired;
+    if (raw === null) {
+      return;
+    }
+    const url = raw ?? '/login';
     await this.navigate(url);
   }
 

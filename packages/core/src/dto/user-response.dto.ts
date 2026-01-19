@@ -80,6 +80,11 @@ export class UserResponseDto {
   mfaEnabled!: boolean;
 
   /**
+   * MFA exemption status (admin-granted bypass of MFA at login)
+   */
+  mfaExempt!: boolean;
+
+  /**
    * Array of social providers linked to this account
    *
    * Examples: ['google', 'apple', 'facebook']
@@ -125,6 +130,7 @@ export class UserResponseDto {
     dto.isActive = user.isActive;
     dto.isLocked = user.isLocked;
     dto.mfaEnabled = user.mfaEnabled;
+    dto.mfaExempt = !!(user.mfaExempt === true || (user.mfaExempt as unknown) === 1);
     dto.socialProviders = user.socialProviders;
     dto.hasPasswordHash = !!user.passwordHash; // Check if password exists
     dto.createdAt = user.createdAt;

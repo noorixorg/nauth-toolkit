@@ -69,7 +69,8 @@ export const appConfig = {
         baseUrl: 'https://api.example.com/auth',
         tokenDelivery: 'cookies',
         redirects: {
-          success: '/dashboard',
+          loginSuccess: '/dashboard',
+          signupSuccess: '/onboarding',
           sessionExpired: '/login',
           oauthError: '/login?error=oauth',
           challengeBase: '/auth/challenge',
@@ -95,21 +96,21 @@ export const appConfig = {
 
 ```typescript
 redirects: {
-  success: '/dashboard',
+  loginSuccess: '/dashboard',
   challengeBase: '/auth/challenge',
 }
 
 // Guard navigates to:
 // - /auth/challenge/verify-email
 // - /auth/challenge/mfa-required
-// - /dashboard (no challenge)
+// - /dashboard (no challenge, login/social)
 ```
 
 ### Pattern 2: Single Route with Query Param
 
 ```typescript
 redirects: {
-  success: '/dashboard',
+  loginSuccess: '/dashboard',
   challengeBase: '/auth/challenge',
   useSingleChallengeRoute: true,
 }
@@ -117,14 +118,14 @@ redirects: {
 // Guard navigates to:
 // - /auth/challenge?challenge=VERIFY_EMAIL
 // - /auth/challenge?challenge=MFA_REQUIRED
-// - /dashboard (no challenge)
+// - /dashboard (no challenge, login/social)
 ```
 
 ### Pattern 3: Custom Routes
 
 ```typescript
 redirects: {
-  success: '/home',
+  loginSuccess: '/home',
   challengeRoutes: {
     [AuthChallenge.VERIFY_EMAIL]: '/verify-email',
     [AuthChallenge.MFA_REQUIRED]: '/two-factor',
@@ -218,7 +219,7 @@ The guard automatically handles OAuth errors:
 | ------------------ | ----------------------------------------------- |
 | `?error=...`       | Navigate to `redirects.oauthError` (default: `/login`) |
 | `?exchangeToken=...` | Exchange token and navigate based on result   |
-| No parameters      | Navigate to `redirects.success` (hydrate mode) |
+| No parameters      | Navigate to `redirects.loginSuccess` (hydrate mode) |
 
 ## Event Integration
 
@@ -262,8 +263,9 @@ export class AppComponent implements OnInit {
 
 | Property                   | Type      | Default              | Description                                    |
 | -------------------------- | --------- | -------------------- | ---------------------------------------------- |
-| `redirects.success`        | `string`  | `'/'`                | Success route (no challenge)                   |
-| `redirects.oauthError`     | `string`  | `'/login'`           | OAuth error route                              |
+| `redirects.loginSuccess`   | `string \| null`  | `'/'`         | Success route for login/social (no challenge). Set `null` to disable auto-navigation. |
+| `redirects.signupSuccess`  | `string \| null`  | `undefined`   | Success route for signup (no challenge). Set `null` to disable auto-navigation. |
+| `redirects.oauthError`     | `string \| null`  | `'/login'`    | OAuth error route. Set `null` to disable auto-navigation. |
 | `redirects.challengeBase`  | `string`  | `'/auth/challenge'`  | Challenge base path                            |
 | `redirects.challengeRoutes` | `object`  | `undefined`          | Custom routes per challenge type               |
 | `redirects.useSingleChallengeRoute` | `boolean` | `false`      | Use query param mode                           |

@@ -202,8 +202,8 @@ export class AuthGuard implements CanActivate {
         ContextStorage.set('JWT_PAYLOAD', validation.payload);
         ContextStorage.set('CURRENT_SESSION', sessionId);
 
-        // Update CLIENT_INFO with sessionId and userId
-        const clientInfo = ContextStorage.get<{ sessionId?: number; userId?: number }>('CLIENT_INFO');
+        // Update CLIENT_INFO with sessionId, userId, and sub
+        const clientInfo = ContextStorage.get<{ sessionId?: number; userId?: number; sub?: string }>('CLIENT_INFO');
         if (clientInfo) {
           const sessionIdNumber = typeof sessionId === 'number' ? sessionId : parseInt(String(sessionId), 10);
           const userIdNumber = typeof user.id === 'number' ? user.id : parseInt(String(user.id), 10);
@@ -212,6 +212,9 @@ export class AuthGuard implements CanActivate {
           }
           if (!isNaN(userIdNumber) && userIdNumber > 0) {
             clientInfo.userId = userIdNumber;
+          }
+          if (user.sub) {
+            clientInfo.sub = user.sub;
           }
           ContextStorage.set('CLIENT_INFO', clientInfo);
         }

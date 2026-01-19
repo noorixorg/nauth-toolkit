@@ -84,7 +84,8 @@ Each challenge gets its own route appended after your `challengeBase` setting.
   tokenDelivery: 'cookies',
   redirects: {
     challengeBase: '/auth/challenge',  // Base path
-    success: '/dashboard',
+    loginSuccess: '/dashboard',
+    signupSuccess: '/onboarding',
     sessionExpired: '/login',
     oauthError: '/login',
   },
@@ -962,7 +963,9 @@ try {
 
 | Option                              | Description                                | Default                   | Example                                                      |
 | ----------------------------------- | ------------------------------------------ | ------------------------- | ------------------------------------------------------------ |
-| `redirects.success`                 | URL after successful authentication        | `'/'`                     | `'/dashboard'`                                               |
+| `redirects.loginSuccess`            | URL after successful login/social (no challenge) | `'/'`               | `'/dashboard'`                                               |
+| `redirects.signupSuccess`           | URL after successful signup (no challenge) | `undefined`               | `'/onboarding'`                                              |
+| `redirects.success`                 | Legacy alias for `redirects.loginSuccess`  | `undefined`               | `'/dashboard'`                                               |
 | `redirects.sessionExpired`          | URL when session expires                   | `'/login'`                | `'/login?expired=true'`                                      |
 | `redirects.oauthError`              | URL when OAuth authentication fails        | `'/login'`                | `'/login?error=oauth'`                                       |
 | `redirects.challengeBase`           | Base path for challenges                   | `'/auth/challenge'`       | `'/auth/challenge'`                                          |

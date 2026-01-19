@@ -80,7 +80,8 @@ import { AuthChallenge } from '@nauth-toolkit/client';
 
 {
   redirects: {
-    success: '/dashboard',
+    loginSuccess: '/dashboard',
+    signupSuccess: '/onboarding',
     sessionExpired: '/login?expired=true',
     oauthError: '/login?error=oauth',
     challengeBase: '/auth/challenge',
@@ -279,7 +280,7 @@ const client = new NAuthClient({
 
   // Optional - redirect URLs (platform-agnostic)
   redirects: {
-    success: '/',
+    loginSuccess: '/',
     sessionExpired: '/login',
     oauthError: '/login',
     challengeBase: '/auth/challenge',
@@ -471,7 +472,8 @@ export const appConfig: ApplicationConfig = {
         tokenDelivery: 'cookies',
         debug: true,
         redirects: {
-          success: '/',
+          loginSuccess: '/',
+          signupSuccess: '/onboarding',
           sessionExpired: '/login',
           oauthError: '/login',
           challengeBase: '/auth/challenge',

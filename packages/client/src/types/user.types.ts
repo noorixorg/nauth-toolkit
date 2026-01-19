@@ -20,6 +20,10 @@ export interface AuthUser {
    */
   isLocked: boolean;
   mfaEnabled: boolean;
+  /**
+   * MFA exemption status (admin-granted bypass of MFA at login)
+   */
+  mfaExempt?: boolean;
   socialProviders?: string[] | null;
   hasPasswordHash: boolean;
   /**

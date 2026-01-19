@@ -430,7 +430,8 @@ const client = new NAuthClient({
 
   // Challenge navigation
   redirects: {
-    success: '/dashboard',
+    loginSuccess: '/dashboard',
+    signupSuccess: '/onboarding',
     sessionExpired: '/login',
     oauthError: '/login',
     challengeBase: '/auth/challenge',
@@ -492,6 +493,31 @@ const client = new NAuthClient({
   debug: isDevelopment,
 });
 ```
+
+## Redirects and Auto-Navigation
+
+The SDK can automatically navigate after authentication and on certain error conditions using `redirects`.
+
+- **`redirects.loginSuccess`**: where to navigate after successful login/social (no challenge)
+- **`redirects.signupSuccess`**: where to navigate after successful signup (no challenge)
+- **Legacy**: `redirects.success` is a deprecated alias for `loginSuccess`
+
+### Disable auto-navigation (events-only routing)
+
+If you want to do all routing manually (for example in Angular by subscribing to `authEvents$`), set the redirect to `null`.
+
+```typescript
+redirects: {
+  loginSuccess: null,
+  signupSuccess: null,
+  oauthError: null,
+  sessionExpired: null,
+}
+```
+
+Notes:
+- Use **`null`** to disable. Leaving a key **undefined/omitted** means “not set” and falls back to defaults.
+- Challenge routing (MFA, verify-email, etc.) is controlled by `challengeBase`, `challengeRoutes`, `mfaRoutes`, and `useSingleChallengeRoute`.
 
 ## Related Documentation
 
