@@ -120,6 +120,18 @@ DB_DATABASE=your_database
 JWT_SECRET=your-super-secret-jwt-key-min-32-chars
 JWT_REFRESH_SECRET=your-super-secret-refresh-key-min-32-chars
 
+# reCAPTCHA Enterprise (see RECAPTCHA_SETUP.md for detailed setup)
+# 1. Enable reCAPTCHA Enterprise API in Google Cloud Console
+# 2. Create API Key (APIs & Services → Credentials → Create API Key)
+#    - Must be restricted to "reCAPTCHA Enterprise API"
+#    - Starts with "AIza..." (NOT the site key which starts with "6L...")
+# 3. Create Site Key (reCAPTCHA Enterprise Console)
+#    - Add your domains (including localhost for dev)
+#    - Same site key used in both backend and frontend
+# RECAPTCHA_ENTERPRISE_PROJECT_ID=your-gcp-project-id
+# RECAPTCHA_ENTERPRISE_API_KEY=AIzaSy...your-api-key (NOT site key!)
+# RECAPTCHA_ENTERPRISE_SITE_KEY=6L...your-site-key
+
 # Email (optional - for production)
 NAUTH_EMAIL_PROVIDER=nodemailer
 NAUTH_SMTP_HOST=smtp.gmail.com

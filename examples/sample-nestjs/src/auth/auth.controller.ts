@@ -101,6 +101,7 @@ import {
   AdminGetUserAuthHistoryDTO,
   UserResponseDto,
   IMFADevice,
+  SkipRecaptcha,
 } from '@nauth-toolkit/nestjs';
 
 /**
@@ -1290,9 +1291,13 @@ export class MobileAuthController {
   }
 
   /**
-   * Mobile login (JSON token delivery)
+   * Mobile login (JSON token delivery).
+   *
+   * With enforceFor: ['cookies'], JSON routes are already exempt from reCAPTCHA.
+   * @SkipRecaptcha() is shown here for when you need to explicitly skip in other configs.
    */
   @Public()
+  @SkipRecaptcha()
   @TokenDelivery('json')
   @Post('login')
   @HttpCode(HttpStatus.OK)

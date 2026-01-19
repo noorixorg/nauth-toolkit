@@ -2057,4 +2057,105 @@ describe('NAuthClient', () => {
     await client.getProfile();
     expect(getFetchMock()).toHaveBeenCalled();
   });
+
+  describe('reCAPTCHA', () => {
+    it('sends recaptchaToken with login request when provided', async () => {
+      const client = new NAuthClient(baseConfig);
+      getFetchMock().mockResolvedValue(
+        createMockResponse({
+          ok: true,
+          status: 200,
+          body: {
+            accessToken: 'a1',
+            refreshToken: 'r1',
+            user: { sub: 'u1', email: 'user@example.com', isEmailVerified: true, hasPasswordHash: true },
+          },
+        }),
+      );
+
+      await client.login('user@example.com', 'password', 'recaptcha-token-123');
+
+      expect(getFetchMock()).toHaveBeenCalled();
+      const callArgs = getFetchMock().mock.calls[0];
+      const fetchOptions = callArgs[1] as RequestInit;
+      const body = JSON.parse(fetchOptions.body as string);
+      expect(body.recaptchaToken).toBe('recaptcha-token-123');
+    });
+
+    it('does not send recaptchaToken with login when not provided', async () => {
+      const client = new NAuthClient(baseConfig);
+      getFetchMock().mockResolvedValue(
+        createMockResponse({
+          ok: true,
+          status: 200,
+          body: {
+            accessToken: 'a1',
+            refreshToken: 'r1',
+            user: { sub: 'u1', email: 'user@example.com', isEmailVerified: true, hasPasswordHash: true },
+          },
+        }),
+      );
+
+      await client.login('user@example.com', 'password');
+
+      expect(getFetchMock()).toHaveBeenCalled();
+      const callArgs = getFetchMock().mock.calls[0];
+      const fetchOptions = callArgs[1] as RequestInit;
+      const body = JSON.parse(fetchOptions.body as string);
+      expect(body.recaptchaToken).toBeUndefined();
+    });
+
+    it('sends recaptchaToken with signup request when provided', async () => {
+      const client = new NAuthClient(baseConfig);
+      getFetchMock().mockResolvedValue(
+        createMockResponse({
+          ok: true,
+          status: 200,
+          body: {
+            accessToken: 'a1',
+            refreshToken: 'r1',
+            user: { sub: 'u1', email: 'user@example.com', isEmailVerified: true, hasPasswordHash: true },
+          },
+        }),
+      );
+
+      await client.signup({
+        email: 'user@example.com',
+        password: 'password',
+        recaptchaToken: 'recaptcha-token-456',
+      });
+
+      expect(getFetchMock()).toHaveBeenCalled();
+      const callArgs = getFetchMock().mock.calls[0];
+      const fetchOptions = callArgs[1] as RequestInit;
+      const body = JSON.parse(fetchOptions.body as string);
+      expect(body.recaptchaToken).toBe('recaptcha-token-456');
+    });
+
+    it('does not send recaptchaToken with signup when not provided', async () => {
+      const client = new NAuthClient(baseConfig);
+      getFetchMock().mockResolvedValue(
+        createMockResponse({
+          ok: true,
+          status: 200,
+          body: {
+            accessToken: 'a1',
+            refreshToken: 'r1',
+            user: { sub: 'u1', email: 'user@example.com', isEmailVerified: true, hasPasswordHash: true },
+          },
+        }),
+      );
+
+      await client.signup({
+        email: 'user@example.com',
+        password: 'password',
+      });
+
+      expect(getFetchMock()).toHaveBeenCalled();
+      const callArgs = getFetchMock().mock.calls[0];
+      const fetchOptions = callArgs[1] as RequestInit;
+      const body = JSON.parse(fetchOptions.body as string);
+      expect(body.recaptchaToken).toBeUndefined();
+    });
+  });
 });

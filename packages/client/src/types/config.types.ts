@@ -22,6 +22,79 @@ export type { HttpAdapter } from '../core/http-adapter';
 export type TokenDeliveryMode = 'json' | 'cookies';
 
 /**
+ * reCAPTCHA version type
+ */
+export type RecaptchaVersion = 'v2' | 'v3' | 'enterprise';
+
+/**
+ * reCAPTCHA configuration for client SDK.
+ *
+ * Provides bot protection for authentication endpoints.
+ * Tokens are automatically generated and sent to the server.
+ *
+ * @example v3 (invisible, automatic)
+ * ```typescript
+ * recaptcha: {
+ *   enabled: true,
+ *   version: 'v3',
+ *   siteKey: '6LcExample_Site_Key',
+ *   action: 'login', // Action name for v3 analytics
+ * }
+ * ```
+ *
+ * @example v2 (visible checkbox)
+ * ```typescript
+ * recaptcha: {
+ *   enabled: true,
+ *   version: 'v2',
+ *   siteKey: '6LcExample_Site_Key',
+ * }
+ * ```
+ */
+export interface RecaptchaConfig {
+  /**
+   * Enable/disable reCAPTCHA.
+   * Set to false to disable even if configured (useful for testing).
+   */
+  enabled: boolean;
+
+  /**
+   * reCAPTCHA version: v2 (checkbox), v3 (invisible), or enterprise.
+   */
+  version: RecaptchaVersion;
+
+  /**
+   * Site key from Google reCAPTCHA console.
+   * This is safe to expose publicly (it's the public key).
+   */
+  siteKey: string;
+
+  /**
+   * Action name for v3/Enterprise analytics.
+   * Helps track which actions are being protected.
+   * Common values: 'login', 'signup', 'submit'
+   *
+   * @default 'submit'
+   */
+  action?: string;
+
+  /**
+   * Automatically load the Google reCAPTCHA script.
+   * If false, you must manually load the script.
+   *
+   * @default true
+   */
+  autoLoadScript?: boolean;
+
+  /**
+   * Language code for reCAPTCHA widget (v2 only).
+   * @example 'en', 'es', 'fr', 'de'
+   * @default Browser language
+   */
+  language?: string;
+}
+
+/**
  * Endpoint paths for the client SDK.
  */
 export interface NAuthEndpoints {
@@ -176,15 +249,17 @@ export interface NAuthRedirectsConfig {
 
   /**
    * URL to redirect to when session expires (refresh fails with 401).
+   * Set to `null` to disable SDK auto-navigation.
    * @default '/login'
    */
-  sessionExpired?: string;
+  sessionExpired?: string | null;
 
   /**
    * URL to redirect to when OAuth authentication fails.
+   * Set to `null` to disable SDK auto-navigation.
    * @default '/login'
    */
-  oauthError?: string;
+  oauthError?: string | null;
 
   /**
    * Base URL for challenge routes (email verification, MFA, etc.).
@@ -404,6 +479,25 @@ export interface NAuthClientConfig {
    * ```
    */
   httpAdapter?: HttpAdapter;
+
+  /**
+   * Google reCAPTCHA configuration (optional).
+   * Provides bot protection for login/signup endpoints.
+   *
+   * Note: The SDK only handles token generation and passing.
+   * The server validates the token and enforces protection.
+   *
+   * @example
+   * ```typescript
+   * recaptcha: {
+   *   enabled: true,
+   *   version: 'v3',
+   *   siteKey: '6LcExample_Site_Key',
+   *   action: 'login',
+   * }
+   * ```
+   */
+  recaptcha?: RecaptchaConfig;
 
   /**
    * Admin operations configuration (optional).

@@ -46,6 +46,7 @@ export { CurrentUser } from './decorators/current-user.decorator';
 export { Public, IS_PUBLIC_KEY } from './decorators/public.decorator';
 export { ClientInfo } from './decorators/client-info.decorator';
 export { TokenDelivery, TOKEN_DELIVERY_KEY, RouteDelivery } from './decorators/token-delivery.decorator';
+export { SkipRecaptcha, RequireRecaptcha } from './decorators/recaptcha.decorator';
 export {
   PreSignupHook,
   PostSignupHook,

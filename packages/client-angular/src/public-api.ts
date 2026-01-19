@@ -19,3 +19,5 @@ export * from './ngmodule/nauth.module';
 export * from './lib/auth.interceptor';
 export * from './lib/auth.guard';
 export * from './lib/social-redirect-callback.guard';
+export * from './lib/recaptcha.service';
+export * from './lib/recaptcha-provider';

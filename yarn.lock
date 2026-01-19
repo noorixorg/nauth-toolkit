@@ -3409,7 +3409,7 @@
     "@tybys/wasm-util" "^0.10.1"
 
 "@nauth-toolkit/client-angular@file:packages/client-angular/dist":
-  version "0.1.89"
+  version "0.1.92"
   dependencies:
     tslib "^2.3.0"
 

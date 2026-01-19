@@ -1,6 +1,7 @@
 import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
 import { MFAMethod, NAuthModuleConfig, createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
 import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
+import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
 // import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
 import { Logger } from '@nestjs/common';
 // import { SendEmailCommand, SESv2Client } from '@aws-sdk/client-sesv2';
@@ -135,9 +136,9 @@ export const authConfig: NAuthModuleConfig = {
     csrf: {
       cookieName: 'nauth_csrf_token',
       headerName: 'x-csrf-token',
-      // cookieOptions: {
-      //   domain: '.angular.dev1.noorix.com',
-      // },
+      cookieOptions: {
+        domain: '.angular.dev1.noorix.com',
+      },
     },
   },
   geoLocation: {
@@ -151,7 +152,7 @@ export const authConfig: NAuthModuleConfig = {
   },
   social: {
     redirect: {
-      frontendBaseUrl: 'http://localhost:4200',
+      frontendBaseUrl: 'https://angular.dev1.noorix.com',
       allowAbsoluteReturnTo: false,
       allowedReturnToOrigins: ['https://angular.dev1.noorix.com', 'http://localhost:4200', 'http://localhost:3000'],
     },
@@ -161,7 +162,7 @@ export const authConfig: NAuthModuleConfig = {
         ? [process.env.GOOGLE_CLIENT_ID!, process.env.GOOGLE_IOS_CLIENT_ID]
         : process.env.GOOGLE_CLIENT_ID, // Client ID (string or array for multi-platform: web, iOS, Android, e.g., '12345.apps.googleusercontent.com' or ['12345-web.apps.googleusercontent.com', '12345-ios.apps.googleusercontent.com'])
       clientSecret: process.env.GOOGLE_CLIENT_SECRET, // Client secret (required if enabled)
-      callbackUrl: 'http://localhost:3000/auth/social/google/callback', // Callback URL (must match provider registration, e.g., 'https://myapp.com/social/google/callback')
+      callbackUrl: 'https://angular.dev1.noorix.com/auth/social/google/callback', // Callback URL (must match provider registration, e.g., 'https://myapp.com/social/google/callback')
       scopes: ['openid', 'email', 'profile'], // OAuth scopes (default: ['openid', 'email', 'profile'])
       autoLink: true, // Auto-link to existing users by verified email (default: true)
       allowSignup: true, // Allow new user creation (default: true)
@@ -184,7 +185,7 @@ export const authConfig: NAuthModuleConfig = {
       enabled: true, // Enable Facebook OAuth (default: false)
       clientId: process.env.FACEBOOK_CLIENT_ID, // Facebook App ID
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET, // Facebook App Secret
-      callbackUrl: 'http://localhost:3000/social/facebook/callback', // Callback URL (must match provider registration, e.g., 'https://myapp.com/social/facebook/callback')
+      callbackUrl: 'https://angular.dev1.noorix.com/social/facebook/callback', // Callback URL (must match provider registration, e.g., 'https://myapp.com/social/facebook/callback')
       scopes: ['email', 'public_profile'], // OAuth scopes (default: ['email', 'public_profile'])
       autoLink: true, // Auto-link to existing users by verified email (default: true)
       allowSignup: true, // Allow new user creation (default: true)
@@ -315,6 +316,18 @@ export const authConfig: NAuthModuleConfig = {
   },
 
   lockout: { enabled: false, maxAttempts: 5, duration: 300, resetOnSuccess: true },
+
+  recaptcha: {
+    enabled: true,
+    provider: new RecaptchaEnterpriseProvider({
+      projectId: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID!,
+      apiKey: process.env.RECAPTCHA_ENTERPRISE_API_KEY!, // API key (AIza...), NOT site key
+      siteKey: process.env.RECAPTCHA_ENTERPRISE_SITE_KEY!, // Site key (6L...)
+    }),
+    enforceFor: ['cookies'] as const, // Only enforce for cookie-based auth (web)
+    minimumScore: 0.5, // Minimum score (0-1) for v3/Enterprise
+    skipInDevelopment: false,
+  },
   session: {
     maxConcurrent: 5,
     disallowMultipleSessions: false,

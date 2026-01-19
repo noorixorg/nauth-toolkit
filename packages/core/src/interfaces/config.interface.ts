@@ -18,6 +18,7 @@
 import { MFADeviceMethod } from '../enums/mfa-method.enum';
 import { StorageAdapter } from './storage-adapter.interface';
 import { EmailProvider, SMSProvider } from './provider.interface';
+import type { RecaptchaProvider } from '@nauth-toolkit/recaptcha';
 
 export interface NAuthConfig {
   /**
@@ -508,6 +509,58 @@ export interface NAuthConfig {
    * ```
    */
   emailNotifications?: EmailNotificationsConfig;
+
+  /**
+   * Google reCAPTCHA configuration (optional)
+   *
+   * Protects authentication endpoints from bot attacks using Google reCAPTCHA.
+   * Supports v2 (checkbox), v3 (score-based), and Enterprise versions.
+   *
+   * When enabled, authentication requests must include a valid reCAPTCHA token.
+   * Token validation is automatically enforced based on `enforceFor` configuration.
+   *
+   * **Important:** Social authentication (OAuth) endpoints are NOT protected by reCAPTCHA.
+   * OAuth providers (Google, Apple, Facebook) handle their own bot protection.
+   *
+   * @example Web-only protection (recommended)
+   * ```typescript
+   * import { RecaptchaV3Provider } from '@nauth-toolkit/recaptcha';
+   *
+   * recaptcha: {
+   *   enabled: true,
+   *   provider: new RecaptchaV3Provider({
+   *     secretKey: process.env.RECAPTCHA_SECRET_KEY!,
+   *   }),
+   *   enforceFor: ['cookies'], // Web only, mobile (JSON) exempt
+   *   minimumScore: 0.5,
+   *   skipInDevelopment: true,
+   * }
+   * ```
+   *
+   * @example All platforms protected
+   * ```typescript
+   * recaptcha: {
+   *   enabled: true,
+   *   provider: new RecaptchaV3Provider({
+   *     secretKey: process.env.RECAPTCHA_SECRET_KEY!,
+   *   }),
+   *   enforceFor: ['cookies', 'json'], // Both web and mobile
+   *   minimumScore: 0.5,
+   * }
+   * ```
+   *
+   * @example Optional validation (no enforcement)
+   * ```typescript
+   * recaptcha: {
+   *   enabled: true,
+   *   provider: new RecaptchaV3Provider({
+   *     secretKey: process.env.RECAPTCHA_SECRET_KEY!,
+   *   }),
+   *   enforceFor: [], // Don't require token, but validate if provided
+   * }
+   * ```
+   */
+  recaptcha?: RecaptchaConfig;
 }
 
 /**
@@ -2503,4 +2556,142 @@ export interface GeoLocationConfig {
      */
     editions?: string[];
   };
+}
+
+/**
+ * Google reCAPTCHA configuration
+ *
+ * Configures bot protection for authentication endpoints using Google reCAPTCHA.
+ * Supports v2 (checkbox), v3 (score-based), and Enterprise versions.
+ *
+ * **Security Model:**
+ * - Token validation happens server-side only (never trust client)
+ * - Configurable enforcement per token delivery mode (cookies vs JSON)
+ * - Route-level overrides via decorators (@SkipRecaptcha, @RequireRecaptcha)
+ * - Automatic exemption for social OAuth endpoints
+ *
+ * **Token Delivery Modes:**
+ * - `cookies`: Web browsers (typically requires reCAPTCHA)
+ * - `json`: Mobile apps (typically exempt due to app store vetting)
+ *
+ * @example Typical web app configuration
+ * ```typescript
+ * import { RecaptchaV3Provider } from '@nauth-toolkit/recaptcha';
+ *
+ * recaptcha: {
+ *   enabled: true,
+ *   provider: new RecaptchaV3Provider({
+ *     secretKey: process.env.RECAPTCHA_SECRET_KEY!,
+ *   }),
+ *   enforceFor: ['cookies'], // Enforce for web, skip for mobile
+ *   minimumScore: 0.5,
+ *   skipInDevelopment: true,
+ * }
+ * ```
+ */
+export interface RecaptchaConfig {
+  /**
+   * Enable reCAPTCHA validation
+   *
+   * When enabled, authentication endpoints will validate reCAPTCHA tokens
+   * based on `enforceFor` configuration.
+   *
+   * @default false
+   */
+  enabled: boolean;
+
+  /**
+   * reCAPTCHA provider implementation
+   *
+   * Choose based on your requirements:
+   * - `RecaptchaV2Provider`: Checkbox-based (explicit user interaction)
+   * - `RecaptchaV3Provider`: Score-based invisible (recommended for most apps)
+   * - `RecaptchaEnterpriseProvider`: Advanced features for enterprise use
+   *
+   * @example v3 (recommended)
+   * ```typescript
+   * provider: new RecaptchaV3Provider({
+   *   secretKey: process.env.RECAPTCHA_SECRET_KEY!,
+   * })
+   * ```
+   *
+   * @example v2 (checkbox)
+   * ```typescript
+   * provider: new RecaptchaV2Provider({
+   *   secretKey: process.env.RECAPTCHA_V2_SECRET_KEY!,
+   * })
+   * ```
+   */
+  provider: RecaptchaProvider;
+
+  /**
+   * Enforce reCAPTCHA for specific token delivery modes
+   *
+   * Controls which client types must provide reCAPTCHA tokens:
+   * - `['cookies']`: Web only (recommended - mobile apps exempt)
+   * - `['json']`: Mobile only (rare use case)
+   * - `['cookies', 'json']`: All platforms
+   * - `[]` or `undefined`: Optional validation (validates if token provided, but doesn't require)
+   *
+   * **Rationale:**
+   * - Web apps (cookies): High bot risk, public access
+   * - Mobile apps (JSON): Lower bot risk, app store審核, device attestation
+   *
+   * **Route overrides:**
+   * Use `@SkipRecaptcha()` or `@RequireRecaptcha()` to override per-route.
+   *
+   * @default ['cookies']
+   *
+   * @example Web-only enforcement
+   * ```typescript
+   * enforceFor: ['cookies'] // Mobile apps automatically exempt
+   * ```
+   *
+   * @example Optional validation
+   * ```typescript
+   * enforceFor: [] // Validate if provided, don't require
+   * ```
+   */
+  enforceFor?: ('cookies' | 'json')[];
+
+  /**
+   * Minimum acceptable score for v3/Enterprise (0.0 - 1.0)
+   *
+   * Lower scores indicate likely bot activity:
+   * - 0.0: Very likely a bot
+   * - 0.5: Neutral (recommended threshold)
+   * - 1.0: Very likely a human
+   *
+   * Only applies to v3 and Enterprise versions.
+   * Ignored for v2 (checkbox-based has no score).
+   *
+   * **Security vs UX trade-off:**
+   * - Higher threshold (0.7+): More secure, may block legitimate users
+   * - Lower threshold (0.3-0.5): More permissive, may allow some bots
+   *
+   * @default 0.5
+   *
+   * @example Strict security
+   * ```typescript
+   * minimumScore: 0.7 // Block suspicious traffic aggressively
+   * ```
+   */
+  minimumScore?: number;
+
+  /**
+   * Skip reCAPTCHA validation in development environment
+   *
+   * When true, reCAPTCHA validation is disabled when NODE_ENV !== 'production'.
+   * Useful for local development without requiring valid reCAPTCHA tokens.
+   *
+   * WARNING: Ensure NODE_ENV is properly set in production!
+   *
+   * @default false
+   *
+   * @example Development convenience
+   * ```typescript
+   * skipInDevelopment: true // No reCAPTCHA needed in dev/test
+   * ```
+   */
+  skipInDevelopment?: boolean;
 }

@@ -138,13 +138,28 @@ export class NAuthClient {
 
   /**
    * Login with identifier and password.
+   *
+   * @param identifier - Username or email
+   * @param password - User password
+   * @param recaptchaToken - Optional reCAPTCHA token for bot protection
+   *
+   * @example Basic login
+   * ```typescript
+   * const response = await client.login('user@example.com', 'password123');
+   * ```
+   *
+   * @example With reCAPTCHA
+   * ```typescript
+   * const token = await grecaptcha.execute(siteKey, { action: 'login' });
+   * const response = await client.login('user@example.com', 'password123', token);
+   * ```
    */
-  async login(identifier: string, password: string): Promise<AuthResponse> {
+  async login(identifier: string, password: string, recaptchaToken?: string): Promise<AuthResponse> {
     const loginEvent = { type: 'auth:login' as const, data: { identifier }, timestamp: Date.now() };
     this.eventEmitter.emit(loginEvent);
 
     try {
-      const body: LoginRequest = { identifier, password };
+      const body: LoginRequest = { identifier, password, recaptchaToken };
       const response = await this.post<AuthResponse>(this.config.endpoints.login, body);
       await this.handleAuthResponse(response);
 

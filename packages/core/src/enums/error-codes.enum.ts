@@ -421,6 +421,69 @@ export enum AuthErrorCode {
   PASSWORD_RESET_MAX_ATTEMPTS = 'PASSWORD_RESET_MAX_ATTEMPTS',
 
   // ============================================================================
+  // reCAPTCHA Errors (RECAPTCHA_*)
+  // ============================================================================
+
+  /**
+   * reCAPTCHA token is required but not provided
+   *
+   * The server requires reCAPTCHA validation for this endpoint,
+   * but no token was included in the request.
+   *
+   * Client should:
+   * 1. Check if reCAPTCHA is enabled in SDK configuration
+   * 2. Ensure token generation is working (v3 auto, v2 checkbox)
+   * 3. Verify token is being sent in request body
+   */
+  RECAPTCHA_REQUIRED = 'RECAPTCHA_REQUIRED',
+
+  /**
+   * reCAPTCHA provider is not configured on server
+   *
+   * Server has reCAPTCHA enabled but no provider instance configured.
+   * This is a configuration error, not a client error.
+   *
+   * Admin should check `recaptcha.provider` in server config.
+   */
+  RECAPTCHA_PROVIDER_MISSING = 'RECAPTCHA_PROVIDER_MISSING',
+
+  /**
+   * reCAPTCHA token validation failed
+   *
+   * Google's API rejected the token. Possible reasons:
+   * - Token is invalid or malformed
+   * - Token has expired (tokens are single-use, 2-minute lifetime)
+   * - Token was already used (replay attack)
+   * - Wrong site key (dev vs prod mismatch)
+   * - Network connectivity issues
+   *
+   * Client should generate a new token and retry.
+   *
+   * Details may include:
+   * - errorCodes: Array of error codes from Google API
+   */
+  RECAPTCHA_VALIDATION_FAILED = 'RECAPTCHA_VALIDATION_FAILED',
+
+  /**
+   * reCAPTCHA v3 score too low (likely bot)
+   *
+   * Token is valid but the risk score is below the minimum threshold.
+   * Indicates likely bot or automated activity.
+   *
+   * v3 scores range from 0.0 (bot) to 1.0 (human).
+   * Default threshold: 0.5
+   *
+   * Details may include:
+   * - score: The actual score received (0.0-1.0)
+   * - minimumScore: The required threshold
+   *
+   * **User actions:**
+   * - Legitimate users may need to contact support
+   * - Bots/scripts will be blocked
+   */
+  RECAPTCHA_SCORE_TOO_LOW = 'RECAPTCHA_SCORE_TOO_LOW',
+
+  // ============================================================================
   // General Errors (*)
   // ============================================================================
 

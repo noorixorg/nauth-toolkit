@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { AuthResponseDTO } from '@nauth-toolkit/core';
 import { TOKEN_DELIVERY_KEY, RouteDelivery } from '../decorators/token-delivery.decorator';
+import { SKIP_RECAPTCHA_KEY, REQUIRE_RECAPTCHA_KEY } from '../decorators/recaptcha.decorator';
 import { TokenDeliveryHttpService } from '../services/token-delivery-http.service';
 
 /**
@@ -36,10 +37,27 @@ export class CookieTokenInterceptor implements NestInterceptor {
     }
 
     const http = context.switchToHttp();
-    type GenericRequest = { headers?: Record<string, unknown> };
+    type GenericRequest = { headers?: Record<string, unknown>; _nauthAttributes?: Record<string, unknown> };
     type GenericResponse = { cookie?: Function; setCookie?: Function } & Record<string, unknown>;
     const req = http.getRequest<GenericRequest>();
     const res = http.getResponse<GenericResponse>();
+
+    // ============================================================================
+    // Read reCAPTCHA decorator metadata and set on request attributes
+    // ============================================================================
+    const skipRecaptcha = this.reflector.get<boolean>(SKIP_RECAPTCHA_KEY, context.getHandler());
+    const requireRecaptcha = this.reflector.get<boolean>(REQUIRE_RECAPTCHA_KEY, context.getHandler());
+
+    // Set attributes for AuthService validation logic
+    if (!req._nauthAttributes) {
+      req._nauthAttributes = {};
+    }
+    if (skipRecaptcha === true) {
+      req._nauthAttributes.nauthSkipRecaptcha = true;
+    }
+    if (requireRecaptcha === true) {
+      req._nauthAttributes.nauthRequireRecaptcha = true;
+    }
 
     // Determine effective delivery for this request
     const routeMode = this.reflector.get<RouteDelivery>(TOKEN_DELIVERY_KEY, context.getHandler());
@@ -55,6 +73,7 @@ export class CookieTokenInterceptor implements NestInterceptor {
     // We store it on the request object using a non-enumerable-ish private-ish key.
     // Frameworks tolerate extra properties on the request object (Express/Fastify).
     (req as Record<string, unknown>).__nauthRouteDelivery = routeMode;
+    req._nauthAttributes.nauthTokenDeliveryOverride = routeMode;
 
     return next.handle().pipe(
       map((data: unknown) => {

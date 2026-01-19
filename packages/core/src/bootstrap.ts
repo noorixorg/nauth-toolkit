@@ -108,6 +108,10 @@ export interface NAuthInstance<TMiddleware = unknown, THelper = unknown>
     optionalAuth: () => THelper;
     /** Override token delivery mode */
     tokenDelivery: (mode: 'json' | 'cookies') => THelper;
+    /** Skip reCAPTCHA validation for this route */
+    skipRecaptcha: () => THelper;
+    /** Require reCAPTCHA validation for this route */
+    requireRecaptcha: () => THelper;
     /** Get current authenticated user */
     getCurrentUser: () => IUser | undefined;
     /** Get current session ID */
@@ -347,6 +351,60 @@ export class NAuth {
             return next();
           },
         ),
+
+      /**
+       * Skip reCAPTCHA validation for this route
+       *
+       * Use when a specific route should bypass reCAPTCHA even if globally enabled.
+       * Useful for admin routes, mobile-only endpoints, or internal API calls.
+       *
+       * @example
+       * ```typescript
+       * // Express
+       * app.post('/api/auth/login/admin', nauth.helpers.skipRecaptcha(), (req, res) => {
+       *   // ... admin login logic
+       * });
+       *
+       * // Fastify
+       * fastify.post('/api/auth/login/admin', {
+       *   preHandler: [nauth.helpers.skipRecaptcha()]
+       * }, async (req, reply) => {
+       *   // ... admin login logic
+       * });
+       * ```
+       */
+      skipRecaptcha: () =>
+        adapter.registerMiddleware('skipRecaptcha', (req: NAuthRequest, _res: NAuthResponse, next: () => void) => {
+          req.attributes.nauthSkipRecaptcha = true;
+          return next();
+        }),
+
+      /**
+       * Require reCAPTCHA validation for this route
+       *
+       * Use when a specific route must enforce reCAPTCHA even if not globally enabled.
+       * Useful for high-risk operations like password reset or account deletion.
+       *
+       * @example
+       * ```typescript
+       * // Express
+       * app.post('/api/auth/password/reset', nauth.helpers.requireRecaptcha(), (req, res) => {
+       *   // ... password reset logic
+       * });
+       *
+       * // Fastify
+       * fastify.post('/api/auth/password/reset', {
+       *   preHandler: [nauth.helpers.requireRecaptcha()]
+       * }, async (req, reply) => {
+       *   // ... password reset logic
+       * });
+       * ```
+       */
+      requireRecaptcha: () =>
+        adapter.registerMiddleware('requireRecaptcha', (req: NAuthRequest, _res: NAuthResponse, next: () => void) => {
+          req.attributes.nauthRequireRecaptcha = true;
+          return next();
+        }),
 
       // Context helpers (read from ContextStorage)
       getCurrentUser: () => ContextStorage.get<IUser>('CURRENT_USER'),

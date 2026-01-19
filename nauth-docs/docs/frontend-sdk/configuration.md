@@ -133,6 +133,29 @@ The interceptor automatically:
 CSRF cookie and header names must match your backend configuration.
 :::
 
+## reCAPTCHA Configuration
+
+When your backend enforces reCAPTCHA (e.g., for login/signup), configure the client to send tokens:
+
+```typescript
+{
+  baseUrl: 'https://api.example.com/auth',
+  tokenDelivery: 'cookies',
+  recaptcha: {
+    enabled: true,
+    version: 'enterprise',        // 'v2' | 'v3' | 'enterprise' - must match backend
+    siteKey: '6Le...your-site-key',
+    action: 'login',              // Optional: action name for v3/Enterprise
+    autoLoadScript: true,         // Optional: preload script at startup (default: true for v3/Enterprise)
+  },
+}
+```
+
+- **Angular**: Use `provideRecaptcha({ enabled, version, siteKey, action })` from `@nauth-toolkit/client-angular` in addition to `recaptcha` in `NAUTH_CLIENT_CONFIG`. The SDK auto-generates and attaches tokens for v3/Enterprise.
+- **Vanilla/React/Vue**: Load the reCAPTCHA script, call `grecaptcha.execute()` (or `grecaptcha.enterprise.execute()` for Enterprise) before login/signup, and pass the token to `client.login()` / `client.signup()`.
+
+See [reCAPTCHA Guide](/docs/guides/recaptcha) and [NAuthClientConfig](./api/nauth-client-config#properties) for full options.
+
 ## Custom Storage
 
 By default, uses `localStorage` in browser. Provide custom adapter for:

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@nauth-toolkit/core": "^0.1.6",
+    "@nauth-toolkit/recaptcha": "^0.1.6",
     "@nauth-toolkit/database-typeorm-postgres": "^0.1.6",
     "@nauth-toolkit/email-nodemailer": "^0.1.6",
     "@nauth-toolkit/sms-console": "^0.1.6",

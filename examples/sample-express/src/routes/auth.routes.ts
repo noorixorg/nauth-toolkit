@@ -36,9 +36,11 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
    * User signup
    *
    * Creates a new user account. May return a challenge if verification is required.
+   * When recaptcha is enabled (RECAPTCHA_SECRET_KEY), tokens are validated per enforceFor.
+   * To explicitly require reCAPTCHA: add nauth.helpers.requireRecaptcha() to the middleware chain.
    *
    * POST /auth/signup
-   * Body: { email, password }
+   * Body: { email, password, recaptchaToken? }
    */
   router.post('/signup', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -61,6 +63,31 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
     '/login',
     nauth.helpers.public(),
     nauth.helpers.tokenDelivery('cookies'),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const result = await nauth.authService.login(req.body);
+        res.json(result);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  /**
+   * Mobile login (JSON token delivery).
+   *
+   * Example: nauth.helpers.skipRecaptcha() exempts this route from reCAPTCHA.
+   * With enforceFor: ['cookies'], JSON is already exempt; skipRecaptcha makes it explicit.
+   *
+   * POST /auth/login/mobile
+   * Body: { identifier, password }
+   */
+  router.post(
+    '/login/mobile',
+    nauth.helpers.public(),
+    nauth.helpers.tokenDelivery('json'),
+    // skipRecaptcha: part of nauth.helpers when using @nauth-toolkit/core with reCAPTCHA support
+    (nauth.helpers as unknown as { skipRecaptcha: () => RequestHandler }).skipRecaptcha(),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         const result = await nauth.authService.login(req.body);

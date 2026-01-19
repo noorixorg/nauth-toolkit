@@ -220,6 +220,11 @@ export class AuthService {
       `Signup details: { email: ${dto.email}, username: ${dto.username || 'none'}, ip: ${clientInfo.ipAddress} }`,
     );
 
+    // ============================================================================
+    // Validate reCAPTCHA token if enabled (fail fast before expensive operations)
+    // ============================================================================
+    await this.helpers.validateRecaptchaIfNeeded(dto.recaptchaToken, clientInfo.ipAddress);
+
     // Check if signup is enabled
     if (this.config.signup?.enabled === false) {
       this.logger?.warn?.(`Signup blocked - signup is disabled`);
@@ -470,6 +475,11 @@ export class AuthService {
     this.logger?.debug?.(
       `Login details: { identifier: ${dto.identifier}, ip: ${clientInfo.ipAddress}, deviceToken: ${clientInfo.deviceToken ? 'present' : 'none'} }`,
     );
+
+    // ============================================================================
+    // Validate reCAPTCHA token if enabled (fail fast before expensive operations)
+    // ============================================================================
+    await this.helpers.validateRecaptchaIfNeeded(dto.recaptchaToken, clientInfo.ipAddress);
 
     // Check IP-based account lockout
     if (this.config.lockout?.enabled) {
@@ -2925,6 +2935,7 @@ export class AuthService {
   // ============================================================================
   // Helper Methods
   // ============================================================================
+
   private getCurrentUserOrThrow(): IUser {
     const currentUser = ContextStorage.get<IUser>('CURRENT_USER');
     if (!currentUser) {

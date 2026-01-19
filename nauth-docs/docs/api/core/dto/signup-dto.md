@@ -43,12 +43,13 @@ import { SignupDTO } from '@nauth-toolkit/core';
 | Property   | Type                      | Required | Description                                                                                    |
 | ---------- | ------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
 | `email`    | `string`                  | Yes      | User email address. Valid email format. Max 255 characters. Trimmed and lowercased.           |
-| `password` | `string`                  | Yes      | User password. 8-128 characters. Not trimmed.                                                  |
-| `username` | `string`                  | No       | Username. 3-255 characters. Alphanumeric, underscores, hyphens only. Trimmed and lowercased.   |
 | `firstName` | `string`                  | No       | First name. 1-100 characters. Letters, spaces, hyphens, apostrophes only. Trimmed.             |
 | `lastName` | `string`                  | No       | Last name. 1-100 characters. Letters, spaces, hyphens, apostrophes only. Trimmed.               |
-| `phone`    | `string`                  | No       | Phone number. E.164 format (e.g., +14155552671). Max 20 characters. Whitespace removed.      |
 | `metadata` | `Record<string, unknown>` | No       | Custom metadata fields. Validated in service layer.                                           |
+| `password` | `string`                  | Yes      | User password. 8-128 characters. Not trimmed.                                                  |
+| `phone`    | `string`                  | No       | Phone number. E.164 format (e.g., +14155552671). Max 20 characters. Whitespace removed.      |
+| `recaptchaToken` | `string`            | No       | reCAPTCHA token from client. Required when reCAPTCHA is enforced. See [reCAPTCHA Guide](/docs/guides/recaptcha). |
+| `username` | `string`                  | No       | Username. 3-255 characters. Alphanumeric, underscores, hyphens only. Trimmed and lowercased.   |
 
 ## Example
 
@@ -59,7 +60,8 @@ import { SignupDTO } from '@nauth-toolkit/core';
   "username": "johndoe",
   "firstName": "John",
   "lastName": "Doe",
-  "phone": "+14155552671"
+  "phone": "+14155552671",
+  "recaptchaToken": "03AGdBq25..."
 }
 ```
 

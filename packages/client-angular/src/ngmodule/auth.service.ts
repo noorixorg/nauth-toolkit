@@ -4,6 +4,7 @@ import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { NAUTH_CLIENT_CONFIG } from './tokens';
 import { AngularHttpAdapter } from './http-adapter';
+import { RecaptchaService } from '../lib/recaptcha.service';
 import {
   NAuthClient,
   NAuthClientConfig,
@@ -75,11 +76,13 @@ export class AuthService {
    * @param config - Injected client configuration (required)
    * @param httpAdapter - Angular HTTP adapter for making requests (required)
    * @param router - Angular Router (optional, automatically used for navigation if available)
+   * @param recaptchaService - RecaptchaService (optional, for automatic token generation)
    */
   constructor(
     @Inject(NAUTH_CLIENT_CONFIG) config: NAuthClientConfig,
     httpAdapter: AngularHttpAdapter,
     @Optional() private router?: Router,
+    @Optional() private recaptchaService?: RecaptchaService,
   ) {
     this.config = config;
 
@@ -257,32 +260,40 @@ export class AuthService {
   /**
    * Login with identifier and password.
    *
+   * Automatically generates reCAPTCHA token if configured (v3 only).
+   * For v2 manual mode, pass the token explicitly.
+   *
    * @param identifier - User email or username
    * @param password - User password
+   * @param recaptchaToken - Optional reCAPTCHA token (for v2 manual mode or when auto-generation is disabled)
    * @returns Promise with auth response or challenge
    *
-   * @example
+   * @example Basic Login
    * ```typescript
    * const response = await this.auth.login('user@example.com', 'password');
-   * if (response.challengeName) {
-   *   // Handle challenge
-   * } else {
-   *   // Login successful
-   * }
+   * ```
+   *
+   * @example With Manual reCAPTCHA (v2)
+   * ```typescript
+   * const response = await this.auth.login('user@example.com', 'password', recaptchaToken);
    * ```
    */
-  async login(identifier: string, password: string): Promise<AuthResponse> {
-    const res = await this.client.login(identifier, password);
+  async login(identifier: string, password: string, recaptchaToken?: string): Promise<AuthResponse> {
+    const token = await this.getRecaptchaToken(recaptchaToken, 'login');
+    const res = await this.client.login(identifier, password, token);
     return this.updateChallengeState(res);
   }
 
   /**
    * Signup with credentials.
    *
+   * Automatically generates reCAPTCHA token if configured (v3 only).
+   * For v2 manual mode, include token in payload.
+   *
    * @param payload - Signup request payload
    * @returns Promise with auth response or challenge
    *
-   * @example
+   * @example Basic Signup
    * ```typescript
    * const response = await this.auth.signup({
    *   email: 'new@example.com',
@@ -290,8 +301,27 @@ export class AuthService {
    *   firstName: 'John',
    * });
    * ```
+   *
+   * @example With Manual reCAPTCHA (v2)
+   * ```typescript
+   * const response = await this.auth.signup({
+   *   email: 'new@example.com',
+   *   password: 'SecurePass123!',
+   *   recaptchaToken: token,
+   * });
+   * ```
    */
   async signup(payload: Parameters<NAuthClient['signup']>[0]): Promise<AuthResponse> {
+    // Auto-generate reCAPTCHA token for v3 if configured and not already provided
+    const payloadWithRecaptcha = payload as { recaptchaToken?: string };
+
+    if (!payloadWithRecaptcha.recaptchaToken) {
+      const token = await this.getRecaptchaToken(undefined, 'signup');
+      if (token) {
+        payload = { ...payload, recaptchaToken: token };
+      }
+    }
+
     const res = await this.client.signup(payload);
     return this.updateChallengeState(res);
   }
@@ -1013,5 +1043,65 @@ export class AuthService {
       this.challengeSubject.next(null);
     }
     return response;
+  }
+
+  // ============================================================================
+  // reCAPTCHA Helper
+  // ============================================================================
+
+  /**
+   * Get reCAPTCHA token - auto-generate for v3 or use provided token.
+   *
+   * Handles platform detection:
+   * - Web browser: Generate token if enabled and v3
+   * - Capacitor native: Skip (use device attestation instead)
+   * - SSR: Skip
+   * - Manual mode (v2 or manualChallenge=true): Requires explicit token
+   *
+   * @param providedToken - Explicitly provided token (v2 manual mode)
+   * @param action - Action name for v3 analytics
+   * @returns reCAPTCHA token or undefined
+   *
+   * @private
+   */
+  private async getRecaptchaToken(providedToken: string | undefined, action: string): Promise<string | undefined> {
+    // If token explicitly provided, use it (v2 manual mode)
+    if (providedToken) {
+      return providedToken;
+    }
+
+    // No reCAPTCHA service available
+    if (!this.recaptchaService) {
+      return undefined;
+    }
+
+    // Check if reCAPTCHA is configured
+    const recaptchaConfig = (
+      this.config as { recaptcha?: { enabled?: boolean; version?: string; manualChallenge?: boolean } }
+    ).recaptcha;
+
+    if (!recaptchaConfig?.enabled) {
+      return undefined;
+    }
+
+    // Skip for platforms that don't support reCAPTCHA (SSR, Capacitor native)
+    if (this.recaptchaService.shouldSkip()) {
+      return undefined;
+    }
+
+    // v2 or manual mode - user must provide token explicitly
+    if (recaptchaConfig.version === 'v2' || recaptchaConfig.manualChallenge) {
+      return undefined;
+    }
+
+    // Auto-generate token for v3/Enterprise
+    try {
+      return await this.recaptchaService.execute(action);
+    } catch (error: unknown) {
+      // Log error but don't block authentication
+      // Server will enforce if required
+      console.warn('[AuthService] Failed to generate reCAPTCHA token:', error);
+      return undefined;
+    }
   }
 }

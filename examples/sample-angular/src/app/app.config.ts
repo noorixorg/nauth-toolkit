@@ -11,6 +11,7 @@ import {
   authInterceptor,
   AuthService,
   AngularHttpAdapter,
+  provideRecaptcha,
 } from '@nauth-toolkit/client-angular/standalone';
 import { environment } from '../environments/environment';
 
@@ -87,6 +88,13 @@ export const appConfig: ApplicationConfig = {
         authPathPrefix: '/auth',
         tokenDelivery: 'cookies',
         debug: true,
+        recaptcha: {
+          enabled: true,
+          version: 'enterprise',
+          siteKey: environment.recaptchaSiteKey,
+          action: 'login',
+          autoLoadScript: true,
+        },
         csrf: {
           cookieName: 'nauth_csrf_token',
           headerName: 'x-csrf-token',
@@ -138,6 +146,12 @@ export const appConfig: ApplicationConfig = {
     },
     AngularHttpAdapter,
     AuthService,
+    provideRecaptcha({
+      enabled: true,
+      version: 'enterprise',
+      siteKey: environment.recaptchaSiteKey,
+      action: 'login',
+    }),
     provideHttpClient(withInterceptors([authInterceptor])),
   ],
 };

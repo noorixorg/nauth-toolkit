@@ -1,6 +1,7 @@
 import { MFAMethod, NAuthConfig, createRedisStorageAdapter } from '@nauth-toolkit/core';
 import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
 import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+import { RecaptchaV3Provider } from '@nauth-toolkit/recaptcha';
 import { createPinoLogger, createPinoLoggerAdapter } from '../utils/pino-logger.adapter';
 
 // ============================================================================
@@ -179,6 +180,17 @@ export const authConfig: NAuthConfig = {
   },
 
   smsProvider: new ConsoleSMSProvider(),
+
+  // reCAPTCHA v3 (optional): set RECAPTCHA_SECRET_KEY to enable. Get keys from https://www.google.com/recaptcha/admin
+  ...(process.env.RECAPTCHA_SECRET_KEY && {
+    recaptcha: {
+      enabled: true,
+      provider: new RecaptchaV3Provider({ secretKey: process.env.RECAPTCHA_SECRET_KEY }),
+      enforceFor: ['cookies'] as const,
+      minimumScore: 0.5,
+      skipInDevelopment: true,
+    },
+  }),
 
   lockout: { enabled: false, maxAttempts: 5, duration: 900, resetOnSuccess: true },
   session: {

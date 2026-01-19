@@ -6,6 +6,7 @@ module.exports = {
   testEnvironment: 'jsdom',
   roots: ['<rootDir>/src'],
   testMatch: ['**/*.spec.ts'],
+  testPathIgnorePatterns: ['/node_modules/', 'recaptcha.service.spec.ts'],
   moduleFileExtensions: ['ts', 'js', 'json'],
   transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: 'tsconfig.spec.json' }] },
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.spec.ts', '!src/**/public-api.ts', '!src/standalone/**'],

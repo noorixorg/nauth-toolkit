@@ -36,6 +36,7 @@ import { NAuthLogger } from '../utils/nauth-logger';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { ContextStorage } from '../utils/context-storage';
+import { NAuthRequest } from '../platform/interfaces';
 
 /**
  * Internal helper service for AuthService
@@ -1303,5 +1304,158 @@ export class AuthServiceInternalHelpers {
     const digits = phone.replace(/\D/g, '');
     const lastFour = digits.slice(-4);
     return `***-***-${lastFour}`;
+  }
+
+  // ============================================================================
+  // reCAPTCHA Validation
+  // ============================================================================
+
+  /**
+   * Validate reCAPTCHA token if needed
+   *
+   * Validation priority:
+   * 1. Skip if reCAPTCHA not enabled in config
+   * 2. Skip if development mode (skipInDevelopment = true)
+   * 3. Skip if route has @SkipRecaptcha() decorator
+   * 4. Enforce if route has @RequireRecaptcha() decorator
+   * 5. Enforce if current delivery mode is in enforceFor array
+   * 6. If token provided (even when not enforced), validate it (opportunistic)
+   *
+   * @param token - reCAPTCHA token from client (optional)
+   * @param clientIp - Client IP address for validation (optional)
+   *
+   * @throws {NAuthException} RECAPTCHA_REQUIRED - Token required but not provided
+   * @throws {NAuthException} RECAPTCHA_PROVIDER_MISSING - Provider not configured
+   * @throws {NAuthException} RECAPTCHA_VALIDATION_FAILED - Token validation failed
+   * @throws {NAuthException} RECAPTCHA_SCORE_TOO_LOW - Score below minimum (v3/Enterprise)
+   *
+   * @example
+   * ```typescript
+   * await this.helpers.validateRecaptchaIfNeeded(dto.recaptchaToken, clientInfo.ipAddress);
+   * ```
+   */
+  async validateRecaptchaIfNeeded(token: string | undefined, clientIp?: string): Promise<void> {
+    const recaptchaConfig = this.config.recaptcha;
+
+    // Skip if reCAPTCHA not enabled
+    if (!recaptchaConfig?.enabled) {
+      return;
+    }
+
+    // Skip in development if configured
+    if (recaptchaConfig.skipInDevelopment && process.env.NODE_ENV !== 'production') {
+      this.logger?.debug?.('Skipping reCAPTCHA validation in development mode');
+      return;
+    }
+
+    // Get current request context for attributes set by decorators/helpers
+    const req = ContextStorage.get<NAuthRequest>('REQUEST');
+
+    // Priority 1: Explicit skip via @SkipRecaptcha() decorator
+    if (req?.attributes.nauthSkipRecaptcha === true) {
+      this.logger?.debug?.('Skipping reCAPTCHA validation (explicit skip via decorator)');
+      return;
+    }
+
+    // Priority 2: Explicit require via @RequireRecaptcha() decorator
+    if (req?.attributes.nauthRequireRecaptcha === true) {
+      this.logger?.debug?.('reCAPTCHA validation required (explicit require via decorator)');
+
+      if (!token) {
+        throw new NAuthException(AuthErrorCode.RECAPTCHA_REQUIRED, 'reCAPTCHA token is required');
+      }
+
+      await this.verifyRecaptchaToken(token, clientIp);
+      return;
+    }
+
+    // Priority 3: Check if current delivery mode is in enforceFor array
+    const effectiveDelivery = req?.attributes.nauthTokenDeliveryOverride || this.config.tokenDelivery?.method;
+
+    const shouldEnforce = recaptchaConfig.enforceFor?.includes(effectiveDelivery as 'cookies' | 'json');
+
+    if (shouldEnforce) {
+      this.logger?.debug?.(`reCAPTCHA enforcement enabled for delivery mode: ${effectiveDelivery}`);
+
+      if (!token) {
+        throw new NAuthException(
+          AuthErrorCode.RECAPTCHA_REQUIRED,
+          'reCAPTCHA token is required for web authentication',
+        );
+      }
+
+      await this.verifyRecaptchaToken(token, clientIp);
+      return;
+    }
+
+    // Priority 4: Opportunistic validation - if token provided, validate it
+    if (token) {
+      this.logger?.debug?.('reCAPTCHA token provided, performing opportunistic validation');
+      await this.verifyRecaptchaToken(token, clientIp);
+    }
+  }
+
+  /**
+   * Verify reCAPTCHA token with Google's API
+   *
+   * @param token - reCAPTCHA token from client
+   * @param clientIp - Client IP address (optional but recommended)
+   *
+   * @throws {NAuthException} RECAPTCHA_PROVIDER_MISSING - Provider not configured
+   * @throws {NAuthException} RECAPTCHA_VALIDATION_FAILED - Token validation failed
+   * @throws {NAuthException} RECAPTCHA_SCORE_TOO_LOW - Score below minimum (v3/Enterprise)
+   */
+  private async verifyRecaptchaToken(token: string, clientIp?: string): Promise<void> {
+    const recaptchaConfig = this.config.recaptcha;
+
+    if (!recaptchaConfig?.provider) {
+      throw new NAuthException(AuthErrorCode.RECAPTCHA_PROVIDER_MISSING, 'reCAPTCHA provider is not configured');
+    }
+
+    try {
+      // Call provider to verify token with Google
+      const result = await recaptchaConfig.provider.verify(token, clientIp);
+
+      // Check if verification succeeded
+      if (!result.success) {
+        this.logger?.warn?.(`reCAPTCHA validation failed: ${result.errorCodes?.join(', ') || 'unknown error'}`);
+        throw new NAuthException(AuthErrorCode.RECAPTCHA_VALIDATION_FAILED, 'reCAPTCHA validation failed', {
+          errorCodes: result.errorCodes,
+        });
+      }
+
+      // Check score for v3/Enterprise (score is only present for v3/Enterprise)
+      if (result.score !== undefined) {
+        const minimumScore = recaptchaConfig.minimumScore ?? 0.5;
+
+        this.logger?.debug?.(`reCAPTCHA score: ${result.score} (minimum: ${minimumScore})`);
+
+        if (result.score < minimumScore) {
+          this.logger?.warn?.(
+            `reCAPTCHA score too low: ${result.score} < ${minimumScore}. Likely bot activity detected.`,
+          );
+          throw new NAuthException(AuthErrorCode.RECAPTCHA_SCORE_TOO_LOW, 'Suspicious activity detected', {
+            score: result.score,
+            minimumScore,
+          });
+        }
+      }
+
+      this.logger?.debug?.(
+        `reCAPTCHA validation successful${result.score ? ` (score: ${result.score})` : ''} for action: ${result.action || 'unknown'}`,
+      );
+    } catch (error: unknown) {
+      // If it's already a NAuthException, re-throw it
+      if (error instanceof NAuthException) {
+        throw error;
+      }
+
+      // Network or provider errors
+      this.logger?.error?.(`reCAPTCHA verification error: ${error instanceof Error ? error.message : 'unknown error'}`);
+      throw new NAuthException(
+        AuthErrorCode.RECAPTCHA_VALIDATION_FAILED,
+        'reCAPTCHA verification failed due to technical error',
+      );
+    }
   }
 }

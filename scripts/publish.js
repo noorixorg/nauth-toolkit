@@ -10,6 +10,7 @@ const DRY_RUN = process.argv.includes('--dry-run') || process.argv.includes('-d'
 
 const PUBLISH_ORDER = [
   'core',
+  'recaptcha',
   'client',
   'client-angular',
   'database/typeorm-postgres',

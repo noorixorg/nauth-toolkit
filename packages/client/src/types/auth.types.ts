@@ -74,6 +74,13 @@ export interface SignupRequest {
   lastName?: string;
   phone?: string;
   metadata?: Record<string, unknown>;
+  /**
+   * Optional reCAPTCHA token for bot protection.
+   * - v2: Token from visible checkbox challenge
+   * - v3: Token from invisible/automatic challenge
+   * - If required by server but not provided, request will fail with RECAPTCHA_REQUIRED error
+   */
+  recaptchaToken?: string;
 }
 
 /**
@@ -82,6 +89,13 @@ export interface SignupRequest {
 export interface LoginRequest {
   identifier: string;
   password: string;
+  /**
+   * Optional reCAPTCHA token for bot protection.
+   * - v2: Token from visible checkbox challenge
+   * - v3: Token from invisible/automatic challenge
+   * - If required by server but not provided, request will fail with RECAPTCHA_REQUIRED error
+   */
+  recaptchaToken?: string;
 }
 
 /**
