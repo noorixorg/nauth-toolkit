@@ -42,6 +42,7 @@
     "format:check": "yarn workspaces run format:check",
     "fix": "yarn lint:fix",
     "prepare": "husky",
+    "commitlint": "commitlint",
     "lint:commit": "commitlint --from=HEAD~1 --to=HEAD",
     "kill": "kill -9 $(lsof -t -i :3000) ",
     "publish:packages": "node scripts/publish.js latest",
