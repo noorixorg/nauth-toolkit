@@ -6,6 +6,8 @@ import {
   ClientInfoService,
   NAuthConfig,
   getDeviceTokenCookieName,
+  NAuthRequest,
+  NAuthRequestAttributes,
 } from '@nauth-toolkit/core';
 import { GeoLocationService } from '@nauth-toolkit/core/internal';
 
@@ -62,6 +64,11 @@ export class NAuthContextGuard implements CanActivate {
     return ContextStorage.run(() => {
       // Store context store on request for restoration in interceptor
       (request as Record<symbol, unknown>)[NAUTH_CONTEXT_STORE] = ContextStorage.getStore();
+
+      // Create wrapped request and store in context for core services
+      // This is needed for reCAPTCHA decorators and other features that read request attributes
+      const wrappedRequest = new NestRequestWrapper(request);
+      ContextStorage.set('REQUEST', wrappedRequest);
 
       // Extract and store client information
       this.extractAndStoreClientInfo(request, response);
@@ -147,4 +154,91 @@ export class NAuthContextGuard implements CanActivate {
  */
 export function getNAuthContextStore(request: unknown): Map<string, unknown> | undefined {
   return (request as Record<symbol, unknown>)[NAUTH_CONTEXT_STORE] as Map<string, unknown> | undefined;
+}
+
+// ============================================================================
+// Request Wrapper
+// ============================================================================
+
+/**
+ * Wraps raw NestJS request (Express/Fastify) into NAuthRequest interface
+ *
+ * This wrapper provides the standard NAuthRequest interface that core services expect.
+ * Most importantly, it maps `_nauthAttributes` (set by interceptors/decorators) to
+ * the `attributes` getter that core validation logic reads from.
+ */
+class NestRequestWrapper implements NAuthRequest {
+  constructor(
+    private readonly req: {
+      method?: string;
+      path?: string;
+      url?: string;
+      body?: Record<string, unknown>;
+      query?: Record<string, unknown>;
+      params?: Record<string, string>;
+      headers?: Record<string, unknown>;
+      cookies?: Record<string, unknown>;
+      ip?: string;
+      socket?: { remoteAddress?: string };
+      _nauthAttributes?: NAuthRequestAttributes;
+      get?: (name: string) => string | undefined;
+    },
+  ) {}
+
+  get method(): string {
+    return (this.req.method || 'GET').toUpperCase();
+  }
+
+  get path(): string {
+    // Express uses req.path, Fastify uses req.routerPath or req.url
+    return (this.req.path || this.req.url || '/').split('?')[0];
+  }
+
+  get url(): string {
+    return this.req.url || '';
+  }
+
+  get body(): Record<string, unknown> {
+    return this.req.body || {};
+  }
+
+  get query(): Record<string, unknown> {
+    return this.req.query || {};
+  }
+
+  get params(): Record<string, string> {
+    return this.req.params || {};
+  }
+
+  get headers(): Record<string, string | string[] | undefined> {
+    return (this.req.headers || {}) as Record<string, string | string[] | undefined>;
+  }
+
+  get cookies(): Record<string, string | undefined> {
+    return (this.req.cookies || {}) as Record<string, string | undefined>;
+  }
+
+  get ip(): string {
+    return this.req.ip || this.req.socket?.remoteAddress || '0.0.0.0';
+  }
+
+  get attributes(): NAuthRequestAttributes {
+    // Map _nauthAttributes (set by interceptors) to attributes (read by core)
+    return this.req._nauthAttributes || {};
+  }
+
+  get raw(): unknown {
+    return this.req;
+  }
+
+  public getHeader(name: string): string | undefined {
+    // Try Express-style req.get() first, then fallback to direct header access
+    if (typeof this.req.get === 'function') {
+      return this.req.get(name);
+    }
+    const headers = this.req.headers || {};
+    const val = headers[name.toLowerCase()];
+    if (Array.isArray(val)) return val[0] as string;
+    return val as string | undefined;
+  }
 }

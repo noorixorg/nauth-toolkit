@@ -105,6 +105,29 @@ describe('NAuthContextGuard', () => {
       expect(clientInfo).toBeDefined();
       expect(clientInfo?.ipCountry).toBeUndefined();
     });
+
+    it('should store wrapped REQUEST in context for core services', async () => {
+      await guard.canActivate(mockExecutionContext);
+      const store = getNAuthContextStore(mockRequest);
+      expect(store).toBeDefined();
+      const request = store?.get('REQUEST') as any;
+      expect(request).toBeDefined();
+      expect(request.method).toBeDefined();
+      expect(request.path).toBeDefined();
+      expect(request.attributes).toBeDefined();
+    });
+
+    it('should map _nauthAttributes to attributes in REQUEST wrapper', async () => {
+      mockRequest._nauthAttributes = {
+        nauthRequireRecaptcha: true,
+        nauthSkipRecaptcha: false,
+      };
+      await guard.canActivate(mockExecutionContext);
+      const store = getNAuthContextStore(mockRequest);
+      const request = store?.get('REQUEST') as any;
+      expect(request.attributes.nauthRequireRecaptcha).toBe(true);
+      expect(request.attributes.nauthSkipRecaptcha).toBe(false);
+    });
   });
 
   describe('getNAuthContextStore', () => {

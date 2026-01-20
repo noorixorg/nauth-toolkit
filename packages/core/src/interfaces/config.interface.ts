@@ -533,7 +533,6 @@ export interface NAuthConfig {
    *   }),
    *   enforceFor: ['cookies'], // Web only, mobile (JSON) exempt
    *   minimumScore: 0.5,
-   *   skipInDevelopment: true,
    * }
    * ```
    *
@@ -2585,7 +2584,6 @@ export interface GeoLocationConfig {
  *   }),
  *   enforceFor: ['cookies'], // Enforce for web, skip for mobile
  *   minimumScore: 0.5,
- *   skipInDevelopment: true,
  * }
  * ```
  */
@@ -2625,36 +2623,6 @@ export interface RecaptchaConfig {
   provider: RecaptchaProvider;
 
   /**
-   * Enforce reCAPTCHA for specific token delivery modes
-   *
-   * Controls which client types must provide reCAPTCHA tokens:
-   * - `['cookies']`: Web only (recommended - mobile apps exempt)
-   * - `['json']`: Mobile only (rare use case)
-   * - `['cookies', 'json']`: All platforms
-   * - `[]` or `undefined`: Optional validation (validates if token provided, but doesn't require)
-   *
-   * **Rationale:**
-   * - Web apps (cookies): High bot risk, public access
-   * - Mobile apps (JSON): Lower bot risk, app store審核, device attestation
-   *
-   * **Route overrides:**
-   * Use `@SkipRecaptcha()` or `@RequireRecaptcha()` to override per-route.
-   *
-   * @default ['cookies']
-   *
-   * @example Web-only enforcement
-   * ```typescript
-   * enforceFor: ['cookies'] // Mobile apps automatically exempt
-   * ```
-   *
-   * @example Optional validation
-   * ```typescript
-   * enforceFor: [] // Validate if provided, don't require
-   * ```
-   */
-  enforceFor?: ('cookies' | 'json')[];
-
-  /**
    * Minimum acceptable score for v3/Enterprise (0.0 - 1.0)
    *
    * Lower scores indicate likely bot activity:
@@ -2677,21 +2645,4 @@ export interface RecaptchaConfig {
    * ```
    */
   minimumScore?: number;
-
-  /**
-   * Skip reCAPTCHA validation in development environment
-   *
-   * When true, reCAPTCHA validation is disabled when NODE_ENV !== 'production'.
-   * Useful for local development without requiring valid reCAPTCHA tokens.
-   *
-   * WARNING: Ensure NODE_ENV is properly set in production!
-   *
-   * @default false
-   *
-   * @example Development convenience
-   * ```typescript
-   * skipInDevelopment: true // No reCAPTCHA needed in dev/test
-   * ```
-   */
-  skipInDevelopment?: boolean;
 }

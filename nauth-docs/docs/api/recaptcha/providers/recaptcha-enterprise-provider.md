@@ -95,7 +95,6 @@ import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
           apiKey: process.env.RECAPTCHA_API_KEY!,
           siteKey: process.env.RECAPTCHA_SITE_KEY!,
         }),
-        enforceFor: ['cookies'],
         minimumScore: 0.7, // Stricter for enterprise
       },
     }),
@@ -119,7 +118,6 @@ const nauth = createNAuthInstance({
       apiKey: process.env.RECAPTCHA_API_KEY!,
       siteKey: process.env.RECAPTCHA_SITE_KEY!,
     }),
-    enforceFor: ['cookies'],
     minimumScore: 0.7,
   },
 });
@@ -140,7 +138,6 @@ const nauth = createNAuthInstance({
       apiKey: process.env.RECAPTCHA_API_KEY!,
       siteKey: process.env.RECAPTCHA_SITE_KEY!,
     }),
-    enforceFor: ['cookies'],
     minimumScore: 0.7,
   },
 });

@@ -14,7 +14,7 @@ Protect login and signup endpoints from bots using Google reCAPTCHA. nauth-toolk
 
 ## Overview
 
-- **Backend**: Optional `@nauth-toolkit/recaptcha` package. Configure provider, `enforceFor` (e.g. `['cookies']` for web only), and `minimumScore` for v3/Enterprise.
+- **Backend**: Optional `@nauth-toolkit/recaptcha` package. Configure provider and `minimumScore` for v3/Enterprise. Use `@RequireRecaptcha()` decorator on endpoints that need protection.
 - **Frontend**: Client sends `recaptchaToken` in login/signup requests. Angular SDK can auto-generate tokens for v3/Enterprise via `RecaptchaService` and `provideRecaptcha()`.
 
 ## Backend Setup
@@ -44,14 +44,32 @@ import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
           apiKey: process.env.RECAPTCHA_API_KEY!,
           siteKey: process.env.RECAPTCHA_SITE_KEY!,
         }),
-        enforceFor: ['cookies'],
         minimumScore: 0.5,
-        skipInDevelopment: false,
       },
     }),
   ],
 })
 export class AppModule {}
+
+// In your controller, mark endpoints that need protection:
+import { RequireRecaptcha } from '@nauth-toolkit/nestjs';
+
+@Controller('auth')
+export class AuthController {
+  @Public()
+  @RequireRecaptcha()  // Require reCAPTCHA for login
+  @Post('login')
+  async login(@Body() dto: LoginDTO) {
+    return this.authService.login(dto);
+  }
+
+  @Public()
+  @RequireRecaptcha()  // Require reCAPTCHA for signup
+  @Post('signup')
+  async signup(@Body() dto: SignupDTO) {
+    return this.authService.signup(dto);
+  }
+}
 ```
 
 </TabItem>
@@ -69,7 +87,6 @@ const nauth = createNAuthInstance({
       apiKey: process.env.RECAPTCHA_API_KEY!,
       siteKey: process.env.RECAPTCHA_SITE_KEY!,
     }),
-    enforceFor: ['cookies'],
     minimumScore: 0.5,
   },
 });
@@ -90,7 +107,6 @@ const nauth = createNAuthInstance({
       apiKey: process.env.RECAPTCHA_API_KEY!,
       siteKey: process.env.RECAPTCHA_SITE_KEY!,
     }),
-    enforceFor: ['cookies'],
     minimumScore: 0.5,
   },
 });
@@ -136,7 +152,7 @@ export const appConfig: ApplicationConfig = {
 ## Security
 
 - Keep API keys and secret keys server-side only. Only the site key is public.
-- Use `enforceFor: ['cookies']` to exempt mobile/JSON clients if they use device attestation or lower bot risk.
+- Use `@RequireRecaptcha()` decorator on public endpoints vulnerable to bot attacks (login, signup, password reset).
 - Set `minimumScore` based on your risk tolerance (0.5 is a common default).
 
 ## Related

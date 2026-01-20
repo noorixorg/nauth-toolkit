@@ -89,7 +89,6 @@ import { RecaptchaV2Provider } from '@nauth-toolkit/recaptcha';
         provider: new RecaptchaV2Provider({
           secretKey: process.env.RECAPTCHA_V2_SECRET_KEY!,
         }),
-        enforceFor: ['cookies'],
       },
     }),
   ],
@@ -110,7 +109,6 @@ const nauth = createNAuthInstance({
     provider: new RecaptchaV2Provider({
       secretKey: process.env.RECAPTCHA_V2_SECRET_KEY!,
     }),
-    enforceFor: ['cookies'],
   },
 });
 ```
@@ -128,7 +126,6 @@ const nauth = createNAuthInstance({
     provider: new RecaptchaV2Provider({
       secretKey: process.env.RECAPTCHA_V2_SECRET_KEY!,
     }),
-    enforceFor: ['cookies'],
   },
 });
 ```

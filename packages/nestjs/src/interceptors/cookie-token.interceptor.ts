@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { AuthResponseDTO } from '@nauth-toolkit/core';
 import { TOKEN_DELIVERY_KEY, RouteDelivery } from '../decorators/token-delivery.decorator';
-import { SKIP_RECAPTCHA_KEY, REQUIRE_RECAPTCHA_KEY } from '../decorators/recaptcha.decorator';
+import { REQUIRE_RECAPTCHA_KEY } from '../decorators/recaptcha.decorator';
 import { TokenDeliveryHttpService } from '../services/token-delivery-http.service';
 
 /**
@@ -45,15 +45,11 @@ export class CookieTokenInterceptor implements NestInterceptor {
     // ============================================================================
     // Read reCAPTCHA decorator metadata and set on request attributes
     // ============================================================================
-    const skipRecaptcha = this.reflector.get<boolean>(SKIP_RECAPTCHA_KEY, context.getHandler());
     const requireRecaptcha = this.reflector.get<boolean>(REQUIRE_RECAPTCHA_KEY, context.getHandler());
 
     // Set attributes for AuthService validation logic
     if (!req._nauthAttributes) {
       req._nauthAttributes = {};
-    }
-    if (skipRecaptcha === true) {
-      req._nauthAttributes.nauthSkipRecaptcha = true;
     }
     if (requireRecaptcha === true) {
       req._nauthAttributes.nauthRequireRecaptcha = true;

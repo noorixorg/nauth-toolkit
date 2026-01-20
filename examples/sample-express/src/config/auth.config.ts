@@ -188,7 +188,6 @@ export const authConfig: NAuthConfig = {
       provider: new RecaptchaV3Provider({ secretKey: process.env.RECAPTCHA_SECRET_KEY }),
       enforceFor: ['cookies'] as const,
       minimumScore: 0.5,
-      skipInDevelopment: true,
     },
   }),
 

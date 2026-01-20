@@ -1,10 +1,10 @@
-// import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
+import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
 import { MFAMethod, NAuthModuleConfig, createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
 import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
 import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
-import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+// import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
 import { Logger } from '@nestjs/common';
-import { SendEmailCommand, SESv2Client } from '@aws-sdk/client-sesv2';
+// import { SendEmailCommand, SESv2Client } from '@aws-sdk/client-sesv2';
 
 // AWS SES SDK imports (install: yarn add @aws-sdk/client-sesv2)
 
@@ -123,7 +123,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   tokenDelivery: {
-    method: 'cookies',
+    method: 'hybrid',
     cookieOptions: {
       // Local dev (http://localhost:*): browsers (especially Safari) will ignore Secure cookies over HTTP.
       // Production (https): use SameSite=None + Secure for cross-site cookie delivery.
@@ -192,21 +192,21 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
 
-  // emailProvider: new ConsoleEmailProvider(),
+  emailProvider: new ConsoleEmailProvider(),
 
-  emailProvider: new NodemailerEmailProvider({
-    transport: {
-      SES: {
-        sesClient: new SESv2Client({
-          region: process.env.AWS_REGION || 'ap-southeast-2',
-        }),
-        SendEmailCommand,
-      },
-    },
-    defaults: {
-      from: 'Nauth App <noreply@noorix.com>',
-    },
-  }),
+  // emailProvider: new NodemailerEmailProvider({
+  //   transport: {
+  //     SES: {
+  //       sesClient: new SESv2Client({
+  //         region: process.env.AWS_REGION || 'ap-southeast-2',
+  //       }),
+  //       SendEmailCommand,
+  //     },
+  //   },
+  //   defaults: {
+  //     from: 'Nauth App <noreply@noorix.com>',
+  //   },
+  // }),
 
   email: {
     // Canonical template globals location (no templates.globalVariables)
@@ -324,9 +324,7 @@ export const authConfig: NAuthModuleConfig = {
       apiKey: process.env.RECAPTCHA_ENTERPRISE_API_KEY!, // API key (AIza...), NOT site key
       siteKey: process.env.RECAPTCHA_ENTERPRISE_SITE_KEY!, // Site key (6L...)
     }),
-    enforceFor: ['cookies'] as const, // Only enforce for cookie-based auth (web)
     minimumScore: 0.5, // Minimum score (0-1) for v3/Enterprise
-    skipInDevelopment: false,
   },
   session: {
     maxConcurrent: 5,

@@ -124,24 +124,7 @@ export const environment = {
 
 ## Testing in Development
 
-For local development testing:
-
-1. Set `skipInDevelopment: true` in `auth.config.ts` to bypass reCAPTCHA during development
-2. OR use actual credentials and whitelist `localhost` in your site key
-
-```typescript
-recaptcha: {
-  enabled: true,
-  provider: new RecaptchaEnterpriseProvider({
-    projectId: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID!,
-    apiKey: process.env.RECAPTCHA_ENTERPRISE_API_KEY!,
-    siteKey: process.env.RECAPTCHA_ENTERPRISE_SITE_KEY!,
-  }),
-  enforceFor: ['cookies'] as const,
-  minimumScore: 0.5,
-  skipInDevelopment: true, // Set to true to skip in dev mode
-},
-```
+For local development: set `recaptcha.enabled: false` in `auth.config.ts` to bypass reCAPTCHA, or use real credentials and whitelist `localhost` in your site key.
 
 ## Security Best Practices
 
@@ -158,7 +141,6 @@ recaptcha: {
 - [ ] Site key created and restricted to production domains
 - [ ] API key created and restricted to reCAPTCHA Enterprise API
 - [ ] Environment variables set in production
-- [ ] `skipInDevelopment` set to `false` in production
 - [ ] Minimum score configured appropriately
 - [ ] Domain whitelist updated (no `localhost`)
 - [ ] API key rotated regularly

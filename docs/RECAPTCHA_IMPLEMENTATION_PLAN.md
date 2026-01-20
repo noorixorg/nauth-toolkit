@@ -160,7 +160,6 @@ export interface RecaptchaConfig {
   provider: RecaptchaProvider;
   enforceFor?: TokenDeliveryMode[];
   minimumScore?: number;
-  skipInDevelopment?: boolean;
 }
 ```
 

@@ -101,7 +101,7 @@ import {
   AdminGetUserAuthHistoryDTO,
   UserResponseDto,
   IMFADevice,
-  SkipRecaptcha,
+  RequireRecaptcha,
 } from '@nauth-toolkit/nestjs';
 
 /**
@@ -194,6 +194,7 @@ export class CustomAuthController {
    * ```
    */
   @Public()
+  @RequireRecaptcha()
   @Post('signup')
   @HttpCode(HttpStatus.CREATED)
   async signup(@Body() dto: SignupDTO): Promise<AuthResponseDTO> {
@@ -496,6 +497,7 @@ export class CustomAuthController {
    * ```
    */
   @Public()
+  @RequireRecaptcha()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDTO): Promise<AuthResponseDTO> {
@@ -1297,7 +1299,6 @@ export class MobileAuthController {
    * @SkipRecaptcha() is shown here for when you need to explicitly skip in other configs.
    */
   @Public()
-  @SkipRecaptcha()
   @TokenDelivery('json')
   @Post('login')
   @HttpCode(HttpStatus.OK)

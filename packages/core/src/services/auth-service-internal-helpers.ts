@@ -1311,15 +1311,15 @@ export class AuthServiceInternalHelpers {
   // ============================================================================
 
   /**
-   * Validate reCAPTCHA token if needed
+   * Validate reCAPTCHA token if required
    *
-   * Validation priority:
+   * Explicit control via @RequireRecaptcha() decorator on routes.
+   * No automatic enforcement - consumer controls which endpoints need protection.
+   *
+   * Validation logic:
    * 1. Skip if reCAPTCHA not enabled in config
-   * 2. Skip if development mode (skipInDevelopment = true)
-   * 3. Skip if route has @SkipRecaptcha() decorator
-   * 4. Enforce if route has @RequireRecaptcha() decorator
-   * 5. Enforce if current delivery mode is in enforceFor array
-   * 6. If token provided (even when not enforced), validate it (opportunistic)
+   * 2. Enforce if route has @RequireRecaptcha() decorator (throws if token missing/invalid)
+   * 3. If token provided (even when not required), validate it opportunistically
    *
    * @param token - reCAPTCHA token from client (optional)
    * @param clientIp - Client IP address for validation (optional)
@@ -1331,6 +1331,12 @@ export class AuthServiceInternalHelpers {
    *
    * @example
    * ```typescript
+   * // In controller:
+   * @RequireRecaptcha()
+   * @Post('login')
+   * async login(@Body() dto: LoginDTO) { ... }
+   *
+   * // In AuthService.login():
    * await this.helpers.validateRecaptchaIfNeeded(dto.recaptchaToken, clientInfo.ipAddress);
    * ```
    */
@@ -1342,24 +1348,12 @@ export class AuthServiceInternalHelpers {
       return;
     }
 
-    // Skip in development if configured
-    if (recaptchaConfig.skipInDevelopment && process.env.NODE_ENV !== 'production') {
-      this.logger?.debug?.('Skipping reCAPTCHA validation in development mode');
-      return;
-    }
-
-    // Get current request context for attributes set by decorators/helpers
+    // Get current request context for attributes set by decorators
     const req = ContextStorage.get<NAuthRequest>('REQUEST');
 
-    // Priority 1: Explicit skip via @SkipRecaptcha() decorator
-    if (req?.attributes.nauthSkipRecaptcha === true) {
-      this.logger?.debug?.('Skipping reCAPTCHA validation (explicit skip via decorator)');
-      return;
-    }
-
-    // Priority 2: Explicit require via @RequireRecaptcha() decorator
+    // Check if reCAPTCHA is explicitly required via @RequireRecaptcha() decorator
     if (req?.attributes.nauthRequireRecaptcha === true) {
-      this.logger?.debug?.('reCAPTCHA validation required (explicit require via decorator)');
+      this.logger?.debug?.('reCAPTCHA validation required (explicit @RequireRecaptcha() decorator)');
 
       if (!token) {
         throw new NAuthException(AuthErrorCode.RECAPTCHA_REQUIRED, 'reCAPTCHA token is required');
@@ -1369,26 +1363,7 @@ export class AuthServiceInternalHelpers {
       return;
     }
 
-    // Priority 3: Check if current delivery mode is in enforceFor array
-    const effectiveDelivery = req?.attributes.nauthTokenDeliveryOverride || this.config.tokenDelivery?.method;
-
-    const shouldEnforce = recaptchaConfig.enforceFor?.includes(effectiveDelivery as 'cookies' | 'json');
-
-    if (shouldEnforce) {
-      this.logger?.debug?.(`reCAPTCHA enforcement enabled for delivery mode: ${effectiveDelivery}`);
-
-      if (!token) {
-        throw new NAuthException(
-          AuthErrorCode.RECAPTCHA_REQUIRED,
-          'reCAPTCHA token is required for web authentication',
-        );
-      }
-
-      await this.verifyRecaptchaToken(token, clientIp);
-      return;
-    }
-
-    // Priority 4: Opportunistic validation - if token provided, validate it
+    // Opportunistic validation: if token provided, validate it (even when not required)
     if (token) {
       this.logger?.debug?.('reCAPTCHA token provided, performing opportunistic validation');
       await this.verifyRecaptchaToken(token, clientIp);

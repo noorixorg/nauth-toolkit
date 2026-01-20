@@ -77,7 +77,6 @@ import { AppController } from './app.controller';
         // Enforce for web (cookies), skip for mobile (JSON)
         enforceFor: ['cookies'],
         minimumScore: 0.5,
-        skipInDevelopment: process.env.NODE_ENV !== 'production',
       },
     }),
   ],
@@ -950,7 +949,6 @@ import Redis from 'ioredis';
         }),
         enforceFor: ['cookies'], // Web only, mobile exempt
         minimumScore: 0.5,
-        skipInDevelopment: process.env.NODE_ENV !== 'production',
       },
       
       // Security

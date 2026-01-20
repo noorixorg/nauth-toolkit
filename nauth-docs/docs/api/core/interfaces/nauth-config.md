@@ -46,7 +46,7 @@ import { NAuthConfig } from '@nauth-toolkit/core';
 
 ## Recent additions
 
-- `recaptcha`: Google reCAPTCHA v2/v3/Enterprise bot protection. Configure `enabled`, `provider`, `enforceFor`, `minimumScore`, `skipInDevelopment`. See [RecaptchaConfig](./recaptcha-config) and [reCAPTCHA Guide](/docs/guides/recaptcha).
+- `recaptcha`: Google reCAPTCHA v2/v3/Enterprise bot protection. Configure `enabled`, `provider`, `minimumScore`. Use `@RequireRecaptcha()` decorator on protected endpoints. See [RecaptchaConfig](./recaptcha-config) and [reCAPTCHA Guide](/docs/guides/recaptcha).
 - `mfa.adaptive.blockedSignIn.scope`: control whether Adaptive MFA blocks apply to the **user**, **device**, or **IP**.
 - `emailNotifications.suppress.mfaMethodAdded`: opt-in email notification when an **additional MFA method** is added.
 - `signup.emailVerification.baseUrl`: base URL for email verification links. When configured, verification emails include a clickable link with the code (format: `${baseUrl}?code=${code}`). The consumer app handles routing. Supports both development (localhost) and production URLs.

@@ -100,9 +100,6 @@ export interface NAuthRequestAttributes {
   /** Token delivery mode override (alias for nauthTokenDelivery for better naming) */
   nauthTokenDeliveryOverride?: 'json' | 'cookies';
 
-  /** Skip reCAPTCHA validation for this route (set by @SkipRecaptcha()) */
-  nauthSkipRecaptcha?: boolean;
-
   /** Require reCAPTCHA validation for this route (set by @RequireRecaptcha()) */
   nauthRequireRecaptcha?: boolean;
 

@@ -1,48 +1,27 @@
 import { SetMetadata } from '@nestjs/common';
 
 /**
- * Metadata keys for reCAPTCHA control
+ * Metadata key for reCAPTCHA control
  */
-export const SKIP_RECAPTCHA_KEY = 'NAUTH_SKIP_RECAPTCHA';
 export const REQUIRE_RECAPTCHA_KEY = 'NAUTH_REQUIRE_RECAPTCHA';
-
-/**
- * Skip reCAPTCHA validation for this route
- *
- * Use when a specific route should bypass reCAPTCHA even if globally enabled.
- * Useful for:
- * - Admin routes
- * - Mobile-only endpoints (device attestation preferred)
- * - Internal API calls
- *
- * @example
- * ```typescript
- * @Public()
- * @Post('login/admin')
- * @SkipRecaptcha()
- * async adminLogin(@Body() dto: LoginDTO) {
- *   return this.authService.login(dto);
- * }
- * ```
- */
-export const SkipRecaptcha = () => SetMetadata(SKIP_RECAPTCHA_KEY, true);
 
 /**
  * Require reCAPTCHA validation for this route
  *
- * Use when a specific route must enforce reCAPTCHA even if not globally enabled
- * or not in the enforceFor array. Useful for:
- * - High-risk operations (password reset, account deletion)
- * - Public endpoints that need bot protection
- * - Testing reCAPTCHA integration
+ * Explicitly marks a route as requiring reCAPTCHA validation.
+ * Useful for:
+ * - Login/signup endpoints
+ * - Password reset requests
+ * - Account deletion
+ * - Any public endpoint vulnerable to bot attacks
  *
  * @example
  * ```typescript
  * @Public()
- * @Post('password/reset')
+ * @Post('login')
  * @RequireRecaptcha()
- * async resetPassword(@Body() dto: ResetPasswordDTO) {
- *   return this.authService.resetPassword(dto);
+ * async login(@Body() dto: LoginDTO) {
+ *   return this.authService.login(dto);
  * }
  * ```
  */

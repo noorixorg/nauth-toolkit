@@ -113,24 +113,6 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
       expect(mockRecaptchaProvider.verify).not.toHaveBeenCalled();
     });
 
-    it('should skip validation in development mode when skipInDevelopment is true', async () => {
-      const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'development';
-
-      mockConfig.recaptcha = {
-        enabled: true,
-        provider: mockRecaptchaProvider,
-        skipInDevelopment: true,
-      };
-
-      await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4');
-
-      expect(mockLogger.debug).toHaveBeenCalledWith('Skipping reCAPTCHA validation in development mode');
-      expect(mockRecaptchaProvider.verify).not.toHaveBeenCalled();
-
-      process.env.NODE_ENV = originalEnv;
-    });
-
     it('should skip validation when nauthSkipRecaptcha attribute is true', async () => {
       await ContextStorage.run(async () => {
         const mockRequest: Partial<NAuthRequest> = {
@@ -215,6 +197,84 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
 
         expect(mockLogger.debug).toHaveBeenCalledWith('reCAPTCHA enforcement enabled for delivery mode: cookies');
         expect(mockRecaptchaProvider.verify).toHaveBeenCalledWith('test-token', '1.2.3.4');
+      });
+    });
+
+    it('should enforce validation by default when enforceFor is omitted (cookies mode)', async () => {
+      await ContextStorage.run(async () => {
+        mockConfig.recaptcha = {
+          enabled: true,
+          provider: mockRecaptchaProvider,
+          // enforceFor omitted - should default to ['cookies', 'json']
+        };
+
+        mockRecaptchaProvider.verify.mockResolvedValue({
+          success: true,
+          score: 0.9,
+        } as RecaptchaVerificationResult);
+
+        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4');
+
+        expect(mockLogger.debug).toHaveBeenCalledWith('reCAPTCHA enforcement enabled for delivery mode: cookies');
+        expect(mockRecaptchaProvider.verify).toHaveBeenCalledWith('test-token', '1.2.3.4');
+      });
+    });
+
+    it('should enforce validation by default when enforceFor is omitted (json mode)', async () => {
+      await ContextStorage.run(async () => {
+        mockConfig.recaptcha = {
+          enabled: true,
+          provider: mockRecaptchaProvider,
+          // enforceFor omitted - should default to ['cookies', 'json']
+        };
+        mockConfig.tokenDelivery = { method: 'json' };
+
+        mockRecaptchaProvider.verify.mockResolvedValue({
+          success: true,
+          score: 0.9,
+        } as RecaptchaVerificationResult);
+
+        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4');
+
+        expect(mockLogger.debug).toHaveBeenCalledWith('reCAPTCHA enforcement enabled for delivery mode: json');
+        expect(mockRecaptchaProvider.verify).toHaveBeenCalledWith('test-token', '1.2.3.4');
+      });
+    });
+
+    it('should enforce validation for hybrid mode when cookies is in enforceFor', async () => {
+      await ContextStorage.run(async () => {
+        mockConfig.recaptcha = {
+          enabled: true,
+          provider: mockRecaptchaProvider,
+          enforceFor: ['cookies'], // Hybrid should be treated as cookies
+        };
+        mockConfig.tokenDelivery = { method: 'hybrid' };
+
+        mockRecaptchaProvider.verify.mockResolvedValue({
+          success: true,
+          score: 0.9,
+        } as RecaptchaVerificationResult);
+
+        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4');
+
+        expect(mockLogger.debug).toHaveBeenCalledWith('reCAPTCHA enforcement enabled for delivery mode: hybrid');
+        expect(mockRecaptchaProvider.verify).toHaveBeenCalledWith('test-token', '1.2.3.4');
+      });
+    });
+
+    it('should throw error when enforceFor is omitted and no token provided', async () => {
+      await ContextStorage.run(async () => {
+        mockConfig.recaptcha = {
+          enabled: true,
+          provider: mockRecaptchaProvider,
+          // enforceFor omitted - should enforce by default
+        };
+
+        await expect(helpers.validateRecaptchaIfNeeded(undefined, '1.2.3.4')).rejects.toThrow(NAuthException);
+        await expect(helpers.validateRecaptchaIfNeeded(undefined, '1.2.3.4')).rejects.toMatchObject({
+          code: AuthErrorCode.RECAPTCHA_REQUIRED,
+          message: 'reCAPTCHA token is required for web authentication',
+        });
       });
     });
 

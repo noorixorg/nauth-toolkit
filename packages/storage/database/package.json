@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/storage-database",
-  "version": "0.1.97",
+  "version": "0.1.98",
   "description": "Database storage adapter for nauth-toolkit using TypeORM",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.97",
+    "@nauth-toolkit/core": "^0.1.98",
     "typeorm": "^0.3.0"
   },
   "devDependencies": {

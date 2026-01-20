@@ -44,11 +44,9 @@ import { NAuthConfig } from '@nauth-toolkit/core';
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `enabled` | `boolean` | Yes | Enable reCAPTCHA validation. When true, authentication endpoints validate tokens based on `enforceFor`. |
-| `enforceFor` | `('cookies' \| 'json')[]` | No | Token delivery modes requiring reCAPTCHA. `['cookies']` for web only (recommended), `['cookies', 'json']` for all platforms, `[]` for optional validation. Default: `['cookies']`. |
+| `enabled` | `boolean` | Yes | Enable reCAPTCHA validation. When true, routes marked with `@RequireRecaptcha()` will enforce validation. |
 | `minimumScore` | `number` | No | Minimum acceptable score for v3/Enterprise (0.0-1.0). Higher is stricter. Default: `0.5`. Only applies to v3/Enterprise. |
 | `provider` | `RecaptchaProvider` | Yes | Provider implementation: `RecaptchaV2Provider`, `RecaptchaV3Provider`, or `RecaptchaEnterpriseProvider`. |
-| `skipInDevelopment` | `boolean` | No | Skip validation when `NODE_ENV !== 'production'`. Useful for local development. Default: `false`. |
 
 ## Examples
 
@@ -69,14 +67,23 @@ import { RecaptchaV3Provider } from '@nauth-toolkit/recaptcha';
         provider: new RecaptchaV3Provider({
           secretKey: process.env.RECAPTCHA_V3_SECRET_KEY!,
         }),
-        enforceFor: ['cookies'],
         minimumScore: 0.5,
-        skipInDevelopment: true,
       },
     }),
   ],
 })
 export class AppModule {}
+
+// In your controller, mark protected endpoints:
+@Controller('auth')
+export class AuthController {
+  @Public()
+  @RequireRecaptcha()
+  @Post('login')
+  async login(@Body() dto: LoginDTO) {
+    return this.authService.login(dto);
+  }
+}
 ```
 
 </TabItem>
@@ -93,8 +100,8 @@ const nauth = createNAuthInstance({
       secretKey: process.env.RECAPTCHA_V3_SECRET_KEY!,
     }),
     enforceFor: ['cookies'],
+    enforceFor: ['cookies'],
     minimumScore: 0.5,
-    skipInDevelopment: true,
   },
 });
 ```
@@ -113,8 +120,8 @@ const nauth = createNAuthInstance({
       secretKey: process.env.RECAPTCHA_V3_SECRET_KEY!,
     }),
     enforceFor: ['cookies'],
+    enforceFor: ['cookies'],
     minimumScore: 0.5,
-    skipInDevelopment: true,
   },
 });
 ```
@@ -140,7 +147,6 @@ import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
           apiKey: process.env.RECAPTCHA_API_KEY!,
           siteKey: process.env.RECAPTCHA_SITE_KEY!,
         }),
-        enforceFor: ['cookies'],
         minimumScore: 0.7, // Stricter for enterprise
       },
     }),
@@ -162,7 +168,6 @@ const nauth = createNAuthInstance({
       apiKey: process.env.RECAPTCHA_API_KEY!,
       siteKey: process.env.RECAPTCHA_SITE_KEY!,
     }),
-    enforceFor: ['cookies'],
     minimumScore: 0.7,
   },
 });
@@ -182,7 +187,6 @@ const nauth = createNAuthInstance({
       apiKey: process.env.RECAPTCHA_API_KEY!,
       siteKey: process.env.RECAPTCHA_SITE_KEY!,
     }),
-    enforceFor: ['cookies'],
     minimumScore: 0.7,
   },
 });
