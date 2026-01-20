@@ -1,8 +1,2 @@
 #!/usr/bin/env sh
-# Load nvm to get node/yarn in PATH
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-# Run commitlint
-yarn commitlint --edit "$1"
-
+node ./node_modules/@commitlint/cli/cli.js --edit "$1"

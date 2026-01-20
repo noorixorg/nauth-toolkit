@@ -113,27 +113,6 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
       expect(mockRecaptchaProvider.verify).not.toHaveBeenCalled();
     });
 
-    it('should skip validation when nauthSkipRecaptcha attribute is true', async () => {
-      await ContextStorage.run(async () => {
-        const mockRequest: Partial<NAuthRequest> = {
-          attributes: { nauthSkipRecaptcha: true },
-        };
-        ContextStorage.set('REQUEST', mockRequest as NAuthRequest);
-
-        mockConfig.recaptcha = {
-          enabled: true,
-          provider: mockRecaptchaProvider,
-        };
-
-        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4');
-
-        expect(mockLogger.debug).toHaveBeenCalledWith(
-          'Skipping reCAPTCHA validation (explicit skip via decorator)',
-        );
-        expect(mockRecaptchaProvider.verify).not.toHaveBeenCalled();
-      });
-    });
-
     it('should require validation when nauthRequireRecaptcha attribute is true', async () => {
       await ContextStorage.run(async () => {
         const mockRequest: Partial<NAuthRequest> = {
@@ -154,9 +133,27 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
         await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4');
 
         expect(mockLogger.debug).toHaveBeenCalledWith(
-          'reCAPTCHA validation required (explicit require via decorator)',
+          'reCAPTCHA validation required (explicit @RequireRecaptcha() decorator)',
         );
         expect(mockRecaptchaProvider.verify).toHaveBeenCalledWith('test-token', '1.2.3.4');
+      });
+    });
+
+    it('should skip validation when @RequireRecaptcha is not set even if token is provided', async () => {
+      await ContextStorage.run(async () => {
+        const mockRequest: Partial<NAuthRequest> = {
+          attributes: {}, // nauthRequireRecaptcha not set
+        };
+        ContextStorage.set('REQUEST', mockRequest as NAuthRequest);
+
+        mockConfig.recaptcha = {
+          enabled: true,
+          provider: mockRecaptchaProvider,
+        };
+
+        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4');
+
+        expect(mockRecaptchaProvider.verify).not.toHaveBeenCalled();
       });
     });
 
@@ -177,142 +174,6 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
           code: AuthErrorCode.RECAPTCHA_REQUIRED,
           message: 'reCAPTCHA token is required',
         });
-      });
-    });
-
-    it('should enforce validation when delivery mode is in enforceFor array', async () => {
-      await ContextStorage.run(async () => {
-        mockConfig.recaptcha = {
-          enabled: true,
-          provider: mockRecaptchaProvider,
-          enforceFor: ['cookies'],
-        };
-
-        mockRecaptchaProvider.verify.mockResolvedValue({
-          success: true,
-          score: 0.9,
-        } as RecaptchaVerificationResult);
-
-        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4');
-
-        expect(mockLogger.debug).toHaveBeenCalledWith('reCAPTCHA enforcement enabled for delivery mode: cookies');
-        expect(mockRecaptchaProvider.verify).toHaveBeenCalledWith('test-token', '1.2.3.4');
-      });
-    });
-
-    it('should enforce validation by default when enforceFor is omitted (cookies mode)', async () => {
-      await ContextStorage.run(async () => {
-        mockConfig.recaptcha = {
-          enabled: true,
-          provider: mockRecaptchaProvider,
-          // enforceFor omitted - should default to ['cookies', 'json']
-        };
-
-        mockRecaptchaProvider.verify.mockResolvedValue({
-          success: true,
-          score: 0.9,
-        } as RecaptchaVerificationResult);
-
-        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4');
-
-        expect(mockLogger.debug).toHaveBeenCalledWith('reCAPTCHA enforcement enabled for delivery mode: cookies');
-        expect(mockRecaptchaProvider.verify).toHaveBeenCalledWith('test-token', '1.2.3.4');
-      });
-    });
-
-    it('should enforce validation by default when enforceFor is omitted (json mode)', async () => {
-      await ContextStorage.run(async () => {
-        mockConfig.recaptcha = {
-          enabled: true,
-          provider: mockRecaptchaProvider,
-          // enforceFor omitted - should default to ['cookies', 'json']
-        };
-        mockConfig.tokenDelivery = { method: 'json' };
-
-        mockRecaptchaProvider.verify.mockResolvedValue({
-          success: true,
-          score: 0.9,
-        } as RecaptchaVerificationResult);
-
-        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4');
-
-        expect(mockLogger.debug).toHaveBeenCalledWith('reCAPTCHA enforcement enabled for delivery mode: json');
-        expect(mockRecaptchaProvider.verify).toHaveBeenCalledWith('test-token', '1.2.3.4');
-      });
-    });
-
-    it('should enforce validation for hybrid mode when cookies is in enforceFor', async () => {
-      await ContextStorage.run(async () => {
-        mockConfig.recaptcha = {
-          enabled: true,
-          provider: mockRecaptchaProvider,
-          enforceFor: ['cookies'], // Hybrid should be treated as cookies
-        };
-        mockConfig.tokenDelivery = { method: 'hybrid' };
-
-        mockRecaptchaProvider.verify.mockResolvedValue({
-          success: true,
-          score: 0.9,
-        } as RecaptchaVerificationResult);
-
-        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4');
-
-        expect(mockLogger.debug).toHaveBeenCalledWith('reCAPTCHA enforcement enabled for delivery mode: hybrid');
-        expect(mockRecaptchaProvider.verify).toHaveBeenCalledWith('test-token', '1.2.3.4');
-      });
-    });
-
-    it('should throw error when enforceFor is omitted and no token provided', async () => {
-      await ContextStorage.run(async () => {
-        mockConfig.recaptcha = {
-          enabled: true,
-          provider: mockRecaptchaProvider,
-          // enforceFor omitted - should enforce by default
-        };
-
-        await expect(helpers.validateRecaptchaIfNeeded(undefined, '1.2.3.4')).rejects.toThrow(NAuthException);
-        await expect(helpers.validateRecaptchaIfNeeded(undefined, '1.2.3.4')).rejects.toMatchObject({
-          code: AuthErrorCode.RECAPTCHA_REQUIRED,
-          message: 'reCAPTCHA token is required for web authentication',
-        });
-      });
-    });
-
-    it('should throw error when enforced but no token provided', async () => {
-      await ContextStorage.run(async () => {
-        mockConfig.recaptcha = {
-          enabled: true,
-          provider: mockRecaptchaProvider,
-          enforceFor: ['cookies'],
-        };
-
-        await expect(helpers.validateRecaptchaIfNeeded(undefined, '1.2.3.4')).rejects.toThrow(NAuthException);
-        await expect(helpers.validateRecaptchaIfNeeded(undefined, '1.2.3.4')).rejects.toMatchObject({
-          code: AuthErrorCode.RECAPTCHA_REQUIRED,
-          message: 'reCAPTCHA token is required for web authentication',
-        });
-      });
-    });
-
-    it('should perform opportunistic validation when token is provided but not enforced', async () => {
-      await ContextStorage.run(async () => {
-        mockConfig.recaptcha = {
-          enabled: true,
-          provider: mockRecaptchaProvider,
-          enforceFor: [], // Not enforced
-        };
-
-        mockRecaptchaProvider.verify.mockResolvedValue({
-          success: true,
-          score: 0.9,
-        } as RecaptchaVerificationResult);
-
-        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4');
-
-        expect(mockLogger.debug).toHaveBeenCalledWith(
-          'reCAPTCHA token provided, performing opportunistic validation',
-        );
-        expect(mockRecaptchaProvider.verify).toHaveBeenCalledWith('test-token', '1.2.3.4');
       });
     });
 
@@ -338,10 +199,14 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
 
     it('should throw error when verification fails', async () => {
       await ContextStorage.run(async () => {
+        const mockRequest: Partial<NAuthRequest> = {
+          attributes: { nauthRequireRecaptcha: true },
+        };
+        ContextStorage.set('REQUEST', mockRequest as NAuthRequest);
+
         mockConfig.recaptcha = {
           enabled: true,
           provider: mockRecaptchaProvider,
-          enforceFor: ['cookies'],
         };
 
         mockRecaptchaProvider.verify.mockResolvedValue({
@@ -363,10 +228,14 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
 
     it('should throw error when score is too low', async () => {
       await ContextStorage.run(async () => {
+        const mockRequest: Partial<NAuthRequest> = {
+          attributes: { nauthRequireRecaptcha: true },
+        };
+        ContextStorage.set('REQUEST', mockRequest as NAuthRequest);
+
         mockConfig.recaptcha = {
           enabled: true,
           provider: mockRecaptchaProvider,
-          enforceFor: ['cookies'],
           minimumScore: 0.5,
         };
 
@@ -390,10 +259,14 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
 
     it('should pass validation when score meets minimum', async () => {
       await ContextStorage.run(async () => {
+        const mockRequest: Partial<NAuthRequest> = {
+          attributes: { nauthRequireRecaptcha: true },
+        };
+        ContextStorage.set('REQUEST', mockRequest as NAuthRequest);
+
         mockConfig.recaptcha = {
           enabled: true,
           provider: mockRecaptchaProvider,
-          enforceFor: ['cookies'],
           minimumScore: 0.5,
         };
 
@@ -414,11 +287,14 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
 
     it('should use default minimum score of 0.5 when not specified', async () => {
       await ContextStorage.run(async () => {
+        const mockRequest: Partial<NAuthRequest> = {
+          attributes: { nauthRequireRecaptcha: true },
+        };
+        ContextStorage.set('REQUEST', mockRequest as NAuthRequest);
+
         mockConfig.recaptcha = {
           enabled: true,
           provider: mockRecaptchaProvider,
-          enforceFor: ['cookies'],
-          // minimumScore not specified
         };
 
         mockRecaptchaProvider.verify.mockResolvedValue({

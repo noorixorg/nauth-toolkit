@@ -36,7 +36,7 @@ describe('reCAPTCHA Decorator Integration', () => {
     } as NAuthConfig;
 
     guard = new NAuthContextGuard(mockConfig);
-    
+
     // Mock TokenDeliveryHttpService
     tokenDeliveryHttp = {
       resolveEffectiveDelivery: jest.fn().mockReturnValue('cookies'),
@@ -44,7 +44,7 @@ describe('reCAPTCHA Decorator Integration', () => {
       setCsrfCookie: jest.fn(),
       setDeviceTokenCookie: jest.fn(),
     } as unknown as jest.Mocked<TokenDeliveryHttpService>;
-    
+
     reflector = new Reflector();
     interceptor = new CookieTokenInterceptor(tokenDeliveryHttp, reflector);
 

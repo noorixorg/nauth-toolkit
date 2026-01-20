@@ -1311,15 +1311,15 @@ export class AuthServiceInternalHelpers {
   // ============================================================================
 
   /**
-   * Validate reCAPTCHA token if required
+   * Validate reCAPTCHA token only when explicitly required via @RequireRecaptcha().
    *
-   * Explicit control via @RequireRecaptcha() decorator on routes.
-   * No automatic enforcement - consumer controls which endpoints need protection.
+   * Validation runs solely when the route has @RequireRecaptcha().
+   * If the decorator is not present, any recaptchaToken in the request is ignored.
    *
-   * Validation logic:
+   * Logic:
    * 1. Skip if reCAPTCHA not enabled in config
-   * 2. Enforce if route has @RequireRecaptcha() decorator (throws if token missing/invalid)
-   * 3. If token provided (even when not required), validate it opportunistically
+   * 2. Skip if route does not have @RequireRecaptcha() (ignore token)
+   * 3. If @RequireRecaptcha(): require token and validate (throws if missing/invalid)
    *
    * @param token - reCAPTCHA token from client (optional)
    * @param clientIp - Client IP address for validation (optional)
@@ -1351,23 +1351,18 @@ export class AuthServiceInternalHelpers {
     // Get current request context for attributes set by decorators
     const req = ContextStorage.get<NAuthRequest>('REQUEST');
 
-    // Check if reCAPTCHA is explicitly required via @RequireRecaptcha() decorator
-    if (req?.attributes.nauthRequireRecaptcha === true) {
-      this.logger?.debug?.('reCAPTCHA validation required (explicit @RequireRecaptcha() decorator)');
-
-      if (!token) {
-        throw new NAuthException(AuthErrorCode.RECAPTCHA_REQUIRED, 'reCAPTCHA token is required');
-      }
-
-      await this.verifyRecaptchaToken(token, clientIp);
+    // Validate only when @RequireRecaptcha() is on the route; otherwise ignore any token
+    if (req?.attributes.nauthRequireRecaptcha !== true) {
       return;
     }
 
-    // Opportunistic validation: if token provided, validate it (even when not required)
-    if (token) {
-      this.logger?.debug?.('reCAPTCHA token provided, performing opportunistic validation');
-      await this.verifyRecaptchaToken(token, clientIp);
+    this.logger?.debug?.('reCAPTCHA validation required (explicit @RequireRecaptcha() decorator)');
+
+    if (!token) {
+      throw new NAuthException(AuthErrorCode.RECAPTCHA_REQUIRED, 'reCAPTCHA token is required');
     }
+
+    await this.verifyRecaptchaToken(token, clientIp);
   }
 
   /**

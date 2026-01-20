@@ -42,6 +42,7 @@ const sidebars: SidebarsConfig = {
         'features/admin-operations',
         'features/lifecycle-hooks',
         'features/deployment',
+        'guides/openapi-dto-schemas',
       ],
     },
   ],
