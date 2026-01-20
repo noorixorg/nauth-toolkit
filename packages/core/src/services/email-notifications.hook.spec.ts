@@ -64,9 +64,11 @@ describe('registerBuiltInEmailNotificationHooks', () => {
   const createEmailProvider = (): jest.Mocked<EmailProvider> => {
     return {
       sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
+      sendMFAEmailCode: jest.fn().mockResolvedValue(undefined),
       sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
       sendAdminPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
       sendWelcomeEmail: jest.fn().mockResolvedValue(undefined),
+      sendLockoutEmail: jest.fn().mockResolvedValue(undefined),
       sendPasswordChangedEmail: jest.fn().mockResolvedValue(undefined),
       sendMFADeviceRemovedEmail: jest.fn().mockResolvedValue(undefined),
       sendAdaptiveMFARiskAlertEmail: jest.fn().mockResolvedValue(undefined),
@@ -78,7 +80,7 @@ describe('registerBuiltInEmailNotificationHooks', () => {
       sendSessionsRevokedEmail: jest.fn().mockResolvedValue(undefined),
       sendMFAFirstEnabledEmail: jest.fn().mockResolvedValue(undefined),
       sendMFAMethodAddedEmail: jest.fn().mockResolvedValue(undefined),
-    };
+    } as jest.Mocked<EmailProvider>;
   };
 
   it('does not send welcome by default (optional notifications are opt-in)', async () => {

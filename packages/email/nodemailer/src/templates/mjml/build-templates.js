@@ -29,6 +29,7 @@ const SUBJECTS = {
   'email-changed-old': 'Email Address Changed - {{appName}}',
   'email-changed-new': 'Email Address Updated - {{appName}}',
   'sessions-revoked': 'Sessions Terminated - {{appName}}',
+  'mfa-email-code': 'Your sign-in code - {{appName}}',
 };
 
 // Template preview texts
@@ -42,6 +43,7 @@ const PREVIEW_TEXTS = {
   'password-changed': 'Your password has been successfully changed',
   'email-changed': 'Your email address has been successfully changed',
   'mfa-enabled': 'Two-factor authentication has been enabled for your account',
+  'mfa-email-code': 'Use this code to complete two-factor authentication',
 };
 
 // Text versions (plain text fallbacks)
@@ -191,6 +193,20 @@ Two-factor authentication has been successfully enabled for your account.
 Your account is now more secure. You'll need to provide both your password and a verification code when logging in.
 
 {{#if supportEmail}}If you didn't enable this feature, please contact support immediately at {{supportEmail}}.{{/if}}`,
+  'mfa-email-code': `Your sign-in code
+
+{{#if fullName}}Hi {{fullName}},{{/if}}
+{{#if firstName}}Hi {{firstName}},{{/if}}
+{{#if lastName}}Hi {{lastName}},{{/if}}
+{{#if userName}}Hi {{userName}},{{/if}}
+
+You're signing in to your account. Use the code below to complete two-factor authentication.
+
+{{#if code}}Your verification code: {{code}}{{/if}}
+
+{{#if expiryMinutes}}This code expires in {{expiryMinutes}} minutes.{{/if}}
+
+If you didn't request this code, please ignore this email and secure your account. {{#if supportEmail}}Contact support at {{supportEmail}}.{{/if}}`,
   'mfa-device-removed': `MFA Device Removed
 
 {{#if fullName}}Hi {{fullName}},{{/if}}

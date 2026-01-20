@@ -317,7 +317,7 @@ curl "http://localhost:3000/test/totp/secret?userId=abc123"
 # Response: {"secret": "JBSWY3DPEHPK3PXP"}
 ```
 
-**Use case**: Generate TOTP codes in tests using libraries like `otplib`.
+**Use case**: Generate TOTP codes in tests using any RFC 6238-compatible TOTP generator.
 
 ## Running Tests
 

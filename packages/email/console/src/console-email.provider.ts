@@ -41,7 +41,7 @@ export class ConsoleEmailProvider implements EmailProvider {
   }
 
   /**
-   * Send verification email with code and/or link
+   * Send verification email with code and/or link (signup flow)
    *
    * Logs email details to console for debugging.
    *
@@ -59,6 +59,26 @@ export class ConsoleEmailProvider implements EmailProvider {
     // Log email content in a visually distinct format (matching SMS format)
     this.logger.log(`\n${'='.repeat(60)}`);
     this.logger.log('EMAIL MESSAGE');
+    this.logger.log('='.repeat(60));
+    this.logger.log(`To: ${to}`);
+    this.logger.log(`Message: ${message}`);
+    this.logger.log(`${'='.repeat(60)}\n`);
+  }
+
+  /**
+   * Send MFA email code (two-factor authentication challenge)
+   *
+   * Logs email details to console for debugging.
+   *
+   * @param to - Recipient email address
+   * @param code - MFA code (e.g., "123456")
+   * @param expiryMinutes - Code expiry time in minutes
+   */
+  async sendMFAEmailCode(to: string, code: string, expiryMinutes: number = 60): Promise<void> {
+    const message = `Your MFA code is: ${code}\nThis code expires in ${expiryMinutes} minutes.`;
+
+    this.logger.log(`\n${'='.repeat(60)}`);
+    this.logger.log('EMAIL: MFA Code (simulated)');
     this.logger.log('='.repeat(60));
     this.logger.log(`To: ${to}`);
     this.logger.log(`Message: ${message}`);

@@ -1009,6 +1009,96 @@ describe('NAuthClient', () => {
     expect(tokens.accessToken).toBe('new-access-token');
   });
 
+  it('clears local auth state when refreshTokens fails with 401', async () => {
+    const storage = new MockStorage();
+    await storage.setItem('nauth_refresh_token', 'expired-token');
+    await storage.setItem('nauth_access_token', 'old-access');
+    await storage.setItem('nauth_user', JSON.stringify({ sub: 'u1', email: 'test@example.com' }));
+
+    const onSessionExpired = jest.fn();
+    const client = new NAuthClient({ ...baseConfig, storage, onSessionExpired });
+
+    getFetchMock().mockResolvedValue(
+      createMockResponse({
+        ok: false,
+        status: 401,
+        body: {
+          code: 'AUTH_SESSION_EXPIRED',
+          message: 'Session expired',
+        },
+      }),
+    );
+
+    await expect(client.refreshTokens()).rejects.toThrow();
+
+    expect(onSessionExpired).toHaveBeenCalledTimes(1);
+    expect(await storage.getItem('nauth_access_token')).toBeNull();
+    expect(await storage.getItem('nauth_refresh_token')).toBeNull();
+    expect(await storage.getItem('nauth_user')).toBeNull();
+    expect(client.isAuthenticatedSync()).toBe(false);
+  });
+
+  it('emits auth:session_expired event when refreshTokens fails with 401', async () => {
+    const storage = new MockStorage();
+    await storage.setItem('nauth_refresh_token', 'expired-token');
+
+    const client = new NAuthClient({ ...baseConfig, storage });
+
+    const eventListener = jest.fn();
+    client.on('auth:session_expired', eventListener);
+
+    getFetchMock().mockResolvedValue(
+      createMockResponse({
+        ok: false,
+        status: 401,
+        body: {
+          code: 'AUTH_SESSION_EXPIRED',
+          message: 'Session expired',
+        },
+      }),
+    );
+
+    await expect(client.refreshTokens()).rejects.toThrow();
+
+    expect(eventListener).toHaveBeenCalledTimes(1);
+    expect(eventListener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'auth:session_expired',
+        data: {},
+      }),
+    );
+  });
+
+  it('does not clear auth state when refreshTokens fails with non-401 error', async () => {
+    const storage = new MockStorage();
+    await storage.setItem('nauth_refresh_token', 'valid-token');
+    await storage.setItem('nauth_access_token', 'access-token');
+    await storage.setItem('nauth_user', JSON.stringify({ sub: 'u1', email: 'test@example.com' }));
+
+    const onSessionExpired = jest.fn();
+    const client = new NAuthClient({ ...baseConfig, storage, onSessionExpired });
+
+    // Initialize to load user into currentUser
+    await client.initialize();
+
+    getFetchMock().mockResolvedValue(
+      createMockResponse({
+        ok: false,
+        status: 500,
+        body: {
+          code: 'INTERNAL_ERROR',
+          message: 'Server error',
+        },
+      }),
+    );
+
+    await expect(client.refreshTokens()).rejects.toThrow();
+
+    expect(onSessionExpired).not.toHaveBeenCalled();
+    expect(await storage.getItem('nauth_user')).not.toBeNull();
+    expect(client.isAuthenticatedSync()).toBe(true);
+  });
+
   it('handles loginWithSocial', async () => {
     const mockWindow = {
       location: { href: '' },

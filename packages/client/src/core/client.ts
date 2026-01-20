@@ -220,6 +220,18 @@ export class NAuthClient {
 
   /**
    * Refresh tokens manually.
+   *
+   * @throws {NAuthClientError} When refresh fails (e.g., session expired)
+   *
+   * @example
+   * ```typescript
+   * try {
+   *   await client.refreshTokens();
+   * } catch (error) {
+   *   // Session expired - user is already logged out automatically
+   *   router.navigate(['/login']);
+   * }
+   * ```
    */
   async refreshTokens(): Promise<TokenResponse> {
     const tokenDelivery = this.getTokenDeliveryMode();
@@ -240,12 +252,24 @@ export class NAuthClient {
       // Refresh endpoint is PUBLIC - it doesn't need an access token
       return this.post<TokenResponse>(this.config.endpoints.refresh, body, false);
     };
-    // Cookies mode MUST NEVER persist tokens to storage, even if a misconfigured backend
-    // accidentally returns tokens in the response body (security footgun).
-    const tokens = await this.tokenManager.refreshOnce(refreshFn, { persist: tokenDelivery === 'json' });
-    this.config.onTokenRefresh?.();
-    this.eventEmitter.emit({ type: 'auth:refresh', data: { success: true }, timestamp: Date.now() });
-    return tokens;
+
+    try {
+      // Cookies mode MUST NEVER persist tokens to storage, even if a misconfigured backend
+      // accidentally returns tokens in the response body (security footgun).
+      const tokens = await this.tokenManager.refreshOnce(refreshFn, { persist: tokenDelivery === 'json' });
+      this.config.onTokenRefresh?.();
+      this.eventEmitter.emit({ type: 'auth:refresh', data: { success: true }, timestamp: Date.now() });
+      return tokens;
+    } catch (error) {
+      // Handle session expiration (401 error)
+      // Clear local auth state to prevent isAuthenticated() from returning true with stale data
+      if (error instanceof NAuthClientError && error.statusCode === 401) {
+        await this.clearLocalAuthState();
+        this.config.onSessionExpired?.();
+        this.eventEmitter.emit({ type: 'auth:session_expired', data: {}, timestamp: Date.now() });
+      }
+      throw error;
+    }
   }
 
   // ============================================================================

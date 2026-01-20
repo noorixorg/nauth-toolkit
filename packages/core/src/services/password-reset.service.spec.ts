@@ -67,6 +67,7 @@ describe('PasswordResetService', () => {
 
     mockEmailProvider = {
       sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
+      sendMFAEmailCode: jest.fn().mockResolvedValue(undefined),
       sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
       sendWelcomeEmail: jest.fn().mockResolvedValue(undefined),
       sendAdminPasswordResetEmail: jest.fn().mockResolvedValue(undefined),

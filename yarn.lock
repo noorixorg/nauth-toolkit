@@ -3409,7 +3409,7 @@
     "@tybys/wasm-util" "^0.10.1"
 
 "@nauth-toolkit/client-angular@file:packages/client-angular/dist":
-  version "0.1.92"
+  version "0.1.95"
   dependencies:
     tslib "^2.3.0"
 
@@ -3511,11 +3511,6 @@
   version "11.0.0"
   resolved "https://registry.yarnpkg.com/@nestjs/typeorm/-/typeorm-11.0.0.tgz#b0f45d6902396db89e0ac1f4e738c2ff3407b794"
   integrity sha512-SOeUQl70Lb2OfhGkvnh4KXWlsd+zA08RuuQgT7kKbzivngxzSo1Oc7Usu5VxCxACQC9wc2l9esOHILSJeK7rJA==
-
-"@noble/hashes@^2.0.1":
-  version "2.0.1"
-  resolved "https://registry.yarnpkg.com/@noble/hashes/-/hashes-2.0.1.tgz#fc1a928061d1232b0a52bb754393c37a5216c89e"
-  integrity sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw==
 
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"
@@ -3646,39 +3641,10 @@
   resolved "https://registry.yarnpkg.com/@one-ini/wasm/-/wasm-0.1.1.tgz#6013659736c9dbfccc96e8a9c2b3de317df39323"
   integrity sha512-XuySG1E38YScSJoMlqovLru4KTUNSjgVTIjyh7qMX6aNN5HY5Ct5LhRJdxO79JtTzKfzV/bnWpz+zquYrISsvw==
 
-"@otplib/core@13.1.1":
-  version "13.1.1"
-  resolved "https://registry.yarnpkg.com/@otplib/core/-/core-13.1.1.tgz#7f4a7cdf1bcaa977923fe9ee974d305d93b1b190"
-  integrity sha512-K7167w5T5fBtI7FCTrcTyqHPNEKIvyBHFACvJGXci60V30Rt4VDsRHWw/LYtOZRbUqJbPH9orn4N10dYRVi3bw==
-
 "@otplib/core@^12.0.1":
   version "12.0.1"
   resolved "https://registry.yarnpkg.com/@otplib/core/-/core-12.0.1.tgz#73720a8cedce211fe5b3f683cd5a9c098eaf0f8d"
   integrity sha512-4sGntwbA/AC+SbPhbsziRiD+jNDdIzsZ3JUyfZwjtKyc/wufl1pnSIaG4Uqx8ymPagujub0o92kgBnB89cuAMA==
-
-"@otplib/hotp@13.1.1":
-  version "13.1.1"
-  resolved "https://registry.yarnpkg.com/@otplib/hotp/-/hotp-13.1.1.tgz#a7596ed6d6f50f0f124e0debb46d6160ff9c58ee"
-  integrity sha512-2Zht/w3kb9Cv/BPNWC/KvFspztFae38BlteW4KQOn1U+jBj02EMpO3V75OaLGFyz3ZCWzYdLoTRhMkVDCVklDw==
-  dependencies:
-    "@otplib/core" "13.1.1"
-    "@otplib/uri" "13.1.1"
-
-"@otplib/plugin-base32-scure@13.1.1":
-  version "13.1.1"
-  resolved "https://registry.yarnpkg.com/@otplib/plugin-base32-scure/-/plugin-base32-scure-13.1.1.tgz#9cf517339be134da48eb0961015baff3a8a4c663"
-  integrity sha512-PAKmU60DOQyfwSP6VDcwP5wRO3GYCC8UgH0+J2wY2XI5OetHDPv27wNjBibE1iO7NMwCnUf1pv0rsTVE5TR9ew==
-  dependencies:
-    "@otplib/core" "13.1.1"
-    "@scure/base" "^2.0.0"
-
-"@otplib/plugin-crypto-noble@13.1.1":
-  version "13.1.1"
-  resolved "https://registry.yarnpkg.com/@otplib/plugin-crypto-noble/-/plugin-crypto-noble-13.1.1.tgz#dcac40579113f60d497e2ada51661af87ca12542"
-  integrity sha512-MbgmPWGzhlUG+Jq4sX1UHgdNVEcXqinZy9GUtu2iotHRya815oBVwkiviM/y2qorxuCOIMNTAArD6jKlVv/qiQ==
-  dependencies:
-    "@noble/hashes" "^2.0.1"
-    "@otplib/core" "13.1.1"
 
 "@otplib/plugin-crypto@^12.0.1":
   version "12.0.1"
@@ -3712,22 +3678,6 @@
     "@otplib/core" "^12.0.1"
     "@otplib/plugin-crypto" "^12.0.1"
     "@otplib/plugin-thirty-two" "^12.0.1"
-
-"@otplib/totp@13.1.1":
-  version "13.1.1"
-  resolved "https://registry.yarnpkg.com/@otplib/totp/-/totp-13.1.1.tgz#ac8058d67a3a8aa6cab3b419820f27c040492f16"
-  integrity sha512-Bbr8C3fLQeUIiAU5sBltPIvPTsGOCmTBln2TjU8wt36nnWMK1p7SsV+VeAk4VYEsGCc4W/ds4M0Pbx4gJMt88A==
-  dependencies:
-    "@otplib/core" "13.1.1"
-    "@otplib/hotp" "13.1.1"
-    "@otplib/uri" "13.1.1"
-
-"@otplib/uri@13.1.1":
-  version "13.1.1"
-  resolved "https://registry.yarnpkg.com/@otplib/uri/-/uri-13.1.1.tgz#d9bdd0ef44fd63d9677a8e9bee27ca82d83ac1a7"
-  integrity sha512-UMdz/41JIKPLw6/VeExc3MJaCHZYEZXlF5WVyhtWT5nfzQKAcgp6HI8Tar0lDN+lXXKCjbGwlyCKOWCMAISNXg==
-  dependencies:
-    "@otplib/core" "13.1.1"
 
 "@oxc-project/types@=0.96.0":
   version "0.96.0"
@@ -4403,11 +4353,6 @@
     "@angular-devkit/core" "21.0.3"
     "@angular-devkit/schematics" "21.0.3"
     jsonc-parser "3.3.1"
-
-"@scure/base@^2.0.0":
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/@scure/base/-/base-2.0.0.tgz#ba6371fddf92c2727e88ad6ab485db6e624f9a98"
-  integrity sha512-3E1kpuZginKkek01ovG8krQ0Z44E3DHPjc5S2rjJw9lZn3KSQOs8S7wqikF/AH7iRanHypj85uGyxk0XAyC37w==
 
 "@sigstore/bundle@^4.0.0":
   version "4.0.0"
@@ -12040,18 +11985,6 @@ otplib@^12.0.1:
     "@otplib/core" "^12.0.1"
     "@otplib/preset-default" "^12.0.1"
     "@otplib/preset-v11" "^12.0.1"
-
-otplib@^13.1.1:
-  version "13.1.1"
-  resolved "https://registry.yarnpkg.com/otplib/-/otplib-13.1.1.tgz#d713da88861f349146677c683b806c146e499ac9"
-  integrity sha512-cjNU7ENJPwqNK7Qesl6P357B0WB4XmbptHCsGzy14jYcRmQyNwkvl0eT0nzUX0c1djrkOFVIHtNp3Px1vDIpfw==
-  dependencies:
-    "@otplib/core" "13.1.1"
-    "@otplib/hotp" "13.1.1"
-    "@otplib/plugin-base32-scure" "13.1.1"
-    "@otplib/plugin-crypto-noble" "13.1.1"
-    "@otplib/totp" "13.1.1"
-    "@otplib/uri" "13.1.1"
 
 own-keys@^1.0.1:
   version "1.0.1"

@@ -18,7 +18,7 @@
 - **Fakes/Mocks**:
   - **Email** → MailHog SMTP/HTTP (intercept `NodemailerEmailProvider` or use test endpoint with `ConsoleEmailProvider`).
   - **SMS** → `TestSmsProvider` (extends `ConsoleSMSProvider`, persists codes to Redis/DB; expose test endpoint).
-  - **TOTP** → `otplib` in tests (app exposes secret via test endpoint in test mode only).
+  - **TOTP** → RFC 6238-compatible TOTP generation in tests (app exposes secret via test endpoint in test mode only).
   - **WebAuthn/Passkey** → Playwright **virtual authenticator** (Chromium CDP).
   - **Social OAuth** → local mock issuer with static JWKs (for nightly), or use provider test tenants (Google/Apple/Facebook).
 - **Control hooks** (test‑only): **Clock injection**, **Risk injection**, **Geo/IP override**, **Device trust endpoint**, **DB reset**.

@@ -146,12 +146,7 @@ export const appConfig: ApplicationConfig = {
     },
     AngularHttpAdapter,
     AuthService,
-    provideRecaptcha({
-      enabled: true,
-      version: 'enterprise',
-      siteKey: environment.recaptchaSiteKey,
-      action: 'login',
-    }),
+    provideRecaptcha(),
     provideHttpClient(withInterceptors([authInterceptor])),
   ],
 };

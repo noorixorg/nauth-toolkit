@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/client-angular",
-  "version": "0.1.93",
+  "version": "0.1.97",
   "description": "Angular adapter for nauth-toolkit client SDK",
   "keywords": [
     "nauth",
@@ -24,7 +24,7 @@
   "peerDependencies": {
     "@angular/common": ">=17.0.0",
     "@angular/core": ">=17.0.0",
-    "@nauth-toolkit/client": "^0.1.93",
+    "@nauth-toolkit/client": "^0.1.97",
     "rxjs": "^7.0.0 || ^8.0.0"
   },
   "dependencies": {

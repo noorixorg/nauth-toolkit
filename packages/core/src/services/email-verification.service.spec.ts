@@ -148,6 +148,7 @@ describe('EmailVerificationService', () => {
 
     mockEmailProvider = {
       sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
+      sendMFAEmailCode: jest.fn().mockResolvedValue(undefined),
       sendPasswordResetEmail: jest.fn(),
       sendWelcomeEmail: jest.fn(),
     } as any;
@@ -499,6 +500,174 @@ describe('EmailVerificationService', () => {
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.RATE_LIMIT_RESEND);
       }
+    });
+  });
+
+  // ============================================================================
+  // sendMFAEmailCode
+  // ============================================================================
+
+  describe('sendMFAEmailCode', () => {
+    it('should send MFA email code successfully', async () => {
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockVerificationTokenRepository.findOne.mockResolvedValue(null);
+      mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
+      mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
+
+      const result = await service.sendMFAEmailCode(
+        createSendVerificationEmailDto({ sub: 'user-sub-123', skipAlreadyVerifiedCheck: true }),
+      );
+
+      expect(result.tokenId).toBeDefined();
+      expect(mockEmailProvider.sendMFAEmailCode).toHaveBeenCalledWith(
+        'test@example.com',
+        expect.any(String),
+        expect.any(Number),
+      );
+      expect(mockVerificationTokenRepository.save).toHaveBeenCalled();
+      expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 123,
+          metadata: expect.objectContaining({
+            mfaContext: true,
+          }),
+        }),
+      );
+    });
+
+    it('should enforce rate limit for MFA email codes', async () => {
+      mockStorageAdapter.incr.mockResolvedValue(4); // Exceeds default limit of 3
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+
+      try {
+        await service.sendMFAEmailCode(
+          createSendVerificationEmailDto({ sub: 'user-sub-123', skipAlreadyVerifiedCheck: true }),
+        );
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.RATE_LIMIT_EMAIL);
+        expect(error.details.currentCount).toBe(4);
+      }
+    });
+
+    it('should enforce resend delay for MFA email codes', async () => {
+      const recentToken = {
+        ...mockVerificationToken,
+        createdAt: new Date(Date.now() - 30 * 1000), // 30 seconds ago (less than 60s default)
+      };
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockVerificationTokenRepository.findOne.mockResolvedValue(recentToken as any);
+
+      try {
+        await service.sendMFAEmailCode(
+          createSendVerificationEmailDto({ sub: 'user-sub-123', skipAlreadyVerifiedCheck: true }),
+        );
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.RATE_LIMIT_RESEND);
+      }
+    });
+
+    it('should allow sending MFA code even if email is already verified', async () => {
+      const verifiedUser = { ...mockUser, isEmailVerified: true };
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+      mockUserRepository.findOne.mockResolvedValue(verifiedUser as any);
+      mockVerificationTokenRepository.findOne.mockResolvedValue(null);
+      mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
+      mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
+
+      const result = await service.sendMFAEmailCode(
+        createSendVerificationEmailDto({ sub: 'user-sub-123', skipAlreadyVerifiedCheck: true }),
+      );
+
+      expect(result.tokenId).toBeDefined();
+      expect(mockEmailProvider.sendMFAEmailCode).toHaveBeenCalled();
+    });
+
+    it('should throw NAuthException if user not found', async () => {
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      try {
+        await service.sendMFAEmailCode(
+          createSendVerificationEmailDto({ sub: 'invalid-sub', skipAlreadyVerifiedCheck: true }),
+        );
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.NOT_FOUND);
+      }
+    });
+
+    it('should invalidate existing tokens before creating new one', async () => {
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockVerificationTokenRepository.findOne.mockResolvedValue(null);
+      mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
+      mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
+
+      await service.sendMFAEmailCode(
+        createSendVerificationEmailDto({ sub: 'user-sub-123', skipAlreadyVerifiedCheck: true }),
+      );
+
+      expect(mockVerificationTokenRepository.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 123,
+          type: 'email',
+        }),
+        expect.objectContaining({
+          usedAt: expect.any(Date),
+        }),
+      );
+    });
+
+    it('should link MFA code to challenge session if provided', async () => {
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockVerificationTokenRepository.findOne.mockResolvedValue(null);
+      mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
+      mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
+
+      await service.sendMFAEmailCode(
+        createSendVerificationEmailDto({
+          sub: 'user-sub-123',
+          skipAlreadyVerifiedCheck: true,
+          challengeSessionId: 456,
+        }),
+      );
+
+      expect(mockVerificationTokenRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          challengeSessionId: 456,
+        }),
+      );
+    });
+
+    it('should handle audit service errors gracefully', async () => {
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockVerificationTokenRepository.findOne.mockResolvedValue(null);
+      mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
+      mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
+      mockAuditService.recordEvent.mockRejectedValueOnce(new Error('Audit failed'));
+
+      await service.sendMFAEmailCode(
+        createSendVerificationEmailDto({ sub: 'user-sub-123', skipAlreadyVerifiedCheck: true }),
+      );
+
+      expect(mockLogger.error).toHaveBeenCalled();
+      expect(mockEmailProvider.sendMFAEmailCode).toHaveBeenCalled(); // Should still send email
     });
   });
 

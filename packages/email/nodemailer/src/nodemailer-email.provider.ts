@@ -423,19 +423,15 @@ export class NodemailerProvider implements EmailProvider {
   }
 
   /**
-   * Send verification email with code and/or link
+   * Send verification email with code and/or link (signup flow)
    *
    * @param to - Recipient email address
    * @param code - Verification code (e.g., "123456")
    * @param link - Optional verification link (only rendered if provided)
    */
-  async sendVerificationEmail(
-    to: string,
-    code: string,
-    link?: string,
-    expiryMinutes: number = 60,
-    variables: TemplateVariables = {},
-  ): Promise<void> {
+  async sendVerificationEmail(to: string, code: string, link?: string): Promise<void> {
+    const expiryMinutes = 60; // Default expiry
+
     this.logger?.debug?.('Preparing verification email', { to, hasLink: !!link, expiryMinutes });
 
     const templateVariables: TemplateVariables = {
@@ -444,7 +440,6 @@ export class NodemailerProvider implements EmailProvider {
       userEmail: to,
       code,
       expiryMinutes,
-      ...variables,
     };
 
     // Only include link if provided
@@ -480,6 +475,57 @@ export class NodemailerProvider implements EmailProvider {
       // sendMail already logs errors, but we add context here
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger?.error?.(`Verification email delivery failed for ${to}: ${errorMessage}`);
+      // Re-throw to let caller handle
+      throw error;
+    }
+  }
+
+  /**
+   * Send MFA email code (two-factor authentication challenge)
+   *
+   * @param to - Recipient email address
+   * @param code - MFA code (e.g., "123456")
+   * @param expiryMinutes - Code expiry time in minutes
+   */
+  async sendMFAEmailCode(to: string, code: string, expiryMinutes: number = 60): Promise<void> {
+    this.logger?.debug?.('Preparing MFA email code', { to, expiryMinutes });
+
+    const templateVariables: TemplateVariables = {
+      ...this.globalVariables,
+      userName: to.split('@')[0],
+      userEmail: to,
+      code,
+      expiryMinutes,
+    };
+
+    let email;
+    try {
+      this.logger?.debug?.('Rendering MFA email code template');
+      email = await this.templateEngine.render(TemplateType.MFA_EMAIL_CODE, templateVariables);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.error?.(
+        `Failed to render MFA email code template (${TemplateType.MFA_EMAIL_CODE}): ${errorMessage}`,
+        { error },
+      );
+      throw new NAuthException(
+        AuthErrorCode.INTERNAL_ERROR,
+        `Failed to render MFA email code template: ${errorMessage}`,
+        { originalError: errorMessage, templateType: TemplateType.MFA_EMAIL_CODE },
+      );
+    }
+
+    try {
+      await this.sendMail({
+        to,
+        subject: email.subject,
+        html: email.html,
+        text: email.text,
+      });
+    } catch (error) {
+      // sendMail already logs errors, but we add context here
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger?.error?.(`MFA email code delivery failed for ${to}: ${errorMessage}`);
       // Re-throw to let caller handle
       throw error;
     }

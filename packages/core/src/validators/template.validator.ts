@@ -32,6 +32,7 @@ export const TEMPLATE_REQUIRED_PARAMS: Record<TemplateType, string[]> = {
   [TemplateType.EMAIL_CHANGED_OLD]: [],
   [TemplateType.EMAIL_CHANGED_NEW]: [],
   [TemplateType.SESSIONS_REVOKED]: ['revokedCount'],
+  [TemplateType.MFA_EMAIL_CODE]: ['code', 'expiryMinutes'],
 };
 
 /**

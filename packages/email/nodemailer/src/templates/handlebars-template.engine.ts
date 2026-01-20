@@ -554,6 +554,7 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
       [TemplateType.EMAIL_CHANGED_OLD]: 'email-changed-old',
       [TemplateType.EMAIL_CHANGED_NEW]: 'email-changed-new',
       [TemplateType.SESSIONS_REVOKED]: 'sessions-revoked',
+      [TemplateType.MFA_EMAIL_CODE]: 'mfa-email-code',
     };
 
     // Register all default templates

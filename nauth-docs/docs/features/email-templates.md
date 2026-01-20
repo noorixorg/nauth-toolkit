@@ -39,15 +39,22 @@ If you're reading this for the first time, this is the shortest path to success:
 - [Testing templates](#testing-templates)
 - [Troubleshooting](#troubleshooting)
 
+:::tip
+**For Email MFA**: Use the `mfaEmailCode` template (distinct from `verification`). The framework automatically sends this email when users sign in with Email MFA. Just override the template to customize the content - no API calls needed.
+:::
+
 ## Email templates
 
 ### Available email types
 
 #### Core Authentication Emails
 
+These emails are automatically sent by the framework during authentication flows. Override their templates in `email.templates.customTemplates` using the Template Type key.
+
 | Template Type | When Sent | Required Variables | Optional Variables |
 |--------------|-----------|-------------------|-------------------|
 | `verification` | Email address verification during signup | `code`, `expiryMinutes` | `link` (only when `signup.emailVerification.baseUrl` is configured) |
+| `mfaEmailCode` | Email MFA challenge code (two-factor sign-in) | `code`, `expiryMinutes` | None |
 | `passwordReset` | User requests password reset | `code`, `expiryMinutes` | `link` (only when baseUrl provided in forgotPassword request) |
 | `adminPasswordReset` | Admin initiates password reset | `code`, `expiryMinutes` | `link` (only when baseUrl provided) |
 | `welcome` | After onboarding is complete: immediately after signup when `signup.verificationMethod = 'none'`, otherwise after the required verification(s) succeed (`email` / `phone` / `both`) | None | None |
@@ -171,7 +178,12 @@ AuthModule.forRoot({
         verification: {
           htmlPath: './email-templates/verification.html.hbs',
           textPath: './email-templates/verification.text.hbs',
-          // Must include: code, link, expiryMinutes variables
+          // Must include: code, expiryMinutes; link is optional
+        },
+        mfaEmailCode: {
+          htmlPath: './email-templates/mfa-email-code.html.hbs',
+          textPath: './email-templates/mfa-email-code.text.hbs',
+          // Must include: code, expiryMinutes
         },
         welcome: {
           htmlPath: './email-templates/welcome.html.hbs',
@@ -412,9 +424,9 @@ All templates have access to these variables:
 
 | Variable | Description | Templates |
 |----------|-------------|-----------|
-| `code` | Verification/reset code | `verification`, `passwordReset` (always present), `adminPasswordReset` |
-| `link` | Verification/reset link | `verification` (only when `signup.emailVerification.baseUrl` is configured), `passwordReset` (optional, only when baseUrl provided in forgotPassword request), `adminPasswordReset` (only when baseUrl provided) |
-| `expiryMinutes` | Code/link expiration time | `verification`, `passwordReset`, `adminPasswordReset` |
+| `code` | Verification/reset/MFA code | `verification`, `mfaEmailCode`, `passwordReset` (always present), `adminPasswordReset` |
+| `link` | Verification/reset link | `verification` (only when `signup.emailVerification.baseUrl` is configured), `passwordReset` (optional, only when baseUrl provided in forgotPassword request), `adminPasswordReset` (only when baseUrl provided). Not used in `mfaEmailCode`. |
+| `expiryMinutes` | Code/link expiration time | `verification`, `mfaEmailCode`, `passwordReset`, `adminPasswordReset` |
 | `reason` | Reason for action | `accountLockout`, `accountDisabled`, `accountEnabled`, `sessionsRevoked` |
 | `durationMinutes` | Lockout duration | `accountLockout` |
 | `deviceName` | Device identifier | `newDevice`, `mfaDeviceRemoved`, `mfaMethodAdded`, `mfaEnabled` |
@@ -466,7 +478,7 @@ The default Nodemailer templates implement a simple, explicit greeting fallback:
 {{#if userName}}Hi {{userName}},{{/if}}
 ```
 
-If you prefer a single variable like `greetingName`, compute it in your application and pass it as a template variable. (The core `HtmlTemplateEngine` also computes `greetingName` automatically when you use it directly.)
+If you prefer a single variable like `greetingName`, compute it in your application and pass it as a template variable.
 
 ### Handlebars syntax reference
 
@@ -537,6 +549,7 @@ To prevent broken emails, nauth-toolkit validates templates at startup:
 | Template Type | Required Variables | Optional Variables |
 |--------------|-------------------|-------------------|
 | `verification` | `code`, `expiryMinutes` | `link` (only when `signup.emailVerification.baseUrl` is configured) |
+| `mfaEmailCode` | `code`, `expiryMinutes` | None |
 | `passwordReset` | `expiryMinutes` | `link` (only when baseUrl provided in forgotPassword request) |
 | `adminPasswordReset` | `code`, `expiryMinutes` | `link` (only when baseUrl provided) |
 | `accountLockout` | `reason`, `durationMinutes` | None |

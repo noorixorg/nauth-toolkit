@@ -1,14 +1,24 @@
+import type { TemplateType } from './template.interface';
+
 /**
  * Email provider interface for sending emails
  */
 export interface EmailProvider {
   /**
-   * Send email verification code/link
+   * Send email verification code/link (signup flow)
    * @param to - Recipient email address
    * @param code - Verification code (e.g., "123456")
    * @param link - Optional verification link (only sent if provided by consumer app)
    */
   sendVerificationEmail(to: string, code: string, link?: string): Promise<void>;
+
+  /**
+   * Send MFA email code (two-factor authentication challenge)
+   * @param to - Recipient email address
+   * @param code - MFA code (e.g., "123456")
+   * @param expiryMinutes - Code expiry time in minutes
+   */
+  sendMFAEmailCode(to: string, code: string, expiryMinutes?: number): Promise<void>;
 
   /**
    * Send password reset email with code and optional link

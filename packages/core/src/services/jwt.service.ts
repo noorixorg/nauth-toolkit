@@ -128,7 +128,7 @@ export class JwtService {
   private refreshTokenKey: Uint8Array | crypto.KeyObject | null = null;
 
   /**
-   * Cached dynamic import of jose.
+   * Cached jose module load.
    * Kept as a promise so concurrent calls share the same module load.
    */
   private joseModulePromise: Promise<JoseModule> | null = null;
@@ -139,16 +139,36 @@ export class JwtService {
   }
 
   // ============================================================================
-  // jose (ESM-only) loader
+  // jose loader
   // ============================================================================
 
   /**
-   * Lazy-load jose (ESM-only) in a CJS-compatible way.
+   * Load jose in a way that works for both ESM and CommonJS consumers.
+   *
+   * "Proper" usage per jose docs:
+   * - ESM: `import * as jose from 'jose'`
+   * - CJS: `const jose = require('jose')` (when `require(esm)` is supported/enabled)
+   *
+   * In some production setups, `require()` is wrapped/intercepted (e.g. PM2), which can
+   * break `require(esm)` and surface `ERR_REQUIRE_ESM`. In that case we fall back to a
+   * native dynamic import so Node's ESM loader can resolve jose.
+   *
    * @private
    */
   private async getJose(): Promise<JoseModule> {
     if (!this.joseModulePromise) {
-      this.joseModulePromise = import('jose') as Promise<JoseModule>;
+      this.joseModulePromise = (async () => {
+        try {
+          return require('jose') as JoseModule;
+        } catch {
+          // Native dynamic import fallback (avoids TypeScript rewriting to require()).
+
+          const nativeImport = new Function('modulePath', 'return import(modulePath)') as (
+            modulePath: string,
+          ) => Promise<unknown>;
+          return (await nativeImport('jose')) as JoseModule;
+        }
+      })();
     }
     return await this.joseModulePromise;
   }

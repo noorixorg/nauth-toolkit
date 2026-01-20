@@ -1,7 +1,7 @@
-import { generateSecret, generate, verify, generateURI } from 'otplib';
 import * as QRCode from 'qrcode';
 import { NAuthConfig, TOTPConfig, NAuthLogger, NAuthException, AuthErrorCode } from '@nauth-toolkit/core';
 import { SetupTOTPResponseDTO } from './dto/mfa.dto';
+import { buildOtpAuthUri, generateBase32Secret, totpGenerate, totpVerify } from './totp.utils';
 
 /**
  * TOTP (Time-based One-Time Password) Service
@@ -93,14 +93,15 @@ export class TOTPService {
     this.logger?.log?.(`Generating TOTP secret for: ${accountName}`);
 
     // Generate base32-encoded secret
-    const secret = generateSecret();
+    const secret = generateBase32Secret();
 
     // Get issuer name
     const issuer = this.getIssuer();
 
-    // Generate otpauth URI for QR code
     const totpConfig = this.getTOTPConfig();
-    const otpauthUrl = await generateURI({
+    // Generate `otpauth://` URI for QR code.
+    // This avoids `otplib` (which can trigger CJS/ESM interop failures on Node 22 in CJS apps).
+    const otpauthUrl = buildOtpAuthUri({
       label: accountName,
       issuer,
       secret,
@@ -182,31 +183,35 @@ export class TOTPService {
       // Remove spaces and validate format
       const cleanCode = code.replace(/\s/g, '');
 
-      if (!/^\d{6}$/.test(cleanCode)) {
+      const totpConfig = this.getTOTPConfig();
+
+      // Validate against configured digits (default 6)
+      const digits = totpConfig.digits as 6 | 8;
+      const tokenRegex = new RegExp(`^\\d{${digits}}$`);
+      if (!tokenRegex.test(cleanCode)) {
         this.logger?.warn?.('Invalid TOTP code format');
         return false;
       }
 
-      const totpConfig = this.getTOTPConfig();
+      // Verify code using RFC 6238 implementation (no `otplib` dependency).
+      const isValid = totpVerify(
+        {
+          secret,
+          period: totpConfig.stepSeconds,
+          digits,
+          algorithm: totpConfig.algorithm,
+        },
+        cleanCode,
+        totpConfig.window,
+      );
 
-      // Verify code using otplib v13 API
-      const result = await verify({
-        secret,
-        token: cleanCode,
-        strategy: 'totp',
-        epochTolerance: totpConfig.window,
-        period: totpConfig.stepSeconds,
-        digits: totpConfig.digits as 6 | 8,
-        algorithm: totpConfig.algorithm,
-      });
-
-      if (result.valid) {
+      if (isValid) {
         this.logger?.debug?.('TOTP code verified successfully');
       } else {
         this.logger?.warn?.('TOTP code verification failed');
       }
 
-      return result.valid;
+      return isValid;
     } catch (error) {
       this.logger?.error?.('TOTP verification error', error);
       return false;
@@ -238,8 +243,11 @@ export class TOTPService {
       return { valid: false, error: 'Code is required' };
     }
 
-    if (!/^\d{6}$/.test(cleanCode)) {
-      return { valid: false, error: 'Code must be 6 digits' };
+    const totpConfig = this.getTOTPConfig();
+    const digits = totpConfig.digits as 6 | 8;
+    const tokenRegex = new RegExp(`^\\d{${digits}}$`);
+    if (!tokenRegex.test(cleanCode)) {
+      return { valid: false, error: `Code must be ${digits} digits` };
     }
 
     // Verify secret format
@@ -279,9 +287,8 @@ export class TOTPService {
    */
   async generateCode(secret: string): Promise<string> {
     const totpConfig = this.getTOTPConfig();
-    return await generate({
+    return totpGenerate({
       secret,
-      strategy: 'totp',
       period: totpConfig.stepSeconds,
       digits: totpConfig.digits as 6 | 8,
       algorithm: totpConfig.algorithm,

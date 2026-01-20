@@ -476,16 +476,15 @@ export class AuthChallengeHelperService {
         `Auto-sending MFA Email code to user ${user.sub} (preferred=${emailIsPreferred}, only=${emailIsOnly})`,
       );
       // Fire and forget - don't block challenge response
-      // Use EmailVerificationService which handles email sending, rate limits, and token storage
+      // Use EmailVerificationService.sendMFAEmailCode which handles email sending, rate limits, and token storage
       // skipAlreadyVerifiedCheck=true because email is already verified but we need MFA code
-      // baseUrl will be read from config if not provided
       const emailDto = Object.assign(new SendVerificationEmailDTO(), {
         sub: user.sub,
         skipAlreadyVerifiedCheck: true,
         challengeSessionId: challengeSession.id, // Link MFA email code to this challenge session
       });
       this.emailVerificationService
-        .sendVerificationEmail(emailDto)
+        .sendMFAEmailCode(emailDto)
         .then(() => {
           this.logger?.log?.(`MFA Email code sent successfully to user ${user.sub}`);
         })

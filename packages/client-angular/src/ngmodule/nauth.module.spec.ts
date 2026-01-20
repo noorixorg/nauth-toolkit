@@ -56,7 +56,11 @@ describe('NAuthModule', () => {
 
     expect(authServiceProvider).toBeDefined();
     expect(authServiceProvider?.useFactory).toBeDefined();
-    expect(authServiceProvider?.deps).toEqual([require('./http-adapter').AngularHttpAdapter]);
+    // Verify deps structure: [AngularHttpAdapter, [Optional(), RecaptchaService]]
+    expect(authServiceProvider?.deps).toHaveLength(2);
+    expect(authServiceProvider?.deps[0]).toBe(require('./http-adapter').AngularHttpAdapter);
+    expect(Array.isArray(authServiceProvider?.deps[1])).toBe(true);
+    expect(authServiceProvider?.deps[1][1]).toBe(require('../lib/recaptcha.service').RecaptchaService);
   });
 
   it('should provide HTTP_INTERCEPTORS with AuthInterceptorClass', () => {

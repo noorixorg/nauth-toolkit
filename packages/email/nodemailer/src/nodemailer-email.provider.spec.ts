@@ -151,7 +151,7 @@ describe('NodemailerProvider', () => {
     it('should send verification email', async () => {
       const provider = new NodemailerProvider(mockConfig);
       provider.setLogger(mockLogger);
-      await provider.sendVerificationEmail('user@example.com', '123456', 'https://example.com/verify?token=abc', 15);
+      await provider.sendVerificationEmail('user@example.com', '123456', 'https://example.com/verify?token=abc');
 
       expect(mockTransporter.sendMail).toHaveBeenCalled();
     });
@@ -159,7 +159,7 @@ describe('NodemailerProvider', () => {
     it('should send verification email without link', async () => {
       const provider = new NodemailerProvider(mockConfig);
       provider.setLogger(mockLogger);
-      await provider.sendVerificationEmail('user@example.com', '123456', undefined, 60);
+      await provider.sendVerificationEmail('user@example.com', '123456', undefined);
 
       expect(mockTransporter.sendMail).toHaveBeenCalled();
     });
@@ -171,7 +171,28 @@ describe('NodemailerProvider', () => {
       (mockEngine.render as jest.Mock).mockRejectedValueOnce(new Error('Template error'));
 
       await expect(
-        provider.sendVerificationEmail('user@example.com', '123456', undefined, 60),
+        provider.sendVerificationEmail('user@example.com', '123456', undefined),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe('sendMFAEmailCode', () => {
+    it('should send MFA email code', async () => {
+      const provider = new NodemailerProvider(mockConfig);
+      provider.setLogger(mockLogger);
+      await provider.sendMFAEmailCode('user@example.com', '123456', 5);
+
+      expect(mockTransporter.sendMail).toHaveBeenCalled();
+    });
+
+    it('should handle template rendering errors', async () => {
+      const provider = new NodemailerProvider(mockConfig);
+      provider.setLogger(mockLogger);
+      const mockEngine = provider.getTemplateEngine();
+      (mockEngine.render as jest.Mock).mockRejectedValueOnce(new Error('Template error'));
+
+      await expect(
+        provider.sendMFAEmailCode('user@example.com', '123456', 5),
       ).rejects.toThrow();
     });
   });
@@ -316,7 +337,7 @@ describe('NodemailerProvider', () => {
       provider.setLogger(mockLogger);
 
       await expect(
-        provider.sendVerificationEmail('user@example.com', '123456', undefined, 60),
+        provider.sendVerificationEmail('user@example.com', '123456', undefined),
       ).rejects.toThrow();
     });
   });
@@ -328,7 +349,7 @@ describe('NodemailerProvider', () => {
         preview: true,
       });
       provider.setLogger(mockLogger);
-      await provider.sendVerificationEmail('user@example.com', '123456', undefined, 60);
+      await provider.sendVerificationEmail('user@example.com', '123456', undefined);
 
       expect(mockLogger.log).toHaveBeenCalledWith(expect.stringContaining('Preview URL'));
     });
@@ -360,7 +381,7 @@ describe('NodemailerProvider', () => {
       });
       provider.setLogger(mockLogger);
 
-      await provider.sendVerificationEmail('user@example.com', '123456', undefined, 60);
+      await provider.sendVerificationEmail('user@example.com', '123456', undefined);
 
       expect(customEngine.render).toHaveBeenCalled();
       expect(mockTransporter.sendMail).toHaveBeenCalled();
@@ -392,7 +413,7 @@ describe('NodemailerProvider', () => {
       provider.setLogger(mockLogger);
 
       await expect(
-        provider.sendVerificationEmail('user@example.com', '123456', undefined, 60),
+        provider.sendVerificationEmail('user@example.com', '123456', undefined),
       ).rejects.toThrow('Template error');
     });
   });

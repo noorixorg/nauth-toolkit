@@ -262,9 +262,12 @@ export function createNAuthAuthHttpInterceptor(params: {
 
           return from(authService.getClient().clearLocalAuthState()).pipe(
             switchMap(() => {
+              // Call onSessionExpired callback if configured
+              config.onSessionExpired?.();
+
               if (config.redirects?.sessionExpired) {
                 router.navigateByUrl(config.redirects.sessionExpired).catch(() => {
-                  // Ignore navigation errorsy
+                  // Ignore navigation errors
                 });
               }
               return throwError(() => err);

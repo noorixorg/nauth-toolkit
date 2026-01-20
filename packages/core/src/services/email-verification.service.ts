@@ -209,6 +209,165 @@ export class EmailVerificationService {
   }
 
   /**
+   * Send MFA email code (for Email MFA challenge during login)
+   * Generates a new verification code and sends it via email using the mfaEmailCode template
+   *
+   * @param dto - Request DTO containing sub and skipAlreadyVerifiedCheck
+   * @returns Response DTO with verification token ID
+   */
+  async sendMFAEmailCode(dto: SendVerificationEmailDTO): Promise<SendVerificationEmailResponseDTO> {
+    dto = await ensureValidatedDto(SendVerificationEmailDTO, dto);
+    const { sub, skipAlreadyVerifiedCheck = false, challengeSessionId } = dto;
+
+    // Get rate limit configuration from config (moved to signup.emailVerification)
+    const rateLimitMax = this.config.signup?.emailVerification?.rateLimitMax || 3;
+    const rateLimitWindow = this.config.signup?.emailVerification?.rateLimitWindow || 3600; // 1 hour in seconds
+
+    // Check rate limit - use sub for rate limiting
+    const rateLimitKey = `email-verification:${sub}`;
+
+    // Check if key exists and has valid TTL (not expired)
+    const ttlBefore = await this.storageAdapter.ttl(rateLimitKey);
+    // Window is expired if: key doesn't exist (-1), expired (<0), or TTL is longer than configured window (config changed)
+    const isWindowExpired = ttlBefore === -1 || ttlBefore < 0 || ttlBefore > rateLimitWindow;
+
+    // If TTL is longer than configured window (config changed), delete the old key to reset it
+    // This ensures the new window uses the current rateLimitWindow instead of preserving old expiry
+    if (ttlBefore > rateLimitWindow) {
+      await this.storageAdapter.del(rateLimitKey);
+    }
+
+    // Increment counter (will reset to 1 if key expired or doesn't exist)
+    // Pass TTL so new records are created with correct expiry immediately
+    const currentCount = await this.storageAdapter.incr(rateLimitKey, isWindowExpired ? rateLimitWindow : undefined);
+
+    // If we created a new window, log it
+    if (isWindowExpired && currentCount === 1) {
+      this.logger?.debug?.(
+        `Rate limit window reset for MFA email code: sub=${sub}, window=${rateLimitWindow}s, max=${rateLimitMax}`,
+      );
+    }
+
+    // Get actual TTL after setting expiry (for error message)
+    const actualTtl = await this.storageAdapter.ttl(rateLimitKey);
+
+    if (currentCount > rateLimitMax) {
+      throw new NAuthException(
+        AuthErrorCode.RATE_LIMIT_EMAIL,
+        'Too many MFA email codes sent. Please try again later.',
+        {
+          retryAfter: actualTtl > 0 ? actualTtl : rateLimitWindow,
+          currentCount,
+          maxAttempts: rateLimitMax,
+        },
+      );
+    }
+
+    // Check if user already has a pending verification token
+    const user = (await this.userRepo.findOne({ where: { sub } })) as IUser | null;
+    if (!user) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    // Check resend delay to prevent abuse
+    const resendDelay = this.config.signup?.emailVerification?.resendDelay ?? 60; // 1 minute default
+    const lastToken = (await this.verificationTokenRepo.findOne({
+      where: { userId: user.id, type: 'email' },
+      order: { createdAt: 'DESC' },
+    })) as IVerificationToken | null;
+
+    if (lastToken) {
+      const secondsSinceLastSend = (Date.now() - lastToken.createdAt.getTime()) / 1000;
+      if (secondsSinceLastSend < resendDelay) {
+        const waitSeconds = Math.ceil(resendDelay - secondsSinceLastSend);
+        throw new NAuthException(
+          AuthErrorCode.RATE_LIMIT_RESEND,
+          `Please wait ${waitSeconds} seconds before requesting another code`,
+          {
+            retryAfter: waitSeconds,
+            resendDelay,
+          },
+        );
+      }
+    }
+
+    // Only check "already verified" if not skipping (skip for MFA contexts where codes are needed even if email is verified)
+    if (!skipAlreadyVerifiedCheck && user.isEmailVerified) {
+      throw new NAuthException(AuthErrorCode.ALREADY_VERIFIED, 'Email already verified');
+    }
+
+    // Invalidate existing tokens - use internal id for database query
+    await this.verificationTokenRepo.update(
+      {
+        userId: user.id, // Use internal id for foreign key query
+        type: 'email',
+        usedAt: IsNull(), // Only invalidate unused tokens
+      },
+      {
+        usedAt: new Date(), // Mark as used to invalidate
+      },
+    );
+
+    // Generate verification code (6 digits)
+    const code = this.generateCode();
+
+    // Generate verification token (for link-based verification)
+    const token = this.generateToken();
+    const tokenHash = this.hashToken(token);
+
+    // Create verification token - use internal id for foreign key
+    // Get client info internally
+    const clientInfo = this.clientInfoService.get();
+    const ipAddress = clientInfo.ipAddress;
+    const userAgent = clientInfo.userAgent;
+
+    const verificationToken = this.verificationTokenRepo.create({
+      userId: user.id, // Use internal id for foreign key
+      challengeSessionId: challengeSessionId ?? null, // Link to challenge session if provided
+      type: 'email',
+      token: tokenHash,
+      code,
+      expiresAt: new Date(Date.now() + (this.config.signup?.emailVerification?.expiresIn || 3600) * 1000), // Default: 1 hour
+      attempts: 0,
+      ipAddress,
+      userAgent,
+    });
+
+    await this.verificationTokenRepo.save(verificationToken);
+
+    // Calculate expiry in minutes for template
+    const expiryMinutes = Math.ceil((this.config.signup?.emailVerification?.expiresIn || 3600) / 60);
+
+    // Send MFA email code (uses mfaEmailCode template, no link)
+    await this.emailProvider.sendMFAEmailCode(user.email, code, expiryMinutes);
+
+    // ============================================================================
+    // Audit: Record MFA email code request
+    // ============================================================================
+    try {
+      await this.auditService?.recordEvent({
+        userId: user.id,
+        eventType: AuthAuditEventType.EMAIL_VERIFICATION_REQUESTED,
+        eventStatus: 'INFO',
+        metadata: {
+          verificationTokenId: (verificationToken as unknown as IVerificationToken).id,
+          mfaContext: true,
+        },
+        // Client info automatically included from context
+      });
+    } catch (auditError) {
+      // Non-blocking: Log but continue
+      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to record MFA email code audit event: ${errorMessage}`, {
+        error: auditError,
+        userId: user.id,
+      });
+    }
+
+    return { tokenId: (verificationToken as unknown as IVerificationToken).id };
+  }
+
+  /**
    * Verify email with code (6-digit OTP)
    * Marks email as verified and activates user account
    *

@@ -28,7 +28,7 @@ import { SetupEmailMFADTO, VerifyEmailMFASetupDTO } from './dto/mfa.dto';
  * - Email code verification
  * - MFA device creation for Email
  *
- * Requires EmailVerificationService from core (available when email provider is configured).
+ * Requires EmailVerificationService from core.
  *
  * @example
  * ```typescript
@@ -349,6 +349,7 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
    * Send Email code for MFA verification
    *
    * Called during login MFA challenge to send code to registered email.
+   * Uses EmailVerificationService for code generation and DB storage (same as setup/verify).
    *
    * @param user - User requesting Email code
    * @returns Masked email address where code was sent
@@ -393,13 +394,13 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
       );
     }
 
-    // Send Email code for MFA verification
-    // Always send codes for MFA verification (even if email is already verified)
+    // Send MFA email code via EmailVerificationService
+    // This uses the mfaEmailCode template and stores code in DB verification tokens table
     // skipAlreadyVerifiedCheck=true because email is already verified but we need MFA code
     const sendDto = new SendVerificationEmailDTO();
     sendDto.sub = user.sub;
     sendDto.skipAlreadyVerifiedCheck = true;
-    await this.emailVerificationService.sendVerificationEmail(sendDto);
+    await this.emailVerificationService.sendMFAEmailCode(sendDto);
 
     this.logger?.log?.(`Email MFA code sent for user: ${user.sub}`);
 
