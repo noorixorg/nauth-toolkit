@@ -37,6 +37,41 @@ Configure Google under `config.social.google` (in `@nauth-toolkit/core` config).
 | `scopes` | `string[]` | No | Default: `['openid', 'email', 'profile']` |
 | `autoLink` | `boolean` | No | Auto-link to existing users by verified email |
 | `allowSignup` | `boolean` | No | Allow creating new users on first login |
+| `oauthParams` | `Record<string, string>` | No | Additional OAuth parameters to include in authorization URL. These act as defaults and can be overridden on a per-request basis. |
+
+### OAuth Parameters
+
+The `oauthParams` option allows you to customize the OAuth authorization flow. These parameters are appended to Google's authorization URL and can be overridden on a per-request basis from the frontend.
+
+**Common Parameters:**
+- `prompt`: Control consent screen behavior
+  - `'select_account'` - Always show account chooser
+  - `'consent'` - Always show consent screen
+  - `'none'` - Silent authentication (fails if user interaction needed)
+  - Combined: `'select_account consent'`
+- `hd`: Restrict to Google Workspace domain (e.g., `'company.com'`)
+- `login_hint`: Pre-fill email address (e.g., `'user@company.com'`)
+- `include_granted_scopes`: `'true'` for incremental authorization
+
+**Example:**
+
+```typescript
+social: {
+  google: {
+    enabled: true,
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackUrl: 'https://api.myapp.com/auth/social/google/callback',
+    scopes: ['openid', 'email', 'profile'],
+    oauthParams: {
+      prompt: 'select_account',  // Always show account chooser
+      hd: 'company.com',          // Restrict to company domain
+    },
+  },
+}
+```
+
+See [Social Login Guide](/docs/features/social-login) for usage examples.
 
 ## Usage
 

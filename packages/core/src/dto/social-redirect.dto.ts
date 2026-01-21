@@ -70,6 +70,37 @@ export class StartSocialRedirectQueryDTO {
   @IsOptional()
   @IsIn(['login', 'link'])
   action?: 'login' | 'link';
+
+  /**
+   * Additional OAuth parameters to pass to the provider
+   *
+   * Allows per-request customization of OAuth flow (e.g., force account chooser).
+   * These parameters override config defaults and are appended to the authorization URL.
+   *
+   * Pass as JSON string in query parameter.
+   *
+   * Validation:
+   * - Optional field
+   * - Max 2000 characters
+   *
+   * Sanitization:
+   * - Trimmed
+   *
+   * @example Google - Force account chooser
+   * ```
+   * GET /auth/social/google/redirect?oauthParams={"prompt":"select_account"}
+   * ```
+   *
+   * @example Facebook - Rerequest permissions
+   * ```
+   * GET /auth/social/facebook/redirect?oauthParams={"auth_type":"rerequest"}
+   * ```
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  oauthParams?: string;
 }
 
 /**

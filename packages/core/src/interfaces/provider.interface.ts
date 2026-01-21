@@ -9,8 +9,9 @@ export interface EmailProvider {
    * @param to - Recipient email address
    * @param code - Verification code (e.g., "123456")
    * @param link - Optional verification link (only sent if provided by consumer app)
+   * @param expiryMinutes - Code/link expiry time in minutes (from config)
    */
-  sendVerificationEmail(to: string, code: string, link?: string): Promise<void>;
+  sendVerificationEmail(to: string, code: string, link?: string, expiryMinutes?: number): Promise<void>;
 
   /**
    * Send MFA email code (two-factor authentication challenge)

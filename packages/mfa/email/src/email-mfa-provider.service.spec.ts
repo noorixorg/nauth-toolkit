@@ -65,6 +65,7 @@ describe('EmailMFAProviderService', () => {
 
     mockEmailVerificationService = {
       sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
+      sendMFAEmailCode: jest.fn().mockResolvedValue(undefined),
       verifyEmailWithCode: jest.fn().mockResolvedValue(undefined),
     } as any;
 
@@ -329,7 +330,7 @@ describe('EmailMFAProviderService', () => {
       await ContextStorage.run(async () => {
         ContextStorage.set('CURRENT_USER', mockUser);
         const result = await service.sendChallenge();
-        expect(mockEmailVerificationService.sendVerificationEmail).toHaveBeenCalled();
+        expect(mockEmailVerificationService.sendMFAEmailCode).toHaveBeenCalled();
         expect(result).toBe('u***r@example.com');
       });
     });

@@ -37,6 +37,41 @@ Configure Facebook under `config.social.facebook` (in `@nauth-toolkit/core` conf
 | `scopes` | `string[]` | No | Default: `['email', 'public_profile']` |
 | `autoLink` | `boolean` | No | Auto-link to existing users by verified email |
 | `allowSignup` | `boolean` | No | Allow creating new users on first login |
+| `oauthParams` | `Record<string, string>` | No | Additional OAuth parameters to include in authorization URL. These act as defaults and can be overridden on a per-request basis. |
+
+### OAuth Parameters
+
+The `oauthParams` option allows you to customize the Facebook OAuth authorization flow. These parameters are appended to Facebook's authorization URL and can be overridden on a per-request basis from the frontend.
+
+**Common Parameters:**
+- `auth_type`: Authentication type
+  - `'reauthenticate'` - Force user to re-authenticate
+  - `'rerequest'` - Re-request declined permissions
+- `display`: UI display mode
+  - `'page'` - Full-page redirect (default)
+  - `'popup'` - Popup window
+  - `'touch'` - Mobile-optimized UI
+- `auth_nonce`: For replay attack prevention
+
+**Example:**
+
+```typescript
+social: {
+  facebook: {
+    enabled: true,
+    clientId: process.env.FACEBOOK_APP_ID,
+    clientSecret: process.env.FACEBOOK_APP_SECRET,
+    callbackUrl: 'https://api.myapp.com/auth/social/facebook/callback',
+    scopes: ['email', 'public_profile'],
+    oauthParams: {
+      auth_type: 'rerequest',  // Always rerequest declined permissions
+      display: 'popup',         // Use popup window
+    },
+  },
+}
+```
+
+See [Social Login Guide](/docs/features/social-login) for usage examples.
 
 ## Usage
 

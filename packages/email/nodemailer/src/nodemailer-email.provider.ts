@@ -429,9 +429,7 @@ export class NodemailerProvider implements EmailProvider {
    * @param code - Verification code (e.g., "123456")
    * @param link - Optional verification link (only rendered if provided)
    */
-  async sendVerificationEmail(to: string, code: string, link?: string): Promise<void> {
-    const expiryMinutes = 60; // Default expiry
-
+  async sendVerificationEmail(to: string, code: string, link?: string, expiryMinutes: number = 60): Promise<void> {
     this.logger?.debug?.('Preparing verification email', { to, hasLink: !!link, expiryMinutes });
 
     const templateVariables: TemplateVariables = {

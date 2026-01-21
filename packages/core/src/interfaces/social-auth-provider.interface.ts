@@ -45,6 +45,7 @@ export interface ISocialAuthProviderService {
    * Generate OAuth authorization URL for this provider
    *
    * @param state - Optional state parameter for CSRF protection
+   * @param oauthParams - Optional OAuth parameters to append to URL (overrides config defaults)
    * @returns Authorization URL to redirect user to
    * @throws {BadRequestException} When provider is not properly configured
    *
@@ -53,8 +54,13 @@ export interface ISocialAuthProviderService {
    * const authUrl = await provider.getAuthUrl('random-state-123');
    * // Redirect user to authUrl
    * ```
+   *
+   * @example With OAuth params
+   * ```typescript
+   * const authUrl = await provider.getAuthUrl('state-123', { prompt: 'select_account' });
+   * ```
    */
-  getAuthUrl(state?: string): Promise<string>;
+  getAuthUrl(state?: string, oauthParams?: Record<string, string>): Promise<string>;
 
   /**
    * Handle OAuth callback and authenticate user

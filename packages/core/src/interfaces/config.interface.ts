@@ -1482,21 +1482,91 @@ export interface SocialProviderConfig {
    * @default true
    */
   allowSignup?: boolean;
+
+  /**
+   * Additional OAuth parameters to include in authorization URL
+   *
+   * Provider-specific parameters that will be appended to the OAuth authorization URL.
+   * These act as defaults and can be overridden on a per-request basis.
+   *
+   * Common use cases:
+   * - Google: Force account chooser, restrict to domain, pre-fill email
+   * - Facebook: Rerequest declined permissions, customize display mode
+   * - Apple: Add nonce for ID token validation
+   *
+   * @example Google - Always show account chooser
+   * ```typescript
+   * oauthParams: {
+   *   prompt: 'select_account'
+   * }
+   * ```
+   *
+   * @example Google - Multiple params
+   * ```typescript
+   * oauthParams: {
+   *   prompt: 'select_account consent',
+   *   hd: 'company.com',
+   *   include_granted_scopes: 'true'
+   * }
+   * ```
+   *
+   * @example Facebook - Rerequest permissions
+   * ```typescript
+   * oauthParams: {
+   *   auth_type: 'rerequest',
+   *   display: 'popup'
+   * }
+   * ```
+   */
+  oauthParams?: Record<string, string>;
 }
 
 /**
  * Apple-specific social provider configuration
  *
- * Apple Sign in with Apple requires a JWT client secret that must be generated
+ * Apple Sign In requires a JWT client secret that must be generated
  * from your Apple Developer credentials. This configuration allows you to provide
  * the raw credentials, and the toolkit will automatically generate and refresh
  * the JWT client secret as needed.
  *
- * @example
+ * **Multi-Platform Support:**
+ * Apple uses different client IDs for web vs native:
+ * - Web: Service ID (e.g., 'com.yourapp')
+ * - Native: App Bundle ID (e.g., 'com.yourapp.app')
+ *
+ * Configure BOTH IDs in `clientId` array to support cross-platform authentication.
+ * The toolkit will automatically verify tokens against all configured client IDs.
+ *
+ * **Web OAuth Requirements:**
+ * - Service ID (registered in Apple Developer Console)
+ * - Team ID, Key ID, and .p8 private key for JWT client secret
+ * - Callback URL matching your registered redirect URI
+ *
+ * **Native iOS Requirements:**
+ * - App Bundle ID (from your Xcode project)
+ * - No additional configuration needed (private key not required for native-only)
+ *
+ * @example Web only
  * ```typescript
  * apple: {
  *   enabled: true,
- *   clientId: 'com.myapp.services',
+ *   clientId: 'com.myapp.services',  // Service ID
+ *   teamId: 'ABC123DEF4',
+ *   keyId: 'XYZ789ABC0',
+ *   privateKeyPem: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
+ *   callbackUrl: 'https://myapp.com/auth/apple/callback',
+ *   scopes: ['name', 'email']
+ * }
+ * ```
+ *
+ * @example Web + Native (cross-platform) - RECOMMENDED
+ * ```typescript
+ * apple: {
+ *   enabled: true,
+ *   clientId: [
+ *     'com.myapp.services',  // Service ID for web OAuth (first = used for redirect URL)
+ *     'com.myapp'            // App Bundle ID for native iOS/Android
+ *   ],
  *   teamId: 'ABC123DEF4',
  *   keyId: 'XYZ789ABC0',
  *   privateKeyPem: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',

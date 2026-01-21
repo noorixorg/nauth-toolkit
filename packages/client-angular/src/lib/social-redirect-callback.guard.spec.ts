@@ -52,7 +52,7 @@ describe('socialRedirectCallbackGuard', () => {
   beforeEach(() => {
     // Reset mock search string
     mockSearchString = '';
-    
+
     // Create a proper window mock with writable location.search
     const locationMock = Object.create(null);
     Object.defineProperty(locationMock, 'search', {
@@ -63,7 +63,7 @@ describe('socialRedirectCallbackGuard', () => {
       configurable: true,
       enumerable: true,
     });
-    
+
     // Ensure window.location is properly set up
     if (!global.window) {
       global.window = {} as any;
@@ -142,7 +142,7 @@ describe('socialRedirectCallbackGuard', () => {
   it('should handle error parameter and navigate to error', async () => {
     // Set search before calling guard
     mockSearchString = '?error=access_denied';
-    
+
     const guard = socialRedirectCallbackGuard;
     const mockRoute = {} as any;
     const mockState = {} as any;
@@ -157,7 +157,7 @@ describe('socialRedirectCallbackGuard', () => {
   it('should store appState when present', async () => {
     // Set search before calling guard
     mockSearchString = '?appState=test-state';
-    
+
     const mockUser = {
       sub: 'user-1',
       email: 'test@example.com',
@@ -176,7 +176,7 @@ describe('socialRedirectCallbackGuard', () => {
       updatedAt: new Date().toISOString(),
     };
     mockAuthService.getProfile.mockResolvedValue(mockUser);
-    
+
     const guard = socialRedirectCallbackGuard;
     const mockRoute = {} as any;
     const mockState = {} as any;
@@ -188,7 +188,7 @@ describe('socialRedirectCallbackGuard', () => {
 
   it('should exchange token when exchangeToken is present', async () => {
     mockSearchString = '?exchangeToken=token-123&appState=state-456';
-    
+
     const guard = socialRedirectCallbackGuard;
     const mockRoute = {} as any;
     const mockState = {} as any;
@@ -202,7 +202,7 @@ describe('socialRedirectCallbackGuard', () => {
 
   it('should handle cookie success path without exchangeToken', async () => {
     mockSearchString = '?appState=state-789';
-    
+
     const mockUser = {
       sub: 'user-1',
       email: 'test@example.com',
@@ -221,7 +221,7 @@ describe('socialRedirectCallbackGuard', () => {
       updatedAt: new Date().toISOString(),
     };
     mockAuthService.getProfile.mockResolvedValue(mockUser);
-    
+
     const guard = socialRedirectCallbackGuard;
     const mockRoute = {} as any;
     const mockState = {} as any;
@@ -252,7 +252,7 @@ describe('socialRedirectCallbackGuard', () => {
 
   it('should handle cookie success path without appState', async () => {
     mockSearchString = '';
-    
+
     const mockUser = {
       sub: 'user-1',
       email: 'test@example.com',
@@ -271,7 +271,7 @@ describe('socialRedirectCallbackGuard', () => {
       updatedAt: new Date().toISOString(),
     };
     mockAuthService.getProfile.mockResolvedValue(mockUser);
-    
+
     const guard = socialRedirectCallbackGuard;
     const mockRoute = {} as any;
     const mockState = {} as any;
@@ -301,7 +301,7 @@ describe('socialRedirectCallbackGuard', () => {
 
   it('should handle auth error (401) during profile fetch', async () => {
     mockSearchString = '';
-    
+
     const authError = new NAuthClientError(NAuthErrorCode.AUTH_TOKEN_INVALID, 'Token invalid', {
       statusCode: 401,
     });
@@ -319,7 +319,7 @@ describe('socialRedirectCallbackGuard', () => {
 
   it('should handle auth error (403) during profile fetch', async () => {
     mockSearchString = '';
-    
+
     const authError = new NAuthClientError(NAuthErrorCode.AUTH_SESSION_EXPIRED, 'Session expired', {
       statusCode: 403,
     });
@@ -336,7 +336,7 @@ describe('socialRedirectCallbackGuard', () => {
 
   it('should handle network error during profile fetch and proceed to success', async () => {
     mockSearchString = '?appState=state-999';
-    
+
     const networkError = new Error('Network error');
     mockAuthService.getProfile.mockRejectedValue(networkError);
 
@@ -356,7 +356,7 @@ describe('socialRedirectCallbackGuard', () => {
 
   it('should handle AUTH_SESSION_NOT_FOUND error code', async () => {
     mockSearchString = '';
-    
+
     const authError = new NAuthClientError(NAuthErrorCode.AUTH_SESSION_NOT_FOUND, 'Session not found', {
       statusCode: 404,
     });
@@ -373,7 +373,7 @@ describe('socialRedirectCallbackGuard', () => {
 
   it('should call handleAuthResponse with synthetic AuthResponse in cookie success path', async () => {
     mockSearchString = '?appState=invite-code-123';
-    
+
     const mockUser = {
       sub: 'user-abc',
       email: 'john@example.com',
@@ -394,7 +394,7 @@ describe('socialRedirectCallbackGuard', () => {
       updatedAt: '2024-01-02T00:00:00Z',
     };
     mockAuthService.getProfile.mockResolvedValue(mockUser);
-    
+
     const guard = socialRedirectCallbackGuard;
     const mockRoute = {} as any;
     const mockState = {} as any;
@@ -425,7 +425,7 @@ describe('socialRedirectCallbackGuard', () => {
 
   it('should handle sessionAuthMethod as undefined when null in cookie success path', async () => {
     mockSearchString = '';
-    
+
     const mockUser = {
       sub: 'user-1',
       email: 'test@example.com',
@@ -444,7 +444,7 @@ describe('socialRedirectCallbackGuard', () => {
       updatedAt: new Date().toISOString(),
     };
     mockAuthService.getProfile.mockResolvedValue(mockUser);
-    
+
     const guard = socialRedirectCallbackGuard;
     const mockRoute = {} as any;
     const mockState = {} as any;

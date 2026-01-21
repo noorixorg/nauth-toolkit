@@ -285,6 +285,9 @@ export class NAuthClient {
    * - In cookie delivery modes, httpOnly cookies can only be cleared by the backend; this method
    *   only clears client-side state (e.g., cached user + persisted tokens in JSON mode).
    *
+   * IMPORTANT: Also clears any pending challenge sessions to prevent ghost states where the UI
+   * shows a challenge screen but the backend session is invalid.
+   *
    * @param options - Optional behavior flags
    * @returns Promise that resolves when local state is cleared
    *
@@ -296,6 +299,14 @@ export class NAuthClient {
    */
   async clearLocalAuthState(options?: { forgetDevice?: boolean }): Promise<void> {
     await this.clearAuthState(options?.forgetDevice ?? false);
+    // ============================================================================
+    // IMPORTANT: Clear challenge session to prevent ghost states
+    // ============================================================================
+    // WHY: If a user's session expires while they have a pending challenge (MFA, email verification, etc.),
+    // the challenge session token becomes invalid. We must clear it to prevent the UI from showing
+    // challenge screens that will fail. This fixes the "ghost session" issue where users get stuck
+    // in challenge flows with stale auth data.
+    await this.clearChallenge();
   }
 
   /**
@@ -316,6 +327,8 @@ export class NAuthClient {
       // Always clear local state even if request fails
       // Pass forgetDevice flag to clear device token in JSON mode
       await this.clearAuthState(forgetDevice);
+      // Also clear any pending challenge sessions
+      await this.clearChallenge();
       this.eventEmitter.emit({
         type: 'auth:logout',
         data: { forgetDevice: !!forgetDevice, global: false },
@@ -345,6 +358,8 @@ export class NAuthClient {
       );
       // Clear device token in JSON mode if forgetDevices is true
       await this.clearAuthState(forgetDevices);
+      // Also clear any pending challenge sessions
+      await this.clearChallenge();
       this.eventEmitter.emit({
         type: 'auth:logout',
         data: { forgetDevice: !!forgetDevices, global: true },
@@ -354,6 +369,8 @@ export class NAuthClient {
     } catch (error) {
       // If request fails, still clear local state
       await this.clearAuthState(forgetDevices);
+      // Also clear any pending challenge sessions
+      await this.clearChallenge();
       this.eventEmitter.emit({
         type: 'auth:logout',
         data: { forgetDevice: !!forgetDevices, global: true },
@@ -749,6 +766,11 @@ export class NAuthClient {
         startUrl.searchParams.set('appState', options.appState);
       }
 
+      // Serialize oauthParams as JSON string
+      if (options?.oauthParams && Object.keys(options.oauthParams).length > 0) {
+        startUrl.searchParams.set('oauthParams', JSON.stringify(options.oauthParams));
+      }
+
       window.location.href = startUrl.toString();
     }
   }
@@ -1050,6 +1072,17 @@ export class NAuthClient {
     // Clear device token in JSON mode (cookies mode uses httpOnly cookie cleared by backend)
     if (forgetDevice && this.config.tokenDelivery === 'json') {
       await this.config.storage.removeItem(this.config.deviceTrust.storageKey);
+    }
+
+    // ============================================================================
+    // Clear OAuth state to prevent stale appState from being reused
+    // ============================================================================
+    // WHY: If user logs out or session expires during/after OAuth flow, the stored appState
+    // should be cleared to prevent it from being incorrectly applied to a future login.
+    try {
+      await this.oauthStorage.removeItem(OAUTH_STATE_KEY);
+    } catch {
+      // Non-fatal: OAuth state is in sessionStorage which might fail in restricted environments
     }
 
     this.config.onAuthStateChange?.(null);

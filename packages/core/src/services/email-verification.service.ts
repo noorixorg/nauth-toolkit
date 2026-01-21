@@ -180,8 +180,11 @@ export class EmailVerificationService {
     // Append query parameter to baseUrl (consumer app handles routing)
     const verificationLink = effectiveBaseUrl ? `${effectiveBaseUrl}?code=${code}` : undefined;
 
+    // Calculate expiry in minutes for template (same logic as MFA email)
+    const expiryMinutes = Math.ceil((this.config.signup?.emailVerification?.expiresIn || 3600) / 60);
+
     // Send email (link is optional - only sent if provided)
-    await this.emailProvider.sendVerificationEmail(user.email, code, verificationLink);
+    await this.emailProvider.sendVerificationEmail(user.email, code, verificationLink, expiryMinutes);
 
     // ============================================================================
     // Audit: Record email verification request

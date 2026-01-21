@@ -55,22 +55,32 @@ export interface ITokenVerifierService {
    * Fetches Apple's public keys from their JWKS endpoint and verifies the
    * JWT signature to ensure authenticity.
    *
+   * Supports multiple client IDs for cross-platform apps (web + native).
+   * Apple returns different `aud` claims depending on the platform:
+   * - Web: Service ID (e.g., 'com.yourapp.service')
+   * - Native: App Bundle ID (e.g., 'com.yourapp')
+   *
    * @param idToken - ID token from Apple Sign In
-   * @param clientId - Apple Services ID (client ID) for audience validation
+   * @param clientId - Apple client ID(s) for audience validation. Can be a string or array of strings.
    * @returns Verified user profile data (provider-specific type)
    * @throws {BadRequestException} When token is invalid, expired, or signature fails
    *
-   * @example
+   * @example Web only
    * ```typescript
-   * try {
-   *   const profile = await verifier.verifyAppleToken(idToken, 'com.yourapp.service');
-   *   console.log(`Verified email: ${profile.email}`);
-   * } catch (error) {
-   *   console.error('Token verification failed:', error.message);
-   * }
+   * const profile = await verifier.verifyAppleToken(idToken, 'com.yourapp.service');
+   * console.log(`Verified email: ${profile.email}`);
+   * ```
+   *
+   * @example Web + Native (cross-platform)
+   * ```typescript
+   * const profile = await verifier.verifyAppleToken(idToken, [
+   *   'com.yourapp.service',  // Service ID for web
+   *   'com.yourapp'           // App Bundle ID for native
+   * ]);
+   * console.log(`Verified email: ${profile.email}`);
    * ```
    */
-  verifyAppleToken?(idToken: string, clientId: string): Promise<unknown>;
+  verifyAppleToken?(idToken: string, clientId: string | string[]): Promise<unknown>;
 
   /**
    * Verify Facebook access token via Graph API

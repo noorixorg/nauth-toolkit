@@ -197,6 +197,7 @@ export class FacebookOAuthClient implements OAuthClient {
    * Generate Facebook OAuth authorization URL
    *
    * @param state - Optional state parameter for CSRF protection
+   * @param oauthParams - Optional OAuth parameters to append to URL
    * @returns Authorization URL for redirecting user to Facebook
    *
    * @example
@@ -204,8 +205,13 @@ export class FacebookOAuthClient implements OAuthClient {
    * const authUrl = client.getAuthorizationUrl('random-state');
    * // Redirect user to authUrl
    * ```
+   *
+   * @example With OAuth params
+   * ```typescript
+   * const authUrl = client.getAuthorizationUrl('state', { auth_type: 'rerequest' });
+   * ```
    */
-  getAuthorizationUrl(state?: string): string {
+  getAuthorizationUrl(state?: string, oauthParams?: Record<string, string>): string {
     const params = new URLSearchParams({
       client_id: this.config.clientId,
       redirect_uri: this.config.redirectUri,
@@ -215,6 +221,13 @@ export class FacebookOAuthClient implements OAuthClient {
 
     if (state) {
       params.append('state', state);
+    }
+
+    // Apply additional OAuth params (from config or per-request)
+    if (oauthParams) {
+      Object.entries(oauthParams).forEach(([key, value]) => {
+        params.append(key, value);
+      });
     }
 
     return `https://www.facebook.com/v18.0/dialog/oauth?${params.toString()}`;

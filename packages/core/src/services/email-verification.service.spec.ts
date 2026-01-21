@@ -281,6 +281,7 @@ describe('EmailVerificationService', () => {
         'test@example.com',
         (expect as any).any(String),
         undefined, // No verification link when baseUrl is not provided
+        60, // expiryMinutes (default 3600 seconds = 60 minutes)
       );
     });
 

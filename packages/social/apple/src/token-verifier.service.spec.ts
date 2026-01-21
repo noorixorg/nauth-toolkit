@@ -63,7 +63,7 @@ describe('TokenVerifierService (Apple)', () => {
         (expect as any).any(Function),
         (expect as any).objectContaining({
           issuer: 'https://appleid.apple.com',
-          audience: 'client-id',
+          audience: ['client-id'], // Now expects array (supports multiple client IDs)
         }),
       );
     });

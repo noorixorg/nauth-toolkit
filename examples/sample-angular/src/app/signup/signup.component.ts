@@ -233,7 +233,11 @@ export class SignupComponent implements OnInit {
     this.error.set(null);
 
     try {
-      await this.auth.loginWithSocial(provider, { returnTo: '/auth/callback' });
+      await this.auth.loginWithSocial(provider, {
+        returnTo: '/auth/callback',
+        // Google: force consent screen every time (default skips for returning users)
+        ...(provider === 'google' && { oauthParams: { prompt: 'consent' } }),
+      });
     } catch (err: unknown) {
       this.loading.set(false);
       this.handleError(err);

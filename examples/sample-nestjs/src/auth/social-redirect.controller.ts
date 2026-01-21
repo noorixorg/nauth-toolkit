@@ -144,11 +144,22 @@ export class SocialRedirectController {
     @Query() query: StartSocialRedirectQueryDTO,
     @Req() req: FastifyRequest,
   ): Promise<{ url: string }> {
+    // Parse oauthParams from JSON string if provided
+    let oauthParams: Record<string, string> | undefined;
+    if (query.oauthParams) {
+      try {
+        oauthParams = JSON.parse(query.oauthParams);
+      } catch {
+        throw new BadRequestException('Invalid oauthParams format - must be valid JSON');
+      }
+    }
+
     const result = await this.socialRedirect.start({
       provider,
       returnTo: query.returnTo,
       appState: query.appState,
       action: query.action,
+      oauthParams,
       req,
     });
     return { url: result.redirectUrl };

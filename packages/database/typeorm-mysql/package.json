@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/database-typeorm-mysql",
-  "version": "0.1.99",
+  "version": "0.1.103",
   "description": "MySQL TypeORM adapter for nauth-toolkit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.99",
+    "@nauth-toolkit/core": "^0.1.103",
     "typeorm": "^0.3.20",
     "mysql2": "^2.3.0 || ^3.0.0"
   },

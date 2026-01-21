@@ -253,6 +253,7 @@ export function createNAuthAuthHttpInterceptor(params: {
 
         // Refresh failed with 401 => session expired.
         // Clear *local* SDK state so guards/pages don't think the user is still logged in after navigation/reload.
+        // IMPORTANT: This also clears challenge sessions and OAuth state to prevent ghost states.
         if (statusCode === 401) {
           // Best-effort: also clear CSRF cookie in cookies mode (non-httpOnly).
           if (tokenDelivery === 'cookies') {

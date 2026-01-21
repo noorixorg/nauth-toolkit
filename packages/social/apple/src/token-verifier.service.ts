@@ -36,7 +36,11 @@ export class TokenVerifierService implements ITokenVerifierService {
 
   constructor(config: NAuthConfig, loadJose?: () => Promise<JoseModule>) {
     this.logger = config.logger as NAuthLogger;
-    this.loadJose = loadJose ?? (() => import('jose') as Promise<JoseModule>);
+    // Use eval to prevent TypeScript from converting import() to require()
+    // This is necessary because jose@6 is ESM-only and cannot be required()
+    // TypeScript with module:"commonjs" converts import() to __importStar(require())
+    // Using eval preserves the dynamic import() at runtime
+    this.loadJose = loadJose ?? (() => (0, eval)("import('jose')") as Promise<JoseModule>);
   }
 
   private async getJose(): Promise<JoseModule> {
@@ -60,31 +64,47 @@ export class TokenVerifierService implements ITokenVerifierService {
    * Fetches Apple's public keys from their JWKS endpoint and verifies the
    * JWT signature to ensure authenticity.
    *
+   * Supports multiple client IDs for cross-platform apps (web + native).
+   * Apple returns different `aud` claims depending on the platform:
+   * - Web: Service ID (e.g., 'com.yourapp.service')
+   * - Native: App Bundle ID (e.g., 'com.yourapp')
+   *
    * @param idToken - ID token from Apple Sign In
-   * @param clientId - Apple Services ID (client ID) for audience validation
+   * @param clientId - Apple client ID(s) for audience validation. Can be a string or array of strings.
    * @returns Verified user profile data
    * @throws {BadRequestException} When token is invalid, expired, or signature fails
    *
-   * @example
+   * @example Web only
    * ```typescript
-   * try {
-   *   const profile = await verifier.verifyAppleToken(idToken, 'com.yourapp.service');
-   *   console.log(`Verified email: ${profile.email}`);
-   * } catch (error) {
-   *   console.error('Token verification failed:', error.message);
-   * }
+   * const profile = await verifier.verifyAppleToken(idToken, 'com.yourapp.service');
+   * ```
+   *
+   * @example Web + Native (multiple client IDs)
+   * ```typescript
+   * const profile = await verifier.verifyAppleToken(idToken, ['com.yourapp.service', 'com.yourapp']);
    * ```
    */
-  async verifyAppleToken(idToken: string, clientId: string): Promise<VerifiedAppleTokenProfile> {
+  async verifyAppleToken(idToken: string, clientId: string | string[]): Promise<VerifiedAppleTokenProfile> {
     try {
       this.logger?.debug?.(`[TokenVerifier] Verifying Apple token`);
 
       const jose = await this.getJose();
       const appleJWKS = await this.getAppleJWKS();
 
+      // ============================================================================
+      // Multi-Platform Client ID Support (Web + Native)
+      // ============================================================================
+      // WHY: Apple returns different `aud` claims for web vs native:
+      // - Web OAuth: aud = Service ID (e.g., 'com.anyspaces')
+      // - Native Sign In: aud = App Bundle ID (e.g., 'com.anyspaces.anyspaces')
+      //
+      // We need to verify against ALL configured client IDs to support both platforms.
+      // jose.jwtVerify expects audience to be a string or string[].
+      const audiences = Array.isArray(clientId) ? clientId : [clientId];
+
       const { payload } = await jose.jwtVerify(idToken, appleJWKS, {
         issuer: 'https://appleid.apple.com',
-        audience: clientId,
+        audience: audiences, // Accept any of the configured client IDs
         clockTolerance: 300, // 5 minutes leeway
       });
 
@@ -94,7 +114,7 @@ export class TokenVerifierService implements ITokenVerifierService {
         is_private_email?: boolean;
       };
 
-      this.logger?.log?.(`[TokenVerifier] Apple token verified (secure): ${p.email}`);
+      this.logger?.log?.(`[TokenVerifier] Apple token verified (secure): ${p.email}, aud: ${p.aud}`);
 
       return {
         sub: p.sub as string,

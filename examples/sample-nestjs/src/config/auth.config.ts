@@ -125,11 +125,13 @@ export const authConfig: NAuthModuleConfig = {
   tokenDelivery: {
     method: 'hybrid',
     cookieOptions: {
-      // Local dev (http://localhost:*): browsers (especially Safari) will ignore Secure cookies over HTTP.
-      // Production (https): use SameSite=None + Secure for cross-site cookie delivery.
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      // domain: process.env.NODE_ENV === 'production' ? '.angular.dev1.noorix.com' : undefined,
+      // For cross-site cookies (frontend on angular.dev1, API on api.angular.dev1):
+      // - Must use secure: true (requires HTTPS)
+      // - Must use sameSite: 'none' (allows cross-site cookie delivery)
+      // - Domain must match both subdomains
+      secure: true,
+      sameSite: 'strict',
+      domain: '.angular.dev1.noorix.com',
     },
   },
   security: {
@@ -162,10 +164,13 @@ export const authConfig: NAuthModuleConfig = {
         ? [process.env.GOOGLE_CLIENT_ID!, process.env.GOOGLE_IOS_CLIENT_ID]
         : process.env.GOOGLE_CLIENT_ID, // Client ID (string or array for multi-platform: web, iOS, Android, e.g., '12345.apps.googleusercontent.com' or ['12345-web.apps.googleusercontent.com', '12345-ios.apps.googleusercontent.com'])
       clientSecret: process.env.GOOGLE_CLIENT_SECRET, // Client secret (required if enabled)
-      callbackUrl: 'https://angular.dev1.noorix.com/auth/social/google/callback', // Callback URL (must match provider registration, e.g., 'https://myapp.com/social/google/callback')
+      callbackUrl: 'https://api.angular.dev1.noorix.com/auth/social/google/callback', // Callback URL (must match provider registration)
       scopes: ['openid', 'email', 'profile'], // OAuth scopes (default: ['openid', 'email', 'profile'])
       autoLink: true, // Auto-link to existing users by verified email (default: true)
       allowSignup: true, // Allow new user creation (default: true)
+      oauthParams: {
+        prompt: 'select_account', // Always show Google account chooser
+      },
     },
     apple: {
       enabled: true, // Enable Apple Sign-In (default: false)
@@ -185,7 +190,7 @@ export const authConfig: NAuthModuleConfig = {
       enabled: true, // Enable Facebook OAuth (default: false)
       clientId: process.env.FACEBOOK_CLIENT_ID, // Facebook App ID
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET, // Facebook App Secret
-      callbackUrl: 'https://angular.dev1.noorix.com/social/facebook/callback', // Callback URL (must match provider registration, e.g., 'https://myapp.com/social/facebook/callback')
+      callbackUrl: 'https://api.angular.dev1.noorix.com/auth/social/facebook/callback', // Callback URL (must match provider registration)
       scopes: ['email', 'public_profile'], // OAuth scopes (default: ['email', 'public_profile'])
       autoLink: true, // Auto-link to existing users by verified email (default: true)
       allowSignup: true, // Allow new user creation (default: true)

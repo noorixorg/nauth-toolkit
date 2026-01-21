@@ -179,6 +179,7 @@ export class GoogleOAuthClient implements OAuthClient {
    * Generate Google OAuth authorization URL
    *
    * @param state - Optional state parameter for CSRF protection
+   * @param oauthParams - Optional OAuth parameters to append to URL
    * @returns Authorization URL for redirecting user to Google
    *
    * @example
@@ -186,20 +187,30 @@ export class GoogleOAuthClient implements OAuthClient {
    * const authUrl = client.getAuthorizationUrl('random-state');
    * // Redirect user to authUrl
    * ```
+   *
+   * @example With OAuth params
+   * ```typescript
+   * const authUrl = client.getAuthorizationUrl('state', { prompt: 'select_account' });
+   * ```
    */
-  getAuthorizationUrl(state?: string): string {
+  getAuthorizationUrl(state?: string, oauthParams?: Record<string, string>): string {
     const params = new URLSearchParams({
       client_id: this.config.clientId,
       redirect_uri: this.config.redirectUri,
       scope: this.config.scopes?.join(' ') || 'openid email profile',
       response_type: 'code',
       access_type: 'offline',
-      // Don't specify prompt - let Google decide when to show consent screen
-      // Google will show it on first login and skip it for returning users
     });
 
     if (state) {
       params.append('state', state);
+    }
+
+    // Apply additional OAuth params (from config or per-request)
+    if (oauthParams) {
+      Object.entries(oauthParams).forEach(([key, value]) => {
+        params.append(key, value);
+      });
     }
 
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;

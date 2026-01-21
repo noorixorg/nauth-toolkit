@@ -49,9 +49,9 @@ export class ConsoleEmailProvider implements EmailProvider {
    * @param code - Verification code (e.g., "123456")
    * @param link - Optional verification link (only logged if provided)
    */
-  async sendVerificationEmail(to: string, code: string, link?: string): Promise<void> {
+  async sendVerificationEmail(to: string, code: string, link?: string, expiryMinutes: number = 60): Promise<void> {
     // Build message similar to SMS format
-    let message = `Your verification code is: ${code}`;
+    let message = `Your verification code is: ${code}\nThis code expires in ${expiryMinutes} minutes.`;
     if (link) {
       message += `\nOr use this link: ${link}`;
     }

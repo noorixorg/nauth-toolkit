@@ -153,6 +153,8 @@ At minimum you must set:
 - `social.redirect.frontendBaseUrl`: the frontend base URL used to build your final redirect
 - `social.<provider>.callbackUrl`: the exact URL your provider will redirect back to
 
+Optionally, configure default OAuth parameters for each provider using `oauthParams`.
+
 ```typescript title="config/auth.config.ts"
 export const authConfig = {
   // Choose token delivery for your app:
@@ -180,6 +182,10 @@ export const authConfig = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackUrl: 'https://api.mycompany.com/auth/social/google/callback',
       scopes: ['openid', 'email', 'profile'],
+      // Optional: Default OAuth parameters for all Google logins
+      oauthParams: {
+        prompt: 'select_account', // Always show account chooser
+      },
     },
     apple: {
       enabled: true,
@@ -192,9 +198,52 @@ export const authConfig = {
       callbackUrl: 'https://api.mycompany.com/auth/social/apple/callback',
       scopes: ['name', 'email'],
     },
+    facebook: {
+      enabled: true,
+      clientId: process.env.FACEBOOK_CLIENT_ID,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+      callbackUrl: 'https://api.mycompany.com/auth/social/facebook/callback',
+      scopes: ['email', 'public_profile'],
+      // Optional: Default OAuth parameters for all Facebook logins
+      oauthParams: {
+        auth_type: 'rerequest', // Always rerequest declined permissions
+      },
+    },
   },
 } as const;
 ```
+
+### OAuth Parameters
+
+OAuth parameters allow fine-grained control over the OAuth flow. They can be configured at two levels:
+
+1. **Config-level (backend)** - Default parameters applied to all requests for a provider via `oauthParams` in provider config
+2. **Per-request (frontend)** - Override defaults on a per-login basis via `options.oauthParams` in `loginWithSocial()`
+
+Per-request parameters take precedence over config-level defaults.
+
+#### Common Parameters by Provider
+
+**Google:**
+- `prompt`: Control consent screen behavior
+  - `'select_account'` - Always show account chooser
+  - `'consent'` - Always show consent screen
+  - `'none'` - Silent authentication (fails if user interaction needed)
+  - Combined: `'select_account consent'`
+- `hd`: Restrict to Google Workspace domain (e.g., `'company.com'`)
+- `login_hint`: Pre-fill email address
+- `include_granted_scopes`: `'true'` for incremental authorization
+
+**Facebook:**
+- `auth_type`: Authentication type
+  - `'reauthenticate'` - Force user to re-authenticate
+  - `'rerequest'` - Re-request declined permissions
+- `display`: UI display mode (`'page'`, `'popup'`, `'touch'`)
+- `auth_nonce`: Replay attack prevention
+
+**Apple:**
+- `nonce`: For ID token validation
+- Any other Apple-supported parameters
 
 ## Step 3: Implement the social routes (consumer-owned)
 
@@ -251,11 +300,22 @@ export class SocialRedirectController {
     @Query() query: StartSocialRedirectQueryDTO,
     @Req() req: unknown,
   ): Promise<{ url: string }> {
+    // Parse oauthParams from JSON string if provided
+    let oauthParams: Record<string, string> | undefined;
+    if (query.oauthParams) {
+      try {
+        oauthParams = JSON.parse(query.oauthParams);
+      } catch {
+        throw new BadRequestException('Invalid oauthParams format - must be valid JSON');
+      }
+    }
+
     const result = await this.socialRedirect.start({
       provider,
       returnTo: query.returnTo,
       appState: query.appState,
       action: query.action,
+      oauthParams,
       req,
     });
     return { url: result.redirectUrl };
@@ -469,8 +529,33 @@ Use the frontend SDK to navigate to your backend redirect start endpoint:
 - [`NAuthClient.loginWithSocial()`](/docs/frontend-sdk/api/nauth-client#loginwithsocial)
 
 ```typescript
+// Basic usage
 await client.loginWithSocial('google', { returnTo: '/auth/callback', appState: 'custom-state-such-as-invite-code' });
+
+// Force Google account chooser (per-request override)
+await client.loginWithSocial('google', {
+  returnTo: '/dashboard',
+  oauthParams: { prompt: 'select_account' }
+});
+
+// Multiple OAuth parameters
+await client.loginWithSocial('google', {
+  returnTo: '/dashboard',
+  oauthParams: {
+    prompt: 'select_account consent',
+    hd: 'company.com',
+    login_hint: 'user@company.com'
+  }
+});
+
+// Facebook: Rerequest declined permissions
+await client.loginWithSocial('facebook', {
+  returnTo: '/settings',
+  oauthParams: { auth_type: 'rerequest' }
+});
 ```
+
+Per-request `oauthParams` override any defaults configured at the backend level.
 
 ### Handle the callback
 

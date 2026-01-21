@@ -41,8 +41,17 @@ Apple requires a JWT client secret for web OAuth, which is automatically generat
 | `scopes` | `string[]` | No | Default: `['name', 'email']` |
 | `autoLink` | `boolean` | No | Auto-link to existing users by verified email |
 | `allowSignup` | `boolean` | No | Allow creating new users on first login |
+| `oauthParams` | `Record<string, string>` | No | Additional OAuth parameters to include in authorization URL. These act as defaults and can be overridden on a per-request basis. |
 
-### Example Configuration
+### OAuth Parameters
+
+The `oauthParams` option allows you to customize the Apple OAuth authorization flow. These parameters are appended to Apple's authorization URL and can be overridden on a per-request basis from the frontend.
+
+**Common Parameters:**
+- `nonce`: For ID token validation and replay attack prevention
+- Any other Apple-supported OAuth parameters
+
+**Example:**
 
 ```typescript
 social: {
@@ -51,12 +60,17 @@ social: {
     clientId: 'com.myapp.services',
     teamId: 'ABC123DEF4',
     keyId: 'XYZ789ABC0',
-    privateKeyPem: '-----BEGIN PRIVATE KEY-----\nMIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQg...\n-----END PRIVATE KEY-----',
+    privateKeyPem: process.env.APPLE_PRIVATE_KEY_PEM,
     callbackUrl: 'https://api.myapp.com/auth/social/apple/callback',
     scopes: ['name', 'email'],
+    oauthParams: {
+      nonce: 'default-nonce-value',  // For ID token validation
+    },
   },
 }
 ```
+
+See [Social Login Guide](/docs/features/social-login) for usage examples.
 
 **Note:** For native iOS apps, `teamId`, `keyId`, and `privateKeyPem` are not required as native apps do not use the web OAuth flow.
 

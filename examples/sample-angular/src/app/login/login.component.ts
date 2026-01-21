@@ -145,6 +145,8 @@ export class LoginComponent implements OnInit {
       await this.auth.loginWithSocial(provider, {
         returnTo: '/auth/callback',
         appState: 'invite-code-123',
+        // Google: force consent screen every time (default skips for returning users)
+        // ...(provider === 'google' && { oauthParams: { prompt: 'consent' } }),
       });
     } catch (err: unknown) {
       this.loading.set(false);

@@ -171,12 +171,15 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
 
   /**
    * Lazy-load jose (ESM-only) in a CJS-compatible way.
+   * Uses eval to prevent TypeScript from converting import() to require()
    *
    * @returns Promise resolving to jose module
    */
   private async getJose(): Promise<JoseModule> {
     if (!this.joseModulePromise) {
-      this.joseModulePromise = import('jose') as Promise<JoseModule>;
+      // Use eval to prevent TypeScript from converting import() to require()
+      // This is necessary because jose@6 is ESM-only and cannot be required()
+      this.joseModulePromise = (0, eval)("import('jose')") as Promise<JoseModule>;
     }
     return await this.joseModulePromise;
   }
@@ -320,14 +323,26 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
    * Generate OAuth authorization URL for Apple
    *
    * @param state - Optional state parameter for CSRF protection
+   * @param oauthParams - Optional OAuth parameters to append to URL (overrides config defaults)
    * @returns Authorization URL for redirecting user to Apple
    */
-  async getAuthUrl(state?: string): Promise<string> {
+  async getAuthUrl(state?: string, oauthParams?: Record<string, string>): Promise<string> {
     if (!this.oauthClient) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Apple OAuth is not enabled');
     }
     const finalState = state || (await this.generateState());
-    return this.oauthClient.getAuthorizationUrl(finalState);
+
+    // Merge config-level oauthParams with per-request params (per-request takes precedence)
+    const providerConfig = this.getProviderConfig();
+    const mergedParams = {
+      ...providerConfig?.oauthParams,
+      ...oauthParams,
+    };
+
+    return this.oauthClient.getAuthorizationUrl(
+      finalState,
+      Object.keys(mergedParams).length > 0 ? mergedParams : undefined,
+    );
   }
 
   /**
@@ -359,16 +374,13 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
     // Exchange code for tokens (includes id_token)
     const tokens = await this.oauthClient.exchangeCodeForToken(code, providerConfig.callbackUrl, clientSecret);
 
-    const clientId = Array.isArray(providerConfig.clientId)
-      ? providerConfig.clientId[0]
-      : providerConfig.clientId || '';
-    if (!clientId) {
-      throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Apple clientId is required');
-    }
-
     // Apple does not reliably provide a UserInfo endpoint for web OAuth.
     // The standard approach is to verify and read claims from the id_token.
-    const verified = (await this.tokenVerifier.verifyAppleToken(tokens.idToken, clientId)) as VerifiedAppleTokenProfile;
+    // Pass ALL configured client IDs to support both web and native platforms
+    const clientIds = Array.isArray(providerConfig.clientId)
+      ? providerConfig.clientId
+      : [providerConfig.clientId || ''];
+    const verified = (await this.tokenVerifier.verifyAppleToken(tokens.idToken, clientIds)) as VerifiedAppleTokenProfile;
 
     // CRITICAL: Require email from all social providers for signup
     if (!verified.email || !verified.email_verified) {
@@ -413,15 +425,18 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Apple OAuth is not configured');
     }
 
-    const clientId = Array.isArray(providerConfig.clientId)
-      ? providerConfig.clientId[0]
-      : providerConfig.clientId || '';
+    // Pass ALL configured client IDs to support both web and native platforms
+    // Web: aud = Service ID (e.g., 'com.anyspaces')
+    // Native: aud = App Bundle ID (e.g., 'com.anyspaces.anyspaces')
+    const clientIds = Array.isArray(providerConfig.clientId)
+      ? providerConfig.clientId
+      : [providerConfig.clientId || ''];
     if (!this.tokenVerifier.verifyAppleToken) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Apple token verifier is not available');
     }
 
     // Verify ID token with Apple's JWKS public keys
-    const verified = (await this.tokenVerifier.verifyAppleToken(idToken, clientId)) as VerifiedAppleTokenProfile;
+    const verified = (await this.tokenVerifier.verifyAppleToken(idToken, clientIds)) as VerifiedAppleTokenProfile;
     this.logger?.debug?.(`Verified Apple token for: ${verified.email}`);
 
     // CRITICAL: Require email from all social providers for signup

@@ -80,9 +80,9 @@ export class SocialRedirectHandler {
       delivery,
     });
 
-    // Get provider and generate OAuth URL directly
+    // Get provider and generate OAuth URL with optional params
     const providerInstance = this.providerRegistry.getProvider(provider);
-    const url = await providerInstance.getAuthUrl(csrfState);
+    const url = await providerInstance.getAuthUrl(csrfState, input.oauthParams);
 
     return { redirectUrl: url };
   }
@@ -436,6 +436,8 @@ export interface SocialRedirectStartInput {
   action?: 'login' | 'link';
   /** Request object for hybrid origin-based delivery */
   req?: unknown;
+  /** Dynamic OAuth parameters for this request (overrides config defaults) */
+  oauthParams?: Record<string, string>;
 }
 
 /**

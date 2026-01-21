@@ -994,20 +994,66 @@ async loginWithSocial(provider: 'google' | 'apple' | 'facebook', options?: Socia
 
 **Parameters**
 
-| Parameter  | Type                                                 | Description                                         |
-| ---------- | ---------------------------------------------------- | --------------------------------------------------- |
-| `provider` | `'google' \| 'apple' \| 'facebook'`                  | OAuth provider                                      |
-| `options`  | [`SocialLoginOptions`](./types/social-login-options) | Redirect options (`returnTo`, `appState`, `action`) |
+| Parameter  | Type                                                 | Description                                                                     |
+| ---------- | ---------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `provider` | `'google' \| 'apple' \| 'facebook'`                  | OAuth provider                                                                  |
+| `options`  | [`SocialLoginOptions`](./types/social-login-options) | Redirect options (`returnTo`, `appState`, `action`, `oauthParams`) |
 
 **Returns**
 
 - `Promise<void>` - Redirects to OAuth provider
 
-**Example**
+**Examples**
 
 ```typescript
-await client.loginWithSocial('google', { returnTo: '/auth/callback', appState: '12345' });
+// Basic usage
+await client.loginWithSocial('google', {
+  returnTo: '/auth/callback',
+  appState: '12345'
+});
+
+// Force Google account chooser
+await client.loginWithSocial('google', {
+  returnTo: '/dashboard',
+  oauthParams: { prompt: 'select_account' }
+});
+
+// Multiple OAuth parameters
+await client.loginWithSocial('google', {
+  returnTo: '/dashboard',
+  oauthParams: {
+    prompt: 'select_account consent',
+    hd: 'company.com',
+    login_hint: 'user@company.com'
+  }
+});
+
+// Facebook: Rerequest declined permissions
+await client.loginWithSocial('facebook', {
+  returnTo: '/settings',
+  oauthParams: { auth_type: 'rerequest' }
+});
+
+// Apple with nonce for ID token validation
+await client.loginWithSocial('apple', {
+  returnTo: '/dashboard',
+  oauthParams: { nonce: 'random-nonce-value' }
+});
 ```
+
+**OAuth Parameters**
+
+The `oauthParams` option allows per-request customization of the OAuth flow. These parameters:
+- Override any defaults set in the backend configuration
+- Are appended directly to the provider's authorization URL
+- Enable provider-specific behaviors
+
+Common use cases:
+- **Google**: Force account chooser, restrict to domain, pre-fill email
+- **Facebook**: Rerequest declined permissions, customize display mode
+- **Apple**: Add nonce for ID token validation
+
+See [`SocialLoginOptions`](./types/social-login-options) for complete parameter documentation.
 
 **See**
 

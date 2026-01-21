@@ -232,7 +232,7 @@ describe('AppleSocialAuthService', () => {
       const result = await service.getAuthUrl('state-123');
 
       expect(result).toBe(authUrl);
-      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith('state-123');
+      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith('state-123', undefined);
     });
   });
 

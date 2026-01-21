@@ -139,14 +139,26 @@ export class GoogleSocialAuthService extends BaseSocialAuthProviderService imple
 
   /**
    * Generate OAuth authorization URL for Google
+   *
+   * @param state - Optional state parameter for CSRF protection
+   * @param oauthParams - Optional OAuth parameters to append to URL (overrides config defaults)
+   * @returns Authorization URL for redirecting user to Google
    */
-  async getAuthUrl(state?: string): Promise<string> {
+  async getAuthUrl(state?: string, oauthParams?: Record<string, string>): Promise<string> {
     if (!this.oauthClient) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Google OAuth is not enabled');
     }
 
     const finalState = state || (await this.generateState());
-    return this.oauthClient.getAuthorizationUrl(finalState);
+
+    // Merge config-level oauthParams with per-request params (per-request takes precedence)
+    const providerConfig = this.getProviderConfig();
+    const mergedParams = {
+      ...providerConfig?.oauthParams,
+      ...oauthParams,
+    };
+
+    return this.oauthClient.getAuthorizationUrl(finalState, Object.keys(mergedParams).length > 0 ? mergedParams : undefined);
   }
 
   /**

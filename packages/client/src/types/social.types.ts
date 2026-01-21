@@ -28,6 +28,27 @@ export interface SocialLoginOptions {
    * Default: 'login'
    */
   action?: 'login' | 'link';
+
+  /**
+   * Optional OAuth parameters to pass to the provider
+   *
+   * These parameters override config defaults and allow per-request customization.
+   * Use cases:
+   * - Google: Force account chooser, restrict to domain
+   * - Facebook: Rerequest declined permissions
+   * - Apple: Add nonce for ID token validation
+   *
+   * @example Google - Force account chooser
+   * ```typescript
+   * { prompt: 'select_account' }
+   * ```
+   *
+   * @example Facebook - Rerequest permissions
+   * ```typescript
+   * { auth_type: 'rerequest' }
+   * ```
+   */
+  oauthParams?: Record<string, string>;
 }
 
 /**

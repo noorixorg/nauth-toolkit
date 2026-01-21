@@ -1389,6 +1389,162 @@ describe('NAuthClient', () => {
     expect(await storage.getItem('nauth_access_token')).toBeNull();
   });
 
+  // ============================================================================
+  // Ghost Session Prevention Tests
+  // ============================================================================
+
+  it('clears challenge session on clearLocalAuthState', async () => {
+    const storage = new MockStorage();
+    await storage.setItem('nauth_challenge_session', JSON.stringify({ session: 'challenge-123' }));
+    await storage.setItem('nauth_user', JSON.stringify({ sub: 'u1', email: 'user@example.com' }));
+    await storage.setItem('nauth_access_token', 'a1');
+
+    const client = new NAuthClient({ ...baseConfig, storage });
+
+    await client.clearLocalAuthState();
+
+    expect(await storage.getItem('nauth_challenge_session')).toBeNull();
+    expect(await storage.getItem('nauth_user')).toBeNull();
+    expect(await storage.getItem('nauth_access_token')).toBeNull();
+  });
+
+  it('clears challenge session on logout', async () => {
+    const storage = new MockStorage();
+    await storage.setItem('nauth_challenge_session', JSON.stringify({ session: 'challenge-123' }));
+    await storage.setItem('nauth_user', JSON.stringify({ sub: 'u1', email: 'user@example.com' }));
+
+    const client = new NAuthClient({ ...baseConfig, storage });
+
+    getFetchMock().mockResolvedValue(
+      createMockResponse({
+        ok: true,
+        status: 200,
+        body: { message: 'Logged out' },
+      }),
+    );
+
+    await client.logout();
+
+    expect(await storage.getItem('nauth_challenge_session')).toBeNull();
+    expect(await storage.getItem('nauth_user')).toBeNull();
+  });
+
+  it('clears challenge session on logoutAll', async () => {
+    const storage = new MockStorage();
+    await storage.setItem('nauth_challenge_session', JSON.stringify({ session: 'challenge-123' }));
+    await storage.setItem('nauth_user', JSON.stringify({ sub: 'u1', email: 'user@example.com' }));
+
+    const client = new NAuthClient({ ...baseConfig, storage });
+
+    getFetchMock().mockResolvedValue(
+      createMockResponse({
+        ok: true,
+        status: 200,
+        body: { message: 'Logged out', revokedCount: 3 },
+      }),
+    );
+
+    await client.logoutAll();
+
+    expect(await storage.getItem('nauth_challenge_session')).toBeNull();
+    expect(await storage.getItem('nauth_user')).toBeNull();
+  });
+
+  it('clears challenge session when logout fails', async () => {
+    const storage = new MockStorage();
+    await storage.setItem('nauth_challenge_session', JSON.stringify({ session: 'challenge-123' }));
+    await storage.setItem('nauth_user', JSON.stringify({ sub: 'u1', email: 'user@example.com' }));
+
+    const client = new NAuthClient({ ...baseConfig, storage });
+
+    getFetchMock().mockResolvedValue(
+      createMockResponse({
+        ok: false,
+        status: 500,
+        body: { message: 'Server error' },
+      }),
+    );
+
+    await client.logout();
+
+    // Should still clear challenge session even if logout request fails
+    expect(await storage.getItem('nauth_challenge_session')).toBeNull();
+    expect(await storage.getItem('nauth_user')).toBeNull();
+  });
+
+  it('clears challenge session when logoutAll fails', async () => {
+    const storage = new MockStorage();
+    await storage.setItem('nauth_challenge_session', JSON.stringify({ session: 'challenge-123' }));
+    await storage.setItem('nauth_user', JSON.stringify({ sub: 'u1', email: 'user@example.com' }));
+
+    const client = new NAuthClient({ ...baseConfig, storage });
+
+    getFetchMock().mockResolvedValue(
+      createMockResponse({
+        ok: false,
+        status: 500,
+        body: { message: 'Server error' },
+      }),
+    );
+
+    await expect(client.logoutAll()).rejects.toThrow();
+
+    // Should still clear challenge session even if logoutAll request fails
+    expect(await storage.getItem('nauth_challenge_session')).toBeNull();
+    expect(await storage.getItem('nauth_user')).toBeNull();
+  });
+
+  it('clears OAuth state on clearAuthState', async () => {
+    // Use sessionStorage for OAuth state
+    const mainStorage = new MockStorage();
+    const oauthStorage = new MockStorage();
+
+    // Simulate sessionStorage having OAuth state
+    await oauthStorage.setItem('nauth_oauth_state', 'invite-code-123');
+
+    const client = new NAuthClient({
+      ...baseConfig,
+      storage: mainStorage,
+    });
+
+    // Manually set OAuth storage for testing
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (client as any).oauthStorage = oauthStorage;
+
+    await client.clearLocalAuthState();
+
+    // OAuth state should be cleared
+    expect(await oauthStorage.getItem('nauth_oauth_state')).toBeNull();
+  });
+
+  it('clears all auth data including challenge and OAuth state on session expiry', async () => {
+    const storage = new MockStorage();
+    const oauthStorage = new MockStorage();
+
+    await storage.setItem('nauth_user', JSON.stringify({ sub: 'u1', email: 'user@example.com' }));
+    await storage.setItem('nauth_access_token', 'a1');
+    await storage.setItem('nauth_refresh_token', 'r1');
+    await storage.setItem('nauth_challenge_session', JSON.stringify({ session: 'challenge-123' }));
+    await oauthStorage.setItem('nauth_oauth_state', 'invite-code-123');
+
+    const client = new NAuthClient({ ...baseConfig, storage });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (client as any).oauthStorage = oauthStorage;
+
+    await client.initialize();
+    expect(client.isAuthenticatedSync()).toBe(true);
+
+    // Simulate session expiry by clearing auth state
+    await client.clearLocalAuthState();
+
+    expect(client.isAuthenticatedSync()).toBe(false);
+    expect(await storage.getItem('nauth_user')).toBeNull();
+    expect(await storage.getItem('nauth_access_token')).toBeNull();
+    expect(await storage.getItem('nauth_refresh_token')).toBeNull();
+    expect(await storage.getItem('nauth_challenge_session')).toBeNull();
+    expect(await oauthStorage.getItem('nauth_oauth_state')).toBeNull();
+  });
+
   it('handles handleAuthResponse with deviceToken in JSON mode', async () => {
     const storage = new MockStorage();
     const client = new NAuthClient({ ...baseConfig, storage });
