@@ -17,6 +17,7 @@ import {
   LinkSocialAccountDTO,
   GetLinkedAccountsDTO,
   UnlinkSocialAccountDTO,
+  GetMFAStatusResponseDTO,
 } from '@nauth-toolkit/core';
 
 /**
@@ -436,7 +437,7 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
       }
 
       const user = nauth.helpers.getCurrentUser();
-      const status = await nauth.mfaService.getMfaStatus();
+      const status = await (nauth.mfaService as unknown as { getMfaStatus(): Promise<GetMFAStatusResponseDTO> }).getMfaStatus();
 
       res.json({
         enabled: status.enabled,
@@ -593,7 +594,7 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
           grantedBy: user!.email || undefined,
         });
 
-        const status = await nauth.mfaService.getMfaStatus();
+        const status = await (nauth.mfaService as unknown as { getMfaStatus(): Promise<GetMFAStatusResponseDTO> }).getMfaStatus();
 
         res.json({
           message: exempt ? 'MFA exemption granted successfully' : 'MFA exemption revoked successfully',
@@ -617,16 +618,19 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
    * Returns the OAuth authorization URL for the specified provider.
    *
    * POST /auth/social/auth-url
-   * Body: { provider, state? }
+   * Body: { provider: 'google'|'apple'|'facebook', state? }
    */
   router.post('/social/auth-url', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (!nauth.socialAuthService) {
-        return res.status(400).json({ error: 'Social auth service is not available' });
+      const { provider, state } = req.body;
+      if (!provider) {
+        return res.status(400).json({ error: 'provider is required' });
       }
-
-      const dto = Object.assign(new GetSocialAuthUrlDTO(), req.body);
-      const { url } = await nauth.socialAuthService.getSocialAuthUrl(dto);
+      const auth = (nauth as { googleAuth?: { getAuthUrl: (s?: string) => Promise<string> }; appleAuth?: { getAuthUrl: (s?: string) => Promise<string> }; facebookAuth?: { getAuthUrl: (s?: string) => Promise<string> } })[`${provider}Auth` as 'googleAuth' | 'appleAuth' | 'facebookAuth'];
+      if (!auth) {
+        return res.status(400).json({ error: `Provider ${provider} is not configured` });
+      }
+      const url = await auth.getAuthUrl(state);
       res.json({ url });
     } catch (error) {
       next(error);
@@ -674,16 +678,19 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
    * Returns unified auth response (tokens or challenge).
    *
    * POST /auth/social/callback
-   * Body: { provider, code, state }
+   * Body: { provider: 'google'|'apple'|'facebook', code, state }
    */
   router.post('/social/callback', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (!nauth.socialAuthService) {
-        return res.status(400).json({ error: 'Social auth service is not available' });
+      const { provider, code, state } = req.body;
+      if (!provider || !code || !state) {
+        return res.status(400).json({ error: 'provider, code, and state are required' });
       }
-
-      const dto = Object.assign(new HandleSocialCallbackDTO(), req.body);
-      const result = await nauth.socialAuthService.handleSocialCallback(dto);
+      const auth = (nauth as { googleAuth?: { handleCallback: (d: { code: string; state: string }) => Promise<unknown> }; appleAuth?: { handleCallback: (d: { code: string; state: string }) => Promise<unknown> }; facebookAuth?: { handleCallback: (d: { code: string; state: string }) => Promise<unknown> } })[`${provider}Auth` as 'googleAuth' | 'appleAuth' | 'facebookAuth'];
+      if (!auth) {
+        return res.status(400).json({ error: `Provider ${provider} is not configured` });
+      }
+      const result = await auth.handleCallback({ code, state });
       res.json(result);
     } catch (error) {
       next(error);
@@ -722,7 +729,7 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
           return res.status(404).json({ error: 'Google OAuth not configured' });
         }
         const { code, state } = req.body;
-        const result = await nauth.googleAuth.handleCallback(code, state);
+        const result = await nauth.googleAuth.handleCallback({ code, state });
         res.json(result);
       } catch (error) {
         next(error);
@@ -745,7 +752,7 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
           return res.status(404).json({ error: 'Google OAuth not configured' });
         }
         const { idToken, accessToken } = req.body;
-        const result = await nauth.googleAuth.verifyToken(idToken, accessToken);
+        const result = await nauth.googleAuth.verifyToken({ idToken, accessToken });
         res.json(result);
       } catch (error) {
         next(error);
@@ -785,7 +792,7 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
           return res.status(404).json({ error: 'Apple Sign-In not configured' });
         }
         const { code, state } = req.body;
-        const result = await nauth.appleAuth.handleCallback(code, state);
+        const result = await nauth.appleAuth.handleCallback({ code, state });
         res.json(result);
       } catch (error) {
         next(error);
@@ -825,7 +832,7 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
           return res.status(404).json({ error: 'Facebook OAuth not configured' });
         }
         const { code, state } = req.body;
-        const result = await nauth.facebookAuth.handleCallback(code, state);
+        const result = await nauth.facebookAuth.handleCallback({ code, state });
         res.json(result);
       } catch (error) {
         next(error);

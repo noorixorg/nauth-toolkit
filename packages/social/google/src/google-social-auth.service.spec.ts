@@ -317,7 +317,7 @@ describe('GoogleSocialAuthService', () => {
       const result = await service.getAuthUrl(state);
 
       expect(result).toBe(authUrl);
-      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith(state);
+      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith(state, undefined);
     });
 
     it('should generate state when not provided', async () => {
@@ -329,7 +329,7 @@ describe('GoogleSocialAuthService', () => {
 
       expect(result).toBe(authUrl);
       expect(mockStateStore.createCsrfState).toHaveBeenCalledWith('google');
-      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith('generated-state');
+      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith('generated-state', undefined);
     });
   });
 

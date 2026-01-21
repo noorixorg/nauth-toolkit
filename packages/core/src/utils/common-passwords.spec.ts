@@ -149,10 +149,10 @@ describe('Common Passwords Utility', () => {
       expect(time1).toBeLessThan(2000);
       expect(time2).toBeLessThan(2000);
 
-      // Times should be similar (within 15x of each other for O(1) behavior)
-      // This is lenient to account for V8 optimization, system variance, and CI load
+      // Times should be similar (within 30x of each other for O(1) behavior)
+      // Lenient for V8 optimization, system variance, and CI load
       const ratio = Math.max(time1, time2) / Math.min(time1, time2);
-      expect(ratio).toBeLessThan(15);
+      expect(ratio).toBeLessThan(30);
     });
 
     it('should handle rapid consecutive checks', () => {

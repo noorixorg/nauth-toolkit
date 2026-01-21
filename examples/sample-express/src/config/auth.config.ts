@@ -170,13 +170,15 @@ export const authConfig: NAuthConfig = {
   }),
 
   email: {
-    appName: process.env.APP_NAME || 'Nauth App',
-    companyName: process.env.COMPANY_NAME || 'Nauth Company Pty Ltd.',
-    supportEmail: process.env.SUPPORT_EMAIL || 'support@noorix.com',
-    logoUrl: process.env.LOGO_URL || 'https://www.noorix.com.au/images/noorix-logo-social.png',
-    dashboardUrl: process.env.DASHBOARD_URL || 'https://app.example.com/dashboard',
-    brandColor: process.env.BRAND_COLOR || '#4f46e5',
-    footerDisclaimer: process.env.FOOTER_DISCLAIMER,
+    globalVariables: {
+      appName: process.env.APP_NAME || 'Nauth App',
+      companyName: process.env.COMPANY_NAME || 'Nauth Company Pty Ltd.',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@noorix.com',
+      logoUrl: process.env.LOGO_URL || 'https://www.noorix.com.au/images/noorix-logo-social.png',
+      dashboardUrl: process.env.DASHBOARD_URL || 'https://app.example.com/dashboard',
+      brandColor: process.env.BRAND_COLOR || '#4f46e5',
+      footerDisclaimer: process.env.FOOTER_DISCLAIMER,
+    },
   },
 
   smsProvider: new ConsoleSMSProvider(),

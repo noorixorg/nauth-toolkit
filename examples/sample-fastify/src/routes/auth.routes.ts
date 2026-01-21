@@ -10,6 +10,7 @@ import {
   LinkSocialAccountDTO,
   GetLinkedAccountsDTO,
   UnlinkSocialAccountDTO,
+  GetMFAStatusResponseDTO,
   IUser,
   IMFADevice,
 } from '@nauth-toolkit/core';
@@ -343,7 +344,7 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
       }
 
       const user = nauth.helpers.getCurrentUser();
-      const status = await mfaService.getMfaStatus();
+      const status = await (mfaService as unknown as { getMfaStatus(): Promise<GetMFAStatusResponseDTO> }).getMfaStatus();
 
       return {
         enabled: status.enabled,
@@ -469,7 +470,7 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
         grantedBy: user!.email || undefined,
       });
 
-      const status = await mfaService.getMfaStatus();
+      const status = await (mfaService as unknown as { getMfaStatus(): Promise<GetMFAStatusResponseDTO> }).getMfaStatus();
 
       return {
         message: exempt ? 'MFA exemption granted successfully' : 'MFA exemption revoked successfully',
@@ -491,13 +492,17 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
       preHandler: nauth.helpers.public(),
     },
     handler(async (req, reply) => {
-      if (!socialAuthService) {
+      const { provider, state } = (req.body as any) || {};
+      if (!provider) {
         reply.code(400);
-        return { error: 'Social auth service is not available' };
+        return { error: 'provider is required' };
       }
-
-      const dto = Object.assign(new GetSocialAuthUrlDTO(), req.body);
-      const { url } = await socialAuthService.getSocialAuthUrl(dto);
+      const auth = (nauth as any)[`${provider}Auth`];
+      if (!auth) {
+        reply.code(400);
+        return { error: `Provider ${provider} is not configured` };
+      }
+      const url = await auth.getAuthUrl(state);
       return { url };
     }),
   );
@@ -534,13 +539,17 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
       preHandler: nauth.helpers.public(),
     },
     handler(async (req, reply) => {
-      if (!socialAuthService) {
+      const { provider, code, state } = (req.body as any) || {};
+      if (!provider || !code || !state) {
         reply.code(400);
-        return { error: 'Social auth service is not available' };
+        return { error: 'provider, code, and state are required' };
       }
-
-      const dto = Object.assign(new HandleSocialCallbackDTO(), req.body);
-      const result = await socialAuthService.handleSocialCallback(dto);
+      const auth = (nauth as any)[`${provider}Auth`];
+      if (!auth) {
+        reply.code(400);
+        return { error: `Provider ${provider} is not configured` };
+      }
+      const result = await auth.handleCallback({ code, state });
       return result;
     }),
   );
@@ -573,7 +582,7 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
         return { error: 'Google OAuth not configured' };
       }
       const { code, state } = req.body as any;
-      const result = await nauth.googleAuth.handleCallback(code, state);
+      const result = await nauth.googleAuth.handleCallback({ code, state });
       return result;
     }),
   );
@@ -590,7 +599,7 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
         return { error: 'Google OAuth not configured' };
       }
       const { idToken, accessToken } = req.body as any;
-      const result = await nauth.googleAuth.verifyToken(idToken, accessToken);
+      const result = await nauth.googleAuth.verifyToken({ idToken, accessToken });
       return result;
     }),
   );
@@ -623,7 +632,7 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
         return { error: 'Apple Sign-In not configured' };
       }
       const { code, state } = req.body as any;
-      const result = await nauth.appleAuth.handleCallback(code, state);
+      const result = await nauth.appleAuth.handleCallback({ code, state });
       return result;
     }),
   );
@@ -656,7 +665,7 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
         return { error: 'Facebook OAuth not configured' };
       }
       const { code, state } = req.body as any;
-      const result = await nauth.facebookAuth.handleCallback(code, state);
+      const result = await nauth.facebookAuth.handleCallback({ code, state });
       return result;
     }),
   );

@@ -956,18 +956,19 @@ export class AdminAuthService {
    *
    * @example
    * ```typescript
-   * await adminAuthService.confirmResetPassword({ sub: 'user-uuid', code: '123456', newPassword: 'NewPass123!' });
+   * await adminAuthService.confirmResetPassword({ identifier: 'user@example.com', code: '123456', newPassword: 'NewPass123!' });
    * ```
    */
   async confirmResetPassword(dto: ConfirmAdminResetPasswordDTO): Promise<ConfirmAdminResetPasswordResponseDTO> {
     dto = await ensureValidatedDto(ConfirmAdminResetPasswordDTO, dto);
 
-    this.logger?.log?.(`Confirm admin password reset for sub: ${dto.sub}`);
+    this.logger?.log?.(`Confirm admin password reset for identifier: ${dto.identifier}`);
 
-    const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
+    const user = await this.helpers.findUserByIdentifier(dto.identifier, this.config.login?.identifierType);
     if (!user) {
-      this.logger?.warn?.(`Confirm admin reset failed - user not found: ${dto.sub}`);
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+      // Non-enumerating: treat as invalid code
+      this.logger?.warn?.(`Confirm admin reset failed - user not found for identifier: ${dto.identifier}`);
+      throw new NAuthException(AuthErrorCode.PASSWORD_RESET_CODE_INVALID, 'Invalid password reset code');
     }
 
     if (!this.passwordResetService) {
@@ -993,7 +994,7 @@ export class AdminAuthService {
           description: 'User completed admin-initiated password reset',
           metadata: {
             usedCode: true,
-            sub: dto.sub,
+            identifier: dto.identifier,
           },
         },
       },

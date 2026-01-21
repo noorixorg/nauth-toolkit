@@ -308,7 +308,7 @@ export class CustomAuthController {
    * @param dto - Confirm admin reset password DTO
    * @returns Success confirmation
    */
-  @Post('admin/reset-password/confirm')
+  @Post('reset-password/confirm')
   @Public()
   @HttpCode(HttpStatus.OK)
   async confirmAdminResetPassword(

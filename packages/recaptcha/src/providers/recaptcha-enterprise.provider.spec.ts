@@ -108,6 +108,7 @@ describe('RecaptchaEnterpriseProvider', () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: false,
         status: 403,
+        text: async () => 'Forbidden',
       });
 
       await expect(provider.verify('token')).rejects.toThrow('reCAPTCHA Enterprise API returned status 403');

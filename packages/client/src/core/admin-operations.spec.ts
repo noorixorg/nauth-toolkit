@@ -105,7 +105,7 @@ const createTestConfig = (
       changePassword: '/change-password',
       forgotPassword: '/forgot-password',
       confirmForgotPassword: '/forgot-password/confirm',
-      confirmAdminResetPassword: '/admin/reset-password/confirm',
+      confirmAdminResetPassword: '/reset-password/confirm',
       mfaStatus: '/mfa/status',
       mfaDevices: '/mfa/devices',
       mfaSetupData: '/mfa/setup-data',

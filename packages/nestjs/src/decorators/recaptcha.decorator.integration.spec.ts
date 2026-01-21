@@ -11,7 +11,7 @@ import { NAuthContextGuard } from '../guards/nauth-context.guard';
 import { CookieTokenInterceptor } from '../interceptors/cookie-token.interceptor';
 import { TokenDeliveryHttpService } from '../services/token-delivery-http.service';
 import { ContextStorage, NAuthConfig, NAuthRequest } from '@nauth-toolkit/core';
-import { SkipRecaptcha, RequireRecaptcha, SKIP_RECAPTCHA_KEY, REQUIRE_RECAPTCHA_KEY } from './recaptcha.decorator';
+import { REQUIRE_RECAPTCHA_KEY } from './recaptcha.decorator';
 
 describe('reCAPTCHA Decorator Integration', () => {
   let guard: NAuthContextGuard;
@@ -62,8 +62,7 @@ describe('reCAPTCHA Decorator Integration', () => {
     };
   });
 
-  function createExecutionContextWithDecorator(decoratorMetadata: {
-    [SKIP_RECAPTCHA_KEY]?: boolean;
+  function createExecutionContextWithDecorator(_decoratorMetadata?: {
     [REQUIRE_RECAPTCHA_KEY]?: boolean;
   }): ExecutionContext {
     const handler = () => {};
@@ -111,50 +110,6 @@ describe('reCAPTCHA Decorator Integration', () => {
       });
     });
 
-    it('should set nauthSkipRecaptcha attribute that core validation can read', async () => {
-      const mockContext = createExecutionContextWithDecorator({});
-
-      jest.spyOn(reflector, 'get').mockImplementation((key: unknown) => {
-        if (key === SKIP_RECAPTCHA_KEY) return true;
-        return undefined;
-      });
-
-      await guard.canActivate(mockContext);
-      await interceptor.intercept(mockContext, mockCallHandler).toPromise();
-
-      const store = (mockRequest as Record<symbol, unknown>)[Symbol.for('nauth.contextStore')] as
-        | Map<string, unknown>
-        | undefined;
-
-      await ContextStorage.enterStore(store!, async () => {
-        const req = ContextStorage.get<NAuthRequest>('REQUEST');
-        expect(req).toBeDefined();
-        expect(req?.attributes.nauthSkipRecaptcha).toBe(true);
-      });
-    });
-
-    it('should allow both decorators to coexist (for testing edge cases)', async () => {
-      const mockContext = createExecutionContextWithDecorator({});
-
-      jest.spyOn(reflector, 'get').mockImplementation((key: unknown) => {
-        if (key === SKIP_RECAPTCHA_KEY) return true;
-        if (key === REQUIRE_RECAPTCHA_KEY) return true;
-        return undefined;
-      });
-
-      await guard.canActivate(mockContext);
-      await interceptor.intercept(mockContext, mockCallHandler).toPromise();
-
-      const store = (mockRequest as Record<symbol, unknown>)[Symbol.for('nauth.contextStore')] as
-        | Map<string, unknown>
-        | undefined;
-
-      await ContextStorage.enterStore(store!, async () => {
-        const req = ContextStorage.get<NAuthRequest>('REQUEST');
-        expect(req?.attributes.nauthSkipRecaptcha).toBe(true);
-        expect(req?.attributes.nauthRequireRecaptcha).toBe(true);
-      });
-    });
   });
 
   describe('REQUEST wrapper attribute mapping', () => {

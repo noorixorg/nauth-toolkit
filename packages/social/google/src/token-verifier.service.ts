@@ -36,7 +36,11 @@ export class TokenVerifierService implements ITokenVerifierService {
 
   constructor(config: NAuthConfig, loadJose?: () => Promise<JoseModule>) {
     this.logger = config.logger as NAuthLogger;
-    this.loadJose = loadJose ?? (() => import('jose') as Promise<JoseModule>);
+    // Use eval to prevent TypeScript from converting import() to require()
+    // This is necessary because jose@6 is ESM-only and cannot be required()
+    // TypeScript with module:"commonjs" converts import() to __importStar(require())
+    // Using eval preserves the dynamic import() at runtime
+    this.loadJose = loadJose ?? (() => (0, eval)("import('jose')") as Promise<JoseModule>);
   }
 
   private async getJose(): Promise<JoseModule> {

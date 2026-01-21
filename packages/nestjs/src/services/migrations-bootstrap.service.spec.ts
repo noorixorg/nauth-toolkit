@@ -71,39 +71,49 @@ describe('nauthMigrationsBootstrapProvider', () => {
     expect(mockLogger.debug).toHaveBeenCalled();
   });
 
-  it('should handle postgres database type', async () => {
-    const postgresDataSource = {
-      isInitialized: true,
-      options: { type: 'postgres' },
-    } as any;
+  it(
+    'should handle postgres database type',
+    async () => {
+      const postgresDataSource = {
+        isInitialized: true,
+        options: { type: 'postgres' },
+      } as any;
 
-    const provider = nauthMigrationsBootstrapProvider as { useFactory?: (...args: any[]) => Promise<any> };
-    const factory = provider.useFactory!;
-    // Will fail because package is not installed in test environment
-    await expect(factory(mockConfig, mockLogger, postgresDataSource)).rejects.toThrow();
-  });
+      const provider = nauthMigrationsBootstrapProvider as { useFactory?: (...args: any[]) => Promise<any> };
+      const factory = provider.useFactory!;
+      // Dynamic import succeeds in monorepo; runNAuthMigrations throws when no DB / invalid config
+      await expect(factory(mockConfig, mockLogger, postgresDataSource)).rejects.toThrow();
+    },
+    20000,
+  );
 
-  it('should handle mysql database type', async () => {
-    const mysqlDataSource = {
-      isInitialized: true,
-      options: { type: 'mysql' },
-    } as any;
+  it(
+    'should handle mysql database type',
+    async () => {
+      const mysqlDataSource = {
+        isInitialized: true,
+        options: { type: 'mysql' },
+      } as any;
 
-    const provider = nauthMigrationsBootstrapProvider as { useFactory?: (...args: any[]) => Promise<any> };
-    const factory = provider.useFactory!;
-    // Will fail because package is not installed in test environment
-    await expect(factory(mockConfig, mockLogger, mysqlDataSource)).rejects.toThrow();
-  });
+      const provider = nauthMigrationsBootstrapProvider as { useFactory?: (...args: any[]) => Promise<any> };
+      const factory = provider.useFactory!;
+      await expect(factory(mockConfig, mockLogger, mysqlDataSource)).rejects.toThrow();
+    },
+    20000,
+  );
 
-  it('should handle mariadb database type', async () => {
-    const mariadbDataSource = {
-      isInitialized: true,
-      options: { type: 'mariadb' },
-    } as any;
+  it(
+    'should handle mariadb database type',
+    async () => {
+      const mariadbDataSource = {
+        isInitialized: true,
+        options: { type: 'mariadb' },
+      } as any;
 
-    const provider = nauthMigrationsBootstrapProvider as { useFactory?: (...args: any[]) => Promise<any> };
-    const factory = provider.useFactory!;
-    // Will fail because package is not installed in test environment
-    await expect(factory(mockConfig, mockLogger, mariadbDataSource)).rejects.toThrow();
-  });
+      const provider = nauthMigrationsBootstrapProvider as { useFactory?: (...args: any[]) => Promise<any> };
+      const factory = provider.useFactory!;
+      await expect(factory(mockConfig, mockLogger, mariadbDataSource)).rejects.toThrow();
+    },
+    20000,
+  );
 });

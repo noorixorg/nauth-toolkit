@@ -240,11 +240,12 @@ export class AdminResetPasswordResponseDTO {
  * - Attempt tracking enforced (max attempts configured in password reset service)
  * - Always revokes all sessions on completion
  * - Always sets mustChangePassword flag
+ * - Public endpoint (user doesn't need to be authenticated)
  *
  * @example
  * ```typescript
  * await authService.confirmAdminResetPassword({
- *   sub: 'a21b654c-2746-4168-acee-c175083a65cd',
+ *   identifier: 'user@example.com',
  *   code: '123456',
  *   newPassword: 'NewSecurePass123!'
  * });
@@ -252,25 +253,35 @@ export class AdminResetPasswordResponseDTO {
  */
 export class ConfirmAdminResetPasswordDTO {
   /**
-   * User sub (UUID)
+   * User identifier used to locate the account
+   *
+   * Accepts email, username, or phone depending on application login policy
    *
    * Validation:
-   * - Must be a valid UUID v4
+   * - Must be a string
+   * - Max 255 characters
    *
    * Sanitization:
    * - Trimmed
-   * - Lowercased for consistency
+   * - Lowercased when email format detected (contains '@')
    *
-   * @example "a21b654c-2746-4168-acee-c175083a65cd"
+   * @example "user@example.com"
    */
-  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
+  @IsString({ message: 'Identifier must be a string' })
+  @IsNotEmpty({ message: 'Identifier is required' })
+  @MinLength(1, { message: 'Identifier is required' })
+  @MaxLength(255, { message: 'Identifier must not exceed 255 characters' })
   @Transform(({ value }: { value: unknown }) => {
     if (typeof value === 'string') {
-      return value.trim().toLowerCase();
+      const trimmed = value.trim();
+      if (trimmed.includes('@')) {
+        return trimmed.toLowerCase();
+      }
+      return trimmed;
     }
     return value;
   })
-  sub!: string;
+  identifier!: string;
 
   /**
    * Verification code from email/SMS (6-10 digits)

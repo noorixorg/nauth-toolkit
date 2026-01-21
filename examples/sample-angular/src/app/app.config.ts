@@ -116,7 +116,7 @@ export const appConfig: ApplicationConfig = {
           // requestPasswordChange: '/auth/request-password-change',
           // forgotPassword: '/auth/forgot-password/',
           // confirmForgotPassword: '/auth/forgot-password/confirm',
-          // confirmAdminResetPassword: '/auth/admin/reset-password/confirm',
+          // confirmAdminResetPassword: '/auth/reset-password/confirm',
           // socialRedirectStart: '/auth/social/:provider/redirect',
           // socialExchange: '/auth/social/exchange',
           // socialLinked: '/auth/social/linked',

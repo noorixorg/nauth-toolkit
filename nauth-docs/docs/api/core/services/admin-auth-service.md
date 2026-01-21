@@ -737,7 +737,7 @@ Example strings returned in `errors`:
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-@Post('admin/reset-password/confirm')
+@Post('reset-password/confirm')
 async confirmReset(@Body() dto: ConfirmAdminResetPasswordDTO) {
   return this.adminAuthService.confirmResetPassword(dto);
 }
@@ -747,7 +747,7 @@ async confirmReset(@Body() dto: ConfirmAdminResetPasswordDTO) {
 <TabItem value="express" label="Express">
 
 ```typescript
-app.post('/admin/reset-password/confirm', async (req, res) => {
+app.post('/reset-password/confirm', async (req, res) => {
   const result = await nauth.adminAuthService.confirmResetPassword(req.body);
   res.json(result);
 });
@@ -758,7 +758,7 @@ app.post('/admin/reset-password/confirm', async (req, res) => {
 
 ```typescript
 fastify.post(
-  '/admin/reset-password/confirm',
+  '/reset-password/confirm',
   { preHandler: nauth.helpers.public() },
   nauth.adapter.wrapRouteHandler(async (req) => {
     return nauth.adminAuthService.confirmResetPassword(req.body);
