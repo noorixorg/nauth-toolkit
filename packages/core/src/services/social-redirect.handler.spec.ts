@@ -6,6 +6,7 @@ import { StorageAdapter } from '../interfaces/storage-adapter.interface';
 import { AuthResponseDTO } from '../dto/auth-response.dto';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
+import { ContextStorage } from '../utils/context-storage';
 
 describe('SocialRedirectHandler', () => {
   let handler: SocialRedirectHandler;
@@ -217,6 +218,48 @@ describe('SocialRedirectHandler', () => {
       // In json mode, should return exchangeToken (no authResponse in result)
       expect(result.authResponse).toBeUndefined();
       expect(result.redirectUrl).toContain('exchangeToken');
+    });
+
+    it('should re-inject deviceToken into request context when captured in redirect context', async () => {
+      const futureAccessExp = Math.floor(Date.now() / 1000) + 15 * 60;
+      const futureRefreshExp = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
+
+      const mockAuthResponse: AuthResponseDTO = {
+        accessToken: 'access-token-123',
+        refreshToken: 'refresh-token-456',
+        accessTokenExpiresAt: futureAccessExp,
+        refreshTokenExpiresAt: futureRefreshExp,
+        user: { sub: 'user-sub-123', email: 'user@example.com', isEmailVerified: true },
+        authMethod: 'google',
+      };
+
+      const mockProvider = {
+        handleCallback: jest.fn().mockResolvedValue(mockAuthResponse),
+        getAuthUrl: jest.fn().mockResolvedValue('https://provider.com/auth'),
+      };
+      mockProviderRegistry.getProvider = jest.fn().mockReturnValue(mockProvider);
+
+      mockStateStore.consumeRedirectContext = jest.fn().mockResolvedValue({
+        returnTo: '/auth/callback',
+        appState: 'app-state-123',
+        action: 'login',
+        delivery: 'cookies',
+        deviceToken: 'device-token-from-start',
+      });
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CLIENT_INFO', { ipAddress: '1.2.3.4', userAgent: 'ua' });
+
+        await handler.callback({
+          provider: 'google',
+          code: 'oauth-code-123',
+          state: 'csrf-state-123',
+          req: { headers: {}, cookies: {} },
+        });
+
+        const clientInfo = ContextStorage.get('CLIENT_INFO') as any;
+        expect(clientInfo?.deviceToken).toBe('device-token-from-start');
+      });
     });
   });
 });

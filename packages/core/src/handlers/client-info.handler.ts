@@ -9,7 +9,7 @@
  * Context initialization is handled by the adapter, not this handler.
  */
 
-import { ContextStorage, ClientInfoService, IClientInfo, NAuthLogger, getDeviceTokenCookieName } from '../index';
+import { ContextStorage, ClientInfoService, IClientInfo, NAuthConfig, NAuthLogger, getDeviceTokenCookieName } from '../index';
 import { GeoLocationService } from '../internal';
 import { NAuthRequest, NAuthResponse } from '../platform/interfaces';
 
@@ -22,6 +22,7 @@ import { NAuthRequest, NAuthResponse } from '../platform/interfaces';
 export class ClientInfoHandler {
   constructor(
     private clientInfoService: ClientInfoService,
+    private config?: NAuthConfig,
     private geoLocationService?: GeoLocationService,
     private logger?: NAuthLogger,
   ) {}
@@ -53,8 +54,9 @@ export class ClientInfoHandler {
     const parsedUA = this.clientInfoService.parseUserAgent(userAgent);
 
     // Extract device token from cookie or header
-    // Use default cookie name (nauth_device_token) if config not available
-    const deviceTokenCookieName = getDeviceTokenCookieName();
+    // Use configured cookie prefix/name so social callbacks can see the same device token cookie
+    // that was set during trust-device flows.
+    const deviceTokenCookieName = getDeviceTokenCookieName(this.config);
     const deviceToken = req.cookies[deviceTokenCookieName] || req.getHeader('x-device-token');
 
     // Build client info object

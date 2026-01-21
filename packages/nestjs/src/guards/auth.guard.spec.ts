@@ -240,7 +240,6 @@ describe('AuthGuard', () => {
     userAgent: 'Mozilla/5.0',
     platform: 'iOS',
     browser: 'Safari',
-    isRemembered: false,
     isTrustedDevice: false,
     expiresAt: new Date(Date.now() + 3600000),
     lastActivityAt: new Date(),

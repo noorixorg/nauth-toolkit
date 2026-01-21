@@ -1421,7 +1421,7 @@ export class AuthServiceInternalHelpers {
       }
 
       // Network or provider errors
-      this.logger?.error?.(`reCAPTCHA verification error: ${error instanceof Error ? error.message : 'unknown error'}`);
+      this.logger?.warn?.(`reCAPTCHA verification error: ${error instanceof Error ? error.message : 'unknown error'}`);
       throw new NAuthException(
         AuthErrorCode.RECAPTCHA_VALIDATION_FAILED,
         'reCAPTCHA verification failed due to technical error',

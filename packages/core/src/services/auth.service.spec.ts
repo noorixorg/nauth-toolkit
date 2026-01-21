@@ -250,7 +250,6 @@ describe('AuthService', () => {
     platform: 'web',
     browser: 'chrome',
     authMethod: 'password',
-    isRemembered: false,
     isTrustedDevice: false,
     expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     lastActivityAt: new Date(),

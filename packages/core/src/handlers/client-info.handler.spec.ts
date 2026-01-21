@@ -6,7 +6,7 @@
 
 import 'reflect-metadata';
 import { ClientInfoHandler } from './client-info.handler';
-import { ClientInfoService, ContextStorage, NAuthLogger, IClientInfo } from '../index';
+import { ClientInfoService, ContextStorage, NAuthConfig, NAuthLogger, IClientInfo } from '../index';
 import { GeoLocationService } from '../internal';
 import { NAuthRequest, NAuthResponse } from '../platform/interfaces';
 
@@ -71,7 +71,7 @@ describe('ClientInfoHandler', () => {
 
     mockNext = jest.fn().mockResolvedValue(undefined);
 
-    handler = new ClientInfoHandler(mockClientInfoService, mockGeoLocationService, mockLogger);
+    handler = new ClientInfoHandler(mockClientInfoService, undefined, mockGeoLocationService, mockLogger);
   });
 
   afterEach(() => {
@@ -115,6 +115,31 @@ describe('ClientInfoHandler', () => {
 
         const clientInfo = mockRequest.attributes.clientInfo as IClientInfo;
         expect(clientInfo.deviceToken).toBe('device-token-123');
+      });
+    });
+
+    it('should extract device token from cookie with custom prefix', async () => {
+      const config = {
+        jwt: {
+          accessToken: { secret: 'test', expiresIn: 3600 },
+          refreshToken: { secret: 'test', expiresIn: 86400 },
+        },
+        tokenDelivery: { cookieNamePrefix: 'myapp_' },
+      } as NAuthConfig;
+
+      const handlerWithConfig = new ClientInfoHandler(mockClientInfoService, config, mockGeoLocationService, mockLogger);
+
+      Object.defineProperty(mockRequest, 'cookies', {
+        value: { myapp_device_token: 'device-token-prefixed' },
+        writable: true,
+        configurable: true,
+      });
+
+      await ContextStorage.run(async () => {
+        await handlerWithConfig.handle(mockRequest, mockResponse, mockNext);
+
+        const clientInfo = mockRequest.attributes.clientInfo as IClientInfo;
+        expect(clientInfo.deviceToken).toBe('device-token-prefixed');
       });
     });
 
@@ -219,7 +244,7 @@ describe('ClientInfoHandler', () => {
     });
 
     it('should work without geolocation service', async () => {
-      const handlerWithoutGeo = new ClientInfoHandler(mockClientInfoService, undefined, mockLogger);
+      const handlerWithoutGeo = new ClientInfoHandler(mockClientInfoService, undefined, undefined, mockLogger);
 
       await ContextStorage.run(async () => {
         await handlerWithoutGeo.handle(mockRequest, mockResponse, mockNext);

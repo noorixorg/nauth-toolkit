@@ -108,12 +108,14 @@ export class SocialAuthStateStore implements ISocialAuthStateStore {
       returnTo: this.normalizeReturnTo(context.returnTo),
       appState: context.appState,
       delivery: context.delivery,
+      deviceToken: context.deviceToken,
       action: context.action,
       createdAt: Date.now(),
     } satisfies {
       returnTo: string;
       appState?: string;
       delivery?: 'cookies' | 'json';
+      deviceToken?: string;
       action: 'login' | 'link';
       createdAt: number;
     });
@@ -145,6 +147,7 @@ export class SocialAuthStateStore implements ISocialAuthStateStore {
       returnTo: parsed.returnTo,
       appState: parsed.appState,
       delivery: parsed.delivery,
+      deviceToken: parsed.deviceToken,
       action: parsed.action,
     };
   }
@@ -224,6 +227,7 @@ export class SocialAuthStateStore implements ISocialAuthStateStore {
     returnTo: string;
     appState?: string;
     delivery?: 'cookies' | 'json';
+    deviceToken?: string;
     action: 'login' | 'link';
     createdAt: number;
   } {
@@ -231,6 +235,7 @@ export class SocialAuthStateStore implements ISocialAuthStateStore {
     const returnTo = obj.returnTo;
     const appState = obj.appState;
     const delivery = obj.delivery;
+    const deviceToken = obj.deviceToken;
     const action = obj.action;
     const createdAt = obj.createdAt;
 
@@ -249,7 +254,10 @@ export class SocialAuthStateStore implements ISocialAuthStateStore {
     if (delivery !== undefined && delivery !== 'cookies' && delivery !== 'json') {
       return { returnTo: returnTo.trim(), appState, action, createdAt };
     }
-    return { returnTo: returnTo.trim(), appState, delivery, action, createdAt };
+    if (deviceToken !== undefined && typeof deviceToken !== 'string') {
+      return { returnTo: returnTo.trim(), appState, delivery, action, createdAt };
+    }
+    return { returnTo: returnTo.trim(), appState, delivery, deviceToken, action, createdAt };
   }
 
   private safeParseJsonObject(raw: string, field: string): Record<string, unknown> {

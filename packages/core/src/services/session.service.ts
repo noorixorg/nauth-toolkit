@@ -117,7 +117,7 @@ export class SessionService {
    * @param data.deviceType - Optional device type (mobile, desktop, tablet). Falls back to parsed value from ClientInfoService if not provided.
    * @param data.expiresAt - Session expiration date
    * @remarks Client info (ipAddress, ipCountry, ipCity, userAgent, platform, browser) is automatically extracted from ClientInfoService context
-   * @param data.isRemembered - Whether session is from "remember me"
+   * @param data.isTrustedDevice - Whether device is trusted (may skip MFA)
    * @param data.authMethod - Authentication method: 'password', 'google', 'facebook', 'github', etc.
    * @returns Created session
    *
@@ -143,7 +143,7 @@ export class SessionService {
     deviceType?: string; // Optional - falls back to parsed value from ClientInfoService
     // Client info (ipAddress, ipCountry, ipCity, userAgent) automatically extracted from ClientInfoService
     expiresAt: Date;
-    isRemembered?: boolean;
+    isTrustedDevice?: boolean;
     authMethod?: string; // Authentication method: 'password', 'google', 'facebook', etc.
   }): Promise<ISession> {
     // ============================================================================
@@ -263,7 +263,7 @@ export class SessionService {
       browser,
       authMethod: data.authMethod || null,
       expiresAt: data.expiresAt,
-      isRemembered: data.isRemembered || false,
+      isTrustedDevice: data.isTrustedDevice || false,
       lastActivityAt: new Date(),
     });
 
@@ -284,7 +284,7 @@ export class SessionService {
           deviceId: savedSession.deviceId,
           deviceName: savedSession.deviceName,
           deviceType: savedSession.deviceType,
-          isRemembered: savedSession.isRemembered,
+          trustedDevice: savedSession.isTrustedDevice,
         },
       });
     } catch (auditError) {
@@ -398,7 +398,7 @@ export class SessionService {
       deviceType?: string; // Optional - falls back to parsed value from ClientInfoService
       // Client info (ipAddress, ipCountry, ipCity, userAgent) automatically extracted from ClientInfoService
       expiresAt: Date;
-      isRemembered?: boolean;
+      isTrustedDevice?: boolean;
       authMethod?: string;
     },
     generateHashes: (sessionId: number) => Promise<{ accessTokenHash: string; refreshTokenHash: string; extra?: T }>,
@@ -442,7 +442,7 @@ export class SessionService {
         browser,
         authMethod: data.authMethod || null,
         expiresAt: data.expiresAt,
-        isRemembered: data.isRemembered || false,
+        isTrustedDevice: data.isTrustedDevice || false,
         lastActivityAt: new Date(),
       });
 
@@ -500,7 +500,7 @@ export class SessionService {
           deviceId: result.session.deviceId,
           deviceName: result.session.deviceName,
           deviceType: result.session.deviceType,
-          isRemembered: result.session.isRemembered,
+          trustedDevice: result.session.isTrustedDevice,
         },
       });
     } catch (auditError) {

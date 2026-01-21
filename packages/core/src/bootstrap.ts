@@ -245,7 +245,7 @@ export class NAuth {
     // ========================================================================
     // 5. Create Handlers
     // ========================================================================
-    const clientInfoHandler = new ClientInfoHandler(services.clientInfoService, services.geoLocationService, logger);
+    const clientInfoHandler = new ClientInfoHandler(services.clientInfoService, config, services.geoLocationService, logger);
 
     const authHandler = new AuthHandler(
       services.jwtService,

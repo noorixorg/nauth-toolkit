@@ -96,12 +96,23 @@ describe('SocialAuthStateStore', () => {
     const storage = makeStorage();
     storage.set.mockResolvedValue(undefined);
     storage.get.mockResolvedValueOnce(
-      JSON.stringify({ returnTo: '/auth/callback', appState: '12345', action: 'login', createdAt: Date.now() }),
+      JSON.stringify({
+        returnTo: '/auth/callback',
+        appState: '12345',
+        action: 'login',
+        deviceToken: 'device-token-123',
+        createdAt: Date.now(),
+      }),
     );
     storage.del.mockResolvedValue(undefined);
 
     const store = new SocialAuthStateStore(storage, undefined, 300);
-    await store.setRedirectContext('state-abc', { returnTo: '/auth/callback', appState: '12345', action: 'login' });
+    await store.setRedirectContext('state-abc', {
+      returnTo: '/auth/callback',
+      appState: '12345',
+      action: 'login',
+      deviceToken: 'device-token-123',
+    });
     const ctx = await store.consumeRedirectContext('state-abc');
 
       expect(storage.set).toHaveBeenCalledWith(
@@ -109,7 +120,7 @@ describe('SocialAuthStateStore', () => {
         expect.any(String),
         300,
       );
-    expect(ctx).toEqual({ returnTo: '/auth/callback', appState: '12345', action: 'login' });
+    expect(ctx).toEqual({ returnTo: '/auth/callback', appState: '12345', action: 'login', deviceToken: 'device-token-123' });
     expect(storage.del).toHaveBeenCalledWith('social:oauth_redirect:state-abc');
   });
 

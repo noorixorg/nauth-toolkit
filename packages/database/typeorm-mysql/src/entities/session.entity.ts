@@ -99,9 +99,6 @@ export class Session extends BaseSession {
   declare authMethod?: string | null;
 
   @Column({ type: 'tinyint', width: 1, default: 0 })
-  declare isRemembered: boolean;
-
-  @Column({ type: 'tinyint', width: 1, default: 0 })
   declare isTrustedDevice: boolean;
 
   @Column({ type: 'timestamp', precision: 6 })

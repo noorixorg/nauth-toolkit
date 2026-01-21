@@ -579,6 +579,32 @@ describe('UserService', () => {
       );
     });
 
+    it('should include phone before/after in PROFILE_UPDATED audit metadata', async () => {
+      const updatedUser = { ...mockUser, phone: '+1987654321', isPhoneVerified: false };
+      mockUserRepository.findOne
+        .mockResolvedValueOnce(mockUser as any) // Initial lookup by sub
+        .mockResolvedValueOnce(updatedUser as any); // Final fetch by id after update
+
+      await service.updateUserAttributes({
+        sub: mockUserSub,
+        phone: '+1987654321',
+      });
+
+      expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: AuthAuditEventType.PROFILE_UPDATED,
+          metadata: expect.objectContaining({
+            fieldChanges: expect.objectContaining({
+              phone: {
+                before: '+1234567890',
+                after: '+1987654321',
+              },
+            }),
+          }),
+        }),
+      );
+    });
+
     it('should throw NAuthException when user not found', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 

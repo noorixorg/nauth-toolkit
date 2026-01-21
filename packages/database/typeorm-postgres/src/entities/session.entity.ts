@@ -99,9 +99,6 @@ export class Session extends BaseSession {
   declare authMethod?: string | null;
 
   @Column({ type: 'boolean', default: false })
-  declare isRemembered: boolean;
-
-  @Column({ type: 'boolean', default: false })
   declare isTrustedDevice: boolean;
 
   @Column({ type: 'timestamptz' })

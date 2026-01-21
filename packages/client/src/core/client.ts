@@ -863,7 +863,12 @@ export class NAuthClient {
    */
   async trustDevice(): Promise<{ deviceToken: string }> {
     const result = await this.post<{ deviceToken: string }>(this.config.endpoints.trustDevice, {}, true);
-    await this.setDeviceToken(result.deviceToken);
+
+    // Only store device token in JSON mode (cookies mode uses httpOnly cookie)
+    if (this.config.tokenDelivery === 'json' && result.deviceToken) {
+      await this.setDeviceToken(result.deviceToken);
+    }
+
     return result;
   }
 
@@ -1069,9 +1074,19 @@ export class NAuthClient {
     await this.tokenManager.clearTokens();
     await this.config.storage.removeItem(USER_KEY);
 
-    // Clear device token in JSON mode (cookies mode uses httpOnly cookie cleared by backend)
-    if (forgetDevice && this.config.tokenDelivery === 'json') {
-      await this.config.storage.removeItem(this.config.deviceTrust.storageKey);
+    // Clear device token when forgetDevice is true
+    if (forgetDevice) {
+      // ============================================================================
+      // Defensive cleanup: Always attempt to remove device token from localStorage
+      // ============================================================================
+      // WHY: In JSON mode, device token should be in localStorage and must be cleared.
+      // In cookies mode, device token shouldn't be in localStorage, but we attempt cleanup
+      // anyway as a defensive measure in case of bugs or mode switches.
+      try {
+        await this.config.storage.removeItem(this.config.deviceTrust.storageKey);
+      } catch {
+        // Non-fatal: storage can fail in restricted environments (private mode, SSR, etc.)
+      }
     }
 
     // ============================================================================

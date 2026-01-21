@@ -686,26 +686,10 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     // Just record SOCIAL_LOGIN audit event and return the response
     // ============================================================================
 
-    // Check trusted device status (for audit metadata)
-    let isTrustedDevice = false;
-    if (
-      this.config.mfa?.rememberDevices &&
-      this.config.mfa?.rememberDevices !== 'never' &&
-      this.trustedDeviceService &&
-      clientInfo.deviceToken
-    ) {
-      try {
-        isTrustedDevice = await this.trustedDeviceService.isDeviceTrusted(clientInfo.deviceToken, user.id);
-      } catch (error) {
-        // Non-blocking: Log but continue
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        this.logger?.warn?.(`Failed to check trusted device for social login: ${errorMessage}`, {
-          error,
-          userId: user.id,
-          provider: this.providerName,
-        });
-      }
-    }
+    // Determine trusted device status from the auth response.
+    // WHY: `determineAuthResponse()` already computed device trust using request context (ClientInfoService).
+    // Re-checking here can drift (e.g., due to repository/adapter differences), so reuse the computed result.
+    const isTrustedDevice = response.trusted === true;
 
     // Record SOCIAL_LOGIN audit event
     try {

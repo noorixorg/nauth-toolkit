@@ -497,7 +497,7 @@ describe('AdminOperations', () => {
             lastActivityAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
             expiresAt: new Date().toISOString(),
-            isRemembered: true,
+            isTrustedDevice: true,
             isCurrent: true,
             authMethod: 'password',
             authProvider: null,

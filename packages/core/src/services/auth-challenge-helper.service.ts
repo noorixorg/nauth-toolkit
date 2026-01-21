@@ -607,6 +607,7 @@ export class AuthChallengeHelperService {
       // WHY: Persist how the session was authenticated so the frontend can tell whether the user logged in
       // via password or via a specific social provider (google/apple/facebook).
       authMethod: sessionAuthMethod,
+      isTrustedDevice: isTrusted || false,
     });
 
     // Now regenerate tokens with the actual sessionId

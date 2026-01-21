@@ -615,53 +615,30 @@ export class UserService {
     try {
       // Client info (ipAddress, userAgent) automatically extracted from ClientInfoService
       // Note: ClientInfoService is used transparently by SessionService and AuditService
-      const updatedFieldNames = Object.keys(updateFields);
-
-      // Build field changes map with before/after values
+      // ============================================================================
+      // Build fieldChanges from actual persisted updateFields (holistic)
+      // ============================================================================
+      // WHY: Some fields are derived/updated implicitly (e.g., MFA flags when devices are removed),
+      // and some inputs may normalize to the existing value. We only want to log real changes and
+      // ensure before/after is consistent for ALL changed attributes (including phone).
       const fieldChanges: Record<string, unknown> = {};
 
-      // Capture before/after values for each updated field
-      if (dto.firstName !== undefined && dto.firstName !== user.firstName) {
-        fieldChanges.firstName = {
-          before: user.firstName ?? null,
-          after: dto.firstName ?? null,
-        };
-      }
+      const valuesDiffer = (before: unknown, after: unknown): boolean => {
+        // Use JSON stringification for a stable deep-ish comparison for our update payloads
+        // (primitives, arrays, plain objects). This is audit-only and non-security-critical.
+        return JSON.stringify(before ?? null) !== JSON.stringify(after ?? null);
+      };
 
-      if (dto.lastName !== undefined && dto.lastName !== user.lastName) {
-        fieldChanges.lastName = {
-          before: user.lastName ?? null,
-          after: dto.lastName ?? null,
-        };
-      }
+      // Capture before/after values for all updated fields except metadata (handled below with per-key diff)
+      for (const [fieldName, afterValue] of Object.entries(updateFields)) {
+        if (fieldName === 'metadata') continue;
 
-      if (dto.username !== undefined && dto.username !== user.username) {
-        fieldChanges.username = {
-          before: user.username ?? null,
-          after: dto.username ?? null,
-        };
-      }
+        const beforeValue = (user as unknown as Record<string, unknown>)[fieldName];
+        if (!valuesDiffer(beforeValue, afterValue)) continue;
 
-      // Note: email and phone are tracked separately with specific audit events,
-      // but we include them in fieldChanges for completeness
-      if (dto.email !== undefined && dto.email !== user.email) {
-        fieldChanges.email = {
-          before: user.email ?? null,
-          after: dto.email ?? null,
-        };
-      }
-
-      if (dto.phone !== undefined && dto.phone !== user.phone) {
-        fieldChanges.phone = {
-          before: user.phone ?? null,
-          after: dto.phone ?? null,
-        };
-      }
-
-      if (dto.preferredMfaMethod !== undefined && dto.preferredMfaMethod !== user.preferredMfaMethod) {
-        fieldChanges.preferredMfaMethod = {
-          before: user.preferredMfaMethod ?? null,
-          after: dto.preferredMfaMethod ?? null,
+        fieldChanges[fieldName] = {
+          before: beforeValue ?? null,
+          after: afterValue ?? null,
         };
       }
 
@@ -669,16 +646,7 @@ export class UserService {
       // Note: Keys set to null in dto.metadata are deleted from final metadata
       if (dto.metadata !== undefined) {
         const oldMetadata = user.metadata || {};
-        const mergedMetadata = { ...oldMetadata, ...dto.metadata };
-
-        // Remove keys that are explicitly set to null (deletion operation)
-        Object.keys(mergedMetadata).forEach((key) => {
-          if (mergedMetadata[key] === null) {
-            delete mergedMetadata[key];
-          }
-        });
-
-        const newMetadata = mergedMetadata;
+        const newMetadata = (updateFields.metadata as Record<string, unknown> | undefined) || oldMetadata;
         const metadataChanges: Record<string, { before: unknown; after: unknown }> = {};
 
         // Track all keys that exist in either old or new metadata
@@ -689,7 +657,7 @@ export class UserService {
           const newValue = newMetadata[key];
 
           // Track changes, additions, and deletions
-          if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+          if (valuesDiffer(oldValue, newValue)) {
             metadataChanges[key] = {
               before: oldValue ?? null,
               after: newValue ?? null, // Will be null for deleted keys
@@ -702,26 +670,7 @@ export class UserService {
         }
       }
 
-      // Track verification status changes if email/phone changed
-      if (dto.email !== undefined && dto.email !== user.email) {
-        const emailVerificationChanged = !dto.retainVerification && updateFields.isEmailVerified === false;
-        if (emailVerificationChanged) {
-          fieldChanges.isEmailVerified = {
-            before: user.isEmailVerified,
-            after: false,
-          };
-        }
-      }
-
-      if (dto.phone !== undefined && dto.phone !== user.phone) {
-        const phoneVerificationChanged = !dto.retainVerification && updateFields.isPhoneVerified === false;
-        if (phoneVerificationChanged) {
-          fieldChanges.isPhoneVerified = {
-            before: user.isPhoneVerified,
-            after: false,
-          };
-        }
-      }
+      const updatedFieldNames = Object.keys(fieldChanges);
 
       // Record general profile update with field changes
       await this.auditService?.recordEvent({
@@ -736,7 +685,14 @@ export class UserService {
       });
 
       // Record specific field changes
-      if (dto.email !== undefined && dto.email !== user.email) {
+      const clientInfoForSource = this.clientInfoService.get();
+      const inferredUpdateSource =
+        clientInfoForSource?.sub && clientInfoForSource.sub !== user.sub
+          ? ('admin_action' as const)
+          : ('user_request' as const);
+
+      const newEmail = updateFields.email;
+      if (fieldChanges.email && typeof newEmail === 'string') {
         await this.auditService?.recordEvent({
           userId: user.id,
           eventType: AuthAuditEventType.EMAIL_CHANGED,
@@ -744,7 +700,7 @@ export class UserService {
           metadata: {
             // Client info automatically included from context
             oldEmail: user.email,
-            newEmail: dto.email,
+            newEmail,
             retainVerification: dto.retainVerification || false,
           },
         });
@@ -754,17 +710,16 @@ export class UserService {
         // ============================================================================
         if (this.hookRegistry) {
           try {
-            const clientInfo = this.clientInfoService.get();
             await this.hookRegistry.executeEmailChanged({
               user: updatedUser,
               oldEmail: user.email,
-              newEmail: dto.email,
-              updateSource: 'user_request',
+              newEmail,
+              updateSource: inferredUpdateSource,
               clientInfo: {
-                ipAddress: clientInfo.ipAddress,
-                userAgent: clientInfo.userAgent,
-                ipCountry: clientInfo.ipCountry,
-                ipCity: clientInfo.ipCity,
+                ipAddress: clientInfoForSource.ipAddress,
+                userAgent: clientInfoForSource.userAgent,
+                ipCountry: clientInfoForSource.ipCountry,
+                ipCity: clientInfoForSource.ipCity,
               },
             });
           } catch (hookError) {
@@ -778,7 +733,8 @@ export class UserService {
         }
       }
 
-      if (dto.phone !== undefined && dto.phone !== user.phone) {
+      const newPhone = updateFields.phone;
+      if (fieldChanges.phone && typeof newPhone === 'string') {
         await this.auditService?.recordEvent({
           userId: user.id,
           eventType: AuthAuditEventType.PHONE_CHANGED,
@@ -786,13 +742,14 @@ export class UserService {
           metadata: {
             // Client info automatically included from context
             oldPhone: user.phone,
-            newPhone: dto.phone,
+            newPhone,
             retainVerification: dto.retainVerification || false,
           },
         });
       }
 
-      if (dto.username !== undefined && dto.username !== user.username) {
+      const newUsername = updateFields.username;
+      if (fieldChanges.username && (typeof newUsername === 'string' || newUsername === null)) {
         await this.auditService?.recordEvent({
           userId: user.id,
           eventType: AuthAuditEventType.USERNAME_CHANGED,
@@ -800,7 +757,7 @@ export class UserService {
           metadata: {
             // Client info automatically included from context
             oldUsername: user.username,
-            newUsername: dto.username,
+            newUsername,
           },
         });
       }
@@ -817,26 +774,39 @@ export class UserService {
     // Hook: Execute user profile updated hooks
     // ============================================================================
     try {
-      // Build changed fields array with old/new values
+      // Build changed fields array with old/new values (only for fields that actually changed)
       const changedFields: Array<{ fieldName: string; oldValue: unknown; newValue: unknown }> = [];
 
-      // Track all fields that were in updateFields
-      for (const fieldName of Object.keys(updateFields)) {
+      const valuesDiffer = (before: unknown, after: unknown): boolean => {
+        return JSON.stringify(before ?? null) !== JSON.stringify(after ?? null);
+      };
+
+      // Track all fields that were in updateFields (but filter to real changes)
+      for (const [fieldName, newValue] of Object.entries(updateFields)) {
+        const oldValue = (user as unknown as Record<string, unknown>)[fieldName];
+        if (!valuesDiffer(oldValue, newValue)) continue;
+
         changedFields.push({
           fieldName,
-          oldValue: (user as unknown as Record<string, unknown>)[fieldName],
-          newValue: updateFields[fieldName as keyof typeof updateFields],
+          oldValue,
+          newValue,
         });
       }
 
       // Get client info from ClientInfoService
       const clientInfo = this.clientInfoService.get();
 
+      // Determine update source (admin vs user) based on authenticated context
+      // WHY: userService.updateUserAttributes() is used by both AuthService (self updates)
+      // and AdminAuthService (admin updates), so we infer source from request context.
+      const updateSource =
+        clientInfo?.sub && clientInfo.sub !== user.sub ? ('admin_action' as const) : ('user_request' as const);
+
       // Execute hooks (non-blocking)
       await this.hookRegistry?.executeUserProfileUpdated({
         user: updatedUser,
         changedFields,
-        updateSource: 'user_request',
+        updateSource,
         clientInfo: {
           ipAddress: clientInfo.ipAddress,
           userAgent: clientInfo.userAgent,

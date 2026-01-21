@@ -95,7 +95,6 @@ export interface ISession {
   platform: string | null;
   browser: string | null;
   authMethod: string | null;
-  isRemembered: boolean;
   isTrustedDevice: boolean;
   expiresAt: Date;
   lastActivityAt: Date | null;

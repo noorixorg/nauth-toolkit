@@ -769,7 +769,7 @@ export class AdminAuthService {
         lastActivityAt: session.lastActivityAt || session.createdAt,
         createdAt: session.createdAt,
         expiresAt: session.expiresAt,
-        isRemembered: session.isRemembered,
+        isTrustedDevice: session.isTrustedDevice,
         isCurrent,
         authMethod,
         authProvider,

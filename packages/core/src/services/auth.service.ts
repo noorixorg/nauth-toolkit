@@ -883,8 +883,22 @@ export class AuthService {
 
       // Determine trusted device and MFA bypass status from response
       const isTrustedDevice = response.trusted || false;
-      const mfaBypassed = false; // Challenge helper handles MFA, so if we get here, MFA was not bypassed
-      const mfaBypassReason: 'trusted_device' | 'mfa_exempt' | null = null;
+      let mfaBypassed = false;
+      let mfaBypassReason: 'trusted_device' | 'mfa_exempt' | null = null;
+      const userEntityDebug = user as unknown as Record<string, unknown>;
+      const userMfaExempt = userEntityDebug.mfaExempt === true || userEntityDebug.mfaExempt === 'true';
+      if (userMfaExempt) {
+        mfaBypassed = true;
+        mfaBypassReason = 'mfa_exempt';
+      } else if (isTrustedDevice && this.config.mfa) {
+        const enforcement = this.config.mfa.enforcement || 'OPTIONAL';
+        const wouldRequireMFA =
+          (enforcement === 'OPTIONAL' && user.mfaEnabled) || enforcement === 'REQUIRED' || enforcement === 'ADAPTIVE';
+        if (wouldRequireMFA) {
+          mfaBypassed = true;
+          mfaBypassReason = 'trusted_device';
+        }
+      }
 
       // Record successful login audit event
       if (fireAndForget) {
@@ -930,12 +944,10 @@ export class AuthService {
     }
 
     // ============================================================================
-    // Trusted Device Status Check (for audit metadata)
+    // Audit: Record successful login with trusted device and MFA bypass metadata
     // ============================================================================
+    // Check trusted device status before determining MFA bypass
     let isTrustedDevice = false;
-    let mfaBypassed = false;
-    let mfaBypassReason: 'trusted_device' | 'mfa_exempt' | null = null;
-
     if (
       this.config.mfa?.rememberDevices &&
       this.config.mfa?.rememberDevices !== 'never' &&
@@ -945,6 +957,10 @@ export class AuthService {
       isTrustedDevice = await this.trustedDeviceService.isDeviceTrusted(clientInfo.deviceToken, user.id);
     }
 
+    // MFA bypass determination
+    let mfaBypassed = false;
+    let mfaBypassReason: 'trusted_device' | 'mfa_exempt' | null = null;
+
     // Check if user is exempt from MFA
     const userEntityDebug = user as unknown as Record<string, unknown>;
     const userMfaExempt = userEntityDebug.mfaExempt === true || userEntityDebug.mfaExempt === 'true';
@@ -952,8 +968,7 @@ export class AuthService {
     // Determine if MFA was bypassed
     // MFA is bypassed if:
     // 1. No challenge was returned (meaning MFA was skipped)
-    // 2. MFA would have been required otherwise
-    // 3. Either:
+    // 2. Either:
     //    a. Device is trusted AND bypassMFAForTrustedDevices is enabled (trusted device bypass)
     //    b. User has mfaExempt = true (MFA exemption bypass)
     if (!response.challengeName && this.config.mfa) {
@@ -976,12 +991,14 @@ export class AuthService {
           mfaBypassReason = 'trusted_device';
           this.logger?.debug?.(`MFA bypassed for trusted device - user ${user.sub}`);
         }
-        // Check if bypassed due to MFA exemption
-        else if (userMfaExempt) {
-          mfaBypassed = true;
-          mfaBypassReason = 'mfa_exempt';
-          this.logger?.debug?.(`MFA bypassed due to exemption - user ${user.sub}`);
-        }
+      }
+
+      // Always check exemption status (independent of wouldRequireMFA)
+      // User may be exempt even if they haven't enabled MFA yet
+      if (userMfaExempt && !mfaBypassed) {
+        mfaBypassed = true;
+        mfaBypassReason = 'mfa_exempt';
+        this.logger?.debug?.(`MFA bypassed due to exemption - user ${user.sub}`);
       }
     }
 
@@ -1062,7 +1079,7 @@ export class AuthService {
         deviceName: dto.deviceName,
         deviceType: dto.deviceType,
         // Client info (ipAddress, ipCountry, ipCity, userAgent) automatically extracted from ClientInfoService
-        isRemembered: false,
+        isTrustedDevice,
         expiresAt: this.sessionService.getSessionExpirationDate(),
         authMethod: 'password',
       },
@@ -2431,7 +2448,7 @@ export class AuthService {
         lastActivityAt: session.lastActivityAt || session.createdAt,
         createdAt: session.createdAt,
         expiresAt: session.expiresAt,
-        isRemembered: session.isRemembered,
+        isTrustedDevice: session.isTrustedDevice,
         isCurrent,
         authMethod,
         authProvider,
@@ -2477,10 +2494,10 @@ export class AuthService {
       throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Audit service is not available');
     }
 
-    // Get current authenticated user from context
+    dto = await ensureValidatedDto(GetUserAuthHistoryDTO, dto);
+
     const currentUser = this.getCurrentUserOrThrow();
 
-    // Convert to admin DTO with sub from context
     const adminDto = Object.assign(new AdminGetUserAuthHistoryDTO(), { ...dto, sub: currentUser.sub });
     return await this.auditService.getUserAuthHistory(adminDto);
   }

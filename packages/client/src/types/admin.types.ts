@@ -641,9 +641,10 @@ export interface UserSessionInfo {
   expiresAt: Date | string;
 
   /**
-   * Whether session is remembered
+   * Trusted device flag
+   * Trusted devices may skip MFA
    */
-  isRemembered: boolean;
+  isTrustedDevice: boolean;
 
   /**
    * Whether this is the current session

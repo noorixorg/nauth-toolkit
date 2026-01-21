@@ -408,6 +408,20 @@ describe('NAuthClient', () => {
     getFetchMock().mockResolvedValue(createMockResponse({ ok: true, status: 200, body: {} }));
 
     await client.logout(true);
+    // Device token should be removed from storage in all modes (defensive cleanup)
+    expect(await storage.getItem('nauth_device_token')).toBeNull();
+  });
+
+  it('handles logout with forgetDevice in cookies mode (defensive cleanup)', async () => {
+    const storage = new MockStorage();
+    // Simulate a bug where device token ended up in localStorage in cookies mode
+    await storage.setItem('nauth_device_token', 'undefined');
+    const client = new NAuthClient({ ...baseConfig, storage, tokenDelivery: 'cookies' });
+
+    getFetchMock().mockResolvedValue(createMockResponse({ ok: true, status: 200, body: {} }));
+
+    await client.logout(true);
+    // Should defensively clean up localStorage even in cookies mode
     expect(await storage.getItem('nauth_device_token')).toBeNull();
   });
 
@@ -624,6 +638,18 @@ describe('NAuthClient', () => {
     const client = new NAuthClient({ ...baseConfig, storage });
 
     await client.clearLocalAuthState({ forgetDevice: true });
+    // Device token should be removed in all modes (defensive cleanup)
+    expect(await storage.getItem('nauth_device_token')).toBeNull();
+  });
+
+  it('handles clearLocalAuthState with forgetDevice in cookies mode (defensive cleanup)', async () => {
+    const storage = new MockStorage();
+    // Simulate bug where device token is in localStorage
+    await storage.setItem('nauth_device_token', 'undefined');
+    const client = new NAuthClient({ ...baseConfig, storage, tokenDelivery: 'cookies' });
+
+    await client.clearLocalAuthState({ forgetDevice: true });
+    // Should defensively clean up localStorage even in cookies mode
     expect(await storage.getItem('nauth_device_token')).toBeNull();
   });
 
@@ -744,9 +770,9 @@ describe('NAuthClient', () => {
     unsubscribe();
   });
 
-  it('handles trustDevice', async () => {
+  it('handles trustDevice in JSON mode', async () => {
     const storage = new MockStorage();
-    const client = new NAuthClient({ ...baseConfig, storage });
+    const client = new NAuthClient({ ...baseConfig, storage, tokenDelivery: 'json' });
     getFetchMock().mockResolvedValue(
       createMockResponse({
         ok: true,
@@ -758,6 +784,24 @@ describe('NAuthClient', () => {
     const result = await client.trustDevice();
     expect(result.deviceToken).toBe('device-token-123');
     expect(await storage.getItem('nauth_device_token')).toBe('device-token-123');
+  });
+
+  it('handles trustDevice in cookies mode (does not store to localStorage)', async () => {
+    const storage = new MockStorage();
+    const client = new NAuthClient({ ...baseConfig, storage, tokenDelivery: 'cookies' });
+    getFetchMock().mockResolvedValue(
+      createMockResponse({
+        ok: true,
+        status: 200,
+        body: {}, // In cookies mode, interceptor strips deviceToken from response body
+      }),
+    );
+
+    const result = await client.trustDevice();
+    // In cookies mode, deviceToken is set as httpOnly cookie by backend, not returned in body
+    expect(result.deviceToken).toBeUndefined();
+    // Should NOT store to localStorage in cookies mode
+    expect(await storage.getItem('nauth_device_token')).toBeNull();
   });
 
   it('handles getAuditHistory', async () => {

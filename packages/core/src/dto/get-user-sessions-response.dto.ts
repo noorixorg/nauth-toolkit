@@ -89,10 +89,11 @@ export class UserSessionInfo {
   expiresAt!: Date;
 
   /**
-   * Whether session is remembered
+   * Trusted device flag
+   * Trusted devices may skip MFA
    */
   @IsBoolean()
-  isRemembered!: boolean;
+  isTrustedDevice!: boolean;
 
   /**
    * Whether this is the current session

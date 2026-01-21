@@ -8,6 +8,7 @@ import { StorageAdapter } from '../interfaces/storage-adapter.interface';
 import { NAuthCookieOptions } from '../platform/interfaces';
 import { SocialProviderRegistry } from '../services/social-provider-registry.service';
 import { CsrfService } from '../services/csrf.service';
+import { ContextStorage } from '../utils/context-storage';
 import {
   getAccessTokenCookieName,
   getDeviceTokenCookieName,
@@ -78,6 +79,7 @@ export class SocialRedirectHandler {
       appState: input.appState,
       action,
       delivery,
+      deviceToken: this.extractDeviceTokenFromRequest(input.req),
     });
 
     // Get provider and generate OAuth URL with optional params
@@ -102,6 +104,19 @@ export class SocialRedirectHandler {
     }
 
     const ctx = await this.socialStateStore.consumeRedirectContext(state);
+    // ============================================================================
+    // Preserve device token across OAuth redirects
+    // ============================================================================
+    // OAuth provider callback requests often do not include cookies (SameSite=strict) and cannot send
+    // custom headers. If we captured a device token at redirect start, re-inject it into request context
+    // so downstream trusted-device detection (and audits) remain correct.
+    if (ctx?.deviceToken) {
+      const existing = ContextStorage.get('CLIENT_INFO') as Record<string, unknown> | undefined;
+      if (existing && typeof existing.deviceToken !== 'string') {
+        existing.deviceToken = ctx.deviceToken;
+        ContextStorage.set('CLIENT_INFO', existing);
+      }
+    }
     const frontendBaseUrl = this.getFrontendBaseUrl();
     const frontendUrl = this.buildFrontendRedirectUrl(frontendBaseUrl, ctx?.returnTo || '/auth/callback');
 
@@ -254,6 +269,28 @@ export class SocialRedirectHandler {
     }
 
     return cookies;
+  }
+
+  // ============================================================================
+  // Device token extraction (best-effort, framework-agnostic)
+  // ============================================================================
+  private extractDeviceTokenFromRequest(req: unknown): string | undefined {
+    const r = req as { cookies?: Record<string, unknown>; headers?: Record<string, unknown> } | undefined;
+    const cookieName = getDeviceTokenCookieName(this.config);
+    const cookieValue = r?.cookies?.[cookieName];
+    if (typeof cookieValue === 'string' && cookieValue.trim()) {
+      return cookieValue.trim();
+    }
+
+    const headerValue = r?.headers?.['x-device-token'] || r?.headers?.['X-Device-Token'];
+    if (typeof headerValue === 'string' && headerValue.trim()) {
+      return headerValue.trim();
+    }
+    if (headerValue !== undefined && headerValue !== null) {
+      const v = String(headerValue).trim();
+      return v ? v : undefined;
+    }
+    return undefined;
   }
 
   private buildCsrfCookie(): SocialRedirectCookie {

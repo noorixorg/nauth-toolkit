@@ -54,7 +54,6 @@ describe('SessionService', () => {
     platform: 'iOS',
     browser: 'Safari',
     authMethod: 'password',
-    isRemembered: false,
     isTrustedDevice: false,
     expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     lastActivityAt: new Date(),
@@ -185,7 +184,7 @@ describe('SessionService', () => {
         deviceType: 'mobile',
         // Client info (ipAddress, ipCountry, ipCity, userAgent) automatically extracted from ClientInfoService
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        isRemembered: true,
+        isTrustedDevice: true,
         authMethod: 'password',
       };
 
@@ -209,7 +208,7 @@ describe('SessionService', () => {
           ipCity: 'New York',
           userAgent: 'Mozilla/5.0...',
           authMethod: sessionData.authMethod,
-          isRemembered: true,
+          isTrustedDevice: true,
         }),
       );
       expect(mockSessionRepository.save).toHaveBeenCalled();
@@ -235,7 +234,7 @@ describe('SessionService', () => {
       expect(result).toEqual(mockSession);
     });
 
-    it('should set isRemembered to false by default', async () => {
+    it('should set isTrustedDevice to false by default', async () => {
       const sessionData = {
         userId: 123,
         accessTokenHash: 'access-hash',
@@ -251,7 +250,7 @@ describe('SessionService', () => {
 
       expect(mockSessionRepository.create).toHaveBeenCalledWith(
         (expect as any).objectContaining({
-          isRemembered: false,
+          isTrustedDevice: false,
         }),
       );
     });

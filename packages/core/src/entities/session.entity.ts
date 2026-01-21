@@ -128,12 +128,6 @@ export class BaseSession {
   authMethod?: string | null;
 
   /**
-   * "Remember me" flag
-   * Longer expiration for remembered sessions
-   */
-  isRemembered!: boolean;
-
-  /**
    * Trusted device flag
    * Trusted devices may skip MFA
    */

@@ -98,6 +98,20 @@ export interface SocialAuthRedirectContext {
   delivery?: 'cookies' | 'json';
 
   /**
+   * Trusted device token captured at redirect start time.
+   *
+   * WHY:
+   * - OAuth provider callback requests often do not include cookies (e.g., SameSite=strict)
+   * - Mobile/native callbacks also cannot set custom headers reliably in redirect flows
+   * - We still want trusted-device detection (and audit metadata) to be correct during callback
+   *
+   * SECURITY:
+   * - This value is stored server-side only (StorageAdapter-backed)
+   * - It MUST NOT be appended to frontend redirect URLs or returned to the frontend
+   */
+  deviceToken?: string;
+
+  /**
    * Redirect flow action.
    * - `login`: Authenticate user
    * - `link`: Link provider to existing session (future)
