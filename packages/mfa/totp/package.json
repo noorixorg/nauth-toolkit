@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/mfa-totp",
-  "version": "0.1.103",
+  "version": "0.1.105",
   "description": "TOTP/Authenticator MFA provider for nauth-toolkit",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -44,7 +44,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.103",
+    "@nauth-toolkit/core": "^0.1.105",
     "qrcode": "^1.5.3"
   },
   "devDependencies": {

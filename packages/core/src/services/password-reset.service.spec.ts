@@ -209,6 +209,51 @@ describe('PasswordResetService', () => {
       );
       expect(result.deliveryMedium).toBe('sms');
     });
+
+    it('should append code with & when baseUrl has query params', async () => {
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+
+      const created = { id: 1 } as any;
+      mockVerificationTokenRepo.create.mockReturnValue(created);
+      mockVerificationTokenRepo.save.mockResolvedValue({ id: 1 } as unknown as BaseVerificationToken);
+
+      const baseUrl = 'https://app.example.com/reset?from=admin';
+      await service.requestReset(mockUser, 'email', { baseUrl });
+
+      const link = mockEmailProvider.sendPasswordResetEmail.mock.calls[0][3] as string;
+      expect(link).toContain('from=admin&code=');
+    });
+
+    it('should preserve hash fragments when building reset link', async () => {
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+
+      const created = { id: 1 } as any;
+      mockVerificationTokenRepo.create.mockReturnValue(created);
+      mockVerificationTokenRepo.save.mockResolvedValue({ id: 1 } as unknown as BaseVerificationToken);
+
+      const baseUrl = 'https://app.example.com/reset?from=admin#section';
+      await service.requestReset(mockUser, 'email', { baseUrl });
+
+      const link = mockEmailProvider.sendPasswordResetEmail.mock.calls[0][3] as string;
+      expect(link).toContain('from=admin&code=');
+      expect(link.endsWith('#section')).toBe(true);
+    });
+  });
+
+  describe('requestAdminReset()', () => {
+    it('should append code with & when admin baseUrl has query params', async () => {
+      const created = { id: 1 } as any;
+      mockVerificationTokenRepo.create.mockReturnValue(created);
+      mockVerificationTokenRepo.save.mockResolvedValue({ id: 1 } as unknown as BaseVerificationToken);
+
+      const baseUrl = 'https://admin.example.com/reset?source=console';
+      await service.requestAdminReset(mockUser, 'email', { expiresIn: 3600, baseUrl });
+
+      const link = mockEmailProvider.sendAdminPasswordResetEmail.mock.calls[0][2] as string;
+      expect(link).toContain('source=console&code=');
+    });
   });
 
   describe('consumeValidCode()', () => {

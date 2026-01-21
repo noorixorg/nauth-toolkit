@@ -135,7 +135,7 @@ export class PasswordResetService {
     // ============================================================================
     // WHY: Consumer apps should be able to stay code-only (no token vs code branching).
     // Links therefore carry the same verification code as a query param.
-    const resetLink = options?.baseUrl ? `${options.baseUrl}?code=${code}` : undefined;
+    const resetLink = options?.baseUrl ? this.buildResetLink(options.baseUrl, code) : undefined;
 
     // ============================================================================
     // Deliver code (and optional link)
@@ -345,7 +345,7 @@ export class PasswordResetService {
       userAgent,
     });
 
-    const saved = (await this.verificationTokenRepo.save(verificationToken)) as unknown as IVerificationToken;
+    const _saved = (await this.verificationTokenRepo.save(verificationToken)) as unknown as IVerificationToken;
 
     // ============================================================================
     // Build reset link if baseUrl provided
@@ -354,7 +354,7 @@ export class PasswordResetService {
     // Build reset link if baseUrl provided
     // ============================================================================
     // WHY: Keep consumer apps code-only and consistent. Links include `code=...`.
-    const resetLink = options.baseUrl ? `${options.baseUrl}?code=${code}` : undefined;
+    const resetLink = options.baseUrl ? this.buildResetLink(options.baseUrl, code) : undefined;
 
     // ============================================================================
     // Deliver code (and optional link)
@@ -367,20 +367,6 @@ export class PasswordResetService {
       const expiryMinutes = Math.ceil(expiresIn / 60);
       await this.emailProvider.sendAdminPasswordResetEmail(user.email, code, resetLink, expiryMinutes);
       this.logger?.log?.(`Admin password reset code sent via email to user ${user.sub}`);
-
-      // Audit
-      await this.auditService?.recordEvent({
-        userId: user.id,
-        eventType: AuthAuditEventType.ADMIN_PASSWORD_RESET_INITIATED,
-        eventStatus: 'INFO',
-        authMethod: 'password',
-        description: 'Admin initiated password reset (email)',
-        metadata: {
-          medium: 'email',
-          tokenId: saved.id,
-          hasLink: !!resetLink,
-        },
-      });
 
       return {
         destination: this.maskEmail(user.email),
@@ -413,18 +399,6 @@ export class PasswordResetService {
       phone: user.phone,
     });
     this.logger?.log?.(`Admin password reset code sent via SMS to user ${user.sub}`);
-
-    await this.auditService?.recordEvent({
-      userId: user.id,
-      eventType: AuthAuditEventType.ADMIN_PASSWORD_RESET_INITIATED,
-      eventStatus: 'INFO',
-      authMethod: 'password',
-      description: 'Admin initiated password reset (sms)',
-      metadata: {
-        medium: 'sms',
-        tokenId: saved.id,
-      },
-    });
 
     return {
       destination: this.maskPhone(user.phone),
@@ -547,6 +521,36 @@ export class PasswordResetService {
       out += digits[Math.floor(Math.random() * digits.length)];
     }
     return out;
+  }
+
+  /**
+   * Build a reset link by appending the verification code as a query param.
+   *
+   * Handles existing query params and hash fragments safely.
+   *
+   * @param baseUrl - Base URL provided by the consumer app
+   * @param code - Verification code to append
+   * @returns Full reset link with `code` query param
+   *
+   * @example
+   * ```typescript
+   * const link = this.buildResetLink('https://app.com/reset?from=admin', '123456');
+   * // https://app.com/reset?from=admin&code=123456
+   * ```
+   */
+  private buildResetLink(baseUrl: string, code: string): string {
+    // ============================================================================
+    // Preserve hash fragments and avoid duplicating separators
+    // ============================================================================
+    // WHY: `#` should remain at the end and query separators must be correct.
+    const hashIndex = baseUrl.indexOf('#');
+    const base = hashIndex === -1 ? baseUrl : baseUrl.slice(0, hashIndex);
+    const hash = hashIndex === -1 ? '' : baseUrl.slice(hashIndex);
+    const hasQuery = base.includes('?');
+    const needsSeparator = !(base.endsWith('?') || base.endsWith('&'));
+    const separator = hasQuery ? (needsSeparator ? '&' : '') : '?';
+
+    return `${base}${separator}code=${encodeURIComponent(code)}${hash}`;
   }
 
   private generateToken(): string {

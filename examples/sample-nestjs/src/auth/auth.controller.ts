@@ -161,7 +161,8 @@ export class CustomAuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   async forgotPassword(@Body() dto: ForgotPasswordDTO): Promise<ForgotPasswordResponseDTO> {
-    dto.baseUrl = 'https://localhost:4200/reset-password';
+    // Query param for testing: reset link should use &code= when baseUrl already has params
+    dto.baseUrl = 'https://localhost:4200';
     return await this.authService.forgotPassword(dto);
   }
 
