@@ -34,7 +34,7 @@ import { ChangePasswordResponseDTO } from '../dto/change-password-response.dto';
 import { UpdateUserAttributesDTO } from '../dto/update-user-attributes.dto';
 import { AdminUpdateUserAttributesDTO } from '../dto/admin-update-user-attributes.dto';
 // Admin-only verification updates are handled by AdminAuthService
-import { UserResponseDto } from '../dto/user-response.dto';
+import { UserResponseDTO } from '../dto/user-response.dto';
 import { AuthResponseDTO, TokenResponse, toAuthResponseUser } from '../dto/auth-response.dto';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
 import {
@@ -2723,7 +2723,7 @@ export class AuthService {
    * @example
    * await authService.updateUserAttributes({ email: 'test@example.com' });
    */
-  async updateUserAttributes(dto: UpdateUserAttributesDTO): Promise<UserResponseDto> {
+  async updateUserAttributes(dto: UpdateUserAttributesDTO): Promise<UserResponseDTO> {
     const currentUser = this.getCurrentUserOrThrow();
     const adminDto = Object.assign(new AdminUpdateUserAttributesDTO(), { sub: currentUser.sub, ...dto });
     return await this.userService.updateUserAttributes(adminDto);

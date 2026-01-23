@@ -1,6 +1,6 @@
 import { IsOptional, IsNumber, Min, Max, IsString, IsBoolean, IsEnum, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
-import { UserResponseDto } from './user-response.dto';
+import { UserResponseDTO } from './user-response.dto';
 
 /**
  * Date filter with operator support
@@ -198,7 +198,7 @@ export class GetUsersResponseDTO {
   /**
    * Array of sanitized user objects
    */
-  users!: UserResponseDto[];
+  users!: UserResponseDTO[];
 
   /**
    * Pagination metadata

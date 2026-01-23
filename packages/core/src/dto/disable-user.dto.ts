@@ -1,5 +1,5 @@
 import { IsString, IsUUID, IsOptional, MaxLength } from 'class-validator';
-import { UserResponseDto } from './user-response.dto';
+import { UserResponseDTO } from './user-response.dto';
 
 /**
  * DTO for administrative permanent account locking
@@ -62,7 +62,7 @@ export class DisableUserResponseDTO {
   /**
    * Sanitized user object with updated lock status
    */
-  user!: UserResponseDto;
+  user!: UserResponseDTO;
 
   /**
    * Number of sessions revoked (forced logout)

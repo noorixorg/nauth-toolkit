@@ -20,7 +20,7 @@ import { IUser } from '../interfaces/entities.interface';
  * return UserResponseDto.fromEntity(user);
  * ```
  */
-export class UserResponseDto {
+export class UserResponseDTO {
   /**
    * External user identifier (UUID v4)
    * This is the 'sub' (subject) field from JWT tokens
@@ -115,8 +115,8 @@ export class UserResponseDto {
    * @param user - User entity from database
    * @returns Sanitized user object with external identifier (sub)
    */
-  static fromEntity(user: IUser): UserResponseDto {
-    const dto = new UserResponseDto();
+  static fromEntity(user: IUser): UserResponseDTO {
+    const dto = new UserResponseDTO();
 
     // Essential fields only
     dto.sub = user.sub; // External UUID identifier
@@ -145,7 +145,7 @@ export class UserResponseDto {
    * @param users - Array of User entities
    * @returns Array of sanitized user objects
    */
-  static fromEntities(users: IUser[]): UserResponseDto[] {
-    return users.map((user) => UserResponseDto.fromEntity(user));
+  static fromEntities(users: IUser[]): UserResponseDTO[] {
+    return users.map((user) => UserResponseDTO.fromEntity(user));
   }
 }

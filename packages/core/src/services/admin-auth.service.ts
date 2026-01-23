@@ -30,7 +30,7 @@ import { DisableUserDTO, DisableUserResponseDTO } from '../dto/disable-user.dto'
 import { EnableUserDTO, EnableUserResponseDTO } from '../dto/enable-user.dto';
 import { GetUserByEmailDTO } from '../dto/get-user-by-email.dto';
 import { GetUserByIdDTO } from '../dto/get-user-by-id.dto';
-import { UserResponseDto } from '../dto/user-response.dto';
+import { UserResponseDTO } from '../dto/user-response.dto';
 import { GetUserSessionsDTO } from '../dto/get-user-sessions.dto';
 import { GetUserSessionsResponseDTO, UserSessionInfo } from '../dto/get-user-sessions-response.dto';
 import { LogoutAllResponseDTO } from '../dto/logout-all-response.dto';
@@ -215,7 +215,7 @@ export class AdminAuthService {
    * const user = await adminAuthService.getUserById({ sub: 'user-uuid' });
    * ```
    */
-  async getUserById(dto: GetUserByIdDTO): Promise<UserResponseDto | null> {
+  async getUserById(dto: GetUserByIdDTO): Promise<UserResponseDTO | null> {
     return await this.userService.getUserById(dto);
   }
 
@@ -231,7 +231,7 @@ export class AdminAuthService {
    * const user = await adminAuthService.getUserByEmail({ email: 'user@example.com' });
    * ```
    */
-  async getUserByEmail(dto: GetUserByEmailDTO): Promise<UserResponseDto | null> {
+  async getUserByEmail(dto: GetUserByEmailDTO): Promise<UserResponseDTO | null> {
     return await this.userService.getUserByEmail(dto);
   }
 
@@ -263,7 +263,7 @@ export class AdminAuthService {
    * await adminAuthService.updateVerifiedStatus({ sub: 'user-uuid', isEmailVerified: true });
    * ```
    */
-  async updateVerifiedStatus(dto: UpdateVerifiedStatusRequestDTO): Promise<UserResponseDto> {
+  async updateVerifiedStatus(dto: UpdateVerifiedStatusRequestDTO): Promise<UserResponseDTO> {
     return await this.userService.updateVerifiedStatus(dto);
   }
 
@@ -430,7 +430,7 @@ export class AdminAuthService {
       adminSignup: true,
     });
 
-    const userDto = UserResponseDto.fromEntity(savedUser);
+    const userDto = UserResponseDTO.fromEntity(savedUser);
     return {
       user: userDto,
       generatedPassword,
@@ -622,7 +622,7 @@ export class AdminAuthService {
       adminSignup: true,
     });
 
-    const userDto = UserResponseDto.fromEntity(savedUser);
+    const userDto = UserResponseDTO.fromEntity(savedUser);
     return {
       user: userDto,
       socialAccount: {
@@ -868,7 +868,7 @@ export class AdminAuthService {
    * const user = await adminAuthService.updateUserAttributes({ sub: 'user-uuid', email: 'new@example.com' });
    * ```
    */
-  async updateUserAttributes(dto: AdminUpdateUserAttributesDTO): Promise<UserResponseDto> {
+  async updateUserAttributes(dto: AdminUpdateUserAttributesDTO): Promise<UserResponseDTO> {
     return await this.userService.updateUserAttributes(dto);
   }
 

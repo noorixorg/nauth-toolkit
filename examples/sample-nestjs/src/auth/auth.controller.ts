@@ -99,7 +99,7 @@ import {
   GetUserAuthHistoryDTO,
   GetUserAuthHistoryResponseDTO,
   AdminGetUserAuthHistoryDTO,
-  UserResponseDto,
+  UserResponseDTO,
   IMFADevice,
   RequireRecaptcha,
 } from '@nauth-toolkit/nestjs';
@@ -330,7 +330,7 @@ export class CustomAuthController {
    */
   @Get('admin/users/:sub')
   @HttpCode(HttpStatus.OK)
-  async getUserBySub(@Param() dto: GetUserByIdDTO): Promise<UserResponseDto | null> {
+  async getUserBySub(@Param() dto: GetUserByIdDTO): Promise<UserResponseDTO | null> {
     return await this.adminAuthService.getUserById(dto);
   }
 

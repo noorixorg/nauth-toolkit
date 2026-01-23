@@ -35,7 +35,7 @@ import { DisableUserDTO, DisableUserResponseDTO } from '../dto/disable-user.dto'
 import { EnableUserDTO, EnableUserResponseDTO } from '../dto/enable-user.dto';
 import { SetMustChangePasswordDTO } from '../dto/set-must-change-password.dto';
 import { SetMustChangePasswordResponseDTO } from '../dto/set-must-change-password-response.dto';
-import { UserResponseDto } from '../dto/user-response.dto';
+import { UserResponseDTO } from '../dto/user-response.dto';
 import { ensureValidatedDto } from '../utils/dto-validator';
 import { AuthServiceInternalHelpers } from './auth-service-internal-helpers';
 
@@ -222,7 +222,7 @@ export class UserService {
     this.logger?.debug?.(`Found ${users.length} users (total: ${total}) with filters`);
 
     // Sanitize user data
-    const sanitizedUsers = users.map((user) => UserResponseDto.fromEntity(user as unknown as IUser));
+    const sanitizedUsers = users.map((user) => UserResponseDTO.fromEntity(user as unknown as IUser));
 
     return {
       users: sanitizedUsers,
@@ -246,12 +246,12 @@ export class UserService {
    * const user = await userService.getUserById({ sub: 'user-uuid' });
    * ```
    */
-  async getUserById(dto: GetUserByIdDTO): Promise<UserResponseDto | null> {
+  async getUserById(dto: GetUserByIdDTO): Promise<UserResponseDTO | null> {
     // Ensure DTO is validated (supports direct usage without framework validation)
     dto = await ensureValidatedDto(GetUserByIdDTO, dto);
 
     const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
-    return user ? UserResponseDto.fromEntity(user) : null;
+    return user ? UserResponseDTO.fromEntity(user) : null;
   }
 
   /**
@@ -266,7 +266,7 @@ export class UserService {
    * const user = await userService.getUserByEmail({ email: 'user@example.com', requireEmailVerified: true });
    * ```
    */
-  async getUserByEmail(dto: GetUserByEmailDTO): Promise<UserResponseDto | null> {
+  async getUserByEmail(dto: GetUserByEmailDTO): Promise<UserResponseDTO | null> {
     // Ensure DTO is validated (supports direct usage without framework validation)
     dto = await ensureValidatedDto(GetUserByEmailDTO, dto);
 
@@ -274,7 +274,7 @@ export class UserService {
       ? { email: dto.email, isEmailVerified: true }
       : { email: dto.email };
     const user = (await this.userRepository.findOne({ where })) as IUser | null;
-    return user ? UserResponseDto.fromEntity(user) : null;
+    return user ? UserResponseDTO.fromEntity(user) : null;
   }
 
   /**
@@ -398,7 +398,7 @@ export class UserService {
    * await userService.updateUserAttributes({ sub: 'user-uuid', email: 'test@example.com' });
    * ```
    */
-  async updateUserAttributes(dto: AdminUpdateUserAttributesDTO): Promise<UserResponseDto> {
+  async updateUserAttributes(dto: AdminUpdateUserAttributesDTO): Promise<UserResponseDTO> {
     // Ensure DTO is validated (supports direct usage without framework validation)
     dto = await ensureValidatedDto(AdminUpdateUserAttributesDTO, dto);
 
@@ -870,7 +870,7 @@ export class UserService {
     }
 
     // Return user response DTO
-    return UserResponseDto.fromEntity(updatedUser);
+    return UserResponseDTO.fromEntity(updatedUser);
   }
 
   /**
@@ -908,7 +908,7 @@ export class UserService {
    * });
    * ```
    */
-  async updateVerifiedStatus(dto: UpdateVerifiedStatusRequestDTO): Promise<UserResponseDto> {
+  async updateVerifiedStatus(dto: UpdateVerifiedStatusRequestDTO): Promise<UserResponseDTO> {
     // Ensure DTO is validated (supports direct usage without framework validation)
     dto = await ensureValidatedDto(UpdateVerifiedStatusRequestDTO, dto);
 
@@ -947,7 +947,7 @@ export class UserService {
 
     // If no fields to update, return current user
     if (Object.keys(updateFields).length === 0) {
-      return UserResponseDto.fromEntity(user);
+      return UserResponseDTO.fromEntity(user);
     }
 
     // Update user - use internal id for database update
@@ -1069,7 +1069,7 @@ export class UserService {
     }
 
     // Return user response DTO
-    return UserResponseDto.fromEntity(updatedUser);
+    return UserResponseDTO.fromEntity(updatedUser);
   }
 
   // ============================================================================
@@ -1416,7 +1416,7 @@ export class UserService {
     }
 
     // Return sanitized user and revoked session count
-    const userDto = UserResponseDto.fromEntity(updatedUser as unknown as IUser);
+    const userDto = UserResponseDTO.fromEntity(updatedUser as unknown as IUser);
     return {
       success: true,
       user: userDto,
@@ -1579,7 +1579,7 @@ export class UserService {
     }
 
     // Return sanitized user
-    const userDto = UserResponseDto.fromEntity(updatedUser as unknown as IUser);
+    const userDto = UserResponseDTO.fromEntity(updatedUser as unknown as IUser);
     return {
       success: true,
       user: userDto,

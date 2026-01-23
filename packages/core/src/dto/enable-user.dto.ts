@@ -1,5 +1,5 @@
 import { IsString, IsUUID } from 'class-validator';
-import { UserResponseDto } from './user-response.dto';
+import { UserResponseDTO } from './user-response.dto';
 
 /**
  * DTO for administrative account unlocking
@@ -45,5 +45,5 @@ export class EnableUserResponseDTO {
   /**
    * Sanitized user object with updated lock status
    */
-  user!: UserResponseDto;
+  user!: UserResponseDTO;
 }

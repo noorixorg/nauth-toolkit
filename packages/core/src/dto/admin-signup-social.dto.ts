@@ -1,6 +1,6 @@
 import { IsEmail, IsString, MinLength, MaxLength, IsOptional, Matches, IsBoolean, IsEnum } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { UserResponseDto } from './user-response.dto';
+import { UserResponseDTO } from './user-response.dto';
 
 /**
  * DTO for administrative social user import with override capabilities
@@ -352,5 +352,5 @@ export class AdminSignupSocialResponseDTO {
    * - No MFA secrets
    * - No internal tracking fields
    */
-  user!: UserResponseDto;
+  user!: UserResponseDTO;
 }

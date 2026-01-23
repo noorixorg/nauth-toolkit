@@ -1,6 +1,6 @@
 import { IsEmail, IsString, MinLength, MaxLength, IsOptional, Matches, IsBoolean, ValidateIf } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { UserResponseDto } from './user-response.dto';
+import { UserResponseDTO } from './user-response.dto';
 
 /**
  * DTO for administrative user creation with override capabilities
@@ -263,7 +263,7 @@ export class AdminSignupResponseDTO {
    * - No MFA secrets
    * - No internal tracking fields
    */
-  user!: UserResponseDto;
+  user!: UserResponseDTO;
 
   /**
    * Generated password (only present if generatePassword was true)
