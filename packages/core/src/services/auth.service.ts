@@ -66,7 +66,7 @@ import { ForgotPasswordDTO, ForgotPasswordResponseDTO } from '../dto/forgot-pass
 import { ConfirmForgotPasswordDTO, ConfirmForgotPasswordResponseDTO } from '../dto/confirm-forgot-password.dto';
 import { TrustDeviceResponseDTO } from '../dto/trust-device-response.dto';
 import { IsTrustedDeviceResponseDTO } from '../dto/is-trusted-device-response.dto';
-import { ResendVerificationEmailDTO } from '../dto/verify-email.dto';
+import { ResendVerificationEmailDTO, SendVerificationEmailDTO } from '../dto/verify-email.dto';
 import { SendVerificationSMSDTO, ResendVerificationSMSDTO } from '../dto/verify-phone.dto';
 import { GetUserAuthHistoryDTO } from '../dto/get-user-auth-history.dto';
 import { AdminGetUserAuthHistoryDTO, GetUserAuthHistoryResponseDTO } from '../dto/admin-get-user-auth-history.dto';
@@ -1411,11 +1411,12 @@ export class AuthService {
 
           // For Email, use email verification service directly to pass challengeSessionId
           if (method === 'email' && this.emailVerificationService) {
-            const emailDto = Object.assign(new ResendVerificationEmailDTO(), {
+            const emailDto = Object.assign(new SendVerificationEmailDTO(), {
               sub: user.sub,
+              skipAlreadyVerifiedCheck: true, // Skip "already verified" check for MFA
               challengeSessionId: challengeSession.id, // Link resend code to this challenge session
             });
-            await this.emailVerificationService.resendVerificationEmail(emailDto);
+            await this.emailVerificationService.sendMFAEmailCode(emailDto);
             this.logger?.debug?.(`Email MFA code resent: user=${user.sub}`);
             const maskedEmail = user.email ? this.helpers.maskEmail(user.email) : 'u***r@example.com';
             return { destination: maskedEmail };

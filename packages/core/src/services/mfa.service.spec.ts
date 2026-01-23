@@ -198,6 +198,148 @@ describe('MFAService', () => {
         mfaExemptGrantedAt: new Date('2024-01-01T00:00:00.000Z'),
       });
     });
+
+    it('should include performedByName in audit metadata when admin user is in context', async () => {
+      const userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      const adminSub = 'admin-uuid-1234';
+      const adminUser: Partial<IUser> = {
+        id: 99,
+        sub: adminSub,
+        email: 'admin@example.com',
+        firstName: 'John',
+        lastName: 'Admin',
+        isActive: true,
+        isEmailVerified: true,
+        isPhoneVerified: false,
+        isLocked: false,
+        mustChangePassword: false,
+        mfaEnabled: false,
+        hasSocialAuth: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      };
+
+      const userEntity = {
+        id: 42,
+        sub: userSub,
+        mfaEnabled: false,
+        mfaExempt: false,
+      } as unknown as BaseUser;
+
+      // Set admin user in context
+      ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', adminUser as IUser);
+
+        mockUserRepository.findOne.mockImplementation(async (opts: unknown) => {
+          const typed = opts as { where?: Partial<BaseUser>; select?: string[] };
+          if (typed.where?.sub === userSub) {
+            return userEntity;
+          }
+          if (typed.where?.id === userEntity.id && Array.isArray(typed.select)) {
+            return {
+              mfaExempt: true,
+              mfaExemptReason: 'Admin override',
+              mfaExemptGrantedAt: new Date('2024-01-01T00:00:00.000Z'),
+            } as unknown as BaseUser;
+          }
+          return null;
+        });
+
+        mockUserRepository.update.mockResolvedValue({} as never);
+
+        const dto = new SetMFAExemptionDTO();
+        dto.sub = userSub;
+        dto.exempt = true;
+        dto.reason = 'Admin override';
+        dto.grantedBy = adminSub;
+
+        await service.setMFAExemption(dto);
+
+        // Verify audit was called with performedByName in metadata
+        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userId: userEntity.id,
+            eventType: AuthAuditEventType.MFA_EXEMPTION_GRANTED,
+            performedBy: adminSub,
+            metadata: expect.objectContaining({
+              performedByName: 'John Admin',
+            }),
+          }),
+        );
+      });
+    });
+
+    it('should use email for performedByName when admin has no firstName/lastName', async () => {
+      const userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      const adminSub = 'admin-uuid-5678';
+      const adminUser: Partial<IUser> = {
+        id: 100,
+        sub: adminSub,
+        email: 'admin2@example.com',
+        firstName: null,
+        lastName: null,
+        isActive: true,
+        isEmailVerified: true,
+        isPhoneVerified: false,
+        isLocked: false,
+        mustChangePassword: false,
+        mfaEnabled: false,
+        hasSocialAuth: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      };
+
+      const userEntity = {
+        id: 43,
+        sub: userSub,
+        mfaEnabled: false,
+        mfaExempt: false,
+      } as unknown as BaseUser;
+
+      // Set admin user in context
+      ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', adminUser as IUser);
+
+        mockUserRepository.findOne.mockImplementation(async (opts: unknown) => {
+          const typed = opts as { where?: Partial<BaseUser>; select?: string[] };
+          if (typed.where?.sub === userSub) {
+            return userEntity;
+          }
+          if (typed.where?.id === userEntity.id && Array.isArray(typed.select)) {
+            return {
+              mfaExempt: true,
+              mfaExemptReason: 'Admin override',
+              mfaExemptGrantedAt: new Date('2024-01-01T00:00:00.000Z'),
+            } as unknown as BaseUser;
+          }
+          return null;
+        });
+
+        mockUserRepository.update.mockResolvedValue({} as never);
+
+        const dto = new SetMFAExemptionDTO();
+        dto.sub = userSub;
+        dto.exempt = true;
+        dto.reason = 'Admin override';
+        dto.grantedBy = adminSub;
+
+        await service.setMFAExemption(dto);
+
+        // Verify audit was called with email as performedByName
+        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userId: userEntity.id,
+            eventType: AuthAuditEventType.MFA_EXEMPTION_GRANTED,
+            performedBy: adminSub,
+            metadata: expect.objectContaining({
+              performedByName: 'admin2@example.com',
+            }),
+          }),
+        );
+      });
+    });
   });
 
   // ============================================================================

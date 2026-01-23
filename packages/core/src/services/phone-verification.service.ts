@@ -100,12 +100,13 @@ export class PhoneVerificationService {
     const actualTtl = await this.storageAdapter.ttl(rateLimitKey);
 
     this.logger?.debug?.(
-      `Phone verification rate limit check: sub=${sub}, count=${currentCount}/${rateLimitMax}, ttl=${actualTtl}s`,
+      `Phone verification rate limit check: sub=${sub}, count=${currentCount}/${rateLimitMax}, ttl=${actualTtl}s, window=${rateLimitWindow}s`,
     );
 
     if (currentCount > rateLimitMax) {
-      this.logger?.warn?.(
-        `SMS rate limit exceeded: sub=${sub}, count=${currentCount}, max=${rateLimitMax}, retryAfter=${actualTtl}s`,
+      this.logger?.error?.(
+        `SMS rate limit exceeded: sub=${sub}, count=${currentCount}, max=${rateLimitMax}, retryAfter=${actualTtl}s, window=${rateLimitWindow}s. ` +
+          `Config: rateLimitMax=${this.config.signup?.phoneVerification?.rateLimitMax}, rateLimitWindow=${this.config.signup?.phoneVerification?.rateLimitWindow}`,
       );
       throw new NAuthException(
         AuthErrorCode.RATE_LIMIT_SMS,
@@ -133,14 +134,35 @@ export class PhoneVerificationService {
 
     // Enforce resend delay to prevent abuse
     const resendDelay = this.config.signup?.phoneVerification?.resendDelay ?? 60;
+    this.logger?.debug?.(
+      `Phone resend delay check: sub=${sub}, resendDelay=${resendDelay}s, config=${this.config.signup?.phoneVerification?.resendDelay}`,
+    );
     const lastToken = (await this.verificationTokenRepo.findOne({
       where: { userId: user.id, type: 'phone' },
       order: { createdAt: 'DESC' },
     })) as IVerificationToken | null;
     if (lastToken) {
       const secondsSinceLastSend = (Date.now() - lastToken.createdAt.getTime()) / 1000;
+      this.logger?.debug?.(
+        `Phone last token: tokenId=${lastToken.id}, createdAt=${lastToken.createdAt.toISOString()}, secondsSince=${secondsSinceLastSend.toFixed(1)}s`,
+      );
       if (secondsSinceLastSend < resendDelay) {
         const waitSeconds = Math.ceil(resendDelay - secondsSinceLastSend);
+
+        // If challengeSessionId is provided and token is still valid, link it to the new challenge session
+        // This allows the token to be found by the new session (e.g., during rapid re-logins)
+        if (challengeSessionId && lastToken.usedAt === null && lastToken.expiresAt > new Date()) {
+          this.logger?.log?.(
+            `Resend delay active but linking existing token ${lastToken.id} to new challenge session ${challengeSessionId}. No new SMS sent.`,
+          );
+          await this.verificationTokenRepo.update({ id: lastToken.id }, { challengeSessionId });
+          // Return success response with existing token ID (no new SMS sent)
+          return { tokenId: lastToken.id as number };
+        }
+
+        this.logger?.warn?.(
+          `SMS resend rate limit: sub=${sub}, wait=${waitSeconds}s, delay=${resendDelay}s, secondsSince=${secondsSinceLastSend.toFixed(1)}s`,
+        );
         throw new NAuthException(
           AuthErrorCode.RATE_LIMIT_RESEND,
           `Please wait ${waitSeconds} seconds before requesting another code`,

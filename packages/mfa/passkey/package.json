@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/mfa-passkey",
-  "version": "0.1.106",
+  "version": "0.1.108",
   "description": "Passkey/WebAuthn MFA provider for nauth-toolkit",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -44,7 +44,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.106",
+    "@nauth-toolkit/core": "^0.1.108",
     "@simplewebauthn/server": "^13.2.2"
   },
   "devDependencies": {

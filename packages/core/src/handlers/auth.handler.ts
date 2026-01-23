@@ -66,16 +66,17 @@ export class AuthHandler {
         return;
       }
 
-      // Validate session
       const sessionId = validation.payload!.sessionId;
-      const session = await this.sessionService.findByIdLight(sessionId);
+      const authContext = await this.sessionService.findAuthContextBySessionId(sessionId);
 
-      if (!session) {
+      if (!authContext) {
         this.logger?.debug?.('Session not found:', sessionId);
         await next();
         return;
       }
 
+      // Validate session
+      const session = authContext.session;
       const initialVersion = session.version;
 
       if (session.isRevoked) {
@@ -90,13 +91,13 @@ export class AuthHandler {
         return;
       }
 
-      // Load user via AuthService (service-first architecture)
-      // AuthService.getUserForAuthContext handles:
-      // - User lookup by sub
-      // - Active status check
-      // - Computing hasPasswordHash from passwordHash
-      // - Removing sensitive fields (passwordHash, totpSecret, backupCodes, passwordHistory)
-      const user = await this.authService.getUserForAuthContext(validation.payload!.sub);
+      // Cross-check token sub matches the session user (defensive integrity validation)
+      const user = authContext.user;
+      if (user.sub !== validation.payload!.sub) {
+        this.logger?.error?.('Token sub does not match session user - possible token inconsistency');
+        await next();
+        return;
+      }
 
       // ============================================================================
       // Session-scoped auth method propagation

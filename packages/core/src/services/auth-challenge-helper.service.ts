@@ -446,7 +446,16 @@ export class AuthChallengeHelperService {
         })
         .catch((error: unknown) => {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          this.logger?.error?.(`Failed to send MFA SMS code to user ${user.sub}: ${errorMessage}`);
+          const errorCode = (error as any)?.code;
+          // Rate limit and resend delay errors are expected - log as warning
+          if (errorCode === 'RATE_LIMIT_SMS' || errorCode === 'RATE_LIMIT_RESEND') {
+            this.logger?.warn?.(
+              `MFA SMS code sending rate limited for user ${user.sub}: ${errorMessage}. User can still complete MFA with existing code.`,
+            );
+          } else {
+            // Unexpected errors - log as error
+            this.logger?.error?.(`Failed to send MFA SMS code to user ${user.sub}: ${errorMessage}`);
+          }
         });
     } else {
       this.logger?.debug?.(
@@ -490,7 +499,16 @@ export class AuthChallengeHelperService {
         })
         .catch((error: unknown) => {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          this.logger?.error?.(`Failed to send MFA Email code to user ${user.sub}: ${errorMessage}`);
+          const errorCode = (error as any)?.code;
+          // Rate limit and resend delay errors are expected - log as warning
+          if (errorCode === 'RATE_LIMIT_EMAIL' || errorCode === 'RATE_LIMIT_RESEND') {
+            this.logger?.warn?.(
+              `MFA Email code sending rate limited for user ${user.sub}: ${errorMessage}. User can still complete MFA with existing code.`,
+            );
+          } else {
+            // Unexpected errors - log as error
+            this.logger?.error?.(`Failed to send MFA Email code to user ${user.sub}: ${errorMessage}`);
+          }
         });
     } else {
       this.logger?.debug?.(

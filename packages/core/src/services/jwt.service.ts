@@ -124,6 +124,26 @@ export class JwtService {
   /** Cached access token key (for performance) */
   private accessTokenKey: Uint8Array | crypto.KeyObject | null = null;
 
+  /**
+   * Cached access-token public key for verification (RS*)
+   *
+   * WHY:
+   * - `crypto.createPublicKey(pem)` is synchronous and relatively expensive.
+   * - Parsing the PEM on every request adds unnecessary CPU overhead and increases event-loop contention.
+   *
+   * NOTE:
+   * - We intentionally cache the parsed KeyObject (static config) rather than re-parsing per request.
+   * - If parsing fails, we store the error message and fail validation deterministically without repeated parsing.
+   */
+  private accessTokenPublicKey: crypto.KeyObject | null = null;
+
+  /**
+   * Cached parse error for accessToken.publicKey (if invalid)
+   *
+   * Kept as a string to avoid leaking complex Error objects across boundaries.
+   */
+  private accessTokenPublicKeyError: string | null = null;
+
   /** Cached refresh token key (for performance) */
   private refreshTokenKey: Uint8Array | crypto.KeyObject | null = null;
 
@@ -189,6 +209,21 @@ export class JwtService {
     } else if (this.config.accessToken.secret) {
       // For symmetric algorithms (HS256, HS384, HS512), use secret as Uint8Array
       this.accessTokenKey = new TextEncoder().encode(this.config.accessToken.secret);
+    }
+
+    // Access token public key (verification key for RS*)
+    // SECURITY NOTE:
+    // This is a pure performance optimization; caching does not change verification semantics.
+    this.accessTokenPublicKey = null;
+    this.accessTokenPublicKeyError = null;
+    if (this.config.accessToken.publicKey) {
+      try {
+        this.accessTokenPublicKey = crypto.createPublicKey(this.config.accessToken.publicKey);
+      } catch (error) {
+        // Do not throw during initialization; keep behavior consistent with runtime validation failures.
+        this.accessTokenPublicKey = null;
+        this.accessTokenPublicKeyError = error instanceof Error ? error.message : 'Invalid access token public key';
+      }
     }
 
     // Refresh token key (always uses secret for symmetric algorithms)
@@ -427,7 +462,13 @@ export class JwtService {
 
       if (this.config.accessToken.publicKey) {
         // Use public key for asymmetric verification (RS256, RS384, RS512)
-        verificationKey = crypto.createPublicKey(this.config.accessToken.publicKey);
+        if (this.accessTokenPublicKey) {
+          verificationKey = this.accessTokenPublicKey;
+        } else {
+          // Fail deterministically without re-parsing the key on each request.
+          // This preserves the "invalid token" outcome while removing repeated CPU overhead.
+          throw new Error(this.accessTokenPublicKeyError || 'Access token public key is not available');
+        }
       } else if (this.accessTokenKey) {
         // Use secret for symmetric verification (HS256, HS512)
         verificationKey = this.accessTokenKey;

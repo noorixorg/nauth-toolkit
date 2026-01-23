@@ -378,6 +378,30 @@ describe('JwtService', () => {
       expect(['invalid', 'malformed']).toContain(result.errorType!);
     });
 
+    it('should handle invalid accessToken.publicKey without throwing', async () => {
+      const { privateKey } = generateRSAKeyPair();
+      const configWithInvalidPublicKey: JwtConfig = {
+        ...defaultConfig,
+        algorithm: 'RS256',
+        accessToken: {
+          privateKey,
+          publicKey: 'not-a-valid-pem-public-key',
+          expiresIn: '15m',
+        },
+      };
+
+      const serviceWithInvalidPublicKey = new JwtService(configWithInvalidPublicKey);
+      const tokens = await serviceWithInvalidPublicKey.generateTokenPair({
+        userId: 'user-123',
+        email: 'test@example.com',
+        sessionId: 'session-456',
+      });
+
+      const result = await serviceWithInvalidPublicKey.validateAccessToken(tokens.accessToken);
+      expect(result.valid).toBe(false);
+      expect(result.errorType).toBeDefined();
+    });
+
     it('should reject expired token', async () => {
       // Create token with very short expiration (using real-world string format)
       const configWithShortExpiry = {

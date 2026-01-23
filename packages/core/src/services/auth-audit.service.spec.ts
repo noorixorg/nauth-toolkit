@@ -13,6 +13,7 @@ import { AdminGetUserAuthHistoryDTO } from '../dto/admin-get-user-auth-history.d
 import { GetEventsByTypeDTO } from '../dto/get-events-by-type.dto';
 import { GetSuspiciousActivityDTO } from '../dto/get-suspicious-activity.dto';
 import { GetRiskAssessmentHistoryDTO } from '../dto/get-risk-assessment-history.dto';
+import { ContextStorage } from '../utils/context-storage';
 
 /**
  * Auth Audit Service Unit Tests
@@ -346,6 +347,165 @@ describe('AuthAuditService', () => {
 
       expect(result).toBeDefined();
       expect(mockAuditRepository.create).toHaveBeenCalled();
+    });
+
+    it('should enrich metadata with performedByName when performer is in context', async () => {
+      const performerUser: Partial<IUser> = {
+        id: 999,
+        sub: 'performer-sub-123',
+        email: 'performer@example.com',
+        firstName: 'Jane',
+        lastName: 'Performer',
+        isActive: true,
+        isEmailVerified: true,
+        isPhoneVerified: false,
+        isLocked: false,
+        mustChangePassword: false,
+        mfaEnabled: false,
+        hasSocialAuth: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      };
+
+      mockAuditRepository.create.mockReturnValue(mockAuditRecord as any);
+      mockAuditRepository.save.mockResolvedValue(mockAuditRecord as any);
+      mockClientInfoService.get.mockReturnValue({} as ClientInfo);
+
+      // Set performer in context
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', performerUser as IUser);
+
+        await service.recordEvent({
+          userId: 1,
+          eventType: AuthAuditEventType.ADMIN_PASSWORD_RESET_INITIATED,
+          eventStatus: 'INFO',
+          performedBy: 'performer-sub-123',
+          metadata: { originalKey: 'originalValue' },
+        });
+
+        // Verify metadata was enriched with performedByName
+        expect(mockAuditRepository.create).toHaveBeenCalledWith(
+          (expect as any).objectContaining({
+            userId: 1,
+            performedBy: 'performer-sub-123',
+            metadata: {
+              originalKey: 'originalValue',
+              performedByName: 'Jane Performer',
+            },
+          }),
+        );
+      });
+    });
+
+    it('should use email as performedByName when performer has no firstName/lastName', async () => {
+      const performerUser: Partial<IUser> = {
+        id: 998,
+        sub: 'performer-sub-456',
+        email: 'admin-no-name@example.com',
+        firstName: null,
+        lastName: null,
+        isActive: true,
+        isEmailVerified: true,
+        isPhoneVerified: false,
+        isLocked: false,
+        mustChangePassword: false,
+        mfaEnabled: false,
+        hasSocialAuth: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      };
+
+      mockAuditRepository.create.mockReturnValue(mockAuditRecord as any);
+      mockAuditRepository.save.mockResolvedValue(mockAuditRecord as any);
+      mockClientInfoService.get.mockReturnValue({} as ClientInfo);
+
+      // Set performer in context
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', performerUser as IUser);
+
+        await service.recordEvent({
+          userId: 1,
+          eventType: AuthAuditEventType.ADMIN_PASSWORD_RESET_INITIATED,
+          eventStatus: 'INFO',
+          performedBy: 'performer-sub-456',
+        });
+
+        // Verify metadata was enriched with email as performedByName
+        expect(mockAuditRepository.create).toHaveBeenCalledWith(
+          (expect as any).objectContaining({
+            userId: 1,
+            performedBy: 'performer-sub-456',
+            metadata: {
+              performedByName: 'admin-no-name@example.com',
+            },
+          }),
+        );
+      });
+    });
+
+    it('should not enrich metadata when performedBy matches the event userId', async () => {
+      const user: Partial<IUser> = {
+        id: 1,
+        sub: 'user-sub-789',
+        email: 'user@example.com',
+        firstName: 'Self',
+        lastName: 'User',
+        isActive: true,
+        isEmailVerified: true,
+        isPhoneVerified: false,
+        isLocked: false,
+        mustChangePassword: false,
+        mfaEnabled: false,
+        hasSocialAuth: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      };
+
+      mockAuditRepository.create.mockReturnValue(mockAuditRecord as any);
+      mockAuditRepository.save.mockResolvedValue(mockAuditRecord as any);
+      mockClientInfoService.get.mockReturnValue({} as ClientInfo);
+
+      // Set user in context
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', user as IUser);
+
+        await service.recordEvent({
+          userId: 1,
+          eventType: AuthAuditEventType.LOGIN_SUCCESS,
+          eventStatus: 'SUCCESS',
+          performedBy: '1', // Same as userId (converted to string)
+        });
+
+        // Verify metadata was NOT enriched (user performed action on themselves)
+        const createCall = mockAuditRepository.create.mock.calls[0][0];
+        expect(createCall.metadata).toBeNull();
+      });
+    });
+
+    it('should handle context lookup errors gracefully when enriching performedByName', async () => {
+      mockAuditRepository.create.mockReturnValue(mockAuditRecord as any);
+      mockAuditRepository.save.mockResolvedValue(mockAuditRecord as any);
+      mockClientInfoService.get.mockReturnValue({} as ClientInfo);
+
+      // No user in context - should not crash
+      await service.recordEvent({
+        userId: 1,
+        eventType: AuthAuditEventType.ADMIN_PASSWORD_RESET_INITIATED,
+        eventStatus: 'INFO',
+        performedBy: 'admin-sub-999',
+      });
+
+      // Verify event was recorded without performedByName
+      expect(mockAuditRepository.create).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          userId: 1,
+          performedBy: 'admin-sub-999',
+        }),
+      );
+      expect(mockAuditRepository.save).toHaveBeenCalled();
     });
   });
 

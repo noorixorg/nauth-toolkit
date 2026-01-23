@@ -17,6 +17,7 @@ import {
   GetRiskAssessmentHistoryResponseDTO,
 } from '../dto/get-risk-assessment-history.dto';
 import { isUUID } from 'class-validator';
+import { ContextStorage } from '../utils/context-storage';
 
 /**
  * DTO for creating audit events
@@ -543,6 +544,38 @@ export class InternalAuthAuditService extends AuthAuditService {
         performedBy = String(userId);
       }
 
+      // ============================================================================
+      // Auto-populate performedByName in metadata from context (if performedBy is available)
+      // ============================================================================
+      let enrichedMetadata = data.metadata ?? null;
+      if (performedBy && performedBy !== String(userId)) {
+        try {
+          const currentUser = ContextStorage.get<IUser>('CURRENT_USER');
+          if (currentUser && currentUser.sub === performedBy) {
+            // Build name from firstName and lastName if available, otherwise use email
+            const firstName = currentUser.firstName?.trim();
+            const lastName = currentUser.lastName?.trim();
+            let performedByName: string;
+            if (firstName || lastName) {
+              performedByName = [firstName, lastName].filter(Boolean).join(' ');
+            } else {
+              performedByName = currentUser.email;
+            }
+
+            // Add performedByName to metadata
+            enrichedMetadata = {
+              ...(enrichedMetadata || {}),
+              performedByName,
+            };
+          }
+        } catch (lookupError) {
+          const errorMessage = lookupError instanceof Error ? lookupError.message : 'Unknown error';
+          this.logger?.debug?.(
+            `Failed to get performedBy user from context for audit metadata: ${errorMessage}`,
+          );
+        }
+      }
+
       // Create audit record
       const auditRecord = this.auditRepository.create({
         userId,
@@ -568,7 +601,7 @@ export class InternalAuthAuditService extends AuthAuditService {
         performedBy,
         reason: data.reason ?? null,
         description: data.description ?? null,
-        metadata: data.metadata ?? null,
+        metadata: enrichedMetadata,
       });
 
       const saved = await this.auditRepository.save(auditRecord);

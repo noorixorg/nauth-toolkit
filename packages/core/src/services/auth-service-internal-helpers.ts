@@ -211,6 +211,37 @@ export class AuthServiceInternalHelpers {
 
       this.logger?.log?.(`Phone number added for user ${user.sub}: ${phone}`);
 
+      // ============================================================================
+      // Hook: Execute user profile updated hooks (phone number changed)
+      // ============================================================================
+      try {
+        const clientInfo = this.clientInfoService.get();
+        const updatedUser = { ...user, phone } as unknown as IUser;
+        await this.hookRegistry.executeUserProfileUpdated({
+          user: updatedUser,
+          changedFields: [
+            {
+              fieldName: 'phone',
+              oldValue: user.phone || null,
+              newValue: phone,
+            },
+          ],
+          updateSource: 'user_request',
+          clientInfo: {
+            ipAddress: clientInfo.ipAddress,
+            userAgent: clientInfo.userAgent,
+            ipCountry: clientInfo.ipCountry,
+            ipCity: clientInfo.ipCity,
+          },
+        });
+      } catch (hookError) {
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
+          error: hookError,
+          userSub: user.sub,
+        });
+      }
+
       // Send verification SMS to the newly added phone
       let smsError: string | undefined;
       if (this.phoneVerificationService) {

@@ -8,6 +8,7 @@ import { NAuthConfig } from '../interfaces/config.interface';
 import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { ClientInfoService } from './client-info.service';
+import { AuthErrorCode } from '../enums/error-codes.enum';
 
 /**
  * SessionService Unit Tests
@@ -73,6 +74,7 @@ describe('SessionService', () => {
       update: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
+      createQueryBuilder: jest.fn(),
       manager: {
         transaction: jest.fn(),
       } as any,
@@ -142,6 +144,70 @@ describe('SessionService', () => {
       mockLogger,
       mockAuditService,
     );
+  });
+
+  // ============================================================================
+  // findAuthContextBySessionId (hot-path)
+  // ============================================================================
+
+  describe('findAuthContextBySessionId', () => {
+    it('should return null when session not found', async () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      };
+      (mockSessionRepository.createQueryBuilder as unknown as jest.Mock).mockReturnValue(qb);
+
+      const result = await service.findAuthContextBySessionId('123');
+      expect(result).toBeNull();
+    });
+
+    it('should throw when user is inactive', async () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({
+          id: 1,
+          version: 1,
+          isRevoked: false,
+          expiresAt: new Date(Date.now() + 60_000),
+          userId: 1,
+          authMethod: 'password',
+          user: { id: 1, sub: 'sub-1', isActive: false, passwordHash: null },
+        }),
+      };
+      (mockSessionRepository.createQueryBuilder as unknown as jest.Mock).mockReturnValue(qb);
+
+      await expect(service.findAuthContextBySessionId(1)).rejects.toMatchObject({ code: AuthErrorCode.ACCOUNT_INACTIVE });
+    });
+
+    it('should return safe user without passwordHash', async () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({
+          id: 1,
+          version: 2,
+          isRevoked: false,
+          expiresAt: new Date(Date.now() + 60_000),
+          userId: 1,
+          authMethod: 'google',
+          user: { id: 1, sub: 'sub-1', email: 'test@example.com', isActive: true, passwordHash: 'hashed' },
+        }),
+      };
+      (mockSessionRepository.createQueryBuilder as unknown as jest.Mock).mockReturnValue(qb);
+
+      const result = await service.findAuthContextBySessionId('1');
+      expect(result).toBeDefined();
+      expect(result?.session.version).toBe(2);
+      expect(result?.user.sub).toBe('sub-1');
+      expect((result?.user as unknown as { passwordHash?: string }).passwordHash).toBeUndefined();
+      expect(result?.user.hasPasswordHash).toBe(true);
+    });
   });
 
   afterEach(() => {

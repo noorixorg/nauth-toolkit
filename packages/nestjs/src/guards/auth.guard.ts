@@ -123,36 +123,10 @@ export class AuthGuard implements CanActivate {
     // - Even if the JWT is cryptographically valid, we must ensure the session
     //   hasn't been revoked/expired server-side.
     const sessionId = validation.payload!.sessionId;
-    const session = await this._sessionService.findByIdLight(sessionId);
-
-    if (!session) {
-      if (options.strict) {
-        throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found');
-      }
-      return;
-    }
-
-    // Store initial version for optimistic locking check (TOCTOU prevention)
-    const initialVersion = session.version;
-
-    if (session.isRevoked) {
-      if (options.strict) {
-        // Session revocation can happen for many legitimate reasons (logout, logout-all, admin revoke).
-        // Using TOKEN_REUSE_DETECTED here is misleading and can cause clients to overreact (e.g., global signout).
-        throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session has been revoked');
-      }
-      return;
-    }
-
-    if (session.expiresAt < new Date()) {
-      if (options.strict) {
-        throw new NAuthException(AuthErrorCode.SESSION_EXPIRED, 'Session has expired');
-      }
-      return;
-    }
+    const authContextPromise = this._sessionService.findAuthContextBySessionId(sessionId);
 
     // ============================================================================
-    // Load user via AuthService (service-first architecture)
+    // Load session + user auth context (single query)
     // ============================================================================
     // Wrap in context restoration to ensure ContextStorage.set() works.
     const store = getNAuthContextStore(request);
@@ -162,10 +136,25 @@ export class AuthGuard implements CanActivate {
         throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Context not initialized');
       }
 
+      const authContext = await authContextPromise;
+      if (!authContext) {
+        return;
+      }
+      const session = authContext.session;
+      if (session.isRevoked) {
+        return;
+      }
+      if (session.expiresAt < new Date()) {
+        return;
+      }
+
       // Optional auth: still provide `@CurrentUser()` support by attaching user to the request,
       // but skip ContextStorage because the request isn't context-initialized.
       try {
-        const user = await this._authService.getUserForAuthContext(validation.payload!.sub);
+        const user = authContext.user;
+        if (user.sub !== validation.payload!.sub) {
+          return;
+        }
         request.user = user;
         request.token = validation.payload;
       } catch {
@@ -176,7 +165,38 @@ export class AuthGuard implements CanActivate {
 
     try {
       await ContextStorage.enterStore(store, async () => {
-        const user = await this._authService.getUserForAuthContext(validation.payload!.sub);
+        const authContext = await authContextPromise;
+        if (!authContext) {
+          if (options.strict) {
+            throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found');
+          }
+          return;
+        }
+        const session = authContext.session;
+
+        // Store initial version for optimistic locking check (TOCTOU prevention)
+        const initialVersion = session.version;
+
+        if (session.isRevoked) {
+          if (options.strict) {
+            // Session revocation can happen for many legitimate reasons (logout, logout-all, admin revoke).
+            // Using TOKEN_REUSE_DETECTED here is misleading and can cause clients to overreact (e.g., global signout).
+            throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session has been revoked');
+          }
+          return;
+        }
+
+        if (session.expiresAt < new Date()) {
+          if (options.strict) {
+            throw new NAuthException(AuthErrorCode.SESSION_EXPIRED, 'Session has expired');
+          }
+          return;
+        }
+
+        const user = authContext.user;
+        if (user.sub !== validation.payload!.sub) {
+          throw new NAuthException(AuthErrorCode.TOKEN_INVALID, 'Token sub does not match session user');
+        }
 
         // ============================================================================
         // Session-scoped auth method propagation

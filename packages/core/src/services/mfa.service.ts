@@ -1029,6 +1029,7 @@ export class MFAService {
     // ============================================================================
     // Audit: Record MFA exemption grant/revoke
     // ============================================================================
+    // Note: performedByName is automatically enriched by audit service from context
     if (this.auditService && this.clientInfoService) {
       try {
         await this.auditService.recordEvent({
@@ -1041,6 +1042,7 @@ export class MFAService {
           metadata: {
             previousExemptStatus: userEntity.mfaExempt,
             newExemptStatus: dto.exempt,
+            // performedByName will be automatically enriched by audit service from context
           },
         });
       } catch (auditError) {

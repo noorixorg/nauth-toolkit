@@ -298,11 +298,57 @@ export class UserService {
    * ```
    */
   async getUserForAuthContext(sub: string): Promise<IUser> {
-    // Load user with all fields including passwordHash (needed to compute hasPasswordHash)
-    // NOTE: We need to load passwordHash before @AfterLoad hook deletes it
-    // The hook computes hasPasswordHash but deletes passwordHash, so we check it first
+    // ============================================================================
+    // Hot-path user context load (PERFORMANCE + SECURITY)
+    // ============================================================================
+    // WHY:
+    // - This method runs on many authenticated requests (AuthGuard/AuthHandler).
+    // - Some user columns are large and/or highly sensitive (e.g., backup codes, TOTP secrets, password history).
+    // - Selecting those fields on every request increases DB payload + deserialization cost and expands the
+    //   in-memory exposure surface without providing value for request auth context.
+    //
+    // NOTE:
+    // - We still select `passwordHash` only to compute `hasPasswordHash`, then we delete it before returning.
     const user = await this.userRepository.findOne({
       where: { sub },
+      select: {
+        id: true,
+        sub: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        passwordHash: true, // Needed to compute hasPasswordHash; removed before returning
+        passwordChangedAt: true,
+        mustChangePassword: true,
+        isEmailVerified: true,
+        isPhoneVerified: true,
+        isActive: true,
+        isLocked: true,
+        lockReason: true,
+        lockedAt: true,
+        lockedUntil: true,
+        failedLoginAttempts: true,
+        lastFailedLoginAt: true,
+        lastLoginAt: true,
+        lastLoginIp: true,
+        mfaEnabled: true,
+        mfaMethods: true,
+        mfaEnforcedAt: true,
+        preferredMfaMethod: true,
+        mfaExempt: true,
+        mfaExemptReason: true,
+        mfaExemptGrantedAt: true,
+        mfaExemptGrantedBy: true,
+        hasSocialAuth: true,
+        socialProviders: true,
+        metadata: true,
+        createdAt: true,
+        updatedAt: true,
+        deletedAt: true,
+        // Intentionally NOT selecting: totpSecret, backupCodes, passwordHistory
+      },
     });
 
     if (!user) {

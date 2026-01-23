@@ -89,7 +89,15 @@ export class EmailVerificationService {
     // Get actual TTL after setting expiry (for error message)
     const actualTtl = await this.storageAdapter.ttl(rateLimitKey);
 
+    this.logger?.debug?.(
+      `Email verification rate limit check: sub=${sub}, count=${currentCount}/${rateLimitMax}, ttl=${actualTtl}s, window=${rateLimitWindow}s`,
+    );
+
     if (currentCount > rateLimitMax) {
+      this.logger?.error?.(
+        `Email rate limit exceeded: sub=${sub}, count=${currentCount}, max=${rateLimitMax}, retryAfter=${actualTtl}s, window=${rateLimitWindow}s. ` +
+          `Config: rateLimitMax=${this.config.signup?.emailVerification?.rateLimitMax}, rateLimitWindow=${this.config.signup?.emailVerification?.rateLimitWindow}`,
+      );
       throw new NAuthException(
         AuthErrorCode.RATE_LIMIT_EMAIL,
         'Too many verification emails sent. Please try again later.',
@@ -254,7 +262,15 @@ export class EmailVerificationService {
     // Get actual TTL after setting expiry (for error message)
     const actualTtl = await this.storageAdapter.ttl(rateLimitKey);
 
+    this.logger?.debug?.(
+      `MFA email rate limit check: sub=${sub}, count=${currentCount}/${rateLimitMax}, ttl=${actualTtl}s, window=${rateLimitWindow}s`,
+    );
+
     if (currentCount > rateLimitMax) {
+      this.logger?.error?.(
+        `MFA email rate limit exceeded: sub=${sub}, count=${currentCount}, max=${rateLimitMax}, retryAfter=${actualTtl}s, window=${rateLimitWindow}s. ` +
+          `Config: rateLimitMax=${this.config.signup?.emailVerification?.rateLimitMax}, rateLimitWindow=${this.config.signup?.emailVerification?.rateLimitWindow}`,
+      );
       throw new NAuthException(
         AuthErrorCode.RATE_LIMIT_EMAIL,
         'Too many MFA email codes sent. Please try again later.',
@@ -274,6 +290,9 @@ export class EmailVerificationService {
 
     // Check resend delay to prevent abuse
     const resendDelay = this.config.signup?.emailVerification?.resendDelay ?? 60; // 1 minute default
+    this.logger?.debug?.(
+      `Email resend delay check: sub=${sub}, resendDelay=${resendDelay}s, config=${this.config.signup?.emailVerification?.resendDelay}`,
+    );
     const lastToken = (await this.verificationTokenRepo.findOne({
       where: { userId: user.id, type: 'email' },
       order: { createdAt: 'DESC' },
@@ -281,8 +300,26 @@ export class EmailVerificationService {
 
     if (lastToken) {
       const secondsSinceLastSend = (Date.now() - lastToken.createdAt.getTime()) / 1000;
+      this.logger?.debug?.(
+        `Email last token: tokenId=${lastToken.id}, createdAt=${lastToken.createdAt.toISOString()}, secondsSince=${secondsSinceLastSend.toFixed(1)}s`,
+      );
       if (secondsSinceLastSend < resendDelay) {
         const waitSeconds = Math.ceil(resendDelay - secondsSinceLastSend);
+
+        // If challengeSessionId is provided and token is still valid, link it to the new challenge session
+        // This allows the token to be found by the new session (e.g., during rapid re-logins)
+        if (challengeSessionId && lastToken.usedAt === null && lastToken.expiresAt > new Date()) {
+          this.logger?.log?.(
+            `Resend delay active but linking existing token ${lastToken.id} to new challenge session ${challengeSessionId}. No new email sent.`,
+          );
+          await this.verificationTokenRepo.update({ id: lastToken.id }, { challengeSessionId });
+          // Return success response with existing token ID (no new email sent)
+          return { tokenId: lastToken.id as number };
+        }
+
+        this.logger?.warn?.(
+          `Email resend rate limit: sub=${sub}, wait=${waitSeconds}s, delay=${resendDelay}s, secondsSince=${secondsSinceLastSend.toFixed(1)}s`,
+        );
         throw new NAuthException(
           AuthErrorCode.RATE_LIMIT_RESEND,
           `Please wait ${waitSeconds} seconds before requesting another code`,

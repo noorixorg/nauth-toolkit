@@ -20,33 +20,35 @@ describe('AuthHandler', () => {
     } as unknown as JwtService;
 
     const sessionService = {
-      findByIdLight: jest
-        .fn()
-        .mockResolvedValueOnce({
+      findAuthContextBySessionId: jest.fn().mockResolvedValue({
+        session: {
           id: 1,
           version: 1,
           isRevoked: false,
           expiresAt: new Date(Date.now() + 60_000),
           authMethod: 'google',
-        })
-        .mockResolvedValueOnce({
+          userId: 1,
+        },
+        user: {
           id: 1,
-          version: 1,
-          isRevoked: false,
-          expiresAt: new Date(Date.now() + 60_000),
-          authMethod: 'google',
-        }),
+          sub: 'sub-1',
+          email: 'test@example.com',
+          isActive: true,
+          hasPasswordHash: false,
+          socialProviders: ['google'],
+        },
+      }),
+      findByIdLight: jest.fn().mockResolvedValue({
+        id: 1,
+        version: 1,
+        isRevoked: false,
+        expiresAt: new Date(Date.now() + 60_000),
+        authMethod: 'google',
+      }),
     } as unknown as SessionService;
 
     const authService = {
-      getUserForAuthContext: jest.fn().mockResolvedValue({
-        id: 1,
-        sub: 'sub-1',
-        email: 'test@example.com',
-        isActive: true,
-        hasPasswordHash: false,
-        socialProviders: ['google'],
-      }),
+      getUserForAuthContext: jest.fn(),
     } as unknown as AuthService;
 
     const config: NAuthConfig = {
