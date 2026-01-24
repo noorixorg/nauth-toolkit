@@ -15,7 +15,19 @@
  * @module RespondChallengeDTO
  */
 
-import { IsString, IsEnum, ValidateIf, IsObject, MinLength, MaxLength, Matches, Length, IsUUID } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  ValidateIf,
+  IsObject,
+  MinLength,
+  MaxLength,
+  Matches,
+  Length,
+  IsUUID,
+  IsInt,
+  IsOptional,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 
 /**
@@ -209,6 +221,18 @@ export class RespondChallengeDTO {
   @ValidateIf((o) => o.type === ChallengeType.MFA_REQUIRED && o.method === MFAMethodType.PASSKEY)
   @IsObject({ message: 'Credential must be an object' })
   credential?: Record<string, unknown>;
+
+  /**
+   * Optional device ID for MFA_REQUIRED when method supports multiple devices (TOTP, Passkey)
+   *
+   * Validation:
+   * - Must be a positive integer if provided
+   * - Optional field (maintains backward compatibility)
+   */
+  @IsOptional()
+  @ValidateIf((o) => o.type === ChallengeType.MFA_REQUIRED)
+  @IsInt({ message: 'Device ID must be a number' })
+  deviceId?: number;
 
   // ============================================================================
   // MFA_SETUP_REQUIRED

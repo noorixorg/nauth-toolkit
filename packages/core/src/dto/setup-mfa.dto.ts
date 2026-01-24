@@ -23,7 +23,6 @@ import { MFAMethod } from '../enums/mfa-method.enum';
  * User self-service DTO - no sub field. Service gets user from authenticated context.
  */
 export class SetupMFADTO {
-
   /**
    * MFA method name
    *

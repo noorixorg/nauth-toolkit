@@ -1,4 +1,4 @@
-import { ISession } from '../interfaces/entities.interface';
+import { ISession, IUser } from '../interfaces/entities.interface';
 import { Repository, LessThan, MoreThan, In } from 'typeorm';
 import { BaseSession } from '../entities';
 import { StorageAdapter } from '../interfaces/storage-adapter.interface';
@@ -7,7 +7,6 @@ import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { ClientInfoService } from './client-info.service';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { NAuthConfig } from '../interfaces/config.interface';
-import { IUser } from '../interfaces/entities.interface';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 

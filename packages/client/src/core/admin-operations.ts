@@ -18,7 +18,7 @@ import type {
   AdminAuditHistoryRequest,
 } from '../types/admin.types';
 import type { AuthUser } from '../types/user.types';
-import type { MFAStatus } from '../types/mfa.types';
+import type { MFAStatus, RemoveMFADeviceResponse } from '../types/mfa.types';
 import type { AuditHistoryResponse } from '../types/audit.types';
 
 const hasWindow = (): boolean =>
@@ -377,24 +377,6 @@ export class AdminOperations {
    * Set preferred MFA method for a user
    *
    * @param sub - User UUID
-   * @param method - MFA method to set as preferred
-   * @returns Success message
-   * @throws {NAuthClientError} If operation fails
-   *
-   * @example
-   * ```typescript
-   * await client.admin.setPreferredMfaMethod('user-uuid', 'totp');
-   * ```
-   */
-  async setPreferredMfaMethod(
-    sub: string,
-    method: 'totp' | 'sms' | 'email' | 'passkey',
-  ): Promise<{ message: string }> {
-    const path = this.buildAdminUrl(this.adminEndpoints.setPreferredMfaMethod);
-    return this.post<{ message: string }>(path, { sub, method });
-  }
-
-  /**
    * Remove MFA devices for a user
    *
    * @param sub - User UUID
@@ -407,12 +389,41 @@ export class AdminOperations {
    * await client.admin.removeMfaDevices('user-uuid', 'sms');
    * ```
    */
-  async removeMfaDevices(
-    sub: string,
-    method: 'totp' | 'sms' | 'email' | 'passkey',
-  ): Promise<{ message: string }> {
-    const path = this.buildAdminUrl(this.adminEndpoints.removeMfaDevices);
-    return this.post<{ message: string }>(path, { sub, method });
+
+  /**
+   * Remove a single MFA device by device ID (admin).
+   *
+   * @param deviceId - MFA device ID
+   * @returns Removal result
+   * @throws {NAuthClientError} If operation fails
+   *
+   * @example
+   * ```typescript
+   * const result = await client.admin.removeMfaDeviceById(123);
+   * console.log(result.removedDeviceId);
+   * ```
+   */
+  async removeMfaDeviceById(deviceId: number): Promise<RemoveMFADeviceResponse> {
+    const path = this.buildAdminUrl(this.adminEndpoints.removeMfaDeviceById, { deviceId: String(deviceId) });
+    return this.delete<RemoveMFADeviceResponse>(path);
+  }
+
+  /**
+   * Set preferred MFA device for a user (admin operation).
+   *
+   * @param sub - User identifier
+   * @param deviceId - Device ID to set as preferred
+   * @returns Success message
+   * @throws {NAuthClientError} If operation fails
+   *
+   * @example
+   * ```typescript
+   * await client.admin.setPreferredMfaDevice('user-uuid', 123);
+   * ```
+   */
+  async setPreferredMfaDevice(sub: string, deviceId: number): Promise<{ message: string }> {
+    const path = this.buildAdminUrl(this.adminEndpoints.setPreferredMfaDevice, { sub, deviceId: String(deviceId) });
+    return this.post<{ message: string }>(path, {});
   }
 
   /**
@@ -429,11 +440,7 @@ export class AdminOperations {
    * await client.admin.setMfaExemption('user-uuid', true, 'Service account');
    * ```
    */
-  async setMfaExemption(
-    sub: string,
-    exempt: boolean,
-    reason?: string,
-  ): Promise<{ message: string }> {
+  async setMfaExemption(sub: string, exempt: boolean, reason?: string): Promise<{ message: string }> {
     const path = this.buildAdminUrl(this.adminEndpoints.setMfaExemption);
     return this.post<{ message: string }>(path, { sub, exempt, reason });
   }
@@ -495,9 +502,7 @@ export class AdminOperations {
     }
 
     // Apply admin path prefix
-    const prefix = this.adminPathPrefix.startsWith('/')
-      ? this.adminPathPrefix
-      : `/${this.adminPathPrefix}`;
+    const prefix = this.adminPathPrefix.startsWith('/') ? this.adminPathPrefix : `/${this.adminPathPrefix}`;
     path = `${prefix}${path.startsWith('/') ? '' : '/'}${path}`;
 
     // Apply authPathPrefix if configured (e.g., '/auth')
@@ -509,9 +514,7 @@ export class AdminOperations {
     }
 
     // Combine with baseUrl
-    const normalizedBase = this.config.baseUrl.endsWith('/')
-      ? this.config.baseUrl.slice(0, -1)
-      : this.config.baseUrl;
+    const normalizedBase = this.config.baseUrl.endsWith('/') ? this.config.baseUrl.slice(0, -1) : this.config.baseUrl;
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
 
     return `${normalizedBase}${normalizedPath}`;
@@ -551,8 +554,7 @@ export class AdminOperations {
         const nestedObj = rawValue as Record<string, unknown>;
         for (const [nestedKey, nestedValue] of Object.entries(nestedObj)) {
           const nestedParamKey = `${key}[${nestedKey}]`;
-          const valueToAppend =
-            nestedValue instanceof Date ? nestedValue.toISOString() : String(nestedValue);
+          const valueToAppend = nestedValue instanceof Date ? nestedValue.toISOString() : String(nestedValue);
           searchParams.append(nestedParamKey, valueToAppend);
         }
         continue;
@@ -622,12 +624,7 @@ export class AdminOperations {
     }
 
     // Add CSRF header in cookies mode for mutating requests
-    const mutatingMethods: readonly ('POST' | 'PUT' | 'PATCH' | 'DELETE')[] = [
-      'POST',
-      'PUT',
-      'PATCH',
-      'DELETE',
-    ];
+    const mutatingMethods: readonly ('POST' | 'PUT' | 'PATCH' | 'DELETE')[] = ['POST', 'PUT', 'PATCH', 'DELETE'];
     if (
       this.config.tokenDelivery === 'cookies' &&
       hasWindow() &&
@@ -650,9 +647,7 @@ export class AdminOperations {
    */
   private getCsrfToken(): string | null {
     if (!hasWindow() || typeof document === 'undefined') return null;
-    const match = document.cookie.match(
-      new RegExp(`(^| )${this.config.csrf.cookieName}=([^;]+)`),
-    );
+    const match = document.cookie.match(new RegExp(`(^| )${this.config.csrf.cookieName}=([^;]+)`));
     return match ? decodeURIComponent(match[2]) : null;
   }
 
@@ -752,9 +747,7 @@ export class AdminOperations {
           : {};
 
       const code =
-        typeof errorData['code'] === 'string'
-          ? (errorData['code'] as NAuthErrorCode)
-          : NAuthErrorCode.INTERNAL_ERROR;
+        typeof errorData['code'] === 'string' ? (errorData['code'] as NAuthErrorCode) : NAuthErrorCode.INTERNAL_ERROR;
       const message =
         typeof errorData['message'] === 'string'
           ? (errorData['message'] as string)

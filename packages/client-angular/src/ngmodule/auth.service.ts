@@ -835,18 +835,90 @@ export class AuthService {
   }
 
   /**
-   * Remove MFA device.
+   * Remove a single MFA device by device ID.
    *
-   * @param method - MFA method to remove
-   * @returns Promise with success message
+   * **Recommended:** Use this for granular device management.
+   *
+   * @param deviceId - MFA device ID
+   * @returns Removal response
    *
    * @example
    * ```typescript
-   * await this.auth.removeMfaDevice('sms');
+   * const devices = await this.auth.getMfaDevices();
+   * await this.auth.removeMfaDeviceById(devices[0].id);
    * ```
    */
-  async removeMfaDevice(method: string): Promise<{ message: string }> {
-    return this.client.removeMfaDevice(method);
+  async removeMfaDeviceById(deviceId: number): Promise<import('@nauth-toolkit/client').RemoveMFADeviceResponse> {
+    return this.client.removeMfaDeviceById(deviceId);
+  }
+
+  /**
+
+  /**
+   * Select an MFA device for verification (during challenge flow)
+   *
+   * Call this when user selects a specific device from the MFA selector UI.
+   * SDK stores the deviceId internally and auto-injects it when respondToChallenge() is called.
+   *
+   * @param deviceId - ID of the device user selected
+   *
+   * @example
+   * ```typescript
+   * // User clicks "Microsoft Authenticator" button
+   * this.auth.selectMFADevice(48);
+   *
+   * // Navigate to OTP verification (no deviceId in query params needed!)
+   * this.router.navigate(['/auth/challenge/mfa-required']);
+   *
+   * // Later, when submitting OTP code:
+   * await this.auth.respondToChallenge({
+   *   type: 'MFA_REQUIRED',
+   *   session: 'abc123',
+   *   method: 'totp',
+   *   code: '123456',
+   *   // SDK auto-injects deviceId=48 here!
+   * });
+   * ```
+   */
+  selectMFADevice(deviceId: number): void {
+    return this.client.selectMFADevice(deviceId);
+  }
+
+  /**
+   * Get available MFA devices from challenge response
+   *
+   * Returns array of devices for methods that support multiple devices (TOTP, Passkey).
+   * Use this to render device selection UI only.
+   *
+   * @param challenge - Challenge response from login/signup
+   * @returns Array of MFA devices with id, name, and type
+   *
+   * @example
+   * ```typescript
+   * // In MFA selector component
+   * const devices = this.auth.getMFADevicesFromChallenge(this.challenge());
+   * // Returns: [
+   * //   { id: 48, name: "Microsoft Authenticator", type: "totp" },
+   * //   { id: 3, name: "Google Authenticator", type: "totp" }
+   * // ]
+   *
+   * // Render device buttons
+   * for (const device of devices) {
+   *   // <button (click)="selectDevice(device)">{{ device.name }}</button>
+   * }
+   * ```
+   */
+  getMFADevicesFromChallenge(challenge: AuthResponse): Array<{ id: number; name: string; type: string }> {
+    return this.client.getMFADevices(challenge);
+  }
+
+  /**
+   * Clear any selected MFA device
+   *
+   * Useful if user navigates back to device selector or cancels MFA flow.
+   */
+  clearSelectedMFADevice(): void {
+    return this.client.clearSelectedDevice();
   }
 
   /**
@@ -860,8 +932,14 @@ export class AuthService {
    * await this.auth.setPreferredMfaMethod('totp');
    * ```
    */
-  async setPreferredMfaMethod(method: 'totp' | 'sms' | 'email' | 'passkey'): Promise<{ message: string }> {
-    return this.client.setPreferredMfaMethod(method);
+  /**
+   * Set a specific MFA device as preferred.
+   *
+   * @param deviceId - MFA device ID
+   * @returns Promise with success message
+   */
+  async setPreferredMfaDevice(deviceId: number): Promise<{ message: string }> {
+    return this.client.setPreferredMfaDevice(deviceId);
   }
 
   /**

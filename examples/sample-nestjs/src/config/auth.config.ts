@@ -123,7 +123,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   tokenDelivery: {
-    method: 'hybrid',
+    method: 'cookies',
     cookieOptions: {
       // For cross-site cookies (frontend on angular.dev1, API on api.angular.dev1):
       // - Must use secure: true (requires HTTPS)
@@ -323,7 +323,7 @@ export const authConfig: NAuthModuleConfig = {
   lockout: { enabled: false, maxAttempts: 5, duration: 300, resetOnSuccess: true },
 
   recaptcha: {
-    enabled: true,
+    enabled: false,
     provider: new RecaptchaEnterpriseProvider({
       projectId: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID!,
       apiKey: process.env.RECAPTCHA_ENTERPRISE_API_KEY!, // API key (AIza...), NOT site key

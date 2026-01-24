@@ -25,12 +25,13 @@ const mockJwtService = {
 } as unknown as JwtService;
 
 const mockSessionService = {
-  findById: jest
-    .fn()
-    .mockResolvedValue({ id: 1, version: 1, isRevoked: false, expiresAt: new Date(Date.now() + 60_000) }),
   findByIdLight: jest
     .fn()
     .mockResolvedValue({ id: 1, version: 1, isRevoked: false, expiresAt: new Date(Date.now() + 60_000) }),
+  findAuthContextBySessionId: jest.fn().mockResolvedValue({
+    session: { id: 1, version: 1, isRevoked: false, expiresAt: new Date(Date.now() + 60_000), authMethod: 'password' },
+    user: { id: 1, sub: 'sub-1', isActive: true },
+  }),
 } as unknown as SessionService;
 
 const mockUserRepository = {
@@ -285,7 +286,7 @@ describe('AuthGuard', () => {
 
     // Mock session service
     const mockSessionService = {
-      findById: jest.fn(),
+      findAuthContextBySessionId: jest.fn(),
       findByIdLight: jest.fn().mockResolvedValue({
         id: 1,
         version: 1,
@@ -366,7 +367,7 @@ describe('AuthGuard', () => {
           exp: Math.floor(Date.now() / 1000) + 3600,
         },
       });
-      jest.spyOn(sessionService, 'findById').mockResolvedValue(mockSession);
+      jest.spyOn(sessionService, 'findAuthContextBySessionId').mockResolvedValue({ session: mockSession, user: mockUser } as any);
       jest.spyOn(mockAuthService, 'getUserForAuthContext').mockResolvedValue(mockUser as any);
     });
 

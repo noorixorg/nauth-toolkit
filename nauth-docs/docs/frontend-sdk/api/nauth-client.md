@@ -896,45 +896,59 @@ const { deviceId } = await client.verifyMfaSetup(
 
 ---
 
-### removeMfaDevice()
+### removeMfaDeviceById()
 
-Remove an MFA device for the authenticated user.
+Remove a single MFA device by its unique device ID.
+
+Use this method to give users granular control over which specific device to remove.
 
 ```typescript
-async removeMfaDevice(method: string): Promise<{ message: string }>
+async removeMfaDeviceById(deviceId: number): Promise<RemoveMFADeviceResponse>
 ```
 
 **Parameters**
 
-| Parameter | Type                              | Description                                                      |
-| --------- | --------------------------------- | ---------------------------------------------------------------- |
-| `method`  | [`MFAMethod`](./types/mfa-method) | MFA method to remove (`'totp'`, `'sms'`, `'email'`, `'passkey'`) |
+| Parameter  | Type     | Description                                               |
+| ---------- | -------- | --------------------------------------------------------- |
+| `deviceId` | `number` | MFA device ID (from `getMfaDevices()` or challenge data) |
 
 **Returns**
 
-- `{ message: string }` - Success message
+- [`RemoveMFADeviceResponse`](./types/remove-mfa-device-response) - Removal result with device details
 
 **Example**
 
 ```typescript
-await client.removeMfaDevice('sms');
+// Get user's devices
+const devices = await client.getMfaDevices();
+// [{ id: 48, name: "Google Authenticator", type: "totp", isPrimary: true },
+//  { id: 52, name: "Microsoft Authenticator", type: "totp", isPrimary: false }]
+
+// Remove specific device by ID
+const result = await client.removeMfaDeviceById(52);
+console.log(result.removedDeviceId);  // 52
+console.log(result.removedMethod);    // 'totp'
+console.log(result.mfaDisabled);      // false (still has device 48)
 ```
 
 ---
 
-### setPreferredMfaMethod()
+### setPreferredMfaDevice()
 
-Set user's preferred MFA method (used when multiple methods are available).
+Set a specific MFA device as preferred.
+
+This is important when users can register multiple devices for the same method (notably TOTP and passkeys),
+so your UI can pick a deterministic default device during MFA challenges.
 
 ```typescript
-async setPreferredMfaMethod(method: 'totp' | 'sms' | 'email' | 'passkey'): Promise<{ message: string }>
+async setPreferredMfaDevice(deviceId: number): Promise<{ message: string }>
 ```
 
 **Parameters**
 
-| Parameter | Type                                    | Description                                                                             |
-| --------- | --------------------------------------- | --------------------------------------------------------------------------------------- |
-| `method`  | [`MFADeviceMethod`](./types/mfa-method) | Preferred MFA method (`'totp'`, `'sms'`, `'email'`, `'passkey'`). Cannot be `'backup'`. |
+| Parameter  | Type     | Description    |
+| ---------- | -------- | -------------- |
+| `deviceId` | `number` | MFA device ID  |
 
 **Returns**
 
@@ -943,7 +957,11 @@ async setPreferredMfaMethod(method: 'totp' | 'sms' | 'email' | 'passkey'): Promi
 **Example**
 
 ```typescript
-await client.setPreferredMfaMethod('totp');
+// Get user's devices
+const devices = await client.getMfaDevices();
+
+// Set preferred device (e.g., user selects "Google Authenticator" from list)
+await client.setPreferredMfaDevice(devices[0].id);
 ```
 
 ---

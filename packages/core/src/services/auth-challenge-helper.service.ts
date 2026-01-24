@@ -403,15 +403,43 @@ export class AuthChallengeHelperService {
       }
     }
 
+    // Build device information for methods that support multiple devices (TOTP and Passkey)
+    // This allows the frontend to display individual devices when multiple exist
+    const deviceInfo: Array<{ id: number; name: string; type: string }> = [];
+    const multiDeviceMethods = [MFAMethod.TOTP, MFAMethod.PASSKEY];
+    for (const device of devices) {
+      if (multiDeviceMethods.includes(device.type as MFAMethod)) {
+        deviceInfo.push({
+          id: device.id,
+          name: device.name || `${device.type} Device`,
+          type: device.type,
+        });
+      }
+    }
+
+    // Determine preferred device ID if the preferred method supports multiple devices
+    // Use isPrimary flag to find the preferred device (internal database field)
+    let preferredDeviceId: number | undefined;
+    if (multiDeviceMethods.includes(preferredMethod as MFAMethod)) {
+      const preferredMethodDevices = devices.filter((d) => d.type === preferredMethod);
+      if (preferredMethodDevices.length > 0) {
+        // Find device marked as primary, fallback to first device
+        const primaryDevice = preferredMethodDevices.find((d) => d.isPrimary);
+        preferredDeviceId = primaryDevice?.id || preferredMethodDevices[0].id;
+      }
+    }
+
     // Create challenge session
     // Client info (ipAddress, userAgent) automatically extracted from ClientInfoService
     // Store preferred method in metadata for resend endpoint to know which method to use
     const challengeSession = await this.challengeService.createChallengeSession(user, AuthChallenge.MFA_REQUIRED, {
       availableMethods,
       preferredMethod,
+      preferredDeviceId, // Include preferred device ID for multi-device methods
       maskedPhone,
       maskedEmail,
       method: preferredMethod, // Store method in metadata for resend endpoint
+      devices: deviceInfo.length > 0 ? deviceInfo : undefined, // Include device info for multi-device methods
     });
 
     this.logger?.log?.(`MFA challenge created for user: ${user.sub}`);
@@ -534,6 +562,14 @@ export class AuthChallengeHelperService {
     if (maskedEmail || preferredMethod.toLowerCase() === 'email') {
       // Include maskedEmail if available, or if email is preferred (frontend will handle display)
       challengeParams.maskedEmail = maskedEmail || user.email || '';
+    }
+    // Include device information for methods that support multiple devices (TOTP, Passkey)
+    if (deviceInfo.length > 0) {
+      challengeParams.devices = deviceInfo;
+    }
+    // Include preferred device ID - frontend uses this to show which device to use
+    if (preferredDeviceId !== undefined) {
+      challengeParams.preferredDeviceId = preferredDeviceId;
     }
 
     return {

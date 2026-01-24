@@ -88,9 +88,7 @@ function hasExportModifier(node: ts.Node): boolean {
   return !!modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
 }
 
-function renderRegistryType(
-  modules: Array<{ namespace: string; modulePath: string; symbols: string[] }>,
-): string {
+function renderRegistryType(modules: Array<{ namespace: string; modulePath: string; symbols: string[] }>): string {
   const lines: string[] = [];
 
   lines.push('/**');
@@ -168,4 +166,3 @@ function rewriteRefsAndRename(value: unknown, renameMap: Map<string, string>): u
 if (require.main === module) {
   generateOpenApiSchemas();
 }
-

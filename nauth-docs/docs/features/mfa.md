@@ -23,9 +23,6 @@ Add a second layer of security beyond passwords. After users authenticate with t
 | **Passkey** | Biometric (Face ID, Touch ID, YubiKey) | Very High | Modern devices, passwordless future |
 | **Backup Codes** | One-time recovery codes | N/A | Account recovery only |
 
-:::info Email MFA Now Available
-Email-based MFA codes are now supported alongside TOTP, SMS, and Passkey methods.
-:::
 
 :::warning Backup Codes - Experimental
 Backup codes are currently **experimental**. Do not rely on them in production until a future stable release. The API may change.
@@ -75,7 +72,7 @@ sequenceDiagram
     App->>User: Logged in successfully
 ```
 
-### Setup flow (one-time per method)
+### Setup flow (repeatable per method)
 
 1. User navigates to security settings
 2. User selects "Enable Authenticator App" (or SMS/Email/Passkey)
@@ -84,7 +81,13 @@ sequenceDiagram
 5. For Passkey: authenticate with Face ID/Touch ID
 6. User enters test code to confirm setup
 7. System displays backup codes (save these!)
-8. MFA is now active for that user
+8. MFA device is now active for that user
+
+**Multiple devices per method**
+
+- Users can enroll **multiple TOTP devices** (e.g., phone + password manager).
+- Users can enroll **multiple passkeys** (e.g., phone + laptop + security key).
+- SMS and Email are typically treated as singletons per user (one active device).
 
 ### Login flow (with MFA enabled)
 
@@ -845,42 +848,20 @@ Users should be able to view and manage their enrolled MFA methods.
 ### API methods
 
 ```typescript
-// List all enrolled MFA devices
-const devices = await mfaService.getUserMfaDevices(user.sub);
+// List enrolled MFA devices (authenticated user)
+// GET /auth/mfa/devices
+const devices = await client.getMfaDevices(); // MFADevice[]
 
-// Returns array:
-// [
-//   {
-//     id: 1,
-//     methodName: 'totp',
-//     deviceName: 'Google Authenticator',
-//     isPreferred: true,
-//     verified: true,
-//     lastUsedAt: '2024-01-15T10:30:00Z',
-//     createdAt: '2024-01-01T09:00:00Z',
-//   },
-//   {
-//     id: 2,
-//     methodName: 'sms',
-//     deviceName: '+1***-***-5678',
-//     isPreferred: false,
-//     verified: true,
-//     lastUsedAt: '2024-01-10T14:20:00Z',
-//     createdAt: '2024-01-05T11:00:00Z',
-//   }
-// ]
+// Remove a specific device by ID
+// DELETE /auth/mfa/devices/:deviceId
+await client.removeMfaDeviceById(deviceId);
 
-// Remove a device
-await mfaService.removeMfaDevice(user.sub, deviceId);
-
-// Set primary/preferred device (used first during login)
-await mfaService.setPreferredMethod({
-  sub: user.sub,
-  deviceId: deviceId,
-});
+// Set a specific device as preferred (uses device-level preference)
+// POST /auth/mfa/devices/:deviceId/preferred
+await client.setPreferredMfaDevice(deviceId);
 
 // Regenerate backup codes (invalidates old codes)
-const newBackupCodes = await mfaService.regenerateBackupCodes(user);
+const newBackupCodes = await client.generateBackupCodes();
 // Display these to user - cannot be retrieved later
 ```
 
@@ -890,7 +871,7 @@ Show users:
 
 - Device name (e.g., "iPhone 14", "Google Authenticator", "+1***5678")
 - Type icon (authenticator, phone, email, key)
-- Primary indicator (star or badge)
+- Preferred indicator (star or badge) - shown for the preferred device
 - Last used date
 - Created date
 - Remove button (with confirmation)

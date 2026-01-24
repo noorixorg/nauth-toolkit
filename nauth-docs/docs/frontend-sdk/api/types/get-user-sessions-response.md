@@ -73,4 +73,4 @@ import { GetUserSessionsResponse } from '@nauth-toolkit/client';
 
 ## Used By
 
-- [AdminOperations.getUserSessions()](../admin-operations#getsessions) - Returns [`GetUserSessionsResponse`](./get-user-sessions-response)
+- [AdminOperations.getUserSessions()](../admin-operations#getusersessions) - Returns [`GetUserSessionsResponse`](./get-user-sessions-response)

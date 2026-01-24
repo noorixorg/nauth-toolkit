@@ -275,17 +275,20 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
   });
 
   /**
-   * Computed title based on challenge type
+   * Computed title based on challenge type and device name
    */
   title = computed(() => {
     const type = this.currentChallengeType();
+    const deviceName = this.deviceName();
+    
     switch (type) {
       case AuthChallenge.VERIFY_EMAIL:
         return 'Verify Email';
       case AuthChallenge.VERIFY_PHONE:
         return 'Verify Phone';
       case AuthChallenge.MFA_REQUIRED:
-        return 'Two-Factor Authentication';
+        // Show device name if available (e.g., "Verify microsoft")
+        return deviceName ? `Verify ${deviceName}` : 'Two-Factor Authentication';
       case AuthChallenge.MFA_SETUP_REQUIRED:
         return 'Set Up Multi-Factor Authentication';
       default:
@@ -388,12 +391,19 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
       case AuthChallenge.MFA_REQUIRED: {
         // Use mfaMethod() which respects user's selected method from query params
         const method = this.mfaMethod();
+        const deviceName = this.deviceName();
+        
         if (method === 'totp') {
-          return 'Please enter the code from your authenticator app.';
+          // Show device name if available (e.g., "microsoft", "Google")
+          return deviceName
+            ? `Please enter the code from ${deviceName}.`
+            : 'Please enter the code from your authenticator app.';
         }
-        // For SMS/Email, show destination only if method matches
-        if ((method === 'sms' || method === 'email') && destination) {
-          return `We've sent a verification code to ${destination}. Please enter it below.`;
+        // For SMS/Email, show destination
+        if (method === 'sms' || method === 'email') {
+          return destination
+            ? `We've sent a verification code to ${destination}. Please enter it below.`
+            : 'Please enter the verification code.';
         }
         return 'Please enter the verification code.';
       }
@@ -456,6 +466,26 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
     // Otherwise use method from challenge parameters
     if (!challenge) return undefined;
     return getMFAMethod(challenge);
+  });
+
+  /**
+   * Device name for the current verification
+   * Gets device name from preferredDeviceId in challenge parameters
+   */
+  deviceName = computed(() => {
+    const challenge = this.challenge();
+    if (!challenge) return undefined;
+    
+    const params = challenge.challengeParameters;
+    const preferredDeviceId = params?.['preferredDeviceId'] as number | undefined;
+    const devices = (params?.['devices'] as Array<{ id: number; name: string; type: string }>) || [];
+    
+    if (preferredDeviceId && devices.length > 0) {
+      const device = devices.find((d) => d.id === preferredDeviceId);
+      return device?.name;
+    }
+    
+    return undefined;
   });
 
   /**
@@ -1003,11 +1033,13 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
           this.error.set('MFA method not specified.');
           return;
         }
+        // SDK auto-injects deviceId if one was selected via selectMFADevice()
         challengeResponse = {
           type: AuthChallenge.MFA_REQUIRED,
           session: challenge.session!,
           method,
           code: code.trim(),
+          // No manual deviceId needed - SDK handles it!
         };
         break;
       }

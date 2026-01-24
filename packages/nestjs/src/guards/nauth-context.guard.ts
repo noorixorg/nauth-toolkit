@@ -10,6 +10,7 @@ import {
   NAuthRequestAttributes,
 } from '@nauth-toolkit/core';
 import { GeoLocationService } from '@nauth-toolkit/core/internal';
+import { NAUTH_MIGRATIONS_BOOTSTRAP } from '../services/migrations-bootstrap.service';
 
 /**
  * Symbol for storing context store on request (avoids property name collisions)
@@ -48,6 +49,11 @@ export class NAuthContextGuard implements CanActivate {
     private readonly config: NAuthConfig,
     @Optional()
     private readonly geoLocationService?: GeoLocationService,
+    // Force eager creation of the migrations bootstrap provider to ensure NAuth migrations run
+    // during NestJS app initialization (not lazily on first injection elsewhere).
+    @Optional()
+    @Inject(NAUTH_MIGRATIONS_BOOTSTRAP)
+    private readonly _migrationsBootstrapped?: boolean,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

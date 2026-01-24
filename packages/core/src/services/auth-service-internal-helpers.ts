@@ -395,6 +395,7 @@ export class AuthServiceInternalHelpers {
     if (method === 'passkey') {
       const passkeyData = data as VerifyMFAPasskeyResponse;
       const credential = passkeyData.credential;
+      const deviceId = passkeyData.deviceId;
 
       // Get expected challenge from session metadata
       const expectedChallenge = challengeSession.metadata?.passkeyChallenge;
@@ -408,17 +409,20 @@ export class AuthServiceInternalHelpers {
         sub: user.sub,
         methodName: MFAMethod.PASSKEY,
         code: wrappedCredential,
+        ...(deviceId && { deviceId }),
       });
       isValid = verifyResult.valid;
     } else {
       const codeData = data as VerifyMFACodeResponse;
       const code = codeData.code;
+      const deviceId = codeData.deviceId;
 
       // Verify code via MFAService (handles totp, sms, and backup)
       const verifyResult = await mfaService.verifyCode({
         sub: user.sub,
         methodName: method,
         code,
+        ...(deviceId && { deviceId }),
       });
       isValid = verifyResult.valid;
     }

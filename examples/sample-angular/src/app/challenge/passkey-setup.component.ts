@@ -8,7 +8,7 @@ import {
   input,
   output,
 } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import {
   AuthService,
   AuthResponse,
@@ -150,6 +150,23 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
   error = signal<string | null>(null);
 
   /**
+   * Optional device name for the enrolled passkey.
+   *
+   * This improves UX when users register multiple passkeys.
+   */
+  deviceName = signal<string>('');
+
+  /**
+   * Handle device name input changes.
+   *
+   * @param event - Input event
+   */
+  onDeviceNameInput(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    this.deviceName.set(target?.value ?? '');
+  }
+
+  /**
    * Destroy subject for cleanup
    */
   private readonly destroy$ = new Subject<void>();
@@ -212,6 +229,7 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
   });
 
   private readonly config = inject<NAuthClientConfig>(NAUTH_CLIENT_CONFIG);
+  private readonly route = inject(ActivatedRoute);
 
   /**
    * @param auth - Auth service for authentication
@@ -469,6 +487,7 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
 
     try {
       let credential: unknown;
+      const deviceName = this.deviceName().trim();
 
       if (isSetup) {
         // MFA_SETUP_REQUIRED: Create new passkey (registration)
@@ -503,6 +522,7 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
                 };
                 type: 'public-key';
               },
+              deviceName: deviceName.length > 0 ? deviceName : undefined,
             },
             expectedChallenge,
           });
@@ -537,6 +557,7 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
                   };
                   type: 'public-key';
                 },
+                deviceName: deviceName.length > 0 ? deviceName : undefined,
               },
               expectedChallenge,
             },
@@ -558,11 +579,13 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
           throw new Error('Invalid challenge session for passkey verification');
         }
 
+        // SDK auto-injects deviceId if one was selected via selectMFADevice()
         const verifyResponse: MFAPasskeyResponse = {
           type: AuthChallenge.MFA_REQUIRED,
           session,
           method: 'passkey',
           credential: credential as Record<string, unknown>,
+          // No manual deviceId needed - SDK handles it!
         };
 
         const authResponse = await this.auth.respondToChallenge(verifyResponse);

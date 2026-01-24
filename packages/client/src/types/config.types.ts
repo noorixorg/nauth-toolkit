@@ -116,7 +116,6 @@ export interface NAuthEndpoints {
   mfaDevices: string;
   mfaSetupData: string;
   mfaVerifySetup: string;
-  mfaRemove: string;
   mfaPreferred: string;
   mfaBackupCodes: string;
   socialLinked: string;
@@ -161,10 +160,10 @@ export interface NAuthAdminEndpoints {
   logoutAll: string;
   /** GET /users/:sub/mfa/status - Get MFA status */
   getMfaStatus: string;
-  /** POST /mfa/preferred-method - Set preferred MFA method */
-  setPreferredMfaMethod: string;
-  /** POST /mfa/remove-devices - Remove MFA devices */
-  removeMfaDevices: string;
+  /** DELETE /mfa/devices/:deviceId - Remove a single MFA device by id */
+  removeMfaDeviceById: string;
+  /** POST /users/:sub/mfa/devices/:deviceId/preferred - Set preferred MFA device */
+  setPreferredMfaDevice: string;
   /** POST /mfa/exemption - Set MFA exemption */
   setMfaExemption: string;
   /** GET /audit/history - Get audit history */

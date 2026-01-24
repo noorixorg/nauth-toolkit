@@ -1,5 +1,3 @@
-import type { TemplateType } from './template.interface';
-
 /**
  * Email provider interface for sending emails
  */

@@ -1336,7 +1336,10 @@ export class UserService {
         const adminSub = (clientInfo as { sub?: string })?.sub;
         const adminUserId = (clientInfo as { userId?: number })?.userId;
         const performedBy =
-          adminSub ?? (adminUserId != null ? String(adminUserId) : null) ?? clientInfo.ipAddress ?? 'system';
+          adminSub ??
+          (typeof adminUserId === 'number' ? String(adminUserId) : null) ??
+          clientInfo.ipAddress ??
+          'system';
 
         if (adminSub || adminUserId) {
           this.logger?.debug?.(
@@ -1502,7 +1505,10 @@ export class UserService {
         const adminSub = (clientInfo as { sub?: string })?.sub;
         const adminUserId = (clientInfo as { userId?: number })?.userId;
         const performedBy =
-          adminSub ?? (adminUserId != null ? String(adminUserId) : null) ?? clientInfo.ipAddress ?? 'system';
+          adminSub ??
+          (typeof adminUserId === 'number' ? String(adminUserId) : null) ??
+          clientInfo.ipAddress ??
+          'system';
 
         if (adminSub || adminUserId) {
           this.logger?.debug?.(

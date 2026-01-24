@@ -36,9 +36,18 @@ export interface MFADevice {
   id: number;
   type: MFADeviceMethod; // Device methods only (excludes 'backup')
   name: string;
-  isPrimary: boolean;
+  isPrimary: boolean; // Preferred device flag (for display only)
   isActive: boolean;
   createdAt: string | Date;
+}
+
+/**
+ * Response from removing a single MFA device by ID.
+ */
+export interface RemoveMFADeviceResponse {
+  removedDeviceId: number;
+  removedMethod: MFADeviceMethod;
+  mfaDisabled: boolean;
 }
 
 /**

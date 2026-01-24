@@ -140,8 +140,8 @@ const createTestConfig = (
         getUserSessions: '/users/:sub/sessions',
         logoutAll: '/users/:sub/logout-all',
         getMfaStatus: '/users/:sub/mfa/status',
-        setPreferredMfaMethod: '/mfa/preferred-method',
         removeMfaDevices: '/mfa/remove-devices',
+      removeMfaDeviceById: '/mfa/devices/:deviceId',
         setMfaExemption: '/mfa/exemption',
         getAuditHistory: '/audit/history',
       },
@@ -538,15 +538,6 @@ describe('AdminOperations', () => {
       expect(result.enabled).toBe(true);
     });
 
-    it('should set preferred MFA method', async () => {
-      httpAdapter.setResponse({ message: 'Preferred method updated' });
-
-      const result = await adminOps.setPreferredMfaMethod('test-uuid', 'totp');
-
-      expect(result.message).toBe('Preferred method updated');
-      const requests = httpAdapter.getRequests();
-      expect(requests[0].body).toEqual({ sub: 'test-uuid', method: 'totp' });
-    });
 
     it('should remove MFA devices', async () => {
       httpAdapter.setResponse({ message: 'Devices removed' });

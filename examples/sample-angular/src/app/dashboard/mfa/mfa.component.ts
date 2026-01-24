@@ -24,9 +24,9 @@ import { Subject } from 'rxjs';
  *
  * Provides comprehensive MFA device management:
  * - View all enrolled MFA devices
- * - See preferred method
+ * - See preferred device
+ * - Set preferred device
  * - Delete MFA devices
- * - Set preferred method
  * - Enroll new MFA devices
  *
  * Uses existing MFA setup components for enrollment flow.
@@ -105,7 +105,7 @@ export class MfaComponent implements OnInit, OnDestroy {
   protected readonly mfaEnabled = computed(() => this.mfaStatus()?.enabled ?? false);
 
   /**
-   * Preferred MFA method
+   * Preferred MFA method (method-level)
    */
   protected readonly preferredMethod = computed(() => this.mfaStatus()?.preferredMethod);
 
@@ -118,7 +118,12 @@ export class MfaComponent implements OnInit, OnDestroy {
     // Filter out already configured methods
     const configuredTypes = this.devices().map((d) => d.type);
     return status.availableMethods.filter(
-      (m) => m !== 'backup' && !configuredTypes.includes(m as MFADeviceMethod),
+      (m) =>
+        m !== 'backup' &&
+        (!configuredTypes.includes(m as MFADeviceMethod) ||
+          // Allow multiple devices for these methods
+          m === 'totp' ||
+          m === 'passkey'),
     );
   });
 
@@ -226,14 +231,15 @@ export class MfaComponent implements OnInit, OnDestroy {
     });
   }
 
+
   /**
-   * Check if device is preferred
+   * Check if device is preferred (primary)
    *
    * @param device - MFA device
-   * @returns True if device is the preferred method
+   * @returns True if device is marked as preferred
    */
   isPreferred(device: MFADevice): boolean {
-    return device.type === this.preferredMethod();
+    return device.isPrimary === true;
   }
 
   /**
@@ -258,7 +264,7 @@ export class MfaComponent implements OnInit, OnDestroy {
     const items: MenuItem[] = [];
 
     // Set as preferred (if not already)
-    if (!this.isPreferred(device)) {
+    if (!device.isPrimary) {
       items.push({
         label: 'Set as Preferred',
         icon: 'pi pi-star',
@@ -284,7 +290,7 @@ export class MfaComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Set device as preferred MFA method
+   * Set device as preferred MFA device
    *
    * @param device - MFA device to set as preferred
    */
@@ -297,12 +303,12 @@ export class MfaComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     try {
       const client = this.auth.getClient();
-      await client.setPreferredMfaMethod(device.type);
+      await client.setPreferredMfaDevice(device.id);
 
       // Reload data to reflect changes
       await this.loadMfaData();
     } catch (err) {
-      let errorMessage = 'Failed to set preferred method';
+      let errorMessage = 'Failed to set preferred device';
       if (err instanceof NAuthClientError) {
         errorMessage = err.message;
       } else if (err instanceof Error) {
@@ -320,6 +326,7 @@ export class MfaComponent implements OnInit, OnDestroy {
     }
   }
 
+
   /**
    * Delete MFA device
    *
@@ -334,7 +341,7 @@ export class MfaComponent implements OnInit, OnDestroy {
       accept: async () => {
         try {
           const client = this.auth.getClient();
-          await client.removeMfaDevice(device.type);
+          await client.removeMfaDeviceById(device.id);
 
           // Reload data to reflect changes
           await this.loadMfaData();

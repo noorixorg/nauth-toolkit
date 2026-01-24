@@ -135,23 +135,27 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
   /**
    * Create MFA device for user
    *
-   * Creates a new MFA device with proper duplicate prevention and transaction safety.
-   * Uses database-level unique constraint (userId, type) to prevent race conditions.
+   * Creates a new MFA device with transaction safety.
+   *
+   * NAuth supports multiple devices per MFA method (e.g., multiple TOTP apps, multiple passkeys).
+   * Some methods still behave like singletons (e.g., SMS/Email) and should enable de-duplication
+   * explicitly via the `options.dedupeWhere` parameter.
    *
    * **Race Condition Prevention:**
-   * - Checks for existing device before creation
+   * - Optionally checks for an existing device before creation (provider-controlled)
    * - Wraps in transaction with pessimistic write lock on user row
    * - Database unique constraint provides final safety net
    *
    * **Transaction Flow:**
    * 1. Lock user row (prevents concurrent MFA setup)
-   * 2. Check for existing device of this type
-   * 3. Create device if none exists
+   * 2. (Optional) Check for existing device matching de-duplication criteria
+   * 3. Create device if none exists / de-dup disabled
    * 4. Update user MFA flags
    * 5. Commit transaction
    *
    * @param userId - Internal user ID
    * @param deviceData - Device data to create
+   * @param options - Optional creation options (e.g., de-duplication criteria)
    * @returns Created device (or existing device if already present)
    * @protected
    *
@@ -165,7 +169,24 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
    * });
    * ```
    */
-  protected async createDevice(userId: number, deviceData: Partial<IMFADevice>): Promise<IMFADevice> {
+  protected async createDevice(
+    userId: number,
+    deviceData: Partial<IMFADevice>,
+    options?: {
+      /**
+       * Optional de-duplication criteria.
+       *
+       * - When provided (even as an empty object), `createDevice` will first attempt to find an
+       *   existing device for this user/method and return it.
+       * - Providers can add method-specific keys (e.g., `{ credentialId }` for passkeys).
+       *
+       * SECURITY: Only use stable identifiers here (never secrets).
+       *
+       * @example { credentialId: 'base64url-credential-id' }
+       */
+      dedupeWhere?: Record<string, unknown>;
+    },
+  ): Promise<IMFADevice> {
     // ============================================================================
     // Transaction-Safe Device Creation with Race Condition Prevention
     // ============================================================================
@@ -182,35 +203,90 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
         .setLock('pessimistic_write')
         .getOne();
 
-      // Step 2: Check for existing device of this type (within transaction)
-      // This prevents duplicates even if called concurrently
-      const existingDevice = await transactionalEntityManager
-        .getRepository(this.mfaDeviceRepository.target)
-        .createQueryBuilder('device')
-        .where('device.userId = :userId', { userId })
-        .andWhere('device.type = :type', { type: this.methodName })
-        .getOne();
+      const shouldDedupe = options && options.dedupeWhere !== undefined;
+      const dedupeWhere = options?.dedupeWhere ?? {};
 
+      const findExistingDevice = async (): Promise<IMFADevice | null> => {
+        if (!shouldDedupe) {
+          return null;
+        }
+
+        const qb = transactionalEntityManager
+          .getRepository(this.mfaDeviceRepository.target)
+          .createQueryBuilder('device')
+          .where('device.userId = :userId', { userId })
+          .andWhere('device.type = :type', { type: this.methodName });
+
+        // Provider-supplied de-duplication keys (e.g., credentialId for passkeys).
+        for (const [key, value] of Object.entries(dedupeWhere)) {
+          if (value === undefined) {
+            continue;
+          }
+          qb.andWhere(`device.${key} = :${key}`, { [key]: value });
+        }
+
+        const existing = await qb.getOne();
+        return existing ? (existing as unknown as IMFADevice) : null;
+      };
+
+      // Step 2 (Optional): De-duplication within transaction (provider-controlled)
+      const existingDevice = await findExistingDevice();
       if (existingDevice) {
-        this.logger?.log?.(
-          `MFA device of type '${this.methodName}' already exists for user ${userId}, returning existing device`,
-        );
-        return existingDevice as unknown as IMFADevice;
+        this.logger?.log?.(`MFA device already exists for user ${userId} (method='${this.methodName}'), reusing it`);
+        return existingDevice;
       }
 
-      // Step 3: Create new device (no duplicate exists)
+      // Step 3: Create new device
       const newDevice = transactionalEntityManager.getRepository(this.mfaDeviceRepository.target).create({
         userId,
         type: this.methodName,
         ...deviceData,
       } as Record<string, unknown>);
 
-      // Step 4: Save device (unique constraint provides final safety net)
-      const saved = await transactionalEntityManager.getRepository(this.mfaDeviceRepository.target).save(newDevice);
+      // Step 4: Save device (DB constraints provide final safety net)
+      const isUniqueConstraintViolation = (error: unknown): boolean => {
+        if (!error || typeof error !== 'object') {
+          return false;
+        }
+        const err = error as { code?: unknown; errno?: unknown };
+        const code = typeof err.code === 'string' ? err.code : undefined;
+        const errno = typeof err.errno === 'number' ? err.errno : undefined;
+
+        // PostgreSQL: unique_violation = 23505
+        if (code === '23505') {
+          return true;
+        }
+
+        // MySQL: ER_DUP_ENTRY / errno 1062
+        if (code === 'ER_DUP_ENTRY' || errno === 1062) {
+          return true;
+        }
+
+        return false;
+      };
+
+      let saved: IMFADevice;
+      try {
+        saved = (await transactionalEntityManager
+          .getRepository(this.mfaDeviceRepository.target)
+          .save(newDevice)) as unknown as IMFADevice;
+      } catch (error: unknown) {
+        // If a concurrent request created the same device, attempt to re-fetch and return it.
+        if (shouldDedupe && isUniqueConstraintViolation(error)) {
+          const concurrentDevice = await findExistingDevice();
+          if (concurrentDevice) {
+            this.logger?.warn?.(
+              `MFA device create hit a uniqueness constraint but existing device was found (method='${this.methodName}', userId=${userId})`,
+            );
+            return concurrentDevice;
+          }
+        }
+        throw error;
+      }
 
       this.logger?.log?.(`Created new MFA device: type='${this.methodName}', userId=${userId}, deviceId=${saved.id}`);
 
-      return saved as unknown as IMFADevice;
+      return saved;
     });
 
     // ============================================================================

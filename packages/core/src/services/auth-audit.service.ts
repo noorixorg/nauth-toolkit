@@ -527,7 +527,7 @@ export class InternalAuthAuditService extends AuthAuditService {
           const clientInfo = this.clientInfoService.get();
           if (clientInfo?.sub) {
             performedBy = clientInfo.sub;
-          } else if (clientInfo?.userId != null) {
+          } else if (typeof clientInfo?.userId === 'number') {
             performedBy = String(clientInfo.userId);
           }
         } catch (error) {
@@ -570,9 +570,7 @@ export class InternalAuthAuditService extends AuthAuditService {
           }
         } catch (lookupError) {
           const errorMessage = lookupError instanceof Error ? lookupError.message : 'Unknown error';
-          this.logger?.debug?.(
-            `Failed to get performedBy user from context for audit metadata: ${errorMessage}`,
-          );
+          this.logger?.debug?.(`Failed to get performedBy user from context for audit metadata: ${errorMessage}`);
         }
       }
 

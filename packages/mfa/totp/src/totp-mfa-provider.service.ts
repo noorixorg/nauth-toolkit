@@ -102,9 +102,9 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
    * Enables MFA for user if this is their first device.
    *
    * **Race Condition Safety:**
-   * Device creation uses transaction with pessimistic locking to prevent duplicates.
-   * If device already exists (e.g., from concurrent request), returns existing device.
-   * Database unique constraint (userId, type) provides final safety net.
+   * Device creation uses a transaction with pessimistic locking.
+   *
+   * Note: NAuth supports multiple TOTP devices per user for redundancy (e.g., phone + password manager).
    *
    * @param user - User completing TOTP setup
    * @param verificationData - Verification data (must be VerifyTOTPSetupDTO)
@@ -144,11 +144,9 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
     const userMfaEnabled = (userEntity.mfaEnabled as boolean) || false;
 
     // ============================================================================
-    // Create MFA device (transaction-safe with duplicate prevention)
+    // Create MFA device (transaction-safe, multi-device)
     // ============================================================================
-    // createDevice() uses pessimistic locking to prevent race conditions
-    // If device already exists, returns existing device instead of creating duplicate
-    // Database unique constraint (userId, type) provides additional safety
+    // We intentionally do NOT de-duplicate TOTP devices: users can register multiple authenticators.
     const device = await this.createDevice(userId, {
       name: deviceName || dto.deviceName || 'Authenticator App',
       secret: dto.secret, // TODO: Encrypt at rest in production

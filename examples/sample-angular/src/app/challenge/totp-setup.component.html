@@ -41,6 +41,21 @@
 
       <!-- OTP Input -->
       <div class="form-field">
+        <label for="deviceName" class="form-label">Device Name (optional)</label>
+        <input
+          id="deviceName"
+          type="text"
+          formControlName="deviceName"
+          class="w-full p-inputtext p-component"
+          maxlength="100"
+          placeholder="e.g., iPhone 15 Pro, 1Password, Google Authenticator"
+        />
+        @if (totpForm.get('deviceName')?.invalid && totpForm.get('deviceName')?.touched) {
+          <small class="p-error">Device name must be 100 characters or less</small>
+        }
+      </div>
+
+      <div class="form-field">
         <label for="code" class="form-label">
           Verification Code <span class="form-required">*</span>
         </label>

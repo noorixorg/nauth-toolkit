@@ -158,9 +158,9 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
    * Enables MFA for user if this is their first device.
    *
    * **Race Condition Safety:**
-   * Device creation uses transaction with pessimistic locking to prevent duplicates.
-   * If device already exists (e.g., from concurrent request), returns existing device.
-   * Database unique constraint (userId, type) provides final safety net.
+   * Device creation uses a transaction with pessimistic locking.
+   *
+   * Note: Email MFA is treated as a singleton method in NAuth (one active Email device per user).
    *
    * @param user - User completing Email MFA setup
    * @param verificationData - Verification data (must be VerifyEmailMFASetupDTO)
@@ -240,17 +240,19 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
     }
 
     // ============================================================================
-    // Create MFA device (transaction-safe with duplicate prevention)
+    // Create MFA device (transaction-safe, singleton semantics)
     // ============================================================================
-    // createDevice() uses pessimistic locking to prevent race conditions
-    // If device already exists, returns existing device instead of creating duplicate
-    // Database unique constraint (userId, type) provides additional safety
-    const device = await this.createDevice(userId, {
-      name: deviceName || 'Email',
-      email, // Use resolved email (dto.email or user.email)
-      isActive: true,
-      isPrimary: !userMfaEnabled, // First device becomes primary
-    });
+    // We de-duplicate by method (userId + method) to preserve legacy behavior.
+    const device = await this.createDevice(
+      userId,
+      {
+        name: deviceName || 'Email',
+        email, // Use resolved email (dto.email or user.email)
+        isActive: true,
+        isPrimary: !userMfaEnabled, // First device becomes primary
+      },
+      { dedupeWhere: {} },
+    );
 
     // Enable MFA if not already enabled
     await this.enableMFAForUser(user);

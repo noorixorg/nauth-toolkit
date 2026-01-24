@@ -310,18 +310,25 @@ npm install @simplewebauthn/browser
 import { startRegistration } from '@simplewebauthn/browser';
 
 // 1. Get passkey registration options from backend
-const options = await client.getSetupData(session, 'passkey');
+const { setupData } = await client.getSetupData(session, 'passkey');
+const optionsJSON = setupData.options;
 
 // 2. Prompt user to create passkey (Touch ID, Face ID, Windows Hello, etc.)
 try {
-  const credential = await startRegistration(options);
+  const credential = await startRegistration({ optionsJSON });
 
   // 3. Complete setup
   await client.respondToChallenge({
     session,
     type: 'MFA_SETUP_REQUIRED',
     method: 'passkey',
-    setupData: { credential },
+    setupData: {
+      credential: {
+        credential,
+        deviceName: 'My Passkey',
+      },
+      expectedChallenge: optionsJSON.challenge,
+    },
   });
 
   console.log('Passkey registered successfully');
@@ -342,11 +349,12 @@ Use browser's native API (no dependencies, but requires manual error handling):
 
 ```typescript
 // 1. Get registration options
-const options = await client.getSetupData(session, 'passkey');
+const { setupData } = await client.getSetupData(session, 'passkey');
+const optionsJSON = setupData.options;
 
 // 2. Create credential
 const credential = await navigator.credentials.create({
-  publicKey: options as PublicKeyCredentialCreationOptions,
+  publicKey: optionsJSON as unknown as PublicKeyCredentialCreationOptions,
 });
 
 // 3. Complete setup
@@ -354,7 +362,13 @@ await client.respondToChallenge({
   session,
   type: 'MFA_SETUP_REQUIRED',
   method: 'passkey',
-  setupData: { credential },
+  setupData: {
+    credential: {
+      credential: credential as unknown as Record<string, unknown>,
+      deviceName: 'My Passkey',
+    },
+    expectedChallenge: optionsJSON.challenge,
+  },
 });
 ```
 
@@ -367,8 +381,10 @@ await client.respondToChallenge({
 ```typescript
 const status = await client.getMfaStatus();
 // status: {
-//   mfaEnabled: true,
-//   availableMethods: ['totp', 'sms'],
+//   enabled: true,
+//   required: true,
+//   methods: ['totp', 'passkey'],
+//   availableMethods: ['totp', 'sms', 'email', 'passkey', 'backup'],
 //   preferredMethod: 'totp',
 //   hasBackupCodes: true,
 //   mfaExempt: false
@@ -392,20 +408,42 @@ const devices = await client.getMfaDevices(); // Returns MFADevice[]
 const setupData = await client.setupMfaDevice('totp');
 
 // 2. Verify and complete
-const result = await client.verifyMfaSetup('totp', { code: '123456' }, 'My Authenticator');
+const result = await client.verifyMfaSetup('totp', {
+  secret: setupData.secret,
+  code: '123456',
+  deviceName: 'My Authenticator',
+});
 // result: { deviceId: 3 }
 ```
 
-### Remove MFA Device
+### Remove a Single MFA Device
 
 ```typescript
-await client.removeMfaDevice('totp');
+await client.removeMfaDeviceById(3);
 ```
 
-### Set Preferred Method
+### Remove Specific Device by ID
+
+For granular control, remove individual devices by their unique ID:
 
 ```typescript
-await client.setPreferredMfaMethod('sms');
+// Get user's devices
+const devices = await client.getMfaDevices();
+// [{ id: 48, name: "Google Authenticator", type: "totp", isPrimary: true },
+//  { id: 52, name: "Microsoft Authenticator", type: "totp", isPrimary: false }]
+
+// Remove specific device
+await client.removeMfaDeviceById(52);
+```
+
+### Set Preferred Device
+
+```typescript
+// Get user's devices
+const devices = await client.getMfaDevices();
+
+// Set preferred device by ID
+await client.setPreferredMfaDevice(devices[0].id);
 ```
 
 ### Generate Backup Codes

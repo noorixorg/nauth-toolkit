@@ -724,19 +724,22 @@ describe('NAuthClient', () => {
     expect(result.message).toBe('Device removed');
   });
 
-  it('handles setPreferredMfaMethod', async () => {
+  it('handles removeMfaDeviceById', async () => {
     const client = new NAuthClient(baseConfig);
     getFetchMock().mockResolvedValue(
       createMockResponse({
         ok: true,
         status: 200,
-        body: { message: 'Preferred method updated' },
+        body: { removedDeviceId: 123, removedMethod: 'totp', mfaDisabled: false },
       }),
     );
 
-    const result = await client.setPreferredMfaMethod('totp');
-    expect(result.message).toBe('Preferred method updated');
+    const result = await client.removeMfaDeviceById(123);
+    expect(result.removedDeviceId).toBe(123);
+    expect(result.removedMethod).toBe('totp');
+    expect(result.mfaDisabled).toBe(false);
   });
+
 
   it('handles generateBackupCodes', async () => {
     const client = new NAuthClient(baseConfig);

@@ -87,10 +87,9 @@ See [`AuthResponse.challengeParameters`](./auth-response) for complete structure
 ```typescript
 import { MFAMethod, MFADeviceMethod } from '@nauth-toolkit/client';
 
-// Device method (for setup and preferred method)
+// Device method (for setup)
 const deviceMethod: MFADeviceMethod = 'totp';
 await client.setupMfaDevice(deviceMethod);
-await client.setPreferredMfaMethod(deviceMethod);
 
 // All methods (includes backup for verification)
 const allMethods: MFAMethod[] = ['totp', 'sms', 'backup'];
@@ -136,5 +135,4 @@ if (response.challengeName === 'MFA_REQUIRED') {
 - [NAuthClient.getSetupData()](../nauth-client#getsetupdata) - Accepts [`MFADeviceMethod`](./mfa-method) parameter
 - [NAuthClient.getChallengeData()](../nauth-client#getchallengedata) - Accepts [`MFAMethod`](./mfa-method) parameter
 - [NAuthClient.setupMfaDevice()](../nauth-client#setupmfadevice) - Accepts [`MFADeviceMethod`](./mfa-method) parameter
-- [NAuthClient.setPreferredMfaMethod()](../nauth-client#setpreferredmfamethod) - Accepts [`MFADeviceMethod`](./mfa-method) parameter
 - [MFA Setup Guide](../../guides/mfa-setup) - Complete MFA setup guide

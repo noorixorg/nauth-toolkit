@@ -177,12 +177,14 @@ export interface MFACodeResponse extends BaseChallengeResponse {
   type: AuthChallenge.MFA_REQUIRED;
   method: MFAMethod;
   code: string;
+  deviceId?: number;
 }
 
 export interface MFAPasskeyResponse extends BaseChallengeResponse {
   type: AuthChallenge.MFA_REQUIRED;
   method: 'passkey';
   credential: Record<string, unknown>;
+  deviceId?: number;
 }
 
 export interface MFASetupResponse extends BaseChallengeResponse {

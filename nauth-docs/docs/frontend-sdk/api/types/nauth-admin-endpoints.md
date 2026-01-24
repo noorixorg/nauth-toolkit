@@ -29,14 +29,14 @@ import { NAuthAdminEndpoints } from '@nauth-toolkit/client';
 | `getUser`               | `string` | GET endpoint for retrieving a user (supports `:sub` path parameter) |
 | `getUserSessions`       | `string` | GET endpoint for user sessions (supports `:sub` path parameter) |
 | `getUsers`              | `string` | GET endpoint for querying users                                  |
-| `logoutAll`              | `string` | POST endpoint for logging out all sessions (supports `:sub` path parameter) |
-| `removeMfaDevices`      | `string` | POST endpoint for removing MFA devices                           |
-| `resetPasswordInitiate` | `string` | POST endpoint for initiating password reset                      |
-| `setMfaExemption`       | `string` | POST endpoint for setting MFA exemption                          |
-| `setPassword`           | `string` | POST endpoint for setting password                               |
-| `setPreferredMfaMethod`| `string` | POST endpoint for setting preferred MFA method                   |
-| `signup`                | `string` | POST endpoint for user creation                                  |
-| `signupSocial`          | `string` | POST endpoint for social user import                             |
+| `logoutAll`             | `string` | POST endpoint for logging out all sessions (supports `:sub` path parameter) |
+| `removeMfaDeviceById`   | `string` | DELETE endpoint for removing single MFA device by ID         |
+| `setPreferredMfaDevice` | `string` | POST endpoint for setting preferred MFA device               |
+| `resetPasswordInitiate` | `string` | POST endpoint for initiating password reset                  |
+| `setMfaExemption`       | `string` | POST endpoint for setting MFA exemption                      |
+| `setPassword`           | `string` | POST endpoint for setting password                           |
+| `signup`                | `string` | POST endpoint for user creation                              |
+| `signupSocial`          | `string` | POST endpoint for social user import                         |
 
 ## Default Endpoints
 
@@ -51,12 +51,12 @@ import { NAuthAdminEndpoints } from '@nauth-toolkit/client';
 | `getUser`               | `/users/:sub`                         |
 | `getUserSessions`       | `/users/:sub/sessions`                |
 | `getUsers`              | `/users`                              |
-| `logoutAll`             | `/users/:sub/logout-all`              |
-| `removeMfaDevices`      | `/mfa/remove-devices`                 |
-| `resetPasswordInitiate` | `/reset-password/initiate`            |
+| `logoutAll`             | `/users/:sub/logout-all`                      |
+| `removeMfaDeviceById`   | `/mfa/devices/:deviceId`                      |
+| `setPreferredMfaDevice` | `/users/:sub/mfa/devices/:deviceId/preferred` |
+| `resetPasswordInitiate` | `/reset-password/initiate`                    |
 | `setMfaExemption`       | `/mfa/exemption`                      |
 | `setPassword`           | `/set-password`                       |
-| `setPreferredMfaMethod` | `/mfa/preferred-method`               |
 | `signup`                | `/signup`                             |
 | `signupSocial`          | `/signup-social`                       |
 

@@ -119,9 +119,9 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
    * Validates the WebAuthn credential and stores the device if valid.
    *
    * **Race Condition Safety:**
-   * Device creation uses transaction with pessimistic locking to prevent duplicates.
-   * If device already exists (e.g., from concurrent request), returns existing device.
-   * Database unique constraint (userId, type) provides final safety net.
+   * Device creation uses a transaction with pessimistic locking.
+   * Passkeys are de-duplicated by `(userId, type, credentialId)` to avoid registering the same
+   * credential multiple times (e.g., due to retries or concurrent requests).
    *
    * @param user - User completing Passkey setup
    * @param verificationData - Verification data (must be { credential: VerifyPasskeySetupDTO, expectedChallenge: string })
@@ -216,20 +216,23 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
     const userMfaEnabled = (userEntity.mfaEnabled as boolean) || false;
 
     // ============================================================================
-    // Create MFA device (transaction-safe with duplicate prevention)
+    // Create MFA device (transaction-safe, credentialId de-dup)
     // ============================================================================
-    // createDevice() uses pessimistic locking to prevent race conditions
-    // If device already exists, returns existing device instead of creating duplicate
-    // Database unique constraint (userId, type) provides additional safety
-    const device = await this.createDevice(userId, {
-      name: deviceName || dto.deviceName || 'Passkey Device',
-      credentialId: verified.credentialId,
-      publicKey: verified.publicKey,
-      counter: verified.counter,
-      transports: verified.transports,
-      isActive: true,
-      isPrimary: !userMfaEnabled, // First device becomes primary
-    });
+    // WARNING: For passkeys, de-duplication must be based on credentialId (not method-only),
+    // otherwise users would be limited to a single passkey per account.
+    const device = await this.createDevice(
+      userId,
+      {
+        name: deviceName || dto.deviceName || 'Passkey Device',
+        credentialId: verified.credentialId,
+        publicKey: verified.publicKey,
+        counter: verified.counter,
+        transports: verified.transports,
+        isActive: true,
+        isPrimary: !userMfaEnabled, // First device becomes primary
+      },
+      { dedupeWhere: { credentialId: verified.credentialId } },
+    );
 
     // Enable MFA if not already enabled
     await this.enableMFAForUser(user);

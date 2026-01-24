@@ -142,7 +142,7 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [GetUserDevicesDTO](./get-user-devices-dto)              | Get user MFA devices      | User sub                          |
 | [RemoveDevicesDTO](./remove-devices-dto)                 | Remove MFA devices        | User sub and method type          |
 | [SetMFAExemptionDTO](./set-mfa-exemption-dto)            | Set MFA exemption         | User sub, exempt flag, reason     |
-| [SetPreferredMethodDTO](./set-preferred-method-dto)      | Set preferred MFA method  | User sub and method type          |
+| [SetPreferredDeviceDTO](./set-preferred-device-dto)      | Set preferred MFA device  | User sub and device ID            |
 | [SetupMFADTO](./setup-mfa-dto)                           | Setup MFA device          | User sub, method name, setup data |
 | [VerifyMFACodeDTO](./verify-mfa-code-dto)                | Verify MFA code           | User sub, method, code            |
 

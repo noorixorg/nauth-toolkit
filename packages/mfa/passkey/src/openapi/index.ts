@@ -25,4 +25,3 @@ export function loadNAuthOpenApiDocument(): NAuthOpenApiDocument {
 export function loadNAuthOpenApiSchemas(): Record<string, unknown> {
   return loadNAuthOpenApiDocument().components.schemas;
 }
-

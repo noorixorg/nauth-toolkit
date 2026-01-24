@@ -235,7 +235,6 @@ export interface AdminSignupSocialResponse {
   };
 }
 
-
 /**
  * Date filter with operator support
  *

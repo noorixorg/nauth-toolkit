@@ -104,6 +104,8 @@ export interface VerifyMFACodeResponse extends BaseChallengeResponse {
   method: 'sms' | 'totp' | 'backup';
   /** Verification code */
   code: string;
+  /** Optional device ID for methods that support multiple devices (TOTP) */
+  deviceId?: number;
 }
 
 /**
@@ -125,6 +127,8 @@ export interface VerifyMFAPasskeyResponse extends BaseChallengeResponse {
   method: 'passkey';
   /** WebAuthn credential from navigator.credentials.get() */
   credential: Record<string, unknown>;
+  /** Optional device ID for methods that support multiple devices (Passkey) */
+  deviceId?: number;
 }
 
 // ============================================================================

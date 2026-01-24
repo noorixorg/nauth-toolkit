@@ -19,14 +19,14 @@ import { User } from './user.entity';
  * All field definitions and business logic are in the base class.
  *
  * **Database Integrity:**
- * - Unique constraint on (userId, type) prevents duplicate MFA devices per method
- * - This prevents race conditions where multiple devices of same type could be created
+ * - Multiple devices per method are allowed (e.g., multiple TOTP apps, multiple passkeys).
+ * - Passkeys are de-duplicated by unique constraint on (userId, type, credentialId).
  */
 @Entity('nauth_mfa_devices')
 @Index(['userId'])
 @Index(['type'])
 @Index(['isActive'])
-@Unique('uq_mfa_device_user_type', ['userId', 'type'])
+@Unique('uq_mfa_device_user_type_credential', ['userId', 'type', 'credentialId'])
 export class MFADevice extends BaseMFADevice {
   @PrimaryGeneratedColumn()
   declare id: number;
@@ -50,7 +50,7 @@ export class MFADevice extends BaseMFADevice {
   @Column({ type: 'varchar', length: 20, nullable: true })
   declare phoneNumber?: string | null;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'varchar', length: 512, nullable: true })
   declare credentialId?: string | null;
 
   @Column({ type: 'text', nullable: true })

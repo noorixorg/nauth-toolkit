@@ -161,6 +161,7 @@ export class TotpSetupComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly router: Router,
   ) {
     this.totpForm = this.fb.group({
+      deviceName: ['', [Validators.maxLength(100)]],
       code: ['', [Validators.required, Validators.minLength(6), Validators.maxLength(6)]],
     });
   }
@@ -241,6 +242,7 @@ export class TotpSetupComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const code = this.totpForm.get('code')?.value;
+    const deviceNameControlValue = this.totpForm.get('deviceName')?.value;
     if (!code) {
       return;
     }
@@ -263,6 +265,10 @@ export class TotpSetupComponent implements OnInit, AfterViewInit, OnDestroy {
         await client.verifyMfaSetup('totp', {
           secret,
           code: code.trim(),
+          deviceName:
+            typeof deviceNameControlValue === 'string' && deviceNameControlValue.trim().length > 0
+              ? deviceNameControlValue.trim()
+              : undefined,
         });
 
         // Emit success event
@@ -283,6 +289,10 @@ export class TotpSetupComponent implements OnInit, AfterViewInit, OnDestroy {
           setupData: {
             secret,
             code: code.trim(),
+            deviceName:
+              typeof deviceNameControlValue === 'string' && deviceNameControlValue.trim().length > 0
+                ? deviceNameControlValue.trim()
+                : undefined,
           },
         };
 

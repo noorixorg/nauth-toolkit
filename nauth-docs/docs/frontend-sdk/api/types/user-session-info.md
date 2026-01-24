@@ -89,4 +89,4 @@ import { UserSessionInfo } from '@nauth-toolkit/client';
 
 ## Used By
 
-- [AdminOperations.getUserSessions()](../admin-operations#getsessions) - Returns [`GetUserSessionsResponse`](./get-user-sessions-response) containing [`UserSessionInfo`](./user-session-info) array
+- [AdminOperations.getUserSessions()](../admin-operations#getusersessions) - Returns [`GetUserSessionsResponse`](./get-user-sessions-response) containing [`UserSessionInfo`](./user-session-info) array

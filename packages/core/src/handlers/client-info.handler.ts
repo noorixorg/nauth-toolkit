@@ -9,7 +9,14 @@
  * Context initialization is handled by the adapter, not this handler.
  */
 
-import { ContextStorage, ClientInfoService, IClientInfo, NAuthConfig, NAuthLogger, getDeviceTokenCookieName } from '../index';
+import {
+  ContextStorage,
+  ClientInfoService,
+  IClientInfo,
+  NAuthConfig,
+  NAuthLogger,
+  getDeviceTokenCookieName,
+} from '../index';
 import { GeoLocationService } from '../internal';
 import { NAuthRequest, NAuthResponse } from '../platform/interfaces';
 

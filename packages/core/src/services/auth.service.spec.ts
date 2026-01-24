@@ -49,7 +49,7 @@ import { AuthChallenge } from '../dto/auth-challenge.dto';
 import { ChangePasswordDTO } from '../dto/change-password.dto';
 import { UpdateUserAttributesDTO } from '../dto/update-user-attributes.dto';
 import { UpdateVerifiedStatusRequestDTO } from '../dto/update-verified-status-request.dto';
-import { UserResponseDto } from '../dto/user-response.dto';
+import { UserResponseDTO } from '../dto/user-response.dto';
 import { LogoutDTO } from '../dto/logout.dto';
 import { LogoutAllDTO } from '../dto/logout-all.dto';
 import { RefreshTokenDTO } from '../dto/refresh-token.dto';
@@ -3034,7 +3034,7 @@ describe('AuthService', () => {
       lastName: 'Name',
       email: 'updated@example.com',
     };
-    const runUpdateUserAttributes = async (dto: UpdateUserAttributesDTO): Promise<UserResponseDto> => {
+    const runUpdateUserAttributes = async (dto: UpdateUserAttributesDTO): Promise<UserResponseDTO> => {
       return await runWithCurrentUser(mockUser, async () => {
         return await service.updateUserAttributes(dto);
       });
@@ -5202,7 +5202,7 @@ describe('AuthService', () => {
           mustChangePassword: true,
         }),
       );
-      // Note: `mustChangePassword` is an internal user flag and is not exposed in UserResponseDto
+      // Note: `mustChangePassword` is an internal user flag and is not exposed in UserResponseDTO
       expect(result.user).toBeDefined();
     });
 

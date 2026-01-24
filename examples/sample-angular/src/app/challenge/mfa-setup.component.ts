@@ -48,9 +48,11 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
   } | null>(null);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
-  private readonly mfaStatus = signal<{ methods: string[]; availableMethods: string[] } | null>(
-    null,
-  );
+  private readonly mfaStatus = signal<{
+    methods?: string[];
+    configuredMethods?: string[];
+    availableMethods: string[];
+  } | null>(null);
 
   protected readonly isAuthenticatedFlow = computed(() => {
     return !this.challenge() && this.auth.isAuthenticated();
@@ -60,10 +62,18 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
     if (this.isAuthenticatedFlow()) {
       const status = this.mfaStatus();
       if (!status) return [];
-      const configuredMethods = status.methods || [];
-      return (status.availableMethods || []).filter(
-        (m: string) => m !== 'backup' && !configuredMethods.includes(m),
-      );
+      const configuredMethods = Array.isArray(status.methods)
+        ? status.methods
+        : Array.isArray(status.configuredMethods)
+          ? status.configuredMethods
+          : [];
+
+      return (status.availableMethods || []).filter((m: string) => {
+        if (m === 'backup') return false;
+        // Allow multiple devices for these methods.
+        if (m === 'totp' || m === 'passkey') return true;
+        return !configuredMethods.includes(m);
+      });
     } else {
       const challenge = this.challenge();
       const params = challenge?.challengeParameters;

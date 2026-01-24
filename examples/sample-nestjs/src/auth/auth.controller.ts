@@ -71,12 +71,12 @@ import {
   LogoutSessionDTO,
   LogoutSessionResponseDTO,
   UpdateUserAttributesDTO,
-  SetPreferredMethodDTO,
-  AdminSetPreferredMethodDTO,
   SetMFAExemptionDTO,
+  SetPreferredDeviceDTO,
+  AdminSetPreferredDeviceDTO,
   GetChallengeDataDTO,
-  RemoveDevicesDTO,
-  AdminRemoveDevicesDTO,
+  RemoveDeviceDTO,
+  AdminRemoveDeviceDTO,
   SetupMFADTO,
   SetupMFAResponseDTO,
   GetMFAStatusResponseDTO,
@@ -88,8 +88,8 @@ import {
   IsTrustedDeviceResponseDTO,
   GetChallengeDataResponseDTO,
   ResendCodeResponseDTO,
-  SetPreferredMethodResponseDTO,
-  RemoveDevicesResponseDTO,
+  SetPreferredDeviceResponseDTO,
+  RemoveDeviceResponseDTO,
   SetMFAExemptionResponseDTO,
   GetLinkedAccountsResponseDTO,
   LinkSocialAccountResponseDTO,
@@ -979,37 +979,44 @@ export class CustomAuthController {
   }
 
   /**
-   * Set preferred MFA method for a user (Admin API)
+   * Remove a single MFA device by device ID (Admin API)
    *
-   * Admin-only endpoint. Requires `sub` and `methodType` in request body.
+   * Admin-only endpoint.
    *
    * **SECURITY WARNING:** This endpoint has NO built-in authentication.
    * You MUST protect it with your own admin authentication guard.
+   *
+   * @param deviceId - MFA device ID from path
+   * @returns Removal result
    */
-  @Post('admin/mfa/preferred-method')
+  @Delete('admin/mfa/devices/:deviceId')
   @HttpCode(HttpStatus.OK)
-  async adminSetPreferredMFAMethod(@Body() dto: AdminSetPreferredMethodDTO): Promise<SetPreferredMethodResponseDTO> {
+  async adminRemoveMFADevice(@Param() dto: AdminRemoveDeviceDTO): Promise<RemoveDeviceResponseDTO> {
     if (!this.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
-    return await this.mfaService.adminSetPreferredMethod(dto);
+
+    return await this.mfaService.adminRemoveDevice(dto);
   }
 
   /**
-   * Remove MFA devices by method type for a user (Admin API)
+   * Set preferred MFA device for a user (Admin API)
    *
-   * Admin-only endpoint. Requires `sub` and `methodType` in request body.
+   * Admin-only endpoint to set a user's preferred MFA device by device ID.
    *
    * **SECURITY WARNING:** This endpoint has NO built-in authentication.
    * You MUST protect it with your own admin authentication guard.
+   *
+   * @param dto - AdminSetPreferredDeviceDTO with sub and deviceId from path
+   * @returns Success message
    */
-  @Post('admin/mfa/remove-devices')
+  @Post('admin/users/:sub/mfa/devices/:deviceId/preferred')
   @HttpCode(HttpStatus.OK)
-  async adminRemoveMFAMethod(@Body() dto: AdminRemoveDevicesDTO): Promise<RemoveDevicesResponseDTO> {
+  async adminSetPreferredDevice(@Param() dto: AdminSetPreferredDeviceDTO): Promise<SetPreferredDeviceResponseDTO> {
     if (!this.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
-    return await this.mfaService.adminRemoveDevices(dto);
+    return await this.mfaService.adminSetPreferredDevice(dto);
   }
 
   /**
@@ -1076,50 +1083,37 @@ export class CustomAuthController {
   }
 
   /**
-   * Set preferred MFA method
+   * Set a specific MFA device as preferred
    *
-   * @param user - Current user (from JWT)
-   * @param body - Preferred method
-   * @returns Success message
+   * @param deviceId - MFA device ID
+   * @returns Success response
    */
-
-  @Post('mfa/preferred-method')
-  async setPreferredMFAMethod(@Body() dto: SetPreferredMethodDTO): Promise<SetPreferredMethodResponseDTO> {
+  @Post('mfa/devices/:deviceId/preferred')
+  @HttpCode(HttpStatus.OK)
+  async setPreferredMFADevice(@Param() dto: SetPreferredDeviceDTO): Promise<SetPreferredDeviceResponseDTO> {
     if (!this.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
 
-    return await this.mfaService.setPreferredMethod(dto);
+    return await this.mfaService.setPreferredDevice(dto);
   }
 
   /**
-   * Remove MFA devices by method type
+   * Remove a single MFA device by device ID
    *
-   * Removes all active MFA devices of the specified method type for the current user.
-   * Automatically disables MFA if this was the last device.
+   * Useful when users have multiple devices for the same method (e.g., multiple passkeys or TOTP apps).
    *
-   * @param user - Current user (from JWT)
-   * @param method - MFA method type to remove (totp, sms, email, passkey)
-   * @returns Response with deletedCount and mfaDisabled status
-   *
-   * @example
-   * ```typescript
-   * DELETE /auth/mfa/method/totp
-   * // Returns: { deletedCount: 1, mfaDisabled: false, message: "MFA method removed successfully" }
-   * ```
+   * @param deviceId - MFA device ID from path
+   * @returns Removal result
    */
-
-  @Delete('mfa/method/:method')
+  @Delete('mfa/devices/:deviceId')
   @HttpCode(HttpStatus.OK)
-  async removeMFAMethod(@Param('method') method: string): Promise<RemoveDevicesResponseDTO> {
+  async removeMFADevice(@Param() dto: RemoveDeviceDTO): Promise<RemoveDeviceResponseDTO> {
     if (!this.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
 
-    const dto: RemoveDevicesDTO = {
-      methodType: method,
-    };
-    return await this.mfaService.removeDevices(dto);
+    return await this.mfaService.removeDevice(dto);
   }
 
   /**

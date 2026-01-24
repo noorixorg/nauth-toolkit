@@ -155,32 +155,6 @@ async adminRemoveDevices(@Body() dto: AdminRemoveDevicesDTO) {
 
 ---
 
-### adminSetPreferredMethod()
-
-Admin-only helper to set a user's preferred MFA method.
-
-```typescript
-async adminSetPreferredMethod(dto: AdminSetPreferredMethodDTO): Promise<SetPreferredMethodResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`AdminSetPreferredMethodDTO`](../dto/admin-set-preferred-method-dto)
-
-**Returns**
-
-- [`SetPreferredMethodResponseDTO`](../dto/set-preferred-method-dto)
-
-**Example (NestJS)**
-
-```typescript
-@Post('admin/mfa/preferred-method')
-async adminSetPreferred(@Body() dto: AdminSetPreferredMethodDTO) {
-  return await this.mfaService.adminSetPreferredMethod(dto);
-}
-```
-
----
 
 ### getChallengeData()
 
@@ -721,7 +695,7 @@ When invalid method type or no devices found, `details` is `undefined`.
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-@Delete('mfa/devices/:method')
+@Delete('mfa/method/:method')
 async removeMethod(@Param('method') method: string) {
   return await this.mfaService.removeDevices({ methodType: method });
 }
@@ -731,7 +705,7 @@ async removeMethod(@Param('method') method: string) {
 <TabItem value="express" label="Express">
 
 ```typescript
-app.delete('/mfa/devices/:method', requireAuth(), async (req, res) => {
+app.delete('/mfa/method/:method', requireAuth(), async (req, res) => {
   const result = await nauth.mfaService.removeDevices({
     methodType: req.params.method,
   });
@@ -745,7 +719,7 @@ app.delete('/mfa/devices/:method', requireAuth(), async (req, res) => {
 
 ```typescript
 fastify.delete(
-  '/mfa/devices/:method',
+  '/mfa/method/:method',
   { preHandler: nauth.helpers.requireAuth() },
   nauth.adapter.wrapRouteHandler(async (req, reply) => {
     return nauth.mfaService.removeDevices({
@@ -757,6 +731,60 @@ fastify.delete(
 
 </TabItem>
 </Tabs>
+
+---
+
+### removeDevice()
+
+Remove a single MFA device by `deviceId` (recommended when users can enroll multiple devices for the same method).
+
+```typescript
+async removeDevice(dto: RemoveDeviceDTO): Promise<RemoveDeviceResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - `RemoveDeviceDTO`
+
+**Returns**
+
+- `RemoveDeviceResponseDTO` - `{ removedDeviceId: number, removedMethod: string, mfaDisabled: boolean }`
+
+**Example (NestJS)**
+
+```typescript
+@Delete('mfa/devices/:deviceId')
+async removeDevice(@Param('deviceId') deviceId: string) {
+  return await this.mfaService.removeDevice({ deviceId: Number(deviceId) });
+}
+```
+
+---
+
+### setPreferredDevice()
+
+Set a specific MFA device as preferred by `deviceId`. This updates both the device's preferred status and the user's preferred method.
+
+```typescript
+async setPreferredDevice(dto: SetPreferredDeviceDTO): Promise<SetPreferredDeviceResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`SetPreferredDeviceDTO`](../dto/set-preferred-device-dto) - Contains `deviceId`
+
+**Returns**
+
+- [`SetPreferredDeviceResponseDTO`](../dto/set-preferred-device-dto) - `{ message: string }`
+
+**Example (NestJS)**
+
+```typescript
+@Post('mfa/devices/:deviceId/preferred')
+async setPreferredDevice(@Param() dto: SetPreferredDeviceDTO) {
+  return await this.mfaService.setPreferredDevice(dto);
+}
+```
 
 ---
 
@@ -842,91 +870,6 @@ fastify.post(
 
 ---
 
-### setPreferredMethod()
-
-Set preferred MFA method for a user. Updates the user's preferred method and device primary flags.
-
-```typescript
-async setPreferredMethod(dto: SetPreferredMethodDTO): Promise<SetPreferredMethodResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`SetPreferredMethodDTO`](../dto/set-preferred-method-dto)
-
-**Returns**
-
-- [`SetPreferredMethodResponseDTO`](../dto/set-preferred-method-dto) - `{ message: string }`
-
-**Errors**
-
-| Code                | When                                                                | Details                                                         |
-| ------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `VALIDATION_FAILED` | DTO validation fails, invalid method type, or method not configured | `{ validationErrors: Record<string, string[]> }` or `undefined` |
-| `NOT_FOUND`         | User not found                                                      | `undefined`                                                     |
-
-Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
-
-**VALIDATION_FAILED details**
-
-When DTO validation fails, `details` includes:
-
-```json
-{
-  "validationErrors": {
-    "methodType": ["Method type must be one of: totp, sms, email, passkey"]
-  }
-}
-```
-
-When invalid method type or method not configured, `details` is `undefined`.
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-@Put('mfa/preferred')
-async setPreferred(@Body() body: { method: string }) {
-  return await this.mfaService.setPreferredMethod({
-    methodType: body.method
-  });
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-app.put('/mfa/preferred', requireAuth(), async (req, res) => {
-  const result = await nauth.mfaService.setPreferredMethod({
-    methodType: req.body.method,
-  });
-  res.json(result);
-});
-```
-
-</TabItem>
-
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-fastify.put(
-  '/mfa/preferred',
-  { preHandler: nauth.helpers.requireAuth() },
-  nauth.adapter.wrapRouteHandler(async (req, reply) => {
-    return nauth.mfaService.setPreferredMethod({
-      methodType: req.body.method,
-    });
-  }),
-);
-```
-
-</TabItem>
-</Tabs>
-
----
 
 ### setup()
 
@@ -1368,57 +1311,6 @@ fastify.post(
 ---
 
 ## Error Handling
-
-All methods throw `NAuthException` on errors. Handle errors consistently across your application.
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-try {
-  await this.mfaService.setPreferredMethod({ methodType: method });
-} catch (error) {
-  if (error instanceof NAuthException) {
-    console.log(error.code);
-  }
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-try {
-  await nauth.mfaService.setPreferredMethod({ methodType: method });
-} catch (error) {
-  if (error instanceof NAuthException) {
-    res.status(error.statusCode).json(error.toJSON());
-  }
-}
-```
-
-</TabItem>
-
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-try {
-  await nauth.mfaService.setPreferredMethod({ methodType: method });
-} catch (error) {
-  if (error instanceof NAuthException) {
-    res.status(error.statusCode).json(error.toJSON());
-  }
-}
-```
-
-</TabItem>
-</Tabs>
-
-See [Error Handling Guide](/docs/concepts/error-handling).
-
----
-
-## Related APIs
 
 - [MFA Packages](/docs/api/mfa/overview) - MFA provider packages
 - [Challenge System](/docs/concepts/challenge-system) - MFA challenge flows

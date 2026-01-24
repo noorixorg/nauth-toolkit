@@ -200,12 +200,7 @@ export function totpGenerate(params: TotpParams, nowMs: number = Date.now()): st
  * @param nowMs - Current time in milliseconds (defaults to `Date.now()`).
  * @returns `true` when token matches within the window.
  */
-export function totpVerify(
-  params: TotpParams,
-  token: string,
-  window: number,
-  nowMs: number = Date.now(),
-): boolean {
+export function totpVerify(params: TotpParams, token: string, window: number, nowMs: number = Date.now()): boolean {
   const { secret, digits, period, algorithm } = params;
   const secretBytes = base32Decode(secret);
   const current = BigInt(Math.floor(nowMs / 1000 / period));
@@ -253,4 +248,3 @@ export function buildOtpAuthUri(params: OtpAuthUriParams): string {
 
   return `otpauth://totp/${pathLabel}?${query.toString()}`;
 }
-

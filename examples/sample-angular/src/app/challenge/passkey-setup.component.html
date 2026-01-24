@@ -5,6 +5,21 @@
       <p class="text-sm text-secondary-600 m-0 pb-5">{{ description() }}</p>
     }
 
+    @if (isSetupFlow()) {
+      <div class="form-field">
+        <label for="passkeyDeviceName" class="form-label">Device Name (optional)</label>
+        <input
+          id="passkeyDeviceName"
+          type="text"
+          class="w-full p-inputtext p-component"
+          maxlength="100"
+          placeholder="e.g., iPhone 15 Pro, MacBook, YubiKey"
+          [value]="deviceName()"
+          (input)="onDeviceNameInput($event)"
+        />
+      </div>
+    }
+
     @if (
       (isSetupFlow() && setupData() && registrationOptions()) ||
       (!isSetupFlow() && challengeData() && authenticationOptions())
@@ -67,6 +82,21 @@
         <div class="space-y-4">
           @if (description()) {
             <p class="text-sm text-secondary-600 m-0 pb-5">{{ description() }}</p>
+          }
+
+          @if (isSetupFlow()) {
+            <div class="form-field">
+              <label for="passkeyDeviceNameStandalone" class="form-label">Device Name (optional)</label>
+              <input
+                id="passkeyDeviceNameStandalone"
+                type="text"
+                class="w-full p-inputtext p-component"
+                maxlength="100"
+                placeholder="e.g., iPhone 15 Pro, MacBook, YubiKey"
+                [value]="deviceName()"
+                (input)="onDeviceNameInput($event)"
+              />
+            </div>
           }
 
           @if (

@@ -30,14 +30,15 @@ import {
   HasProviderDTO,
   HasProviderResponseDTO,
   ListProvidersResponseDTO,
-  AdminRemoveDevicesDTO,
-  AdminSetPreferredMethodDTO,
-  RemoveDevicesDTO,
-  RemoveDevicesResponseDTO,
+  AdminRemoveDeviceDTO,
+  AdminSetPreferredDeviceDTO,
+  AdminSetPreferredDeviceResponseDTO,
+  RemoveDeviceDTO,
+  RemoveDeviceResponseDTO,
   SetMFAExemptionDTO,
   SetMFAExemptionResponseDTO,
-  SetPreferredMethodDTO,
-  SetPreferredMethodResponseDTO,
+  SetPreferredDeviceDTO,
+  SetPreferredDeviceResponseDTO,
   SetupMFADTO,
   SetupMFAResponseDTO,
   VerifyMFACodeDTO,
@@ -197,36 +198,38 @@ export class MFAService {
    * @param methodType - MFA method to remove (normalized)
    * @param removedBy - Actor performing the removal
    */
-  private async removeDevicesInternal(
+
+  /**
+   * Shared implementation for removing a single MFA device by device ID.
+   *
+   * @param targetUser - Target user (self-service or admin target)
+   * @param deviceId - MFA device ID to remove
+   * @param removedBy - Actor performing the removal
+   * @returns Removal result
+   * @throws {NAuthException} NOT_FOUND when device is not found for the user
+   */
+  private async removeDeviceInternal(
     targetUser: IUser,
-    methodType: MFAMethod,
+    deviceId: number,
     removedBy: 'user' | 'admin',
-  ): Promise<RemoveDevicesResponseDTO> {
+  ): Promise<RemoveDeviceResponseDTO> {
     const userId = targetUser.id;
-    const preferredMethod = targetUser.preferredMfaMethod;
-    const isPreferredMethod = preferredMethod === methodType;
 
-    // Get all active devices for this user
+    // Get all active devices for this user and find the target device
     const activeDevices = await this.getActiveDevicesForUserId(userId);
+    const deviceToRemove = activeDevices.find((d) => d.id === deviceId);
 
-    // Get devices of the method type to remove
-    const devicesToRemove = activeDevices.filter((d) => d.type.toLowerCase() === methodType);
-
-    if (devicesToRemove.length === 0) {
-      throw new NAuthException(
-        AuthErrorCode.VALIDATION_FAILED,
-        `No active ${methodType} MFA devices found for this user`,
-      );
+    if (!deviceToRemove) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'MFA device not found', { deviceId });
     }
 
-    // Delete all devices of this method type
-    let deletedCount = 0;
-    for (const device of devicesToRemove) {
-      const result = await this.mfaDeviceRepository.delete(device.id);
-      deletedCount += result.affected || 0;
-    }
+    const removedMethod = deviceToRemove.type;
 
-    // Check if any devices remain after removal
+    // Delete the specific device
+    const result = await this.mfaDeviceRepository.delete(deviceId);
+    const deletedCount = result.affected || 0;
+
+    // Re-load remaining devices after deletion
     const remainingActiveDevices = await this.getActiveDevicesForUserId(userId);
     let mfaDisabled = false;
 
@@ -243,24 +246,33 @@ export class MFAService {
       mfaDisabled = true;
 
       // ============================================================================
-      // Audit: Record MFA disabled (all devices removed)
+      // Audit: Record MFA disabled (last device removed)
       // ============================================================================
       if (this.auditService && this.clientInfoService) {
         try {
+          const actor = removedBy === 'admin' ? ContextStorage.get<IUser>('CURRENT_USER') : null;
+          const actorNameCandidate = actor
+            ? `${(actor.firstName as string | null) || ''} ${(actor.lastName as string | null) || ''}`.trim()
+            : '';
+          const performedByName =
+            actorNameCandidate.length > 0 ? actorNameCandidate : (actor?.email as string | undefined) || undefined;
+
           await this.auditService?.recordEvent({
             userId,
             eventType: AuthAuditEventType.MFA_DISABLED,
             eventStatus: 'INFO',
-            reason: removedBy === 'admin' ? 'admin_action' : 'all_devices_removed',
+            authMethod: removedBy === 'admin' ? 'admin' : undefined,
+            performedBy: removedBy === 'admin' && actor ? actor.sub : undefined,
+            reason: removedBy === 'admin' ? 'admin_action' : 'last_device_removed',
             description:
               removedBy === 'admin'
-                ? 'MFA disabled by admin - all devices removed'
-                : 'MFA disabled - all devices removed',
-            // Client info automatically included from context
+                ? 'MFA disabled by admin - last device removed'
+                : 'MFA disabled - last device removed',
             metadata: {
-              removedMethod: methodType,
-              deletedCount,
+              removedDeviceId: deviceId,
+              removedMethod,
               removedBy,
+              ...(performedByName ? { performedByName } : {}),
             },
           });
         } catch (auditError) {
@@ -281,10 +293,10 @@ export class MFAService {
               allowedMethods: this.config.mfa.allowedMethods || [],
               requiresSetup: true,
             });
-            this.logger?.log?.(`Created MFA_SETUP_REQUIRED challenge for user ${targetUser.sub} after MFA removal`);
+            this.logger?.log?.(`Created MFA_SETUP_REQUIRED challenge for user ${targetUser.sub} after device removal`);
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            this.logger?.warn?.(`Failed to create MFA_SETUP_REQUIRED challenge after MFA removal: ${errorMessage}`);
+            this.logger?.warn?.(`Failed to create MFA_SETUP_REQUIRED challenge after device removal: ${errorMessage}`);
           }
         }
       }
@@ -292,38 +304,27 @@ export class MFAService {
       // Update mfaMethods array with remaining methods
       const remainingMethods = [...new Set(remainingActiveDevices.map((d) => d.type))];
 
-      // If the removed method was preferred, update preferred method and device primary flags
-      if (isPreferredMethod) {
-        const newPreferredMethod = remainingActiveDevices[0].type;
-        await this.userRepository.update(
-          { id: userId },
-          {
-            mfaMethods: remainingMethods,
-            preferredMfaMethod: newPreferredMethod,
-          },
-        );
+      // Determine preferred method: keep if still configured, otherwise pick a new one.
+      const preferredMethod = targetUser.preferredMfaMethod;
+      const preferredStillConfigured =
+        !!preferredMethod && remainingActiveDevices.some((d) => d.type === preferredMethod);
+      const finalPreferredMethod = preferredStillConfigured ? preferredMethod : remainingActiveDevices[0].type;
 
-        // Update device primary flags - set first remaining device as primary
-        if (remainingActiveDevices[0].id) {
-          await this.mfaDeviceRepository.update({ id: remainingActiveDevices[0].id }, { isPrimary: true });
-        }
+      await this.userRepository.update(
+        { id: userId },
+        {
+          mfaMethods: remainingMethods,
+          preferredMfaMethod: finalPreferredMethod,
+        },
+      );
 
-        // Unset primary flag on other devices
-        for (let i = 1; i < remainingActiveDevices.length; i++) {
-          if (remainingActiveDevices[i].id) {
-            await this.mfaDeviceRepository.update({ id: remainingActiveDevices[i].id }, { isPrimary: false });
-          }
-        }
+      // Normalize primary device flags: ensure exactly one active device is primary.
+      // Prefer a device of the preferred method (best UX).
+      const primaryDevice =
+        remainingActiveDevices.find((d) => d.type === finalPreferredMethod) || remainingActiveDevices[0];
 
-        this.logger?.log?.(`Updated preferred MFA method to ${newPreferredMethod} after removing ${methodType}`);
-      } else {
-        // No preferred method change needed, just update mfaMethods
-        await this.userRepository.update(
-          { id: userId },
-          {
-            mfaMethods: remainingMethods,
-          },
-        );
+      for (const device of remainingActiveDevices) {
+        await this.mfaDeviceRepository.update({ id: device.id }, { isPrimary: device.id === primaryDevice.id });
       }
     }
 
@@ -332,25 +333,35 @@ export class MFAService {
     // ============================================================================
     if (deletedCount > 0 && this.auditService && this.clientInfoService) {
       try {
+        const actor = removedBy === 'admin' ? ContextStorage.get<IUser>('CURRENT_USER') : null;
+        const actorNameCandidate = actor
+          ? `${(actor.firstName as string | null) || ''} ${(actor.lastName as string | null) || ''}`.trim()
+          : '';
+        const performedByName =
+          actorNameCandidate.length > 0 ? actorNameCandidate : (actor?.email as string | undefined) || undefined;
+
         await this.auditService?.recordEvent({
           userId,
           eventType: AuthAuditEventType.MFA_DEVICE_REMOVED,
           eventStatus: 'INFO',
+          authMethod: removedBy === 'admin' ? 'admin' : undefined,
+          performedBy: removedBy === 'admin' && actor ? actor.sub : undefined,
           metadata: {
-            method: methodType,
+            removedDeviceId: deviceId,
+            removedMethod,
             deletedCount,
             remainingDevices: remainingActiveDevices.length,
             mfaDisabled,
             removedBy,
+            ...(performedByName ? { performedByName } : {}),
           },
-          // Client info automatically included from context
         });
       } catch (auditError) {
         const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
         this.logger?.error?.(`Failed to record MFA_DEVICE_REMOVED audit event: ${errorMessage}`, {
           error: auditError,
           userId,
-          method: methodType,
+          removedDeviceId: deviceId,
         });
       }
     }
@@ -363,7 +374,7 @@ export class MFAService {
         const clientInfo = this.clientInfoService.get();
         await this.hookRegistry.executeMFADeviceRemoved({
           user: targetUser,
-          deviceType: methodType as import('../enums/mfa-method.enum').MFADeviceMethod,
+          deviceType: removedMethod as import('../enums/mfa-method.enum').MFADeviceMethod,
           removedBy,
           remainingDeviceCount: remainingActiveDevices.length,
           clientInfo: {
@@ -378,81 +389,15 @@ export class MFAService {
         this.logger?.error?.(`Failed to execute mfaDeviceRemoved hooks: ${errorMessage}`, {
           error: hookError,
           userId,
-          method: methodType,
-        });
-      }
-    }
-
-    return { deletedCount, mfaDisabled };
-  }
-
-  /**
-   * Shared implementation for setting preferred MFA method.
-   *
-   * @param targetUser - Target user (self-service or admin target)
-   * @param methodType - Preferred method (normalized)
-   * @param updatedBy - Actor performing the update
-   */
-  private async setPreferredMethodInternal(
-    targetUser: IUser,
-    methodType: MFAMethod,
-    updatedBy: 'user' | 'admin',
-  ): Promise<SetPreferredMethodResponseDTO> {
-    // Verify user has this method configured
-    const activeDevices = await this.getActiveDevicesForUserId(targetUser.id);
-    const preferredDevice = activeDevices.find((d) => d.type.toLowerCase() === methodType && d.isActive);
-
-    if (!preferredDevice) {
-      throw new NAuthException(
-        AuthErrorCode.VALIDATION_FAILED,
-        `MFA method '${methodType}' is not configured for this user`,
-      );
-    }
-
-    // Update user's preferred method
-    await this.userRepository.update(
-      { id: targetUser.id },
-      {
-        preferredMfaMethod: methodType as MFADeviceMethod,
-      },
-    );
-
-    // Update device isPrimary flags: set preferred device as primary, unset others
-    for (const device of activeDevices) {
-      await this.mfaDeviceRepository.update({ id: device.id }, { isPrimary: device.id === preferredDevice.id });
-    }
-
-    this.logger?.log?.(`Device ${preferredDevice.id} set as primary for user ${targetUser.sub} (by ${updatedBy})`);
-
-    // ============================================================================
-    // Audit: Record preferred MFA method update
-    // ============================================================================
-    if (this.auditService && this.clientInfoService) {
-      try {
-        const previousMethod = targetUser.preferredMfaMethod;
-        await this.auditService?.recordEvent({
-          userId: targetUser.id,
-          eventType: AuthAuditEventType.MFA_PREFERRED_METHOD_UPDATED,
-          eventStatus: 'INFO',
-          metadata: {
-            previousMethod: previousMethod || null,
-            newMethod: methodType,
-            deviceId: preferredDevice.id,
-            updatedBy,
-          },
-        });
-      } catch (auditError) {
-        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-        this.logger?.error?.(`Failed to record MFA_PREFERRED_METHOD_UPDATED audit event: ${errorMessage}`, {
-          error: auditError,
-          userId: targetUser.id,
-          method: methodType,
+          removedDeviceId: deviceId,
         });
       }
     }
 
     return {
-      message: 'Preferred method updated',
+      removedDeviceId: deviceId,
+      removedMethod,
+      mfaDisabled,
     };
   }
 
@@ -847,113 +792,205 @@ export class MFAService {
    * }
    * ```
    */
-  async removeDevices(dto: RemoveDevicesDTO): Promise<RemoveDevicesResponseDTO> {
-    dto = await ensureValidatedDto(RemoveDevicesDTO, dto);
-    const validMethods = [MFAMethod.TOTP, MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.PASSKEY];
-    const normalizedMethod = dto.methodType.toLowerCase();
-    if (!validMethods.includes(normalizedMethod as MFAMethod)) {
-      throw new NAuthException(
-        AuthErrorCode.VALIDATION_FAILED,
-        `Invalid MFA method: ${dto.methodType}. Valid methods are: ${validMethods.join(', ')}`,
-      );
-    }
 
+  /**
+   * Remove a single MFA device by device ID (self-service).
+   *
+   * WHY: Users can register multiple devices per method (e.g., multiple passkeys, multiple TOTP apps),
+   * so deleting by method alone is often too destructive.
+   *
+   * @param dto - Request DTO with deviceId
+   * @returns Removal response (removed device id/method and whether MFA was disabled)
+   * @throws {NAuthException} NOT_FOUND when device does not exist or does not belong to the user
+   *
+   * @example
+   * ```typescript
+   * const result = await mfaService.removeDevice({ deviceId: 123 });
+   * ```
+   */
+  async removeDevice(dto: RemoveDeviceDTO): Promise<RemoveDeviceResponseDTO> {
+    dto = await ensureValidatedDto(RemoveDeviceDTO, dto);
     const currentUser = this.getCurrentUserOrThrow();
-    return await this.removeDevicesInternal(currentUser, normalizedMethod as MFAMethod, 'user');
+    return await this.removeDeviceInternal(currentUser, dto.deviceId, 'user');
   }
 
   /**
-   * Admin: Remove MFA devices for a specific user by `sub`.
+   * Admin: Remove a single MFA device by device ID.
    *
-   * @param dto - Admin DTO containing target `sub` and method type
-   * @returns Removal result
-   * @throws {NAuthException} NOT_FOUND when user is not found
-   * @throws {NAuthException} VALIDATION_FAILED on invalid method type
+   * Admin APIs are allowed to target any user's device. The owning user is resolved
+   * from the device record and the same internal removal logic is reused.
+   *
+   * @param dto - Admin request DTO with deviceId
+   * @returns Removal response
+   * @throws {NAuthException} NOT_FOUND when device or owning user is not found
    *
    * @example
    * ```typescript
-   * await mfaService.adminRemoveDevices({ sub: 'user-uuid', methodType: 'totp' });
+   * const result = await mfaService.adminRemoveDevice({ deviceId: 123 });
    * ```
    */
-  async adminRemoveDevices(dto: AdminRemoveDevicesDTO): Promise<RemoveDevicesResponseDTO> {
-    dto = await ensureValidatedDto(AdminRemoveDevicesDTO, dto);
-    const validMethods = [MFAMethod.TOTP, MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.PASSKEY];
-    const normalizedMethod = dto.methodType.toLowerCase();
-    if (!validMethods.includes(normalizedMethod as MFAMethod)) {
-      throw new NAuthException(
-        AuthErrorCode.VALIDATION_FAILED,
-        `Invalid MFA method: ${dto.methodType}. Valid methods are: ${validMethods.join(', ')}`,
-      );
+  async adminRemoveDevice(dto: AdminRemoveDeviceDTO): Promise<RemoveDeviceResponseDTO> {
+    dto = await ensureValidatedDto(AdminRemoveDeviceDTO, dto);
+
+    const deviceEntity = await this.mfaDeviceRepository.findOne({
+      where: { id: dto.deviceId },
+    } as Record<string, unknown>);
+
+    if (!deviceEntity) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'MFA device not found', { deviceId: dto.deviceId });
     }
 
-    const targetUser = await this.getUserBySubOrThrow(dto.sub);
-    return await this.removeDevicesInternal(targetUser, normalizedMethod as MFAMethod, 'admin');
+    const device = deviceEntity as unknown as IMFADevice;
+
+    const userEntity = await this.userRepository.findOne({
+      where: { id: device.userId },
+    } as Record<string, unknown>);
+
+    if (!userEntity) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found', {
+        userId: device.userId,
+        deviceId: dto.deviceId,
+      });
+    }
+
+    const targetUser = userEntity as unknown as IUser;
+    return await this.removeDeviceInternal(targetUser, dto.deviceId, 'admin');
   }
 
   /**
-   * Set preferred MFA method for a user
+   * Admin: Set a user's preferred MFA device.
    *
-   * Updates the user's preferred MFA method and device primary flags.
-   * Validates that the method is configured for the user before setting it as preferred.
+   * Updates the preferred device for a specified user by device ID.
+   * This is an admin-only operation that allows administrators to manage
+   * user MFA preferences.
    *
-   * This method encapsulates all database operations related to preferred method updates,
-   * ensuring the consumer app doesn't need to directly manipulate nauth_* tables.
-   *
-   * @param dto - Request DTO with method type
-   * @returns Response DTO with success message
-   * @throws {NAuthException} If user not found, invalid method type, or method not configured
+   * @param dto - DTO containing user sub and device ID
+   * @returns Success message
+   * @throws {NAuthException} NOT_FOUND | VALIDATION_FAILED
    *
    * @example
    * ```typescript
-   * // Consumer app controller
-   * @Put('mfa/preferred')
-   * async setPreferredMFAMethod(@CurrentUser() user: IUser, @Body() body: { method: string }) {
-   *   return await this.mfaService.setPreferredMethod({ methodType: body.method });
-   * }
+   * const result = await mfaService.adminSetPreferredDevice({
+   *   sub: 'user-uuid',
+   *   deviceId: 123
+   * });
+   * // Returns: { message: "Preferred MFA device updated" }
    * ```
    */
-  async setPreferredMethod(dto: SetPreferredMethodDTO): Promise<SetPreferredMethodResponseDTO> {
-    dto = await ensureValidatedDto(SetPreferredMethodDTO, dto);
-    // Validate method type
-    const validMethods = [MFAMethod.TOTP, MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.PASSKEY];
-    const normalizedMethod = dto.methodType.toLowerCase();
-    if (!validMethods.includes(normalizedMethod as MFAMethod)) {
-      throw new NAuthException(
-        AuthErrorCode.VALIDATION_FAILED,
-        `Invalid MFA method: ${dto.methodType}. Valid methods are: ${validMethods.join(', ')}`,
-      );
+  async adminSetPreferredDevice(dto: AdminSetPreferredDeviceDTO): Promise<AdminSetPreferredDeviceResponseDTO> {
+    dto = await ensureValidatedDto(AdminSetPreferredDeviceDTO, dto);
+
+    // Get target user
+    const user = await this.userRepository.findOne({ where: { sub: dto.sub } });
+    if (!user) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
 
+    // Delegate to the regular setPreferredDevice logic
+    // but use SetPreferredDeviceDTO format
+    const deviceDto = Object.assign(new SetPreferredDeviceDTO(), { deviceId: dto.deviceId });
+    
+    // Temporarily set context user for the operation
+    // Keep admin user in context for audit trails
+    const originalUser = ContextStorage.get('CURRENT_USER');
+    const adminUser = originalUser; // Admin user is already in context
+    
+    // Set target user as current user for the operation
+    ContextStorage.set('CURRENT_USER', user as unknown as IUser);
+    
+    try {
+      // Pass 'admin' flag to setPreferredDevice for proper audit trails
+      const result = await this.setPreferredDevice(deviceDto, 'admin');
+      return { message: result.message };
+    } finally {
+      // Restore original context (admin user)
+      if (originalUser) {
+        ContextStorage.set('CURRENT_USER', originalUser);
+      } else {
+        ContextStorage.set('CURRENT_USER', undefined as unknown as IUser);
+      }
+    }
+  }
+
+  /**
+   * Set a specific MFA device as the user's preferred device (self-service).
+   *
+   * This updates:
+   * - The user's preferred MFA method (set to the device's method)
+   * - Device `isPrimary` flags (exactly one active device becomes primary/preferred)
+   *
+   * @param dto - Request DTO with deviceId
+   * @returns Success message
+   * @throws {NAuthException} NOT_FOUND when device does not exist or does not belong to the user
+   *
+   * @example
+   * ```typescript
+   * await mfaService.setPreferredDevice({ deviceId: 123 });
+   * ```
+   */
+  async setPreferredDevice(
+    dto: SetPreferredDeviceDTO,
+    updatedBy: 'user' | 'admin' = 'user',
+  ): Promise<SetPreferredDeviceResponseDTO> {
+    dto = await ensureValidatedDto(SetPreferredDeviceDTO, dto);
     const currentUser = this.getCurrentUserOrThrow();
-    return await this.setPreferredMethodInternal(currentUser, normalizedMethod as MFAMethod, 'user');
-  }
 
-  /**
-   * Admin: Set preferred MFA method for a specific user by `sub`.
-   *
-   * @param dto - Admin DTO containing target `sub` and method type
-   * @returns Success response
-   * @throws {NAuthException} NOT_FOUND when user is not found
-   * @throws {NAuthException} VALIDATION_FAILED when method is invalid or not configured
-   *
-   * @example
-   * ```typescript
-   * await mfaService.adminSetPreferredMethod({ sub: 'user-uuid', methodType: 'sms' });
-   * ```
-   */
-  async adminSetPreferredMethod(dto: AdminSetPreferredMethodDTO): Promise<SetPreferredMethodResponseDTO> {
-    dto = await ensureValidatedDto(AdminSetPreferredMethodDTO, dto);
-    const validMethods = [MFAMethod.TOTP, MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.PASSKEY];
-    const normalizedMethod = dto.methodType.toLowerCase();
-    if (!validMethods.includes(normalizedMethod as MFAMethod)) {
-      throw new NAuthException(
-        AuthErrorCode.VALIDATION_FAILED,
-        `Invalid MFA method: ${dto.methodType}. Valid methods are: ${validMethods.join(', ')}`,
-      );
+    const activeDevices = await this.getActiveDevicesForUserId(currentUser.id);
+    const targetDevice = activeDevices.find((d) => d.id === dto.deviceId);
+    if (!targetDevice) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'MFA device not found', { deviceId: dto.deviceId });
     }
 
-    const targetUser = await this.getUserBySubOrThrow(dto.sub);
-    return await this.setPreferredMethodInternal(targetUser, normalizedMethod as MFAMethod, 'admin');
+    // Update user's preferred method to match the preferred device's method.
+    await this.userRepository.update(
+      { id: currentUser.id },
+      {
+        preferredMfaMethod: targetDevice.type,
+      },
+    );
+
+    // Ensure exactly one active device is primary (marks it as preferred).
+    for (const device of activeDevices) {
+      await this.mfaDeviceRepository.update({ id: device.id }, { isPrimary: device.id === targetDevice.id });
+    }
+
+    // ============================================================================
+    // Audit: Record preferred MFA device update
+    // ============================================================================
+    if (this.auditService && this.clientInfoService) {
+      try {
+        const actor = updatedBy === 'admin' ? ContextStorage.get<IUser>('CURRENT_USER') : currentUser;
+        const actorNameCandidate =
+          actor && updatedBy === 'admin'
+            ? `${(actor.firstName as string | null) || ''} ${(actor.lastName as string | null) || ''}`.trim()
+            : '';
+        const performedByName =
+          actorNameCandidate.length > 0 ? actorNameCandidate : (actor?.email as string | undefined) || undefined;
+
+        await this.auditService?.recordEvent({
+          userId: currentUser.id,
+          eventType: AuthAuditEventType.MFA_PREFERRED_METHOD_UPDATED,
+          eventStatus: 'INFO',
+          authMethod: updatedBy === 'admin' ? 'admin' : undefined,
+          performedBy: updatedBy === 'admin' && actor && actor.sub !== currentUser.sub ? actor.sub : undefined,
+          metadata: {
+            newMethod: targetDevice.type,
+            deviceId: targetDevice.id,
+            updatedBy,
+            ...(performedByName && updatedBy === 'admin' ? { performedByName } : {}),
+          },
+        });
+      } catch (auditError) {
+        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to record MFA_PREFERRED_METHOD_UPDATED audit event: ${errorMessage}`, {
+          error: auditError,
+          userId: currentUser.id,
+          deviceId: targetDevice.id,
+        });
+      }
+    }
+
+    return { message: 'Preferred MFA device updated' };
   }
 
   /**
@@ -1029,9 +1066,16 @@ export class MFAService {
     // ============================================================================
     // Audit: Record MFA exemption grant/revoke
     // ============================================================================
-    // Note: performedByName is automatically enriched by audit service from context
+    // Note: We also attach performedByName when possible so downstream systems
+    // have a stable snapshot even if admin profile changes later.
     if (this.auditService && this.clientInfoService) {
       try {
+        const actor = ContextStorage.get<IUser>('CURRENT_USER');
+        const actorNameCandidate =
+          `${(actor?.firstName as string | null) || ''} ${(actor?.lastName as string | null) || ''}`.trim();
+        const performedByName =
+          actorNameCandidate.length > 0 ? actorNameCandidate : (actor?.email as string | undefined) || undefined;
+
         await this.auditService.recordEvent({
           userId: user.id,
           eventType: dto.exempt ? AuthAuditEventType.MFA_EXEMPTION_GRANTED : AuthAuditEventType.MFA_EXEMPTION_REVOKED,
@@ -1042,7 +1086,7 @@ export class MFAService {
           metadata: {
             previousExemptStatus: userEntity.mfaExempt,
             newExemptStatus: dto.exempt,
-            // performedByName will be automatically enriched by audit service from context
+            ...(performedByName ? { performedByName } : {}),
           },
         });
       } catch (auditError) {

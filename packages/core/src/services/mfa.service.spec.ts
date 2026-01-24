@@ -228,7 +228,7 @@ describe('MFAService', () => {
       } as unknown as BaseUser;
 
       // Set admin user in context
-      ContextStorage.run(async () => {
+      await ContextStorage.run(async () => {
         ContextStorage.set('CURRENT_USER', adminUser as IUser);
 
         mockUserRepository.findOne.mockImplementation(async (opts: unknown) => {
@@ -299,7 +299,7 @@ describe('MFAService', () => {
       } as unknown as BaseUser;
 
       // Set admin user in context
-      ContextStorage.run(async () => {
+      await ContextStorage.run(async () => {
         ContextStorage.set('CURRENT_USER', adminUser as IUser);
 
         mockUserRepository.findOne.mockImplementation(async (opts: unknown) => {
@@ -812,6 +812,82 @@ describe('MFAService', () => {
           reason: 'all_devices_removed',
         }),
       );
+    });
+  });
+
+  // ============================================================================
+  // removeDevice() Method
+  // ============================================================================
+
+  describe('removeDevice', () => {
+    beforeEach(() => {
+      service.registerProvider(mockProvider1);
+    });
+
+    it('should remove a single device by deviceId and keep MFA enabled when devices remain', async () => {
+      const userEntity = { ...mockUser, id: 1, preferredMfaMethod: 'totp' };
+      const devices = [
+        { ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true, isPrimary: true },
+        { ...mockDevice, id: 2, type: 'passkey' as MFADeviceMethod, isActive: true, isPrimary: false },
+      ];
+
+      mockMfaDeviceRepository.find
+        .mockResolvedValueOnce(devices as any) // initial active devices
+        .mockResolvedValueOnce([devices[0]] as any); // remaining devices after deletion
+      mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
+      mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
+      mockAuditService.recordEvent.mockResolvedValue({} as any);
+
+      const result = await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', userEntity as IUser);
+        return await service.removeDevice({ deviceId: 2 } as any);
+      });
+
+      expect(result.removedDeviceId).toBe(2);
+      expect(result.removedMethod).toBe('passkey');
+      expect(result.mfaDisabled).toBe(false);
+      expect(mockMfaDeviceRepository.delete).toHaveBeenCalledWith(2);
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { id: 1 } as any,
+        expect.objectContaining({ preferredMfaMethod: 'totp' }) as any,
+      );
+    });
+
+    it('should disable MFA when the last device is removed', async () => {
+      const userEntity = { ...mockUser, id: 1, mfaEnabled: true, mfaMethods: ['totp'], preferredMfaMethod: 'totp' };
+      const devices = [{ ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true, isPrimary: true }];
+
+      mockMfaDeviceRepository.find.mockResolvedValueOnce(devices as any).mockResolvedValueOnce([]);
+      mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
+      mockAuditService.recordEvent.mockResolvedValue({} as any);
+
+      const result = await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', userEntity as IUser);
+        return await service.removeDevice({ deviceId: 1 } as any);
+      });
+
+      expect(result.mfaDisabled).toBe(true);
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { id: 1 } as any,
+        { mfaEnabled: false, mfaMethods: [], preferredMfaMethod: null } as any,
+      );
+    });
+
+    it('should throw NOT_FOUND when device does not exist for user', async () => {
+      mockMfaDeviceRepository.find.mockResolvedValueOnce([] as any);
+
+      try {
+        await ContextStorage.run(async () => {
+          ContextStorage.set('CURRENT_USER', mockUser as IUser);
+          return await service.removeDevice({ deviceId: 999 } as any);
+        });
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect((error as NAuthException).code).toBe(AuthErrorCode.NOT_FOUND);
+      }
     });
   });
 
