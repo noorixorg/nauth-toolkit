@@ -160,6 +160,8 @@ export interface NAuthAdminEndpoints {
   logoutAll: string;
   /** GET /users/:sub/mfa/status - Get MFA status */
   getMfaStatus: string;
+  /** GET /users/:sub/mfa/devices - Get MFA devices */
+  getMfaDevices: string;
   /** DELETE /mfa/devices/:deviceId - Remove a single MFA device by id */
   removeMfaDeviceById: string;
   /** POST /users/:sub/mfa/devices/:deviceId/preferred - Set preferred MFA device */

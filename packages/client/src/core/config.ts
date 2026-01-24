@@ -82,6 +82,7 @@ export const defaultAdminEndpoints: NAuthAdminEndpoints = {
   getUserSessions: '/users/:sub/sessions',
   logoutAll: '/users/:sub/logout-all',
   getMfaStatus: '/users/:sub/mfa/status',
+  getMfaDevices: '/users/:sub/mfa/devices',
   removeMfaDeviceById: '/mfa/devices/:deviceId',
   setPreferredMfaDevice: '/users/:sub/mfa/devices/:deviceId/preferred',
   setMfaExemption: '/mfa/exemption',

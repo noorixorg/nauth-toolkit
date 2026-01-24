@@ -202,9 +202,7 @@ export class EmailVerificationService {
         userId: user.id,
         eventType: AuthAuditEventType.EMAIL_VERIFICATION_REQUESTED,
         eventStatus: 'INFO',
-        metadata: {
-          verificationTokenId: (verificationToken as unknown as IVerificationToken).id,
-        },
+        metadata: {},
         // Client info automatically included from context
       });
     } catch (auditError) {
@@ -390,7 +388,6 @@ export class EmailVerificationService {
         eventType: AuthAuditEventType.EMAIL_VERIFICATION_REQUESTED,
         eventStatus: 'INFO',
         metadata: {
-          verificationTokenId: (verificationToken as unknown as IVerificationToken).id,
           mfaContext: true,
         },
         // Client info automatically included from context
@@ -546,7 +543,6 @@ export class EmailVerificationService {
           description: 'Invalid verification code provided',
           // Client info automatically included from context
           metadata: {
-            verificationTokenId: (verificationToken as IVerificationToken).id,
             attempts: verificationToken.attempts,
           },
         });
@@ -605,10 +601,9 @@ export class EmailVerificationService {
         eventType: AuthAuditEventType.EMAIL_VERIFIED,
         eventStatus: 'SUCCESS',
         metadata: {
-          verificationTokenId: (verificationToken as IVerificationToken).id,
           verificationMethod: 'code',
-          // Client info automatically included from context
         },
+        // Client info automatically included from context
       });
     } catch (auditError) {
       // Non-blocking: Log but continue
@@ -766,10 +761,9 @@ export class EmailVerificationService {
           eventType: AuthAuditEventType.EMAIL_VERIFIED,
           eventStatus: 'SUCCESS',
           metadata: {
-            verificationTokenId: (verificationToken as IVerificationToken).id,
             verificationMethod: 'token',
-            // Client info automatically included from context
           },
+          // Client info automatically included from context
         });
       } catch (auditError) {
         // Non-blocking: Log but continue

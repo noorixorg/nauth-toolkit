@@ -377,6 +377,9 @@ export class AdminAuthService {
       this.logger?.log?.(`Admin user created successfully: ${dto.email} (sub: ${savedUser.sub})`);
 
       try {
+        // Calculate grace period status for metadata
+        const gracePeriodData = this.calculateGracePeriodForUser(savedUser);
+
         await this.auditService?.recordEvent({
           userId: savedUser.id,
           eventType: AuthAuditEventType.ACCOUNT_CREATED,
@@ -391,6 +394,12 @@ export class AdminAuthService {
             isPhoneVerified: savedUser.isPhoneVerified,
             mustChangePassword: savedUser.mustChangePassword,
             passwordGenerated: !!generatedPassword,
+            ...(gracePeriodData.isActive
+              ? {
+                  gracePeriodActive: true,
+                  gracePeriodEndsAt: gracePeriodData.endsAt?.toISOString(),
+                }
+              : {}),
           },
         });
       } catch (auditError) {
@@ -561,6 +570,9 @@ export class AdminAuthService {
       this.logger?.log?.(`Admin social user created successfully: ${dto.email} (sub: ${savedUser.sub})`);
 
       try {
+        // Calculate grace period status for metadata
+        const gracePeriodData = this.calculateGracePeriodForUser(savedUser);
+
         await this.auditService?.recordEvent({
           userId: savedUser.id,
           eventType: AuthAuditEventType.ACCOUNT_CREATED,
@@ -578,6 +590,12 @@ export class AdminAuthService {
             providerId: dto.providerId,
             hasPassword: !!dto.password,
             socialImport: true,
+            ...(gracePeriodData.isActive
+              ? {
+                  gracePeriodActive: true,
+                  gracePeriodEndsAt: gracePeriodData.endsAt?.toISOString(),
+                }
+              : {}),
           },
         });
       } catch (auditError) {
@@ -1064,6 +1082,41 @@ export class AdminAuthService {
       success: true,
       mustChangePassword,
       sessionsRevoked,
+    };
+  }
+
+  /**
+   * Calculate grace period status for a user.
+   *
+   * @param user - User to check
+   * @returns Grace period status with isActive flag and endsAt date
+   */
+  private calculateGracePeriodForUser(user: IUser): { isActive: boolean; endsAt?: Date } {
+    const gracePeriod = this.config.mfa?.gracePeriod ?? 7;
+
+    // No grace period
+    if (gracePeriod === 0) {
+      return { isActive: false };
+    }
+
+    // Access createdAt from user interface
+    const userWithDates = user as IUser & { createdAt: Date };
+    const createdAt = userWithDates.createdAt;
+
+    if (!createdAt) {
+      // No creation date - grace period not active
+      return { isActive: false };
+    }
+
+    const gracePeriodEnd = new Date(createdAt);
+    gracePeriodEnd.setDate(gracePeriodEnd.getDate() + gracePeriod);
+
+    const now = new Date();
+    const isActive = now < gracePeriodEnd;
+
+    return {
+      isActive,
+      endsAt: isActive ? gracePeriodEnd : undefined,
     };
   }
 }

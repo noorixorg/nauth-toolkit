@@ -525,12 +525,12 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
 
       const user = nauth.helpers.getCurrentUser();
 
-      const devicesResponse = await nauth.mfaService.getUserDevices({ sub: user!.sub });
-      const result = devicesResponse.devices.map((device: IMFADevice) => ({
+      const devicesResponse = await nauth.mfaService.getUserDevices({});
+      const result = devicesResponse.devices.map((device) => ({
         id: device.id,
         type: device.type,
         name: device.name,
-        isPrimary: device.isPrimary || false,
+        isPreferred: device.isPreferred,
         isActive: device.isActive,
         createdAt: device.createdAt,
       }));

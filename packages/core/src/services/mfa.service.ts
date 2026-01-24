@@ -25,8 +25,10 @@ import {
   GetMFAStatusResponseDTO,
   GetSetupDataDTO,
   GetSetupDataResponseDTO,
+  AdminGetUserDevicesDTO,
   GetUserDevicesDTO,
   GetUserDevicesResponseDTO,
+  MFADeviceResponseDTO,
   HasProviderDTO,
   HasProviderResponseDTO,
   ListProvidersResponseDTO,
@@ -737,8 +739,9 @@ export class MFAService {
     // Get user from authenticated context (already has id and sub)
     const currentUser = this.getCurrentUserOrThrow();
 
+    const devices = await this.getActiveDevicesForUserId(currentUser.id);
     return {
-      devices: await this.getActiveDevicesForUserId(currentUser.id),
+      devices: MFADeviceResponseDTO.fromEntities(devices),
     };
   }
 
@@ -761,6 +764,40 @@ export class MFAService {
   async adminGetMfaStatus(dto: AdminGetMFAStatusDTO): Promise<GetMFAStatusResponseDTO> {
     dto = await ensureValidatedDto(AdminGetMFAStatusDTO, dto);
     return await this.getMfaStatusBySub(dto.sub);
+  }
+
+  /**
+   * Get MFA devices for a specific user (admin-only).
+   *
+   * Admin operation that retrieves all active MFA devices for a target user.
+   * Returns device details including id, name, type, and isPreferred status.
+   *
+   * @param dto - Admin request DTO with target user sub
+   * @returns Response DTO with array of MFA devices
+   * @throws {NAuthException} If user not found
+   *
+   * @example
+   * ```typescript
+   * const result = await mfaService.adminGetUserDevices({ sub: 'user-uuid' });
+   * // Returns: { devices: [{ id: 1, name: 'My Authenticator', type: 'totp', isPreferred: true, ... }] }
+   * ```
+   */
+  async adminGetUserDevices(dto: AdminGetUserDevicesDTO): Promise<GetUserDevicesResponseDTO> {
+    dto = await ensureValidatedDto(AdminGetUserDevicesDTO, dto);
+
+    // Find user by sub
+    const user = await this.userRepository.findOne({
+      where: { sub: dto.sub },
+    } as Record<string, unknown>);
+
+    if (!user) {
+      throw new NAuthException(AuthErrorCode.USER_NOT_FOUND, 'User not found', { sub: dto.sub });
+    }
+
+    const devices = await this.getActiveDevicesForUserId(user.id);
+    return {
+      devices: MFADeviceResponseDTO.fromEntities(devices),
+    };
   }
 
   /**
@@ -889,15 +926,15 @@ export class MFAService {
     // Delegate to the regular setPreferredDevice logic
     // but use SetPreferredDeviceDTO format
     const deviceDto = Object.assign(new SetPreferredDeviceDTO(), { deviceId: dto.deviceId });
-    
+
     // Temporarily set context user for the operation
     // Keep admin user in context for audit trails
     const originalUser = ContextStorage.get('CURRENT_USER');
     const adminUser = originalUser; // Admin user is already in context
-    
+
     // Set target user as current user for the operation
     ContextStorage.set('CURRENT_USER', user as unknown as IUser);
-    
+
     try {
       // Pass 'admin' flag to setPreferredDevice for proper audit trails
       const result = await this.setPreferredDevice(deviceDto, 'admin');

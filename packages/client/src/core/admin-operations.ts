@@ -18,7 +18,7 @@ import type {
   AdminAuditHistoryRequest,
 } from '../types/admin.types';
 import type { AuthUser } from '../types/user.types';
-import type { MFAStatus, RemoveMFADeviceResponse } from '../types/mfa.types';
+import type { MFAStatus, RemoveMFADeviceResponse, GetMFADevicesResponse } from '../types/mfa.types';
 import type { AuditHistoryResponse } from '../types/audit.types';
 
 const hasWindow = (): boolean =>
@@ -374,21 +374,25 @@ export class AdminOperations {
   }
 
   /**
-   * Set preferred MFA method for a user
+   * Get MFA devices for a user
+   *
+   * Returns all active MFA devices for a user including device id, name, type, and isPreferred status.
    *
    * @param sub - User UUID
-   * Remove MFA devices for a user
-   *
-   * @param sub - User UUID
-   * @param method - MFA method to remove
-   * @returns Success message
+   * @returns Response containing array of MFA devices
    * @throws {NAuthClientError} If operation fails
    *
    * @example
    * ```typescript
-   * await client.admin.removeMfaDevices('user-uuid', 'sms');
+   * const result = await client.admin.getMfaDevices('user-uuid');
+   * console.log('Devices:', result.devices);
+   * // [{ id: 1, name: 'My Authenticator', type: 'totp', isPreferred: true, ... }]
    * ```
    */
+  async getMfaDevices(sub: string): Promise<GetMFADevicesResponse> {
+    const path = this.buildAdminUrl(this.adminEndpoints.getMfaDevices, { sub });
+    return this.get<GetMFADevicesResponse>(path);
+  }
 
   /**
    * Remove a single MFA device by device ID (admin).

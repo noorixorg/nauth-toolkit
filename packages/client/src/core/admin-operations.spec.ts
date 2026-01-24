@@ -110,7 +110,6 @@ const createTestConfig = (
       mfaDevices: '/mfa/devices',
       mfaSetupData: '/mfa/setup-data',
       mfaVerifySetup: '/mfa/verify-setup',
-      mfaRemove: '/mfa/method',
       mfaPreferred: '/mfa/preferred-method',
       mfaBackupCodes: '/mfa/backup-codes/generate',
       socialLinked: '/social/linked',
@@ -140,8 +139,9 @@ const createTestConfig = (
         getUserSessions: '/users/:sub/sessions',
         logoutAll: '/users/:sub/logout-all',
         getMfaStatus: '/users/:sub/mfa/status',
-        removeMfaDevices: '/mfa/remove-devices',
-      removeMfaDeviceById: '/mfa/devices/:deviceId',
+        getMfaDevices: '/users/:sub/mfa/devices',
+        removeMfaDeviceById: '/mfa/devices/:deviceId',
+        setPreferredMfaDevice: '/users/:sub/mfa/devices/:deviceId/preferred',
         setMfaExemption: '/mfa/exemption',
         getAuditHistory: '/audit/history',
       },
@@ -538,13 +538,20 @@ describe('AdminOperations', () => {
       expect(result.enabled).toBe(true);
     });
 
+    it('should get MFA devices', async () => {
+      const mockResponse = {
+        devices: [
+          { id: 1, name: 'My Authenticator', type: 'totp', isPreferred: true, isActive: true, createdAt: '2024-01-01' },
+          { id: 2, name: 'Backup Phone', type: 'sms', isPreferred: false, isActive: true, createdAt: '2024-01-02' },
+        ],
+      };
+      httpAdapter.setResponse(mockResponse);
 
-    it('should remove MFA devices', async () => {
-      httpAdapter.setResponse({ message: 'Devices removed' });
+      const result = await adminOps.getMfaDevices('test-uuid');
 
-      const result = await adminOps.removeMfaDevices('test-uuid', 'sms');
-
-      expect(result.message).toBe('Devices removed');
+      expect(result.devices).toHaveLength(2);
+      expect(result.devices[0].name).toBe('My Authenticator');
+      expect(result.devices[0].isPreferred).toBe(true);
     });
 
     it('should set MFA exemption', async () => {

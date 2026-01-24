@@ -67,7 +67,7 @@ export const authConfig: NAuthModuleConfig = {
   mfa: {
     enabled: true,
     enforcement: 'REQUIRED',
-    gracePeriod: 0,
+    gracePeriod: 2,
     requireForSocialLogin: false,
     allowedMethods: [MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.TOTP, MFAMethod.PASSKEY],
     issuer: 'Nauth App',

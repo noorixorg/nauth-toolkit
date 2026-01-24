@@ -659,7 +659,7 @@ describe('NAuthClient', () => {
       createMockResponse({
         ok: true,
         status: 200,
-        body: [{ id: 1, type: 'totp', name: 'My Phone', isPrimary: true }],
+        body: [{ id: 1, type: 'totp', name: 'My Phone', isPreferred: true }],
       }),
     );
 

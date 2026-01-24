@@ -13,18 +13,22 @@ DTO for setting a user's preferred MFA device. This updates which specific devic
 ### deviceId
 
 ```typescript
-deviceId: number
+deviceId: number;
 ```
 
 MFA device ID to set as preferred.
 
 **Validation:**
+
 - Must be a positive integer
 - Automatically converted from string (useful for path parameters)
 
 **Example:**
+
 ```typescript
-{ deviceId: 123 }
+{
+  deviceId: 123;
+}
 ```
 
 ## Response
@@ -33,16 +37,17 @@ MFA device ID to set as preferred.
 
 ```typescript
 {
-  message: string
+  message: string;
 }
 ```
 
 Success message confirming the preferred device was updated.
 
 **Example:**
+
 ```typescript
 {
-  message: "Preferred MFA device updated"
+  message: 'Preferred MFA device updated';
 }
 ```
 
@@ -112,10 +117,10 @@ The DTO performs the following validations:
 
 ## Errors
 
-| Code            | When                                         | Details                                  |
-| --------------- | -------------------------------------------- | ---------------------------------------- |
-| `NOT_FOUND`     | Device does not exist or doesn't belong to user | `{ deviceId: number }`                |
-| `VALIDATION_FAILED` | Invalid deviceId (not an integer or negative) | `{ validationErrors: {...} }`         |
+| Code                | When                                            | Details                       |
+| ------------------- | ----------------------------------------------- | ----------------------------- |
+| `NOT_FOUND`         | Device does not exist or doesn't belong to user | `{ deviceId: number }`        |
+| `VALIDATION_FAILED` | Invalid deviceId (not an integer or negative)   | `{ validationErrors: {...} }` |
 
 ### Example Error Handling
 
@@ -135,11 +140,9 @@ try {
 
 When a device is set as preferred:
 
-1. The device's `isPrimary` flag is set to `true`
-2. All other devices for the user have `isPrimary` set to `false`
-3. The user's `preferredMfaMethod` is updated to match the device's method
-4. During login, this device is auto-selected for MFA challenges
-5. Frontend displays a "Preferred" badge on this device
+1. The device's `isPreferred` field is set to `true` in API responses
+2. The user's `preferredMfaMethod` is updated to match the device's method
+3. During login, this device should be auto-selected for MFA challenges
 
 ## Use Cases
 
@@ -149,6 +152,7 @@ When a device is set as preferred:
 
 ## Related
 
-- [MFAService.setPreferredDevice()](../services/mfa-service#setpreferreddevice)
+- [MFAService.setPreferredDevice()](../services/mfa-service#setpreferreddevice) - Self-service method
+- [AdminSetPreferredDeviceDTO](./admin-set-preferred-device-dto) - Admin variant (set for any user)
 - [RemoveDeviceDTO](./remove-device-dto) - Remove individual devices
 - [GetUserDevicesDTO](./get-user-devices-dto) - List user's MFA devices

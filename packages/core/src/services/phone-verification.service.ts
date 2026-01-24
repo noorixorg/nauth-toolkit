@@ -246,10 +246,9 @@ export class PhoneVerificationService {
         eventType: AuthAuditEventType.PHONE_VERIFICATION_REQUESTED,
         eventStatus: 'INFO',
         metadata: {
-          // Client info automatically included from context
-          verificationTokenId: saved.id,
           phone: this.maskPhone(user.phone),
         },
+        // Client info automatically included from context
       });
     } catch (auditError) {
       // Non-blocking: Log but continue
@@ -401,7 +400,6 @@ export class PhoneVerificationService {
           // Client info automatically included from context
           description: 'Invalid verification code provided',
           metadata: {
-            verificationTokenId: token.id,
             attempts: token.attempts,
             phone: this.maskPhone(phone),
           },
@@ -445,11 +443,10 @@ export class PhoneVerificationService {
         eventType: AuthAuditEventType.PHONE_VERIFIED,
         eventStatus: 'SUCCESS',
         metadata: {
-          // Client info automatically included from context
-          verificationTokenId: token.id,
           verificationMethod: 'code',
           phone: this.maskPhone(phone),
         },
+        // Client info automatically included from context
       });
     } catch (auditError) {
       // Non-blocking: Log but continue
@@ -699,7 +696,6 @@ export class PhoneVerificationService {
           // Client info automatically included from context
           description: 'Invalid verification code provided',
           metadata: {
-            verificationTokenId: verificationToken.id,
             attempts: verificationToken.attempts,
             phone: this.maskPhone(user.phone || ''),
           },
@@ -759,11 +755,10 @@ export class PhoneVerificationService {
         eventType: AuthAuditEventType.PHONE_VERIFIED,
         eventStatus: 'SUCCESS',
         metadata: {
-          // Client info automatically included from context
-          verificationTokenId: verificationToken.id,
           verificationMethod: 'code',
           phone: this.maskPhone(user.phone || ''),
         },
+        // Client info automatically included from context
       });
     } catch (auditError) {
       // Non-blocking: Log but continue

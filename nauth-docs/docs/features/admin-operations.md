@@ -567,3 +567,138 @@ All admin social imports are logged with:
 - Generating temporary passwords
 
 ---
+
+## Admin MFA Operations
+
+Administrators can manage MFA devices for any user through dedicated admin endpoints.
+
+### Get User's MFA Devices
+
+Retrieve all active MFA devices for a specific user:
+
+```typescript
+const result = await mfaService.adminGetUserDevices({ 
+  sub: 'user-uuid' 
+});
+
+// Returns: { devices: [...] }
+```
+
+**Response:**
+
+```json
+{
+  "devices": [
+    {
+      "id": 1,
+      "type": "totp",
+      "name": "Google Authenticator",
+      "isPreferred": true,
+      "isActive": true,
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "type": "passkey",
+      "name": "MacBook Pro",
+      "isPreferred": false,
+      "isActive": true,
+      "createdAt": "2024-01-02T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+### Get User's MFA Status
+
+Get comprehensive MFA status for a user:
+
+```typescript
+const status = await mfaService.adminGetMfaStatus({ sub: 'user-uuid' });
+```
+
+### Remove MFA Device
+
+Remove a specific MFA device by ID:
+
+```typescript
+const result = await mfaService.adminRemoveDevice({ deviceId: 123 });
+```
+
+### Set Preferred MFA Device
+
+Set a specific device as the user's preferred MFA device:
+
+```typescript
+const result = await mfaService.adminSetPreferredDevice({ 
+  sub: 'user-uuid',
+  deviceId: 123 
+});
+```
+
+### Set MFA Exemption
+
+Grant or revoke MFA exemption for a user:
+
+```typescript
+const result = await mfaService.setMFAExemption({
+  sub: 'user-uuid',
+  exempt: true,
+  reason: 'Service account - no human login',
+  grantedBy: adminUser.sub
+});
+```
+
+### NestJS Controller Examples
+
+```typescript
+@Controller('admin')
+@UseGuards(AdminAuthGuard)
+export class AdminMfaController {
+  constructor(private readonly mfaService: MFAService) {}
+
+  @Get('users/:sub/mfa/devices')
+  async getUserDevices(@Param() dto: AdminGetUserDevicesDTO) {
+    return this.mfaService.adminGetUserDevices(dto);
+  }
+
+  @Get('users/:sub/mfa/status')
+  async getMfaStatus(@Param() dto: AdminGetMFAStatusDTO) {
+    return this.mfaService.adminGetMfaStatus(dto);
+  }
+
+  @Delete('mfa/devices/:deviceId')
+  async removeDevice(@Param() dto: AdminRemoveDeviceDTO) {
+    return this.mfaService.adminRemoveDevice(dto);
+  }
+
+  @Post('users/:sub/mfa/devices/:deviceId/preferred')
+  async setPreferredDevice(@Param() dto: AdminSetPreferredDeviceDTO) {
+    return this.mfaService.adminSetPreferredDevice(dto);
+  }
+}
+```
+
+### Client SDK Usage
+
+```typescript
+// Get user's MFA devices
+const result = await client.admin.getMfaDevices('user-uuid');
+console.log(result.devices);
+
+// Get MFA status
+const status = await client.admin.getMfaStatus('user-uuid');
+console.log(status.enabled, status.configuredMethods);
+
+// Remove a device
+await client.admin.removeMfaDeviceById(123);
+
+// Set preferred device
+await client.admin.setPreferredMfaDevice('user-uuid', 123);
+```
+
+### Security Warning
+
+All admin MFA operations have **NO built-in authentication**. You **MUST** protect them with your own admin authentication guard/middleware.
+
+---

@@ -36,7 +36,7 @@ export interface MFADevice {
   id: number;
   type: MFADeviceMethod; // Device methods only (excludes 'backup')
   name: string;
-  isPrimary: boolean; // Preferred device flag (for display only)
+  isPreferred: boolean; // Whether this is the preferred device for this method
   isActive: boolean;
   createdAt: string | Date;
 }
@@ -48,6 +48,13 @@ export interface RemoveMFADeviceResponse {
   removedDeviceId: number;
   removedMethod: MFADeviceMethod;
   mfaDisabled: boolean;
+}
+
+/**
+ * Response from getting user MFA devices.
+ */
+export interface GetMFADevicesResponse {
+  devices: MFADevice[];
 }
 
 /**

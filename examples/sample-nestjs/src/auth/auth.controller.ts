@@ -92,6 +92,7 @@ import {
   RemoveDeviceResponseDTO,
   SetMFAExemptionResponseDTO,
   GetLinkedAccountsResponseDTO,
+  VerifyMFASetupResponseDTO,
   LinkSocialAccountResponseDTO,
   UnlinkSocialAccountResponseDTO,
   AdminGetMFAStatusDTO,
@@ -100,7 +101,8 @@ import {
   GetUserAuthHistoryResponseDTO,
   AdminGetUserAuthHistoryDTO,
   UserResponseDTO,
-  IMFADevice,
+  GetUserDevicesResponseDTO,
+  AdminGetUserDevicesDTO,
   RequireRecaptcha,
 } from '@nauth-toolkit/nestjs';
 
@@ -752,9 +754,7 @@ export class CustomAuthController {
 
   @Delete('sessions/:sessionId')
   @HttpCode(HttpStatus.OK)
-  async logoutSession(@Param('sessionId') sessionId: string): Promise<LogoutSessionResponseDTO> {
-    const dto = new LogoutSessionDTO();
-    dto.sessionId = sessionId;
+  async logoutSession(@Param() dto: LogoutSessionDTO): Promise<LogoutSessionResponseDTO> {
     return await this.authService.logoutSession(dto);
   }
 
@@ -893,8 +893,8 @@ export class CustomAuthController {
    */
 
   @Get('profile')
-  async getProfile(@CurrentUser() user: IUser): Promise<IUser> {
-    return user;
+  async getProfile(@CurrentUser() user: IUser): Promise<UserResponseDTO> {
+    return UserResponseDTO.fromEntity(user);
   }
 
   /**
@@ -902,7 +902,7 @@ export class CustomAuthController {
    */
 
   @Put('profile')
-  async updateProfile(@Body() dto: UpdateUserAttributesDTO) {
+  async updateProfile(@Body() dto: UpdateUserAttributesDTO): Promise<UserResponseDTO> {
     return await this.authService.updateUserAttributes(dto);
   }
 
@@ -979,6 +979,28 @@ export class CustomAuthController {
   }
 
   /**
+   * Get MFA devices for a user (Admin API)
+   *
+   * Admin-only endpoint to retrieve all MFA devices for a specific user.
+   * Returns device details including id, name, type, and isPreferred status.
+   *
+   * **SECURITY WARNING:** This endpoint has NO built-in authentication.
+   * You MUST protect it with your own admin authentication guard.
+   *
+   * @param dto - AdminGetUserDevicesDTO with user sub from path
+   * @returns Response containing array of MFA devices
+   */
+  @Get('admin/users/:sub/mfa/devices')
+  @HttpCode(HttpStatus.OK)
+  async adminGetUserDevices(@Param() dto: AdminGetUserDevicesDTO): Promise<GetUserDevicesResponseDTO> {
+    if (!this.mfaService) {
+      throw new BadRequestException('MFA service is not available');
+    }
+
+    return await this.mfaService.adminGetUserDevices(dto);
+  }
+
+  /**
    * Remove a single MFA device by device ID (Admin API)
    *
    * Admin-only endpoint.
@@ -1051,7 +1073,7 @@ export class CustomAuthController {
    */
 
   @Post('mfa/verify-setup')
-  async verifyMFASetup(@Body() dto: SetupMFADTO): Promise<{ deviceId: number }> {
+  async verifyMFASetup(@Body() dto: SetupMFADTO): Promise<VerifyMFASetupResponseDTO> {
     if (!this.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
@@ -1070,16 +1092,15 @@ export class CustomAuthController {
    * Get MFA devices for current user
    *
    * @param user - Current user (from JWT)
-   * @returns Array of MFA devices
+   * @returns Response containing array of MFA devices
    */
   @Get('mfa/devices')
-  async getMFADevices(): Promise<IMFADevice[]> {
+  async getMFADevices(): Promise<GetUserDevicesResponseDTO> {
     if (!this.mfaService) {
       throw new BadRequestException('MFA service is not available');
     }
 
-    const devicesResponse = await this.mfaService.getUserDevices({});
-    return devicesResponse.devices;
+    return this.mfaService.getUserDevices({});
   }
 
   /**

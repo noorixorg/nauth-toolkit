@@ -333,6 +333,9 @@ export class AuthService {
       // Audit: Record account creation
       // ============================================================================
       try {
+        // Calculate grace period status for metadata
+        const gracePeriodData = this.calculateGracePeriodForUser(savedUser);
+
         await this.auditService?.recordEvent({
           userId: savedUser.id,
           eventType: AuthAuditEventType.ACCOUNT_CREATED,
@@ -343,6 +346,12 @@ export class AuthService {
             email: savedUser.email,
             username: savedUser.username || null,
             verificationMethod,
+            ...(gracePeriodData.isActive
+              ? {
+                  gracePeriodActive: true,
+                  gracePeriodEndsAt: gracePeriodData.endsAt?.toISOString(),
+                }
+              : {}),
           },
         });
       } catch (auditError) {
@@ -2960,5 +2969,40 @@ export class AuthService {
       throw new NAuthException(AuthErrorCode.FORBIDDEN, 'Authentication required');
     }
     return currentUser;
+  }
+
+  /**
+   * Calculate grace period status for a user.
+   *
+   * @param user - User to check
+   * @returns Grace period status with isActive flag and endsAt date
+   */
+  private calculateGracePeriodForUser(user: IUser): { isActive: boolean; endsAt?: Date } {
+    const gracePeriod = this.config.mfa?.gracePeriod ?? 7;
+
+    // No grace period
+    if (gracePeriod === 0) {
+      return { isActive: false };
+    }
+
+    // Access createdAt from user interface
+    const userWithDates = user as IUser & { createdAt: Date };
+    const createdAt = userWithDates.createdAt;
+
+    if (!createdAt) {
+      // No creation date - grace period not active
+      return { isActive: false };
+    }
+
+    const gracePeriodEnd = new Date(createdAt);
+    gracePeriodEnd.setDate(gracePeriodEnd.getDate() + gracePeriod);
+
+    const now = new Date();
+    const isActive = now < gracePeriodEnd;
+
+    return {
+      isActive,
+      endsAt: isActive ? gracePeriodEnd : undefined,
+    };
   }
 }

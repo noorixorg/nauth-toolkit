@@ -158,7 +158,6 @@ export class ChallengeService {
             challengeSessionId: session.id,
             metadata: {
               challengeName,
-              sessionToken: session.sessionToken,
               reused: true, // Indicate this was an existing session
             },
           });
@@ -225,11 +224,10 @@ export class ChallengeService {
         eventType: AuthAuditEventType.CHALLENGE_CREATED,
         eventStatus: 'INFO',
         challengeSessionId: (challengeSession as unknown as IChallengeSession).id,
-        // Client info automatically included from context (no need to pass explicitly)
         metadata: {
           challengeName,
-          sessionToken: (challengeSession as unknown as IChallengeSession).sessionToken,
         },
+        // Client info automatically included from context
       });
     } catch (auditError) {
       // Non-blocking: Log but continue

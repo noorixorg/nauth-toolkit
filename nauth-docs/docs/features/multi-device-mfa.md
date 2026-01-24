@@ -29,13 +29,13 @@ When a user logs in and requires MFA, the backend returns challenge parameters i
         "id": 48,
         "name": "Microsoft Authenticator",
         "type": "totp",
-        "isPrimary": true
+        "isPreferred": true
       },
       {
         "id": 3,
         "name": "Google Authenticator",
         "type": "totp",
-        "isPrimary": false
+        "isPreferred": false
       }
     ]
   }
@@ -186,7 +186,7 @@ await client.verifyMfaSetup('totp', { code: '123456' }, 'My iPhone');
 
 ```typescript
 const devices = await client.getMfaDevices();
-// Returns: [{ id: 48, type: 'totp', name: 'My iPhone', isPrimary: true }, ...]
+// Returns: [{ id: 48, type: 'totp', name: 'My iPhone', isPreferred: true }, ...]
 ```
 
 ### Remove MFA Device

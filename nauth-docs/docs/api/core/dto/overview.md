@@ -132,19 +132,24 @@ All DTOs are automatically validated by framework adapters. No manual validation
 
 ## MFA DTOs
 
-| DTO                                                      | Description               | Documentation                     |
-| -------------------------------------------------------- | ------------------------- | --------------------------------- |
-| [GetAvailableMethodsDTO](./get-available-methods-dto)    | Get available MFA methods | User sub                          |
-| [GetMFAStatusResponseDTO](./get-mfa-status-dto)          | MFA status response       | Status fields                     |
-| [AdminGetMFAStatusDTO](./admin-get-mfa-status-dto)       | Admin get MFA status      | Target user sub                   |
-| [GetSetupDataDTO](./get-setup-data-dto)                  | Get MFA setup data        | Challenge session and method      |
-| [GetSetupDataResponseDTO](./get-setup-data-response-dto) | Setup data response       | Provider-specific setup data      |
-| [GetUserDevicesDTO](./get-user-devices-dto)              | Get user MFA devices      | User sub                          |
-| [RemoveDevicesDTO](./remove-devices-dto)                 | Remove MFA devices        | User sub and method type          |
-| [SetMFAExemptionDTO](./set-mfa-exemption-dto)            | Set MFA exemption         | User sub, exempt flag, reason     |
-| [SetPreferredDeviceDTO](./set-preferred-device-dto)      | Set preferred MFA device  | User sub and device ID            |
-| [SetupMFADTO](./setup-mfa-dto)                           | Setup MFA device          | User sub, method name, setup data |
-| [VerifyMFACodeDTO](./verify-mfa-code-dto)                | Verify MFA code           | User sub, method, code            |
+| DTO                                                                | Description                        | Documentation                       |
+| ------------------------------------------------------------------ | ---------------------------------- | ----------------------------------- |
+| [AdminGetMFAStatusDTO](./admin-get-mfa-status-dto)                 | Admin get MFA status               | Target user sub                     |
+| [AdminGetUserDevicesDTO](./admin-get-user-devices-dto)             | Admin get user MFA devices         | Target user sub                     |
+| [AdminRemoveDeviceDTO](./admin-remove-device-dto)                  | Admin remove MFA device by ID      | Device ID                           |
+| [AdminRemoveDevicesDTO](./admin-remove-devices-dto)                | Admin remove MFA devices by method | User sub and method type            |
+| [AdminSetPreferredDeviceDTO](./admin-set-preferred-device-dto)     | Admin set preferred MFA device     | User sub and device ID              |
+| [GetAvailableMethodsDTO](./get-available-methods-dto)              | Get available MFA methods          | User sub                            |
+| [GetMFAStatusResponseDTO](./get-mfa-status-dto)                    | MFA status response                | Status fields                       |
+| [GetSetupDataDTO](./get-setup-data-dto)                            | Get MFA setup data                 | Challenge session and method        |
+| [GetSetupDataResponseDTO](./get-setup-data-response-dto)           | Setup data response                | Provider-specific setup data        |
+| [GetUserDevicesDTO](./get-user-devices-dto)                        | Get user MFA devices (self-service)| User from context                   |
+| [RemoveDeviceDTO](./remove-device-dto)                             | Remove MFA device by ID            | Device ID                           |
+| [RemoveDevicesDTO](./remove-devices-dto)                           | Remove MFA devices by method       | Method type                         |
+| [SetMFAExemptionDTO](./set-mfa-exemption-dto)                      | Set MFA exemption                  | User sub, exempt flag, reason       |
+| [SetPreferredDeviceDTO](./set-preferred-device-dto)                | Set preferred MFA device           | Device ID                           |
+| [SetupMFADTO](./setup-mfa-dto)                                     | Setup MFA device                   | Method name, setup data             |
+| [VerifyMFACodeDTO](./verify-mfa-code-dto)                          | Verify MFA code                    | Method, code                        |
 
 ## Social Authentication DTOs
 

@@ -233,13 +233,13 @@ export class MfaComponent implements OnInit, OnDestroy {
 
 
   /**
-   * Check if device is preferred (primary)
+   * Check if device is preferred
    *
    * @param device - MFA device
    * @returns True if device is marked as preferred
    */
   isPreferred(device: MFADevice): boolean {
-    return device.isPrimary === true;
+    return device.isPreferred === true;
   }
 
   /**
@@ -264,7 +264,7 @@ export class MfaComponent implements OnInit, OnDestroy {
     const items: MenuItem[] = [];
 
     // Set as preferred (if not already)
-    if (!device.isPrimary) {
+    if (!device.isPreferred) {
       items.push({
         label: 'Set as Preferred',
         icon: 'pi pi-star',

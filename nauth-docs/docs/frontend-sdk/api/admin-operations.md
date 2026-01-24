@@ -418,66 +418,111 @@ console.log('MFA enabled:', status.enabled);
 
 ---
 
-### setPreferredMfaMethod()
+### getMfaDevices()
 
-Set preferred MFA method for a user.
+Get all MFA devices for a user.
 
 ```typescript
-async setPreferredMfaMethod(
-  sub: string,
-  method: 'totp' | 'sms' | 'email' | 'passkey'
-): Promise<{ message: string }>
+async getMfaDevices(sub: string): Promise<GetMFADevicesResponse>
 ```
 
 **Parameters**
 
-| Parameter | Type                                    | Description                    |
-| --------- | --------------------------------------- | ------------------------------ |
-| `sub`     | `string`                                | User UUID                      |
-| `method`  | `'totp' \| 'sms' \| 'email' \| 'passkey'` | MFA method to set as preferred |
+| Parameter | Type     | Description |
+| --------- | -------- | ----------- |
+| `sub`     | `string` | User UUID   |
 
 **Returns**
 
-| Property  | Type     | Description      |
-| --------- | -------- | ---------------- |
-| `message` | `string` | Success message  |
+| Property  | Type          | Description              |
+| --------- | ------------- | ------------------------ |
+| `devices` | `MFADevice[]` | Array of user's MFA devices |
+
+Each device contains:
+
+| Property      | Type      | Description                          |
+| ------------- | --------- | ------------------------------------ |
+| `id`          | `number`  | Device ID                            |
+| `type`        | `string`  | Device type (totp, sms, email, passkey) |
+| `name`        | `string`  | Device name                          |
+| `isPreferred` | `boolean` | Whether this is the preferred device |
+| `isActive`    | `boolean` | Whether the device is active         |
+| `createdAt`   | `Date`    | Device creation timestamp            |
 
 **Example**
 
 ```typescript
-await client.admin.setPreferredMfaMethod('user-uuid', 'totp');
+const result = await client.admin.getMfaDevices('user-uuid');
+console.log('Devices:', result.devices);
+// [{ id: 1, name: 'Google Authenticator', type: 'totp', isPreferred: true, ... }]
 ```
 
 ---
 
-### removeMfaDevices()
+### removeMfaDeviceById()
 
-Remove MFA devices for a user.
+Remove a single MFA device by device ID.
 
 ```typescript
-async removeMfaDevices(
+async removeMfaDeviceById(deviceId: number): Promise<RemoveMFADeviceResponse>
+```
+
+**Parameters**
+
+| Parameter  | Type     | Description   |
+| ---------- | -------- | ------------- |
+| `deviceId` | `number` | MFA device ID |
+
+**Returns**
+
+| Property          | Type      | Description                         |
+| ----------------- | --------- | ----------------------------------- |
+| `removedDeviceId` | `number`  | ID of the removed device            |
+| `removedMethod`   | `string`  | Type of the removed device          |
+| `mfaDisabled`     | `boolean` | Whether MFA was disabled (last device) |
+
+**Example**
+
+```typescript
+const result = await client.admin.removeMfaDeviceById(123);
+console.log('Removed:', result.removedDeviceId);
+```
+
+---
+
+### setPreferredMfaDevice()
+
+Set a specific device as the user's preferred MFA device.
+
+```typescript
+async setPreferredMfaDevice(
   sub: string,
-  method: 'totp' | 'sms' | 'email' | 'passkey'
+  deviceId: number
 ): Promise<{ message: string }>
 ```
 
 **Parameters**
 
-| Parameter | Type                                    | Description                |
-| --------- | --------------------------------------- | -------------------------- |
-| `sub`     | `string`                                | User UUID                  |
-| `method`  | `'totp' \| 'sms' \| 'email' \| 'passkey'` | MFA method to remove       |
+| Parameter  | Type     | Description                        |
+| ---------- | -------- | ---------------------------------- |
+| `sub`      | `string` | User UUID                          |
+| `deviceId` | `number` | Device ID to set as preferred      |
 
 **Returns**
 
-| Property  | Type     | Description      |
-| --------- | -------- | ---------------- |
-| `message` | `string` | Success message  |
+| Property  | Type     | Description     |
+| --------- | -------- | --------------- |
+| `message` | `string` | Success message |
 
 **Example**
 
 ```typescript
-await client.admin.removeMfaDevices('user-uuid', 'sms');
+// First get devices to find the ID
+const devices = await client.admin.getMfaDevices('user-uuid');
+const totpDevice = devices.devices.find(d => d.type === 'totp');
+
+// Set as preferred
+await client.admin.setPreferredMfaDevice('user-uuid', totpDevice.id);
 ```
 
 ---

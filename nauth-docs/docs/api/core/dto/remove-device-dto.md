@@ -54,5 +54,10 @@ import { RemoveDeviceDTO, RemoveDeviceResponseDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [MFAService.removeDevice()](../services/mfa-service#removedevice)
+- [MFAService.removeDevice()](../services/mfa-service#removedevice) - Self-service device removal
+
+## Related DTOs
+
+- [AdminRemoveDeviceDTO](./admin-remove-device-dto) - Admin variant (can remove any user's device)
+- [RemoveDevicesDTO](./remove-devices-dto) - Remove all devices by method type
 

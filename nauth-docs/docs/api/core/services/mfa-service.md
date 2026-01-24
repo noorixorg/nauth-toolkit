@@ -155,6 +155,73 @@ async adminRemoveDevices(@Body() dto: AdminRemoveDevicesDTO) {
 
 ---
 
+### adminRemoveDevice()
+
+Remove a single MFA device by device ID (admin operation). Does not require user context.
+
+```typescript
+async adminRemoveDevice(dto: AdminRemoveDeviceDTO): Promise<RemoveDeviceResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminRemoveDeviceDTO`](../dto/admin-remove-device-dto) - Contains `deviceId`
+
+**Returns**
+
+- [`RemoveDeviceResponseDTO`](../dto/remove-device-dto) - `{ removedDeviceId: number, removedMethod: string, mfaDisabled: boolean }`
+
+**Errors**
+
+| Code        | When              | Details            |
+| ----------- | ----------------- | ------------------ |
+| `NOT_FOUND` | Device not found  | `{ deviceId: number }` |
+
+**Example (NestJS)**
+
+```typescript
+@Delete('admin/mfa/devices/:deviceId')
+@UseGuards(AdminAuthGuard)
+async adminRemoveDevice(@Param() dto: AdminRemoveDeviceDTO): Promise<RemoveDeviceResponseDTO> {
+  return await this.mfaService.adminRemoveDevice(dto);
+}
+```
+
+---
+
+### adminSetPreferredDevice()
+
+Set a specific device as preferred for a user (admin operation).
+
+```typescript
+async adminSetPreferredDevice(dto: AdminSetPreferredDeviceDTO): Promise<SetPreferredDeviceResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminSetPreferredDeviceDTO`](../dto/set-preferred-device-dto) - Contains `sub` and `deviceId`
+
+**Returns**
+
+- [`SetPreferredDeviceResponseDTO`](../dto/set-preferred-device-dto) - `{ message: string }`
+
+**Errors**
+
+| Code        | When                                      | Details                |
+| ----------- | ----------------------------------------- | ---------------------- |
+| `NOT_FOUND` | User or device not found                  | `{ sub?: string, deviceId?: number }` |
+
+**Example (NestJS)**
+
+```typescript
+@Post('admin/users/:sub/mfa/devices/:deviceId/preferred')
+@UseGuards(AdminAuthGuard)
+async adminSetPreferredDevice(@Param() dto: AdminSetPreferredDeviceDTO): Promise<SetPreferredDeviceResponseDTO> {
+  return await this.mfaService.adminSetPreferredDevice(dto);
+}
+```
+
+---
 
 ### getChallengeData()
 
@@ -447,40 +514,38 @@ fastify.get(
 
 ### getUserDevices()
 
-Get all active MFA devices for a user.
+Get all active MFA devices for the current authenticated user. User is obtained from the authenticated context.
 
 ```typescript
-async getUserDevices(dto: GetUserDevicesDTO): Promise<GetUserDevicesResponseDTO>
+async getUserDevices(dto?: GetUserDevicesDTO): Promise<GetUserDevicesResponseDTO>
 ```
 
 **Parameters**
 
-- `dto` - [`GetUserDevicesDTO`](../dto/get-user-devices-dto)
+- `dto` - [`GetUserDevicesDTO`](../dto/get-user-devices-dto) (optional, empty DTO - user obtained from context)
 
 **Returns**
 
-- [`GetUserDevicesResponseDTO`](../dto/get-user-devices-dto) - `{ devices: IMFADevice[] }`
+- [`GetUserDevicesResponseDTO`](../dto/get-user-devices-dto) - `{ devices: MFADeviceResponseDTO[] }`
+
+Each device contains:
+
+| Property      | Type               | Description                              |
+| ------------- | ------------------ | ---------------------------------------- |
+| `id`          | `number`           | Device ID                                |
+| `type`        | `MFADeviceMethod`  | Device type (totp, sms, email, passkey)  |
+| `name`        | `string`           | Device name                              |
+| `isPreferred` | `boolean`          | Whether this is the preferred device     |
+| `isActive`    | `boolean`          | Whether the device is active             |
+| `createdAt`   | `Date`             | Device creation timestamp                |
 
 **Errors**
 
-| Code                | When                 | Details                                          |
-| ------------------- | -------------------- | ------------------------------------------------ |
-| `VALIDATION_FAILED` | DTO validation fails | `{ validationErrors: Record<string, string[]> }` |
-| `NOT_FOUND`         | User not found       | `undefined`                                      |
+| Code        | When                                    | Details     |
+| ----------- | --------------------------------------- | ----------- |
+| `FORBIDDEN` | Not authenticated (no user in context)  | `undefined` |
 
 Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
-
-**VALIDATION_FAILED details**
-
-When DTO validation fails, `details` includes:
-
-```json
-{
-  "validationErrors": {
-    "sub": ["User sub must be a valid UUID v4 format"]
-  }
-}
-```
 
 **Example**
 
@@ -489,8 +554,8 @@ When DTO validation fails, `details` includes:
 
 ```typescript
 @Get('mfa/devices')
-async getDevices(@CurrentUser() user: IUser) {
-  return await this.mfaService.getUserDevices({ sub: user.sub });
+async getDevices(): Promise<GetUserDevicesResponseDTO> {
+  return await this.mfaService.getUserDevices({});
 }
 ```
 
@@ -499,7 +564,7 @@ async getDevices(@CurrentUser() user: IUser) {
 
 ```typescript
 app.get('/mfa/devices', requireAuth(), async (req, res) => {
-  const result = await nauth.mfaService.getUserDevices({ sub: req.user.sub });
+  const result = await nauth.mfaService.getUserDevices({});
   res.json(result);
 });
 ```
@@ -513,8 +578,74 @@ fastify.get(
   '/mfa/devices',
   { preHandler: nauth.helpers.requireAuth() },
   nauth.adapter.wrapRouteHandler(async () => {
-    const user = nauth.helpers.getCurrentUser();
-    return nauth.mfaService.getUserDevices({ sub: user.sub });
+    return nauth.mfaService.getUserDevices({});
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+### adminGetUserDevices()
+
+Get all active MFA devices for a specific user (admin operation).
+
+```typescript
+async adminGetUserDevices(dto: AdminGetUserDevicesDTO): Promise<GetUserDevicesResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminGetUserDevicesDTO`](../dto/admin-get-user-devices-dto) - Contains `sub` (target user's UUID)
+
+**Returns**
+
+- [`GetUserDevicesResponseDTO`](../dto/get-user-devices-dto) - `{ devices: MFADeviceResponseDTO[] }`
+
+**Errors**
+
+| Code                | When                 | Details                                          |
+| ------------------- | -------------------- | ------------------------------------------------ |
+| `VALIDATION_FAILED` | DTO validation fails | `{ validationErrors: Record<string, string[]> }` |
+| `NOT_FOUND`         | User not found       | `{ sub: string }`                                |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Get('admin/users/:sub/mfa/devices')
+@UseGuards(AdminAuthGuard)
+async adminGetUserDevices(@Param() dto: AdminGetUserDevicesDTO): Promise<GetUserDevicesResponseDTO> {
+  return await this.mfaService.adminGetUserDevices(dto);
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.get('/admin/users/:sub/mfa/devices', requireAdminAuth(), async (req, res) => {
+  const result = await nauth.mfaService.adminGetUserDevices({ sub: req.params.sub });
+  res.json(result);
+});
+```
+
+</TabItem>
+
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.get(
+  '/admin/users/:sub/mfa/devices',
+  { preHandler: requireAdminAuth() },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    return nauth.mfaService.adminGetUserDevices({ sub: req.params.sub });
   }),
 );
 ```

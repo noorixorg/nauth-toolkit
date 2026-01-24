@@ -113,7 +113,7 @@
                     <p class="font-semibold text-secondary-900 m-0 truncate">
                       {{ device.name }}
                     </p>
-                    @if (device.isPrimary) {
+                    @if (device.isPreferred) {
                       <p-tag severity="success" styleClass="preferred-tag"> Preferred </p-tag>
                     }
                   </div>

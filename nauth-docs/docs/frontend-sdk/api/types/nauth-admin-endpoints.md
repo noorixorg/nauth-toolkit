@@ -26,6 +26,7 @@ import { NAuthAdminEndpoints } from '@nauth-toolkit/client';
 | `forcePasswordChange`   | `string` | POST endpoint for forcing password change (supports `:sub` path parameter) |
 | `getAuditHistory`       | `string` | GET endpoint for audit history                                   |
 | `getMfaStatus`          | `string` | GET endpoint for MFA status (supports `:sub` path parameter)     |
+| `getMfaDevices`         | `string` | GET endpoint for MFA devices (supports `:sub` path parameter)    |
 | `getUser`               | `string` | GET endpoint for retrieving a user (supports `:sub` path parameter) |
 | `getUserSessions`       | `string` | GET endpoint for user sessions (supports `:sub` path parameter) |
 | `getUsers`              | `string` | GET endpoint for querying users                                  |
@@ -48,6 +49,7 @@ import { NAuthAdminEndpoints } from '@nauth-toolkit/client';
 | `forcePasswordChange`   | `/users/:sub/force-password-change`    |
 | `getAuditHistory`       | `/audit/history`                      |
 | `getMfaStatus`          | `/users/:sub/mfa/status`              |
+| `getMfaDevices`         | `/users/:sub/mfa/devices`             |
 | `getUser`               | `/users/:sub`                         |
 | `getUserSessions`       | `/users/:sub/sessions`                |
 | `getUsers`              | `/users`                              |

@@ -921,8 +921,8 @@ async removeMfaDeviceById(deviceId: number): Promise<RemoveMFADeviceResponse>
 ```typescript
 // Get user's devices
 const devices = await client.getMfaDevices();
-// [{ id: 48, name: "Google Authenticator", type: "totp", isPrimary: true },
-//  { id: 52, name: "Microsoft Authenticator", type: "totp", isPrimary: false }]
+// [{ id: 48, name: "Google Authenticator", type: "totp", isPreferred: true },
+//  { id: 52, name: "Microsoft Authenticator", type: "totp", isPreferred: false }]
 
 // Remove specific device by ID
 const result = await client.removeMfaDeviceById(52);

@@ -415,12 +415,12 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
       }
 
       const user = nauth.helpers.getCurrentUser();
-      const devicesResponse = await mfaService.getUserDevices({ sub: user!.sub });
-      const result = devicesResponse.devices.map((device: IMFADevice) => ({
+      const devicesResponse = await mfaService.getUserDevices({});
+      const result = devicesResponse.devices.map((device) => ({
         id: device.id,
         type: device.type,
         name: device.name,
-        isPrimary: device.isPrimary || false,
+        isPreferred: device.isPreferred,
         isActive: device.isActive,
         createdAt: device.createdAt,
       }));

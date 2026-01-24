@@ -1,14 +1,16 @@
 ---
+description: 
 alwaysApply: true
 ---
+
 # Development Rules - MUST FOLLOW
 
 NEVER RUN yarn start or nest start it creates port conflict for the user
 Don't do console.log() an dleave it there. use project logger module.
 
 ## Package Manager
-- ✅ **ALWAYS use Yarn** (never npm or pnpm)
-- ✅ Commands: `yarn install`, `yarn workspace <name> <command>`
+- **ALWAYS use Yarn** (never npm or pnpm)
+- Commands: `yarn install`, `yarn workspace <name> <command>`
 
 ## Documentation Standards
 
@@ -17,6 +19,7 @@ Don't do console.log() an dleave it there. use project logger module.
 - ✅ **Every public method** - description, @param, @returns, @throws
 - ✅ **Every interface** - description, property comments
 - ✅ **Every enum/constant** - description
+- Update docusaurus for any changes to API, DTO and follow API_DOCUMENTATION_RULES
 
 ### Inline Comments - REQUIRED:
 - ✅ Complex logic - explain WHY, not WHAT
@@ -89,10 +92,9 @@ yarn workspace @nauth-toolkit/core lint
 
 // Explain WHY this is needed (not what it does)
 const result = complexOperation();
-
+ 
 // ⚠️ WARNING: Security-critical operation
 await validateToken(token);
 ```
 
 ## Apply These Rules ALWAYS
-

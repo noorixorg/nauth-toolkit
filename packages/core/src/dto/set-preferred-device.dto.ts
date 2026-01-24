@@ -5,7 +5,8 @@ import { Transform } from 'class-transformer';
  * DTO for setting a user's preferred MFA device.
  *
  * This updates which device is used by default during MFA challenges.
- * The preferred device is marked with `isPrimary` in the database.
+ * The preferred device is marked with `isPrimary` in the database (internal field).
+ * API responses expose this as `isPreferred` (outward-facing field).
  *
  * @example
  * ```typescript
