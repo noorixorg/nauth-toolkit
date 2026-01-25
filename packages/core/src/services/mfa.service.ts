@@ -1235,6 +1235,11 @@ export class MFAService {
    * Note: SMS codes are automatically sent when challenge is created if SMS is preferred method.
    * This endpoint allows switching to a different method or requesting a new code.
    *
+   * Session metadata updates:
+   * - Stores the current method in session metadata
+   * - This allows resendCode to use the correct method when user switches MFA methods
+   * - For passkey, also stores the challenge for verification
+   *
    * @param dto - Request DTO with session token and method
    * @returns Response DTO with provider-specific challenge data
    * @throws {NAuthException} INVALID_CHALLENGE_SESSION | VALIDATION_FAILED
@@ -1298,20 +1303,26 @@ export class MFAService {
     }
 
     const challengeData = await this.withUserContext(user, async () => {
-      return await provider.sendChallenge?.();
+      return await provider.sendChallenge?.(challengeSession.id);
     });
 
-    // For passkey, store the challenge in session metadata for verification
+    // Update session metadata with current method (for resendCode to use correct method)
+    // This ensures that when user switches MFA methods, resendCode uses the new method
+    const metadataUpdate: Record<string, unknown> = {
+      method: dto.method,
+    };
+
+    // For passkey, also store the challenge in session metadata for verification
     if (dto.method === 'passkey') {
       const passkeyOptions = challengeData as { options: { challenge: string } };
       const passkeyChallenge = passkeyOptions.options?.challenge;
       if (passkeyChallenge) {
-        await this.challengeService.updateMetadata(dto.session, {
-          passkeyChallenge,
-        });
-        this.logger?.debug?.(`Passkey challenge stored in session metadata: user=${user.sub}`);
+        metadataUpdate.passkeyChallenge = passkeyChallenge;
       }
     }
+
+    await this.challengeService.updateMetadata(dto.session, metadataUpdate);
+    this.logger?.debug?.(`MFA method ${dto.method} stored in session metadata: user=${user.sub}`);
 
     this.logger?.debug?.(`MFA challenge data generated: method=${dto.method}, user=${user.sub}`);
 

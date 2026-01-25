@@ -353,17 +353,17 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
    * Called during login MFA challenge to send code to registered email.
    * Uses EmailVerificationService for code generation and DB storage (same as setup/verify).
    *
-   * @param user - User requesting Email code
+   * @param challengeSessionId - Optional challenge session ID to link the code to the session
    * @returns Masked email address where code was sent
    * @throws {NAuthException} If no Email device registered or email verification service unavailable
    *
    * @example
    * ```typescript
-   * const maskedEmail = await provider.sendChallenge(user);
+   * const maskedEmail = await provider.sendChallenge(123);
    * // Returns: 'u***r@example.com'
    * ```
    */
-  async sendChallenge(): Promise<string> {
+  async sendChallenge(challengeSessionId?: number): Promise<string> {
     const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Sending Email MFA code for user: ${user.sub}`);
 
@@ -402,6 +402,7 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
     const sendDto = new SendVerificationEmailDTO();
     sendDto.sub = user.sub;
     sendDto.skipAlreadyVerifiedCheck = true;
+    sendDto.challengeSessionId = challengeSessionId;
     await this.emailVerificationService.sendMFAEmailCode(sendDto);
 
     this.logger?.log?.(`Email MFA code sent for user: ${user.sub}`);

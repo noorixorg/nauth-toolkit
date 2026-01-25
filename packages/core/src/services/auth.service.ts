@@ -1445,7 +1445,7 @@ export class AuthService {
             );
           }
 
-          const result = await provider.sendChallenge?.();
+          const result = await provider.sendChallenge?.(challengeSession.id);
           this.logger?.debug?.(`${method.toUpperCase()} MFA code resent: user=${user.sub}`);
 
           // Provider returns masked phone or email

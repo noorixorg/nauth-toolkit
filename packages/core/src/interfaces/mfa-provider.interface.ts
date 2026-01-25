@@ -115,20 +115,20 @@ export interface IMFAProviderService {
    * Used during login to send SMS code or generate passkey challenge.
    * Not applicable for TOTP (user generates code locally).
    *
-   * @param user - User requesting verification
+   * @param challengeSessionId - Optional challenge session ID to link the code to the session
    * @returns Provider-specific challenge data (e.g., masked phone for SMS, WebAuthn options for Passkey)
    * @throws {NAuthException} If no device registered or send fails
    *
    * @example
    * ```typescript
    * // SMS: returns masked phone number
-   * const maskedPhone = await smsProvider.sendChallenge(user); // '***-***-1234'
+   * const maskedPhone = await smsProvider.sendChallenge(123); // '***-***-1234'
    *
    * // Passkey: returns WebAuthn authentication options
-   * const options = await passkeyProvider.sendChallenge(user); // { challenge: '...', ... }
+   * const options = await passkeyProvider.sendChallenge(123); // { challenge: '...', ... }
    * ```
    */
-  sendChallenge?(): Promise<unknown>; // Optional - only providers like SMS need it
+  sendChallenge?(challengeSessionId?: number): Promise<unknown>; // Optional - only providers like SMS need it
 
   /**
    * Generate backup codes for user

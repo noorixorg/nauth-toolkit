@@ -382,32 +382,26 @@ describe('AuthChallengeHelperService', () => {
       expect(result.challengeParameters?.allowedMethods).toEqual([...MFADeviceMethods]);
     });
 
-    it('should handle email verification service errors gracefully', async () => {
+    it('should throw error when email verification service fails', async () => {
       const mockChallengeSession = createMockChallengeSession('session-token-123', AuthChallenge.VERIFY_EMAIL);
       mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
       mockEmailVerificationService.sendVerificationEmail.mockRejectedValue(new Error('Email service error'));
 
-      // Should not throw - fire and forget
-      const result = await service.createChallengeResponse(mockUser as IUser, AuthChallenge.VERIFY_EMAIL, mockConfig);
-
-      expect(result).toBeDefined();
-      // Wait for promise to resolve
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      expect(mockLogger.error).toHaveBeenCalled();
+      // Should throw - no longer fire and forget
+      await expect(
+        service.createChallengeResponse(mockUser as IUser, AuthChallenge.VERIFY_EMAIL, mockConfig),
+      ).rejects.toThrow('Email service error');
     });
 
-    it('should handle phone verification service errors gracefully', async () => {
+    it('should throw error when phone verification service fails', async () => {
       const mockChallengeSession = createMockChallengeSession('session-token-456', AuthChallenge.VERIFY_PHONE);
       mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
       mockPhoneVerificationService.sendVerificationSMS.mockRejectedValue(new Error('SMS service error'));
 
-      // Should not throw - fire and forget
-      const result = await service.createChallengeResponse(mockUser as IUser, AuthChallenge.VERIFY_PHONE, mockConfig);
-
-      expect(result).toBeDefined();
-      // Wait for promise to resolve
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      expect(mockLogger.error).toHaveBeenCalled();
+      // Should throw - no longer fire and forget
+      await expect(
+        service.createChallengeResponse(mockUser as IUser, AuthChallenge.VERIFY_PHONE, mockConfig),
+      ).rejects.toThrow('SMS service error');
     });
   });
 

@@ -332,17 +332,17 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
    * Generates WebAuthn authentication options for login.
    * Client must pass these to navigator.credentials.get().
    *
-   * @param user - User requesting Passkey challenge
+   * @param _challengeSessionId - Optional challenge session ID (not used for passkey, but kept for interface consistency)
    * @returns WebAuthn authentication options
    * @throws {NAuthException} If no Passkey device registered
    *
    * @example
    * ```typescript
-   * const options = await provider.sendChallenge(user);
+   * const options = await provider.sendChallenge(123);
    * // Client calls navigator.credentials.get({ publicKey: options.options })
    * ```
    */
-  async sendChallenge(): Promise<GetPasskeyChallengeResponseDTO> {
+  async sendChallenge(_challengeSessionId?: number): Promise<GetPasskeyChallengeResponseDTO> {
     const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Generating passkey challenge for user: ${user.sub}`);
 

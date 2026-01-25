@@ -239,7 +239,7 @@ export function createNAuthAuthHttpInterceptor(params: {
         const newToken = tokenDelivery === 'json' ? response.accessToken : 'success';
 
         if (tokenDelivery === 'json' && (!newToken || newToken === 'success')) {
-          // ⚠️ WARNING: Without an access token we cannot safely retry requests in JSON mode.
+          // WARNING: Without an access token we cannot safely retry requests in JSON mode.
           throw new Error('Token refresh did not return an access token');
         }
 

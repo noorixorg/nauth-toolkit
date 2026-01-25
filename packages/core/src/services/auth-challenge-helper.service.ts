@@ -120,41 +120,41 @@ export class AuthChallengeHelperService {
     // Challenges are sequential: first VERIFY_EMAIL, then VERIFY_PHONE
     if (challengeName === AuthChallenge.VERIFY_EMAIL && this.emailVerificationService) {
       this.logger?.log?.(`Sending verification email to: ${user.email}`);
-      // Fire and forget - don't block challenge response
+      // Await email sending to ensure code is sent before returning challenge
       // baseUrl will be read from config if not provided
       const emailDto = Object.assign(new SendVerificationEmailDTO(), {
         sub: user.sub,
         challengeSessionId: challengeSession.id, // Link verification token to this challenge session
       });
-      this.emailVerificationService
-        .sendVerificationEmail(emailDto)
-        .then(() => {
-          this.logger?.log?.(`Verification email sent successfully to: ${user.email}`);
-        })
-        .catch((error: unknown) => {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          this.logger?.error?.(`Failed to send verification email to ${user.email}: ${errorMessage}`);
-        });
+      try {
+        await this.emailVerificationService.sendVerificationEmail(emailDto);
+        this.logger?.log?.(`Verification email sent successfully to: ${user.email}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger?.error?.(`Failed to send verification email to ${user.email}: ${errorMessage}`);
+        // Re-throw the error so user knows email wasn't sent
+        throw error;
+      }
     }
 
     // Skip auto-send if SMS was already sent (e.g., during phone collection)
     if (!skipAutoSend && challengeName === AuthChallenge.VERIFY_PHONE && this.phoneVerificationService && user.phone) {
       this.logger?.log?.(`Sending verification SMS to: ${user.phone}`);
-      // Fire and forget - don't block challenge response
+      // Await SMS sending to ensure code is sent before returning challenge
       const smsDto = Object.assign(new SendVerificationSMSDTO(), {
         sub: user.sub,
         skipAlreadyVerifiedCheck: false, // Explicitly set to false for phone verification (not MFA)
         challengeSessionId: challengeSession.id, // Link verification token to this challenge session
       });
-      this.phoneVerificationService
-        .sendVerificationSMS(smsDto)
-        .then(() => {
-          this.logger?.log?.(`Verification SMS sent successfully to: ${user.phone}`);
-        })
-        .catch((error: unknown) => {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          this.logger?.error?.(`Failed to send verification SMS to ${user.phone}: ${errorMessage}`);
-        });
+      try {
+        await this.phoneVerificationService.sendVerificationSMS(smsDto);
+        this.logger?.log?.(`Verification SMS sent successfully to: ${user.phone}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger?.error?.(`Failed to send verification SMS to ${user.phone}: ${errorMessage}`);
+        // Re-throw the error so user knows SMS wasn't sent
+        throw error;
+      }
     }
 
     // ============================================================================
@@ -459,7 +459,7 @@ export class AuthChallengeHelperService {
       this.logger?.log?.(
         `Auto-sending MFA SMS code to user ${user.sub} (preferred=${smsIsPreferred}, only=${smsIsOnly})`,
       );
-      // Fire and forget - don't block challenge response
+      // Await SMS sending to ensure code is sent before returning challenge
       // Use PhoneVerificationService which handles SMS sending, rate limits, and token storage
       // skipAlreadyVerifiedCheck=true because phone is already verified but we need MFA code
       const smsDto = Object.assign(new SendVerificationSMSDTO(), {
@@ -467,24 +467,24 @@ export class AuthChallengeHelperService {
         skipAlreadyVerifiedCheck: true,
         challengeSessionId: challengeSession.id, // Link MFA SMS code to this challenge session
       });
-      this.phoneVerificationService
-        .sendVerificationSMS(smsDto)
-        .then(() => {
-          this.logger?.log?.(`MFA SMS code sent successfully to user ${user.sub}`);
-        })
-        .catch((error: unknown) => {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          const errorCode = (error as any)?.code;
-          // Rate limit and resend delay errors are expected - log as warning
-          if (errorCode === 'RATE_LIMIT_SMS' || errorCode === 'RATE_LIMIT_RESEND') {
-            this.logger?.warn?.(
-              `MFA SMS code sending rate limited for user ${user.sub}: ${errorMessage}. User can still complete MFA with existing code.`,
-            );
-          } else {
-            // Unexpected errors - log as error
-            this.logger?.error?.(`Failed to send MFA SMS code to user ${user.sub}: ${errorMessage}`);
-          }
-        });
+      try {
+        await this.phoneVerificationService.sendVerificationSMS(smsDto);
+        this.logger?.log?.(`MFA SMS code sent successfully to user ${user.sub}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorCode = (error as any)?.code;
+        // Rate limit and resend delay errors are expected - log as warning but still throw
+        if (errorCode === 'RATE_LIMIT_SMS' || errorCode === 'RATE_LIMIT_RESEND') {
+          this.logger?.warn?.(
+            `MFA SMS code sending rate limited for user ${user.sub}: ${errorMessage}. User can try again or use another method.`,
+          );
+        } else {
+          // Unexpected errors - log as error
+          this.logger?.error?.(`Failed to send MFA SMS code to user ${user.sub}: ${errorMessage}`);
+        }
+        // Re-throw the error so user knows SMS wasn't sent
+        throw error;
+      }
     } else {
       this.logger?.debug?.(
         `Skipped auto-send MFA SMS for user ${user.sub}: ` +
@@ -512,7 +512,7 @@ export class AuthChallengeHelperService {
       this.logger?.log?.(
         `Auto-sending MFA Email code to user ${user.sub} (preferred=${emailIsPreferred}, only=${emailIsOnly})`,
       );
-      // Fire and forget - don't block challenge response
+      // Await email sending to ensure code is sent before returning challenge
       // Use EmailVerificationService.sendMFAEmailCode which handles email sending, rate limits, and token storage
       // skipAlreadyVerifiedCheck=true because email is already verified but we need MFA code
       const emailDto = Object.assign(new SendVerificationEmailDTO(), {
@@ -520,24 +520,24 @@ export class AuthChallengeHelperService {
         skipAlreadyVerifiedCheck: true,
         challengeSessionId: challengeSession.id, // Link MFA email code to this challenge session
       });
-      this.emailVerificationService
-        .sendMFAEmailCode(emailDto)
-        .then(() => {
-          this.logger?.log?.(`MFA Email code sent successfully to user ${user.sub}`);
-        })
-        .catch((error: unknown) => {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          const errorCode = (error as any)?.code;
-          // Rate limit and resend delay errors are expected - log as warning
-          if (errorCode === 'RATE_LIMIT_EMAIL' || errorCode === 'RATE_LIMIT_RESEND') {
-            this.logger?.warn?.(
-              `MFA Email code sending rate limited for user ${user.sub}: ${errorMessage}. User can still complete MFA with existing code.`,
-            );
-          } else {
-            // Unexpected errors - log as error
-            this.logger?.error?.(`Failed to send MFA Email code to user ${user.sub}: ${errorMessage}`);
-          }
-        });
+      try {
+        await this.emailVerificationService.sendMFAEmailCode(emailDto);
+        this.logger?.log?.(`MFA Email code sent successfully to user ${user.sub}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorCode = (error as any)?.code;
+        // Rate limit and resend delay errors are expected - log as warning but still throw
+        if (errorCode === 'RATE_LIMIT_EMAIL' || errorCode === 'RATE_LIMIT_RESEND') {
+          this.logger?.warn?.(
+            `MFA Email code sending rate limited for user ${user.sub}: ${errorMessage}. User can try again or use another method.`,
+          );
+        } else {
+          // Unexpected errors - log as error
+          this.logger?.error?.(`Failed to send MFA Email code to user ${user.sub}: ${errorMessage}`);
+        }
+        // Re-throw the error so user knows email wasn't sent
+        throw error;
+      }
     } else {
       this.logger?.debug?.(
         `Skipped auto-send MFA Email for user ${user.sub}: ` +

@@ -18,9 +18,17 @@ import {
   ResendCodeRequest,
   SignupRequest,
   TokenResponse,
+  MFACodeResponse,
+  MFAPasskeyResponse,
 } from '../types/auth.types';
 import { NAuthClientConfig } from '../types/config.types';
-import { GetChallengeDataResponse, GetSetupDataResponse, MFAStatus } from '../types/mfa.types';
+import {
+  GetChallengeDataResponse,
+  GetSetupDataResponse,
+  GetMFADevicesResponse,
+  MFAStatus,
+  RemoveMFADeviceResponse,
+} from '../types/mfa.types';
 import { AuditHistoryResponse } from '../types/audit.types';
 import { LinkedAccountsResponse, SocialLoginOptions, SocialVerifyRequest, SocialProvider } from '../types/social.types';
 import {
@@ -405,7 +413,10 @@ export class NAuthClient {
       response.type === AuthChallenge.MFA_REQUIRED &&
       (response.method === 'totp' || response.method === 'passkey')
     ) {
-      (response as any).deviceId = this.selectedDeviceId;
+      // TypeScript knows response is MFACodeResponse or MFAPasskeyResponse at this point
+      // Both have deviceId?: number property, so we can safely assign it
+      const mfaResponse = response as MFACodeResponse | MFAPasskeyResponse;
+      mfaResponse.deviceId = this.selectedDeviceId;
     }
 
     // Validate TOTP setup requires both secret and code
@@ -699,22 +710,104 @@ export class NAuthClient {
 
   /**
    * Get MFA devices.
+   *
+   * @returns Promise of MFA devices response
+   *
+   * @example
+   * ```typescript
+   * const result = await client.getMfaDevices();
+   * console.log('Devices:', result.devices);
+   * ```
    */
-  async getMfaDevices(): Promise<unknown[]> {
-    return this.get<unknown[]>(this.config.endpoints.mfaDevices, true);
+  async getMfaDevices(): Promise<GetMFADevicesResponse> {
+    return this.get<GetMFADevicesResponse>(this.config.endpoints.mfaDevices, true);
   }
 
   /**
    * Setup MFA device (authenticated user).
+   *
+   * Returns method-specific setup information:
+   * - TOTP: { secret, qrCode, manualEntryKey }
+   * - SMS: { maskedPhone } or { deviceId, autoCompleted: true }
+   * - Email: { maskedEmail } or { deviceId, autoCompleted: true }
+   * - Passkey: WebAuthn registration options
+   *
+   * @param method - MFA method to set up
+   * @returns Promise of setup data response
+   *
+   * @example
+   * ```typescript
+   * const result = await client.setupMfaDevice('totp');
+   * console.log('QR Code:', result.setupData.qrCode);
+   * ```
    */
-  async setupMfaDevice(method: string): Promise<unknown> {
+  async setupMfaDevice(method: string): Promise<GetSetupDataResponse> {
     // Backend expects `methodName` (SetupMFADTO). We keep the public SDK method name `method`
     // for ergonomics, but serialize as `methodName` to match the API contract.
-    return this.post<unknown>(this.config.endpoints.mfaSetupData, { methodName: method }, true);
+    return this.post<GetSetupDataResponse>(this.config.endpoints.mfaSetupData, { methodName: method }, true);
   }
 
   /**
    * Verify MFA setup (authenticated user).
+   *
+   * Completes MFA device setup by verifying the setup data. The structure of `setupData` varies by method:
+   *
+   * **TOTP:**
+   * - Requires both `secret` (from `getSetupData()` response) and `code` (from authenticator app)
+   * - Example: `{ secret: 'JBSWY3DPEHPK3PXP', code: '123456' }`
+   *
+   * **SMS:**
+   * - Requires `phoneNumber` and `code` (verification code sent to phone)
+   * - Example: `{ phoneNumber: '+1234567890', code: '123456' }`
+   *
+   * **Email:**
+   * - Requires `code` (verification code sent to email)
+   * - Example: `{ code: '123456' }`
+   *
+   * **Passkey:**
+   * - Requires `credential` (WebAuthn credential from registration) and `expectedChallenge`
+   * - Example: `{ credential: {...}, expectedChallenge: '...' }`
+   *
+   * @param method - MFA method ('totp', 'sms', 'email', 'passkey')
+   * @param setupData - Method-specific setup verification data
+   * @param deviceName - Optional device name (can also be included in setupData for some methods)
+   * @returns Promise with device ID of the created MFA device
+   *
+   * @example TOTP Setup
+   * ```typescript
+   * // Step 1: Get setup data
+   * const setupData = await client.setupMfaDevice('totp');
+   * // Returns: { setupData: { secret: 'JBSWY3DPEHPK3PXP', qrCode: '...', ... } }
+   *
+   * // Step 2: User scans QR code and enters code from authenticator app
+   * const code = '123456'; // From authenticator app
+   *
+   * // Step 3: Verify setup (requires both secret and code)
+   * const result = await client.verifyMfaSetup('totp', {
+   *   secret: setupData.setupData.secret,
+   *   code: code,
+   * }, 'Google Authenticator');
+   * // Returns: { deviceId: 123 }
+   * ```
+   *
+   * @example SMS Setup
+   * ```typescript
+   * const result = await client.verifyMfaSetup('sms', {
+   *   phoneNumber: '+1234567890', // Phone number receiving the code
+   *   code: '123456', // Code sent to phone
+   * }, 'My iPhone');
+   * ```
+   *
+   * @example Passkey Setup
+   * ```typescript
+   * const credential = await navigator.credentials.create({
+   *   publicKey: setupData.setupData.options
+   * });
+   * const result = await client.verifyMfaSetup('passkey', {
+   *   credential: credential,
+   *   expectedChallenge: setupData.setupData.challenge,
+   * }, 'MacBook Pro');
+   * ```
    */
   async verifyMfaSetup(
     method: string,
@@ -733,7 +826,7 @@ export class NAuthClient {
   /**
    * Remove ALL MFA devices for a specific method type.
    *
-   * ⚠️ **Warning**: This removes ALL devices of the specified method.
+   * WARNING: This removes ALL devices of the specified method.
    * For example, if you have 3 TOTP devices, this will remove all 3.
    *
    * **Prefer `removeMfaDeviceById()`** to remove individual devices.
@@ -754,9 +847,9 @@ export class NAuthClient {
    * @param deviceId - MFA device ID
    * @returns Removal response
    */
-  async removeMfaDeviceById(deviceId: number): Promise<import('../types/mfa.types').RemoveMFADeviceResponse> {
+  async removeMfaDeviceById(deviceId: number): Promise<RemoveMFADeviceResponse> {
     const path = `${this.config.endpoints.mfaDevices}/${deviceId}`;
-    return this.delete<import('../types/mfa.types').RemoveMFADeviceResponse>(path, true);
+    return this.delete<RemoveMFADeviceResponse>(path, true);
   }
 
   /**

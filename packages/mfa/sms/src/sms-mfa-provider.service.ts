@@ -349,17 +349,17 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
    *
    * Called during login MFA challenge to send code to registered phone.
    *
-   * @param user - User requesting SMS code
+   * @param challengeSessionId - Optional challenge session ID to link the code to the session
    * @returns Masked phone number where code was sent
    * @throws {NAuthException} If no SMS device registered or phone verification service unavailable
    *
    * @example
    * ```typescript
-   * const maskedPhone = await provider.sendChallenge(user);
+   * const maskedPhone = await provider.sendChallenge(123);
    * // Returns: '***-***-1234'
    * ```
    */
-  async sendChallenge(): Promise<string> {
+  async sendChallenge(challengeSessionId?: number): Promise<string> {
     const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Sending SMS MFA code for user: ${user.sub}`);
 
@@ -397,6 +397,7 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
     const sendDto = new SendVerificationSMSDTO();
     sendDto.sub = user.sub;
     sendDto.skipAlreadyVerifiedCheck = true;
+    sendDto.challengeSessionId = challengeSessionId;
     await this.phoneVerificationService.sendVerificationSMS(sendDto);
 
     this.logger?.log?.(`SMS MFA code sent for user: ${user.sub}`);

@@ -132,6 +132,7 @@ export class TestController {
     // Step 1: Find challenge session by sessionToken
     const challengeSession = await challengeSessionRepo.findOne({
       where: { sessionToken: sessionId } as any,
+      order: { id: 'DESC' } as any,
     });
 
     if (!challengeSession) {
@@ -201,66 +202,25 @@ export class TestController {
       throw new BadRequestException(`Challenge type ${challengeName} does not use verification codes`);
     }
 
-    // Step 3: Find verification token by challengeSessionId and type
-    // First try with challengeSessionId (preferred method)
-    let tokens: any[] = [];
-    if (challengeSessionId) {
-      tokens = await verificationTokenRepo.find({
-        where: {
-          challengeSessionId,
-          type: tokenType,
-          usedAt: IsNull(), // Only unused tokens
-        } as any,
-        order: { createdAt: 'DESC' } as any,
-      });
-
-      this.logger?.debug?.(
-        `Found ${tokens.length} verification tokens for challengeSessionId: ${challengeSessionId}, type: ${tokenType}`,
-      );
+    // Step 3: Find most recent verification token by challengeSessionId and type
+    if (!challengeSessionId) {
+      throw new BadRequestException('Challenge session ID is required');
     }
 
-    // Step 4: Find token with actual code (code might be null for link-based verification)
-    let verificationToken = tokens.find((t) => t.code !== null && t.code !== '' && String(t.code).trim() !== '');
+    // Get most recent unused token with code, ordered by id DESC
+    const verificationToken = await verificationTokenRepo.findOne({
+      where: {
+        challengeSessionId,
+        type: tokenType,
+        usedAt: IsNull(),
+      } as any,
+      order: { id: 'DESC' } as any,
+    });
 
-    // If no token found with challengeSessionId, try finding by userId (fallback)
-    // This handles cases where challengeSessionId might not be set or tokens were created before linking
-    if (!verificationToken) {
-      this.logger?.warn?.(
-        `No verification token with code found for challengeSessionId: ${challengeSessionId}, type: ${tokenType}. Trying fallback by userId: ${challengeSessionUserId}`,
-      );
-
-      // Fallback: Find by userId and type (for backward compatibility and timing issues)
-      const fallbackTokens = await verificationTokenRepo.find({
-        where: {
-          userId: challengeSessionUserId,
-          type: tokenType,
-          usedAt: IsNull(),
-        } as any,
-        order: { createdAt: 'DESC' } as any,
-      });
-
-      this.logger?.debug?.(
-        `Found ${fallbackTokens.length} fallback tokens for userId: ${challengeSessionUserId}, type: ${tokenType}`,
-      );
-
-      verificationToken = fallbackTokens.find((t) => t.code !== null && t.code !== '' && String(t.code).trim() !== '');
-      if (verificationToken) {
-        this.logger?.debug?.(
-          `Found verification token via fallback: id=${verificationToken.id}, createdAt=${verificationToken.createdAt}, challengeSessionId=${verificationToken.challengeSessionId}, code=***`,
-        );
-        return { code: verificationToken.code };
-      }
-
-      this.logger?.warn?.(
-        `No verification token found even with fallback for userId: ${challengeSessionUserId}, type: ${tokenType}`,
-      );
-      // Return null to indicate code not found (not an error, just not available yet)
+    if (!verificationToken?.code) {
       return { code: null };
     }
 
-    this.logger?.debug?.(
-      `Found verification token: id=${verificationToken.id}, createdAt=${verificationToken.createdAt}, code=***`,
-    );
     return { code: verificationToken.code };
   }
 

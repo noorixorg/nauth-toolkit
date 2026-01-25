@@ -19,8 +19,9 @@ import {
   UpdateProfileRequest,
   GetChallengeDataResponse,
   GetSetupDataResponse,
+  GetMFADevicesResponse,
   MFAStatus,
-  MFADevice,
+  RemoveMFADeviceResponse,
   AuthEvent,
   SocialProvider,
   SocialLoginOptions,
@@ -787,43 +788,100 @@ export class AuthService {
   /**
    * Get MFA devices for the current user.
    *
-   * @returns Promise of MFA devices array
+   * @returns Promise of MFA devices response
    *
    * @example
    * ```typescript
-   * const devices = await this.auth.getMfaDevices();
+   * const result = await this.auth.getMfaDevices();
+   * console.log('Devices:', result.devices);
    * ```
    */
-  async getMfaDevices(): Promise<MFADevice[]> {
-    return this.client.getMfaDevices() as Promise<MFADevice[]>;
+  async getMfaDevices(): Promise<GetMFADevicesResponse> {
+    return this.client.getMfaDevices();
   }
 
   /**
    * Setup MFA device (authenticated user).
    *
+   * Returns method-specific setup information:
+   * - TOTP: { secret, qrCode, manualEntryKey }
+   * - SMS: { maskedPhone } or { deviceId, autoCompleted: true }
+   * - Email: { maskedEmail } or { deviceId, autoCompleted: true }
+   * - Passkey: WebAuthn registration options
+   *
    * @param method - MFA method to set up
-   * @returns Promise of setup data
+   * @returns Promise of setup data response
    *
    * @example
    * ```typescript
-   * const setupData = await this.auth.setupMfaDevice('totp');
+   * const result = await this.auth.setupMfaDevice('totp');
+   * console.log('QR Code:', result.setupData.qrCode);
    * ```
    */
-  async setupMfaDevice(method: string): Promise<unknown> {
+  async setupMfaDevice(method: string): Promise<GetSetupDataResponse> {
     return this.client.setupMfaDevice(method);
   }
 
   /**
    * Verify MFA setup (authenticated user).
    *
-   * @param method - MFA method
-   * @param setupData - Setup data from setupMfaDevice
-   * @param deviceName - Optional device name
-   * @returns Promise with device ID
+   * Completes MFA device setup by verifying the setup data. The structure of `setupData` varies by method:
    *
-   * @example
+   * **TOTP:**
+   * - Requires both `secret` (from `getSetupData()` response) and `code` (from authenticator app)
+   * - Example: `{ secret: 'JBSWY3DPEHPK3PXP', code: '123456' }`
+   *
+   * **SMS:**
+   * - Requires `phoneNumber` and `code` (verification code sent to phone)
+   * - Example: `{ phoneNumber: '+1234567890', code: '123456' }`
+   *
+   * **Email:**
+   * - Requires `code` (verification code sent to email)
+   * - Example: `{ code: '123456' }`
+   *
+   * **Passkey:**
+   * - Requires `credential` (WebAuthn credential from registration) and `expectedChallenge`
+   * - Example: `{ credential: {...}, expectedChallenge: '...' }`
+   *
+   * @param method - MFA method ('totp', 'sms', 'email', 'passkey')
+   * @param setupData - Method-specific setup verification data
+   * @param deviceName - Optional device name (can also be included in setupData for some methods)
+   * @returns Promise with device ID of the created MFA device
+   *
+   * @example TOTP Setup
    * ```typescript
-   * const result = await this.auth.verifyMfaSetup('totp', { code: '123456' }, 'My Phone');
+   * // Step 1: Get setup data
+   * const setupData = await this.auth.setupMfaDevice('totp');
+   * // Returns: { setupData: { secret: 'JBSWY3DPEHPK3PXP', qrCode: '...', ... } }
+   *
+   * // Step 2: User scans QR code and enters code from authenticator app
+   * const code = '123456'; // From authenticator app
+   *
+   * // Step 3: Verify setup (requires both secret and code)
+   * const result = await this.auth.verifyMfaSetup('totp', {
+   *   secret: setupData.setupData.secret,
+   *   code: code,
+   * }, 'Google Authenticator');
+   * // Returns: { deviceId: 123 }
+   * ```
+   *
+   * @example SMS Setup
+   * ```typescript
+   * const result = await this.auth.verifyMfaSetup('sms', {
+   *   phoneNumber: '+1234567890', // Phone number receiving the code
+   *   code: '123456', // Code sent to phone
+   * }, 'My iPhone');
+   * ```
+   *
+   * @example Passkey Setup
+   * ```typescript
+   * const credential = await navigator.credentials.create({
+   *   publicKey: setupData.setupData.options
+   * });
+   * const result = await this.auth.verifyMfaSetup('passkey', {
+   *   credential: credential,
+   *   expectedChallenge: setupData.setupData.challenge,
+   * }, 'MacBook Pro');
    * ```
    */
   async verifyMfaSetup(
@@ -848,7 +906,7 @@ export class AuthService {
    * await this.auth.removeMfaDeviceById(devices[0].id);
    * ```
    */
-  async removeMfaDeviceById(deviceId: number): Promise<import('@nauth-toolkit/client').RemoveMFADeviceResponse> {
+  async removeMfaDeviceById(deviceId: number): Promise<RemoveMFADeviceResponse> {
     return this.client.removeMfaDeviceById(deviceId);
   }
 
