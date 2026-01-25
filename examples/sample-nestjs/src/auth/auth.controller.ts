@@ -500,7 +500,7 @@ export class CustomAuthController {
    * ```
    */
   @Public()
-  // @RequireRecaptcha()
+  @RequireRecaptcha()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDTO): Promise<AuthResponseDTO> {

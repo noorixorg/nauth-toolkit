@@ -323,13 +323,13 @@ export const authConfig: NAuthModuleConfig = {
   lockout: { enabled: false, maxAttempts: 5, duration: 300, resetOnSuccess: true },
 
   recaptcha: {
-    enabled: false,
+    enabled: true,
     provider: new RecaptchaEnterpriseProvider({
       projectId: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID!,
       apiKey: process.env.RECAPTCHA_ENTERPRISE_API_KEY!, // API key (AIza...), NOT site key
       siteKey: process.env.RECAPTCHA_ENTERPRISE_SITE_KEY!, // Site key (6L...)
     }),
-    minimumScore: 0.5, // Minimum score (0-1) for v3/Enterprise
+    minimumScore: 0.7, // Minimum score (0-1) for v3/Enterprise
   },
   session: {
     maxConcurrent: 5,
