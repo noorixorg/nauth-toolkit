@@ -656,17 +656,29 @@ export class ChallengeService {
    * Mask email address for display in challenge parameters
    *
    * Shows first character and domain, hides the rest.
+   * If maskSensitiveData config is false, returns the email unchanged.
    *
    * @param email - Email to mask
-   * @returns Masked email
+   * @returns Masked email or full email based on config
    *
    * @example
    * ```typescript
+   * // With maskSensitiveData: true (default)
    * maskEmail('john.doe@example.com')
    * // Returns: 'j***@example.com'
+   *
+   * // With maskSensitiveData: false
+   * maskEmail('john.doe@example.com')
+   * // Returns: 'john.doe@example.com'
    * ```
    */
   maskEmail(email: string): string {
+    // Check config - default to true (mask by default)
+    const shouldMask = this.config?.security?.maskSensitiveData !== false;
+    if (!shouldMask) {
+      return email;
+    }
+
     const [localPart, domain] = email.split('@');
     if (!domain) return email;
     return `${localPart[0]}***@${domain}`;
@@ -676,17 +688,29 @@ export class ChallengeService {
    * Mask phone number for display in challenge parameters
    *
    * Shows last 4 digits, hides the rest.
+   * If maskSensitiveData config is false, returns the phone unchanged.
    *
    * @param phone - Phone to mask
-   * @returns Masked phone
+   * @returns Masked phone or full phone based on config
    *
    * @example
    * ```typescript
+   * // With maskSensitiveData: true (default)
    * maskPhone('+1234567890')
    * // Returns: '***-***-7890'
+   *
+   * // With maskSensitiveData: false
+   * maskPhone('+1234567890')
+   * // Returns: '+1234567890'
    * ```
    */
   maskPhone(phone: string): string {
+    // Check config - default to true (mask by default)
+    const shouldMask = this.config?.security?.maskSensitiveData !== false;
+    if (!shouldMask) {
+      return phone;
+    }
+
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 4) return phone;
     return `***-***-${digits.slice(-4)}`;

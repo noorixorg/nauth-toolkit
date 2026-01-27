@@ -562,6 +562,12 @@ export class PasswordResetService {
   }
 
   private maskEmail(email: string): string {
+    // Check config - default to true (mask by default)
+    const shouldMask = this.config?.security?.maskSensitiveData !== false;
+    if (!shouldMask) {
+      return email;
+    }
+
     const [localPart, domain] = email.split('@');
     if (!localPart || !domain) return '***';
     if (localPart.length <= 2) return `${localPart[0]}***@${domain}`;
@@ -569,6 +575,12 @@ export class PasswordResetService {
   }
 
   private maskPhone(phone: string): string {
+    // Check config - default to true (mask by default)
+    const shouldMask = this.config?.security?.maskSensitiveData !== false;
+    if (!shouldMask) {
+      return phone;
+    }
+
     const digits = phone.replace(/\D/g, '');
     const lastFour = digits.slice(-4);
     return `***-***-${lastFour}`;

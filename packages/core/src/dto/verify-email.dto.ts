@@ -200,6 +200,25 @@ export class SendVerificationEmailDTO {
   @IsInt({ message: 'challengeSessionId must be an integer' })
   @Min(1, { message: 'challengeSessionId must be a positive integer' })
   challengeSessionId?: number;
+
+  /**
+   * Challenge session token (UUID) to include in verification link
+   * Optional - used for cross-browser/device verification via email links
+   * Allows users to verify from any browser without localStorage state
+   *
+   * Validation:
+   * - Must be valid UUID v4 format
+   * - Optional (only needed when generating verification links)
+   */
+  @IsOptional()
+  @IsUUID('4', { message: 'challengeSessionToken must be a valid UUID v4 format' })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.trim().toLowerCase();
+    }
+    return value;
+  })
+  challengeSessionToken?: string;
 }
 
 /**

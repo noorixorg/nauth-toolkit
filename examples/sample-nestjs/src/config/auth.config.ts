@@ -50,7 +50,7 @@ export const authConfig: NAuthModuleConfig = {
       // Verification attempt liits (for testing - increase these values)
       maxAttemptsPerIP: 20000, // Max attempts per IP per window (default: 20)
       attemptWindow: 300, // Time window in seconds (default: 3600 = 1 hour)
-      baseUrl: 'http://localhost:4200', // Include verification link in emails
+      baseUrl: 'http://localhost:4200/auth/challenge/verify-email', // Include verification link in emails
     },
     phoneVerification: {
       codeLength: 6,
@@ -100,9 +100,9 @@ export const authConfig: NAuthModuleConfig = {
         message: 'Sign-in blocked due to suspicious activity. Please try again shortly or contact support.',
       },
     },
-    rememberDevices: 'user_opt_in',
+    rememberDevices: 'always',
     rememberDeviceDays: 30,
-    bypassMFAForTrustedDevices: false, // does not apply to Adaptptive MFA
+    bypassMFAForTrustedDevices: true, // does not apply to Adaptptive MFA
   },
 
   password: {
@@ -123,18 +123,21 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   tokenDelivery: {
-    method: 'cookies',
+    method: 'hybrid',
     cookieOptions: {
       // For cross-site cookies (frontend on angular.dev1, API on api.angular.dev1):
       // - Must use secure: true (requires HTTPS)
       // - Must use sameSite: 'none' (allows cross-site cookie delivery)
       // - Domain must match both subdomains
       secure: true,
-      sameSite: 'strict',
+      sameSite: 'none',
       domain: '.angular.dev1.noorix.com',
     },
   },
   security: {
+    // Mask sensitive data in API responses (email/phone)
+    // Set to false to send full email/phone in challenge responses
+    maskSensitiveData: false, // Set to true to mask (default: true)
     csrf: {
       cookieName: 'nauth_csrf_token',
       headerName: 'x-csrf-token',
@@ -323,7 +326,7 @@ export const authConfig: NAuthModuleConfig = {
   lockout: { enabled: false, maxAttempts: 5, duration: 300, resetOnSuccess: true },
 
   recaptcha: {
-    enabled: true,
+    enabled: false,
     provider: new RecaptchaEnterpriseProvider({
       projectId: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID!,
       apiKey: process.env.RECAPTCHA_ENTERPRISE_API_KEY!, // API key (AIza...), NOT site key

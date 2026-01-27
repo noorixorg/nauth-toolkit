@@ -112,7 +112,13 @@ export class SocialRedirectHandler {
     // so downstream trusted-device detection (and audits) remain correct.
     if (ctx?.deviceToken) {
       const existing = ContextStorage.get('CLIENT_INFO') as Record<string, unknown> | undefined;
-      if (existing && typeof existing.deviceToken !== 'string') {
+      // Only restore if:
+      // - CLIENT_INFO exists
+      // - deviceToken is missing, empty, or not a valid string
+      const existingToken = existing?.deviceToken;
+      const hasValidToken = typeof existingToken === 'string' && existingToken.trim().length > 0;
+
+      if (existing && !hasValidToken) {
         existing.deviceToken = ctx.deviceToken;
         ContextStorage.set('CLIENT_INFO', existing);
       }

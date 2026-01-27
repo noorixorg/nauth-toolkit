@@ -21,6 +21,7 @@ import {
   SocialExchangeDTO,
   StartSocialRedirectQueryDTO,
   VerifyTokenDTO,
+  TokenDelivery,
 } from '@nauth-toolkit/nestjs';
 import { ensureValidatedDto } from '@nauth-toolkit/core/utils';
 import { GoogleSocialAuthService } from '@nauth-toolkit/social-google/nestjs';
@@ -224,8 +225,101 @@ export class SocialRedirectController {
    */
   @Public()
   @Post('exchange')
+  @TokenDelivery('json')
   async exchange(@Body() dto: SocialExchangeDTO): Promise<AuthResponseDTO> {
     return await this.socialRedirect.exchange(dto.exchangeToken);
+  }
+
+  // ============================================================================
+  // Mobile/JSON Mode Routes (explicit @TokenDelivery for hybrid backend)
+  // ============================================================================
+
+  /**
+   * Start redirect-first social login (mobile/JSON mode).
+   * Explicitly uses JSON token delivery for hybrid backend.
+   */
+  @Public()
+  @TokenDelivery('json')
+  @Redirect()
+  @Get(':provider/redirect/mobile')
+  async startMobile(
+    @Param('provider') provider: string,
+    @Query() query: StartSocialRedirectQueryDTO,
+    @Req() req: FastifyRequest,
+  ): Promise<{ url: string }> {
+    // Parse oauthParams from JSON string if provided
+    let oauthParams: Record<string, string> | undefined;
+    if (query.oauthParams) {
+      try {
+        oauthParams = JSON.parse(query.oauthParams);
+      } catch {
+        throw new BadRequestException('Invalid oauthParams format - must be valid JSON');
+      }
+    }
+
+    const result = await this.socialRedirect.start({
+      provider,
+      returnTo: query.returnTo,
+      appState: query.appState,
+      action: query.action,
+      oauthParams,
+      req,
+    });
+    return { url: result.redirectUrl };
+  }
+
+  /**
+   * OAuth callback for providers that redirect with query params (mobile/JSON mode).
+   * Explicitly uses JSON token delivery for hybrid backend.
+   */
+  @Public()
+  @TokenDelivery('json')
+  @Redirect()
+  @Get(':provider/callback/mobile')
+  async callbackGetMobile(
+    @Param('provider') provider: string,
+    @Query() query: SocialCallbackQueryDTO,
+    @Req() req: FastifyRequest,
+  ): Promise<{ url: string } & Partial<AuthResponseDTO>> {
+    const result = await this.socialRedirect.callback({
+      provider,
+      code: query.code,
+      state: query.state,
+      error: query.error,
+      errorDescription: query.error_description,
+      req,
+    });
+    if (result.authResponse) {
+      return { url: result.redirectUrl, ...result.authResponse };
+    }
+    return { url: result.redirectUrl };
+  }
+
+  /**
+   * OAuth callback for Apple form_post (mobile/JSON mode).
+   * Explicitly uses JSON token delivery for hybrid backend.
+   */
+  @Public()
+  @TokenDelivery('json')
+  @Redirect()
+  @Post(':provider/callback/mobile')
+  async callbackPostMobile(
+    @Param('provider') provider: string,
+    @Body() body: SocialCallbackFormDTO,
+    @Req() req: FastifyRequest,
+  ): Promise<{ url: string } & Partial<AuthResponseDTO>> {
+    const result = await this.socialRedirect.callback({
+      provider,
+      code: body.code,
+      state: body.state,
+      error: body.error,
+      errorDescription: body.error_description,
+      req,
+    });
+    if (result.authResponse) {
+      return { url: result.redirectUrl, ...result.authResponse };
+    }
+    return { url: result.redirectUrl };
   }
 
   /**

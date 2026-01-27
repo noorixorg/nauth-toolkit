@@ -56,7 +56,7 @@ export class EmailVerificationService {
    */
   async sendVerificationEmail(dto: SendVerificationEmailDTO): Promise<SendVerificationEmailResponseDTO> {
     dto = await ensureValidatedDto(SendVerificationEmailDTO, dto);
-    const { sub, baseUrl, skipAlreadyVerifiedCheck = false, challengeSessionId } = dto;
+    const { sub, baseUrl, skipAlreadyVerifiedCheck = false, challengeSessionId, challengeSessionToken } = dto;
     // Get rate limit configuration from config (moved to signup.emailVerification)
     const rateLimitMax = this.config.signup?.emailVerification?.rateLimitMax || 3;
     const rateLimitWindow = this.config.signup?.emailVerification?.rateLimitWindow || 3600; // 1 hour in seconds
@@ -184,9 +184,11 @@ export class EmailVerificationService {
     // Generate verification link if baseUrl is provided (from DTO or config)
     // Use config baseUrl if DTO doesn't provide one
     const effectiveBaseUrl = baseUrl || this.config.signup?.emailVerification?.baseUrl;
-    // Link uses code as query parameter (not token) for consistency with code-based verification
-    // Append query parameter to baseUrl (consumer app handles routing)
-    const verificationLink = effectiveBaseUrl ? `${effectiveBaseUrl}?code=${code}` : undefined;
+    // Link includes both session token and code for cross-browser/device verification
+    // Session token allows verification in fresh browser window (no localStorage needed)
+    const verificationLink = effectiveBaseUrl
+      ? this.buildVerificationLink(effectiveBaseUrl, challengeSessionToken, code)
+      : undefined;
 
     // Calculate expiry in minutes for template (same logic as MFA email)
     const expiryMinutes = Math.ceil((this.config.signup?.emailVerification?.expiresIn || 3600) / 60);
@@ -944,5 +946,44 @@ export class EmailVerificationService {
    */
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  /**
+   * Build verification link with session token and code
+   * Preserves existing query parameters and hash fragments
+   *
+   * @param baseUrl - Base URL provided by consumer app
+   * @param sessionToken - Challenge session token (UUID) to include in link
+   * @param code - Verification code to append
+   * @returns Full verification link with session and code query params
+   *
+   * @example
+   * ```typescript
+   * const link = this.buildVerificationLink('https://app.com/verify', 'uuid-session-token', '456789');
+   * // https://app.com/verify?session=uuid-session-token&code=456789
+   *
+   * const link2 = this.buildVerificationLink('https://app.com/verify?from=email#section', 'uuid-token', '456789');
+   * // https://app.com/verify?from=email&session=uuid-token&code=456789#section
+   * ```
+   */
+  private buildVerificationLink(baseUrl: string, sessionToken: string | null | undefined, code: string): string {
+    // ============================================================================
+    // Preserve hash fragments and avoid duplicating separators
+    // ============================================================================
+    // WHY: `#` should remain at the end and query separators must be correct.
+    const hashIndex = baseUrl.indexOf('#');
+    const base = hashIndex === -1 ? baseUrl : baseUrl.slice(0, hashIndex);
+    const hash = hashIndex === -1 ? '' : baseUrl.slice(hashIndex);
+    const hasQuery = base.includes('?');
+    const needsSeparator = !(base.endsWith('?') || base.endsWith('&'));
+    const separator = hasQuery ? (needsSeparator ? '&' : '') : '?';
+
+    // Build query parameters
+    // Session token enables verification in fresh browser (no localStorage needed)
+    const sessionParam = sessionToken ? `session=${encodeURIComponent(sessionToken)}` : '';
+    const codeParam = `code=${encodeURIComponent(code)}`;
+    const queryParams = sessionToken ? `${sessionParam}&${codeParam}` : codeParam;
+
+    return `${base}${separator}${queryParams}${hash}`;
   }
 }

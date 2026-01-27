@@ -17,6 +17,99 @@ import { environment } from '../environments/environment';
 
 import { routes } from './app.routes';
 
+// ============================================================================
+// Token Delivery Mode Configuration
+// ============================================================================
+type TokenMode = 'cookies' | 'json';
+
+const TOKEN_MODE: TokenMode = 'json'; // ← Change this to match your use case
+
+/**
+ * Smart config builder that automatically adjusts endpoints, CSRF, and redirects based on token delivery mode
+ *
+ * IMPORTANT: Backend can be in 'hybrid' mode to support both client types.
+ * Frontend must choose 'cookies' or 'json' and use the appropriate endpoints.
+ *
+ * - JSON mode (web): OAuth redirects with exchangeToken
+ *   - Flow: loginWithSocial() → backend redirects to provider → callback with exchangeToken →
+ *     frontend calls /social/exchange to get tokens in response body
+ *   - Use for: SPAs that store tokens in memory/localStorage
+ *
+ * - Cookie mode (web): OAuth redirects with automatic cookie setting
+ *   - Flow: loginWithSocial() → backend redirects to provider → callback sets cookies automatically
+ *   - Use for: Traditional web apps with server-side rendering
+ *
+ * Note: Native mobile apps use socialVerify endpoint (not shown here)
+ *
+ * @param mode - Token delivery mode
+ * @returns Configured NAuthClientConfig
+ */
+const buildNAuthConfig = (mode: TokenMode): NAuthClientConfig => {
+  const baseConfig = {
+    baseUrl: environment.apiBaseUrl,
+    authPathPrefix: '/auth',
+    tokenDelivery: mode,
+    debug: true,
+    recaptcha: {
+      enabled: false,
+      version: 'enterprise' as const,
+      siteKey: environment.recaptchaSiteKey,
+      action: 'login',
+      autoLoadScript: true,
+    },
+    redirects: {
+      loginSuccess: '/dashboard',
+      sessionExpired: '/login',
+      oauthError: '/login',
+      challengeBase: '/auth/challenge',
+    },
+    admin: {
+      pathPrefix: '/admin',
+    },
+  };
+
+  // Mode-specific configurations
+  if (mode === 'json') {
+    return {
+      ...baseConfig,
+      // JSON mode: Use /mobile endpoints (no cookies, pure JSON with Bearer tokens)
+      endpoints: {
+        profile: '/profile',
+        login: '/login/mobile',
+        refresh: '/refresh/mobile',
+        signup: '/signup/mobile',
+        logout: '/logout/mobile',
+        respondChallenge: '/respond-challenge/mobile',
+        // Social auth in JSON mode (web): OAuth redirects + manual exchange
+        // Uses /mobile endpoints to force JSON token delivery in hybrid backend
+        socialRedirectStart: '/social/:provider/redirect/mobile',
+        socialExchange: '/social/exchange',
+      },
+      // CSRF not needed in JSON mode (Bearer tokens are CSRF-safe)
+    } as NAuthClientConfig;
+  }
+
+  // Cookie mode
+  return {
+    ...baseConfig,
+    // Cookie mode: Use standard endpoints (cookie-based auth)
+    endpoints: {
+      profile: '/profile',
+      login: '/login',
+      refresh: '/refresh',
+      signup: '/signup',
+      logout: '/logout',
+      respondChallenge: '/respond-challenge',
+      // Social auth in cookie mode: OAuth redirects with automatic cookie setting
+      socialRedirectStart: '/social/:provider/redirect',
+    },
+    csrf: {
+      cookieName: 'nauth_csrf_token',
+      headerName: 'x-csrf-token',
+    },
+  } as NAuthClientConfig;
+};
+
 /**
  * Custom preset with blue color palette matching nauth-docs theme
  * Based on: https://primeng.org/theming/styled
@@ -83,66 +176,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     {
       provide: NAUTH_CLIENT_CONFIG,
-      useValue: {
-        baseUrl: `${environment.apiBaseUrl}`,
-        authPathPrefix: '/auth',
-        tokenDelivery: 'cookies',
-        debug: true,
-        recaptcha: {
-          enabled: true,
-          version: 'enterprise',
-          siteKey: environment.recaptchaSiteKey,
-          action: 'login',
-          autoLoadScript: true,
-        },
-        csrf: {
-          cookieName: 'nauth_csrf_token',
-          headerName: 'x-csrf-token',
-        },
-        // CSRF not needed in JSON mode (Bearer tokens are CSRF-safe)
-        // Only configure csrf when using tokenDelivery: 'cookies' or 'hybrid'
-        endpoints: {
-          // profile: '/profile',
-          // login: '/login/mobile',
-          // refresh: '/refresh/mobile',
-          // signup: '/signup/mobile',
-          // logout: '/logout/mobile',
-          // respondChallenge: '/respond-challenge/mobile',
-          // isTrustedDevice: '/auth/is-trusted-device',
-          // trustDevice: '/auth/trust-device',
-          // auditHistory: '/auth/audit/history',
-          // updateProfile: '/auth/profile',
-          // changePassword: '/auth/change-password',
-          // requestPasswordChange: '/auth/request-password-change',
-          // forgotPassword: '/auth/forgot-password/',
-          // confirmForgotPassword: '/auth/forgot-password/confirm',
-          // confirmAdminResetPassword: '/auth/reset-password/confirm',
-          // socialRedirectStart: '/auth/social/:provider/redirect',
-          // socialExchange: '/auth/social/exchange',
-          // socialLinked: '/auth/social/linked',
-          // socialLink: '/auth/social/link',
-          // socialUnlink: '/auth/social/unlink',
-          // socialVerify: '/auth/social/:provider/verify',
-          // mfaStatus: '/auth/mfa/status',
-          // mfaDevices: '/auth/mfa/devices',
-          // mfaSetupData: '/auth/mfa/setup-data',
-          // mfaVerifySetup: '/auth/mfa/verify-setup',
-          // mfaRemove: '/auth/mfa/method',
-          // mfaPreferred: '/auth/mfa/preferred-method',
-          // mfaBackupCodes: '/auth/mfa/backup-codes/generate',
-          // mfaExemption: '/auth/mfa/exemption',
-        },
-
-        redirects: {
-          loginSuccess: '/dashboard',
-          sessionExpired: '/login',
-          oauthError: '/login',
-          challengeBase: '/auth/challenge',
-        },
-        admin: {
-          pathPrefix: '/admin',
-        },
-      } satisfies NAuthClientConfig,
+      useValue: buildNAuthConfig(TOKEN_MODE),
     },
     AngularHttpAdapter,
     AuthService,

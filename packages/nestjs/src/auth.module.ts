@@ -798,15 +798,17 @@ export class AuthModule {
             challengeSessionRepository: Repository<BaseChallengeSession>,
             clientInfoService: ClientInfoService,
             logger: NAuthLogger,
-            auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
+            auditService: InternalAuthAuditService | undefined, // Optional - only available when auditLogs.enabled is true
+            config: NAuthConfig,
           ) => {
-            return new ChallengeService(challengeSessionRepository, clientInfoService, logger, auditService);
+            return new ChallengeService(challengeSessionRepository, clientInfoService, logger, auditService, config);
           },
           inject: [
             'ChallengeSessionRepository',
             ClientInfoService,
             'NAUTH_LOGGER',
             { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
+            'NAUTH_CONFIG',
           ],
         },
         // AuthFlowContextBuilder - builds context with pre-computed values
@@ -853,6 +855,7 @@ export class AuthModule {
             clientInfoService: ClientInfoService,
             emailVerificationService?: EmailVerificationService,
             phoneVerificationService?: PhoneVerificationService,
+            trustedDeviceService?: TrustedDeviceService,
           ) => {
             return new AuthChallengeHelperService(
               challengeService,
@@ -865,6 +868,7 @@ export class AuthModule {
               clientInfoService,
               emailVerificationService,
               phoneVerificationService,
+              trustedDeviceService,
             );
           },
           inject: [
@@ -878,6 +882,7 @@ export class AuthModule {
             ClientInfoService,
             { token: EmailVerificationService, optional: true },
             { token: PhoneVerificationService, optional: true },
+            { token: TrustedDeviceService, optional: true },
           ],
         },
         {

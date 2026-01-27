@@ -944,9 +944,16 @@ export class PhoneVerificationService {
 
   /**
    * Mask phone number for logging (preserves last 4 digits)
+   * Respects config.security.maskSensitiveData setting.
    * @private
    */
   private maskPhone(phone: string): string {
+    // Check config - default to true (mask by default)
+    const shouldMask = this.config?.security?.maskSensitiveData !== false;
+    if (!shouldMask) {
+      return phone;
+    }
+
     if (!phone || phone.length < 4) return '***';
     return `***${phone.slice(-4)}`;
   }

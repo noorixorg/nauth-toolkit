@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/recaptcha",
-  "version": "0.1.116",
+  "version": "0.1.121",
   "description": "Google reCAPTCHA v2/v3/Enterprise provider for nauth-toolkit",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -38,7 +38,7 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.116",
+    "@nauth-toolkit/core": "^0.1.121",
     "@nestjs/common": "^9 || ^10 || ^11"
   },
   "peerDependenciesMeta": {

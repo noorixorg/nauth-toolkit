@@ -280,7 +280,7 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
   title = computed(() => {
     const type = this.currentChallengeType();
     const deviceName = this.deviceName();
-    
+
     switch (type) {
       case AuthChallenge.VERIFY_EMAIL:
         return 'Verify Email';
@@ -392,7 +392,7 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
         // Use mfaMethod() which respects user's selected method from query params
         const method = this.mfaMethod();
         const deviceName = this.deviceName();
-        
+
         if (method === 'totp') {
           // Show device name if available (e.g., "microsoft", "Google")
           return deviceName
@@ -475,16 +475,17 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
   deviceName = computed(() => {
     const challenge = this.challenge();
     if (!challenge) return undefined;
-    
+
     const params = challenge.challengeParameters;
     const preferredDeviceId = params?.['preferredDeviceId'] as number | undefined;
-    const devices = (params?.['devices'] as Array<{ id: number; name: string; type: string }>) || [];
-    
+    const devices =
+      (params?.['devices'] as Array<{ id: number; name: string; type: string }>) || [];
+
     if (preferredDeviceId && devices.length > 0) {
       const device = devices.find((d) => d.id === preferredDeviceId);
       return device?.name;
     }
-    
+
     return undefined;
   });
 
@@ -588,9 +589,25 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
    * Validates challenge type and updates component state.
    * Handles route changes for progressive challenges.
    * Reads method from query params if user selected a different method.
+   * Handles deep links with session + code for cross-browser/device verification.
    */
   ngOnInit(): void {
     let isFirstLoad = true;
+
+    // ============================================================================
+    // Handle deep links with session + code (cross-browser/device verification)
+    // ============================================================================
+    // When user clicks verification link from email in fresh browser:
+    // URL: /auth/challenge/verify-email?session=uuid-session-token&code=123456
+    // This allows verification without localStorage/session state
+    const sessionParam = this.route.snapshot.queryParams['session'] as string | undefined;
+    const codeParam = this.route.snapshot.queryParams['code'] as string | undefined;
+
+    if (sessionParam && codeParam) {
+      // Auto-fill code and trigger verification
+      this.handleDeepLinkVerification(sessionParam, codeParam);
+      return; // Skip normal initialization
+    }
 
     // Read method from query params (if user selected different method)
     this.route.queryParams
@@ -1424,6 +1441,58 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
       this.timerInterval = null;
     }
     this.resendTimer.set(0);
+  }
+
+  /**
+   * Handle deep link verification from email
+   * Auto-submits verification when user clicks link with session + code
+   *
+   * @param sessionToken - Challenge session token from URL
+   * @param code - Verification code from URL
+   */
+  private async handleDeepLinkVerification(sessionToken: string, code: string): Promise<void> {
+    this.loading.set(true);
+    this.error.set(null);
+
+    try {
+      // Determine challenge type from route path
+      // Route: /auth/challenge/verify-email?session=X&code=Y
+      const url = this.router.url;
+      let challengeType: AuthChallenge = AuthChallenge.VERIFY_EMAIL; // Default
+
+      if (url.includes('verify-phone')) {
+        challengeType = AuthChallenge.VERIFY_PHONE;
+      } else if (url.includes('verify-email')) {
+        challengeType = AuthChallenge.VERIFY_EMAIL;
+      }
+
+      // Build challenge response based on type
+      const challengeResponse: VerifyEmailResponse | VerifyPhoneCodeResponse = {
+        type: challengeType,
+        session: sessionToken,
+        code: code.trim(),
+      };
+
+      const response: AuthResponse = await this.auth.respondToChallenge(challengeResponse);
+
+      // If response has another challenge, route to it
+      if (response.challengeName) {
+        await this.handleNextChallenge(response);
+      } else {
+        // All challenges complete, redirect to success
+        const successUrl = this.config.redirects?.success || '/dashboard';
+        await this.router.navigate([successUrl]);
+      }
+    } catch (err: unknown) {
+      this.loading.set(false);
+
+      this.handleError(err);
+      // Show manual entry form on error
+      this.otpForm.patchValue({ code });
+    } finally {
+      // Always turn off loading state
+      this.loading.set(false);
+    }
   }
 
   /**

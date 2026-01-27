@@ -678,11 +678,25 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
   /**
    * Mask phone number for display
    *
+   * Uses centralized ChallengeService if available (respects config.security.maskSensitiveData).
+   * Falls back to default masking logic if ChallengeService not available.
+   *
    * @param phone - Phone number
    * @returns Masked phone number
    * @protected
    */
   protected maskPhone(phone: string): string {
+    // Use ChallengeService if available (respects config.security.maskSensitiveData)
+    if (this.challengeService) {
+      return this.challengeService.maskPhone(phone);
+    }
+
+    // Fallback: check config directly
+    const shouldMask = this.config?.security?.maskSensitiveData !== false;
+    if (!shouldMask) {
+      return phone;
+    }
+
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 4) return phone;
     return `***-***-${digits.slice(-4)}`;
@@ -690,6 +704,9 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
 
   /**
    * Mask email address for display
+   *
+   * Uses centralized ChallengeService if available (respects config.security.maskSensitiveData).
+   * Falls back to default masking logic if ChallengeService not available.
    *
    * Masks the local part of the email while showing the domain.
    * Example: user@example.com → u***r@example.com
@@ -705,6 +722,17 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
    * ```
    */
   protected maskEmail(email: string): string {
+    // Use ChallengeService if available (respects config.security.maskSensitiveData)
+    if (this.challengeService) {
+      return this.challengeService.maskEmail(email);
+    }
+
+    // Fallback: check config directly
+    const shouldMask = this.config?.security?.maskSensitiveData !== false;
+    if (!shouldMask) {
+      return email;
+    }
+
     const [localPart, domain] = email.split('@');
     if (!localPart || !domain) return email;
     if (localPart.length <= 2) {

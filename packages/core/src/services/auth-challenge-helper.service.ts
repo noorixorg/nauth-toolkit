@@ -10,6 +10,7 @@ import { JwtService } from './jwt.service';
 import { SessionService } from './session.service';
 import { EmailVerificationService } from './email-verification.service';
 import { PhoneVerificationService } from './phone-verification.service';
+import { TrustedDeviceService } from './trusted-device.service';
 import { ClientInfoService } from './client-info.service';
 import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
@@ -47,7 +48,8 @@ export class AuthChallengeHelperService {
     private readonly contextBuilder: AuthFlowContextBuilder,
     private readonly clientInfoService: ClientInfoService,
     private readonly emailVerificationService?: EmailVerificationService,
-    private readonly phoneVerificationService?: PhoneVerificationService, // Optional - only available when SMS provider is configured
+    private readonly phoneVerificationService?: PhoneVerificationService,
+    private readonly trustedDeviceService?: TrustedDeviceService,
   ) {}
 
   // ============================================================================
@@ -124,7 +126,8 @@ export class AuthChallengeHelperService {
       // baseUrl will be read from config if not provided
       const emailDto = Object.assign(new SendVerificationEmailDTO(), {
         sub: user.sub,
-        challengeSessionId: challengeSession.id, // Link verification token to this challenge session
+        challengeSessionId: challengeSession.id, // Link verification token to this challenge session (for database lookup)
+        challengeSessionToken: challengeSession.sessionToken, // Session token for verification link (UUID, not exposed in DB)
       });
       try {
         await this.emailVerificationService.sendVerificationEmail(emailDto);
@@ -383,8 +386,7 @@ export class AuthChallengeHelperService {
     let maskedPhone: string | undefined;
     const smsDevice = devices.find((d) => d.type === MFAMethod.SMS && d.phoneNumber);
     if (smsDevice?.phoneNumber) {
-      const digits = smsDevice.phoneNumber.replace(/\D/g, '');
-      maskedPhone = digits.length >= 4 ? `***-***-${digits.slice(-4)}` : smsDevice.phoneNumber;
+      maskedPhone = this.challengeService.maskPhone(smsDevice.phoneNumber);
     }
 
     // Get masked email if Email is available
@@ -392,15 +394,7 @@ export class AuthChallengeHelperService {
     const emailDevice = devices.find((d) => d.type === MFAMethod.EMAIL && d.email);
     const emailToMask = emailDevice?.email || user.email; // Fallback to user.email if device doesn't have it
     if (emailToMask) {
-      // Mask email: show first char and domain (e.g., u***r@example.com)
-      const [localPart, domain] = emailToMask.split('@');
-      if (localPart && domain) {
-        const firstChar = localPart[0];
-        const lastChar = localPart[localPart.length - 1];
-        maskedEmail = localPart.length > 2 ? `${firstChar}***${lastChar}@${domain}` : `${firstChar}***@${domain}`;
-      } else {
-        maskedEmail = emailToMask;
-      }
+      maskedEmail = this.challengeService.maskEmail(emailToMask);
     }
 
     // Build device information for methods that support multiple devices (TOTP and Passkey)
@@ -622,7 +616,11 @@ export class AuthChallengeHelperService {
   ): Promise<AuthResponseDTO> {
     // Get client info from ClientInfoService (for deviceToken only - IP/userAgent come from context automatically)
     const clientInfo = this.clientInfoService.get();
-    const finalDeviceToken = clientInfo.deviceToken || deviceToken;
+    // Use the explicitly provided deviceToken (newly created trusted device) if available,
+    // otherwise fall back to clientInfo.deviceToken (existing device).
+    // WHY: When a new trusted device token is created (e.g., after MFA), we must use that
+    // new token instead of the old one from the cookie/header (which may belong to a different user).
+    const finalDeviceToken = deviceToken || clientInfo.deviceToken;
 
     // ============================================================================
     // SECURITY: Defense-in-depth validation before token issuance
@@ -803,7 +801,10 @@ export class AuthChallengeHelperService {
   ): Promise<AuthResponseDTO> {
     // Get client info from ClientInfoService
     const clientInfo = this.clientInfoService.get();
-    const deviceToken = clientInfo.deviceToken || context.deviceToken;
+    // Prioritize context.deviceToken (newly created/validated) over clientInfo.deviceToken (from request header)
+    // WHY: When a new device token is created (e.g., after MFA for a different user), we must use the new token
+    // from context, not the old one from the client's request header (which may belong to a different user).
+    const deviceToken = context.deviceToken || clientInfo.deviceToken;
 
     const authMethod = context.authMethod || 'password';
 
@@ -871,12 +872,45 @@ export class AuthChallengeHelperService {
     }
 
     // AUTHENTICATED state - return success
-    const isTrusted = context.computed.isDeviceTrusted;
+    let isTrusted = context.computed.isDeviceTrusted;
+    let finalDeviceToken = deviceToken;
+
+    // Auto-trust mode: create device token automatically if not already trusted
+    const rememberMode = context.config.mfa?.rememberDevices;
+    this.logger?.debug?.(
+      `[ChallengeHelper] AUTHENTICATED state: rememberMode=${rememberMode}, isTrusted=${isTrusted}, hasTrustedDeviceService=${!!this.trustedDeviceService}, deviceToken=${deviceToken ? 'present' : 'none'}`,
+    );
+
+    if (rememberMode === 'always' && !isTrusted && this.trustedDeviceService) {
+      try {
+        this.logger?.debug?.(`[ChallengeHelper] Attempting to create trusted device for user ${context.user.sub}...`);
+        finalDeviceToken = await this.trustedDeviceService.createTrustedDevice(
+          context.user.id,
+          clientInfo.deviceName,
+          clientInfo.deviceType,
+          clientInfo.ipAddress,
+          clientInfo.userAgent,
+          clientInfo.platform,
+          clientInfo.browser,
+        );
+        isTrusted = true;
+        this.logger?.debug?.(
+          `[ChallengeHelper] Auto-created trusted device token for user ${context.user.sub} (rememberDevices='always', no MFA), token=${finalDeviceToken}`,
+        );
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger?.warn?.(
+          `[ChallengeHelper] Failed to create trusted device token for user ${context.user.sub}: ${errorMessage}`,
+          { error },
+        );
+      }
+    }
+
     const sessionAuthMethod =
       context.authMethod === 'social' ? context.authProvider || 'social' : context.authMethod || 'password';
     return this.createSuccessResponse(
       context.user,
-      deviceToken,
+      finalDeviceToken,
       isTrusted,
       context.authMethod === 'social',
       metadata,

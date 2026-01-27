@@ -1154,6 +1154,31 @@ export interface SessionConfig {
 
 export interface SecurityConfig {
   /**
+   * Mask sensitive data in API responses
+   *
+   * When enabled (default), email addresses and phone numbers in challenge responses
+   * are masked for security (e.g., 'u***@example.com', '***-***-1234').
+   *
+   * Set to false to return full email/phone in challenge responses
+   *
+   * @default true
+   *
+   * @example
+   * ```typescript
+   * // Enable masking (default - recommended for production)
+   * security: {
+   *   maskSensitiveData: true
+   * }
+   *
+   * // Disable masking (development or internal apps)
+   * security: {
+   *   maskSensitiveData: false
+   * }
+   * ```
+   */
+  maskSensitiveData?: boolean;
+
+  /**
    * CSRF Protection Configuration
    *
    * WARNING: SECURITY - CSRF protection is REQUIRED when using cookie-based token delivery

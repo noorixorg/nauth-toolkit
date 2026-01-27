@@ -1318,27 +1318,25 @@ export class AuthServiceInternalHelpers {
   /**
    * Mask email address for privacy (show first char and domain)
    *
+   * Uses centralized ChallengeService which respects config.security.maskSensitiveData.
+   *
    * @param email - Email address to mask
    * @returns Masked email (e.g., 'u***r@example.com')
    */
   maskEmail(email: string): string {
-    const [localPart, domain] = email.split('@');
-    if (localPart.length <= 2) {
-      return `${localPart[0]}***@${domain}`;
-    }
-    return `${localPart[0]}***${localPart[localPart.length - 1]}@${domain}`;
+    return this.challengeService.maskEmail(email);
   }
 
   /**
    * Mask phone number for privacy (show last 4 digits)
    *
+   * Uses centralized ChallengeService which respects config.security.maskSensitiveData.
+   *
    * @param phone - Phone number to mask
    * @returns Masked phone (e.g., '***-***-1234')
    */
   maskPhone(phone: string): string {
-    const digits = phone.replace(/\D/g, '');
-    const lastFour = digits.slice(-4);
-    return `***-***-${lastFour}`;
+    return this.challengeService.maskPhone(phone);
   }
 
   // ============================================================================

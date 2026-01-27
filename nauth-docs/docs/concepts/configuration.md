@@ -190,7 +190,7 @@ These are the top-level keys you can provide in `NAuthConfig` / `NAuthModuleConf
 | `password`      | `PasswordConfig`                                 | No       | Password policy + password reset                                                   |
 | `lockout`       | `LockoutConfig`                                  | No       | IP-based lockout settings                                                          |
 | `session`       | `SessionConfig`                                  | No       | Session lifetime + concurrency                                                     |
-| `security`      | `SecurityConfig`                                 | No       | CSRF + security settings                                                           |
+| `security`      | `SecurityConfig`                                 | No       | CSRF + security settings + sensitive data masking                                  |
 | `tokenDelivery` | `TokenDeliveryConfig`                            | No       | JSON/cookies/hybrid token delivery                                                 |
 | `challenge`     | `ChallengeConfig`                                | No       | Challenge session limits                                                           |
 | `auditLogs`     | `{ enabled?: boolean; fireAndForget?: boolean }` | No       | Audit logging behavior                                                             |
@@ -638,6 +638,7 @@ lockout: {
 },
 
 security: {
+  maskSensitiveData: true,   // Mask email/phone in challenge responses
   csrf: {
     cookieName: 'csrf-token',
     headerName: 'x-csrf-token',
@@ -649,6 +650,20 @@ security: {
       domain: '.myapp.com',  // Optional: share across subdomains
     },
   },
+},
+```
+
+**maskSensitiveData:**
+
+When enabled (default), email addresses and phone numbers in challenge responses are masked for security:
+- Email: `john.doe@example.com` → `j***@example.com`
+- Phone: `+1234567890` → `***-***-7890`
+
+Set to `false` to return full email/phone in challenge responses. Useful for development or internal apps where security is less critical.
+
+```typescript
+security: {
+  maskSensitiveData: false,  // Return full email/phone
 },
 ```
 

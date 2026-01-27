@@ -331,6 +331,67 @@ describe('GoogleSocialAuthService', () => {
       expect(mockStateStore.createCsrfState).toHaveBeenCalledWith('google');
       expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith('generated-state', undefined);
     });
+
+    it('should merge config-level oauthParams with request params', async () => {
+      // Add config-level oauthParams
+      mockConfig.social!.google!.oauthParams = {
+        access_type: 'offline',
+        prompt: 'select_account',
+      };
+
+      // Recreate service with updated config
+      service = new GoogleSocialAuthService(
+        mockConfig,
+        mockLogger,
+        mockAuthService,
+        mockSocialAuthService,
+        mockJwtService,
+        mockSessionService,
+        mockChallengeHelper,
+        mockClientInfoService,
+        mockStateStore,
+        mockUserRepository,
+        mockPhoneVerificationService,
+        mockAuditService,
+        undefined,
+        undefined,
+        mockTokenVerifier,
+      );
+
+      const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?state=test&prompt=consent';
+      (mockOAuthClient.getAuthorizationUrl as jest.Mock).mockResolvedValue(authUrl);
+
+      // Request params should override config params
+      const requestParams = { prompt: 'consent' };
+      const result = await service.getAuthUrl('test-state', requestParams);
+
+      expect(result).toBe(authUrl);
+      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith('test-state', {
+        access_type: 'offline',
+        prompt: 'consent', // Request param overrides config
+      });
+    });
+
+    it('should pass only request oauthParams when config has none', async () => {
+      const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?state=test&prompt=consent';
+      (mockOAuthClient.getAuthorizationUrl as jest.Mock).mockResolvedValue(authUrl);
+
+      const requestParams = { prompt: 'consent', hd: 'example.com' };
+      const result = await service.getAuthUrl('test-state', requestParams);
+
+      expect(result).toBe(authUrl);
+      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith('test-state', requestParams);
+    });
+
+    it('should pass undefined when no oauthParams provided', async () => {
+      const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?state=test';
+      (mockOAuthClient.getAuthorizationUrl as jest.Mock).mockResolvedValue(authUrl);
+
+      const result = await service.getAuthUrl('test-state');
+
+      expect(result).toBe(authUrl);
+      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith('test-state', undefined);
+    });
   });
 
   // ============================================================================
