@@ -16,6 +16,22 @@ import { Logger } from '@nestjs/common';
 //   // secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
 // };
 
+/**
+ * Helper function to parse comma-separated origins from environment variable
+ */
+const getOriginsFromEnv = (): string[] => {
+  const frontend = process.env.FRONTEND_BASE_URL;
+  const api = process.env.API_BASE_URL;
+  const origins = [frontend, api].filter(Boolean) as string[];
+  
+  // Add localhost for development
+  if (process.env.NODE_ENV !== 'production') {
+    origins.push('http://localhost:4200', 'http://localhost:3000');
+  }
+  
+  return origins;
+};
+
 export const authConfig: NAuthModuleConfig = {
   tablePrefix: 'nauth_',
   storageAdapter: createRedisStorageAdapter(process.env.REDIS_URL || 'redis://localhost:6379'),
@@ -24,10 +40,13 @@ export const authConfig: NAuthModuleConfig = {
     algorithm: 'HS256',
     issuer: 'com.noorix.nauth',
     audience: ['web', 'mobile'],
-    accessToken: { secret: process.env.JWT_SECRET, expiresIn: '1h' },
+    accessToken: { 
+      secret: process.env.JWT_SECRET, 
+      expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRES_IN || '1h' 
+    },
     refreshToken: {
       secret: process.env.JWT_REFRESH_SECRET as string,
-      expiresIn: '30d',
+      expiresIn: process.env.JWT_REFRESH_TOKEN_EXPIRES_IN || '30d',
       rotation: true,
     },
   },
@@ -50,7 +69,7 @@ export const authConfig: NAuthModuleConfig = {
       // Verification attempt liits (for testing - increase these values)
       maxAttemptsPerIP: 20000, // Max attempts per IP per window (default: 20)
       attemptWindow: 300, // Time window in seconds (default: 3600 = 1 hour)
-      baseUrl: 'http://localhost:4200/auth/challenge/verify-email', // Include verification link in emails
+      baseUrl: `${process.env.FRONTEND_BASE_URL || 'http://localhost:4200'}/auth/challenge/verify-email`, // Include verification link in emails
     },
     phoneVerification: {
       codeLength: 6,
@@ -78,10 +97,10 @@ export const authConfig: NAuthModuleConfig = {
       algorithm: 'sha1',
     },
     passkey: {
-      rpName: 'Nauth App',
-      rpId: 'angular.dev1.noorix.com',
-      origin: ['http://localhost:4200', 'http://localhost:3000', 'https://angular.dev1.noorix.com'],
-      timeout: 60000,
+      rpName: process.env.APP_NAME || 'Nauth App',
+      rpId: process.env.PASSKEY_RP_ID || 'localhost',
+      origin: getOriginsFromEnv(),
+      timeout: parseInt(process.env.PASSKEY_TIMEOUT || '60000', 10),
       userVerification: 'preferred',
       authenticatorAttachment: undefined,
     },
@@ -125,13 +144,13 @@ export const authConfig: NAuthModuleConfig = {
   tokenDelivery: {
     method: 'hybrid',
     cookieOptions: {
-      // For cross-site cookies (frontend on angular.dev1, API on api.angular.dev1):
+      // For cross-site cookies (frontend on different subdomain than API):
       // - Must use secure: true (requires HTTPS)
       // - Must use sameSite: 'none' (allows cross-site cookie delivery)
-      // - Domain must match both subdomains
-      secure: true,
-      sameSite: 'none',
-      domain: '.angular.dev1.noorix.com',
+      // - Domain must match both subdomains (use leading dot)
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      domain: process.env.COOKIE_DOMAIN || undefined,
     },
   },
   security: {
@@ -142,7 +161,7 @@ export const authConfig: NAuthModuleConfig = {
       cookieName: 'nauth_csrf_token',
       headerName: 'x-csrf-token',
       cookieOptions: {
-        domain: '.angular.dev1.noorix.com',
+        domain: process.env.COOKIE_DOMAIN || undefined,
       },
     },
   },
@@ -157,17 +176,17 @@ export const authConfig: NAuthModuleConfig = {
   },
   social: {
     redirect: {
-      frontendBaseUrl: 'https://angular.dev1.noorix.com',
+      frontendBaseUrl: process.env.FRONTEND_BASE_URL || 'http://localhost:4200',
       allowAbsoluteReturnTo: false,
-      allowedReturnToOrigins: ['https://angular.dev1.noorix.com', 'http://localhost:4200', 'http://localhost:3000'],
+      allowedReturnToOrigins: getOriginsFromEnv(),
     },
     google: {
-      enabled: true, // Enable Google OAuth (default: false)
+      enabled: !!process.env.GOOGLE_CLIENT_ID, // Enable Google OAuth if client ID is provided
       clientId: process.env.GOOGLE_IOS_CLIENT_ID
         ? [process.env.GOOGLE_CLIENT_ID!, process.env.GOOGLE_IOS_CLIENT_ID]
         : process.env.GOOGLE_CLIENT_ID, // Client ID (string or array for multi-platform: web, iOS, Android, e.g., '12345.apps.googleusercontent.com' or ['12345-web.apps.googleusercontent.com', '12345-ios.apps.googleusercontent.com'])
       clientSecret: process.env.GOOGLE_CLIENT_SECRET, // Client secret (required if enabled)
-      callbackUrl: 'https://api.angular.dev1.noorix.com/auth/social/google/callback', // Callback URL (must match provider registration)
+      callbackUrl: `${process.env.API_BASE_URL || 'http://localhost:3000'}/auth/social/google/callback`, // Callback URL (must match provider registration)
       scopes: ['openid', 'email', 'profile'], // OAuth scopes (default: ['openid', 'email', 'profile'])
       autoLink: true, // Auto-link to existing users by verified email (default: true)
       allowSignup: true, // Allow new user creation (default: true)
@@ -176,7 +195,7 @@ export const authConfig: NAuthModuleConfig = {
       },
     },
     apple: {
-      enabled: true, // Enable Apple Sign-In (default: false)
+      enabled: !!process.env.APPLE_SERVICE_ID, // Enable Apple Sign-In if service ID is provided
       clientId: process.env.APPLE_SERVICE_ID, // Apple Services ID (e.g., 'com.myapp.services')
       // Apple requires a JWT client secret for web OAuth, which is automatically generated and refreshed
       // by the toolkit from your Apple Developer credentials below.
@@ -184,16 +203,16 @@ export const authConfig: NAuthModuleConfig = {
       teamId: process.env.APPLE_TEAM_ID, // Apple Developer Team ID (required for web OAuth)
       keyId: process.env.APPLE_KEY_ID, // Apple Key ID (kid) from your .p8 key (required for web OAuth)
       privateKeyPem: process.env.APPLE_P8_KEY, // Contents of your .p8 private key file in PEM format (required for web OAuth)
-      callbackUrl: 'https://api.angular.dev1.noorix.com/social/apple/callback', // Callback URL (must match provider registration)
+      callbackUrl: `${process.env.API_BASE_URL || 'http://localhost:3000'}/social/apple/callback`, // Callback URL (must match provider registration)
       scopes: ['name', 'email'], // OAuth scopes (default: ['name', 'email'])
       autoLink: true, // Auto-link to existing users by verified email (default: true)
       allowSignup: true, // Allow new user creation (default: true)
     },
     facebook: {
-      enabled: true, // Enable Facebook OAuth (default: false)
+      enabled: !!process.env.FACEBOOK_CLIENT_ID, // Enable Facebook OAuth if client ID is provided
       clientId: process.env.FACEBOOK_CLIENT_ID, // Facebook App ID
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET, // Facebook App Secret
-      callbackUrl: 'https://api.angular.dev1.noorix.com/auth/social/facebook/callback', // Callback URL (must match provider registration)
+      callbackUrl: `${process.env.API_BASE_URL || 'http://localhost:3000'}/auth/social/facebook/callback`, // Callback URL (must match provider registration)
       scopes: ['email', 'public_profile'], // OAuth scopes (default: ['email', 'public_profile'])
       autoLink: true, // Auto-link to existing users by verified email (default: true)
       allowSignup: true, // Allow new user creation (default: true)
@@ -220,10 +239,10 @@ export const authConfig: NAuthModuleConfig = {
     // Canonical template globals location (no templates.globalVariables)
     globalVariables: {
       appName: process.env.APP_NAME || 'Nauth App',
-      companyName: process.env.COMPANY_NAME || 'Nauth Company Pty Ltd.',
-      supportEmail: process.env.SUPPORT_EMAIL || 'support@noorix.com.au',
-      logoUrl: process.env.LOGO_URL || 'https://www.noorix.com.au/images/noorix-logo-social.png',
-      dashboardUrl: process.env.DASHBOARD_URL || 'https://app.example.com/dashboard',
+      companyName: process.env.COMPANY_NAME || 'Nauth Company',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@example.com',
+      logoUrl: process.env.LOGO_URL,
+      dashboardUrl: process.env.DASHBOARD_URL || `${process.env.FRONTEND_BASE_URL || 'http://localhost:4200'}/dashboard`,
       brandColor: process.env.BRAND_COLOR || '#4f46e5',
       footerDisclaimer: process.env.FOOTER_DISCLAIMER, // Optional - uses default if not provided
     },
@@ -326,12 +345,12 @@ export const authConfig: NAuthModuleConfig = {
   lockout: { enabled: false, maxAttempts: 5, duration: 300, resetOnSuccess: true },
 
   recaptcha: {
-    enabled: false,
-    provider: new RecaptchaEnterpriseProvider({
-      projectId: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID!,
+    enabled: process.env.RECAPTCHA_ENABLED === 'true',
+    provider: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID ? new RecaptchaEnterpriseProvider({
+      projectId: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID,
       apiKey: process.env.RECAPTCHA_ENTERPRISE_API_KEY!, // API key (AIza...), NOT site key
       siteKey: process.env.RECAPTCHA_ENTERPRISE_SITE_KEY!, // Site key (6L...)
-    }),
+    }) : undefined,
     minimumScore: 0.7, // Minimum score (0-1) for v3/Enterprise
   },
   session: {

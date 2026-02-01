@@ -27,6 +27,19 @@ export class AppController {
   }
 
   /**
+   * Health check endpoint (alternative path for Docker healthcheck)
+   * @returns Health status
+   */
+  @Get('health')
+  getHealthAlt() {
+    return {
+      status: 'ok',
+      message: 'Sample app is running',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
    * Get application information
    * @returns Application details
    */

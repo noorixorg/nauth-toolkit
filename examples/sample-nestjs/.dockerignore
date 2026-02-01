@@ -1,0 +1,37 @@
+# Docker Ignore File for NestJS Backend
+
+# Dependencies
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Build output
+dist
+build
+*.tsbuildinfo
+
+# Environment files (all .env files excluded from Docker image)
+.env
+.env.*
+*.env
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+coverage
+.nyc_output
+*.log
+
+# Misc
+.git
+.gitignore
+README.md
+*.md
+!resources/**

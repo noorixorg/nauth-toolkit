@@ -16,6 +16,13 @@ packages/*/src/**/*.js.map
 .env.local
 .env.*.local
 
+# Docker environment files (examples folder)
+examples/.env
+
+# Local development env files
+examples/sample-nestjs/.env
+examples/sample-angular/.env
+
 # Logs
 logs/
 *.log
