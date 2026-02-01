@@ -637,8 +637,7 @@ export class CustomAuthController {
    * Cookies are automatically cleared by AuthService.logout()
    * No need to manually call clearAuthCookies!
    *
-   * @param user - Current user (from JWT)
-   * @param forgetMe - If true, also untrust the device (require MFA on next login)
+   * @param dto - LogoutDTO (query: forgetMe - if true, also untrust the device / require MFA on next login)
    * @returns Success message
    *
    * @example
@@ -649,12 +648,8 @@ export class CustomAuthController {
 
   @Get('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@Query('forgetMe') forgetMe?: string): Promise<LogoutResponseDTO> {
+  async logout(@Query() dto: LogoutDTO): Promise<LogoutResponseDTO> {
     // Session ID is automatically extracted from JWT token context by the library
-    const dto = new LogoutDTO();
-    if (forgetMe === 'true' || forgetMe === '1') {
-      dto.forgetMe = true;
-    }
     // Automatically clears cookies via ClientInfoService context
     return await this.authService.logout(dto);
   }
@@ -662,19 +657,14 @@ export class CustomAuthController {
   /**
    * Logout user (MOBILE/JSON MODE)
    *
-   * @param user - Current user (from JWT)
-   * @param forgetMe - If true, also untrust the device
+   * @param dto - LogoutDTO (query: forgetMe - if true, also untrust the device)
    * @returns Success message
    */
 
   @TokenDelivery('json')
   @Get('logout/mobile')
   @HttpCode(HttpStatus.OK)
-  async logoutMobile(@Query('forgetMe') forgetMe?: string): Promise<LogoutResponseDTO> {
-    const dto = new LogoutDTO();
-    if (forgetMe === 'true' || forgetMe === '1') {
-      dto.forgetMe = true;
-    }
+  async logoutMobile(@Query() dto: LogoutDTO): Promise<LogoutResponseDTO> {
     return await this.authService.logout(dto);
   }
 
