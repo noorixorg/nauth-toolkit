@@ -15,17 +15,13 @@ import { Public, AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
 import { TestService } from './test.service';
 
 /**
- * Test Mode Controller
+ * Test Controller
  *
- * Provides endpoints for E2E testing:
- * - Reset database/Redis state (optional, not used by default)
- * - Retrieve test data (email codes, SMS codes, TOTP secrets)
- *
- * ONLY ENABLED when NAUTH_TEST_MODE=true
- * DO NOT USE in production
- *
- * Note: Configuration changes require manual edits to auth.config.ts and app restart.
- * The app auto-restarts on file changes when using yarn start:dev.
+ * Provides endpoints for E2E testing and code fetching:
+ * - Reset database/Redis state: POST /test/reset
+ * - Retrieve verification codes: GET /test/code/latest, GET /test/code/latest/authenticated
+ * - Retrieve TOTP secret: GET /test/totp/secret
+ * - Config apply, SMS latest, etc.
  */
 @Controller('test')
 export class TestController {
@@ -34,12 +30,7 @@ export class TestController {
   constructor(
     private readonly testService: TestService,
     @InjectDataSource() private readonly dataSource: DataSource,
-  ) {
-    // Verify test mode is enabled
-    if (process.env.NAUTH_TEST_MODE !== 'true') {
-      this.logger.warn('Test mode endpoints are DISABLED. Set NAUTH_TEST_MODE=true to enable.');
-    }
-  }
+  ) {}
 
   /**
    * Reset test environment
@@ -55,10 +46,6 @@ export class TestController {
   @Post('reset')
   @HttpCode(HttpStatus.OK)
   async reset(@Query('light') light?: string): Promise<{ message: string; mode: string }> {
-    if (process.env.NAUTH_TEST_MODE !== 'true') {
-      throw new BadRequestException('Test mode is not enabled');
-    }
-
     const isLight = light === 'true' || light === '1';
     await this.testService.reset(isLight);
     return {
@@ -90,10 +77,6 @@ export class TestController {
     @Query('identifier') identifier?: string,
     @Query('type') type?: string,
   ): Promise<{ code: string | null }> {
-    if (process.env.NAUTH_TEST_MODE !== 'true') {
-      throw new BadRequestException('Test mode is not enabled');
-    }
-
     // Handle password reset code request
     if (type === 'password_reset' && identifier) {
       return this.getPasswordResetCode(identifier);
@@ -244,10 +227,6 @@ export class TestController {
     @CurrentUser() user: IUser,
     @Query('method') method: string,
   ): Promise<{ code: string | null }> {
-    if (process.env.NAUTH_TEST_MODE !== 'true') {
-      throw new BadRequestException('Test mode is not enabled');
-    }
-
     if (!method || (method !== 'sms' && method !== 'email')) {
       throw new BadRequestException('Method must be "sms" or "email"');
     }
@@ -394,10 +373,6 @@ export class TestController {
   @Public()
   @Get('totp/secret')
   async getTotpSecret(@Query('userId') userId: string): Promise<{ secret: string }> {
-    if (process.env.NAUTH_TEST_MODE !== 'true') {
-      throw new BadRequestException('Test mode is not enabled');
-    }
-
     const secret = await this.testService.getTotpSecret(userId);
     return { secret };
   }

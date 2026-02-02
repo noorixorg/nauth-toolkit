@@ -23,7 +23,6 @@ import {
   VerifyTokenDTO,
   TokenDelivery,
 } from '@nauth-toolkit/nestjs';
-import { ensureValidatedDto } from '@nauth-toolkit/core/utils';
 import { GoogleSocialAuthService } from '@nauth-toolkit/social-google/nestjs';
 import { AppleSocialAuthService } from '@nauth-toolkit/social-apple/nestjs';
 import { FacebookSocialAuthService } from '@nauth-toolkit/social-facebook/nestjs';
@@ -74,61 +73,33 @@ export class SocialRedirectController {
    *   - Classic: expects `accessToken` (opaque string)
    *   - Limited Login (iOS): expects `idToken` (JWT)
    *
-   * @param provider - Provider name (`google`, `apple`, `facebook`)
-   * @param body - Native token payload from the mobile SDK
+   * @param dto - Native token payload from the mobile SDK
    * @returns Authentication response with JWT tokens and user info
    */
   @Public()
   @Post(':provider/verify')
-  async verifyNative(@Param('provider') provider: string, @Body() body: unknown): Promise<AuthResponseDTO> {
-    const p = provider.toLowerCase();
-
-    // ============================================================================
-    // Provider-aware validation (conditional fields via class-validator)
-    // ============================================================================
-    const dto = await ensureValidatedDto(VerifyTokenDTO, {
-      ...(typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {}),
-      provider: p,
-    });
+  async verifyNative(@Body() dto: VerifyTokenDTO): Promise<AuthResponseDTO> {
+    const provider = dto.provider;
 
     // ============================================================================
     // Provider Routing
     // ============================================================================
-    if (p === 'google') {
+    if (provider === 'google') {
       if (!this.googleAuth) throw new BadRequestException('Google OAuth is not configured');
-      // DTO guarantees idToken is present for google
-      return await this.googleAuth.verifyToken({
-        provider: dto.provider,
-        idToken: dto.idToken as string,
-        accessToken: dto.accessToken,
-        profileData: dto.profileData,
-      });
+      return await this.googleAuth.verifyToken(dto);
     }
 
-    if (p === 'apple') {
+    if (provider === 'apple') {
       if (!this.appleAuth) throw new BadRequestException('Apple OAuth is not configured');
-      // DTO guarantees idToken is present for apple
-      return await this.appleAuth.verifyToken({
-        provider: dto.provider,
-        idToken: dto.idToken as string,
-        accessToken: dto.accessToken,
-        profileData: dto.profileData,
-      });
+      return await this.appleAuth.verifyToken(dto);
     }
 
-    if (p === 'facebook') {
+    if (provider === 'facebook') {
       if (!this.facebookAuth) throw new BadRequestException('Facebook OAuth is not configured');
-      // DTO guarantees either idToken (Limited Login) or accessToken (classic) is present.
       const token = dto.idToken || dto.accessToken;
       if (!token) throw new BadRequestException('Either idToken or accessToken is required for facebook');
 
-      // Service layer expects idToken parameter (maps accessToken -> idToken internally for Facebook classic)
-      return await this.facebookAuth.verifyToken({
-        provider: dto.provider,
-        idToken: token,
-        accessToken: dto.accessToken,
-        profileData: dto.profileData,
-      });
+      return await this.facebookAuth.verifyToken(dto);
     }
 
     throw new BadRequestException(`Unsupported provider: ${provider}`);

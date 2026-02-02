@@ -27,10 +27,15 @@ A    demo.nauth.dev    -> YOUR_SERVER_IP
 
 ## Your .env is Safe
 
+Use a **single** `.env` in `examples/` (next to `docker-compose.yml`).  
+Docker Compose loads it automatically when you run from `examples/`.
+
 `./start.sh` will NOT overwrite existing `.env` file.  
 Only generates secrets if `.env` doesn't exist.
 
-Your Google OAuth config in `.env` is safe! ✓
+- Backend and frontend **build args** (e.g. `RECAPTCHA_ENTERPRISE_SITE_KEY`, `API_BASE_URL`) come from this `.env`.
+- Set `RECAPTCHA_ENTERPRISE_SITE_KEY` in `examples/.env` when reCAPTCHA is enabled, then rebuild the frontend: `docker compose build --no-cache frontend && docker compose up -d`.
+- Do not use a separate `.env` in `sample-angular/`; use `examples/.env` only.
 
 ## Add OAuth (Optional)
 

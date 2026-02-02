@@ -80,7 +80,7 @@ async function bootstrap() {
   const allowedOrigins = [
     process.env.FRONTEND_BASE_URL,
     ...(process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean),
-  ].filter(Boolean);
+  ].filter((origin): origin is string => origin !== undefined);
   
   // Add localhost for local development
   if (process.env.NODE_ENV !== 'production') {
@@ -93,6 +93,10 @@ async function bootstrap() {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id', 'x-csrf-token', 'x-device-token'],
   });
+
+  // Global API prefix: all routes served under /api (e.g. /api/auth/signup, /api/health)
+  app.setGlobalPrefix('api');
+
   const port = process.env.PORT || 3000;
 
   // Listen on all network interfaces so Android app can access it

@@ -25,23 +25,20 @@ const imports = [
   TypeOrmModule.forRoot({
     type: 'postgres',
     host: process.env.DB_HOST,
-    port: parseInt(process.env.DB_PORT!, 10),
+    port: parseInt(process.env.DB_PORT ?? '5432', 10),
     username: process.env.DB_USERNAME as string,
     password: process.env.DB_PASSWORD as string,
-    database: process.env.DB_DATABASE as string,
+    database: process.env.DB_DATABASE ?? 'nauth_sample',
     entities,
     logging: false,
   }),
 
   // Custom Auth Module (imports AuthModule internally)
   CustomAuthModule,
-];
 
-// Test Module (only active when NAUTH_TEST_MODE=true)
-// Provides endpoints: /test/reset, /test/config/apply, /test/sms/latest, /test/totp/secret
-if (process.env.NAUTH_TEST_MODE === 'true') {
-  imports.push(TestModule);
-}
+  // Test Module - code-fetching endpoints for E2E (e.g. /test/code/latest, /test/totp/secret)
+  TestModule,
+];
 
 @Module({
   imports,

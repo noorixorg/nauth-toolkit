@@ -1,32 +1,48 @@
+# Angular frontend - build args from examples/docker-compose.yml (values from examples/.env)
 # Build stage
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
 # Copy package files
-COPY package.json yarn.lock ./
+COPY package.json ./
+
+# Replace file: dependencies with latest npm versions for Docker build
+RUN sed -i 's|"@nauth-toolkit/client": "file:.*"|"@nauth-toolkit/client": "latest"|' package.json && \
+    sed -i 's|"@nauth-toolkit/client-angular": "file:.*"|"@nauth-toolkit/client-angular": "latest"|' package.json
 
 # Install dependencies
-RUN yarn install --frozen-lockfile
+RUN npm install --legacy-peer-deps
 
 # Copy source code
 COPY . .
 
-# Build arguments for environment configuration
-ARG API_BASE_URL
+# Build arguments for environment configuration (from docker-compose frontend build args)
+# ARG name -> environment.prod.ts property (must match Environment interface)
+# API_BASE_URL -> apiBaseUrl
+# RECAPTCHA_SITE_KEY -> recaptchaSiteKey (compose passes RECAPTCHA_ENTERPRISE_SITE_KEY)
+# RECAPTCHA_VERSION -> recaptchaVersion
+# RECAPTCHA_ENABLED -> recaptchaEnabled
+# TOKEN_MODE -> tokenMode
+ARG API_BASE_URL=https://demo.nauth.dev/api
 ARG RECAPTCHA_SITE_KEY
 ARG RECAPTCHA_VERSION=enterprise
+ARG RECAPTCHA_ENABLED=true
+ARG TOKEN_MODE=cookies
 
-# Create environment file from build args
-RUN echo "export const environment = {" > src/environments/environment.prod.ts && \
+# Create environment file from build args (must match Environment interface)
+RUN echo "import type { Environment } from './environment.interface';" > src/environments/environment.prod.ts && \
+    echo "export const environment: Environment = {" >> src/environments/environment.prod.ts && \
     echo "  production: true," >> src/environments/environment.prod.ts && \
     echo "  apiBaseUrl: '${API_BASE_URL}'," >> src/environments/environment.prod.ts && \
     echo "  recaptchaSiteKey: '${RECAPTCHA_SITE_KEY}'," >> src/environments/environment.prod.ts && \
     echo "  recaptchaVersion: '${RECAPTCHA_VERSION}' as 'v3' | 'enterprise'," >> src/environments/environment.prod.ts && \
+    echo "  tokenMode: '${TOKEN_MODE}' as 'cookies' | 'json'," >> src/environments/environment.prod.ts && \
+    echo "  recaptchaEnabled: ${RECAPTCHA_ENABLED}," >> src/environments/environment.prod.ts && \
     echo "};" >> src/environments/environment.prod.ts
 
 # Build Angular app
-RUN yarn build --configuration production
+RUN npm run build -- --configuration production
 
 # Production stage with Nginx
 FROM nginx:alpine AS production

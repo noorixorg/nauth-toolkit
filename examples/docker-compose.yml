@@ -1,4 +1,10 @@
-version: '3.8'
+# Default logging configuration for all services
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "30"
+    compress: "true"
 
 services:
   # PostgreSQL Database
@@ -6,12 +12,13 @@ services:
     image: postgres:16-alpine
     container_name: nauth-postgres
     restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - nauth_network
     environment:
       POSTGRES_DB: ${DB_DATABASE:-nauth_sample}
       POSTGRES_USER: ${DB_USERNAME:-nauth_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -20,15 +27,18 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis for session storage
-  redis:
-    image: redis:7-alpine
-    container_name: nauth-redis
+  # Dragonfly for session storage (Redis-compatible)
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+    container_name: nauth-dragonfly
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    logging: *default-logging
+    networks:
+      - nauth_network
     volumes:
-      - redis_data:/data
+      - dragonfly_data:/data
+    ulimits:
+      memlock: -1
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -42,8 +52,9 @@ services:
       dockerfile: Dockerfile
     container_name: nauth-backend
     restart: unless-stopped
-    expose:
-      - "3000"
+    logging: *default-logging
+    ports:
+      - "13005:3000"
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: 3000
@@ -52,7 +63,7 @@ services:
       DB_USERNAME: ${DB_USERNAME:-nauth_user}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_DATABASE: ${DB_DATABASE:-nauth_sample}
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://dragonfly:6379
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_ACCESS_TOKEN_EXPIRES_IN: ${JWT_ACCESS_TOKEN_EXPIRES_IN:-15m}
@@ -87,28 +98,35 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
+      dragonfly:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    networks:
+      - nauth_network
 
   # Angular Frontend
+  # Build args (from examples/.env) -> Dockerfile ARG -> environment.prod.ts
+  # API_BASE_URL, TOKEN_MODE: same name. RECAPTCHA_ENTERPRISE_SITE_KEY -> RECAPTCHA_SITE_KEY
   frontend:
     build:
       context: ./sample-angular
       dockerfile: Dockerfile
       args:
-        API_BASE_URL: ${API_BASE_URL}
+        API_BASE_URL: ${API_BASE_URL:-https://demo.nauth.dev/api}
         RECAPTCHA_SITE_KEY: ${RECAPTCHA_ENTERPRISE_SITE_KEY:-}
         RECAPTCHA_VERSION: ${RECAPTCHA_VERSION:-enterprise}
+        RECAPTCHA_ENABLED: ${RECAPTCHA_ENABLED:-true}
+        TOKEN_MODE: ${TOKEN_MODE:-cookies}
     container_name: nauth-frontend
     restart: unless-stopped
-    expose:
-      - "80"
+    logging: *default-logging
+    ports:
+      - "13006:80"
     depends_on:
       - backend
     healthcheck:
@@ -117,30 +135,13 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
-
-  # Caddy reverse proxy with automatic HTTPS
-  caddy:
-    image: caddy:2-alpine
-    container_name: nauth-caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - backend
-      - frontend
-    environment:
-      FRONTEND_DOMAIN: ${FRONTEND_DOMAIN}
-      API_DOMAIN: ${API_DOMAIN}
-      CADDY_EMAIL: ${CADDY_EMAIL}
+    networks:
+      - nauth_network
 
 volumes:
   postgres_data:
-  redis_data:
-  caddy_data:
-  caddy_config:
+  dragonfly_data:
+
+networks:
+  nauth_network:
+    name: nauth_network

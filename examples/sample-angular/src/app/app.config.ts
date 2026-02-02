@@ -22,7 +22,8 @@ import { routes } from './app.routes';
 // ============================================================================
 type TokenMode = 'cookies' | 'json';
 
-const TOKEN_MODE: TokenMode = 'json'; // ← Change this to match your use case
+// Read from environment configuration (injected during Docker build)
+const TOKEN_MODE: TokenMode = environment.tokenMode;
 
 /**
  * Smart config builder that automatically adjusts endpoints, CSRF, and redirects based on token delivery mode
@@ -51,9 +52,9 @@ const buildNAuthConfig = (mode: TokenMode): NAuthClientConfig => {
     tokenDelivery: mode,
     debug: true,
     recaptcha: {
-      enabled: false,
+      enabled: environment.recaptchaEnabled && !!environment.recaptchaSiteKey,
       version: 'enterprise' as const,
-      siteKey: environment.recaptchaSiteKey,
+      siteKey: environment.recaptchaSiteKey || '',
       action: 'login',
       autoLoadScript: true,
     },

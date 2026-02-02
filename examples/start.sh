@@ -33,6 +33,10 @@ else
     echo ""
 fi
 
-# Start docker-compose
-echo "Starting services..."
+# Prune dangling images, then build and start
+echo "Pruning dangling images..."
+docker image prune -f
+
+echo "Building and starting services..."
+docker-compose build --no-cache
 docker-compose up -d "$@"

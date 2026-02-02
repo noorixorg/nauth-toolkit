@@ -346,11 +346,17 @@ export const authConfig: NAuthModuleConfig = {
 
   recaptcha: {
     enabled: process.env.RECAPTCHA_ENABLED === 'true',
-    provider: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID ? new RecaptchaEnterpriseProvider({
-      projectId: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID,
-      apiKey: process.env.RECAPTCHA_ENTERPRISE_API_KEY!, // API key (AIza...), NOT site key
-      siteKey: process.env.RECAPTCHA_ENTERPRISE_SITE_KEY!, // Site key (6L...)
-    }) : undefined,
+    provider: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID 
+      ? new RecaptchaEnterpriseProvider({
+          projectId: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID,
+          apiKey: process.env.RECAPTCHA_ENTERPRISE_API_KEY!, // API key (AIza...), NOT site key
+          siteKey: process.env.RECAPTCHA_ENTERPRISE_SITE_KEY!, // Site key (6L...)
+        }) 
+      : new RecaptchaEnterpriseProvider({
+          projectId: 'default',
+          apiKey: 'default',
+          siteKey: 'default',
+        }),
     minimumScore: 0.7, // Minimum score (0-1) for v3/Enterprise
   },
   session: {
