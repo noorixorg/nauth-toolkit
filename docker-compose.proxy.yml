@@ -1,0 +1,19 @@
+services:
+  # Nginx Proxy Manager for SSL/TLS management
+  proxy:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nauth-proxy
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '81:81' # Admin interface
+    volumes:
+      - proxy-data:/data
+      - proxy-ssl:/etc/letsencrypt
+    environment:
+      DB_SQLITE_FILE: '/data/database.sqlite'
+
+volumes:
+  proxy-data:
+  proxy-ssl:

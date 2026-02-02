@@ -75,18 +75,18 @@ async function bootstrap() {
   // Enable global validation pipe for all DTOs
   // Validates request bodies using nauth-toolkit's stable error contract
   app.useGlobalPipes(new NAuthValidationPipe());
-  
+
   // CORS configuration from environment
   const allowedOrigins = [
     process.env.FRONTEND_BASE_URL,
     ...(process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean),
   ].filter((origin): origin is string => origin !== undefined);
-  
+
   // Add localhost for local development
   if (process.env.NODE_ENV !== 'production') {
     allowedOrigins.push('http://localhost:4200', 'http://localhost:3000');
   }
-  
+
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,

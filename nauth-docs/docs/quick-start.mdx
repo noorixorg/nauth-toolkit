@@ -233,21 +233,12 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
-  // Public + AuthGuard = optional auth
-  // - If the request has a valid token, `@CurrentUser()` is populated.
-  // - If the user is already logged out/expired, the endpoint still succeeds and clears cookies (cookies/hybrid mode).
-  @Public()
-  @UseGuards(AuthGuard)
   @Get('logout')
-  async logout(@CurrentUser() user: IUser | undefined, @Query('forgetMe') forgetMe?: string) {
-    const dto = new LogoutDTO();
-    if (forgetMe === 'true' || forgetMe === '1') {
-      dto.forgetMe = true;
-    }
-    if (user) {
-      dto.sub = user.sub;
-    }
-    return this.authService.logout(dto);
+  @HttpCode(HttpStatus.OK)
+  async logout(@Query() dto: LogoutDTO): Promise<LogoutResponseDTO> {
+    // Session ID is automatically extracted from JWT token context by the library
+    // Automatically clears cookies via ClientInfoService context
+    return await this.authService.logout(dto);
   }
 
   @UseGuards(AuthGuard)

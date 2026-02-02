@@ -21,16 +21,17 @@ Done. Auto-generates secrets (only if .env doesn't exist), starts everything.
 ## DNS Required
 
 Point ONE domain to your server:
+
 ```
 A    demo.nauth.dev    -> YOUR_SERVER_IP
 ```
 
 ## Your .env is Safe
 
-Use a **single** `.env` in `examples/` (next to `docker-compose.yml`).  
+Use a **single** `.env` in `examples/` (next to `docker-compose.yml`).
 Docker Compose loads it automatically when you run from `examples/`.
 
-`./start.sh` will NOT overwrite existing `.env` file.  
+`./start.sh` will NOT overwrite existing `.env` file.
 Only generates secrets if `.env` doesn't exist.
 
 - Backend and frontend **build args** (e.g. `RECAPTCHA_ENTERPRISE_SITE_KEY`, `API_BASE_URL`) come from this `.env`.
@@ -42,6 +43,7 @@ Only generates secrets if `.env` doesn't exist.
 Your `.env` already has Google OAuth configured! ✓
 
 To add more:
+
 ```bash
 # Edit examples/.env
 APPLE_SERVICE_ID=...
@@ -61,6 +63,7 @@ docker-compose down           # Stop
 ## Email/SMS Testing
 
 Emails and SMS codes print to backend logs:
+
 ```bash
 docker-compose logs -f backend | grep "Email\|SMS"
 ```

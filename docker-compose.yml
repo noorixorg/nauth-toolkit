@@ -1,0 +1,133 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: nauth-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-nauth_sample}
+      POSTGRES_USER: ${DB_USERNAME:-nauth_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    ports:
+      - '${DB_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME:-nauth_user}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for session storage
+  redis:
+    image: redis:7-alpine
+    container_name: nauth-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # NestJS Backend
+  backend:
+    build:
+      context: ./examples/sample-nestjs
+      dockerfile: Dockerfile
+    container_name: nauth-backend
+    restart: unless-stopped
+    ports:
+      - '${PORT:-3000}:3000'
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3000
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-nauth_user}
+      DB_PASSWORD: ${DB_PASSWORD:-changeme}
+      DB_DATABASE: ${DB_DATABASE:-nauth_sample}
+      # Redis
+      REDIS_URL: redis://redis:6379
+      # JWT
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JWT_ACCESS_TOKEN_EXPIRES_IN: ${JWT_ACCESS_TOKEN_EXPIRES_IN:-15m}
+      JWT_REFRESH_TOKEN_EXPIRES_IN: ${JWT_REFRESH_TOKEN_EXPIRES_IN:-7d}
+      # App Branding
+      APP_NAME: ${APP_NAME:-Nauth Demo}
+      COMPANY_NAME: ${COMPANY_NAME:-Nauth Company}
+      SUPPORT_EMAIL: ${SUPPORT_EMAIL:-support@example.com}
+      LOGO_URL: ${LOGO_URL}
+      DASHBOARD_URL: ${DASHBOARD_URL}
+      BRAND_COLOR: ${BRAND_COLOR:-#4f46e5}
+      # Social OAuth - Google
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_IOS_CLIENT_ID: ${GOOGLE_IOS_CLIENT_ID}
+      # Social OAuth - Apple
+      APPLE_SERVICE_ID: ${APPLE_SERVICE_ID}
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID}
+      APPLE_KEY_ID: ${APPLE_KEY_ID}
+      APPLE_P8_KEY: ${APPLE_P8_KEY}
+      # Social OAuth - Facebook
+      FACEBOOK_CLIENT_ID: ${FACEBOOK_CLIENT_ID}
+      FACEBOOK_CLIENT_SECRET: ${FACEBOOK_CLIENT_SECRET}
+      # MaxMind GeoIP
+      MAXMIND_LICENSE_KEY: ${MAXMIND_LICENSE_KEY}
+      MAXMIND_ACCOUNT_ID: ${MAXMIND_ACCOUNT_ID}
+      # Passkey
+      PASSKEY_TIMEOUT: ${PASSKEY_TIMEOUT:-60000}
+      # URLs (environment-specific)
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL}
+      API_BASE_URL: ${API_BASE_URL}
+      PASSKEY_RP_ID: ${PASSKEY_RP_ID}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN}
+      # reCAPTCHA
+      RECAPTCHA_ENABLED: ${RECAPTCHA_ENABLED:-false}
+      RECAPTCHA_ENTERPRISE_PROJECT_ID: ${RECAPTCHA_ENTERPRISE_PROJECT_ID}
+      RECAPTCHA_ENTERPRISE_API_KEY: ${RECAPTCHA_ENTERPRISE_API_KEY}
+      RECAPTCHA_ENTERPRISE_SITE_KEY: ${RECAPTCHA_ENTERPRISE_SITE_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:3000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Angular Frontend
+  frontend:
+    build:
+      context: ./examples/sample-angular
+      dockerfile: Dockerfile
+      args:
+        API_BASE_URL: ${API_BASE_URL}
+        RECAPTCHA_SITE_KEY: ${RECAPTCHA_ENTERPRISE_SITE_KEY:-}
+        RECAPTCHA_VERSION: ${RECAPTCHA_VERSION:-enterprise}
+    container_name: nauth-frontend
+    restart: unless-stopped
+    ports:
+      - '4200:80'
+    depends_on:
+      - backend
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  postgres_data:
+  redis_data:
