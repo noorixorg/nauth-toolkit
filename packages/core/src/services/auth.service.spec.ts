@@ -1308,7 +1308,55 @@ describe('AuthService', () => {
 
         await service.login({ identifier: 'test@example.com', password: 'password' });
 
-        expect(queryBuilder.where).toHaveBeenCalledWith('user.email = :identifier', { identifier: 'test@example.com' });
+        expect(queryBuilder.where).toHaveBeenCalledWith('user.email = :emailIdentifier', { 
+          emailIdentifier: 'test@example.com' 
+        });
+      });
+
+      it('should find user by email with case-insensitive matching', async () => {
+        const queryBuilder = {
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(mockUser),
+        };
+        mockUserRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+        mockAccountLockoutStorage.isAccountLocked.mockResolvedValue(false);
+        mockPasswordService.verifyPassword.mockResolvedValue(true);
+        mockAccountLockoutStorage.resetFailedAttempts.mockResolvedValue(undefined);
+        mockJwtService.generateTokenFamily.mockReturnValue('family-abc');
+        mockJwtService.generateTokenPair.mockResolvedValue({
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+          expiresIn: 900,
+        });
+        mockJwtService.hashToken.mockReturnValue('token-hash');
+        mockJwtService.validateAccessToken.mockResolvedValue({
+          valid: true,
+          payload: { exp: Math.floor(Date.now() / 1000) + 900 },
+        } as any);
+        mockJwtService.validateRefreshToken.mockResolvedValue({
+          valid: true,
+          payload: { exp: Math.floor(Date.now() / 1000) + 604800 },
+        } as any);
+        mockSessionService.createSessionAtomic.mockResolvedValue({
+          session: mockSession,
+          extra: {
+            accessToken: 'access-token',
+            refreshToken: 'refresh-token',
+          },
+        } as any);
+        mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
+        mockLoginAttemptRepository.create.mockReturnValue({} as any);
+        mockLoginAttemptRepository.save.mockResolvedValue({} as any);
+
+        // Login with MIXED CASE email
+        await service.login({ identifier: 'Test@Example.COM', password: 'password' });
+
+        // Should normalize to lowercase before querying
+        expect(queryBuilder.where).toHaveBeenCalledWith('user.email = :emailIdentifier', { 
+          emailIdentifier: 'test@example.com' 
+        });
       });
 
       it('should find user by username when identifierType is email_or_username', async () => {
@@ -1351,8 +1399,54 @@ describe('AuthService', () => {
 
         await service.login({ identifier: 'testuser', password: 'password' });
 
-        expect(queryBuilder.where).toHaveBeenCalled();
-        expect(queryBuilder.orWhere).toHaveBeenCalled();
+        expect(queryBuilder.where).toHaveBeenCalledWith('user.email = :identifier', { identifier: 'testuser' });
+        expect(queryBuilder.orWhere).toHaveBeenCalledWith('user.username = :identifier', { identifier: 'testuser' });
+      });
+
+      it('should find user by username with case-insensitive matching', async () => {
+        mockConfig.login!.identifierType = 'email_or_username';
+        const queryBuilder = {
+          where: jest.fn().mockReturnThis(),
+          orWhere: jest.fn().mockReturnThis(),
+          select: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(mockUser),
+        };
+        mockUserRepository.createQueryBuilder.mockReturnValue(queryBuilder as any);
+        mockAccountLockoutStorage.isAccountLocked.mockResolvedValue(false);
+        mockPasswordService.verifyPassword.mockResolvedValue(true);
+        mockAccountLockoutStorage.resetFailedAttempts.mockResolvedValue(undefined);
+        mockJwtService.generateTokenFamily.mockReturnValue('family-abc');
+        mockJwtService.generateTokenPair.mockResolvedValue({
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+          expiresIn: 900,
+        });
+        mockJwtService.hashToken.mockReturnValue('token-hash');
+        mockJwtService.validateAccessToken.mockResolvedValue({
+          valid: true,
+          payload: { exp: Math.floor(Date.now() / 1000) + 900 },
+        } as any);
+        mockJwtService.validateRefreshToken.mockResolvedValue({
+          valid: true,
+          payload: { exp: Math.floor(Date.now() / 1000) + 604800 },
+        } as any);
+        mockSessionService.createSessionAtomic.mockResolvedValue({
+          session: mockSession,
+          extra: {
+            accessToken: 'access-token',
+            refreshToken: 'refresh-token',
+          },
+        } as any);
+        mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
+        mockLoginAttemptRepository.create.mockReturnValue({} as any);
+        mockLoginAttemptRepository.save.mockResolvedValue({} as any);
+
+        // Login with MIXED CASE username
+        await service.login({ identifier: 'TestUser', password: 'password' });
+
+        // Should normalize to lowercase before querying
+        expect(queryBuilder.where).toHaveBeenCalledWith('user.email = :identifier', { identifier: 'testuser' });
+        expect(queryBuilder.orWhere).toHaveBeenCalledWith('user.username = :identifier', { identifier: 'testuser' });
       });
 
       it('should throw NAuthException when identifierType is email but username provided', async () => {

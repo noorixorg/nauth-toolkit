@@ -332,6 +332,16 @@ export enum AuthAuditEventType {
    */
   USERNAME_CHANGED = 'USERNAME_CHANGED',
 
+  /**
+   * Email verification status updated by admin
+   */
+  EMAIL_VERIFICATION_STATUS_UPDATED = 'EMAIL_VERIFICATION_STATUS_UPDATED',
+
+  /**
+   * Phone verification status updated by admin
+   */
+  PHONE_VERIFICATION_STATUS_UPDATED = 'PHONE_VERIFICATION_STATUS_UPDATED',
+
   // ============================================================================
   // Social Authentication Events
   // ============================================================================

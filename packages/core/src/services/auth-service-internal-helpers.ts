@@ -989,6 +989,11 @@ export class AuthServiceInternalHelpers {
    * Performs a lookup for a user by email, username, or phone number.
    * The search respects the identifierType restriction when provided, limiting which fields are queried.
    *
+   * **Case Sensitivity:**
+   * - Email: Case-insensitive (normalized to lowercase, matches signup behavior)
+   * - Username: Case-insensitive (normalized to lowercase, matches signup behavior)
+   * - Phone: Case-sensitive (no normalization)
+   *
    * @param identifier - Login credential (email, username, or phone)
    * @param identifierType - Restricts search to a specific identifier type ('email', 'username', 'phone', or 'email_or_username')
    * @returns The user entity if found, otherwise null
@@ -997,31 +1002,43 @@ export class AuthServiceInternalHelpers {
     identifier: string,
     identifierType?: 'email' | 'username' | 'phone' | 'email_or_username',
   ): Promise<IUser | null> {
+    // ============================================================================
+    // Normalize Identifier for Case-Insensitive Lookup
+    // ============================================================================
+    // WHY: Emails and usernames are stored in lowercase (see SignupDTO @Transform).
+    // Login must normalize before querying to ensure case-insensitive matching.
+    //
+    // Phone numbers are NOT normalized (remain case-sensitive/as-provided).
+    const trimmedIdentifier = identifier.trim();
+    const normalizedIdentifier = identifierType === 'phone' ? trimmedIdentifier : trimmedIdentifier.toLowerCase();
+
     const queryBuilder = this.userRepository.createQueryBuilder('user');
 
     // Build query based on identifier type restriction
     if (!identifierType) {
       // No restriction - search all fields
+      // Email and username use normalized (lowercase) identifier
+      // Phone uses original trimmed identifier
       queryBuilder
-        .where('user.email = :identifier', { identifier })
-        .orWhere('user.username = :identifier', { identifier })
-        .orWhere('user.phone = :identifier', { identifier });
+        .where('user.email = :emailIdentifier', { emailIdentifier: normalizedIdentifier })
+        .orWhere('user.username = :usernameIdentifier', { usernameIdentifier: normalizedIdentifier })
+        .orWhere('user.phone = :phoneIdentifier', { phoneIdentifier: trimmedIdentifier });
     } else {
       // Apply restriction based on identifier type
       switch (identifierType) {
         case 'email':
-          queryBuilder.where('user.email = :identifier', { identifier });
+          queryBuilder.where('user.email = :identifier', { identifier: normalizedIdentifier });
           break;
         case 'username':
-          queryBuilder.where('user.username = :identifier', { identifier });
+          queryBuilder.where('user.username = :identifier', { identifier: normalizedIdentifier });
           break;
         case 'phone':
-          queryBuilder.where('user.phone = :identifier', { identifier });
+          queryBuilder.where('user.phone = :identifier', { identifier: trimmedIdentifier });
           break;
         case 'email_or_username':
           queryBuilder
-            .where('user.email = :identifier', { identifier })
-            .orWhere('user.username = :identifier', { identifier });
+            .where('user.email = :identifier', { identifier: normalizedIdentifier })
+            .orWhere('user.username = :identifier', { identifier: normalizedIdentifier });
           break;
       }
     }

@@ -969,11 +969,9 @@ export class UserService {
         try {
           await this.auditService.recordEvent({
             userId: user.id,
-            eventType: AuthAuditEventType.EMAIL_VERIFIED,
-            eventStatus: dto.isEmailVerified ? 'SUCCESS' : 'INFO',
-            description: dto.isEmailVerified
-              ? 'Email verification status set to verified (admin action)'
-              : 'Email verification status set to unverified (admin action)',
+            eventType: AuthAuditEventType.EMAIL_VERIFICATION_STATUS_UPDATED,
+            eventStatus: 'SUCCESS',
+            description: 'Email verification status updated by admin',
             reason: 'admin_verification_update',
             metadata: {
               previousStatus: user.isEmailVerified,
@@ -985,7 +983,7 @@ export class UserService {
         } catch (auditError) {
           // Non-blocking: Log but continue
           const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-          this.logger?.error?.(`Failed to record EMAIL_VERIFIED audit event: ${errorMessage}`, {
+          this.logger?.error?.(`Failed to record EMAIL_VERIFICATION_STATUS_UPDATED audit event: ${errorMessage}`, {
             error: auditError,
             userId: user.id,
           });
@@ -997,11 +995,9 @@ export class UserService {
         try {
           await this.auditService.recordEvent({
             userId: user.id,
-            eventType: AuthAuditEventType.PHONE_VERIFIED,
-            eventStatus: dto.isPhoneVerified ? 'SUCCESS' : 'INFO',
-            description: dto.isPhoneVerified
-              ? 'Phone verification status set to verified (admin action)'
-              : 'Phone verification status set to unverified (admin action)',
+            eventType: AuthAuditEventType.PHONE_VERIFICATION_STATUS_UPDATED,
+            eventStatus: 'SUCCESS',
+            description: 'Phone verification status updated by admin',
             reason: 'admin_verification_update',
             metadata: {
               previousStatus: user.isPhoneVerified,
@@ -1013,7 +1009,7 @@ export class UserService {
         } catch (auditError) {
           // Non-blocking: Log but continue
           const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-          this.logger?.error?.(`Failed to record PHONE_VERIFIED audit event: ${errorMessage}`, {
+          this.logger?.error?.(`Failed to record PHONE_VERIFICATION_STATUS_UPDATED audit event: ${errorMessage}`, {
             error: auditError,
             userId: user.id,
           });
