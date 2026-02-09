@@ -241,15 +241,65 @@ export class GeoLocationService {
   }
 
   /**
+   * Reload MaxMind database files from disk
+   *
+   * Reloads .mmdb files from the configured dbPath without downloading.
+   * Useful when database files are managed externally (e.g., via geoipupdate,
+   * cron jobs, or container volume updates).
+   *
+   * This method will:
+   * - Attempt to load GeoLite2-City.mmdb
+   * - Attempt to load GeoLite2-Country.mmdb
+   * - Replace in-memory database readers with newly loaded ones
+   * - Log warnings if no database files are found
+   *
+   * Safe to call repeatedly - if files haven't changed, it just reloads the same data.
+   *
+   * @example
+   * ```typescript
+   * // After external process updates database files
+   * await geoLocationService.reloadGeoLocationDatabaseFromDisk();
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // In a NestJS scheduled job
+   * @Cron('0 0 * * *')
+   * async reloadGeoDb() {
+   *   await this.geoLocationService.reloadGeoLocationDatabaseFromDisk();
+   * }
+   * ```
+   */
+  async reloadGeoLocationDatabaseFromDisk(): Promise<void> {
+    if (!this.config) {
+      throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'MaxMind configuration not provided');
+    }
+
+    if (!this.maxMindLib) {
+      throw new NAuthException(
+        AuthErrorCode.VALIDATION_FAILED,
+        'MaxMind library not available. Install @maxmind/geoip2-node peer dependency.',
+      );
+    }
+
+    await this.loadDatabaseFiles();
+    this.logger?.log?.('Reloaded MaxMind database files from disk');
+  }
+
+  /**
    * Update MaxMind GeoIP2 database files
    *
    * Downloads the latest database files from MaxMind using distributed locking
-   * to prevent concurrent downloads in multi-server deployments.
+   * to prevent concurrent downloads in multi-server deployments, then reloads
+   * the in-memory database readers.
    *
    * Uses storage adapter for distributed locking:
    * - Lock key: 'maxmind-db-update-lock'
    * - Lock TTL: 5 minutes (300 seconds)
    * - Only one server/process can download at a time
+   *
+   * After successful download, the in-memory database readers are automatically
+   * updated to use the new files.
    *
    * @throws {NAuthException} If MaxMind credentials are missing or download fails
    *

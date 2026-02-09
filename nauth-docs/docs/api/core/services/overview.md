@@ -53,6 +53,7 @@ import { AuthService } from '@nauth-toolkit/core';
 | ------------------------------------------ | --------------------------------------------------- |
 | [ClientInfoService](./client-info-service) | Extract IP address, user-agent, and session context |
 | [CsrfService](./csrf-service) | CSRF token generation and validation |
+| [GeoLocationService](./geo-location-service) | IP geolocation using MaxMind GeoIP2 (optional, requires configuration) |
 
 ## Multi-Factor Authentication
 

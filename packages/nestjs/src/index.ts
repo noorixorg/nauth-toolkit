@@ -80,6 +80,12 @@ export { NestJsLoggerAdapter } from './providers/nestjs-logger.adapter';
 export { CsrfService } from './services/csrf.service';
 
 /**
+ * Geolocation Service
+ * Re-exported for convenience - available when geoLocation.maxMind is configured
+ */
+export { GeoLocationService } from '@nauth-toolkit/core';
+
+/**
  * NestJS DTOs - Data Transfer Objects with class-validator
  */
 export * from './dto';

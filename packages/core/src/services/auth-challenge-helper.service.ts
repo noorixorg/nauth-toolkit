@@ -647,6 +647,35 @@ export class AuthChallengeHelperService {
       finalDeviceId = crypto.randomUUID();
     }
 
+    // ============================================================================
+    // Revoke Existing Sessions with Same DeviceId (Prevent Duplicates)
+    // ============================================================================
+    // When a user logs in with a persistent deviceToken (trusted device),
+    // revoke any existing sessions from that same device to prevent token confusion.
+    // This is safe because deviceToken is system-issued, not client-provided.
+    //
+    // Skip if finalDeviceId was randomly generated (no persistent device).
+    if (finalDeviceToken) {
+      try {
+        const revokedCount = await this.sessionService.revokeUserSessionsByDeviceId(
+          user.id,
+          finalDeviceId,
+          'New login on same device',
+        );
+        if (revokedCount > 0) {
+          this.logger?.log?.(
+            `Revoked ${revokedCount} existing session(s) with deviceId ${finalDeviceId} for user ${user.sub}`,
+          );
+        }
+      } catch (error) {
+        // Non-blocking: Log but continue with session creation
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger?.warn?.(`Failed to revoke existing sessions for deviceId ${finalDeviceId}: ${errorMessage}`, {
+          error,
+        });
+      }
+    }
+
     // Create session
     // Client info (ipAddress, ipCountry, ipCity, userAgent) automatically extracted from ClientInfoService
     const session = await this.sessionService.createSession({

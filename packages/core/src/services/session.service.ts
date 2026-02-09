@@ -801,6 +801,90 @@ export class SessionService {
   }
 
   /**
+   * Revoke all sessions for a user with a specific deviceId
+   *
+   * Used to prevent duplicate sessions when a user logs in on the same device.
+   * Only revokes active (non-revoked, non-expired) sessions to avoid unnecessary updates.
+   *
+   * @param userId - Internal user ID (integer)
+   * @param deviceId - Device identifier to match
+   * @param reason - Optional reason for revocation
+   * @returns Number of sessions revoked
+   *
+   * @example
+   * ```typescript
+   * // Revoke existing sessions before creating new one for same device
+   * const revokedCount = await sessionService.revokeUserSessionsByDeviceId(
+   *   user.id,
+   *   deviceId,
+   *   'New login on same device'
+   * );
+   * ```
+   */
+  async revokeUserSessionsByDeviceId(userId: number, deviceId: string, reason?: string): Promise<number> {
+    const now = new Date();
+
+    // Find active sessions with this deviceId
+    const sessions = await this.sessionRepository.find({
+      where: {
+        userId,
+        deviceId,
+        isRevoked: false,
+        expiresAt: MoreThan(now),
+      },
+    });
+
+    if (sessions.length === 0) {
+      return 0;
+    }
+
+    const sessionIds = sessions.map((s) => s.id);
+
+    // Revoke all matching sessions
+    const result = await this.sessionRepository.update(
+      { id: In(sessionIds) },
+      {
+        isRevoked: true,
+        revokedAt: new Date(),
+        revokeReason: reason || 'New login on same device',
+      },
+    );
+
+    const revokedCount = result.affected || 0;
+
+    // ============================================================================
+    // Audit: Record session revocations (summary event for same-device revocation)
+    // ============================================================================
+    if (revokedCount > 0) {
+      try {
+        await this.auditService?.recordEvent({
+          userId,
+          eventType: AuthAuditEventType.SESSION_REVOKED,
+          eventStatus: 'INFO',
+          reason: reason || 'New login on same device',
+          description: `Revoked ${revokedCount} session(s) with deviceId ${deviceId} due to new login on same device`,
+          // Client info automatically included from context
+          metadata: {
+            deviceId,
+            revokedCount,
+            sessionIds,
+          },
+        });
+      } catch (auditError) {
+        // Non-blocking: Log but continue
+        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to record SESSION_REVOKED audit event for deviceId revocation: ${errorMessage}`, {
+          error: auditError,
+          userId,
+          deviceId,
+        });
+      }
+    }
+
+    return revokedCount;
+  }
+
+  /**
    * Revoke all sessions in a token family (for reuse detection)
    */
   async revokeTokenFamily(tokenFamily: string, reason?: string): Promise<number> {

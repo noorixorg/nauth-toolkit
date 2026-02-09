@@ -47,6 +47,13 @@ export * from './services/phone-verification.service';
 export * from './services/client-info.service';
 
 /**
+ * Geolocation service
+ * Provides IP geolocation using MaxMind GeoIP2 database files
+ * Only available when geoLocation.maxMind is configured
+ */
+export { GeoLocationService } from './services/geo-location.service';
+
+/**
  * Authentication audit service
  * Logs and queries authentication events for security monitoring
  *

@@ -75,28 +75,18 @@ async function bootstrap() {
   // Enable global validation pipe for all DTOs
   // Validates request bodies using nauth-toolkit's stable error contract
   app.useGlobalPipes(new NAuthValidationPipe());
-
-  // CORS configuration from environment
-  const allowedOrigins = [
-    process.env.FRONTEND_BASE_URL,
-    ...(process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean),
-  ].filter((origin): origin is string => origin !== undefined);
-
-  // Add localhost for local development
-  if (process.env.NODE_ENV !== 'production') {
-    allowedOrigins.push('http://localhost:4200', 'http://localhost:3000');
-  }
-
   app.enableCors({
-    origin: allowedOrigins,
+    origin: [
+      'http://localhost:4200',
+      'http://192.168.50.39:4200',
+      'capacitor://localhost',
+      'ionic://localhost',
+      'https://angular.dev1.noorix.com',
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id', 'x-csrf-token', 'x-device-token'],
   });
-
-  // Global API prefix: all routes served under /api (e.g. /api/auth/signup, /api/health)
-  app.setGlobalPrefix('api');
-
   const port = process.env.PORT || 3000;
 
   // Listen on all network interfaces so Android app can access it

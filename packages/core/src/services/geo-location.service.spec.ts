@@ -390,6 +390,92 @@ describe('GeoLocationService', () => {
   });
 
   // ============================================================================
+  // reloadGeoLocationDatabaseFromDisk() Method
+  // ============================================================================
+
+  describe('reloadGeoLocationDatabaseFromDisk', () => {
+    beforeEach(() => {
+      service = new GeoLocationService(mockConfig as NAuthConfig, mockStorageAdapter, mockMaxMindLib, mockLogger);
+    });
+
+    it('should throw error when config not provided', async () => {
+      const serviceWithoutConfig = new GeoLocationService(
+        {} as NAuthConfig,
+        mockStorageAdapter,
+        mockMaxMindLib,
+        mockLogger,
+      );
+
+      try {
+        await serviceWithoutConfig.reloadGeoLocationDatabaseFromDisk();
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.message).toContain('MaxMind configuration not provided');
+      }
+    });
+
+    it('should throw error when MaxMind library not available', async () => {
+      const serviceWithoutLib = new GeoLocationService(mockConfig as NAuthConfig, mockStorageAdapter, null, mockLogger);
+
+      try {
+        await serviceWithoutLib.reloadGeoLocationDatabaseFromDisk();
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.message).toContain('MaxMind library not available');
+      }
+    });
+
+    it('should reload database files from disk', async () => {
+      // Spy on the private loadDatabaseFiles method
+      const loadSpy = jest.spyOn(service as any, 'loadDatabaseFiles').mockResolvedValue(undefined);
+
+      await service.reloadGeoLocationDatabaseFromDisk();
+
+      expect(loadSpy).toHaveBeenCalledTimes(1);
+      expect(mockLogger.log).toHaveBeenCalledWith('Reloaded MaxMind database files from disk');
+    });
+
+    it('should work with skipDownloads enabled', async () => {
+      const configWithSkipDownloads: Partial<NAuthConfig> = {
+        geoLocation: {
+          maxMind: {
+            dbPath: '/tmp/maxmind',
+            skipDownloads: true,
+          },
+        },
+      };
+
+      const serviceWithSkipDownloads = new GeoLocationService(
+        configWithSkipDownloads as NAuthConfig,
+        mockStorageAdapter,
+        mockMaxMindLib,
+        mockLogger,
+      );
+
+      const loadSpy = jest.spyOn(serviceWithSkipDownloads as any, 'loadDatabaseFiles').mockResolvedValue(undefined);
+
+      await serviceWithSkipDownloads.reloadGeoLocationDatabaseFromDisk();
+
+      expect(loadSpy).toHaveBeenCalledTimes(1);
+      expect(mockLogger.log).toHaveBeenCalledWith('Reloaded MaxMind database files from disk');
+    });
+
+    it('should handle load errors gracefully', async () => {
+      const loadError = new Error('Failed to load database');
+      jest.spyOn(service as any, 'loadDatabaseFiles').mockRejectedValue(loadError);
+
+      try {
+        await service.reloadGeoLocationDatabaseFromDisk();
+        fail('Should have thrown error');
+      } catch (error: any) {
+        expect(error.message).toBe('Failed to load database');
+      }
+    });
+  });
+
+  // ============================================================================
   // updateGeoLocationDatabase() Method
   // ============================================================================
 

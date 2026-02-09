@@ -950,6 +950,112 @@ describe('SessionService', () => {
     });
   });
 
+  describe('revokeUserSessionsByDeviceId', () => {
+    it('should revoke all active sessions with same deviceId', async () => {
+      const deviceId = 'device-uuid-123';
+      const sessions = [
+        { ...mockSession, id: 1, deviceId },
+        { ...mockSession, id: 2, deviceId },
+      ];
+      mockSessionRepository.find.mockResolvedValue(sessions as any);
+      mockSessionRepository.update.mockResolvedValue({ affected: 2 } as any);
+      mockAuditService.recordEvent.mockResolvedValue(null);
+
+      const count = await service.revokeUserSessionsByDeviceId(123, deviceId, 'New login on same device');
+
+      expect(mockSessionRepository.find).toHaveBeenCalledWith({
+        where: {
+          userId: 123,
+          deviceId,
+          isRevoked: false,
+          expiresAt: (expect as any).anything(),
+        },
+      });
+      expect(mockSessionRepository.update).toHaveBeenCalledWith(
+        { id: (expect as any).anything() },
+        {
+          isRevoked: true,
+          revokedAt: (expect as any).any(Date),
+          revokeReason: 'New login on same device',
+        },
+      );
+      expect(count).toBe(2);
+      expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          userId: 123,
+          eventType: AuthAuditEventType.SESSION_REVOKED,
+          reason: 'New login on same device',
+          description: 'Revoked 2 session(s) with deviceId device-uuid-123 due to new login on same device',
+          metadata: {
+            deviceId,
+            revokedCount: 2,
+            sessionIds: [1, 2],
+          },
+        }),
+      );
+    });
+
+    it('should return 0 if no active sessions with deviceId', async () => {
+      mockSessionRepository.find.mockResolvedValue([]);
+
+      const count = await service.revokeUserSessionsByDeviceId(123, 'device-uuid-456');
+
+      expect(count).toBe(0);
+      expect(mockSessionRepository.update).not.toHaveBeenCalled();
+      expect(mockAuditService.recordEvent).not.toHaveBeenCalled();
+    });
+
+    it('should use default reason if not provided', async () => {
+      const deviceId = 'device-uuid-789';
+      const session = { ...mockSession, id: 1, deviceId };
+      mockSessionRepository.find.mockResolvedValue([session] as any);
+      mockSessionRepository.update.mockResolvedValue({ affected: 1 } as any);
+      mockAuditService.recordEvent.mockResolvedValue(null);
+
+      await service.revokeUserSessionsByDeviceId(123, deviceId);
+
+      expect(mockSessionRepository.update).toHaveBeenCalledWith(
+        { id: (expect as any).anything() },
+        (expect as any).objectContaining({
+          revokeReason: 'New login on same device',
+        }),
+      );
+    });
+
+    it('should handle audit logging errors gracefully', async () => {
+      const deviceId = 'device-uuid-error';
+      mockSessionRepository.find.mockResolvedValue([mockSession] as any);
+      mockSessionRepository.update.mockResolvedValue({ affected: 1 } as any);
+      mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
+
+      const count = await service.revokeUserSessionsByDeviceId(123, deviceId);
+
+      expect(count).toBe(1);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to record SESSION_REVOKED audit event for deviceId revocation'),
+        expect.anything(),
+      );
+    });
+
+    it('should only revoke non-expired sessions', async () => {
+      const deviceId = 'device-uuid-expired-check';
+      
+      // The find query includes expiresAt: MoreThan(now)
+      // So expired sessions won't be in the results
+      mockSessionRepository.find.mockResolvedValue([]);
+
+      await service.revokeUserSessionsByDeviceId(123, deviceId);
+
+      expect(mockSessionRepository.find).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          where: (expect as any).objectContaining({
+            expiresAt: (expect as any).anything(),
+          }),
+        }),
+      );
+    });
+  });
+
   describe('revokeAllUserSessions', () => {
     it('should revoke all user sessions (global signout)', async () => {
       const sessions = [

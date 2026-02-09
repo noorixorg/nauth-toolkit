@@ -195,9 +195,11 @@ Only enable `autoDownloadOnStartup` if you're using a distributed storage adapte
 
 ### Option 2: Manual Update via API
 
-Call the `updateGeoLocationDatabase()` method programmatically:
+Call the `updateGeoLocationDatabase()` method to download and reload databases:
 
 ```typescript
+import { GeoLocationService } from '@nauth-toolkit/nestjs'; // or '@nauth-toolkit/core'
+
 // In your service or controller
 await geoLocationService.updateGeoLocationDatabase();
 ```
@@ -205,10 +207,19 @@ await geoLocationService.updateGeoLocationDatabase();
 Set up a cron job to call this periodically:
 
 ```typescript
-// Example: Update databases weekly
-@Cron('0 0 * * 0') // Every Sunday at midnight
-async updateMaxMindDatabases() {
-  await this.geoLocationService.updateGeoLocationDatabase();
+import { Injectable } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
+import { GeoLocationService } from '@nauth-toolkit/nestjs';
+
+@Injectable()
+export class GeoUpdateService {
+  constructor(private readonly geoLocationService: GeoLocationService) {}
+
+  // Update databases weekly
+  @Cron('0 0 * * 0') // Every Sunday at midnight
+  async updateMaxMindDatabases() {
+    await this.geoLocationService.updateGeoLocationDatabase();
+  }
 }
 ```
 
@@ -240,6 +251,30 @@ EOF
 # Update databases
 geoipupdate -d /app/data/maxmind
 ```
+
+**After external updates, reload the databases:**
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
+import { GeoLocationService } from '@nauth-toolkit/nestjs';
+
+@Injectable()
+export class GeoReloadService {
+  constructor(private readonly geoLocationService: GeoLocationService) {}
+
+  // Reload databases daily (after geoipupdate runs)
+  @Cron('0 1 * * *') // Every day at 1 AM
+  async reloadDatabases() {
+    // Reloads .mmdb files from disk without downloading
+    await this.geoLocationService.reloadGeoLocationDatabaseFromDisk();
+  }
+}
+```
+
+:::tip When to use reloadGeoLocationDatabaseFromDisk()
+Use `reloadGeoLocationDatabaseFromDisk()` when database files are managed externally (geoipupdate, container volumes, etc.). This method only reloads from disk without downloading, making it safe to call frequently even with `skipDownloads: true`.
+:::
 
 ## Performance Considerations
 
