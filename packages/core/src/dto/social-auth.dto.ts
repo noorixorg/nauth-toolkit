@@ -300,6 +300,31 @@ export class HandleCallbackDTO {
     return value;
   })
   state!: string;
+
+  /**
+   * Optional profile data from OAuth callback
+   *
+   * Used by providers (e.g., Apple) that send user profile data directly in the callback.
+   * Apple only sends this on the first sign-in with name fields.
+   *
+   * Validation:
+   * - Optional field
+   *
+   * @example
+   * ```typescript
+   * // Apple callback with user data
+   * {
+   *   code: 'abc123',
+   *   state: 'xyz789',
+   *   profileData: {
+   *     name: { firstName: 'John', lastName: 'Doe' },
+   *     email: 'user@privaterelay.appleid.com'
+   *   }
+   * }
+   * ```
+   */
+  @IsOptional()
+  profileData?: Record<string, unknown>;
 }
 
 /**

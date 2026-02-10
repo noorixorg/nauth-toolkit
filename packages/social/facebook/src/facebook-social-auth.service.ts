@@ -184,10 +184,15 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
    *
    * @param code - Authorization code from Facebook OAuth callback
    * @param _state - State parameter (validated by base class)
+   * @param _profileData - Optional profile data (not used by Facebook)
    * @returns User profile from Facebook
    * @protected
    */
-  protected async getOAuthProfile(code: string, _state: string): Promise<OAuthUserProfile> {
+  protected async getOAuthProfile(
+    code: string,
+    _state: string,
+    _profileData?: Record<string, unknown>,
+  ): Promise<OAuthUserProfile> {
     if (!this.oauthClient) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Facebook OAuth is not enabled');
     }

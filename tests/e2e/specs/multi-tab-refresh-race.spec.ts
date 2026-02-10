@@ -291,7 +291,7 @@ test.describe('Multi-Tab Refresh Race Condition', () => {
     console.log(`  nauth_csrf_token: ${finalCookies['nauth_csrf_token'] ? 'present' : 'CLEARED'}`);
 
     if (!hasRefreshToken || !hasAccessToken) {
-      console.log('\n*** BUG CONFIRMED: Cookies were cleared by the losing tab\'s response! ***');
+      console.log("\n*** BUG CONFIRMED: Cookies were cleared by the losing tab's response! ***");
       console.log('In a real browser, ALL tabs would now be logged out.');
       console.log('The user would be redirected to the login page.');
     }
@@ -340,12 +340,7 @@ test.describe('Multi-Tab Refresh Race Condition', () => {
 // ============================================================================
 // Helper: analyze the losing tab's response
 // ============================================================================
-function analyzeLoser(
-  tabName: string,
-  status: number,
-  body: Record<string, unknown>,
-  cookies: ParsedCookie[],
-): void {
+function analyzeLoser(tabName: string, status: number, body: Record<string, unknown>, cookies: ParsedCookie[]): void {
   console.log(`\n  ${tabName} status: ${status}`);
   console.log(`  ${tabName} error code: ${body['code'] || 'unknown'}`);
   console.log(`  ${tabName} message: ${body['message'] || 'unknown'}`);

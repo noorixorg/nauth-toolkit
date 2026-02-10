@@ -273,7 +273,87 @@ describe('AppleSocialAuthService', () => {
       expect(result.id).toBe('apple-user-id');
       expect(result.email).toBe('user@example.com');
       expect(result.verified).toBe(true);
+      expect(result.firstName).toBeNull();
+      expect(result.lastName).toBeNull();
       expect(mockOAuthClient.getUserProfile).not.toHaveBeenCalled();
+    });
+
+    it('should parse name from profileData when provided', async () => {
+      mockOAuthClient.exchangeCodeForToken.mockResolvedValue({ accessToken: 'at', idToken: 'it' });
+      (mockTokenVerifier.verifyAppleToken as jest.Mock).mockResolvedValue({
+        sub: 'apple-user-id',
+        email: 'user@example.com',
+        email_verified: true,
+        is_private_email: false,
+      } satisfies VerifiedAppleTokenProfile);
+
+      const profileData = {
+        name: {
+          firstName: 'Murtaza',
+          lastName: 'Nooruddin',
+        },
+        email: 'email@noorix.com',
+      };
+
+      const result = (await (
+        service as unknown as {
+          getOAuthProfile: (c: string, s: string, p?: Record<string, unknown>) => Promise<OAuthUserProfile>;
+        }
+      ).getOAuthProfile('code', 'state', profileData)) as OAuthUserProfile;
+
+      expect(result.id).toBe('apple-user-id');
+      expect(result.email).toBe('user@example.com');
+      expect(result.firstName).toBe('Murtaza');
+      expect(result.lastName).toBe('Nooruddin');
+      expect(result.verified).toBe(true);
+    });
+
+    it('should handle profileData with only firstName', async () => {
+      mockOAuthClient.exchangeCodeForToken.mockResolvedValue({ accessToken: 'at', idToken: 'it' });
+      (mockTokenVerifier.verifyAppleToken as jest.Mock).mockResolvedValue({
+        sub: 'apple-user-id',
+        email: 'user@example.com',
+        email_verified: true,
+        is_private_email: false,
+      } satisfies VerifiedAppleTokenProfile);
+
+      const profileData = {
+        name: {
+          firstName: 'John',
+        },
+      };
+
+      const result = (await (
+        service as unknown as {
+          getOAuthProfile: (c: string, s: string, p?: Record<string, unknown>) => Promise<OAuthUserProfile>;
+        }
+      ).getOAuthProfile('code', 'state', profileData)) as OAuthUserProfile;
+
+      expect(result.firstName).toBe('John');
+      expect(result.lastName).toBeNull();
+    });
+
+    it('should handle invalid profileData gracefully', async () => {
+      mockOAuthClient.exchangeCodeForToken.mockResolvedValue({ accessToken: 'at', idToken: 'it' });
+      (mockTokenVerifier.verifyAppleToken as jest.Mock).mockResolvedValue({
+        sub: 'apple-user-id',
+        email: 'user@example.com',
+        email_verified: true,
+        is_private_email: false,
+      } satisfies VerifiedAppleTokenProfile);
+
+      const profileData = {
+        name: 'not-an-object',
+      };
+
+      const result = (await (
+        service as unknown as {
+          getOAuthProfile: (c: string, s: string, p?: Record<string, unknown>) => Promise<OAuthUserProfile>;
+        }
+      ).getOAuthProfile('code', 'state', profileData)) as OAuthUserProfile;
+
+      expect(result.firstName).toBeNull();
+      expect(result.lastName).toBeNull();
     });
   });
 

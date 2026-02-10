@@ -102,17 +102,20 @@ export class CsrfHandler {
     // so browser clients can send the value back in the CSRF header.
     const csrfCookieOptions = this.csrfService.getCookieOptions();
 
-    // Build cookie options
-    const cookieOptions = {
-      // CSRF token is not a secret; it must be readable by JS to be sent as a header.
-      // If an app wants httpOnly CSRF (header-based acquisition), they can override via config.
+    // Build cookie options. CSRF cookie must be readable by the frontend (document.cookie) so it can
+    // be sent in x-csrf-token header. Use same domain as tokenDelivery when security.csrf.domain is unset.
+    const baseCookieOptions = {
       httpOnly: csrfCookieOptions.httpOnly ?? false,
       secure: this.config.tokenDelivery?.cookieOptions?.secure ?? true,
       sameSite: (this.config.tokenDelivery?.cookieOptions?.sameSite || 'strict') as 'strict' | 'lax' | 'none',
-      domain: this.config.tokenDelivery?.cookieOptions?.domain,
       path: '/',
       ...csrfCookieOptions,
     };
+    const domain =
+      baseCookieOptions.domain !== undefined && baseCookieOptions.domain !== ''
+        ? baseCookieOptions.domain
+        : this.config.tokenDelivery?.cookieOptions?.domain;
+    const cookieOptions = { ...baseCookieOptions, domain };
 
     // Set cookie
     res.setCookie(cookieName, token, cookieOptions);

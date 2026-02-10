@@ -175,12 +175,23 @@ export class SocialRedirectController {
     @Body() body: SocialCallbackFormDTO,
     @Req() req: FastifyRequest,
   ): Promise<{ url: string } & Partial<AuthResponseDTO>> {
+    // Parse Apple's user field if present (JSON string with name data)
+    let profileData: Record<string, unknown> | undefined;
+    if (body.user) {
+      try {
+        profileData = JSON.parse(body.user);
+      } catch {
+        // Ignore parse errors - profileData remains undefined
+      }
+    }
+
     const result = await this.socialRedirect.callback({
       provider,
       code: body.code,
       state: body.state,
       error: body.error,
       errorDescription: body.error_description,
+      profileData,
       req,
     });
     // NOTE: `authResponse` is optional and only present for cookies+token success.
@@ -279,12 +290,23 @@ export class SocialRedirectController {
     @Body() body: SocialCallbackFormDTO,
     @Req() req: FastifyRequest,
   ): Promise<{ url: string } & Partial<AuthResponseDTO>> {
+    // Parse Apple's user field if present (JSON string with name data)
+    let profileData: Record<string, unknown> | undefined;
+    if (body.user) {
+      try {
+        profileData = JSON.parse(body.user);
+      } catch {
+        // Ignore parse errors - profileData remains undefined
+      }
+    }
+
     const result = await this.socialRedirect.callback({
       provider,
       code: body.code,
       state: body.state,
       error: body.error,
       errorDescription: body.error_description,
+      profileData,
       req,
     });
     if (result.authResponse) {

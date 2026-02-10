@@ -434,4 +434,25 @@ export class SocialCallbackFormDTO {
   @MaxLength(2000)
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   prompt?: string;
+
+  /**
+   * Apple-specific: User profile data (name fields)
+   *
+   * Apple only sends this field on the first sign-in. Contains user's name if shared.
+   * Format: {"name":{"firstName":"John","lastName":"Doe"},"email":"user@example.com"}
+   *
+   * Validation:
+   * - Optional field
+   * - Max 4000 characters
+   *
+   * Sanitization:
+   * - Trimmed
+   *
+   * @example '{"name":{"firstName":"John","lastName":"Doe"},"email":"user@example.com"}'
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  user?: string;
 }

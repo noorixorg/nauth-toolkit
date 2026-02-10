@@ -165,8 +165,18 @@ export class GoogleSocialAuthService extends BaseSocialAuthProviderService imple
    * Get OAuth user profile from callback
    *
    * Exchanges authorization code for access token and fetches user profile.
+   *
+   * @param code - Authorization code from Google OAuth callback
+   * @param _state - State parameter (validated by base class)
+   * @param _profileData - Optional profile data (not used by Google)
+   * @returns User profile from Google
+   * @protected
    */
-  protected async getOAuthProfile(code: string, _state: string): Promise<OAuthUserProfile> {
+  protected async getOAuthProfile(
+    code: string,
+    _state: string,
+    _profileData?: Record<string, unknown>,
+  ): Promise<OAuthUserProfile> {
     if (!this.oauthClient) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Google OAuth is not enabled');
     }

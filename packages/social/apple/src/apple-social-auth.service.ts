@@ -353,10 +353,15 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
    *
    * @param code - Authorization code from Apple OAuth callback
    * @param _state - State parameter (validated by base class)
+   * @param profileData - Optional profile data from Apple's form_post (first-time signin only)
    * @returns User profile from Apple
    * @protected
    */
-  protected async getOAuthProfile(code: string, _state: string): Promise<OAuthUserProfile> {
+  protected async getOAuthProfile(
+    code: string,
+    _state: string,
+    profileData?: Record<string, unknown>,
+  ): Promise<OAuthUserProfile> {
     if (!this.oauthClient) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Apple OAuth is not enabled');
     }
@@ -387,11 +392,32 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
       throw new NAuthException(AuthErrorCode.SOCIAL_EMAIL_REQUIRED, 'Email is required and must be verified by Apple.');
     }
 
+    // ============================================================================
+    // Parse name from profileData (Apple form_post callback)
+    // ============================================================================
+    // Apple only sends the `user` field once during the first sign-in via form_post.
+    // Format: {"name":{"firstName":"John","lastName":"Doe"},"email":"user@example.com"}
+    let firstName: string | null = null;
+    let lastName: string | null = null;
+
+    if (profileData && typeof profileData === 'object') {
+      const name = (profileData as { name?: unknown }).name;
+      if (name && typeof name === 'object') {
+        const nameObj = name as { firstName?: unknown; lastName?: unknown };
+        if (typeof nameObj.firstName === 'string' && nameObj.firstName.trim()) {
+          firstName = nameObj.firstName.trim();
+        }
+        if (typeof nameObj.lastName === 'string' && nameObj.lastName.trim()) {
+          lastName = nameObj.lastName.trim();
+        }
+      }
+    }
+
     return {
       id: verified.sub,
       email: verified.email,
-      firstName: null, // Apple only returns name once (via callback profileData; not available in redirect-first flow today)
-      lastName: null,
+      firstName,
+      lastName,
       picture: null,
       verified: verified.email_verified,
       raw: {

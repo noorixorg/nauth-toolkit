@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/social-google",
-  "version": "0.1.125",
+  "version": "0.1.126",
   "description": "Google OAuth provider for nauth-toolkit",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -46,7 +46,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.125",
+    "@nauth-toolkit/core": "^0.1.126",
     "jose": "^6.0.0",
     "@nestjs/common": "^9 || ^10 || ^11"
   },

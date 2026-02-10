@@ -161,7 +161,7 @@ export const authConfig: NAuthModuleConfig = {
       cookieName: 'nauth_csrf_token',
       headerName: 'x-csrf-token',
       cookieOptions: {
-        domain: process.env.COOKIE_DOMAIN || undefined,
+        domain: '.angular.dev1.noorix.com',
       },
     },
   },
@@ -176,7 +176,8 @@ export const authConfig: NAuthModuleConfig = {
   },
   social: {
     redirect: {
-      frontendBaseUrl: process.env.FRONTEND_BASE_URL || 'http://localhost:4200',
+      // Where to redirect user after OAuth callback (must match where the frontend is served)
+      frontendBaseUrl: process.env.FRONTEND_BASE_URL || process.env.FRONTEND_URL || 'http://localhost:4200',
       allowAbsoluteReturnTo: false,
       allowedReturnToOrigins: getOriginsFromEnv(),
     },
@@ -195,15 +196,16 @@ export const authConfig: NAuthModuleConfig = {
       },
     },
     apple: {
-      enabled: !!process.env.APPLE_SERVICE_ID, // Enable Apple Sign-In if service ID is provided
-      clientId: process.env.APPLE_SERVICE_ID, // Apple Services ID (e.g., 'com.myapp.services')
+      enabled: true,
+      clientId: [process.env.APPLE_SERVICE_ID!, process.env.APPLE_CLIENT_ID!],
+
       // Apple requires a JWT client secret for web OAuth, which is automatically generated and refreshed
       // by the toolkit from your Apple Developer credentials below.
       // The JWT is stored in the database and refreshed when it has less than 30 days until expiration.
       teamId: process.env.APPLE_TEAM_ID, // Apple Developer Team ID (required for web OAuth)
       keyId: process.env.APPLE_KEY_ID, // Apple Key ID (kid) from your .p8 key (required for web OAuth)
       privateKeyPem: process.env.APPLE_P8_KEY, // Contents of your .p8 private key file in PEM format (required for web OAuth)
-      callbackUrl: `${process.env.API_BASE_URL || 'http://localhost:3000'}/social/apple/callback`, // Callback URL (must match provider registration)
+      callbackUrl: `${process.env.API_BASE_URL || 'http://localhost:3000'}/auth/social/apple/callback`, // Callback URL (must match provider registration)
       scopes: ['name', 'email'], // OAuth scopes (default: ['name', 'email'])
       autoLink: true, // Auto-link to existing users by verified email (default: true)
       allowSignup: true, // Allow new user creation (default: true)

@@ -144,7 +144,7 @@ export class SocialRedirectHandler {
 
     // Handle OAuth callback directly with provider
     const providerInstance = this.providerRegistry.getProvider(provider);
-    const authResponse = await providerInstance.handleCallback({ code, state });
+    const authResponse = await providerInstance.handleCallback({ code, state, profileData: input.profileData });
 
     const effective = ctx?.delivery || this.resolveEffectiveDelivery(input.req, undefined);
 
@@ -492,6 +492,8 @@ export interface SocialRedirectCallbackInput {
   state?: string;
   error?: string;
   errorDescription?: string;
+  /** Optional profile data from OAuth callback (e.g., Apple user field) */
+  profileData?: Record<string, unknown>;
   req?: unknown;
 }
 

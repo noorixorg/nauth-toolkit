@@ -119,10 +119,15 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
    *
    * @param code - Authorization code from OAuth callback
    * @param state - State parameter from OAuth callback
+   * @param profileData - Optional profile data from OAuth callback (e.g., Apple user field)
    * @returns OAuth user profile
    * @protected
    */
-  protected abstract getOAuthProfile(code: string, state: string): Promise<OAuthUserProfile>;
+  protected abstract getOAuthProfile(
+    code: string,
+    state: string,
+    profileData?: Record<string, unknown>,
+  ): Promise<OAuthUserProfile>;
 
   /**
    * Verify social authentication token from native mobile apps
@@ -177,7 +182,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
 
     try {
       // Get user profile from provider
-      const profile = await this.getOAuthProfile(dto.code, dto.state);
+      const profile = await this.getOAuthProfile(dto.code, dto.state, dto.profileData);
       this.logger?.log?.(`[SocialAuth] ${this.providerName} callback verified (secure): ${profile.email}`);
 
       // Find or create user
@@ -387,7 +392,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
    * @protected
    */
   async getUserProfileFromCallback(dto: HandleCallbackDTO): Promise<OAuthUserProfile> {
-    return this.getOAuthProfile(dto.code, dto.state);
+    return this.getOAuthProfile(dto.code, dto.state, dto.profileData);
   }
 
   // ============================================================================
