@@ -2238,6 +2238,8 @@ describe('AuthService', () => {
 
       it('should throw NAuthException if session not found', async () => {
         mockSessionService.findByRefreshToken.mockResolvedValue(null);
+        // Race-condition guard: session also not found by ID -- truly gone
+        mockSessionService.findByIdLight.mockResolvedValue(null);
 
         try {
           await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
@@ -2259,6 +2261,8 @@ describe('AuthService', () => {
         mockClientInfoService.getResponse.mockReturnValue({ clearCookie } as any);
 
         mockSessionService.findByRefreshToken.mockResolvedValue(null);
+        // Race-condition guard: session also not found by ID -- truly gone, so cookies should clear
+        mockSessionService.findByIdLight.mockResolvedValue(null);
 
         await expect(service.refreshToken(createRefreshTokenDto(mockRefreshToken))).rejects.toBeInstanceOf(NAuthException);
 
@@ -2270,6 +2274,8 @@ describe('AuthService', () => {
       it('should throw NAuthException if session is revoked', async () => {
         const revokedSession = { ...mockSession, isRevoked: true };
         mockSessionService.findByRefreshToken.mockResolvedValue(revokedSession);
+        // Race-condition guard: session found by ID but revoked -- still invalid
+        mockSessionService.findByIdLight.mockResolvedValue(revokedSession);
 
         try {
           await service.refreshToken(createRefreshTokenDto(mockRefreshToken));

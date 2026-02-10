@@ -23,12 +23,12 @@ const getOriginsFromEnv = (): string[] => {
   const frontend = process.env.FRONTEND_BASE_URL;
   const api = process.env.API_BASE_URL;
   const origins = [frontend, api].filter(Boolean) as string[];
-  
+
   // Add localhost for development
   if (process.env.NODE_ENV !== 'production') {
     origins.push('http://localhost:4200', 'http://localhost:3000');
   }
-  
+
   return origins;
 };
 
@@ -40,9 +40,9 @@ export const authConfig: NAuthModuleConfig = {
     algorithm: 'HS256',
     issuer: 'com.noorix.nauth',
     audience: ['web', 'mobile'],
-    accessToken: { 
-      secret: process.env.JWT_SECRET, 
-      expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRES_IN || '1h' 
+    accessToken: {
+      secret: process.env.JWT_SECRET,
+      expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRES_IN || '1h',
     },
     refreshToken: {
       secret: process.env.JWT_REFRESH_SECRET as string,
@@ -84,7 +84,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   mfa: {
-    enabled: true,
+    enabled: false,
     enforcement: 'REQUIRED',
     gracePeriod: 2,
     requireForSocialLogin: false,
@@ -148,9 +148,9 @@ export const authConfig: NAuthModuleConfig = {
       // - Must use secure: true (requires HTTPS)
       // - Must use sameSite: 'none' (allows cross-site cookie delivery)
       // - Domain must match both subdomains (use leading dot)
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      domain: process.env.COOKIE_DOMAIN || undefined,
+      secure: true,
+      sameSite: 'none',
+      domain: '.angular.dev1.noorix.com',
     },
   },
   security: {
@@ -242,7 +242,8 @@ export const authConfig: NAuthModuleConfig = {
       companyName: process.env.COMPANY_NAME || 'Nauth Company',
       supportEmail: process.env.SUPPORT_EMAIL || 'support@example.com',
       logoUrl: process.env.LOGO_URL,
-      dashboardUrl: process.env.DASHBOARD_URL || `${process.env.FRONTEND_BASE_URL || 'http://localhost:4200'}/dashboard`,
+      dashboardUrl:
+        process.env.DASHBOARD_URL || `${process.env.FRONTEND_BASE_URL || 'http://localhost:4200'}/dashboard`,
       brandColor: process.env.BRAND_COLOR || '#4f46e5',
       footerDisclaimer: process.env.FOOTER_DISCLAIMER, // Optional - uses default if not provided
     },
@@ -346,12 +347,12 @@ export const authConfig: NAuthModuleConfig = {
 
   recaptcha: {
     enabled: process.env.RECAPTCHA_ENABLED === 'true',
-    provider: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID 
+    provider: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID
       ? new RecaptchaEnterpriseProvider({
           projectId: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID,
           apiKey: process.env.RECAPTCHA_ENTERPRISE_API_KEY!, // API key (AIza...), NOT site key
           siteKey: process.env.RECAPTCHA_ENTERPRISE_SITE_KEY!, // Site key (6L...)
-        }) 
+        })
       : new RecaptchaEnterpriseProvider({
           projectId: 'default',
           apiKey: 'default',

@@ -1680,19 +1680,49 @@ export class AuthService {
       // CRITICAL: We need to get session ID for locking, but we must lock BEFORE validation
       // to prevent race conditions. So we do a quick, lightweight lookup first.
       // Find session by refresh token hash - this is fast and allows us to get session ID
-      const session = await this.sessionService.findByRefreshToken(tokenHash);
+      let session = await this.sessionService.findByRefreshToken(tokenHash);
 
       if (!session || session.isRevoked) {
-        // Validate token to get user info for error message
-        const validation = await this.jwtService.validateRefreshToken(refreshToken);
-        const userId = validation.payload?.sub || 'unknown';
-        this.logger?.debug?.(
-          `Session not found or revoked for user ${userId}. Possible issue where token are not cleared on logout`,
-        );
+        // ============================================================================
+        // RACE CONDITION GUARD: Multi-tab concurrent refresh handling
+        // ============================================================================
+        // When two tabs refresh simultaneously, Tab A rotates the token hash in the DB.
+        // Tab B then fails findByRefreshToken because the old hash no longer matches.
+        // Before assuming the session is truly gone, decode the JWT to get the sessionId
+        // and check if the session still exists. If it does, another tab already refreshed
+        // successfully. We fall through to the normal lock + reuse-detection path, which
+        // will recognise the stale token and return the current valid tokens gracefully.
+        // CRITICAL: we must NOT clear cookies here -- the browser already holds the valid
+        // new cookies from the winning tab's Set-Cookie response.
+        const tokenPayload = this.jwtService.decodeToken(refreshToken);
+        const tokenSessionId = tokenPayload?.sessionId;
+        const userId = tokenPayload?.sub || 'unknown';
 
-        // Best-effort: clear cookies in cookie/hybrid delivery so clients don't keep sending stale cookies.
-        this.clearAuthCookiesOnRefreshFailure(AuthErrorCode.SESSION_NOT_FOUND);
-        throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found or revoked');
+        if (tokenSessionId) {
+          const existingSession = (await this.sessionService.findByIdLight(
+            typeof tokenSessionId === 'string' ? parseInt(tokenSessionId, 10) : tokenSessionId,
+          )) as unknown as ISession | null;
+
+          if (existingSession && !existingSession.isRevoked) {
+            // Session is alive but the hash was rotated by a concurrent request.
+            // Treat this session as valid so we proceed into the lock+reuse path below.
+            this.logger?.debug?.(
+              `[REFRESH RACE] Token hash mismatch for session ${tokenSessionId}, user ${userId}. ` +
+                `Session is still valid -- another tab likely refreshed first. Falling through to lock+reuse path.`,
+            );
+            session = existingSession;
+          }
+        }
+
+        // If we still have no valid session after the race-condition check, the session
+        // truly does not exist or is revoked -- clear cookies to align client state.
+        if (!session || session.isRevoked) {
+          this.logger?.debug?.(
+            `Session not found or revoked for user ${userId}. Clearing cookies to prevent stale cookie loops.`,
+          );
+          this.clearAuthCookiesOnRefreshFailure(AuthErrorCode.SESSION_NOT_FOUND);
+          throw new NAuthException(AuthErrorCode.SESSION_NOT_FOUND, 'Session not found or revoked');
+        }
       }
 
       // Acquire distributed lock using SESSION ID (not token hash)

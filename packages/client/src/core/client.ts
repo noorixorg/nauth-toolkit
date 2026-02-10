@@ -257,10 +257,9 @@ export class NAuthClient {
       await this.tokenManager.assertHasRefreshToken();
     }
 
-    const body =
-      tokenDelivery === 'json'
-        ? { refreshToken: (await this.tokenManager.getTokens()).refreshToken }
-        : { refreshToken: '' };
+    // In cookies mode, the refresh token is in the httpOnly cookie -- no need to send it in the body.
+    // Sending an empty string is misleading and can confuse backend validation.
+    const body = tokenDelivery === 'json' ? { refreshToken: (await this.tokenManager.getTokens()).refreshToken } : {};
     const refreshFn = async () => {
       // In cookies mode, refresh token is sent via httpOnly cookie (no access token needed, auth=false)
       // In JSON mode, refresh token is in body (no access token needed, auth=false)
