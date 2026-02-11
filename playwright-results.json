@@ -11,7 +11,7 @@
     "grepInvert": null,
     "maxFailures": 0,
     "metadata": {
-      "actualWorkers": 3
+      "actualWorkers": 4
     },
     "preserveOutput": "always",
     "reporter": [
@@ -44,7 +44,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 3
+          "actualWorkers": 4
         },
         "id": "cookies",
         "name": "cookies",
@@ -60,7 +60,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 3
+          "actualWorkers": 4
         },
         "id": "json",
         "name": "json",
@@ -124,7 +124,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.322Z",
+                      "startTime": "2026-02-11T00:19:41.557Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -184,7 +184,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.323Z",
+                      "startTime": "2026-02-11T00:19:41.559Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -244,7 +244,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.323Z",
+                      "startTime": "2026-02-11T00:19:41.559Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -304,7 +304,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.323Z",
+                      "startTime": "2026-02-11T00:19:41.559Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -364,7 +364,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.324Z",
+                      "startTime": "2026-02-11T00:19:41.560Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -424,7 +424,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.324Z",
+                      "startTime": "2026-02-11T00:19:41.560Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -508,12 +508,12 @@
                           "workerIndex": 0,
                           "parallelIndex": 0,
                           "status": "passed",
-                          "duration": 705,
+                          "duration": 229,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:50.324Z",
+                          "startTime": "2026-02-11T00:19:41.560Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -610,16 +610,16 @@
                           "workerIndex": 0,
                           "parallelIndex": 0,
                           "status": "passed",
-                          "duration": 3265,
+                          "duration": 3318,
                           "errors": [],
                           "stdout": [
                             {
-                              "text": "Resend code succeeded: destination=t***3@example.com\n"
+                              "text": "Resend code succeeded: destination=test+1770769181632+295591498@example.com\n"
                             }
                           ],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:51.067Z",
+                          "startTime": "2026-02-11T00:19:41.840Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -671,7 +671,7 @@
                 },
                 {
                   "title": "3. Complete Phone Verification (if required)",
-                  "ok": false,
+                  "ok": true,
                   "tags": [
                     "email-phone",
                     "mfa-required"
@@ -724,40 +724,17 @@
                         {
                           "workerIndex": 0,
                           "parallelIndex": 0,
-                          "status": "failed",
-                          "duration": 3235,
-                          "error": {
-                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"MFA_SETUP_REQUIRED\"\u001b[39m\nReceived: \u001b[31mundefined\u001b[39m",
-                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"MFA_SETUP_REQUIRED\"\u001b[39m\nReceived: \u001b[31mundefined\u001b[39m\n    at /Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts:257:40",
-                            "location": {
-                              "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
-                              "column": 40,
-                              "line": 257
-                            },
-                            "snippet": "\u001b[0m \u001b[90m 255 |\u001b[39m               console\u001b[33m.\u001b[39merror(\u001b[32m'Expected MFA_SETUP_REQUIRED challenge but got:'\u001b[39m\u001b[33m,\u001b[39m \u001b[33mJSON\u001b[39m\u001b[33m.\u001b[39mstringify(body\u001b[33m,\u001b[39m \u001b[36mnull\u001b[39m\u001b[33m,\u001b[39m \u001b[35m2\u001b[39m))\u001b[33m;\u001b[39m\n \u001b[90m 256 |\u001b[39m             }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 257 |\u001b[39m             expect(body\u001b[33m.\u001b[39mchallengeName)\u001b[33m.\u001b[39mtoBe(\u001b[32m'MFA_SETUP_REQUIRED'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 258 |\u001b[39m             expect(body\u001b[33m.\u001b[39msession)\u001b[33m.\u001b[39mtoBeDefined()\u001b[33m;\u001b[39m\n \u001b[90m 259 |\u001b[39m             \u001b[90m// Store the MFA setup challenge session for next step\u001b[39m\n \u001b[90m 260 |\u001b[39m             flowState\u001b[33m.\u001b[39mchallengeSession \u001b[33m=\u001b[39m body\u001b[33m.\u001b[39msession\u001b[33m;\u001b[39m\u001b[0m"
-                          },
-                          "errors": [
-                            {
-                              "location": {
-                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
-                                "column": 40,
-                                "line": 257
-                              },
-                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"MFA_SETUP_REQUIRED\"\u001b[39m\nReceived: \u001b[31mundefined\u001b[39m\n\n\u001b[0m \u001b[90m 255 |\u001b[39m               console\u001b[33m.\u001b[39merror(\u001b[32m'Expected MFA_SETUP_REQUIRED challenge but got:'\u001b[39m\u001b[33m,\u001b[39m \u001b[33mJSON\u001b[39m\u001b[33m.\u001b[39mstringify(body\u001b[33m,\u001b[39m \u001b[36mnull\u001b[39m\u001b[33m,\u001b[39m \u001b[35m2\u001b[39m))\u001b[33m;\u001b[39m\n \u001b[90m 256 |\u001b[39m             }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 257 |\u001b[39m             expect(body\u001b[33m.\u001b[39mchallengeName)\u001b[33m.\u001b[39mtoBe(\u001b[32m'MFA_SETUP_REQUIRED'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 258 |\u001b[39m             expect(body\u001b[33m.\u001b[39msession)\u001b[33m.\u001b[39mtoBeDefined()\u001b[33m;\u001b[39m\n \u001b[90m 259 |\u001b[39m             \u001b[90m// Store the MFA setup challenge session for next step\u001b[39m\n \u001b[90m 260 |\u001b[39m             flowState\u001b[33m.\u001b[39mchallengeSession \u001b[33m=\u001b[39m body\u001b[33m.\u001b[39msession\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts:257:40\u001b[22m"
-                            }
-                          ],
+                          "status": "passed",
+                          "duration": 3107,
+                          "errors": [],
                           "stdout": [
                             {
-                              "text": "Resend code succeeded: destination=***-***-9682\n"
+                              "text": "Resend code succeeded: destination=+15557896936\n"
                             }
                           ],
-                          "stderr": [
-                            {
-                              "text": "Expected MFA_SETUP_REQUIRED challenge but got: {\n  \"authMethod\": \"password\",\n  \"trusted\": false,\n  \"user\": {\n    \"sub\": \"3d821288-0e11-485f-b716-810d14a35411\",\n    \"email\": \"test+1769239790394+946502953@example.com\",\n    \"firstName\": \"Diana\",\n    \"lastName\": \"Jones\",\n    \"phone\": \"+15558189682\",\n    \"isEmailVerified\": true,\n    \"isPhoneVerified\": true,\n    \"hasPasswordHash\": true\n  },\n  \"sub\": \"3d821288-0e11-485f-b716-810d14a35411\"\n}\n"
-                            }
-                          ],
+                          "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:54.354Z",
+                          "startTime": "2026-02-11T00:19:45.167Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -796,21 +773,10 @@
                               }
                             }
                           ],
-                          "attachments": [
-                            {
-                              "name": "trace",
-                              "contentType": "application/zip",
-                              "path": "/Users/noorix/development/nauth-toolkit/test-results/specs-auth-lifecycle-compl-a182b-e-Verification-if-required--cookies/trace.zip"
-                            }
-                          ],
-                          "errorLocation": {
-                            "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
-                            "column": 40,
-                            "line": 257
-                          }
+                          "attachments": []
                         }
                       ],
-                      "status": "unexpected"
+                      "status": "expected"
                     }
                   ],
                   "id": "68c0f7b4fc8ce30f3e44-39b3919f0c82040df012",
@@ -871,20 +837,57 @@
                       "projectName": "cookies",
                       "results": [
                         {
-                          "workerIndex": -1,
-                          "parallelIndex": -1,
-                          "status": "skipped",
-                          "duration": 0,
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 146,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:57.619Z",
-                          "annotations": [],
+                          "startTime": "2026-02-11T00:19:48.281Z",
+                          "annotations": [
+                            {
+                              "type": "testId",
+                              "description": "Config: email-phone-mfa-required-cookies",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 274,
+                                "column": 11
+                              }
+                            },
+                            {
+                              "type": "testDetails",
+                              "description": "Token Delivery: cookies | MFA: REQUIRED (grace: 0d)",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 274,
+                                "column": 11
+                              }
+                            },
+                            {
+                              "type": "testSteps",
+                              "description": "Get SMS code from /test/sms/latest → POST /auth/mfa/sms/verify-setup-challenge → POST /auth/challenges/complete. Only runs if MFA required with no grace period.",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 274,
+                                "column": 11
+                              }
+                            },
+                            {
+                              "type": "skipCondition",
+                              "description": "Skipped if MFA not required or grace period > 0",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 274,
+                                "column": 11
+                              }
+                            }
+                          ],
                           "attachments": []
                         }
                       ],
-                      "status": "skipped"
+                      "status": "expected"
                     }
                   ],
                   "id": "68c0f7b4fc8ce30f3e44-978c815140093c3a4dd9",
@@ -936,20 +939,73 @@
                       "projectName": "cookies",
                       "results": [
                         {
-                          "workerIndex": -1,
-                          "parallelIndex": -1,
-                          "status": "skipped",
-                          "duration": 0,
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 129,
                           "errors": [],
-                          "stdout": [],
+                          "stdout": [
+                            {
+                              "text": "Login response status: \u001b[33m200\u001b[39m\n"
+                            },
+                            {
+                              "text": "Set-Cookie headers found: \u001b[33m4\u001b[39m\n"
+                            },
+                            {
+                              "text": "Set-Cookie: nauth_access_token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJiYTYwYTU4YS1lZGRlLTQxYzgtYjE5OC02NGZhNDczYmMyODMiLCJlbWFpbCI6InRlc3QrMTc3MDc2OTE4MTYzMisyOTU1OTE0OThAZXhhbXBsZS5jb20iLCJ0eXBlIjoiYWNjZXNzIiwic2Vzc2lvbklkIjoiMjgyIiwidG9rZW5GYW1pbHkiOiJhNWE3OWQyZmU5YzQzYzhhMTMzNjRjMDFmOGUxODdiYWUxMjFhNDVjOWFhZWRjNjQ5YThjMTJhMTdlM2FjNWM3IiwiaWF0IjoxNzcwNzY5MTg4LCJleHAiOjE3NzA3NjkxOTMsImlzcyI6ImNvbS5ub29yaXgubmF1dGgiLCJhdWQiOlsid2ViIiwibW9iaWxlIl19.Xw4g4NNiGvNH2PHe9O1kzlwvhH5ngqqZE05LNgtp3MI; Max-Age=4; Domain=.angular.dev1.noorix.com; Path=/; Expires=Wed, 11 Feb 2026 00:19:53 GMT; HttpOnly; Secure; SameSite=None\n"
+                            },
+                            {
+                              "text": "Set-Cookie: nauth_refresh_token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJiYTYwYTU4YS1lZGRlLTQxYzgtYjE5OC02NGZhNDczYmMyODMiLCJlbWFpbCI6InRlc3QrMTc3MDc2OTE4MTYzMisyOTU1OTE0OThAZXhhbXBsZS5jb20iLCJ0eXBlIjoicmVmcmVzaCIsInNlc3Npb25JZCI6IjI4MiIsInRva2VuRmFtaWx5IjoiYTVhNzlkMmZlOWM0M2M4YTEzMzY0YzAxZjhlMTg3YmFlMTIxYTQ1YzlhYWVkYzY0OWE4YzEyYTE3ZTNhYzVjNyIsImlhdCI6MTc3MDc2OTE4OCwiZXhwIjoxNzcxMzczOTg4fQ.tB6I6uiA4HPFkvd38lgIpcr81mM2ZnYYIIJWQoZNZzE; Max-Age=604799; Domain=.angular.dev1.noorix.com; Path=/; Expires=Wed, 18 Feb 2026 00:19:48 GMT; HttpOnly; Secure; SameSite=None\n"
+                            },
+                            {
+                              "text": "Set-Cookie: nauth_device_token=1b2c76d7-787f-4598-a642-1cebb10aad69; Max-Age=2592000; Domain=.angular.dev1.noorix.com; Path=/; Expires=Fri, 13 Mar 2026 00:19:48 GMT; HttpOnly; Secure; SameSite=None\n"
+                            },
+                            {
+                              "text": "Set-Cookie: nauth_csrf_token=040133990a719912be40b48afa5c4ecd5adbae76cd26c24c36f466e5fe6b98da; Max-Age=4; Domain=.angular.dev1.noorix.com; Path=/; Expires=Wed, 11 Feb 2026 00:19:53 GMT; Secure; SameSite=Strict\n"
+                            },
+                            {
+                              "text": "Parsed cookies keys: [\n  \u001b[32m'nauth_access_token'\u001b[39m,\n  \u001b[32m'nauth_refresh_token'\u001b[39m,\n  \u001b[32m'nauth_device_token'\u001b[39m,\n  \u001b[32m'nauth_csrf_token'\u001b[39m\n]\n"
+                            },
+                            {
+                              "text": "Parsed cookies: {\n  nauth_access_token: {\n    value: \u001b[32m'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJiYTYwYTU4YS1lZGRlLTQxYzgtYjE5OC02NGZhNDczYmMyODMiLCJlbWFpbCI6InRlc3QrMTc3MDc2OTE4MTYzMisyOTU1OTE0OThAZXhhbXBsZS5jb20iLCJ0eXBlIjoiYWNjZXNzIiwic2Vzc2lvbklkIjoiMjgyIiwidG9rZW5GYW1pbHkiOiJhNWE3OWQyZmU5YzQzYzhhMTMzNjRjMDFmOGUxODdiYWUxMjFhNDVjOWFhZWRjNjQ5YThjMTJhMTdlM2FjNWM3IiwiaWF0IjoxNzcwNzY5MTg4LCJleHAiOjE3NzA3NjkxOTMsImlzcyI6ImNvbS5ub29yaXgubmF1dGgiLCJhdWQiOlsid2ViIiwibW9iaWxlIl19.Xw4g4NNiGvNH2PHe9O1kzlwvhH5ngqqZE05LNgtp3MI'\u001b[39m,\n    maxAge: \u001b[33m4\u001b[39m,\n    domain: \u001b[32m'.angular.dev1.noorix.com'\u001b[39m,\n    path: \u001b[32m'/'\u001b[39m,\n    expires: \u001b[35m2026-02-11T00:19:53.000Z\u001b[39m,\n    httpOnly: \u001b[33mtrue\u001b[39m,\n    secure: \u001b[33mtrue\u001b[39m,\n    sameSite: \u001b[32m'none'\u001b[39m\n  },\n  nauth_refresh_token: {\n    value: \u001b[32m'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJiYTYwYTU4YS1lZGRlLTQxYzgtYjE5OC02NGZhNDczYmMyODMiLCJlbWFpbCI6InRlc3QrMTc3MDc2OTE4MTYzMisyOTU1OTE0OThAZXhhbXBsZS5jb20iLCJ0eXBlIjoicmVmcmVzaCIsInNlc3Npb25JZCI6IjI4MiIsInRva2VuRmFtaWx5IjoiYTVhNzlkMmZlOWM0M2M4YTEzMzY0YzAxZjhlMTg3YmFlMTIxYTQ1YzlhYWVkYzY0OWE4YzEyYTE3ZTNhYzVjNyIsImlhdCI6MTc3MDc2OTE4OCwiZXhwIjoxNzcxMzczOTg4fQ.tB6I6uiA4HPFkvd38lgIpcr81mM2ZnYYIIJWQoZNZzE'\u001b[39m,\n    maxAge: \u001b[33m604799\u001b[39m,\n    domain: \u001b[32m'.angular.dev1.noorix.com'\u001b[39m,\n    path: \u001b[32m'/'\u001b[39m,\n    expires: \u001b[35m2026-02-18T00:19:48.000Z\u001b[39m,\n    httpOnly: \u001b[33mtrue\u001b[39m,\n    secure: \u001b[33mtrue\u001b[39m,\n    sameSite: \u001b[32m'none'\u001b[39m\n  },\n  nauth_device_token: {\n    value: \u001b[32m'1b2c76d7-787f-4598-a642-1cebb10aad69'\u001b[39m,\n    maxAge: \u001b[33m2592000\u001b[39m,\n    domain: \u001b[32m'.angular.dev1.noorix.com'\u001b[39m,\n    path: \u001b[32m'/'\u001b[39m,\n    expires: \u001b[35m2026-03-13T00:19:48.000Z\u001b[39m,\n    httpOnly: \u001b[33mtrue\u001b[39m,\n    secure: \u001b[33mtrue\u001b[39m,\n    sameSite: \u001b[32m'none'\u001b[39m\n  },\n  nauth_csrf_token: {\n    value: \u001b[32m'040133990a719912be40b48afa5c4ecd5adbae76cd26c24c36f466e5fe6b98da'\u001b[39m,\n    maxAge: \u001b[33m4\u001b[39m,\n    domain: \u001b[32m'.angular.dev1.noorix.com'\u001b[39m,\n    path: \u001b[32m'/'\u001b[39m,\n    expires: \u001b[35m2026-02-11T00:19:53.000Z\u001b[39m,\n    secure: \u001b[33mtrue\u001b[39m,\n    sameSite: \u001b[32m'strict'\u001b[39m\n  }\n}\n"
+                            }
+                          ],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:57.622Z",
-                          "annotations": [],
+                          "startTime": "2026-02-11T00:19:48.434Z",
+                          "annotations": [
+                            {
+                              "type": "testId",
+                              "description": "Config: email-phone-mfa-required-cookies",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 433,
+                                "column": 11
+                              }
+                            },
+                            {
+                              "type": "testDetails",
+                              "description": "Token Delivery: cookies | User should be verified from previous steps",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 433,
+                                "column": 11
+                              }
+                            },
+                            {
+                              "type": "testSteps",
+                              "description": "POST /auth/login (or /mobile) with email and password. Expect tokens in response (cookies or JSON body).",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 433,
+                                "column": 11
+                              }
+                            }
+                          ],
                           "attachments": []
                         }
                       ],
-                      "status": "skipped"
+                      "status": "expected"
                     }
                   ],
                   "id": "68c0f7b4fc8ce30f3e44-a1146cf3917340e04e17",
@@ -1001,20 +1057,48 @@
                       "projectName": "cookies",
                       "results": [
                         {
-                          "workerIndex": -1,
-                          "parallelIndex": -1,
-                          "status": "skipped",
-                          "duration": 0,
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 28,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:57.627Z",
-                          "annotations": [],
+                          "startTime": "2026-02-11T00:19:48.569Z",
+                          "annotations": [
+                            {
+                              "type": "testId",
+                              "description": "Config: email-phone-mfa-required-cookies",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 553,
+                                "column": 11
+                              }
+                            },
+                            {
+                              "type": "testDetails",
+                              "description": "Token Delivery: cookies | Uses refresh token from previous login",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 553,
+                                "column": 11
+                              }
+                            },
+                            {
+                              "type": "testSteps",
+                              "description": "POST /auth/refresh (or /mobile) with refresh token. Expect new access token in response.",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 553,
+                                "column": 11
+                              }
+                            }
+                          ],
                           "attachments": []
                         }
                       ],
-                      "status": "skipped"
+                      "status": "expected"
                     }
                   ],
                   "id": "68c0f7b4fc8ce30f3e44-8aa510d9fb64eff10dc0",
@@ -1068,23 +1152,78 @@
                             "line": 596,
                             "column": 11
                           }
+                        },
+                        {
+                          "type": "skip",
+                          "description": "Adaptive MFA not enabled",
+                          "location": {
+                            "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                            "line": 621,
+                            "column": 16
+                          }
                         }
                       ],
-                      "expectedStatus": "passed",
+                      "expectedStatus": "skipped",
                       "projectId": "cookies",
                       "projectName": "cookies",
                       "results": [
                         {
-                          "workerIndex": -1,
-                          "parallelIndex": -1,
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
                           "status": "skipped",
-                          "duration": 0,
+                          "duration": 3,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:57.631Z",
-                          "annotations": [],
+                          "startTime": "2026-02-11T00:19:48.602Z",
+                          "annotations": [
+                            {
+                              "type": "testId",
+                              "description": "Config: email-phone-mfa-required-cookies",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 596,
+                                "column": 11
+                              }
+                            },
+                            {
+                              "type": "testDetails",
+                              "description": "Token Delivery: cookies | MFA: REQUIRED | Simulates location change",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 596,
+                                "column": 11
+                              }
+                            },
+                            {
+                              "type": "testSteps",
+                              "description": "Set IP to 203.0.113.1 → POST /auth/login. With adaptive MFA, may trigger challenge if risk detected.",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 596,
+                                "column": 11
+                              }
+                            },
+                            {
+                              "type": "skipCondition",
+                              "description": "Skipped if adaptive MFA not enabled",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 596,
+                                "column": 11
+                              }
+                            },
+                            {
+                              "type": "skip",
+                              "description": "Adaptive MFA not enabled",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 621,
+                                "column": 16
+                              }
+                            }
+                          ],
                           "attachments": []
                         }
                       ],
@@ -1140,20 +1279,48 @@
                       "projectName": "cookies",
                       "results": [
                         {
-                          "workerIndex": -1,
-                          "parallelIndex": -1,
-                          "status": "skipped",
-                          "duration": 0,
+                          "workerIndex": 0,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 25,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:57.635Z",
-                          "annotations": [],
+                          "startTime": "2026-02-11T00:19:48.612Z",
+                          "annotations": [
+                            {
+                              "type": "testId",
+                              "description": "Config: email-phone-mfa-required-cookies",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 636,
+                                "column": 11
+                              }
+                            },
+                            {
+                              "type": "testDetails",
+                              "description": "Token Delivery: cookies | Validates token/cookie invalidation",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 636,
+                                "column": 11
+                              }
+                            },
+                            {
+                              "type": "testSteps",
+                              "description": "GET /auth/logout with access token. Expect tokens/cookies cleared (expired or maxAge=0).",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/complete-lifecycle.spec.ts",
+                                "line": 636,
+                                "column": 11
+                              }
+                            }
+                          ],
                           "attachments": []
                         }
                       ],
-                      "status": "skipped"
+                      "status": "expected"
                     }
                   ],
                   "id": "68c0f7b4fc8ce30f3e44-9af368bed92b096c9a56",
@@ -1193,15 +1360,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.641Z",
+                      "startTime": "2026-02-11T00:19:48.642Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1253,15 +1420,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.645Z",
+                      "startTime": "2026-02-11T00:19:48.642Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1313,15 +1480,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.651Z",
+                      "startTime": "2026-02-11T00:19:48.642Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1373,15 +1540,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.655Z",
+                      "startTime": "2026-02-11T00:19:48.643Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1433,15 +1600,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.659Z",
+                      "startTime": "2026-02-11T00:19:48.643Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1493,15 +1660,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.662Z",
+                      "startTime": "2026-02-11T00:19:48.643Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1553,15 +1720,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.666Z",
+                      "startTime": "2026-02-11T00:19:48.643Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1613,15 +1780,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.675Z",
+                      "startTime": "2026-02-11T00:19:48.643Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1673,15 +1840,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.679Z",
+                      "startTime": "2026-02-11T00:19:48.643Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1733,15 +1900,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.682Z",
+                      "startTime": "2026-02-11T00:19:48.643Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1793,15 +1960,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.686Z",
+                      "startTime": "2026-02-11T00:19:48.643Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1853,15 +2020,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.689Z",
+                      "startTime": "2026-02-11T00:19:48.643Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1913,15 +2080,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.694Z",
+                      "startTime": "2026-02-11T00:19:48.643Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -1973,15 +2140,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.703Z",
+                      "startTime": "2026-02-11T00:19:48.643Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2033,15 +2200,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.706Z",
+                      "startTime": "2026-02-11T00:19:48.643Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2093,15 +2260,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.710Z",
+                      "startTime": "2026-02-11T00:19:48.643Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2153,15 +2320,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:57.714Z",
+                      "startTime": "2026-02-11T00:19:48.643Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2230,7 +2397,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.329Z",
+                      "startTime": "2026-02-11T00:19:41.558Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2290,7 +2457,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.330Z",
+                      "startTime": "2026-02-11T00:19:41.559Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2350,7 +2517,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.330Z",
+                      "startTime": "2026-02-11T00:19:41.559Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2410,7 +2577,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.330Z",
+                      "startTime": "2026-02-11T00:19:41.559Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2470,7 +2637,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.330Z",
+                      "startTime": "2026-02-11T00:19:41.559Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2530,7 +2697,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.330Z",
+                      "startTime": "2026-02-11T00:19:41.559Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2590,7 +2757,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.331Z",
+                      "startTime": "2026-02-11T00:19:41.560Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2650,7 +2817,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.331Z",
+                      "startTime": "2026-02-11T00:19:41.560Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2710,7 +2877,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.331Z",
+                      "startTime": "2026-02-11T00:19:41.560Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2770,7 +2937,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.331Z",
+                      "startTime": "2026-02-11T00:19:41.560Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2830,7 +2997,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.331Z",
+                      "startTime": "2026-02-11T00:19:41.560Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2890,7 +3057,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.331Z",
+                      "startTime": "2026-02-11T00:19:41.560Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -2950,7 +3117,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.331Z",
+                      "startTime": "2026-02-11T00:19:41.560Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -3010,7 +3177,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.331Z",
+                      "startTime": "2026-02-11T00:19:41.560Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -3103,12 +3270,12 @@
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 710,
+                          "duration": 256,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:50.331Z",
+                          "startTime": "2026-02-11T00:19:41.560Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3205,12 +3372,12 @@
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 190,
+                          "duration": 117,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:51.064Z",
+                          "startTime": "2026-02-11T00:19:41.835Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3298,12 +3465,12 @@
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 2212,
+                          "duration": 2109,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:51.267Z",
+                          "startTime": "2026-02-11T00:19:41.959Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3391,12 +3558,12 @@
                           "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 113,
+                          "duration": 109,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:53.487Z",
+                          "startTime": "2026-02-11T00:19:44.075Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3439,7 +3606,7 @@
                 },
                 {
                   "title": "5. Complete Phone Verification",
-                  "ok": false,
+                  "ok": true,
                   "tags": [
                     "email-phone",
                     "mfa-required"
@@ -3483,36 +3650,13 @@
                         {
                           "workerIndex": 1,
                           "parallelIndex": 1,
-                          "status": "failed",
-                          "duration": 2159,
-                          "error": {
-                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"MFA_SETUP_REQUIRED\"\u001b[39m\nReceived: \u001b[31mundefined\u001b[39m",
-                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"MFA_SETUP_REQUIRED\"\u001b[39m\nReceived: \u001b[31mundefined\u001b[39m\n    at /Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts:652:42",
-                            "location": {
-                              "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
-                              "column": 42,
-                              "line": 652
-                            },
-                            "snippet": "\u001b[0m \u001b[90m 650 |\u001b[39m                 console\u001b[33m.\u001b[39merror(\u001b[32m'Expected MFA_SETUP_REQUIRED challenge but got:'\u001b[39m\u001b[33m,\u001b[39m \u001b[33mJSON\u001b[39m\u001b[33m.\u001b[39mstringify(body\u001b[33m,\u001b[39m \u001b[36mnull\u001b[39m\u001b[33m,\u001b[39m \u001b[35m2\u001b[39m))\u001b[33m;\u001b[39m\n \u001b[90m 651 |\u001b[39m               }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 652 |\u001b[39m               expect(body\u001b[33m.\u001b[39mchallengeName)\u001b[33m.\u001b[39mtoBe(\u001b[32m'MFA_SETUP_REQUIRED'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                          \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 653 |\u001b[39m               expect(body\u001b[33m.\u001b[39msession)\u001b[33m.\u001b[39mtoBeDefined()\u001b[33m;\u001b[39m\n \u001b[90m 654 |\u001b[39m               \u001b[90m// Store the MFA setup challenge session for next step\u001b[39m\n \u001b[90m 655 |\u001b[39m               flowState\u001b[33m.\u001b[39mchallengeSession \u001b[33m=\u001b[39m body\u001b[33m.\u001b[39msession\u001b[33m;\u001b[39m\u001b[0m"
-                          },
-                          "errors": [
-                            {
-                              "location": {
-                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
-                                "column": 42,
-                                "line": 652
-                              },
-                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"MFA_SETUP_REQUIRED\"\u001b[39m\nReceived: \u001b[31mundefined\u001b[39m\n\n\u001b[0m \u001b[90m 650 |\u001b[39m                 console\u001b[33m.\u001b[39merror(\u001b[32m'Expected MFA_SETUP_REQUIRED challenge but got:'\u001b[39m\u001b[33m,\u001b[39m \u001b[33mJSON\u001b[39m\u001b[33m.\u001b[39mstringify(body\u001b[33m,\u001b[39m \u001b[36mnull\u001b[39m\u001b[33m,\u001b[39m \u001b[35m2\u001b[39m))\u001b[33m;\u001b[39m\n \u001b[90m 651 |\u001b[39m               }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 652 |\u001b[39m               expect(body\u001b[33m.\u001b[39mchallengeName)\u001b[33m.\u001b[39mtoBe(\u001b[32m'MFA_SETUP_REQUIRED'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                          \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 653 |\u001b[39m               expect(body\u001b[33m.\u001b[39msession)\u001b[33m.\u001b[39mtoBeDefined()\u001b[33m;\u001b[39m\n \u001b[90m 654 |\u001b[39m               \u001b[90m// Store the MFA setup challenge session for next step\u001b[39m\n \u001b[90m 655 |\u001b[39m               flowState\u001b[33m.\u001b[39mchallengeSession \u001b[33m=\u001b[39m body\u001b[33m.\u001b[39msession\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts:652:42\u001b[22m"
-                            }
-                          ],
+                          "status": "passed",
+                          "duration": 2163,
+                          "errors": [],
                           "stdout": [],
-                          "stderr": [
-                            {
-                              "text": "Expected MFA_SETUP_REQUIRED challenge but got: {\n  \"authMethod\": \"password\",\n  \"trusted\": false,\n  \"user\": {\n    \"sub\": \"78d6421b-447c-4bd8-a8a5-20abe5423806\",\n    \"email\": \"test+1769239790388+360751622@example.com\",\n    \"firstName\": \"Bob\",\n    \"lastName\": \"Garcia\",\n    \"phone\": \"+15556483178\",\n    \"isEmailVerified\": true,\n    \"isPhoneVerified\": true,\n    \"hasPasswordHash\": true\n  },\n  \"sub\": \"78d6421b-447c-4bd8-a8a5-20abe5423806\"\n}\n"
-                            }
-                          ],
+                          "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:53.612Z",
+                          "startTime": "2026-02-11T00:19:44.194Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3542,21 +3686,10 @@
                               }
                             }
                           ],
-                          "attachments": [
-                            {
-                              "name": "trace",
-                              "contentType": "application/zip",
-                              "path": "/Users/noorix/development/nauth-toolkit/test-results/specs-auth-lifecycle-defer-9a186-Complete-Phone-Verification-cookies/trace.zip"
-                            }
-                          ],
-                          "errorLocation": {
-                            "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
-                            "column": 42,
-                            "line": 652
-                          }
+                          "attachments": []
                         }
                       ],
-                      "status": "unexpected"
+                      "status": "expected"
                     }
                   ],
                   "id": "d6093f894ad0cd3ab658-5fc5051a41715a0b9639",
@@ -3625,15 +3758,15 @@
                       "projectName": "cookies",
                       "results": [
                         {
-                          "workerIndex": 3,
+                          "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 253,
+                          "duration": 109,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:56.517Z",
+                          "startTime": "2026-02-11T00:19:46.368Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3718,15 +3851,15 @@
                       "projectName": "cookies",
                       "results": [
                         {
-                          "workerIndex": 3,
+                          "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 2206,
+                          "duration": 2075,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:56.785Z",
+                          "startTime": "2026-02-11T00:19:46.483Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3820,7 +3953,7 @@
                       "projectName": "cookies",
                       "results": [
                         {
-                          "workerIndex": 3,
+                          "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
                           "duration": 0,
@@ -3828,7 +3961,7 @@
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:59.002Z",
+                          "startTime": "2026-02-11T00:19:48.564Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3931,15 +4064,15 @@
                       "projectName": "cookies",
                       "results": [
                         {
-                          "workerIndex": 3,
+                          "workerIndex": 1,
                           "parallelIndex": 1,
                           "status": "passed",
-                          "duration": 108,
+                          "duration": 116,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:59.008Z",
+                          "startTime": "2026-02-11T00:19:48.568Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -3991,7 +4124,7 @@
                 },
                 {
                   "title": "5. Complete Phone Verification (from login challenge)",
-                  "ok": false,
+                  "ok": true,
                   "tags": [
                     "email-phone",
                     "mfa-required"
@@ -4033,38 +4166,15 @@
                       "projectName": "cookies",
                       "results": [
                         {
-                          "workerIndex": 3,
+                          "workerIndex": 1,
                           "parallelIndex": 1,
-                          "status": "failed",
-                          "duration": 2345,
-                          "error": {
-                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"MFA_SETUP_REQUIRED\"\u001b[39m\nReceived: \u001b[31mundefined\u001b[39m",
-                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"MFA_SETUP_REQUIRED\"\u001b[39m\nReceived: \u001b[31mundefined\u001b[39m\n    at /Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts:896:42",
-                            "location": {
-                              "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
-                              "column": 42,
-                              "line": 896
-                            },
-                            "snippet": "\u001b[0m \u001b[90m 894 |\u001b[39m                 console\u001b[33m.\u001b[39merror(\u001b[32m'Expected MFA_SETUP_REQUIRED challenge but got:'\u001b[39m\u001b[33m,\u001b[39m \u001b[33mJSON\u001b[39m\u001b[33m.\u001b[39mstringify(body\u001b[33m,\u001b[39m \u001b[36mnull\u001b[39m\u001b[33m,\u001b[39m \u001b[35m2\u001b[39m))\u001b[33m;\u001b[39m\n \u001b[90m 895 |\u001b[39m               }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 896 |\u001b[39m               expect(body\u001b[33m.\u001b[39mchallengeName)\u001b[33m.\u001b[39mtoBe(\u001b[32m'MFA_SETUP_REQUIRED'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                          \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 897 |\u001b[39m               expect(body\u001b[33m.\u001b[39msession)\u001b[33m.\u001b[39mtoBeDefined()\u001b[33m;\u001b[39m\n \u001b[90m 898 |\u001b[39m               \u001b[90m// Store the MFA setup challenge session for next step\u001b[39m\n \u001b[90m 899 |\u001b[39m               flowState\u001b[33m.\u001b[39mchallengeSession \u001b[33m=\u001b[39m body\u001b[33m.\u001b[39msession\u001b[33m;\u001b[39m\u001b[0m"
-                          },
-                          "errors": [
-                            {
-                              "location": {
-                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
-                                "column": 42,
-                                "line": 896
-                              },
-                              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"MFA_SETUP_REQUIRED\"\u001b[39m\nReceived: \u001b[31mundefined\u001b[39m\n\n\u001b[0m \u001b[90m 894 |\u001b[39m                 console\u001b[33m.\u001b[39merror(\u001b[32m'Expected MFA_SETUP_REQUIRED challenge but got:'\u001b[39m\u001b[33m,\u001b[39m \u001b[33mJSON\u001b[39m\u001b[33m.\u001b[39mstringify(body\u001b[33m,\u001b[39m \u001b[36mnull\u001b[39m\u001b[33m,\u001b[39m \u001b[35m2\u001b[39m))\u001b[33m;\u001b[39m\n \u001b[90m 895 |\u001b[39m               }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 896 |\u001b[39m               expect(body\u001b[33m.\u001b[39mchallengeName)\u001b[33m.\u001b[39mtoBe(\u001b[32m'MFA_SETUP_REQUIRED'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                          \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 897 |\u001b[39m               expect(body\u001b[33m.\u001b[39msession)\u001b[33m.\u001b[39mtoBeDefined()\u001b[33m;\u001b[39m\n \u001b[90m 898 |\u001b[39m               \u001b[90m// Store the MFA setup challenge session for next step\u001b[39m\n \u001b[90m 899 |\u001b[39m               flowState\u001b[33m.\u001b[39mchallengeSession \u001b[33m=\u001b[39m body\u001b[33m.\u001b[39msession\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts:896:42\u001b[22m"
-                            }
-                          ],
+                          "status": "passed",
+                          "duration": 2067,
+                          "errors": [],
                           "stdout": [],
-                          "stderr": [
-                            {
-                              "text": "Expected MFA_SETUP_REQUIRED challenge but got: {\n  \"authMethod\": \"password\",\n  \"trusted\": false,\n  \"user\": {\n    \"sub\": \"6db599ff-6b6b-4d8c-b4b7-0b1402d09354\",\n    \"email\": \"test+1769239796555+417388943@example.com\",\n    \"firstName\": \"Frank\",\n    \"lastName\": \"Brown\",\n    \"phone\": \"+15559131585\",\n    \"isEmailVerified\": true,\n    \"isPhoneVerified\": true,\n    \"hasPasswordHash\": true\n  },\n  \"sub\": \"6db599ff-6b6b-4d8c-b4b7-0b1402d09354\"\n}\n"
-                            }
-                          ],
+                          "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:29:59.130Z",
+                          "startTime": "2026-02-11T00:19:48.690Z",
                           "annotations": [
                             {
                               "type": "testId",
@@ -4094,21 +4204,10 @@
                               }
                             }
                           ],
-                          "attachments": [
-                            {
-                              "name": "trace",
-                              "contentType": "application/zip",
-                              "path": "/Users/noorix/development/nauth-toolkit/test-results/specs-auth-lifecycle-defer-a8482-ation-from-login-challenge--cookies/trace.zip"
-                            }
-                          ],
-                          "errorLocation": {
-                            "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
-                            "column": 42,
-                            "line": 896
-                          }
+                          "attachments": []
                         }
                       ],
-                      "status": "unexpected"
+                      "status": "expected"
                     }
                   ],
                   "id": "d6093f894ad0cd3ab658-3899301dfad56845012f",
@@ -4169,20 +4268,57 @@
                       "projectName": "cookies",
                       "results": [
                         {
-                          "workerIndex": -1,
-                          "parallelIndex": -1,
-                          "status": "skipped",
-                          "duration": 0,
+                          "workerIndex": 1,
+                          "parallelIndex": 1,
+                          "status": "passed",
+                          "duration": 100,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:30:01.538Z",
-                          "annotations": [],
+                          "startTime": "2026-02-11T00:19:50.764Z",
+                          "annotations": [
+                            {
+                              "type": "testId",
+                              "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
+                                "line": 912,
+                                "column": 13
+                              }
+                            },
+                            {
+                              "type": "testDetails",
+                              "description": "Token Delivery: cookies | MFA: REQUIRED (grace: 0d)",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
+                                "line": 912,
+                                "column": 13
+                              }
+                            },
+                            {
+                              "type": "testSteps",
+                              "description": "Get SMS code from /test/sms/latest → POST /auth/mfa/sms/verify-setup-challenge → POST /auth/challenges/complete. Only runs if MFA required with no grace period.",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
+                                "line": 912,
+                                "column": 13
+                              }
+                            },
+                            {
+                              "type": "skipCondition",
+                              "description": "Skipped if MFA not required or grace period > 0",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
+                                "line": 912,
+                                "column": 13
+                              }
+                            }
+                          ],
                           "attachments": []
                         }
                       ],
-                      "status": "skipped"
+                      "status": "expected"
                     }
                   ],
                   "id": "d6093f894ad0cd3ab658-06fd3069ae5ace1e0d8f",
@@ -4234,20 +4370,48 @@
                       "projectName": "cookies",
                       "results": [
                         {
-                          "workerIndex": -1,
-                          "parallelIndex": -1,
-                          "status": "skipped",
-                          "duration": 0,
+                          "workerIndex": 1,
+                          "parallelIndex": 1,
+                          "status": "passed",
+                          "duration": 118,
                           "errors": [],
                           "stdout": [],
                           "stderr": [],
                           "retry": 0,
-                          "startTime": "2026-01-24T07:30:01.543Z",
-                          "annotations": [],
+                          "startTime": "2026-02-11T00:19:50.869Z",
+                          "annotations": [
+                            {
+                              "type": "testId",
+                              "description": "Config: email-phone-mfa-required-cookies - Deferred Both Verification (3b: Skip Phone)",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
+                                "line": 1003,
+                                "column": 13
+                              }
+                            },
+                            {
+                              "type": "testDetails",
+                              "description": "Token Delivery: cookies | User is now fully verified",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
+                                "line": 1003,
+                                "column": 13
+                              }
+                            },
+                            {
+                              "type": "testSteps",
+                              "description": "POST /auth/login (or /mobile) with email and password. Should succeed and return tokens since both verifications are complete.",
+                              "location": {
+                                "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/auth-lifecycle/deferred-verification.spec.ts",
+                                "line": 1003,
+                                "column": 13
+                              }
+                            }
+                          ],
                           "attachments": []
                         }
                       ],
-                      "status": "skipped"
+                      "status": "expected"
                     }
                   ],
                   "id": "d6093f894ad0cd3ab658-66ac027e9657cdb6e0ed",
@@ -4287,15 +4451,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:30:01.549Z",
+                      "startTime": "2026-02-11T00:19:50.993Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -4347,15 +4511,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:30:01.554Z",
+                      "startTime": "2026-02-11T00:19:50.993Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -4407,15 +4571,15 @@
                   "projectName": "cookies",
                   "results": [
                     {
-                      "workerIndex": -1,
-                      "parallelIndex": -1,
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
                       "status": "skipped",
                       "duration": 0,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:30:01.560Z",
+                      "startTime": "2026-02-11T00:19:50.993Z",
                       "annotations": [
                         {
                           "type": "skip",
@@ -4475,7 +4639,7 @@
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-01-24T07:29:50.313Z",
+                      "startTime": "2026-02-11T00:19:41.548Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -4491,15 +4655,100 @@
           ]
         }
       ]
+    },
+    {
+      "title": "specs/multi-tab-refresh-race.spec.ts",
+      "file": "specs/multi-tab-refresh-race.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Multi-Tab Refresh Race Condition",
+          "file": "specs/multi-tab-refresh-race.spec.ts",
+          "line": 87,
+          "column": 6,
+          "specs": [
+            {
+              "title": "concurrent refresh after token rotation causes SESSION_NOT_FOUND and cookie clearing",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/multi-tab-refresh-race.spec.ts",
+                        "line": 111,
+                        "column": 12
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "cookies",
+                  "projectName": "cookies",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "skipped",
+                      "duration": 582,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "\n=== STEP 1: Login ===\n"
+                        },
+                        {
+                          "text": "Login status: 200\n"
+                        },
+                        {
+                          "text": "Login returned challenge: MFA_REQUIRED\n"
+                        },
+                        {
+                          "text": "This test requires a user without active MFA or with a trusted device.\n"
+                        },
+                        {
+                          "text": "Skipping test - adjust MFA config or use a non-MFA user.\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-02-11T00:19:41.133Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/Users/noorix/development/nauth-toolkit/tests/e2e/specs/multi-tab-refresh-race.spec.ts",
+                            "line": 111,
+                            "column": 12
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "329da15a6c2a80365c4f-6dab96943bdf39697ac2",
+              "file": "specs/multi-tab-refresh-race.spec.ts",
+              "line": 91,
+              "column": 7
+            }
+          ]
+        }
+      ]
     }
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-01-24T07:29:48.438Z",
-    "duration": 13132.115,
-    "expected": 11,
-    "skipped": 47,
-    "unexpected": 3,
+    "startTime": "2026-02-11T00:19:40.184Z",
+    "duration": 10838.358,
+    "expected": 20,
+    "skipped": 42,
+    "unexpected": 0,
     "flaky": 0
   }
 }

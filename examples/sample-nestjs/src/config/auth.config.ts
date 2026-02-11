@@ -59,7 +59,7 @@ export const authConfig: NAuthModuleConfig = {
 
   signup: {
     enabled: true,
-    verificationMethod: 'email',
+    verificationMethod: 'both',
     allowDuplicatePhones: true,
     emailVerification: {
       expiresIn: 3600,
@@ -84,7 +84,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   mfa: {
-    enabled: false,
+    enabled: true,
     enforcement: 'REQUIRED',
     gracePeriod: 2,
     requireForSocialLogin: false,
@@ -142,7 +142,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   tokenDelivery: {
-    method: 'hybrid',
+    method: 'cookies',
     cookieOptions: {
       // For cross-site cookies (frontend on different subdomain than API):
       // - Must use secure: true (requires HTTPS)

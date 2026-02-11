@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.957.0",
-    "@fastify/cookie": "^11.0.0",
     "@maxmind/geoip2-node": "^6.2.0",
     "@nauth-toolkit/database-typeorm-postgres": "^0.1.92",
     "@nauth-toolkit/email-console": "^0.1.92",
@@ -33,8 +32,9 @@
     "@nauth-toolkit/storage-redis": "^0.1.92",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
-    "@nestjs/platform-fastify": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
     "@nestjs/typeorm": "^11.0.0",
+    "cookie-parser": "^1.4.7",
     "@simplewebauthn/server": "^13.2.2",
     "dotenv": "^16.4.0",
     "jose": "^6.0.0",

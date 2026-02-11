@@ -15,7 +15,7 @@ import {
   Query,
   Param,
 } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import type { Request } from 'express';
 import {
   AuthService,
   AdminAuthService,
@@ -602,10 +602,7 @@ export class CustomAuthController {
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(
-    @Body() dto: RefreshTokenDTO | undefined,
-    @Req() req: FastifyRequest & { cookies?: Record<string, string> },
-  ): Promise<TokenResponse> {
+  async refresh(@Body() dto: RefreshTokenDTO | undefined, @Req() req: Request): Promise<TokenResponse> {
     // Cookies mode: the request body can be `undefined` (no JSON body).
     // Ensure we never dereference an undefined DTO.
     const dtoToUse: RefreshTokenDTO = dto ?? ({} as RefreshTokenDTO);
