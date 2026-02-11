@@ -385,7 +385,10 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
     const clientIds = Array.isArray(providerConfig.clientId)
       ? providerConfig.clientId
       : [providerConfig.clientId || ''];
-    const verified = (await this.tokenVerifier.verifyAppleToken(tokens.idToken, clientIds)) as VerifiedAppleTokenProfile;
+    const verified = (await this.tokenVerifier.verifyAppleToken(
+      tokens.idToken,
+      clientIds,
+    )) as VerifiedAppleTokenProfile;
 
     // CRITICAL: Require email from all social providers for signup
     if (!verified.email || !verified.email_verified) {
@@ -400,8 +403,19 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
     let firstName: string | null = null;
     let lastName: string | null = null;
 
-    if (profileData && typeof profileData === 'object') {
-      const name = (profileData as { name?: unknown }).name;
+    // Handle both parsed object and raw JSON string
+    let parsedProfileData = profileData;
+    if (typeof profileData === 'string') {
+      try {
+        parsedProfileData = JSON.parse(profileData);
+      } catch {
+        // Invalid JSON - continue without profile data
+        parsedProfileData = undefined;
+      }
+    }
+
+    if (parsedProfileData && typeof parsedProfileData === 'object') {
+      const name = (parsedProfileData as { name?: unknown }).name;
       if (name && typeof name === 'object') {
         const nameObj = name as { firstName?: unknown; lastName?: unknown };
         if (typeof nameObj.firstName === 'string' && nameObj.firstName.trim()) {

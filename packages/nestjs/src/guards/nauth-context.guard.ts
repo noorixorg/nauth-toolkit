@@ -115,9 +115,13 @@ export class NAuthContextGuard implements CanActivate {
     // Extract IP address
     const ipAddress = extractClientIp(req);
 
+    const originHeader = headers['origin'];
+    const origin = typeof originHeader === 'string' ? originHeader : undefined;
+
     const clientInfo: IClientInfo = {
       ipAddress,
       userAgent: userAgentString,
+      origin,
       deviceToken,
       deviceName: (req.body?.deviceName as string) || parsedUA.deviceName || undefined,
       deviceType: ((req.body?.deviceType as string) || parsedUA.deviceType || undefined) as

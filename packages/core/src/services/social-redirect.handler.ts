@@ -1,6 +1,10 @@
 import * as crypto from 'crypto';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { AuthResponseDTO } from '../dto/auth-response.dto';
+import {
+  StartSocialRedirectResponseDTO,
+  SocialRedirectCallbackResponseDTO,
+} from '../dto/social-redirect.dto';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { NAuthConfig } from '../interfaces/config.interface';
 import { ISocialAuthStateStore } from '../interfaces/social-auth-state-store.interface';
@@ -31,13 +35,12 @@ import { NAuthLogger } from '../utils/nauth-logger';
  *
  * @example
  * ```typescript
- * // NestJS controller pseudocode
- * const start = await socialRedirect.start({ provider: 'google', returnTo: '/auth/callback', appState: '12345', req });
- * return res.redirect(start.redirectUrl);
+ * // NestJS controller
+ * const result = await socialRedirect.start(provider, dto);
+ * return result; // { url }
  *
- * const cb = await socialRedirect.callback({ provider: 'google', code, state, req });
- * cb.cookies?.forEach((c) => res.setCookie(c.name, c.value, c.options));
- * return res.redirect(cb.redirectUrl);
+ * const result = await socialRedirect.callback(provider, dto);
+ * return result; // { url } - cookies applied via HTTP_RESPONSE in context
  *
  * const auth = await socialRedirect.exchange(exchangeToken);
  * return auth;
@@ -62,59 +65,86 @@ export class SocialRedirectHandler {
   /**
    * Start redirect-first social login.
    *
-   * @param input - Start parameters
-   * @returns Redirect recipe to send user to the provider authorization URL
+   * Delivery and deviceToken are read from ContextStorage (set by framework before controller).
+   *
+   * @param provider - OAuth provider (e.g. 'google', 'apple', 'facebook')
+   * @param dto - Query DTO with returnTo, appState, action, oauthParams (JSON string)
+   * @returns Redirect URL for NestJS @Redirect() or equivalent
    * @throws {NAuthException} When provider/returnTo are invalid or config is missing
    */
-  async start(input: SocialRedirectStartInput): Promise<SocialRedirectStartResult> {
-    const provider = this.normalizeProvider(input.provider);
-    const returnTo = input.returnTo || '/auth/callback';
-    const action: 'login' | 'link' = input.action || 'login';
+  async start(
+    provider: string,
+    dto: { returnTo?: string; appState?: string; action?: 'login' | 'link'; oauthParams?: string },
+  ): Promise<StartSocialRedirectResponseDTO> {
+    const normalizedProvider = this.normalizeProvider(provider);
+    const returnTo = dto.returnTo || '/auth/callback';
+    const action: 'login' | 'link' = dto.action || 'login';
 
-    const delivery = this.resolveEffectiveDelivery(input.req, undefined);
+    const delivery = this.resolveEffectiveDelivery();
+    const clientInfo = ContextStorage.get<{ deviceToken?: string }>('CLIENT_INFO');
+    const deviceToken = clientInfo?.deviceToken;
 
-    const csrfState = await this.socialStateStore.createCsrfState(provider);
+    const csrfState = await this.socialStateStore.createCsrfState(normalizedProvider);
     await this.socialStateStore.setRedirectContext(csrfState, {
       returnTo,
-      appState: input.appState,
+      appState: dto.appState,
       action,
       delivery,
-      deviceToken: this.extractDeviceTokenFromRequest(input.req),
+      deviceToken,
     });
 
-    // Get provider and generate OAuth URL with optional params
-    const providerInstance = this.providerRegistry.getProvider(provider);
-    const url = await providerInstance.getAuthUrl(csrfState, input.oauthParams);
+    let oauthParams: Record<string, string> | undefined;
+    if (dto.oauthParams && typeof dto.oauthParams === 'string') {
+      try {
+        oauthParams = JSON.parse(dto.oauthParams) as Record<string, string>;
+      } catch {
+        throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Invalid oauthParams format - must be valid JSON', {
+          field: 'oauthParams',
+        });
+      }
+    }
 
-    return { redirectUrl: url };
+    const providerInstance = this.providerRegistry.getProvider(normalizedProvider);
+    const url = await providerInstance.getAuthUrl(csrfState, oauthParams);
+
+    return { url };
   }
 
   /**
-   * Handle provider callback and produce a frontend redirect recipe.
+   * Handle provider callback and produce a frontend redirect.
    *
-   * @param input - Callback parameters from provider (GET query or POST form_post)
-   * @returns Redirect recipe to send user back to frontend with `appState` (and optional `exchangeToken`)
+   * In cookies mode, applies cookies directly to HTTP_RESPONSE from ContextStorage.
+   *
+   * @param provider - OAuth provider (e.g. 'google', 'apple', 'facebook')
+   * @param dto - Callback params (GET query or POST form); may include error_description (underscore)
+   * @returns Redirect URL for NestJS @Redirect() or equivalent
    * @throws {NAuthException} When required params are missing/invalid
    */
-  async callback(input: SocialRedirectCallbackInput): Promise<SocialRedirectCallbackResult> {
-    const provider = this.normalizeProvider(input.provider);
-    const state = typeof input.state === 'string' ? input.state.trim() : '';
+  async callback(
+    provider: string,
+    dto: {
+      code?: string;
+      state?: string;
+      error?: string;
+      error_description?: string;
+      user?: string;
+      profileData?: Record<string, unknown>;
+    },
+  ): Promise<SocialRedirectCallbackResponseDTO> {
+    const normalizedProvider = this.normalizeProvider(provider);
+    const state = typeof dto.state === 'string' ? dto.state.trim() : '';
     if (!state) {
       throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Missing state', { field: 'state' });
     }
+
+    const errorDescription = dto.error_description ?? (dto as Record<string, unknown>).errorDescription;
 
     const ctx = await this.socialStateStore.consumeRedirectContext(state);
     // ============================================================================
     // Preserve device token across OAuth redirects
     // ============================================================================
-    // OAuth provider callback requests often do not include cookies (SameSite=strict) and cannot send
-    // custom headers. If we captured a device token at redirect start, re-inject it into request context
-    // so downstream trusted-device detection (and audits) remain correct.
     if (ctx?.deviceToken) {
       const existing = ContextStorage.get('CLIENT_INFO') as Record<string, unknown> | undefined;
-      // Only restore if:
-      // - CLIENT_INFO exists
-      // - deviceToken is missing, empty, or not a valid string
       const existingToken = existing?.deviceToken;
       const hasValidToken = typeof existingToken === 'string' && existingToken.trim().length > 0;
 
@@ -126,66 +156,69 @@ export class SocialRedirectHandler {
     const frontendBaseUrl = this.getFrontendBaseUrl();
     const frontendUrl = this.buildFrontendRedirectUrl(frontendBaseUrl, ctx?.returnTo || '/auth/callback');
 
-    // Provider sign-in error (user cancelled, etc.)
-    if (input.error) {
+    if (dto.error) {
       return {
-        redirectUrl: this.appendQuery(frontendUrl, {
+        url: this.appendQuery(frontendUrl, {
           appState: ctx?.appState,
-          error: input.error,
-          errorDescription: input.errorDescription,
+          error: dto.error,
+          errorDescription: typeof errorDescription === 'string' ? errorDescription : undefined,
         }),
       };
     }
 
-    const code = typeof input.code === 'string' ? input.code.trim() : '';
+    const code = typeof dto.code === 'string' ? dto.code.trim() : '';
     if (!code) {
       throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Missing code', { field: 'code' });
     }
 
-    // Handle OAuth callback directly with provider
-    const providerInstance = this.providerRegistry.getProvider(provider);
-    const authResponse = await providerInstance.handleCallback({ code, state, profileData: input.profileData });
+    let profileData = dto.profileData;
+    if (!profileData && dto.user && typeof dto.user === 'string') {
+      try {
+        profileData = JSON.parse(dto.user) as Record<string, unknown>;
+      } catch (error) {
+        this.logger?.debug?.('[SocialRedirectHandler] Failed to parse user field from callback', { error });
+      }
+    }
 
-    const effective = ctx?.delivery || this.resolveEffectiveDelivery(input.req, undefined);
+    const providerInstance = this.providerRegistry.getProvider(normalizedProvider);
+    const authResponse = await providerInstance.handleCallback({ code, state, profileData });
 
-    // ============================================================================
-    // cookies mode: set cookies only when tokens exist; challenges must use exchangeToken
-    // ============================================================================
+    const effective = ctx?.delivery || this.resolveEffectiveDelivery();
+
     if (effective === 'cookies' && typeof authResponse.accessToken === 'string' && authResponse.accessToken) {
       const cookies: SocialRedirectCookie[] = [];
       cookies.push(...this.buildAuthCookies(authResponse));
       cookies.push(this.buildCsrfCookie());
-
-      // ============================================================================
-      // NestJS/Express/Fastify "magic": stash cookie recipe on the request object
-      // ============================================================================
-      // Why:
-      // - Consumers often implement redirect routes that return only `{ url }` (NestJS @Redirect())
-      // - In cookies mode we MUST NOT send tokens in the response body
-      // - Therefore, token-based cookie interceptors can't rely on `accessToken` being present
-      //
-      // This recipe lets framework adapters set cookies automatically without requiring
-      // consumers to manually loop `cookies` and set them on the response.
-      (input.req as unknown as Record<string, unknown>).__nauthCookieRecipe = cookies;
-
-      // Sanitize authResponse for cookies mode - remove tokens and expiries (same as signup/login)
-      // Consumer apps must never see tokens in response body when using cookies delivery.
-      const sanitizedAuthResponse = this.sanitizeAuthResponseForCookies(authResponse);
-
+      this.applyCookiesToResponse(cookies);
       return {
-        redirectUrl: this.appendQuery(frontendUrl, { appState: ctx?.appState }),
-        cookies,
-        authResponse: sanitizedAuthResponse,
+        url: this.appendQuery(frontendUrl, { appState: ctx?.appState }),
       };
     }
 
-    // json/hybrid OR cookies-with-challenge: store payload and redirect with exchangeToken
     const exchangeToken = crypto.randomBytes(32).toString('hex');
     await this.storage.set(this.getExchangeKey(exchangeToken), JSON.stringify(authResponse), this.exchangeTtlSeconds);
 
     return {
-      redirectUrl: this.appendQuery(frontendUrl, { appState: ctx?.appState, exchangeToken }),
+      url: this.appendQuery(frontendUrl, { appState: ctx?.appState, exchangeToken }),
     };
+  }
+
+  /**
+   * Apply cookie recipe to the HTTP response from ContextStorage.
+   * Supports both Express (res.cookie) and Fastify (res.setCookie).
+   */
+  private applyCookiesToResponse(cookies: SocialRedirectCookie[]): void {
+    const response = ContextStorage.get<Record<string, unknown>>('HTTP_RESPONSE');
+    if (!response) return;
+    for (const c of cookies) {
+      if (typeof (response as { cookie?: (n: string, v: string, o?: unknown) => void }).cookie === 'function') {
+        (response as { cookie: (n: string, v: string, o?: unknown) => void }).cookie(c.name, c.value, c.options);
+      } else if (
+        typeof (response as { setCookie?: (n: string, v: string, o?: unknown) => void }).setCookie === 'function'
+      ) {
+        (response as { setCookie: (n: string, v: string, o?: unknown) => void }).setCookie(c.name, c.value, c.options);
+      }
+    }
   }
 
   /**
@@ -277,28 +310,6 @@ export class SocialRedirectHandler {
     return cookies;
   }
 
-  // ============================================================================
-  // Device token extraction (best-effort, framework-agnostic)
-  // ============================================================================
-  private extractDeviceTokenFromRequest(req: unknown): string | undefined {
-    const r = req as { cookies?: Record<string, unknown>; headers?: Record<string, unknown> } | undefined;
-    const cookieName = getDeviceTokenCookieName(this.config);
-    const cookieValue = r?.cookies?.[cookieName];
-    if (typeof cookieValue === 'string' && cookieValue.trim()) {
-      return cookieValue.trim();
-    }
-
-    const headerValue = r?.headers?.['x-device-token'] || r?.headers?.['X-Device-Token'];
-    if (typeof headerValue === 'string' && headerValue.trim()) {
-      return headerValue.trim();
-    }
-    if (headerValue !== undefined && headerValue !== null) {
-      const v = String(headerValue).trim();
-      return v ? v : undefined;
-    }
-    return undefined;
-  }
-
   private buildCsrfCookie(): SocialRedirectCookie {
     const csrfCookieName = this.csrfService.getCookieName();
     const csrfToken = this.csrfService.generateToken();
@@ -372,15 +383,12 @@ export class SocialRedirectHandler {
     return u.toString();
   }
 
-  private resolveEffectiveDelivery(req: unknown, routeMode?: 'cookies' | 'json'): 'cookies' | 'json' {
+  private resolveEffectiveDelivery(): 'cookies' | 'json' {
     const method = this.config.tokenDelivery?.method || 'json';
 
-    // Route-level override from framework adapters (e.g. NestJS @TokenDelivery()).
-    // This avoids relying on `Origin` for hybrid deployments (provider callbacks often omit it).
-    const requestOverride = this.getRouteDeliveryOverrideFromRequest(req);
-    const effectiveRouteMode = routeMode ?? requestOverride;
+    const routeOverride = ContextStorage.get<'cookies' | 'json'>('ROUTE_DELIVERY_OVERRIDE');
+    const effectiveRouteMode = routeOverride;
 
-    // Validate explicit preference against global configuration
     if (effectiveRouteMode === 'cookies' && method === 'json') {
       throw new NAuthException(
         AuthErrorCode.COOKIES_NOT_ALLOWED,
@@ -388,8 +396,6 @@ export class SocialRedirectHandler {
       );
     }
     if (effectiveRouteMode === 'json' && method === 'cookies') {
-      // NOTE: We still allow JSON for challenge-only responses (no tokens),
-      // but a consumer explicitly requesting JSON tokens in cookies-only mode is a misconfiguration.
       throw new NAuthException(
         AuthErrorCode.BEARER_NOT_ALLOWED,
         "JSON delivery requested, but tokenDelivery.method is 'cookies' (JSON/Bearer tokens disabled)",
@@ -400,15 +406,14 @@ export class SocialRedirectHandler {
       return effectiveRouteMode;
     }
     if (method === 'hybrid') {
-      return resolveDeliveryForRequest(req, this.config.tokenDelivery?.hybridPolicy);
+      const clientInfo = ContextStorage.get<{ origin?: string }>('CLIENT_INFO');
+      const origin = clientInfo?.origin ?? '';
+      return resolveDeliveryForRequest(
+        { headers: { origin } } as { headers?: Record<string, unknown> },
+        this.config.tokenDelivery?.hybridPolicy,
+      );
     }
     return method === 'cookies' ? 'cookies' : 'json';
-  }
-
-  private getRouteDeliveryOverrideFromRequest(req: unknown): 'cookies' | 'json' | undefined {
-    const r = req as Record<string, unknown> | undefined;
-    const v = r?.__nauthRouteDelivery;
-    return v === 'cookies' || v === 'json' ? v : undefined;
   }
 
   private normalizeProvider(provider: string): string {
@@ -465,69 +470,9 @@ export class SocialRedirectHandler {
   }
 }
 
-/**
- * Start input for redirect-first social login.
- */
-export interface SocialRedirectStartInput {
-  /** OAuth provider (google|apple|facebook) */
-  provider: string;
-  /** Frontend path or URL to return to (default: `/auth/callback`) */
-  returnTo?: string;
-  /** Optional application state to round-trip back to frontend */
-  appState?: string;
-  /** Optional action (default: `login`) */
-  action?: 'login' | 'link';
-  /** Request object for hybrid origin-based delivery */
-  req?: unknown;
-  /** Dynamic OAuth parameters for this request (overrides config defaults) */
-  oauthParams?: Record<string, string>;
-}
-
-/**
- * Callback input for redirect-first social login.
- */
-export interface SocialRedirectCallbackInput {
-  provider: string;
-  code?: string;
-  state?: string;
-  error?: string;
-  errorDescription?: string;
-  /** Optional profile data from OAuth callback (e.g., Apple user field) */
-  profileData?: Record<string, unknown>;
-  req?: unknown;
-}
-
-/**
- * Cookie instruction returned by SocialRedirectHandler.
- */
-export interface SocialRedirectCookie {
+/** Internal cookie recipe type used when applying cookies to HTTP_RESPONSE. */
+interface SocialRedirectCookie {
   name: string;
   value: string;
   options?: NAuthCookieOptions;
-}
-
-/**
- * Start redirect result.
- */
-export interface SocialRedirectStartResult {
-  redirectUrl: string;
-}
-
-/**
- * Callback redirect result.
- */
-export interface SocialRedirectCallbackResult {
-  redirectUrl: string;
-  cookies?: SocialRedirectCookie[];
-  /**
-   * AuthResponse payload, only populated when:
-   * - effective delivery is `cookies`, AND
-   * - the social callback produced tokens
-   *
-   * This enables frameworks with automatic cookie delivery (e.g., NestJS interceptor + `@TokenDelivery()`)
-   * to set cookies without consumer code manually iterating over `cookies`.
-   *
-   * WARNING: Do not log this value (contains tokens).
-   */
-  authResponse?: AuthResponseDTO;
 }

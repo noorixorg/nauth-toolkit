@@ -166,7 +166,9 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [SocialCallbackFormDTO](./social-callback-form-dto)                                | OAuth callback form data (POST)   | Apple form_post callbacks  |
 | [SocialCallbackQueryDTO](./social-callback-query-dto)                              | OAuth callback query params (GET) | Google, Facebook callbacks |
 | [SocialExchangeDTO](./social-exchange-dto)                                         | Exchange social redirect token    | One-time exchange token    |
+| [SocialRedirectCallbackResponseDTO](./social-redirect-callback-response-dto)       | Callback redirect response        | url for @Redirect()        |
 | [StartSocialRedirectQueryDTO](./start-social-redirect-query-dto)                   | Start social redirect flow        | returnTo, appState, action |
+| [StartSocialRedirectResponseDTO](./start-social-redirect-response-dto)             | Start redirect response           | url for @Redirect()        |
 | [UnlinkSocialAccountDTO](./unlink-social-account-dto)                              | Unlink social account             | User sub and provider      |
 | [UnlinkSocialAccountResponseDTO](./unlink-social-account-response-dto)             | Unlink account response           | Success confirmation       |
 

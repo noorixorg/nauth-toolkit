@@ -63,7 +63,7 @@ code=c1234567890abcdef&state=xyz789
 
 ## Used By
 
-- [`SocialRedirectHandler.callback()`](../services/social-auth-service)
+- [`SocialRedirectHandler.callback()`](../services/social-auth-service) - Pass the form DTO as-is: `return await this.socialRedirect.callback(provider, dto)`. Returns [`SocialRedirectCallbackResponseDTO`](./social-redirect-callback-response-dto).
 
 ## Related
 

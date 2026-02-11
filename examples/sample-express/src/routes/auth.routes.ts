@@ -437,7 +437,9 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
       }
 
       const user = nauth.helpers.getCurrentUser();
-      const status = await (nauth.mfaService as unknown as { getMfaStatus(): Promise<GetMFAStatusResponseDTO> }).getMfaStatus();
+      const status = await (
+        nauth.mfaService as unknown as { getMfaStatus(): Promise<GetMFAStatusResponseDTO> }
+      ).getMfaStatus();
 
       res.json({
         enabled: status.enabled,
@@ -594,7 +596,9 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
           grantedBy: user!.email || undefined,
         });
 
-        const status = await (nauth.mfaService as unknown as { getMfaStatus(): Promise<GetMFAStatusResponseDTO> }).getMfaStatus();
+        const status = await (
+          nauth.mfaService as unknown as { getMfaStatus(): Promise<GetMFAStatusResponseDTO> }
+        ).getMfaStatus();
 
         res.json({
           message: exempt ? 'MFA exemption granted successfully' : 'MFA exemption revoked successfully',
@@ -626,7 +630,13 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
       if (!provider) {
         return res.status(400).json({ error: 'provider is required' });
       }
-      const auth = (nauth as { googleAuth?: { getAuthUrl: (s?: string) => Promise<string> }; appleAuth?: { getAuthUrl: (s?: string) => Promise<string> }; facebookAuth?: { getAuthUrl: (s?: string) => Promise<string> } })[`${provider}Auth` as 'googleAuth' | 'appleAuth' | 'facebookAuth'];
+      const auth = (
+        nauth as {
+          googleAuth?: { getAuthUrl: (s?: string) => Promise<string> };
+          appleAuth?: { getAuthUrl: (s?: string) => Promise<string> };
+          facebookAuth?: { getAuthUrl: (s?: string) => Promise<string> };
+        }
+      )[`${provider}Auth` as 'googleAuth' | 'appleAuth' | 'facebookAuth'];
       if (!auth) {
         return res.status(400).json({ error: `Provider ${provider} is not configured` });
       }
@@ -686,7 +696,13 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
       if (!provider || !code || !state) {
         return res.status(400).json({ error: 'provider, code, and state are required' });
       }
-      const auth = (nauth as { googleAuth?: { handleCallback: (d: { code: string; state: string }) => Promise<unknown> }; appleAuth?: { handleCallback: (d: { code: string; state: string }) => Promise<unknown> }; facebookAuth?: { handleCallback: (d: { code: string; state: string }) => Promise<unknown> } })[`${provider}Auth` as 'googleAuth' | 'appleAuth' | 'facebookAuth'];
+      const auth = (
+        nauth as {
+          googleAuth?: { handleCallback: (d: { code: string; state: string }) => Promise<unknown> };
+          appleAuth?: { handleCallback: (d: { code: string; state: string }) => Promise<unknown> };
+          facebookAuth?: { handleCallback: (d: { code: string; state: string }) => Promise<unknown> };
+        }
+      )[`${provider}Auth` as 'googleAuth' | 'appleAuth' | 'facebookAuth'];
       if (!auth) {
         return res.status(400).json({ error: `Provider ${provider} is not configured` });
       }
@@ -781,7 +797,7 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
    * Apple Sign-In - Callback (legacy endpoint for backward compatibility)
    *
    * POST /auth/social/apple/callback
-   * Body: { code, state }
+   * Body: { code, state, user }
    */
   router.post(
     '/social/apple/callback',
@@ -791,8 +807,9 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
         if (!nauth.appleAuth) {
           return res.status(404).json({ error: 'Apple Sign-In not configured' });
         }
-        const { code, state } = req.body;
-        const result = await nauth.appleAuth.handleCallback({ code, state });
+        const { code, state, user } = req.body;
+        // Pass user field directly - AppleSocialAuthService will parse it
+        const result = await nauth.appleAuth.handleCallback({ code, state, profileData: user });
         res.json(result);
       } catch (error) {
         next(error);

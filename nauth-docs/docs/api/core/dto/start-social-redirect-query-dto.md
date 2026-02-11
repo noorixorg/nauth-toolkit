@@ -49,7 +49,7 @@ import { StartSocialRedirectQueryDTO } from '@nauth-toolkit/core';
 
 ## OAuth Parameters
 
-The `oauthParams` property allows per-request customization of the OAuth flow. Pass provider-specific parameters as a JSON string. These override any defaults set in the backend configuration.
+The `oauthParams` property allows per-request customization of the OAuth flow. Pass provider-specific parameters as a JSON string. These override any defaults set in the backend configuration. The handler parses the JSON string automatically; the consumer controller passes the DTO as-is to `SocialRedirectHandler.start(provider, dto)`.
 
 ### Common Parameters by Provider
 
@@ -96,6 +96,7 @@ Host: api.example.com
 
 ## Related
 
+- [`StartSocialRedirectResponseDTO`](./start-social-redirect-response-dto) - Response returned by start()
 - [`SocialCallbackQueryDTO`](./social-callback-query-dto) - OAuth callback query parameters
 - [`SocialCallbackFormDTO`](./social-callback-form-dto) - OAuth callback form data (Apple)
 - [`SocialExchangeDTO`](./social-exchange-dto) - Exchange token for auth response

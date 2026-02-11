@@ -961,16 +961,16 @@ Redirect-first social login. The backend owns the OAuth callback, sets cookies (
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
+import { StartSocialRedirectQueryDTO, StartSocialRedirectResponseDTO } from '@nauth-toolkit/nestjs';
+
 @Public()
 @Redirect()
 @Get('social/:provider/redirect')
 async start(
   @Param('provider') provider: string,
-  @Query() q: { returnTo?: string; appState?: string },
-  @Req() req: unknown,
-): Promise<{ url: string }> {
-  const out = await this.socialRedirect.start({ provider, returnTo: q.returnTo, appState: q.appState, req });
-  return { url: out.redirectUrl };
+  @Query() dto: StartSocialRedirectQueryDTO,
+): Promise<StartSocialRedirectResponseDTO> {
+  return await this.socialRedirect.start(provider, dto);
 }
 ```
 
@@ -980,13 +980,13 @@ async start(
 ```typescript
 router.get('/social/:provider/redirect', async (req, res, next) => {
   try {
-    const out = await socialRedirect.start({
-      provider: req.params.provider,
+    const provider = req.params.provider;
+    const dto = {
       returnTo: typeof req.query.returnTo === 'string' ? req.query.returnTo : undefined,
       appState: typeof req.query.appState === 'string' ? req.query.appState : undefined,
-      req,
-    });
-    res.redirect(302, out.redirectUrl);
+    };
+    const out = await socialRedirect.start(provider, dto);
+    res.redirect(302, out.url);
   } catch (e) {
     next(e);
   }
@@ -999,13 +999,13 @@ router.get('/social/:provider/redirect', async (req, res, next) => {
 ```typescript
 fastify.get('/social/:provider/redirect', async (req, reply) => {
   const q = req.query as Record<string, unknown>;
-  const out = await socialRedirect.start({
-    provider: (req.params as any).provider,
+  const provider = (req.params as { provider: string }).provider;
+  const dto = {
     returnTo: typeof q.returnTo === 'string' ? q.returnTo : undefined,
     appState: typeof q.appState === 'string' ? q.appState : undefined,
-    req,
-  });
-  return reply.redirect(302, out.redirectUrl);
+  };
+  const out = await socialRedirect.start(provider, dto);
+  return reply.redirect(302, out.url);
 });
 ```
 
@@ -1024,13 +1024,13 @@ Backend responds with:
 - **302 → frontend** `returnTo?appState=...` (cookies success path), and sets httpOnly cookies in the same response
 - **302 → frontend** `returnTo?appState=...&exchangeToken=...` (json/hybrid, and cookies-with-challenge)
 
-#### NestJS: avoiding manual cookie logic
+#### NestJS: simplified controller
 
-If you return the auth payload in the same object as the redirect URL, the toolkit’s `CookieTokenInterceptor` can set cookies automatically (same behavior as other endpoints), and strip tokens from the response body in cookies mode.
+The handler reads delivery and deviceToken from ContextStorage and applies cookies via `HTTP_RESPONSE`. The controller only passes provider and DTO.
 
 ```typescript
-import { Controller, Get, Param, Query, Req, Redirect } from '@nestjs/common';
-import { Public, SocialRedirectHandler, AuthResponseDTO, TokenDelivery } from '@nauth-toolkit/nestjs';
+import { Controller, Get, Param, Query, Redirect } from '@nestjs/common';
+import { Public, SocialRedirectHandler, SocialCallbackQueryDTO, SocialRedirectCallbackResponseDTO } from '@nauth-toolkit/nestjs';
 
 @Controller('auth/social')
 export class SocialRedirectController {
@@ -1038,27 +1038,12 @@ export class SocialRedirectController {
 
   @Public()
   @Redirect()
-  // Optional: use explicit route-level delivery in hybrid deployments
-  // @TokenDelivery('cookies')
   @Get(':provider/callback')
   async callbackGet(
     @Param('provider') provider: string,
-    @Query() q: { code?: string; state?: string; error?: string; error_description?: string },
-    @Req() req: unknown,
-  ): Promise<{ url: string } & Partial<AuthResponseDTO>> {
-    const result = await this.socialRedirect.callback({
-      provider,
-      code: q.code,
-      state: q.state,
-      error: q.error,
-      errorDescription: q.error_description,
-      req,
-    });
-
-    if (result.authResponse) {
-      return { url: result.redirectUrl, ...result.authResponse };
-    }
-    return { url: result.redirectUrl };
+    @Query() dto: SocialCallbackQueryDTO,
+  ): Promise<SocialRedirectCallbackResponseDTO> {
+    return await this.socialRedirect.callback(provider, dto);
   }
 }
 ```

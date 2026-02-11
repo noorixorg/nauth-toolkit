@@ -17,6 +17,12 @@ export interface ClientInfo {
   userAgent: string;
 
   /**
+   * HTTP Origin header (e.g. https://app.example.com).
+   * Used for hybrid token delivery mode (web vs native origin).
+   */
+  origin?: string;
+
+  /**
    * Device token for trusted device feature
    *
    * Extracted from:

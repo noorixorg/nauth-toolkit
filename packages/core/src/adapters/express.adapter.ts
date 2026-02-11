@@ -289,35 +289,6 @@ class ExpressResponseWrapper implements NAuthResponse {
   }
 
   public redirect(url: string, status?: number): void {
-    // ============================================================================
-    // SocialRedirectHandler cookie recipe support (Express)
-    // ============================================================================
-    // SocialRedirectHandler stashes a cookie recipe on the request object:
-    //   (req as any).__nauthCookieRecipe = [{ name, value, options }, ...]
-    //
-    // This allows consumers to simply call `res.redirect(...)` without manually
-    // setting cookies in cookies mode.
-    try {
-      const req = (this.res as unknown as { req?: Record<string, unknown> }).req;
-      const recipe = req?.__nauthCookieRecipe;
-      if (Array.isArray(recipe)) {
-        for (const c of recipe) {
-          const cookie = c as { name?: unknown; value?: unknown; options?: unknown };
-          if (typeof cookie.name === 'string' && typeof cookie.value === 'string') {
-            // Express supports res.cookie()
-            this.res.cookie(
-              cookie.name,
-              cookie.value,
-              this.convertCookieOptions(cookie.options as NAuthCookieOptions | undefined),
-            );
-          }
-        }
-        delete (req as Record<string, unknown>).__nauthCookieRecipe;
-      }
-    } catch {
-      // Non-blocking: redirects must still work even if cookie setting fails
-    }
-
     if (status) {
       this.res.redirect(status, url);
     } else {

@@ -525,6 +525,32 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     this.logger?.log?.(`Social user created: ${email} (sub: ${savedUser.sub})`);
 
     // ============================================================================
+    // Audit: Record account creation for social signup
+    // ============================================================================
+    try {
+      await this.auditService?.recordEvent({
+        userId: savedUser.id,
+        eventType: AuthAuditEventType.ACCOUNT_CREATED,
+        eventStatus: 'INFO',
+        authMethod: socialProvider ? `social-${socialProvider}` : 'social',
+        // Client info automatically included from context
+        metadata: {
+          email: savedUser.email,
+          provider: socialProvider || null,
+          isEmailVerified: savedUser.isEmailVerified,
+          hasSocialAuth: true,
+        },
+      });
+    } catch (auditError) {
+      // Non-blocking: Log but continue
+      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to record ACCOUNT_CREATED audit event for social signup: ${errorMessage}`, {
+        error: auditError,
+        userId: savedUser.id,
+      });
+    }
+
+    // ============================================================================
     // After-Signup Hook: Execute post-creation actions (non-blocking)
     // ============================================================================
     if (this.hookRegistry) {

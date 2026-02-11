@@ -68,7 +68,7 @@ Host: api.example.com
 
 ## Used By
 
-- [`SocialRedirectHandler.callback()`](../services/social-auth-service)
+- [`SocialRedirectHandler.callback()`](../services/social-auth-service) - Pass the query DTO as-is: `return await this.socialRedirect.callback(provider, dto)`. Returns [`SocialRedirectCallbackResponseDTO`](./social-redirect-callback-response-dto).
 
 ## Related
 

@@ -344,7 +344,9 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
       }
 
       const user = nauth.helpers.getCurrentUser();
-      const status = await (mfaService as unknown as { getMfaStatus(): Promise<GetMFAStatusResponseDTO> }).getMfaStatus();
+      const status = await (
+        mfaService as unknown as { getMfaStatus(): Promise<GetMFAStatusResponseDTO> }
+      ).getMfaStatus();
 
       return {
         enabled: status.enabled,
@@ -470,7 +472,9 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
         grantedBy: user!.email || undefined,
       });
 
-      const status = await (mfaService as unknown as { getMfaStatus(): Promise<GetMFAStatusResponseDTO> }).getMfaStatus();
+      const status = await (
+        mfaService as unknown as { getMfaStatus(): Promise<GetMFAStatusResponseDTO> }
+      ).getMfaStatus();
 
       return {
         message: exempt ? 'MFA exemption granted successfully' : 'MFA exemption revoked successfully',
@@ -631,8 +635,9 @@ export function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<
         reply.code(404);
         return { error: 'Apple Sign-In not configured' };
       }
-      const { code, state } = req.body as any;
-      const result = await nauth.appleAuth.handleCallback({ code, state });
+      const { code, state, user } = req.body as any;
+      // Pass user field directly - AppleSocialAuthService will parse it
+      const result = await nauth.appleAuth.handleCallback({ code, state, profileData: user });
       return result;
     }),
   );

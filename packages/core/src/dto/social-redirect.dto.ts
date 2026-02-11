@@ -456,3 +456,23 @@ export class SocialCallbackFormDTO {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   user?: string;
 }
+
+// ============================================================================
+// Response DTOs (returned by SocialRedirectHandler)
+// ============================================================================
+
+/**
+ * Response DTO for start redirect.
+ * Returned by SocialRedirectHandler.start(); use with NestJS @Redirect() or equivalent.
+ */
+export interface StartSocialRedirectResponseDTO {
+  url: string;
+}
+
+/**
+ * Response DTO for callback redirect.
+ * Returned by SocialRedirectHandler.callback(); cookies are applied via HTTP_RESPONSE in ContextStorage when delivery is cookies.
+ */
+export interface SocialRedirectCallbackResponseDTO {
+  url: string;
+}

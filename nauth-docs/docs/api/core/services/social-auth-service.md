@@ -531,6 +531,18 @@ See [Error Handling Guide](/docs/concepts/error-handling).
 
 ---
 
+## Redirect-first OAuth (SocialRedirectHandler)
+
+For backend-first OAuth flows (redirect to provider, then callback), use `SocialRedirectHandler` (injected alongside this service). The handler is framework-neutral: it reads delivery and deviceToken from ContextStorage and applies cookies via `HTTP_RESPONSE` in cookies mode. Consumer controllers pass only provider and DTOs.
+
+- `start(provider, dto)` - Returns `Promise<StartSocialRedirectResponseDTO>`. Use with NestJS `@Redirect()`.
+- `callback(provider, dto)` - Returns `Promise<SocialRedirectCallbackResponseDTO>`. Cookies are applied to the response from ContextStorage when delivery is cookies.
+- `exchange(exchangeToken)` - Returns `Promise<AuthResponseDTO>` for JSON/hybrid or challenge flows.
+
+See the [Social Login Guide](/docs/features/social-login) for full implementation and DTOs (`StartSocialRedirectQueryDTO`, `SocialCallbackQueryDTO`, `SocialCallbackFormDTO`, `StartSocialRedirectResponseDTO`, `SocialRedirectCallbackResponseDTO`).
+
+---
+
 ## Related APIs
 
 - [AuthService](./auth-service) - Core authentication service

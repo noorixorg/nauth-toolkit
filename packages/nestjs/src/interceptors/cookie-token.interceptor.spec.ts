@@ -1,5 +1,5 @@
 import { CookieTokenInterceptor } from './cookie-token.interceptor';
-import { NAuthConfig, NAuthException, AuthErrorCode } from '@nauth-toolkit/core';
+import { NAuthConfig, NAuthException, AuthErrorCode, ContextStorage } from '@nauth-toolkit/core';
 import { JwtService } from '@nauth-toolkit/core/internal';
 import { CallHandler, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -431,7 +431,7 @@ describe('CookieTokenInterceptor', () => {
     });
   });
 
-  it('handles cookie recipe from social redirect', (done) => {
+  it('leaves { url } response unchanged (social redirect - cookies applied by handler via HTTP_RESPONSE)', (done) => {
     const config = { tokenDelivery: { method: 'cookies' } } as unknown as NAuthConfig;
     const cookiesSet: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
     const res = {
@@ -441,17 +441,9 @@ describe('CookieTokenInterceptor', () => {
     } as any;
 
     const req = { headers: {} } as any;
-    req.__nauthCookieRecipe = [
-      { name: 'nauth_access_token', value: 'token-123', options: { httpOnly: true } },
-      { name: 'nauth_refresh_token', value: 'refresh-456', options: { httpOnly: true } },
-    ];
-
     const ctx = {
       getType: () => 'http',
-      switchToHttp: () => ({
-        getResponse: () => res,
-        getRequest: () => req,
-      }),
+      switchToHttp: () => ({ getResponse: () => res, getRequest: () => req }),
       getHandler: () => ({}),
     } as unknown as ExecutionContext;
 
@@ -463,10 +455,29 @@ describe('CookieTokenInterceptor', () => {
     } as any;
 
     interceptor.intercept(ctx, next).subscribe((result: any) => {
-      expect(cookiesSet.find((c) => c.name === 'nauth_access_token')).toBeTruthy();
-      expect(cookiesSet.find((c) => c.name === 'nauth_refresh_token')).toBeTruthy();
-      expect(req.__nauthCookieRecipe).toBeUndefined();
+      expect(result).toEqual({ url: 'https://example.com/success' });
+      expect(cookiesSet.length).toBe(0);
       done();
+    });
+  });
+
+  it('sets ROUTE_DELIVERY_OVERRIDE in ContextStorage when routeMode is defined and CLIENT_INFO exists', (done) => {
+    const config = { tokenDelivery: { method: 'cookies' } } as unknown as NAuthConfig;
+    const ref = { get: (key: string) => (key === TOKEN_DELIVERY_KEY ? 'cookies' : undefined) } as unknown as Reflector;
+    const { ctx, cookiesSet } = createHttpContextMock();
+    const tokenDeliveryService = createTokenDeliveryService(config, cookiesSet);
+    const interceptor = new CookieTokenInterceptor(tokenDeliveryService, ref);
+
+    const next: CallHandler = {
+      handle: () => of({ url: 'https://example.com/redirect' }),
+    } as any;
+
+    ContextStorage.run(() => {
+      ContextStorage.set('CLIENT_INFO', { ipAddress: '1.2.3.4', userAgent: 'ua' });
+      interceptor.intercept(ctx, next).subscribe(() => {
+        expect(ContextStorage.get('ROUTE_DELIVERY_OVERRIDE')).toBe('cookies');
+        done();
+      });
     });
   });
 

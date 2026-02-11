@@ -24,6 +24,28 @@ export class PostSignupDebugHook implements IPostSignupHookProvider {
     this.logger.debug(`Requires Verification: ${metadata?.requiresVerification || false}`);
     this.logger.debug(`Admin Signup: ${metadata?.adminSignup || false}`);
     this.logger.debug(`User Created At: ${user.createdAt || 'N/A'}`);
+
+    // Log social metadata for social signups
+    if (metadata?.signupType === 'social' && metadata?.socialMetadata) {
+      this.logger.debug('--- Social Login Data ---');
+      this.logger.debug(`Social Metadata: ${JSON.stringify(metadata.socialMetadata, null, 2)}`);
+      if (metadata.profilePicture) {
+        this.logger.debug(`Profile Picture: ${metadata.profilePicture}`);
+      }
+    }
+
+    // Highlight Apple-specific data (name is in user object, not socialMetadata)
+    if (metadata?.provider === 'apple') {
+      this.logger.debug('--- Apple Sign-In Name Data ---');
+      this.logger.debug(
+        `Apple firstName from user object: ${user.firstName || 'NOT PROVIDED (may be subsequent login)'}`,
+      );
+      this.logger.debug(
+        `Apple lastName from user object: ${user.lastName || 'NOT PROVIDED (may be subsequent login)'}`,
+      );
+      this.logger.debug('Note: Apple only sends name on FIRST sign-in. Subsequent logins will not have name data.');
+    }
+
     this.logger.debug('=== POST-SIGNUP HOOK COMPLETE ===');
   }
 }

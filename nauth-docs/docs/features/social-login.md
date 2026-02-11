@@ -272,20 +272,22 @@ You delegate the logic to [`SocialRedirectHandler`](/docs/api/core/services/soci
 <TabItem value="nestjs" label="NestJS" default>
 
 - Uses `@Redirect()` so the response pipeline runs
-- Lets `CookieTokenInterceptor` set cookies automatically when using cookie delivery
-- Avoids the consumer manually building cookie responses
+- Delivery and deviceToken come from ContextStorage (set by guards/interceptors before the controller). Cookies in cookies mode are applied by the handler via `HTTP_RESPONSE` in ContextStorage
+- Consumer only passes provider and DTOs; no request object needed
 - Allows frontend to send appState which is returned when the flow ends. This helps store state such as invite code or referral codes
 
 ```typescript title="src/auth/social-redirect.controller.ts"
-import { Body, Controller, Get, Param, Post, Query, Redirect, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Redirect } from '@nestjs/common';
 import {
   AuthResponseDTO,
   Public,
   SocialRedirectHandler,
   SocialCallbackFormDTO,
   SocialCallbackQueryDTO,
+  SocialRedirectCallbackResponseDTO,
   SocialExchangeDTO,
   StartSocialRedirectQueryDTO,
+  StartSocialRedirectResponseDTO,
 } from '@nauth-toolkit/nestjs';
 
 @Controller('auth/social')
@@ -297,28 +299,9 @@ export class SocialRedirectController {
   @Get(':provider/redirect')
   async start(
     @Param('provider') provider: string,
-    @Query() query: StartSocialRedirectQueryDTO,
-    @Req() req: unknown,
-  ): Promise<{ url: string }> {
-    // Parse oauthParams from JSON string if provided
-    let oauthParams: Record<string, string> | undefined;
-    if (query.oauthParams) {
-      try {
-        oauthParams = JSON.parse(query.oauthParams);
-      } catch {
-        throw new BadRequestException('Invalid oauthParams format - must be valid JSON');
-      }
-    }
-
-    const result = await this.socialRedirect.start({
-      provider,
-      returnTo: query.returnTo,
-      appState: query.appState,
-      action: query.action,
-      oauthParams,
-      req,
-    });
-    return { url: result.redirectUrl };
+    @Query() dto: StartSocialRedirectQueryDTO,
+  ): Promise<StartSocialRedirectResponseDTO> {
+    return await this.socialRedirect.start(provider, dto);
   }
 
   // Provider callback (Google/Facebook)
@@ -329,19 +312,9 @@ export class SocialRedirectController {
   @Get(':provider/callback')
   async callbackGet(
     @Param('provider') provider: string,
-    @Query() query: SocialCallbackQueryDTO,
-    @Req() req: unknown,
-  ): Promise<{ url: string } & Partial<AuthResponseDTO>> {
-    const result = await this.socialRedirect.callback({
-      provider,
-      code: query.code,
-      state: query.state,
-      error: query.error,
-      errorDescription: query.error_description,
-      req,
-    });
-
-    return { url: result.redirectUrl };
+    @Query() dto: SocialCallbackQueryDTO,
+  ): Promise<SocialRedirectCallbackResponseDTO> {
+    return await this.socialRedirect.callback(provider, dto);
   }
 
   // Provider callback (Apple form_post)
@@ -352,19 +325,9 @@ export class SocialRedirectController {
   @Post(':provider/callback')
   async callbackPost(
     @Param('provider') provider: string,
-    @Body() body: SocialCallbackFormDTO,
-    @Req() req: unknown,
-  ): Promise<{ url: string } & Partial<AuthResponseDTO>> {
-    const result = await this.socialRedirect.callback({
-      provider,
-      code: body.code,
-      state: body.state,
-      error: body.error,
-      errorDescription: body.error_description,
-      req,
-    });
-
-    return { url: result.redirectUrl };
+    @Body() dto: SocialCallbackFormDTO,
+  ): Promise<SocialRedirectCallbackResponseDTO> {
+    return await this.socialRedirect.callback(provider, dto);
   }
 
   @Public()
@@ -643,8 +606,10 @@ Complete reference for all social login classes, DTOs, and services:
 | DTO                                   | Description                                  | Documentation                                                                                       |
 | ------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | `StartSocialRedirectQueryDTO`         | Start redirect-first flow query parameters   | [StartSocialRedirectQueryDTO](/docs/api/core/dto/start-social-redirect-query-dto)                   |
+| `StartSocialRedirectResponseDTO`      | Start redirect response (url for @Redirect()) | [StartSocialRedirectResponseDTO](/docs/api/core/dto/start-social-redirect-response-dto)             |
 | `SocialCallbackQueryDTO`              | OAuth callback query parameters (GET)        | [SocialCallbackQueryDTO](/docs/api/core/dto/social-callback-query-dto)                              |
 | `SocialCallbackFormDTO`               | OAuth callback form data (POST for Apple)    | [SocialCallbackFormDTO](/docs/api/core/dto/social-callback-form-dto)                                |
+| `SocialRedirectCallbackResponseDTO`   | Callback redirect response (url for @Redirect()) | [SocialRedirectCallbackResponseDTO](/docs/api/core/dto/social-redirect-callback-response-dto)   |
 | `SocialExchangeDTO`                   | Exchange token request (redirect-first flow) | [SocialExchangeDTO](/docs/api/core/dto/social-exchange-dto)                                         |
 | `HandleCallbackDTO`                   | OAuth callback request (code and state)      | [HandleCallbackDTO](/docs/api/core/dto/handle-callback-dto)                                         |
 | `VerifyTokenDTO`                      | Native mobile token verification request     | [VerifyTokenDTO](/docs/api/core/dto/verify-token-dto)                                               |

@@ -66,10 +66,13 @@ export class ClientInfoHandler {
     const deviceTokenCookieName = getDeviceTokenCookieName(this.config);
     const deviceToken = req.cookies[deviceTokenCookieName] || req.getHeader('x-device-token');
 
+    const origin = req.getHeader('origin');
+
     // Build client info object
     const clientInfo: IClientInfo = {
       ipAddress: req.ip,
       userAgent,
+      origin: typeof origin === 'string' ? origin : undefined,
       deviceToken,
       deviceName: (req.body.deviceName as string) || parsedUA.deviceName || undefined,
       deviceType: ((req.body.deviceType as string) || parsedUA.deviceType || undefined) as IClientInfo['deviceType'],

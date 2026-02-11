@@ -5,21 +5,21 @@ import {
   Param,
   Query,
   Body,
-  Req,
   Redirect,
   Inject,
   BadRequestException,
   Optional,
 } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
 import {
   Public,
   SocialRedirectHandler,
   AuthResponseDTO,
   SocialCallbackFormDTO,
   SocialCallbackQueryDTO,
+  SocialRedirectCallbackResponseDTO,
   SocialExchangeDTO,
   StartSocialRedirectQueryDTO,
+  StartSocialRedirectResponseDTO,
   VerifyTokenDTO,
   TokenDelivery,
 } from '@nauth-toolkit/nestjs';
@@ -30,9 +30,8 @@ import { FacebookSocialAuthService } from '@nauth-toolkit/social-facebook/nestjs
 /**
  * Social Redirect Controller (Consumer-owned)
  *
- * This controller intentionally lives in the consumer app to match the architecture:
- * - `@nauth-toolkit/core` provides the handler (framework-neutral)
- * - Consumer app defines HTTP routes and delegates to the handler
+ * Thin wrapper over SocialRedirectHandler. Delivery, deviceToken and cookies
+ * are handled by the SDK via ContextStorage; the controller only passes provider and DTOs.
  *
  * @example
  * ```typescript
@@ -81,9 +80,6 @@ export class SocialRedirectController {
   async verifyNative(@Body() dto: VerifyTokenDTO): Promise<AuthResponseDTO> {
     const provider = dto.provider;
 
-    // ============================================================================
-    // Provider Routing
-    // ============================================================================
     if (provider === 'google') {
       if (!this.googleAuth) throw new BadRequestException('Google OAuth is not configured');
       return await this.googleAuth.verifyToken(dto);
@@ -98,7 +94,6 @@ export class SocialRedirectController {
       if (!this.facebookAuth) throw new BadRequestException('Facebook OAuth is not configured');
       const token = dto.idToken || dto.accessToken;
       if (!token) throw new BadRequestException('Either idToken or accessToken is required for facebook');
-
       return await this.facebookAuth.verifyToken(dto);
     }
 
@@ -113,28 +108,9 @@ export class SocialRedirectController {
   @Get(':provider/redirect')
   async start(
     @Param('provider') provider: string,
-    @Query() query: StartSocialRedirectQueryDTO,
-    @Req() req: FastifyRequest,
-  ): Promise<{ url: string }> {
-    // Parse oauthParams from JSON string if provided
-    let oauthParams: Record<string, string> | undefined;
-    if (query.oauthParams) {
-      try {
-        oauthParams = JSON.parse(query.oauthParams);
-      } catch {
-        throw new BadRequestException('Invalid oauthParams format - must be valid JSON');
-      }
-    }
-
-    const result = await this.socialRedirect.start({
-      provider,
-      returnTo: query.returnTo,
-      appState: query.appState,
-      action: query.action,
-      oauthParams,
-      req,
-    });
-    return { url: result.redirectUrl };
+    @Query() dto: StartSocialRedirectQueryDTO,
+  ): Promise<StartSocialRedirectResponseDTO> {
+    return await this.socialRedirect.start(provider, dto);
   }
 
   /**
@@ -145,61 +121,22 @@ export class SocialRedirectController {
   @Get(':provider/callback')
   async callbackGet(
     @Param('provider') provider: string,
-    @Query() query: SocialCallbackQueryDTO,
-    @Req() req: FastifyRequest,
-  ): Promise<{ url: string } & Partial<AuthResponseDTO>> {
-    const result = await this.socialRedirect.callback({
-      provider,
-      code: query.code,
-      state: query.state,
-      error: query.error,
-      errorDescription: query.error_description,
-      req,
-    });
-    // NOTE: `authResponse` is optional and only present for cookies+token success.
-    // We intentionally avoid forcing the consumer controller to manually set cookies.
-    if (result.authResponse) {
-      return { url: result.redirectUrl, ...result.authResponse };
-    }
-    return { url: result.redirectUrl };
+    @Query() dto: SocialCallbackQueryDTO,
+  ): Promise<SocialRedirectCallbackResponseDTO> {
+    return await this.socialRedirect.callback(provider, dto);
   }
 
   /**
-   * OAuth callback for Apple `form_post`.
+   * OAuth callback for Apple form_post.
    */
   @Public()
   @Redirect()
   @Post(':provider/callback')
   async callbackPost(
     @Param('provider') provider: string,
-    @Body() body: SocialCallbackFormDTO,
-    @Req() req: FastifyRequest,
-  ): Promise<{ url: string } & Partial<AuthResponseDTO>> {
-    // Parse Apple's user field if present (JSON string with name data)
-    let profileData: Record<string, unknown> | undefined;
-    if (body.user) {
-      try {
-        profileData = JSON.parse(body.user);
-      } catch {
-        // Ignore parse errors - profileData remains undefined
-      }
-    }
-
-    const result = await this.socialRedirect.callback({
-      provider,
-      code: body.code,
-      state: body.state,
-      error: body.error,
-      errorDescription: body.error_description,
-      profileData,
-      req,
-    });
-    // NOTE: `authResponse` is optional and only present for cookies+token success.
-    // We intentionally avoid forcing the consumer controller to manually set cookies.
-    if (result.authResponse) {
-      return { url: result.redirectUrl, ...result.authResponse };
-    }
-    return { url: result.redirectUrl };
+    @Body() dto: SocialCallbackFormDTO,
+  ): Promise<SocialRedirectCallbackResponseDTO> {
+    return await this.socialRedirect.callback(provider, dto);
   }
 
   /**
@@ -218,7 +155,6 @@ export class SocialRedirectController {
 
   /**
    * Start redirect-first social login (mobile/JSON mode).
-   * Explicitly uses JSON token delivery for hybrid backend.
    */
   @Public()
   @TokenDelivery('json')
@@ -226,33 +162,13 @@ export class SocialRedirectController {
   @Get(':provider/redirect/mobile')
   async startMobile(
     @Param('provider') provider: string,
-    @Query() query: StartSocialRedirectQueryDTO,
-    @Req() req: FastifyRequest,
-  ): Promise<{ url: string }> {
-    // Parse oauthParams from JSON string if provided
-    let oauthParams: Record<string, string> | undefined;
-    if (query.oauthParams) {
-      try {
-        oauthParams = JSON.parse(query.oauthParams);
-      } catch {
-        throw new BadRequestException('Invalid oauthParams format - must be valid JSON');
-      }
-    }
-
-    const result = await this.socialRedirect.start({
-      provider,
-      returnTo: query.returnTo,
-      appState: query.appState,
-      action: query.action,
-      oauthParams,
-      req,
-    });
-    return { url: result.redirectUrl };
+    @Query() dto: StartSocialRedirectQueryDTO,
+  ): Promise<StartSocialRedirectResponseDTO> {
+    return await this.socialRedirect.start(provider, dto);
   }
 
   /**
    * OAuth callback for providers that redirect with query params (mobile/JSON mode).
-   * Explicitly uses JSON token delivery for hybrid backend.
    */
   @Public()
   @TokenDelivery('json')
@@ -260,26 +176,13 @@ export class SocialRedirectController {
   @Get(':provider/callback/mobile')
   async callbackGetMobile(
     @Param('provider') provider: string,
-    @Query() query: SocialCallbackQueryDTO,
-    @Req() req: FastifyRequest,
-  ): Promise<{ url: string } & Partial<AuthResponseDTO>> {
-    const result = await this.socialRedirect.callback({
-      provider,
-      code: query.code,
-      state: query.state,
-      error: query.error,
-      errorDescription: query.error_description,
-      req,
-    });
-    if (result.authResponse) {
-      return { url: result.redirectUrl, ...result.authResponse };
-    }
-    return { url: result.redirectUrl };
+    @Query() dto: SocialCallbackQueryDTO,
+  ): Promise<SocialRedirectCallbackResponseDTO> {
+    return await this.socialRedirect.callback(provider, dto);
   }
 
   /**
    * OAuth callback for Apple form_post (mobile/JSON mode).
-   * Explicitly uses JSON token delivery for hybrid backend.
    */
   @Public()
   @TokenDelivery('json')
@@ -287,51 +190,16 @@ export class SocialRedirectController {
   @Post(':provider/callback/mobile')
   async callbackPostMobile(
     @Param('provider') provider: string,
-    @Body() body: SocialCallbackFormDTO,
-    @Req() req: FastifyRequest,
-  ): Promise<{ url: string } & Partial<AuthResponseDTO>> {
-    // Parse Apple's user field if present (JSON string with name data)
-    let profileData: Record<string, unknown> | undefined;
-    if (body.user) {
-      try {
-        profileData = JSON.parse(body.user);
-      } catch {
-        // Ignore parse errors - profileData remains undefined
-      }
-    }
-
-    const result = await this.socialRedirect.callback({
-      provider,
-      code: body.code,
-      state: body.state,
-      error: body.error,
-      errorDescription: body.error_description,
-      profileData,
-      req,
-    });
-    if (result.authResponse) {
-      return { url: result.redirectUrl, ...result.authResponse };
-    }
-    return { url: result.redirectUrl };
+    @Body() dto: SocialCallbackFormDTO,
+  ): Promise<SocialRedirectCallbackResponseDTO> {
+    return await this.socialRedirect.callback(provider, dto);
   }
 
   /**
    * Verify native Google token from mobile apps (Capacitor/React Native)
    *
-   * Mobile apps use native SDKs to get ID tokens and send them directly to backend
-   * for verification. This endpoint verifies the token and returns JWT tokens.
-   *
    * @param dto - VerifyTokenDTO containing idToken, optional accessToken, and profileData
    * @returns Authentication response with JWT tokens and user info
-   *
-   * @example
-   * ```typescript
-   * POST /auth/social/google/verify
-   * {
-   *   "idToken": "eyJhbGciOiJSUzI1NiIs...",
-   *   "accessToken": "ya29.a0AfH6SMC..."
-   * }
-   * ```
    */
   @Public()
   @Post('google/verify')
@@ -339,7 +207,6 @@ export class SocialRedirectController {
     if (!this.googleAuth) {
       throw new BadRequestException('Google OAuth is not configured');
     }
-
     return await this.googleAuth.verifyToken(dto);
   }
 }
