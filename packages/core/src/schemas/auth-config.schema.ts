@@ -225,6 +225,7 @@ export const securityConfigSchema = z.object({
           sameSite: z.enum(['strict', 'lax', 'none']).optional(),
           domain: z.string().optional(),
           path: z.string().optional(),
+          priority: z.enum(['low', 'medium', 'high']).default('high'),
         })
         .optional(),
     })
@@ -494,6 +495,7 @@ export const tokenDeliveryConfigSchema = z.object({
       sameSite: z.enum(['strict', 'lax', 'none']).optional(),
       path: z.string().optional(),
       domain: z.string().optional(),
+      priority: z.enum(['low', 'medium', 'high']).optional(),
     })
     .optional(),
   hybridPolicy: z

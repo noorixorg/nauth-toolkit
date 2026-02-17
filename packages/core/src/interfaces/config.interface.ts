@@ -1274,6 +1274,11 @@ export interface SecurityConfig {
        * @default '/'
        */
       path?: string;
+      /**
+       * Cookie priority (Chrome 119+). High reduces eviction when storage is full.
+       * @default 'high'
+       */
+      priority?: 'low' | 'medium' | 'high';
     };
   };
 }
@@ -2339,6 +2344,11 @@ export interface TokenDeliveryConfig {
      * @example '.myapp.com'
      */
     domain?: string;
+    /**
+     * Cookie priority (Chrome 119+). High reduces eviction when storage is full.
+     * @default 'high'
+     */
+    priority?: 'low' | 'medium' | 'high';
   };
 
   /**

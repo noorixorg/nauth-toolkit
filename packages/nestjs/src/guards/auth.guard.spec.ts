@@ -367,7 +367,9 @@ describe('AuthGuard', () => {
           exp: Math.floor(Date.now() / 1000) + 3600,
         },
       });
-      jest.spyOn(sessionService, 'findAuthContextBySessionId').mockResolvedValue({ session: mockSession, user: mockUser } as any);
+      jest
+        .spyOn(sessionService, 'findAuthContextBySessionId')
+        .mockResolvedValue({ session: mockSession, user: mockUser } as any);
       jest.spyOn(mockAuthService, 'getUserForAuthContext').mockResolvedValue(mockUser as any);
     });
 
@@ -465,7 +467,7 @@ describe('AuthGuard', () => {
           exp: Math.floor(Date.now() / 1000) + 3600,
         },
       });
-      jest.spyOn(sessionService, 'findByIdLight').mockResolvedValue(null);
+      jest.spyOn(sessionService, 'findAuthContextBySessionId').mockResolvedValue(null);
 
       // Act & Assert
       try {
@@ -495,7 +497,10 @@ describe('AuthGuard', () => {
         },
       });
       const revokedSession = { ...mockSession, isRevoked: true };
-      jest.spyOn(sessionService, 'findByIdLight').mockResolvedValue(revokedSession);
+      jest.spyOn(sessionService, 'findAuthContextBySessionId').mockResolvedValue({
+        session: revokedSession,
+        user: mockUser,
+      } as any);
 
       // Act & Assert
       try {
@@ -525,7 +530,10 @@ describe('AuthGuard', () => {
         },
       });
       const expiredSession = { ...mockSession, expiresAt: new Date(Date.now() - 3600000) }; // 1 hour ago
-      jest.spyOn(sessionService, 'findByIdLight').mockResolvedValue(expiredSession);
+      jest.spyOn(sessionService, 'findAuthContextBySessionId').mockResolvedValue({
+        session: expiredSession,
+        user: mockUser,
+      } as any);
 
       // Act & Assert
       try {
@@ -554,10 +562,9 @@ describe('AuthGuard', () => {
           exp: Math.floor(Date.now() / 1000) + 3600,
         },
       });
-      jest.spyOn(sessionService, 'findByIdLight').mockResolvedValue(mockSession);
-      jest.spyOn(mockAuthService, 'getUserForAuthContext').mockRejectedValue(
-        new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found'),
-      );
+      jest
+        .spyOn(sessionService, 'findAuthContextBySessionId')
+        .mockRejectedValue(new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found'));
 
       // Act & Assert
       try {
@@ -586,10 +593,9 @@ describe('AuthGuard', () => {
           exp: Math.floor(Date.now() / 1000) + 3600,
         },
       });
-      jest.spyOn(sessionService, 'findByIdLight').mockResolvedValue(mockSession);
-      jest.spyOn(mockAuthService, 'getUserForAuthContext').mockRejectedValue(
-        new NAuthException(AuthErrorCode.ACCOUNT_INACTIVE, 'Account is not active'),
-      );
+      jest
+        .spyOn(sessionService, 'findAuthContextBySessionId')
+        .mockRejectedValue(new NAuthException(AuthErrorCode.ACCOUNT_INACTIVE, 'Account is not active'));
 
       // Act & Assert
       try {

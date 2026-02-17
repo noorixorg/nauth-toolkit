@@ -101,4 +101,28 @@ describe('CsrfHandler', () => {
     expect((res.setCookie as unknown as jest.Mock).mock.calls.length).toBe(1);
     expect((res.header as unknown as jest.Mock).mock.calls.length).toBe(1);
   });
+
+  it('passes cookie priority from getCookieOptions to setCookie', async () => {
+    const csrfService = {
+      getCookieName: () => 'nauth_csrf_token',
+      getHeaderName: () => 'x-csrf-token',
+      getCookieOptions: () => ({ priority: 'low' as const }),
+      generateToken: jest.fn(() => 'token-abc'),
+      validateToken: jest.fn(() => true),
+    } as unknown as CsrfService;
+
+    const config = createConfig();
+    const handler = new CsrfHandler(csrfService, config);
+
+    const req = createReq('GET', {});
+    const res: NAuthResponse = {
+      setCookie: jest.fn(),
+      header: jest.fn(),
+    } as unknown as NAuthResponse;
+
+    const next = jest.fn(async () => undefined);
+    await handler.handle(req, res, next);
+
+    expect((res.setCookie as unknown as jest.Mock).mock.calls[0][2]).toMatchObject({ priority: 'low' });
+  });
 });

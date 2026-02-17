@@ -327,8 +327,11 @@ import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
 const config = {
   smsProvider: new AWSSMSProvider({
     region: 'us-east-1',
+    originationNumber: process.env.AWS_SMS_ORIGINATION || '+12345678901',
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    // apiMode: 'end-user-messaging-sms',
+    // configurationSetName: 'default',
   }),
   mfa: {
     sms: {

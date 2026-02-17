@@ -13,7 +13,7 @@ type RecaptchaVersion = 'v2' | 'v3' | 'enterprise';
 
 /**
  * reCAPTCHA configuration for RecaptchaService
- * 
+ *
  * Internal configuration interface used by RecaptchaService.
  * Use RecaptchaAngularConfig from tokens.ts for app configuration.
  */
@@ -81,7 +81,7 @@ export class RecaptchaService {
     @Optional() @Inject(RECAPTCHA_CONFIG) private config?: RecaptchaServiceConfig,
   ) {
     this.platform = this.detectPlatform();
-    
+
     // Auto-preload script for v3/Enterprise so it's ready before first login/signup
     // No-op when disabled, shouldSkip, or v2 (v2 renders on-demand)
     if (this.config?.enabled && (this.config.version === 'v3' || this.config.version === 'enterprise')) {
@@ -287,7 +287,14 @@ export class RecaptchaService {
     await this.loadScript();
 
     // Get grecaptcha object
-    const grecaptcha = (window as { grecaptcha?: { execute?: (siteKey: string, options: { action: string }) => Promise<string>; enterprise?: { execute?: (siteKey: string, options: { action: string }) => Promise<string> } } }).grecaptcha;
+    const grecaptcha = (
+      window as {
+        grecaptcha?: {
+          execute?: (siteKey: string, options: { action: string }) => Promise<string>;
+          enterprise?: { execute?: (siteKey: string, options: { action: string }) => Promise<string> };
+        };
+      }
+    ).grecaptcha;
 
     if (!grecaptcha) {
       throw new Error('[RecaptchaService] grecaptcha is not loaded');
@@ -305,7 +312,9 @@ export class RecaptchaService {
         throw new Error('[RecaptchaService] grecaptcha.execute is not available');
       }
     } catch (error: unknown) {
-      throw new Error(`[RecaptchaService] Failed to execute reCAPTCHA: ${error instanceof Error ? error.message : 'unknown error'}`);
+      throw new Error(
+        `[RecaptchaService] Failed to execute reCAPTCHA: ${error instanceof Error ? error.message : 'unknown error'}`,
+      );
     }
   }
 
@@ -352,7 +361,13 @@ export class RecaptchaService {
     await this.loadScript();
 
     // Get grecaptcha object
-    const grecaptcha = (window as { grecaptcha?: { render?: (container: string, options: { sitekey: string; callback: (token: string) => void }) => number } }).grecaptcha;
+    const grecaptcha = (
+      window as {
+        grecaptcha?: {
+          render?: (container: string, options: { sitekey: string; callback: (token: string) => void }) => number;
+        };
+      }
+    ).grecaptcha;
 
     if (!grecaptcha?.render) {
       throw new Error('[RecaptchaService] grecaptcha.render is not available');
@@ -366,7 +381,9 @@ export class RecaptchaService {
       });
       return this.widgetId;
     } catch (error: unknown) {
-      throw new Error(`[RecaptchaService] Failed to render reCAPTCHA: ${error instanceof Error ? error.message : 'unknown error'}`);
+      throw new Error(
+        `[RecaptchaService] Failed to render reCAPTCHA: ${error instanceof Error ? error.message : 'unknown error'}`,
+      );
     }
   }
 
@@ -391,7 +408,7 @@ export class RecaptchaService {
       return null;
     }
 
-    const id = widgetId !== undefined ? widgetId : this.widgetId ?? undefined;
+    const id = widgetId !== undefined ? widgetId : (this.widgetId ?? undefined);
     return grecaptcha.getResponse(id) || null;
   }
 
@@ -413,7 +430,7 @@ export class RecaptchaService {
       return;
     }
 
-    const id = widgetId !== undefined ? widgetId : this.widgetId ?? undefined;
+    const id = widgetId !== undefined ? widgetId : (this.widgetId ?? undefined);
     grecaptcha.reset(id);
   }
 }

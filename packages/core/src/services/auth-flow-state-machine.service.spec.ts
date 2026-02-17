@@ -227,4 +227,62 @@ describe('AuthFlowStateMachineService', () => {
       }).not.toThrow();
     });
   });
+
+  describe('transitionAfterChallenge', () => {
+    it('should re-evaluate state after challenge with updateFn', async () => {
+      const context = createMockContext({ isEmailVerificationRequired: true });
+      const updateFn = jest.fn().mockResolvedValue(undefined);
+
+      mockContextBuilder.build.mockResolvedValue(createMockContext());
+
+      const state = await service.transitionAfterChallenge({
+        completedChallenge: 'VERIFY_EMAIL',
+        context,
+        updateFn,
+      });
+
+      expect(updateFn).toHaveBeenCalledWith(context.user);
+      expect(mockContextBuilder.build).toHaveBeenCalled();
+      expect(state).toBe(AuthFlowState.AUTHENTICATED);
+    });
+
+    it('should re-evaluate state when updateFn throws', async () => {
+      const context = createMockContext();
+      const updateFn = jest.fn().mockRejectedValue(new Error('Update failed'));
+
+      mockContextBuilder.build.mockResolvedValue(createMockContext());
+
+      const state = await service.transitionAfterChallenge({
+        completedChallenge: 'VERIFY_EMAIL',
+        context,
+        updateFn,
+      });
+
+      expect(updateFn).toHaveBeenCalledWith(context.user);
+      expect(mockLogger.error).toHaveBeenCalled();
+      expect(mockContextBuilder.build).toHaveBeenCalled();
+      expect(state).toBe(AuthFlowState.AUTHENTICATED);
+    });
+
+    it('should re-evaluate state without updateFn', async () => {
+      const context = createMockContext();
+
+      mockContextBuilder.build.mockResolvedValue(createMockContext());
+
+      const state = await service.transitionAfterChallenge({
+        completedChallenge: 'VERIFY_PHONE',
+        context,
+      });
+
+      expect(mockContextBuilder.build).toHaveBeenCalledWith({
+        user: context.user,
+        config: context.config,
+        authMethod: context.authMethod,
+        authProvider: context.authProvider,
+        deviceToken: context.deviceToken,
+        skipMFAVerification: context.skipMFAVerification,
+      });
+      expect(state).toBe(AuthFlowState.AUTHENTICATED);
+    });
+  });
 });

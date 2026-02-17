@@ -94,6 +94,7 @@ export class TokenDeliveryHandler {
       sameSite: (this.config.tokenDelivery?.cookieOptions?.sameSite || 'strict') as 'strict' | 'lax' | 'none',
       domain: this.config.tokenDelivery?.cookieOptions?.domain,
       path: '/',
+      priority: (this.config.tokenDelivery?.cookieOptions?.priority as 'low' | 'medium' | 'high') ?? 'high',
     };
 
     const accessMaxAge = this.parseExpiry(this.config.jwt.accessToken.expiresIn) * 1000;

@@ -12,7 +12,7 @@ SMS providers for sending verification codes and MFA challenges.
 
 | Provider | Package | Description |
 |----------|---------|-------------|
-| [AWS SNS](./aws-sns) | `@nauth-toolkit/sms-aws-sns` | Production SMS via AWS SNS |
+| [AWS SNS](./aws-sns) | `@nauth-toolkit/sms-aws-sns` | Production SMS via AWS SNS or AWS End User Messaging SMS (configurable; supports configuration sets) |
 | [Console](./console) | `@nauth-toolkit/sms-console` | Development (logs to console) |
 
 ## Provider Interface

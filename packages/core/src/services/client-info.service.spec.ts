@@ -534,4 +534,183 @@ describe('ClientInfoService', () => {
       });
     });
   });
+
+  // ============================================================================
+  // getSessionId() Method
+  // ============================================================================
+
+  describe('getSessionId()', () => {
+    it('should return session ID from client info when available', () => {
+      ContextStorage.run(() => {
+        ContextStorage.set('CLIENT_INFO', mockClientInfo);
+
+        const result = service.getSessionId();
+
+        expect(result.sessionId).toBe(123);
+      });
+    });
+
+    it('should return undefined when no client info in context', () => {
+      const result = service.getSessionId();
+      expect(result.sessionId).toBeUndefined();
+    });
+
+    it('should return undefined when client info has no sessionId', () => {
+      ContextStorage.run(() => {
+        ContextStorage.set('CLIENT_INFO', { ipAddress: '1.2.3.4', userAgent: 'Test' });
+
+        const result = service.getSessionId();
+
+        expect(result.sessionId).toBeUndefined();
+      });
+    });
+  });
+
+  // ============================================================================
+  // getResponse() Method
+  // ============================================================================
+
+  describe('getResponse()', () => {
+    it('should return null when no response in context', () => {
+      ContextStorage.run(() => {
+        const result = service.getResponse();
+        expect(result).toBeNull();
+      });
+    });
+
+    it('should return response object when set in context', () => {
+      const mockClearCookie = jest.fn();
+      const mockResponse = { clearCookie: mockClearCookie };
+
+      ContextStorage.run(() => {
+        ContextStorage.set('HTTP_RESPONSE', mockResponse);
+
+        const result = service.getResponse();
+
+        expect(result).not.toBeNull();
+        expect(result?.clearCookie).toBe(mockClearCookie);
+        result?.clearCookie?.('test-cookie');
+        expect(mockClearCookie).toHaveBeenCalledWith('test-cookie');
+      });
+    });
+  });
+
+  // ============================================================================
+  // parseUserAgent() Method
+  // ============================================================================
+
+  describe('parseUserAgent()', () => {
+    it('should return nulls when userAgent is null', () => {
+      const result = service.parseUserAgent(null);
+      expect(result).toEqual({
+        browser: null,
+        platform: null,
+        deviceType: null,
+        deviceName: null,
+      });
+    });
+
+    it('should return nulls when userAgent is undefined', () => {
+      const result = service.parseUserAgent(undefined);
+      expect(result).toEqual({
+        browser: null,
+        platform: null,
+        deviceType: null,
+        deviceName: null,
+      });
+    });
+
+    it('should return nulls when userAgent is empty string', () => {
+      const result = service.parseUserAgent('');
+      expect(result).toEqual({
+        browser: null,
+        platform: null,
+        deviceType: null,
+        deviceName: null,
+      });
+    });
+
+    it('should return nulls when userAgent is whitespace only', () => {
+      const result = service.parseUserAgent('   ');
+      expect(result).toEqual({
+        browser: null,
+        platform: null,
+        deviceType: null,
+        deviceName: null,
+      });
+    });
+
+    it('should detect Windows 10', () => {
+      const ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+      const result = service.parseUserAgent(ua);
+      expect(result.platform).toBe('Windows 10');
+      expect(result.deviceType).toBe('desktop');
+    });
+
+    it('should detect Windows 11', () => {
+      const ua = 'Mozilla/5.0 (Windows NT 11.0; Win64; x64) AppleWebKit/537.36';
+      const result = service.parseUserAgent(ua);
+      expect(result.platform).toBe('Windows 11');
+    });
+
+    it('should detect Chrome browser', () => {
+      const ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36';
+      const result = service.parseUserAgent(ua);
+      expect(result.browser).toMatch(/Chrome/);
+      expect(result.deviceName).toContain('Chrome');
+    });
+
+    it('should detect Edge browser', () => {
+      const ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Edg/120.0.0.0';
+      const result = service.parseUserAgent(ua);
+      expect(result.browser).toBe('Edge');
+    });
+
+    it('should detect Safari browser', () => {
+      const ua =
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
+      const result = service.parseUserAgent(ua);
+      expect(result.browser).toMatch(/Safari/);
+      expect(result.platform).toMatch(/macOS/);
+    });
+
+    it('should detect Firefox', () => {
+      const ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0';
+      const result = service.parseUserAgent(ua);
+      expect(result.browser).toMatch(/Firefox/);
+    });
+
+    it('should detect mobile device', () => {
+      const ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15';
+      const result = service.parseUserAgent(ua);
+      expect(result.deviceType).toBe('mobile');
+      expect(result.deviceName).toContain('iPhone');
+    });
+
+    it('should detect tablet (Android tablet)', () => {
+      const ua = 'Mozilla/5.0 (Linux; Android 10; Tablet) AppleWebKit/537.36 Chrome/90.0.0.0 Safari/537.36';
+      const result = service.parseUserAgent(ua);
+      expect(result.deviceType).toBe('tablet');
+      expect(result.platform).toMatch(/Android/);
+    });
+
+    it('should detect Android', () => {
+      const ua = 'Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 Chrome/120.0.0.0 Mobile Safari/537.36';
+      const result = service.parseUserAgent(ua);
+      expect(result.platform).toMatch(/Android/);
+      expect(result.deviceType).toBe('mobile');
+    });
+
+    it('should detect macOS version', () => {
+      const ua = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_2_1) AppleWebKit/537.36';
+      const result = service.parseUserAgent(ua);
+      expect(result.platform).toBe('macOS Ventura+');
+    });
+
+    it('should detect Linux', () => {
+      const ua = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36';
+      const result = service.parseUserAgent(ua);
+      expect(result.platform).toBe('Linux');
+    });
+  });
 });

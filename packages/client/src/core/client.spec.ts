@@ -22,11 +22,7 @@ type FetchMock = jest.MockInstance<Promise<Response>, [RequestInfo | URL, Reques
 
 const getFetchMock = (): FetchMock => globalThis.fetch as unknown as FetchMock;
 
-const createMockResponse = (params: {
-  ok: boolean;
-  status: number;
-  body: unknown;
-}): Response => {
+const createMockResponse = (params: { ok: boolean; status: number; body: unknown }): Response => {
   const rawText = typeof params.body === 'string' ? params.body : JSON.stringify(params.body);
 
   // Minimal Response shape required by FetchAdapter:
@@ -659,13 +655,14 @@ describe('NAuthClient', () => {
       createMockResponse({
         ok: true,
         status: 200,
-        body: [{ id: 1, type: 'totp', name: 'My Phone', isPreferred: true }],
+        body: { devices: [{ id: 1, type: 'totp', name: 'My Phone', isPreferred: true }] },
       }),
     );
 
-    const devices = await client.getMfaDevices();
-    expect(Array.isArray(devices)).toBe(true);
-    expect(devices.length).toBeGreaterThan(0);
+    const response = await client.getMfaDevices();
+    expect(response.devices).toBeDefined();
+    expect(Array.isArray(response.devices)).toBe(true);
+    expect(response.devices.length).toBeGreaterThan(0);
   });
 
   it('handles setupMfaDevice', async () => {
@@ -710,20 +707,6 @@ describe('NAuthClient', () => {
     expect(result.deviceId).toBe(123);
   });
 
-  it('handles removeMfaDevice', async () => {
-    const client = new NAuthClient(baseConfig);
-    getFetchMock().mockResolvedValue(
-      createMockResponse({
-        ok: true,
-        status: 200,
-        body: { message: 'Device removed' },
-      }),
-    );
-
-    const result = await client.removeMfaDevice('totp');
-    expect(result.message).toBe('Device removed');
-  });
-
   it('handles removeMfaDeviceById', async () => {
     const client = new NAuthClient(baseConfig);
     getFetchMock().mockResolvedValue(
@@ -739,7 +722,6 @@ describe('NAuthClient', () => {
     expect(result.removedMethod).toBe('totp');
     expect(result.mfaDisabled).toBe(false);
   });
-
 
   it('handles generateBackupCodes', async () => {
     const client = new NAuthClient(baseConfig);
@@ -1258,7 +1240,7 @@ describe('NAuthClient', () => {
       expect.objectContaining({
         source: 'social',
         appState: 'invite-code-123',
-      })
+      }),
     );
 
     delete (global as any).window;

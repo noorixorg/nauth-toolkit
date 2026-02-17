@@ -1308,8 +1308,8 @@ describe('AuthService', () => {
 
         await service.login({ identifier: 'test@example.com', password: 'password' });
 
-        expect(queryBuilder.where).toHaveBeenCalledWith('user.email = :emailIdentifier', { 
-          emailIdentifier: 'test@example.com' 
+        expect(queryBuilder.where).toHaveBeenCalledWith('user.email = :emailIdentifier', {
+          emailIdentifier: 'test@example.com',
         });
       });
 
@@ -1354,8 +1354,8 @@ describe('AuthService', () => {
         await service.login({ identifier: 'Test@Example.COM', password: 'password' });
 
         // Should normalize to lowercase before querying
-        expect(queryBuilder.where).toHaveBeenCalledWith('user.email = :emailIdentifier', { 
-          emailIdentifier: 'test@example.com' 
+        expect(queryBuilder.where).toHaveBeenCalledWith('user.email = :emailIdentifier', {
+          emailIdentifier: 'test@example.com',
         });
       });
 
@@ -2229,7 +2229,9 @@ describe('AuthService', () => {
           payload: undefined,
         } as any);
 
-        await expect(service.refreshToken(createRefreshTokenDto('invalid-token'))).rejects.toBeInstanceOf(NAuthException);
+        await expect(service.refreshToken(createRefreshTokenDto('invalid-token'))).rejects.toBeInstanceOf(
+          NAuthException,
+        );
 
         expect(clearCookie).toHaveBeenCalledWith('nauth_access_token', expect.anything());
         expect(clearCookie).toHaveBeenCalledWith('nauth_refresh_token', expect.anything());
@@ -2264,7 +2266,9 @@ describe('AuthService', () => {
         // Race-condition guard: session also not found by ID -- truly gone, so cookies should clear
         mockSessionService.findByIdLight.mockResolvedValue(null);
 
-        await expect(service.refreshToken(createRefreshTokenDto(mockRefreshToken))).rejects.toBeInstanceOf(NAuthException);
+        await expect(service.refreshToken(createRefreshTokenDto(mockRefreshToken))).rejects.toBeInstanceOf(
+          NAuthException,
+        );
 
         expect(clearCookie).toHaveBeenCalledWith('nauth_access_token', expect.anything());
         expect(clearCookie).toHaveBeenCalledWith('nauth_refresh_token', expect.anything());
@@ -3124,7 +3128,7 @@ describe('AuthService', () => {
     });
   });
 
-// ============================================================================
+  // ============================================================================
   // updateUserAttributes Tests
   // ============================================================================
 
@@ -3215,9 +3219,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(null) // Email uniqueness check
           .mockResolvedValueOnce({ ...mockUser, email: 'newemail@example.com', isEmailVerified: false } as any);
 
-        await runUpdateUserAttributes(
-          createUpdateUserAttributesDto(mockUser.sub, { email: 'newemail@example.com' }),
-        );
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: 'newemail@example.com' }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3312,9 +3314,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce(userWithMetadata as any) // Initial lookup by sub
           .mockResolvedValueOnce({ ...userWithMetadata, metadata: { key1: 'value1', key2: 'value2' } } as any); // Final fetch by id
 
-        await runUpdateUserAttributes(
-          createUpdateUserAttributesDto(mockUser.sub, { metadata: { key2: 'value2' } }),
-        );
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { metadata: { key2: 'value2' } }));
 
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
@@ -3557,9 +3557,7 @@ describe('AuthService', () => {
           .mockResolvedValueOnce({ id: 999 } as any); // Second call for email uniqueness check
 
         try {
-          await runUpdateUserAttributes(
-            createUpdateUserAttributesDto(mockUser.sub, { email: 'existing@example.com' }),
-          );
+          await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { email: 'existing@example.com' }));
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
@@ -3789,7 +3787,10 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockReset();
         mockUserRepository.findOne
           .mockResolvedValueOnce(userWithMetadata as any)
-          .mockResolvedValueOnce({ ...userWithMetadata, metadata: { existing: 'updated', keep: 'value2', new: 'value3' } } as any);
+          .mockResolvedValueOnce({
+            ...userWithMetadata,
+            metadata: { existing: 'updated', keep: 'value2', new: 'value3' },
+          } as any);
 
         await runUpdateUserAttributes(
           createUpdateUserAttributesDto(mockUser.sub, {
@@ -3843,7 +3844,10 @@ describe('AuthService', () => {
         mockUserRepository.findOne.mockReset();
         mockUserRepository.findOne
           .mockResolvedValueOnce(userWithMetadata as any)
-          .mockResolvedValueOnce({ ...userWithMetadata, metadata: { update: 'new', keep: 'value', add: 'new' } } as any);
+          .mockResolvedValueOnce({
+            ...userWithMetadata,
+            metadata: { update: 'new', keep: 'value', add: 'new' },
+          } as any);
 
         await runUpdateUserAttributes(
           createUpdateUserAttributesDto(mockUser.sub, {
@@ -4097,7 +4101,7 @@ describe('AuthService', () => {
         expect(result.sub).toBe(mockUser.sub);
       });
 
-      it('should record EMAIL_VERIFIED audit event when email verification is updated', async () => {
+      it('should record EMAIL_VERIFICATION_STATUS_UPDATED audit event when email verification is updated', async () => {
         const userWithEmail = { ...mockUser, email: 'test@example.com', isEmailVerified: false };
         mockUserRepository.findOne
           .mockResolvedValueOnce(userWithEmail as any) // Initial lookup by sub
@@ -4108,7 +4112,7 @@ describe('AuthService', () => {
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
             userId: mockUser.id,
-            eventType: AuthAuditEventType.EMAIL_VERIFIED,
+            eventType: AuthAuditEventType.EMAIL_VERIFICATION_STATUS_UPDATED,
             eventStatus: 'SUCCESS',
             reason: 'admin_verification_update',
             metadata: (expect as any).objectContaining({
@@ -4120,7 +4124,7 @@ describe('AuthService', () => {
         );
       });
 
-      it('should record PHONE_VERIFIED audit event when phone verification is updated', async () => {
+      it('should record PHONE_VERIFICATION_STATUS_UPDATED audit event when phone verification is updated', async () => {
         const userWithPhone = { ...mockUser, phone: '+1234567890', isPhoneVerified: false };
         mockUserRepository.findOne
           .mockResolvedValueOnce(userWithPhone as any) // Initial lookup by sub
@@ -4131,7 +4135,7 @@ describe('AuthService', () => {
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
             userId: mockUser.id,
-            eventType: AuthAuditEventType.PHONE_VERIFIED,
+            eventType: AuthAuditEventType.PHONE_VERIFICATION_STATUS_UPDATED,
             eventStatus: 'SUCCESS',
             reason: 'admin_verification_update',
             metadata: (expect as any).objectContaining({
@@ -4168,12 +4172,12 @@ describe('AuthService', () => {
 
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
-            eventType: AuthAuditEventType.EMAIL_VERIFIED,
+            eventType: AuthAuditEventType.EMAIL_VERIFICATION_STATUS_UPDATED,
           }),
         );
         expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
           (expect as any).objectContaining({
-            eventType: AuthAuditEventType.PHONE_VERIFIED,
+            eventType: AuthAuditEventType.PHONE_VERIFICATION_STATUS_UPDATED,
           }),
         );
       });
@@ -4189,7 +4193,9 @@ describe('AuthService', () => {
           .updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isEmailVerified: true }))
           .catch((error: unknown) => error);
         expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).message).toBe('Cannot set email verification to true: user does not have an email address');
+        expect((error as NAuthException).message).toBe(
+          'Cannot set email verification to true: user does not have an email address',
+        );
 
         expect(mockUserRepository.update).not.toHaveBeenCalled();
       });
@@ -4203,7 +4209,9 @@ describe('AuthService', () => {
           .updateVerifiedStatus(createUpdateVerifiedStatusDto(mockUser.sub, { isPhoneVerified: true }))
           .catch((error: unknown) => error);
         expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).message).toBe('Cannot set phone verification to true: user does not have a phone number');
+        expect((error as NAuthException).message).toBe(
+          'Cannot set phone verification to true: user does not have a phone number',
+        );
 
         expect(mockUserRepository.update).not.toHaveBeenCalled();
       });

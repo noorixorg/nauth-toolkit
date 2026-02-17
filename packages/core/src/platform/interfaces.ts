@@ -122,6 +122,11 @@ export interface NAuthCookieOptions {
   path?: string;
   maxAge?: number;
   expires?: Date;
+  /**
+   * Cookie priority (Chrome 119+). High priority reduces eviction when storage is full.
+   * @default 'high' for auth cookies
+   */
+  priority?: 'low' | 'medium' | 'high';
 }
 
 /**

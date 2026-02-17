@@ -109,6 +109,7 @@ export class CsrfHandler {
       secure: this.config.tokenDelivery?.cookieOptions?.secure ?? true,
       sameSite: (this.config.tokenDelivery?.cookieOptions?.sameSite || 'strict') as 'strict' | 'lax' | 'none',
       path: '/',
+      priority: (csrfCookieOptions.priority as 'low' | 'medium' | 'high') ?? 'high',
       ...csrfCookieOptions,
     };
     const domain =

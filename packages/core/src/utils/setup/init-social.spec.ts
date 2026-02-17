@@ -8,24 +8,42 @@ import { Repository } from 'typeorm';
 import { initSocialAuth } from './init-social';
 import { NAuthConfig } from '../../interfaces/config.interface';
 import { NAuthLogger, SocialAuthService, AuthService, ClientInfoService, BaseUser } from '../../index';
-import { JwtService, SessionService, AuthChallengeHelperService, SocialProviderRegistry, TrustedDeviceService } from '../../internal';
+import {
+  JwtService,
+  SessionService,
+  AuthChallengeHelperService,
+  SocialProviderRegistry,
+  TrustedDeviceService,
+} from '../../internal';
 import { ISocialAuthStateStore } from '../../interfaces/social-auth-state-store.interface';
 
 // Mock dynamic imports
-jest.mock('@nauth-toolkit/social-google', () => ({
-  GoogleSocialAuthService: jest.fn(),
-  TokenVerifierService: jest.fn(),
-}), { virtual: true });
+jest.mock(
+  '@nauth-toolkit/social-google',
+  () => ({
+    GoogleSocialAuthService: jest.fn(),
+    TokenVerifierService: jest.fn(),
+  }),
+  { virtual: true },
+);
 
-jest.mock('@nauth-toolkit/social-apple', () => ({
-  AppleSocialAuthService: jest.fn(),
-  TokenVerifierService: jest.fn(),
-}), { virtual: true });
+jest.mock(
+  '@nauth-toolkit/social-apple',
+  () => ({
+    AppleSocialAuthService: jest.fn(),
+    TokenVerifierService: jest.fn(),
+  }),
+  { virtual: true },
+);
 
-jest.mock('@nauth-toolkit/social-facebook', () => ({
-  FacebookSocialAuthService: jest.fn(),
-  TokenVerifierService: jest.fn(),
-}), { virtual: true });
+jest.mock(
+  '@nauth-toolkit/social-facebook',
+  () => ({
+    FacebookSocialAuthService: jest.fn(),
+    TokenVerifierService: jest.fn(),
+  }),
+  { virtual: true },
+);
 
 describe('initSocialAuth', () => {
   let mockConfig: NAuthConfig;
@@ -155,5 +173,28 @@ describe('initSocialAuth', () => {
     );
 
     expect(result.facebookAuth).toBeUndefined();
+  });
+
+  it('should initialize Google provider when enabled and register it', async () => {
+    mockConfig.social = {
+      google: { enabled: true },
+    } as any;
+
+    const result = await initSocialAuth(
+      mockConfig,
+      mockProviderRegistry,
+      mockAuthService,
+      mockSocialAuthService,
+      mockJwtService,
+      mockSessionService,
+      mockChallengeHelper,
+      mockClientInfoService,
+      mockLogger,
+      mockSocialAuthStateStore,
+      mockUserRepository,
+    );
+
+    expect(result.googleAuth).toBeDefined();
+    expect(mockProviderRegistry.registerProvider).toHaveBeenCalledWith(result.googleAuth);
   });
 });

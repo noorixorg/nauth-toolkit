@@ -442,8 +442,11 @@ import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
 
 smsProvider: new AWSSMSProvider({
   region: process.env.AWS_REGION as string,
+  originationNumber: process.env.AWS_SMS_ORIGINATION as string, // e.g. '+12345678901' or 'MyApp'
   accessKeyId: process.env.AWS_ACCESS_KEY_ID as string,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY as string,
+  // apiMode: 'end-user-messaging-sms', // optional; use for configuration sets
+  // configurationSetName: 'default',
 }),
 ```
 
@@ -1052,8 +1055,11 @@ export const authConfig: NAuthModuleConfig = {
 
   smsProvider: new AWSSMSProvider({
     region: process.env.AWS_REGION as string,
+    originationNumber: process.env.AWS_SMS_ORIGINATION as string,
     accessKeyId: process.env.AWS_ACCESS_KEY_ID as string,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY as string,
+    // apiMode: 'end-user-messaging-sms',
+    // configurationSetName: 'default',
   }),
 
   sms: {

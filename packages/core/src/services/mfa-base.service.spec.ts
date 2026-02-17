@@ -83,6 +83,11 @@ describe('BaseMFAProviderService', () => {
 
     mockChallengeService = {
       deleteUserChallengeSessions: jest.fn(),
+      maskPhone: jest.fn((phone: string) => {
+        const digits = phone.replace(/\D/g, '');
+        if (digits.length < 4) return phone;
+        return `***-***-${digits.slice(-4)}`;
+      }),
     } as any;
 
     mockAuditService = {

@@ -183,6 +183,7 @@ export class TokenDeliveryHttpService {
     sameSite: 'strict' | 'lax' | 'none';
     path: string;
     domain?: string;
+    priority: 'low' | 'medium' | 'high';
   } {
     const opt = this.config.tokenDelivery?.cookieOptions;
     const cookieOptions: {
@@ -191,11 +192,13 @@ export class TokenDeliveryHttpService {
       sameSite: 'strict' | 'lax' | 'none';
       path: string;
       domain?: string;
+      priority: 'low' | 'medium' | 'high';
     } = {
       httpOnly: true as const,
       secure: opt?.secure !== false,
       sameSite: (opt?.sameSite || 'strict') as 'strict' | 'lax' | 'none',
       path: opt?.path || '/',
+      priority: (opt?.priority as 'low' | 'medium' | 'high') ?? 'high',
     };
     if (opt?.domain) {
       cookieOptions.domain = opt.domain;

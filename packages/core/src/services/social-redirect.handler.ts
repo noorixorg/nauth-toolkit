@@ -1,10 +1,7 @@
 import * as crypto from 'crypto';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { AuthResponseDTO } from '../dto/auth-response.dto';
-import {
-  StartSocialRedirectResponseDTO,
-  SocialRedirectCallbackResponseDTO,
-} from '../dto/social-redirect.dto';
+import { StartSocialRedirectResponseDTO, SocialRedirectCallbackResponseDTO } from '../dto/social-redirect.dto';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { NAuthConfig } from '../interfaces/config.interface';
 import { ISocialAuthStateStore } from '../interfaces/social-auth-state-store.interface';
@@ -270,6 +267,7 @@ export class SocialRedirectHandler {
       sameSite: (opt?.sameSite || 'strict') as 'strict' | 'lax' | 'none',
       domain: opt?.domain,
       path: opt?.path || '/',
+      priority: (opt?.priority as 'low' | 'medium' | 'high') ?? 'high',
     };
 
     const accessMaxAgeMs = Math.max(0, accessExp * 1000 - Date.now());

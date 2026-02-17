@@ -314,6 +314,7 @@ class ExpressResponseWrapper implements NAuthResponse {
       path: options.path,
       maxAge: options.maxAge,
       expires: options.expires,
+      priority: options.priority,
     };
   }
 }

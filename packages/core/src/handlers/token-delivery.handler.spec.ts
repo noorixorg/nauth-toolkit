@@ -155,8 +155,29 @@ describe('TokenDeliveryHandler', () => {
           sameSite: 'strict',
           domain: '.example.com',
           path: '/',
+          priority: 'high',
         }),
       );
+    });
+
+    it('should set cookies with custom cookie priority when configured', async () => {
+      mockConfig.tokenDelivery = {
+        method: 'cookies',
+        cookieOptions: {
+          priority: 'low',
+        },
+      };
+      handler = new TokenDeliveryHandler(mockConfig, mockLogger);
+
+      const body = {
+        accessToken: 'token-123',
+        refreshToken: 'refresh-456',
+      };
+
+      await handler.handleResponse(mockRequest, mockResponse, body);
+
+      const accessCookieCall = (mockResponse.setCookie as jest.Mock).mock.calls[0];
+      expect(accessCookieCall[2]).toMatchObject({ priority: 'low' });
     });
 
     it('should parse expiry string correctly', async () => {
@@ -174,13 +195,13 @@ describe('TokenDeliveryHandler', () => {
 
       await handler.handleResponse(mockRequest, mockResponse, body);
 
-      const accessCookieCall = (mockResponse.setCookie as jest.Mock).mock.calls.find(
-        (call) => call[0].includes('access'),
+      const accessCookieCall = (mockResponse.setCookie as jest.Mock).mock.calls.find((call) =>
+        call[0].includes('access'),
       );
       expect(accessCookieCall[2].maxAge).toBe(3600000); // 1 hour in ms
 
-      const refreshCookieCall = (mockResponse.setCookie as jest.Mock).mock.calls.find(
-        (call) => call[0].includes('refresh'),
+      const refreshCookieCall = (mockResponse.setCookie as jest.Mock).mock.calls.find((call) =>
+        call[0].includes('refresh'),
       );
       expect(refreshCookieCall[2].maxAge).toBe(604800000); // 7 days in ms
     });
@@ -200,8 +221,8 @@ describe('TokenDeliveryHandler', () => {
 
       await handler.handleResponse(mockRequest, mockResponse, body);
 
-      const accessCookieCall = (mockResponse.setCookie as jest.Mock).mock.calls.find(
-        (call) => call[0].includes('access'),
+      const accessCookieCall = (mockResponse.setCookie as jest.Mock).mock.calls.find((call) =>
+        call[0].includes('access'),
       );
       expect(accessCookieCall[2].maxAge).toBe(1800000); // 1800 seconds in ms
     });
@@ -221,8 +242,8 @@ describe('TokenDeliveryHandler', () => {
 
       await handler.handleResponse(mockRequest, mockResponse, body);
 
-      const accessCookieCall = (mockResponse.setCookie as jest.Mock).mock.calls.find(
-        (call) => call[0].includes('access'),
+      const accessCookieCall = (mockResponse.setCookie as jest.Mock).mock.calls.find((call) =>
+        call[0].includes('access'),
       );
       expect(accessCookieCall[2].maxAge).toBe(900000); // Default 15 minutes in ms
     });

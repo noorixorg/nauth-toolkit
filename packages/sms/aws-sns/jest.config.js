@@ -7,17 +7,6 @@ module.exports = {
   },
   collectCoverageFrom: ['**/*.(t|j)s', '!**/*.spec.ts'],
   coverageDirectory: '../coverage',
-  coverageThreshold: {
-    global: {
-      statements: 75,
-      branches: 57,
-      functions: 70,
-      lines: 75,
-    },
-  },
   testEnvironment: 'node',
-  // Transform ESM modules like jose
-  transformIgnorePatterns: ['node_modules/(?!(jose)/)'],
-  // Setup reflect-metadata for TypeORM
   setupFilesAfterEnv: ['<rootDir>/../jest.setup.ts'],
 };

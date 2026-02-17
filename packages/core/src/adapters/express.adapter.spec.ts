@@ -31,9 +31,13 @@ describe('ExpressAdapter', () => {
     };
     mockRes = {
       cookie: jest.fn(),
+      clearCookie: jest.fn(),
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis(),
       send: jest.fn().mockReturnThis(),
+      setHeader: jest.fn(),
+      redirect: jest.fn(),
+      headersSent: false,
       _nauthIsSent: false,
       isSent: jest.fn().mockReturnValue(false),
     };
@@ -88,6 +92,32 @@ describe('ExpressAdapter', () => {
 
       expect(mockNext).toHaveBeenCalledWith(error);
     });
+
+    it('should pass cookie options including priority through to res.cookie', async () => {
+      const handler: NAuthMiddlewareHandler = jest.fn().mockImplementation((req, res, next) => {
+        res.setCookie('test_cookie', 'value', {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'strict',
+          priority: 'low',
+        });
+        next();
+      });
+
+      const middleware = adapter.registerMiddleware('test', handler);
+      await middleware(mockReq, mockRes, mockNext);
+
+      expect(mockRes.cookie).toHaveBeenCalledWith(
+        'test_cookie',
+        'value',
+        expect.objectContaining({
+          httpOnly: true,
+          secure: true,
+          sameSite: 'strict',
+          priority: 'low',
+        }),
+      );
+    });
   });
 
   describe('registerResponseInterceptor', () => {
@@ -133,5 +163,4 @@ describe('ExpressAdapter', () => {
       expect(routeHandler).toHaveBeenCalled();
     });
   });
-
 });

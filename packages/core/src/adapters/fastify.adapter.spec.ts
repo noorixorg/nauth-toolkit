@@ -70,6 +70,32 @@ describe('FastifyAdapter', () => {
 
       expect(handler).toHaveBeenCalled();
     });
+
+    it('should pass cookie options including priority through to reply.setCookie', async () => {
+      const handler: NAuthMiddlewareHandler = jest.fn().mockImplementation((req, res, next) => {
+        res.setCookie('test_cookie', 'value', {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'strict',
+          priority: 'low',
+        });
+        next();
+      });
+
+      const hook = adapter.registerMiddleware('test', handler);
+      await hook(mockRequest, mockReply);
+
+      expect(mockReply.setCookie).toHaveBeenCalledWith(
+        'test_cookie',
+        'value',
+        expect.objectContaining({
+          httpOnly: true,
+          secure: true,
+          sameSite: 'strict',
+          priority: 'low',
+        }),
+      );
+    });
   });
 
   describe('registerResponseInterceptor', () => {
@@ -98,5 +124,4 @@ describe('FastifyAdapter', () => {
       expect(routeHandler).toHaveBeenCalled();
     });
   });
-
 });
