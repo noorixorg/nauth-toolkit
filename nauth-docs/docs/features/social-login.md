@@ -11,7 +11,7 @@ import TabItem from '@theme/TabItem';
 
 # Social Login
 
-This guide assumes you already completed the [Quick Start](/docs/quick-start) and have `AuthModule.forRoot(authConfig)` working.
+This guide assumes you already completed the [Quick Start](/docs/quick-start/nestjs-angular) and have `AuthModule.forRoot(authConfig)` working.
 
 You'll implement **redirect-first OAuth**:
 

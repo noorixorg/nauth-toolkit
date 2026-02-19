@@ -13,7 +13,7 @@ import TabItem from '@theme/TabItem';
 
 Inject custom logic at specific points in the authentication flow. Lifecycle hooks enable validation, notifications, integrations, and business logic without modifying core authentication code.
 
-This guide assumes you already completed the [Quick Start](/docs/quick-start) and have `AuthModule.forRoot(authConfig)` working.
+This guide assumes you already completed the [Quick Start](/docs/quick-start/nestjs-angular) and have `AuthModule.forRoot(authConfig)` working.
 
 ## What You Can Do with Hooks
 

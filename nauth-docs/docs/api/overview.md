@@ -413,7 +413,7 @@ See [Configuration](/docs/concepts/configuration) for config options.
 
 **Getting Started:**
 
-- [Quick Start Guide](/docs/quick-start)
+- [Quick Start Guide](/docs/quick-start/nestjs-angular)
 - [Configuration Reference](/docs/concepts/configuration)
 - [Architecture Overview](/docs/concepts/architecture)
 

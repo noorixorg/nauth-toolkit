@@ -11,7 +11,35 @@ const sidebars: SidebarsConfig = {
   // Main documentation sidebar - manually structured to exclude api and frontend-sdk folders
   docsSidebar: [
     'intro',
-    'quick-start',
+    {
+      type: 'category',
+      label: 'Quick Start',
+      collapsible: true,
+      collapsed: false,
+      items: [
+        {
+          type: 'category',
+          label: 'Backend',
+          collapsible: true,
+          collapsed: false,
+          items: [
+            'quick-start/nestjs-angular',
+            'quick-start/express',
+            'quick-start/fastify',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Frontend',
+          collapsible: true,
+          collapsed: false,
+          items: [
+            'quick-start/angular',
+            'quick-start/react',
+          ],
+        },
+      ],
+    },
     // Architecture is intentionally kept outside Guides (high-level reference)
     'concepts/architecture',
     {
