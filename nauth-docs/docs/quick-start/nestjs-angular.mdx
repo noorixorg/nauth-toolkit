@@ -81,7 +81,7 @@ export const authConfig: NAuthModuleConfig = {
       expiresIn: '15m',
     },
     refreshToken: {
-      secret: process.env.JWT_REFRESH_SECRET!,
+      secret: process.env.JWT_REFRESH_SECRET as string,
       expiresIn: '7d',
       rotation: true,
     },
@@ -107,7 +107,7 @@ export const authConfig: NAuthModuleConfig = {
     // Set to 'email', 'phone', or 'both' to require verification via the Challenge System
     verificationMethod: 'none',
   },
-};
+} satisfies NAuthModuleConfig;
 ```
 
 ---
@@ -140,7 +140,7 @@ async function bootstrap(): Promise<void> {
     origin: ['http://localhost:4200', 'http://localhost:5173'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token', 'x-device-token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id', 'x-csrf-token', 'x-device-token'],
   });
 
   await app.listen(3000);
@@ -199,8 +199,8 @@ import {
 } from '@nauth-toolkit/nestjs';
 import type { AuthResponseDTO, IUser } from '@nauth-toolkit/nestjs';
 
-@Controller('auth')
 @UseGuards(AuthGuard)
+@Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -208,20 +208,20 @@ export class AuthController {
   @Post('signup')
   @HttpCode(HttpStatus.CREATED)
   async signup(@Body() dto: SignupDTO): Promise<AuthResponseDTO> {
-    return this.authService.signup(dto);
+    return await this.authService.signup(dto);
   }
 
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDTO): Promise<AuthResponseDTO> {
-    return this.authService.login(dto);
+    return await this.authService.login(dto);
   }
 
   @Get('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@Query() dto: LogoutDTO): Promise<LogoutResponseDTO> {
-    return this.authService.logout(dto);
+    return await this.authService.logout(dto);
   }
 
   @Get('profile')

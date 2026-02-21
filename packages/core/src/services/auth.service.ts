@@ -1775,6 +1775,23 @@ export class AuthService {
               // Same session - this is a cookie race condition
               // Return the current valid tokens (user already has them from first request)
 
+              // SECURITY: Validate JWT expiry even for same-session reuse.
+              // Without this, an expired refresh token stays accepted for the
+              // full Redis used-token TTL, extending the effective token lifetime
+              // far beyond the configured expiresIn.
+              const reuseValidation = await this.jwtService.validateRefreshToken(refreshToken);
+              if (!reuseValidation.valid) {
+                this.logger?.warn?.(
+                  `[REFRESH] Same-session reuse detected but refresh token JWT has expired for session ${session.id}. ` +
+                    `The client may not be persisting rotated tokens.`,
+                );
+                this.clearAuthCookiesOnRefreshFailure(AuthErrorCode.TOKEN_INVALID);
+                throw new NAuthException(
+                  AuthErrorCode.TOKEN_INVALID,
+                  'Refresh token has expired. Please sign in again.',
+                );
+              }
+
               this.logger?.debug?.(
                 `[REFRESH DEBUG] Token hash ${tokenHash.substring(0, 16)}... already used for same session ${session.id} - cookie race detected, returning current tokens`,
               );

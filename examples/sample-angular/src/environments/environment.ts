@@ -13,6 +13,6 @@ export const environment: Environment = {
   recaptchaSiteKey: '6LdyF_QrAAAAAPDfa6WBRZmNUFpibwMHuqxMV2NW',
   /** 'v3' or 'enterprise'. Must match backend. Default 'enterprise' when using Enterprise keys. */
   recaptchaVersion: 'enterprise',
-  tokenMode: 'cookies',
+  tokenMode: 'json',
   recaptchaEnabled: false,
 };

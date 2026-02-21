@@ -12,13 +12,15 @@ Add authentication to an Express application using nauth-toolkit's platform-agno
 
 ## Prerequisites
 
-- Node.js 22+
-- PostgreSQL database running
+- Node.js 18+
+- PostgreSQL or MySQL database running
 - An Express application
 
 ---
 
 ## Installation
+
+This example uses PostgreSQL. For MySQL, replace `@nauth-toolkit/database-typeorm-postgres` with `@nauth-toolkit/database-typeorm-mysql` and `pg` with `mysql2`.
 
 ```bash npm2yarn
 npm install @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console cookie-parser cors dotenv typeorm pg
@@ -161,7 +163,7 @@ async function main(): Promise<void> {
       origin: true,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token', 'x-device-token'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id', 'x-csrf-token', 'x-device-token'],
     }),
   );
 
@@ -272,7 +274,7 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
 
   router.post('/forgot-password', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(await authService.forgotPassword(req.body));
+      res.json(await authService.forgotPassword({ ...req.body, baseUrl: process.env.FRONTEND_BASE_URL || 'http://localhost:5173' }));
     } catch (err) { next(err); }
   });
 

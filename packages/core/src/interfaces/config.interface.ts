@@ -666,7 +666,9 @@ export interface RefreshTokenConfig {
   expiresIn: string | number;
 
   /**
-   * Enable token rotation (generate new refresh token on each use)
+   * @deprecated Token rotation is always enabled and cannot be disabled.
+   * A new refresh token is issued on every use regardless of this flag.
+   * This property will be removed in a future major version.
    */
   rotation?: boolean;
 

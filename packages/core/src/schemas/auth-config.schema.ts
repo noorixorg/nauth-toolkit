@@ -46,6 +46,7 @@ const accessTokenConfigSchema = z.object({
 const refreshTokenConfigSchema = z.object({
   secret: z.string().min(32, 'Refresh token secret must be at least 32 characters (256 bits) for security'),
   expiresIn: z.union([z.string(), z.number()]),
+  /** @deprecated Always enabled. Kept for backward compatibility; ignored at runtime. */
   rotation: z.boolean().optional(),
   reuseDetection: z.boolean().optional(),
 });

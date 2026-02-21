@@ -46,12 +46,13 @@ export const authConfig: NAuthModuleConfig = {
     audience: ['web', 'mobile'],
     accessToken: {
       secret: process.env.JWT_SECRET,
-      expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRES_IN || '1h',
+      expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRES_IN || '10s',
     },
     refreshToken: {
       secret: process.env.JWT_REFRESH_SECRET as string,
-      expiresIn: process.env.JWT_REFRESH_TOKEN_EXPIRES_IN || '30d',
+      expiresIn: process.env.JWT_REFRESH_TOKEN_EXPIRES_IN || '30s',
       rotation: true,
+      reuseDetection: true,
     },
   },
 
@@ -88,7 +89,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   mfa: {
-    enabled: true,
+    enabled: false,
     enforcement: 'REQUIRED',
     gracePeriod: 2,
     requireForSocialLogin: false,
@@ -146,7 +147,7 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   tokenDelivery: {
-    method: 'cookies',
+    method: 'hybrid',
     cookieOptions: {
       // For cross-site cookies (frontend on different subdomain than API):
       // - Must use secure: true (requires HTTPS)
@@ -365,7 +366,6 @@ export const authConfig: NAuthModuleConfig = {
           siteKey: 'default',
         }),
     minimumScore: 0.7, // Minimum score (0-1) for v3/Enterprise
-    verifyOnStartup: true,
   },
   session: {
     maxConcurrent: 5,

@@ -2387,6 +2387,30 @@ describe('AuthService', () => {
         expect(result.refreshToken).toBeDefined();
       });
 
+      it('should reject expired JWT in same-session reuse (prevents stale token acceptance)', async () => {
+        mockConfig.jwt.refreshToken.reuseDetection = true;
+        mockSessionService.isRefreshTokenUsed.mockResolvedValue(true);
+        mockJwtService.decodeToken.mockReturnValue({
+          ...mockPayload,
+          sessionId: mockSession.id.toString(),
+        } as any);
+        // JWT has expired - validateRefreshToken returns invalid
+        mockJwtService.validateRefreshToken.mockResolvedValue({
+          valid: false,
+          error: 'Token has expired',
+          errorType: 'expired',
+        } as any);
+
+        try {
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
+          fail('Should have thrown NAuthException');
+        } catch (error: any) {
+          expect(error).toBeInstanceOf(NAuthException);
+          expect(error.code).toBe(AuthErrorCode.TOKEN_INVALID);
+          expect(error.message).toContain('expired');
+        }
+      });
+
       it('should detect attack when token reused from different session', async () => {
         mockConfig.jwt.refreshToken.reuseDetection = true;
         mockSessionService.isRefreshTokenUsed.mockResolvedValue(true);
