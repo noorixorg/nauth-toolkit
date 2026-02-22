@@ -43,7 +43,7 @@ import { DisableUserResponseDTO } from '@nauth-toolkit/core';
 | Property          | Type                              | Description                                        |
 | ----------------- | --------------------------------- | -------------------------------------------------- |
 | `success`         | `boolean`                         | Lock success flag (always `true` if returned)     |
-| `user`            | [`UserResponseDto`](./user-response-dto) | Sanitized user object with updated lock status     |
+| `user`            | [`UserResponseDTO`](./user-response-dto) | Sanitized user object with updated lock status     |
 | `revokedSessions` | `number`                          | Number of sessions revoked (forced logout)         |
 
 ## Example
@@ -55,11 +55,16 @@ import { DisableUserResponseDTO } from '@nauth-toolkit/core';
     "sub": "550e8400-e29b-41d4-a716-446655440000",
     "email": "user@example.com",
     "username": "johndoe",
+    "firstName": "John",
+    "lastName": "Doe",
     "isEmailVerified": true,
     "isPhoneVerified": false,
-    "isActive": true,
+    "isActive": false,
+    "isLocked": true,
     "mfaEnabled": false,
-    "hasSocialAuth": false,
+    "mfaExempt": false,
+    "socialProviders": [],
+    "hasPasswordHash": true,
     "createdAt": "2024-01-01T00:00:00.000Z",
     "updatedAt": "2024-01-15T12:30:00.000Z"
   },

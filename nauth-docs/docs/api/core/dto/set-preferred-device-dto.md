@@ -1,7 +1,6 @@
 ---
 title: SetPreferredDeviceDTO
 description: DTO for setting a user's preferred MFA device
-sidebar_position: 90
 ---
 
 # SetPreferredDeviceDTO

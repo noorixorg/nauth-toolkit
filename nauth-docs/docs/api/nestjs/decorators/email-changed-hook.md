@@ -11,12 +11,8 @@ image: /img/api-social-card.png
 
 Class decorator that automatically registers a provider as an email changed hook. Executes after email address changes. Non-blocking - errors are logged but don't affect email change.
 
-:::tip Import from NestJS Package
-
-```typescript
-import { EmailChangedHook } from '@nauth-toolkit/nestjs';
-```
-
+:::warning Not in Main Barrel Export
+`EmailChangedHook` is not exported from the `@nauth-toolkit/nestjs` main entry point. Register this hook manually using [`HookRegistryService`](/docs/api/core/services/hook-registry-service) instead of the decorator pattern.
 :::
 
 ## Overview

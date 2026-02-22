@@ -79,6 +79,10 @@ Response for a password reset request.
 
 ## ConfirmForgotPasswordDTO
 
+:::note
+`ConfirmForgotPasswordDTO` is defined in a separate source file (`confirm-forgot-password.dto.ts`) but is exported alongside `ForgotPasswordDTO` for convenience.
+:::
+
 Confirm password reset using a delivered code and set a new password.
 
 | Property | Type | Required | Description |

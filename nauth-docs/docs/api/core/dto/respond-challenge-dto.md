@@ -49,6 +49,7 @@ import { RespondChallengeDTO } from '@nauth-toolkit/core';
 | `newPassword` | `string`                            | Conditional | New password. 8-128 characters. Required for FORCE_CHANGE_PASSWORD. Not trimmed.              |
 | `method`      | `MFAMethodType`                     | Conditional | MFA method. Must be: sms, email, totp, passkey, backup. Required for MFA_REQUIRED and MFA_SETUP_REQUIRED. |
 | `credential`  | `Record<string, unknown>`           | Conditional | Passkey credential object. Required for MFA_REQUIRED when method is passkey.                   |
+| `deviceId`    | `number`                            | No          | Optional device ID for MFA_REQUIRED when method supports multiple devices (TOTP, Passkey).     |
 | `setupData`   | `Record<string, unknown>`           | Conditional | MFA setup data. Required for MFA_SETUP_REQUIRED. Method-specific structure.                    |
 
 ## Example

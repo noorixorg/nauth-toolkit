@@ -3,6 +3,8 @@ title: Email Providers
 description: Email providers for authentication notifications
 keywords: [email, providers, nodemailer, smtp, api]
 image: /img/api-social-card.png
+sidebar_position: 1
+sidebar_label: Overview
 ---
 # Email Providers
 

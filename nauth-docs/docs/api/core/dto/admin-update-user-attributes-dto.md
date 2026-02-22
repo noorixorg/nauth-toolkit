@@ -43,9 +43,9 @@ import { AdminUpdateUserAttributesDTO, UserResponseDto } from '@nauth-toolkit/co
 | Property             | Type      | Required | Description                                                                                      |
 | --------------------- | --------- | -------- | ------------------------------------------------------------------------------------------------ |
 | `sub`                 | `string`  | Yes      | User sub (UUID v4). Trimmed, lowercased for consistency.                                        |
-| `username`            | `string`  | No       | Username. 3-50 characters, alphanumeric, underscores, and hyphens only.                         |
-| `firstName`           | `string`  | No       | First name. 1-100 characters, letters, spaces, hyphens, and apostrophes only.                    |
-| `lastName`            | `string`  | No       | Last name. 1-100 characters, letters, spaces, hyphens, and apostrophes only.                    |
+| `username`            | `string`  | No       | Username. 3-255 characters. Alphanumeric, underscores, and hyphens only.                        |
+| `firstName`           | `string`  | No       | First name. 1-100 characters. Trimmed.                                                           |
+| `lastName`            | `string`  | No       | Last name. 1-100 characters. Trimmed.                                                            |
 | `email`               | `string`  | No       | Email address. Valid email format.                                                               |
 | `phone`               | `string`  | No       | Phone number. E.164 format.                                                                      |
 | `metadata`            | `object`  | No       | Custom metadata. Merged with existing metadata. Set key to `null` to delete.                     |

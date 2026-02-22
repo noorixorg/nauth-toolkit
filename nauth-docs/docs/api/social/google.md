@@ -21,7 +21,9 @@ npm install @nauth-toolkit/social-google
 | Export | Type | Entry |
 |--------|------|-------|
 | `GoogleSocialAuthService` | Class | Default |
+| `GoogleOAuthClient` | Class | Default |
 | `TokenVerifierService` | Class | Default |
+| `VerifiedGoogleTokenProfile` | Interface | Default |
 | `GoogleSocialAuthModule` | NestJS Module | `/nestjs` |
 
 ## Configuration

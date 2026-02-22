@@ -42,14 +42,16 @@ import { UnlinkSocialAccountDTO } from '@nauth-toolkit/core';
 
 | Property   | Type     | Required | Description                                                                                    |
 | ---------- | -------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `userId`   | `string` | Yes      | User identifier (UUID v4). Trimmed and lowercased.                                           |
-| `provider` | `string` | Yes      | Social provider name (e.g., 'google', 'apple', 'facebook'). Trimmed and lowercased. Max 50 chars. |
+| `provider` | `string` | Yes      | Social provider name (e.g., `google`, `apple`, `facebook`). Trimmed and lowercased. Max 50 chars. |
+
+:::note
+The user is resolved from the authenticated JWT context — no `userId` field is required in the request body.
+:::
 
 ## Example
 
 ```json
 {
-  "userId": "a21b654c-2746-4168-acee-c175083a65cd",
   "provider": "google"
 }
 ```

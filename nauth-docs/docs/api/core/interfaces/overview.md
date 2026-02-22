@@ -3,6 +3,8 @@ title: Interfaces
 description: TypeScript interfaces for configuration, providers, and platform adapters
 keywords: [interfaces, types, config, providers, adapter, api]
 image: /img/api-social-card.png
+sidebar_position: 1
+sidebar_label: Overview
 ---
 # Interfaces
 

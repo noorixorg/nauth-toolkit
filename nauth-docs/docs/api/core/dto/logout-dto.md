@@ -1,6 +1,6 @@
 ---
 title: LogoutDTO
-description: Logout request DTO with optional user sub and forgetMe flag. Session ID is automatically extracted from JWT context.
+description: Logout request DTO with optional forgetMe flag. Session and user context are extracted from JWT.
 keywords: [logout, dto, request, session, api]
 image: /img/api-social-card.png
 ---
@@ -40,16 +40,14 @@ import { LogoutDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property   | Type      | Required | Description                                                      |
-| ---------- | --------- | -------- | ---------------------------------------------------------------- |
-| `sub`      | `string`  | No       | User identifier. UUID v4 format. Optional, for additional verification. Trimmed and lowercased. |
-| `forgetMe` | `boolean` | No       | If true, also removes trusted device. Default: false.            |
+| Property   | Type      | Required | Description                                           |
+| ---------- | --------- | -------- | ----------------------------------------------------- |
+| `forgetMe` | `boolean` | No       | If true, also removes trusted device. Default: false. |
 
 ## Example
 
 ```json
 {
-  "sub": "a21b654c-2746-4168-acee-c175083a65cd",
   "forgetMe": false
 }
 ```

@@ -49,7 +49,7 @@ import { RemoveDeviceDTO, RemoveDeviceResponseDTO } from '@nauth-toolkit/core';
 | Property          | Type     | Description                                                  |
 | ----------------- | -------- | ------------------------------------------------------------ |
 | `removedDeviceId` | `number` | The device ID that was removed                               |
-| `removedMethod`   | `string` | MFA method for the removed device (totp, sms, email, passkey) |
+| `removedMethod`   | `MFADeviceMethod` | MFA method for the removed device (e.g., `'totp'`, `'sms'`, `'email'`, `'passkey'`) |
 | `mfaDisabled`     | `boolean`| Whether MFA was disabled (device was the last remaining device) |
 
 ## Used By
@@ -59,5 +59,4 @@ import { RemoveDeviceDTO, RemoveDeviceResponseDTO } from '@nauth-toolkit/core';
 ## Related DTOs
 
 - [AdminRemoveDeviceDTO](./admin-remove-device-dto) - Admin variant (can remove any user's device)
-- [RemoveDevicesDTO](./remove-devices-dto) - Remove all devices by method type
 

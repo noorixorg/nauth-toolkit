@@ -43,7 +43,7 @@ import { EnableUserResponseDTO } from '@nauth-toolkit/core';
 | Property | Type                              | Description                                    |
 | -------- | --------------------------------- | ---------------------------------------------- |
 | `success` | `boolean`                         | Unlock success flag (always `true` if returned) |
-| `user`    | [`UserResponseDto`](./user-response-dto) | Sanitized user object with updated lock status |
+| `user`    | [`UserResponseDTO`](./user-response-dto) | Sanitized user object with updated lock status |
 
 ## Example
 

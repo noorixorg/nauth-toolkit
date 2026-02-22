@@ -128,33 +128,6 @@ fastify.get(
 
 ---
 
-### adminRemoveDevices()
-
-Admin-only helper to remove a user's MFA devices by method type.
-
-```typescript
-async adminRemoveDevices(dto: AdminRemoveDevicesDTO): Promise<RemoveDevicesResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`AdminRemoveDevicesDTO`](../dto/admin-remove-devices-dto)
-
-**Returns**
-
-- [`RemoveDevicesResponseDTO`](../dto/remove-devices-dto)
-
-**Example (NestJS)**
-
-```typescript
-@Post('admin/mfa/remove-devices')
-async adminRemoveDevices(@Body() dto: AdminRemoveDevicesDTO) {
-  return await this.mfaService.adminRemoveDevices(dto);
-}
-```
-
----
-
 ### adminRemoveDevice()
 
 Remove a single MFA device by device ID (admin operation). Does not require user context.
@@ -194,7 +167,7 @@ async adminRemoveDevice(@Param() dto: AdminRemoveDeviceDTO): Promise<RemoveDevic
 Set a specific device as preferred for a user (admin operation).
 
 ```typescript
-async adminSetPreferredDevice(dto: AdminSetPreferredDeviceDTO): Promise<SetPreferredDeviceResponseDTO>
+async adminSetPreferredDevice(dto: AdminSetPreferredDeviceDTO): Promise<AdminSetPreferredDeviceResponseDTO>
 ```
 
 **Parameters**
@@ -203,7 +176,7 @@ async adminSetPreferredDevice(dto: AdminSetPreferredDeviceDTO): Promise<SetPrefe
 
 **Returns**
 
-- [`SetPreferredDeviceResponseDTO`](../dto/set-preferred-device-dto) - `{ message: string }`
+- `AdminSetPreferredDeviceResponseDTO` - `{ message: string }`
 
 **Errors**
 
@@ -781,90 +754,6 @@ const result = nauth.mfaService.listProviders();
 
 ---
 
-### removeDevices()
-
-Remove all MFA devices of a specific method type for a user. Automatically disables MFA if this was the last device and updates preferred method if needed.
-
-```typescript
-async removeDevices(dto: RemoveDevicesDTO): Promise<RemoveDevicesResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`RemoveDevicesDTO`](../dto/remove-devices-dto)
-
-**Returns**
-
-- [`RemoveDevicesResponseDTO`](../dto/remove-devices-dto) - `{ deletedCount: number, mfaDisabled: boolean }`
-
-**Errors**
-
-| Code                | When                                                           | Details                                                         |
-| ------------------- | -------------------------------------------------------------- | --------------------------------------------------------------- |
-| `VALIDATION_FAILED` | DTO validation fails, invalid method type, or no devices found | `{ validationErrors: Record<string, string[]> }` or `undefined` |
-| `NOT_FOUND`         | User not found                                                 | `undefined`                                                     |
-
-Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
-
-**VALIDATION_FAILED details**
-
-When DTO validation fails, `details` includes:
-
-```json
-{
-  "validationErrors": {
-    "methodType": ["Method type must be one of: totp, sms, email, passkey"]
-  }
-}
-```
-
-When invalid method type or no devices found, `details` is `undefined`.
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-@Delete('mfa/method/:method')
-async removeMethod(@Param('method') method: string) {
-  return await this.mfaService.removeDevices({ methodType: method });
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-app.delete('/mfa/method/:method', requireAuth(), async (req, res) => {
-  const result = await nauth.mfaService.removeDevices({
-    methodType: req.params.method,
-  });
-  res.json(result);
-});
-```
-
-</TabItem>
-
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-fastify.delete(
-  '/mfa/method/:method',
-  { preHandler: nauth.helpers.requireAuth() },
-  nauth.adapter.wrapRouteHandler(async (req, reply) => {
-    return nauth.mfaService.removeDevices({
-      methodType: req.params.method,
-    });
-  }),
-);
-```
-
-</TabItem>
-</Tabs>
-
----
-
 ### removeDevice()
 
 Remove a single MFA device by `deviceId` (recommended when users can enroll multiple devices for the same method).
@@ -1181,7 +1070,6 @@ fastify.post(
 @Post('mfa/setup/sms')
 async setupSMS(@CurrentUser() user: IUser, @Body() body: { phoneNumber: string; deviceName?: string }) {
   const result = await this.mfaService.setup({
-    sub: user.sub,
     methodName: 'sms',
     setupData: {
       phoneNumber: body.phoneNumber, // E.164 format: '+1234567890'
@@ -1200,7 +1088,6 @@ async setupSMS(@CurrentUser() user: IUser, @Body() body: { phoneNumber: string; 
 ```typescript
 app.post('/mfa/setup/sms', requireAuth(), async (req, res) => {
   const result = await nauth.mfaService.setup({
-    sub: req.user.sub,
     methodName: 'sms',
     setupData: {
       phoneNumber: req.body.phoneNumber,
@@ -1221,7 +1108,6 @@ fastify.post(
   nauth.adapter.wrapRouteHandler(async (req) => {
     const user = nauth.helpers.getCurrentUser();
     return nauth.mfaService.setup({
-      sub: user.sub,
       methodName: 'sms',
       setupData: {
         phoneNumber: req.body.phoneNumber,
@@ -1244,7 +1130,6 @@ fastify.post(
 @Post('mfa/setup/email')
 async setupEmail(@CurrentUser() user: IUser, @Body() body: { email?: string; deviceName?: string }) {
   const result = await this.mfaService.setup({
-    sub: user.sub,
     methodName: 'email',
     setupData: {
       email: body.email || user.email, // Optional if user.email exists
@@ -1263,7 +1148,6 @@ async setupEmail(@CurrentUser() user: IUser, @Body() body: { email?: string; dev
 ```typescript
 app.post('/mfa/setup/email', requireAuth(), async (req, res) => {
   const result = await nauth.mfaService.setup({
-    sub: req.user.sub,
     methodName: 'email',
     setupData: {
       email: req.body.email || req.user.email,
@@ -1284,7 +1168,6 @@ fastify.post(
   nauth.adapter.wrapRouteHandler(async (req) => {
     const user = nauth.helpers.getCurrentUser();
     return nauth.mfaService.setup({
-      sub: user.sub,
       methodName: 'email',
       setupData: {
         email: req.body.email || user.email,
@@ -1307,7 +1190,6 @@ fastify.post(
 @Post('mfa/setup/passkey')
 async setupPasskey(@CurrentUser() user: IUser) {
   const result = await this.mfaService.setup({
-    sub: user.sub,
     methodName: 'passkey',
     // setupData not required for Passkey
   });
@@ -1323,7 +1205,6 @@ async setupPasskey(@CurrentUser() user: IUser) {
 ```typescript
 app.post('/mfa/setup/passkey', requireAuth(), async (req, res) => {
   const result = await nauth.mfaService.setup({
-    sub: req.user.sub,
     methodName: 'passkey',
   });
   res.json(result);
@@ -1340,7 +1221,6 @@ fastify.post(
   nauth.adapter.wrapRouteHandler(async () => {
     const user = nauth.helpers.getCurrentUser();
     return nauth.mfaService.setup({
-      sub: user.sub,
       methodName: 'passkey',
     });
   }),

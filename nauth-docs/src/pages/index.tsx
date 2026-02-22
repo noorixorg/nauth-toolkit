@@ -370,7 +370,7 @@ export default function Home() {
               <i className="fa-kit fa-nestjs-light"></i> NestJS
             </span>
             <span className="framework-badge">
-              <i className="fa-light fa-cube"></i> Express
+              <i className="fa-kit fa-express"></i> Express
             </span>
             <span className="framework-badge">
               <i className="fa-light fa-bolt"></i> Fastify

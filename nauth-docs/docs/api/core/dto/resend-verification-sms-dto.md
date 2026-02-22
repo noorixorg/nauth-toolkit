@@ -46,7 +46,7 @@ import { ResendVerificationSMSDTO } from '@nauth-toolkit/core';
 | `phone`  | `string` | No       | User phone number (E.164 format). Required if sub not provided. Max 20 chars. Whitespace removed. |
 
 :::info
-Either `sub` or `phone` must be provided (not both).
+At least one of `sub` or `phone` must be provided.
 :::
 
 ## Example

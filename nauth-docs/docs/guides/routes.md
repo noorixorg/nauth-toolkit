@@ -1110,7 +1110,7 @@ fastify.get(
 
 ## Error Handling
 
-All endpoints use [`NAuthException`](/docs/api/core/exceptions/nauth-exception) for structured error responses. Handle errors appropriately:
+All endpoints use [`NAuthException`](/docs/concepts/error-handling) for structured error responses. Handle errors appropriately:
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">

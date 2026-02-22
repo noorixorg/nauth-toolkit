@@ -100,6 +100,7 @@ import { AuthResponseDTO } from '@nauth-toolkit/core';
 ## Related Types
 
 - [`AuthResponseUser`](../interfaces/auth-response-user) - User property interface
+- [`TokenResponse`](#tokenresponse) - Token refresh response interface
 - [`toAuthResponseUser()`](#toauthresponseuser) - Conversion utility function
 
 ## Used By
@@ -107,6 +108,36 @@ import { AuthResponseDTO } from '@nauth-toolkit/core';
 - [AuthService.login()](../services/auth-service#login)
 - [AuthService.signup()](../services/auth-service#signup)
 - [AuthService.respondToChallenge()](../services/auth-service#respondtochallenge)
+
+---
+
+## TokenResponse
+
+Interface returned by token refresh operations. Contains new access and refresh tokens with expiration timestamps.
+
+```typescript
+import { TokenResponse } from '@nauth-toolkit/core';
+```
+
+| Property                | Type     | Description                                 |
+| ----------------------- | -------- | ------------------------------------------- |
+| `accessToken`           | `string` | New JWT access token                        |
+| `refreshToken`          | `string` | New JWT refresh token                       |
+| `accessTokenExpiresAt`  | `number` | Access token expiration (Unix timestamp)    |
+| `refreshTokenExpiresAt` | `number` | Refresh token expiration (Unix timestamp)   |
+
+**Example:**
+
+```json
+{
+  "accessToken": "eyJhbGc...",
+  "refreshToken": "eyJhbGc...",
+  "accessTokenExpiresAt": 1730000900,
+  "refreshTokenExpiresAt": 1732592900
+}
+```
+
+**Used By:** [AuthService.refreshToken()](../services/auth-service#refreshtoken)
 
 ---
 

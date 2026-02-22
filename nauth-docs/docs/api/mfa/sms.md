@@ -25,10 +25,10 @@ npm install @nauth-toolkit/mfa-sms
 
 ## Requirements
 
-Requires an SMS provider configured:
+Requires an SMS provider configured. Available SMS provider packages:
 
-- `@nauth-toolkit/sms-twilio`
-- `@nauth-toolkit/sms-vonage`
+- [`@nauth-toolkit/sms-aws-sns`](/docs/api/sms/overview) — AWS SNS / End User Messaging (`AWSSMSProvider`)
+- [`@nauth-toolkit/sms-console`](/docs/api/sms/overview) — Console logger for development (`ConsoleSMSProvider`)
 
 ## Usage
 
@@ -37,7 +37,7 @@ Requires an SMS provider configured:
 
 ```typescript
 import { SMSMFAModule } from '@nauth-toolkit/mfa-sms/nestjs';
-import { TwilioSMSProvider } from '@nauth-toolkit/sms-twilio';
+import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
 
 @Module({
   imports: [
@@ -46,7 +46,10 @@ import { TwilioSMSProvider } from '@nauth-toolkit/sms-twilio';
         enabled: true,
         allowedMethods: [MFAMethod.SMS],
       },
-      smsProvider: new TwilioSMSProvider({ ... }),
+      smsProvider: new AWSSMSProvider({
+        region: process.env.AWS_REGION!,
+        originationNumber: process.env.AWS_ORIGINATION_NUMBER!,
+      }),
     }),
     SMSMFAModule,
   ],
@@ -58,7 +61,7 @@ export class AppModule {}
 <TabItem value="express" label="Express">
 
 ```typescript
-import { TwilioSMSProvider } from '@nauth-toolkit/sms-twilio';
+import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
 
 const nauth = await NAuth.create({
   config: {
@@ -66,10 +69,9 @@ const nauth = await NAuth.create({
       enabled: true,
       allowedMethods: [MFAMethod.SMS],
     },
-    smsProvider: new TwilioSMSProvider({
-      accountSid: process.env.TWILIO_ACCOUNT_SID!,
-      authToken: process.env.TWILIO_AUTH_TOKEN!,
-      from: process.env.TWILIO_PHONE_NUMBER!,
+    smsProvider: new AWSSMSProvider({
+      region: process.env.AWS_REGION!,
+      originationNumber: process.env.AWS_ORIGINATION_NUMBER!,
     }),
   },
   dataSource,
@@ -81,7 +83,7 @@ const nauth = await NAuth.create({
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { TwilioSMSProvider } from '@nauth-toolkit/sms-twilio';
+import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
 
 const nauth = await NAuth.create({
   config: {
@@ -89,10 +91,9 @@ const nauth = await NAuth.create({
       enabled: true,
       allowedMethods: [MFAMethod.SMS],
     },
-    smsProvider: new TwilioSMSProvider({
-      accountSid: process.env.TWILIO_ACCOUNT_SID!,
-      authToken: process.env.TWILIO_AUTH_TOKEN!,
-      from: process.env.TWILIO_PHONE_NUMBER!,
+    smsProvider: new AWSSMSProvider({
+      region: process.env.AWS_REGION!,
+      originationNumber: process.env.AWS_ORIGINATION_NUMBER!,
     }),
   },
   dataSource,
@@ -106,7 +107,7 @@ const nauth = await NAuth.create({
 ## Setup Flow
 
 1. User must have verified phone number
-2. Call `mfaService.setupDevice(userId, 'sms')`
+2. Call `mfaService.setup({ methodName: 'sms', setupData: { phoneNumber: '+1234567890' } })`
 3. Code sent to phone
 4. User submits code to verify
 

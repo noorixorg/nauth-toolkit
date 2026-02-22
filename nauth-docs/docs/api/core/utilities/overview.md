@@ -1,6 +1,6 @@
 ---
 title: Utilities
-description: Utility classes and functions for NAuth integration
+description: 'NAuthLogger class for structured logging with service-scoped context'
 keywords: [utilities, logger, context, api]
 image: /img/api-social-card.png
 ---

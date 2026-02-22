@@ -3,6 +3,8 @@ title: Database
 description: TypeORM entity packages for PostgreSQL and MySQL
 keywords: [database, typeorm, postgres, mysql, entities, api]
 image: /img/api-social-card.png
+sidebar_position: 1
+sidebar_label: Overview
 ---
 # Database
 

@@ -42,7 +42,7 @@ import { RefreshTokenDTO } from '@nauth-toolkit/core';
 
 | Property       | Type     | Required | Description                                                      |
 | -------------- | -------- | -------- | ---------------------------------------------------------------- |
-| `refreshToken` | `string` | Yes      | JWT refresh token. 10-2048 characters. Format validated in service. |
+| `refreshToken` | `string` | No       | JWT refresh token. 10-2048 characters. Required in JSON mode; omit in cookie mode (extracted automatically). |
 
 ## Example
 

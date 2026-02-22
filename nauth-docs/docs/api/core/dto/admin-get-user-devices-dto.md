@@ -47,7 +47,7 @@ import { AdminGetUserDevicesDTO } from '@nauth-toolkit/core';
 
 | Property | Type     | Required | Description                                        |
 | -------- | -------- | -------- | -------------------------------------------------- |
-| `sub`    | `string` | Yes      | Target user sub (UUID v4). Must be non-empty string. |
+| `sub`    | `string` | Yes      | Target user's unique identifier. Must be a non-empty string. |
 
 ## Example
 

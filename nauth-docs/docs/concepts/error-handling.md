@@ -1,6 +1,6 @@
 ---
 title: Error Handling
-description: 'How nauth-toolkit throws and maps structured authentication errors'
+description: 'NAuthException class, AuthErrorCode enum values, HTTP status mapping, NestJS exception filter setup, and Express/Fastify error handler patterns'
 sidebar_position: 4
 keywords: [errors, exceptions, error-codes, http-status, filter, NAuthException]
 image: /img/api-social-card.png
@@ -392,10 +392,10 @@ try {
 ### <i className="fa-duotone fa-check-circle" style={{color: 'var(--ifm-color-primary)'}}></i> What nauth-toolkit provides:
 
 - `NAuthException` - Framework-agnostic exception class
-- `AuthErrorCode` - Enum with all error codes
+- [`AuthErrorCode`](/docs/api/core/enums/auth-error-code) - Enum with all error codes
 - Structured metadata (retryAfter, validation details, etc.)
 - `getHttpStatusForErrorCode()` - Helper for HTTP status mapping
-- `NAuthHttpExceptionFilter` - **Optional** ready-to-use HTTP filter
+- [`NAuthHttpExceptionFilter`](/docs/api/nestjs/filters/nauth-exception-filter) - **Optional** ready-to-use HTTP filter
 
 ### <i className="fa-duotone fa-circle-xmark" style={{color: 'var(--ifm-color-primary)'}}></i> What nauth-toolkit does NOT do:
 
@@ -468,7 +468,7 @@ throw new NAuthException(AuthErrorCode.RATE_LIMIT_SMS, 'Too many SMS sent', { re
 
 ## Error Codes Reference
 
-`AuthErrorCode` enum contains 60+ error codes organized by category. Common codes:
+[`AuthErrorCode`](/docs/api/core/enums/auth-error-code) enum contains 60+ error codes organized by category. Common codes:
 
 | Category | Codes |
 |---|---|

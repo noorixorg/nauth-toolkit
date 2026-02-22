@@ -63,6 +63,4 @@ import { AdminRemoveDeviceDTO } from '@nauth-toolkit/core';
 
 ## Related DTOs
 
-- [RemoveDeviceResponseDTO](./remove-device-dto) - Response DTO
 - [RemoveDeviceDTO](./remove-device-dto) - Self-service request DTO
-- [AdminRemoveDevicesDTO](./admin-remove-devices-dto) - Remove by method type (plural)

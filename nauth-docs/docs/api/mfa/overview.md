@@ -3,6 +3,8 @@ title: MFA
 description: Multi-factor authentication providers for TOTP, SMS, Email, and Passkeys
 keywords: [mfa, totp, sms, email, passkey, api]
 image: /img/api-social-card.png
+sidebar_position: 1
+sidebar_label: Overview
 ---
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -103,14 +105,30 @@ enum MFAMethod {
 }
 ```
 
-## IMFAProvider Interface
+## IMFAProviderService Interface
 
 ```typescript
-interface IMFAProvider {
-  readonly method: MFAMethod;
-  generateSetupData(userId: string): Promise<SetupData>;
-  verifyCode(userId: string, code: string): Promise<boolean>;
-  cleanup(userId: string): Promise<void>;
+interface IMFAProviderService {
+  /** Unique method name for this provider (e.g., 'totp', 'sms', 'passkey') */
+  readonly methodName: string;
+
+  /** Check if this method is allowed by configuration */
+  isMethodAllowed(): boolean;
+
+  /** Initiate MFA setup. Returns provider-specific setup data. */
+  setup(setupData?: unknown): Promise<unknown>;
+
+  /** Verify setup and create MFA device. Returns device ID. */
+  verifySetup(verificationData: unknown, deviceName?: string): Promise<number>;
+
+  /** Verify MFA code/credential during authentication */
+  verify(code: unknown, deviceId?: number): Promise<boolean>;
+
+  /** Send challenge (SMS code, passkey options). Optional — not needed for TOTP. */
+  sendChallenge?(challengeSessionId?: number): Promise<unknown>;
+
+  /** Generate single-use backup recovery codes. Optional. */
+  generateBackupCodes?(): Promise<string[]>;
 }
 ```
 

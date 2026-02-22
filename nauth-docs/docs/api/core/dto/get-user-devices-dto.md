@@ -64,7 +64,7 @@ Used for admin operations to retrieve devices for a specific user.
 
 | Property | Type     | Required | Description                                          |
 | -------- | -------- | -------- | ---------------------------------------------------- |
-| `sub`    | `string` | Yes      | Target user's unique identifier (UUID v4 format)     |
+| `sub`    | `string` | Yes      | Target user's unique identifier                      |
 
 **Validation:**
 - `sub` is required and must be a non-empty string

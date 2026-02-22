@@ -1,6 +1,8 @@
 ---
 title: Core Services
-description: Platform-agnostic services for authentication, MFA, social auth, and more
+description: 'Service index: AuthService (login, signup, passwords, sessions), AdminAuthService, MFAService, SocialAuthService, AuthAuditService, EmailVerificationService, PhoneVerificationService, ClientInfoService, CsrfService, GeoLocationService, HookRegistryService'
+sidebar_position: 1
+sidebar_label: Overview
 ---
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';

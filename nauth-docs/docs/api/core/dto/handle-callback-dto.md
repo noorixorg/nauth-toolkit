@@ -40,10 +40,11 @@ import { HandleCallbackDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property | Type     | Required | Description                                                            |
-| -------- | -------- | -------- | ---------------------------------------------------------------------- |
-| `code`   | `string` | Yes      | Authorization code from OAuth callback. Max 2000 characters. Trimmed.  |
-| `state`  | `string` | Yes      | CSRF state parameter from OAuth callback. Max 500 characters. Trimmed. |
+| Property      | Type                      | Required | Description                                                            |
+| ------------- | ------------------------- | -------- | ---------------------------------------------------------------------- |
+| `code`        | `string`                  | Yes      | Authorization code from OAuth callback. Max 2000 characters. Trimmed.  |
+| `state`       | `string`                  | Yes      | CSRF state parameter from OAuth callback. Max 500 characters. Trimmed. |
+| `profileData` | `Record<string, unknown>` | No       | Optional profile data from OAuth callback. Used by providers like Apple that send user data directly in the callback (first sign-in only). |
 
 ## Example
 
@@ -51,6 +52,19 @@ import { HandleCallbackDTO } from '@nauth-toolkit/core';
 {
   "code": "4/0AQlEd8y...",
   "state": "random-csrf-state-123"
+}
+```
+
+**Apple callback with profile data (first sign-in only):**
+
+```json
+{
+  "code": "abc123...",
+  "state": "csrf-state-xyz",
+  "profileData": {
+    "name": { "firstName": "John", "lastName": "Doe" },
+    "email": "user@privaterelay.appleid.com"
+  }
 }
 ```
 

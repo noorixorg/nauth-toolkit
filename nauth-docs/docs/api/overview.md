@@ -1,6 +1,6 @@
 ---
 title: API Reference
-description: Complete API reference for nauth-toolkit with framework-specific examples
+description: 'API reference covering core services (AuthService, MFAService, SocialAuthService), 90+ DTOs, enums, interfaces, NestJS/Express/Fastify adapters, and provider packages for MFA, social auth, email, SMS, database, and storage'
 keywords: [api, reference, documentation, nestjs, express, fastify, authentication]
 image: /img/api-social-card.png
 ---

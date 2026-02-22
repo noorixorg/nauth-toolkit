@@ -19,7 +19,7 @@ Don't do console.log() an dleave it there. use project logger module.
 - ✅ **Every public method** - description, @param, @returns, @throws
 - ✅ **Every interface** - description, property comments
 - ✅ **Every enum/constant** - description
-- Update docusaurus for any changes to API, DTO and follow API_DOCUMENTATION_RULES
+- Update docusaurus for any changes to API, DTO and follow DOCUMENTATION_RULES
 
 ### Inline Comments - REQUIRED:
 - ✅ Complex logic - explain WHY, not WHAT

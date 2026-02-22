@@ -1,6 +1,6 @@
 ---
 title: LinkSocialAccountDTO
-description: Request DTO for linking social account to existing user. Includes user ID, provider, authorization code, and state.
+description: Request DTO for linking a social account to the authenticated user. Includes provider, authorization code, and state.
 keywords: [social, auth, oauth, dto, request, link, api]
 image: /img/api-social-card.png
 ---
@@ -12,7 +12,7 @@ import TabItem from '@theme/TabItem';
 **Package:** `@nauth-toolkit/core`
 **Type:** DTO (Request)
 
-Request DTO for linking social account to existing user.
+Request DTO for linking a social account to the authenticated user. The user's identity is resolved from the JWT token — no `userId` field is required.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
@@ -40,18 +40,16 @@ import { LinkSocialAccountDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property   | Type     | Required | Description                                                                                    |
-| ---------- | -------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `userId`   | `string` | Yes      | User identifier (UUID v4). Trimmed and lowercased.                                           |
-| `provider` | `string` | Yes      | Social provider name (e.g., 'google', 'apple', 'facebook'). Trimmed and lowercased. Max 50 chars. |
-| `code`     | `string` | Yes      | Authorization code from OAuth callback. Trimmed. Max 1000 chars.                               |
-| `state`    | `string` | Yes      | State parameter from OAuth callback (for CSRF validation). Trimmed. Max 500 chars.           |
+| Property   | Type     | Required | Description                                                                                       |
+| ---------- | -------- | -------- | ------------------------------------------------------------------------------------------------- |
+| `provider` | `string` | Yes      | Social provider name (e.g., `google`, `apple`, `facebook`). Trimmed and lowercased. Max 50 chars. |
+| `code`     | `string` | Yes      | Authorization code from OAuth callback. Trimmed. Max 1000 chars.                                  |
+| `state`    | `string` | Yes      | State parameter from OAuth callback (for CSRF validation). Trimmed. Max 500 chars.                |
 
 ## Example
 
 ```json
 {
-  "userId": "a21b654c-2746-4168-acee-c175083a65cd",
   "provider": "apple",
   "code": "c123456...",
   "state": "csrf-token-123"

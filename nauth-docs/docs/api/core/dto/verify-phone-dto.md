@@ -40,10 +40,11 @@ import { VerifyPhoneWithCodeDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property | Type     | Required | Description                                                      |
-| -------- | -------- | -------- | ---------------------------------------------------------------- |
-| `phone`  | `string` | Yes      | Phone number. E.164 format (e.g., +14155552671). Max 20 characters. Whitespace removed. |
-| `code`   | `string` | Yes      | Verification code. Exactly 6 digits. Numeric string. Trimmed.     |
+| Property             | Type     | Required | Description                                                      |
+| -------------------- | -------- | -------- | ---------------------------------------------------------------- |
+| `phone`              | `string` | Yes      | Phone number. E.164 format (e.g., +14155552671). Max 20 characters. Whitespace removed. |
+| `code`               | `string` | Yes      | Verification code. Exactly 6 digits. Numeric string. Trimmed.     |
+| `challengeSessionId` | `number` | No       | Challenge session ID to link this verification to. Ensures codes are only valid for the session they were created for. |
 
 ## Example
 

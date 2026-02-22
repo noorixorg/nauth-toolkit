@@ -38,6 +38,7 @@ npm install @nauth-toolkit/nestjs
 | `@Public()` | [Public](/docs/api/nestjs/decorators/public) |
 | `@ClientInfo()` | [ClientInfo](/docs/api/nestjs/decorators/client-info) |
 | `@TokenDelivery()` | [TokenDelivery](/docs/api/nestjs/decorators/token-delivery) |
+| `@RequireRecaptcha()` | [RequireRecaptcha](/docs/api/nestjs/decorators/require-recaptcha) |
 
 ### Interceptors
 
@@ -51,6 +52,12 @@ npm install @nauth-toolkit/nestjs
 | Export | Documentation |
 |--------|---------------|
 | `NAuthHttpExceptionFilter` | [NAuthHttpExceptionFilter](/docs/api/nestjs/filters/nauth-exception-filter) |
+
+### Pipes
+
+| Export | Documentation |
+|--------|---------------|
+| `NAuthValidationPipe` | [NAuthValidationPipe](/docs/api/nestjs/pipes/nauth-validation-pipe) |
 
 ### Providers
 

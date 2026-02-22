@@ -40,15 +40,15 @@ import { SetMustChangePasswordDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property | Type     | Required | Description                                                      |
-| -------- | -------- | -------- | ---------------------------------------------------------------- |
-| `userId` | `string` | Yes      | User identifier. UUID v4 format. Trimmed and lowercased.          |
+| Property | Type     | Required | Description                                         |
+| -------- | -------- | -------- | --------------------------------------------------- |
+| `sub`    | `string` | Yes      | User sub (UUID v4). Trimmed and lowercased.         |
 
 ## Example
 
 ```json
 {
-  "userId": "a21b654c-2746-4168-acee-c175083a65cd"
+  "sub": "a21b654c-2746-4168-acee-c175083a65cd"
 }
 ```
 

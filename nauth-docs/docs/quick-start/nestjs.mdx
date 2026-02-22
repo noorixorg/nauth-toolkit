@@ -186,7 +186,7 @@ export class AppModule {}
 
 ## Auth Controller
 
-Apply `AuthGuard` at the class level so all routes are protected by default. Use `@Public()` to opt out on routes that don't require authentication.
+Apply [`AuthGuard`](/docs/api/nestjs/guards/auth-guard) at the class level so all routes are protected by default. Use [`@Public()`](/docs/api/nestjs/decorators/public) to opt out on routes that don't require authentication.
 
 ```typescript title="src/auth/auth.controller.ts"
 import { Controller, Post, Get, Body, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
@@ -274,7 +274,7 @@ curl http://localhost:3000/auth/profile \
   -H "Authorization: Bearer <accessToken>"
 ```
 
-You should receive an `AuthResponseDTO` containing `accessToken`, `refreshToken`, and `user` from signup and login. The profile endpoint returns the authenticated user object.
+You should receive an [`AuthResponseDTO`](/docs/api/core/dto/auth-response-dto) containing `accessToken`, `refreshToken`, and `user` from signup and login. The profile endpoint returns the authenticated user object.
 
 ---
 

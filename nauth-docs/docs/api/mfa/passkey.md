@@ -21,6 +21,7 @@ npm install @nauth-toolkit/mfa-passkey
 | Export | Type | Entry |
 |--------|------|-------|
 | `PasskeyMFAProviderService` | Service | Default |
+| `PasskeyService` | Service | Default |
 | `PasskeyMFAModule` | NestJS Module | `/nestjs` |
 
 ## Configuration
@@ -32,6 +33,7 @@ npm install @nauth-toolkit/mfa-passkey
 | `origin` | `string[]` | Allowed origins |
 | `timeout` | `number` | Timeout in milliseconds |
 | `userVerification` | `string` | `'preferred'` \| `'required'` \| `'discouraged'` |
+| `authenticatorAttachment` | `string` | `'platform'` \| `'cross-platform'` — restrict to built-in (FaceID/TouchID) or roaming (security key) authenticators |
 
 ## Usage
 

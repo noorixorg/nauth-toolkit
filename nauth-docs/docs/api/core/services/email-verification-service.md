@@ -171,6 +171,35 @@ fastify.post('/resend-verification-email', nauth.adapter.wrapRouteHandler(async 
 
 ---
 
+### sendMFAEmailCode()
+
+Send MFA email verification code. Used internally during MFA challenges.
+
+```typescript
+async sendMFAEmailCode(dto: SendVerificationEmailDTO): Promise<SendVerificationEmailResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`SendVerificationEmailDTO`](../dto/send-verification-email-dto) - Request DTO
+  - `sub` - `string` - User identifier (UUID v4)
+  - `challengeSessionId` - `string` (optional) - Challenge session ID
+  - `skipAlreadyVerifiedCheck` - `boolean` (optional) - Skip already verified check
+
+**Returns**
+
+- [`SendVerificationEmailResponseDTO`](../dto/send-verification-email-response-dto) - Response with token ID
+  - `tokenId` - `number` - Verification token ID (internal)
+
+**Errors**
+
+| Code               | When              | Details                                        |
+| ------------------ | ----------------- | ---------------------------------------------- |
+| `NOT_FOUND`        | User not found    | `{ userId: string }`                           |
+| `RATE_LIMIT_EMAIL` | Too many requests | `{ retryAfter: number, currentCount: number }` |
+
+---
+
 ### sendVerificationEmail()
 
 Send verification email to user with code and optional link.

@@ -1,6 +1,6 @@
 ---
 title: Configuration
-description: Complete configuration guide for nauth-toolkit
+description: 'NAuthConfig reference: JWT settings, token delivery (cookies vs JSON), session management, password policies, rate limiting, MFA enforcement, social auth providers, email/SMS providers, storage adapters, reCAPTCHA, and geolocation'
 sidebar_position: 6
 keywords: [configuration, config, options, settings, setup, environment, security]
 image: /img/api-social-card.png
@@ -1033,16 +1033,16 @@ recaptcha: {
 | Option         | Description                                                                                    | Default |
 | -------------- | ---------------------------------------------------------------------------------------------- | ------- |
 | `enabled`      | Enable reCAPTCHA validation on auth endpoints.                                                 | false   |
-| `provider`     | Provider instance. Choose `RecaptchaV2Provider`, `RecaptchaV3Provider`, or `RecaptchaEnterpriseProvider`. | —  |
+| `provider`     | Provider instance. Choose [`RecaptchaV2Provider`](/docs/api/recaptcha/providers/recaptcha-v2-provider), [`RecaptchaV3Provider`](/docs/api/recaptcha/providers/recaptcha-v3-provider), or [`RecaptchaEnterpriseProvider`](/docs/api/recaptcha/providers/recaptcha-enterprise-provider). | —  |
 | `minimumScore` | Minimum acceptable score (0.0–1.0). Only applies to v3 and Enterprise. 0.5 is a neutral starting point. | 0.5 |
 
 **Choosing a provider:**
 
 | Provider | Interaction | Best For |
 | -------- | ----------- | -------- |
-| `RecaptchaV3Provider` | Invisible, score-based | Most web apps — no user friction |
-| `RecaptchaV2Provider` | Checkbox ("I'm not a robot") | Highest-risk actions, legacy setups |
-| `RecaptchaEnterpriseProvider` | Score-based with advanced signals | Enterprise — requires GCP project |
+| [`RecaptchaV3Provider`](/docs/api/recaptcha/providers/recaptcha-v3-provider) | Invisible, score-based | Most web apps — no user friction |
+| [`RecaptchaV2Provider`](/docs/api/recaptcha/providers/recaptcha-v2-provider) | Checkbox ("I'm not a robot") | Highest-risk actions, legacy setups |
+| [`RecaptchaEnterpriseProvider`](/docs/api/recaptcha/providers/recaptcha-enterprise-provider) | Score-based with advanced signals | Enterprise — requires GCP project |
 
 ## Challenge Configuration {#challenge}
 

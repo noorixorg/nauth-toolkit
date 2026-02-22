@@ -40,10 +40,11 @@ import { VerifyPhoneWithCodeBySubDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property | Type     | Required | Description                                                      |
-| -------- | -------- | -------- | ---------------------------------------------------------------- |
-| `sub`    | `string` | Yes      | User identifier. UUID v4 format. Trimmed and lowercased.          |
-| `code`   | `string` | Yes      | Verification code. Exactly 6 digits. Numeric string.             |
+| Property             | Type     | Required | Description                                                      |
+| -------------------- | -------- | -------- | ---------------------------------------------------------------- |
+| `sub`                | `string` | Yes      | User identifier. UUID v4 format. Trimmed and lowercased.          |
+| `code`               | `string` | Yes      | Verification code. Exactly 6 digits. Numeric string.             |
+| `challengeSessionId` | `number` | No       | Challenge session ID to link this verification to. Ensures codes are only valid for the session they were created for. |
 
 ## Example
 

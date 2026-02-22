@@ -1,8 +1,10 @@
 ---
 title: Enums
-description: Enumeration types for authentication states and codes
+description: 'Enums: AuthErrorCode (error handling), AuthAuditEventType/Status (audit logging), MFAMethod (provider identifiers), RiskFactor (adaptive MFA), SMSTemplateType (SMS templates)'
 keywords: [enums, types, mfa, errors, api]
 image: /img/api-social-card.png
+sidebar_position: 1
+sidebar_label: Overview
 ---
 # Enums
 

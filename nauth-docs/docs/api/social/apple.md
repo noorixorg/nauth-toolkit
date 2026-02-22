@@ -21,7 +21,9 @@ npm install @nauth-toolkit/social-apple
 | Export | Type | Entry |
 |--------|------|-------|
 | `AppleSocialAuthService` | Class | Default |
+| `AppleOAuthClient` | Class | Default |
 | `TokenVerifierService` | Class | Default |
+| `VerifiedAppleTokenProfile` | Interface | Default |
 | `AppleSocialAuthModule` | NestJS Module | `/nestjs` |
 
 ## Configuration

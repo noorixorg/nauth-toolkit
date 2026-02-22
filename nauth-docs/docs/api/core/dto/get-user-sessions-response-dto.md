@@ -60,7 +60,7 @@ import { GetUserSessionsResponseDTO } from '@nauth-toolkit/core';
 | `lastActivityAt` | `Date`    | Yes      | Timestamp of last activity for this session.                                                                                             |
 | `createdAt`      | `Date`    | Yes      | Timestamp when session was created.                                                                                                      |
 | `expiresAt`      | `Date`    | Yes      | Timestamp when session expires.                                                                                                           |
-| `isRemembered`   | `boolean` | Yes      | Whether session is remembered (trusted device).                                                                                           |
+| `isTrustedDevice`   | `boolean` | Yes      | Whether session is remembered (trusted device).                                                                                           |
 | `isCurrent`      | `boolean` | Yes      | Whether this is the current session (session making the request).                                                                        |
 | `authMethod`     | `string`  | No       | Authentication method used. Examples: `'password'`, `'social'`, `'admin'`, `'admin-social'`. Null if not available.                      |
 | `authProvider`   | `string`  | No       | OAuth provider name (only for social logins). Examples: `'google'`, `'facebook'`, `'apple'`. Null if not a social login or not available. |
@@ -83,7 +83,7 @@ import { GetUserSessionsResponseDTO } from '@nauth-toolkit/core';
       "lastActivityAt": "2025-01-15T10:30:00.000Z",
       "createdAt": "2025-01-10T08:00:00.000Z",
       "expiresAt": "2025-01-17T08:00:00.000Z",
-      "isRemembered": true,
+      "isTrustedDevice": true,
       "isCurrent": true,
       "authMethod": "password",
       "authProvider": null
@@ -100,7 +100,7 @@ import { GetUserSessionsResponseDTO } from '@nauth-toolkit/core';
       "lastActivityAt": "2025-01-14T15:20:00.000Z",
       "createdAt": "2025-01-12T09:00:00.000Z",
       "expiresAt": "2025-01-19T09:00:00.000Z",
-      "isRemembered": false,
+      "isTrustedDevice": false,
       "isCurrent": false,
       "authMethod": "social",
       "authProvider": "google"

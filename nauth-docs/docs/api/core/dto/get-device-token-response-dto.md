@@ -42,7 +42,7 @@ import { GetDeviceTokenResponseDTO } from '@nauth-toolkit/core';
 
 | Property     | Type       | Description                                                      |
 | ------------ | ---------- | ---------------------------------------------------------------- |
-| `deviceToken` | `string?`  | Device token for trusted device feature. Extracted from cookie (nauth_device_id) or header (X-Device-Token). Optional - undefined if not present. |
+| `deviceToken` | `string?`  | Device token for trusted device feature. Extracted from cookie (`nauth_device_token`) or header (`X-Device-Token`). Optional - undefined if not present. |
 
 ## Example
 

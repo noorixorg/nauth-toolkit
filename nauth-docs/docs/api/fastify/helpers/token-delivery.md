@@ -21,7 +21,7 @@ tokenDelivery(mode: TokenDeliveryMode): preHandlerHookHandler
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `mode` | `'json' \| 'cookies' \| 'both'` | Delivery mode |
+| `mode` | `'json' \| 'cookies'` | Delivery mode |
 
 ## Modes
 
@@ -29,7 +29,6 @@ tokenDelivery(mode: TokenDeliveryMode): preHandlerHookHandler
 |------|-------------|
 | `json` | Tokens in response body only |
 | `cookies` | Tokens in HTTP-only cookies only |
-| `both` | Tokens in both body and cookies |
 
 ## Usage
 

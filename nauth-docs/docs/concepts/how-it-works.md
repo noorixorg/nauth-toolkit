@@ -145,9 +145,9 @@ You choose which endpoints to expose. The same `authService.signup()` and `authS
 
 | Service | What you get |
 |---------|-------------|
-| `AuthService` | Signup, login, logout, password reset, token refresh, email/phone verification |
-| `MFAService` | Enroll and verify TOTP, SMS, email, and passkey methods |
-| `SocialAuthService` | Google, Apple, Facebook — redirect flows and native mobile token verification |
+| [`AuthService`](/docs/api/core/services/auth-service) | Signup, login, logout, password reset, token refresh, email/phone verification |
+| [`MFAService`](/docs/api/core/services/mfa-service) | Enroll and verify TOTP, SMS, email, and passkey methods |
+| [`SocialAuthService`](/docs/api/core/services/social-auth-service) | Google, Apple, Facebook — redirect flows and native mobile token verification |
 
 ### Frontend — SDK with challenge routing
 

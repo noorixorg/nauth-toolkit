@@ -21,7 +21,9 @@ npm install @nauth-toolkit/social-facebook
 | Export | Type | Entry |
 |--------|------|-------|
 | `FacebookSocialAuthService` | Class | Default |
+| `FacebookOAuthClient` | Class | Default |
 | `TokenVerifierService` | Class | Default |
+| `VerifiedFacebookTokenProfile` | Interface | Default |
 | `FacebookSocialAuthModule` | NestJS Module | `/nestjs` |
 
 ## Configuration

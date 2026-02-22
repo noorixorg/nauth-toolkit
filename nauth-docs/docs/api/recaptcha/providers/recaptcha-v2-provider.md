@@ -100,16 +100,21 @@ export class AppModule {}
 <TabItem value="express" label="Express">
 
 ```typescript
-import { createNAuthInstance } from '@nauth-toolkit/core';
+import { NAuth } from '@nauth-toolkit/core';
+import { ExpressAdapter } from '@nauth-toolkit/express';
 import { RecaptchaV2Provider } from '@nauth-toolkit/recaptcha';
 
-const nauth = createNAuthInstance({
-  recaptcha: {
-    enabled: true,
-    provider: new RecaptchaV2Provider({
-      secretKey: process.env.RECAPTCHA_V2_SECRET_KEY!,
-    }),
+const nauth = await NAuth.create({
+  config: {
+    recaptcha: {
+      enabled: true,
+      provider: new RecaptchaV2Provider({
+        secretKey: process.env.RECAPTCHA_V2_SECRET_KEY!,
+      }),
+    },
   },
+  dataSource,
+  adapter: new ExpressAdapter(),
 });
 ```
 
@@ -117,16 +122,21 @@ const nauth = createNAuthInstance({
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { createNAuthInstance } from '@nauth-toolkit/core';
+import { NAuth } from '@nauth-toolkit/core';
+import { FastifyAdapter } from '@nauth-toolkit/fastify';
 import { RecaptchaV2Provider } from '@nauth-toolkit/recaptcha';
 
-const nauth = createNAuthInstance({
-  recaptcha: {
-    enabled: true,
-    provider: new RecaptchaV2Provider({
-      secretKey: process.env.RECAPTCHA_V2_SECRET_KEY!,
-    }),
+const nauth = await NAuth.create({
+  config: {
+    recaptcha: {
+      enabled: true,
+      provider: new RecaptchaV2Provider({
+        secretKey: process.env.RECAPTCHA_V2_SECRET_KEY!,
+      }),
+    },
   },
+  dataSource,
+  adapter: new FastifyAdapter(),
 });
 ```
 

@@ -42,14 +42,14 @@ import { SetPasswordForSocialUserDTO } from '@nauth-toolkit/core';
 
 | Property   | Type     | Required | Description                                                                                    |
 | ---------- | -------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `userId`   | `string` | Yes      | User identifier (UUID v4). Trimmed and lowercased.                                           |
+| `sub`      | `string` | Yes      | User sub (UUID v4). Trimmed and lowercased.                                                  |
 | `password` | `string` | Yes      | New password. Min 1 char, max 128 chars (actual validation in AuthService). Not trimmed.    |
 
 ## Example
 
 ```json
 {
-  "userId": "a21b654c-2746-4168-acee-c175083a65cd",
+  "sub": "a21b654c-2746-4168-acee-c175083a65cd",
   "password": "newpassword123"
 }
 ```

@@ -57,7 +57,7 @@ export class AuthController {}
 
 ## Cookie Options
 
-Configured via `config.cookies`:
+Configured via `config.tokenDelivery.cookieOptions`:
 
 | Option | Type | Description |
 |--------|------|-------------|

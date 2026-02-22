@@ -3,6 +3,8 @@ title: SMS Providers
 description: SMS providers for phone verification and MFA
 keywords: [sms, providers, aws, sns, phone, api]
 image: /img/api-social-card.png
+sidebar_position: 1
+sidebar_label: Overview
 ---
 # SMS Providers
 

@@ -1,6 +1,6 @@
 ---
 title: Entities
-description: Base entity classes for database models
+description: 'Base entity classes extended by database adapters: BaseUser, BaseSession, BaseMFADevice, BaseTrustedDevice, BaseLoginAttempt, BaseVerificationToken, BaseSocialAccount, BaseChallengeSession, BaseAuthAudit, BaseRateLimit, BaseStorageLock'
 keywords: [entities, database, typeorm, api]
 image: /img/api-social-card.png
 ---
@@ -26,6 +26,7 @@ Database-agnostic entity classes. Database adapters extend these with ORM decora
 | `BaseAuthAudit` | Security audit log entries |
 | `BaseRateLimit` | Rate limiting records |
 | `BaseStorageLock` | Distributed lock records |
+| `BaseSocialProviderSecret` | Cached OAuth client secrets (e.g., Apple JWT client_secret) |
 
 ## Usage
 

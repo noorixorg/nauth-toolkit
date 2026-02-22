@@ -1,5 +1,5 @@
 ---
-title: ResponseChallengeDTO
+title: AuthChallengeResponseDTO
 description: Challenge response DTO returned when authentication requires additional verification steps. Contains challenge type, session token, and challenge parameters.
 keywords: [challenge, response, dto, verification, mfa, api]
 image: /img/api-social-card.png
@@ -7,16 +7,12 @@ image: /img/api-social-card.png
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# ResponseChallengeDTO
+# AuthChallengeResponseDTO
 
 **Package:** `@nauth-toolkit/core`
 **Type:** DTO (Response)
 
 Challenge response DTO returned when authentication requires additional verification steps. Contains challenge type, session token, and challenge-specific parameters.
-
-:::note
-The actual class name is `AuthChallengeResponseDTO`. This documentation uses `ResponseChallengeDTO` as an alias for clarity.
-:::
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">

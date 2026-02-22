@@ -21,6 +21,7 @@ npm install @nauth-toolkit/mfa-totp
 | Export | Type | Entry |
 |--------|------|-------|
 | `TOTPMFAProviderService` | Service | Default |
+| `TOTPService` | Service | Default |
 | `TOTPMFAModule` | NestJS Module | `/nestjs` |
 
 ## Configuration

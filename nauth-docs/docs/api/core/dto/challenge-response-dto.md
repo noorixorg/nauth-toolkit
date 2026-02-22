@@ -45,8 +45,8 @@ Discriminated union of challenge response interfaces:
 - `VerifyEmailResponse` - Email verification with code
 - `CollectPhoneResponse` - Phone number collection (first step)
 - `VerifyPhoneResponse` - Phone verification with code (second step)
-- `VerifyMFACodeResponse` - MFA verification with code (SMS/TOTP/Backup)
-- `VerifyMFAPasskeyResponse` - MFA verification with passkey
+- `VerifyMFACodeResponse` - MFA verification with code (SMS/TOTP/Backup). Optional `deviceId?: number` field for methods with multiple devices.
+- `VerifyMFAPasskeyResponse` - MFA verification with passkey. Optional `deviceId?: number` field for multiple passkey devices.
 - `ForceChangePasswordResponse` - Forced password change
 - `MFASetupResponse` - MFA setup during challenge
 

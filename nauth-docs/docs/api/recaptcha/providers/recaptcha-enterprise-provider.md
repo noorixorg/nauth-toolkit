@@ -107,19 +107,24 @@ export class AppModule {}
 <TabItem value="express" label="Express">
 
 ```typescript
-import { createNAuthInstance } from '@nauth-toolkit/core';
+import { NAuth } from '@nauth-toolkit/core';
+import { ExpressAdapter } from '@nauth-toolkit/express';
 import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
 
-const nauth = createNAuthInstance({
-  recaptcha: {
-    enabled: true,
-    provider: new RecaptchaEnterpriseProvider({
-      projectId: process.env.RECAPTCHA_PROJECT_ID!,
-      apiKey: process.env.RECAPTCHA_API_KEY!,
-      siteKey: process.env.RECAPTCHA_SITE_KEY!,
-    }),
-    minimumScore: 0.7,
+const nauth = await NAuth.create({
+  config: {
+    recaptcha: {
+      enabled: true,
+      provider: new RecaptchaEnterpriseProvider({
+        projectId: process.env.RECAPTCHA_PROJECT_ID!,
+        apiKey: process.env.RECAPTCHA_API_KEY!,
+        siteKey: process.env.RECAPTCHA_SITE_KEY!,
+      }),
+      minimumScore: 0.7,
+    },
   },
+  dataSource,
+  adapter: new ExpressAdapter(),
 });
 ```
 
@@ -127,19 +132,24 @@ const nauth = createNAuthInstance({
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { createNAuthInstance } from '@nauth-toolkit/core';
+import { NAuth } from '@nauth-toolkit/core';
+import { FastifyAdapter } from '@nauth-toolkit/fastify';
 import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
 
-const nauth = createNAuthInstance({
-  recaptcha: {
-    enabled: true,
-    provider: new RecaptchaEnterpriseProvider({
-      projectId: process.env.RECAPTCHA_PROJECT_ID!,
-      apiKey: process.env.RECAPTCHA_API_KEY!,
-      siteKey: process.env.RECAPTCHA_SITE_KEY!,
-    }),
-    minimumScore: 0.7,
+const nauth = await NAuth.create({
+  config: {
+    recaptcha: {
+      enabled: true,
+      provider: new RecaptchaEnterpriseProvider({
+        projectId: process.env.RECAPTCHA_PROJECT_ID!,
+        apiKey: process.env.RECAPTCHA_API_KEY!,
+        siteKey: process.env.RECAPTCHA_SITE_KEY!,
+      }),
+      minimumScore: 0.7,
+    },
   },
+  dataSource,
+  adapter: new FastifyAdapter(),
 });
 ```
 

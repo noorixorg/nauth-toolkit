@@ -1,6 +1,6 @@
 ---
 title: CanSetPasswordDTO
-description: Request DTO for checking if user can set password. Includes user identifier (UUID v4).
+description: Request DTO for checking if an authenticated user can set a password on their account.
 keywords: [social, auth, dto, request, password, api]
 image: /img/api-social-card.png
 ---
@@ -40,15 +40,15 @@ import { CanSetPasswordDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property | Type     | Required | Description                          |
-| -------- | -------- | -------- | ------------------------------------ |
-| `userId` | `string` | Yes      | User identifier (UUID v4). Trimmed and lowercased. |
+| Property | Type     | Required | Description                                    |
+| -------- | -------- | -------- | ---------------------------------------------- |
+| `sub`    | `string` | Yes      | User identifier (UUID v4). Trimmed and lowercased. |
 
 ## Example
 
 ```json
 {
-  "userId": "a21b654c-2746-4168-acee-c175083a65cd"
+  "sub": "a21b654c-2746-4168-acee-c175083a65cd"
 }
 ```
 

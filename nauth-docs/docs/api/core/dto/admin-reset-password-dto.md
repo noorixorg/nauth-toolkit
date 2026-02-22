@@ -51,13 +51,13 @@ import { AdminResetPasswordDTO, AdminResetPasswordResponseDTO } from '@nauth-too
 
 ## AdminResetPasswordResponseDTO (Response)
 
-| Property          | Type               | Description                                                      |
-| ----------------- | ------------------ | ---------------------------------------------------------------- |
-| `deliveryMedium`  | `'email' \| 'sms'` | Delivery medium used.                                            |
-| `destination`     | `string`           | Masked destination where code was sent.                          |
-| `expiresIn`       | `number`           | Code expiry in seconds.                                          |
-| `sessionsRevoked` | `number`           | Number of sessions revoked (only if `revokeSessions` was `true`). |
-| `success`         | `boolean`          | Always true on success.                                          |
+| Property          | Type               | Required | Description                                                      |
+| ----------------- | ------------------ | -------- | ---------------------------------------------------------------- |
+| `success`         | `boolean`          | Yes      | Always `true` on success.                                        |
+| `deliveryMedium`  | `'email' \| 'sms'` | No       | Delivery medium used.                                            |
+| `destination`     | `string`           | No       | Masked destination where code was sent.                          |
+| `expiresIn`       | `number`           | No       | Code expiry in seconds.                                          |
+| `sessionsRevoked` | `number`           | No       | Number of sessions revoked (only present if `revokeSessions` was `true`). |
 
 ## Example
 

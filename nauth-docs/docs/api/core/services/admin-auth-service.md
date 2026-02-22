@@ -776,7 +776,7 @@ fastify.post(
 Retrieve user by email address. Returns `null` if user not found or if `requireEmailVerified` is `true` and email is not verified.
 
 ```typescript
-async getUserByEmail(dto: GetUserByEmailDTO): Promise<UserResponseDto | null>
+async getUserByEmail(dto: GetUserByEmailDTO): Promise<UserResponseDTO | null>
 ```
 
 **Parameters**
@@ -785,7 +785,7 @@ async getUserByEmail(dto: GetUserByEmailDTO): Promise<UserResponseDto | null>
 
 **Returns**
 
-- [`UserResponseDto`](../dto/user-response-dto) or `null` if not found or email verification requirement not met
+- [`UserResponseDTO`](../dto/user-response-dto) or `null` if not found or email verification requirement not met
 
 **Errors**
 
@@ -833,7 +833,7 @@ const user = await nauth.adminAuthService.getUserByEmail({
 Retrieve user by unique identifier (sub). Returns `null` if user not found.
 
 ```typescript
-async getUserById(dto: GetUserByIdDTO): Promise<UserResponseDto | null>
+async getUserById(dto: GetUserByIdDTO): Promise<UserResponseDTO | null>
 ```
 
 **Parameters**
@@ -842,7 +842,7 @@ async getUserById(dto: GetUserByIdDTO): Promise<UserResponseDto | null>
 
 **Returns**
 
-- [`UserResponseDto`](../dto/user-response-dto) or `null` if not found
+- [`UserResponseDTO`](../dto/user-response-dto) or `null` if not found
 
 **Errors**
 
@@ -964,7 +964,7 @@ fastify.get(
 </Tabs>
 
 :::note Data Privacy
-Returns sanitized user data (no `passwordHash`, secrets, or sensitive fields). All users have access to standard `UserResponseDto` fields only.
+Returns sanitized user data (no `passwordHash`, secrets, or sensitive fields). All users have access to standard `UserResponseDTO` fields only.
 :::
 
 :::warning Authorization
@@ -1023,7 +1023,7 @@ Update email and/or phone verification status directly. Intended for admin use c
 - Records audit events with `performedBy` from authenticated admin context
 
 ```typescript
-async updateVerifiedStatus(dto: UpdateVerifiedStatusRequestDTO): Promise<UserResponseDto>
+async updateVerifiedStatus(dto: UpdateVerifiedStatusRequestDTO): Promise<UserResponseDTO>
 ```
 
 **Parameters**
@@ -1032,7 +1032,7 @@ async updateVerifiedStatus(dto: UpdateVerifiedStatusRequestDTO): Promise<UserRes
 
 **Returns**
 
-- [`UserResponseDto`](../dto/user-response-dto) - Updated user object
+- [`UserResponseDTO`](../dto/user-response-dto) - Updated user object
 
 **Errors**
 
@@ -1344,7 +1344,7 @@ Update user profile information (firstName, lastName, username, email, phone, me
 - Metadata is merged with existing metadata (set key to `null` to delete)
 
 ```typescript
-async updateUserAttributes(dto: AdminUpdateUserAttributesDTO): Promise<UserResponseDto>
+async updateUserAttributes(dto: AdminUpdateUserAttributesDTO): Promise<UserResponseDTO>
 ```
 
 **Parameters**
@@ -1353,7 +1353,7 @@ async updateUserAttributes(dto: AdminUpdateUserAttributesDTO): Promise<UserRespo
 
 **Returns**
 
-- [`UserResponseDto`](../dto/user-response-dto) - Updated user object
+- [`UserResponseDTO`](../dto/user-response-dto) - Updated user object
 
 **Errors**
 

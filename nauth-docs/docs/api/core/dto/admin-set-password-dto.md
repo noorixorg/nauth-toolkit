@@ -44,8 +44,8 @@ import { AdminSetPasswordDTO, AdminSetPasswordResponseDTO } from '@nauth-toolkit
 | -------------------- | --------- | -------- | ------------------------------------------------------------------------------------------------ |
 | `sub`                | `string`  | Yes      | User sub (UUID v4). Trimmed, lowercased for consistency.                                        |
 | `newPassword`        | `string`  | Yes      | New password. 8-128 characters. Not trimmed.                                                     |
-| `mustChangePassword` | `boolean` | No       | Require password change on next login. Default: true.                                            |
-| `revokeSessions`     | `boolean` | No       | Revoke all active sessions. Default: true.                                                       |
+| `mustChangePassword` | `boolean` | No       | Require password change on next login. Default: `true` (applied by service when not provided).   |
+| `revokeSessions`     | `boolean` | No       | Revoke all active sessions. Default: `true` (applied by service when not provided).              |
 
 ## AdminSetPasswordResponseDTO (Response)
 

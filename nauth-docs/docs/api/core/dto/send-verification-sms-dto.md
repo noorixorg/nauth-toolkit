@@ -44,13 +44,15 @@ import { SendVerificationSMSDTO } from '@nauth-toolkit/core';
 | --------------------------- | --------- | -------- | ---------------------------------------------------------------------------------------------- |
 | `sub`                       | `string`  | Yes      | User identifier (UUID v4). Trimmed and lowercased.                                             |
 | `skipAlreadyVerifiedCheck` | `boolean` | No       | Skip "already verified" check. Used for MFA contexts where codes needed even if phone verified. |
+| `challengeSessionId`        | `number`  | No       | Challenge session ID to link this verification to. Prevents old tokens from being used with new sessions. |
 
 ## Example
 
 ```json
 {
   "sub": "a21b654c-2746-4168-acee-c175083a65cd",
-  "skipAlreadyVerifiedCheck": false
+  "skipAlreadyVerifiedCheck": false,
+  "challengeSessionId": 42
 }
 ```
 

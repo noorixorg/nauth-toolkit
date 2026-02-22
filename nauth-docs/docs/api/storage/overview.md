@@ -3,6 +3,8 @@ title: Session Storage
 description: Storage adapters for transient authentication state
 keywords: [storage, session, redis, database, memory, api]
 image: /img/api-social-card.png
+sidebar_position: 1
+sidebar_label: Overview
 ---
 # Session Storage
 

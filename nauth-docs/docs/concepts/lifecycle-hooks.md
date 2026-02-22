@@ -149,7 +149,7 @@ try {
 
 :::note
 There is currently no `@OnboardingCompletedHook()` decorator.
-If you need custom onboarding-completed behavior in NestJS, register an `IOnboardingCompletedHook` via `HookRegistryService`.
+If you need custom onboarding-completed behavior in NestJS, register an `IOnboardingCompletedHook` via [`HookRegistryService`](/docs/api/core/services/hook-registry-service).
 :::
 
 | Decorator | Description | Documentation |

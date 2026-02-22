@@ -40,16 +40,14 @@ import { LogoutSessionDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property    | Type     | Required | Description                                                                                          |
-| ----------- | -------- | -------- | ---------------------------------------------------------------------------------------------------- |
-| `sub`       | `string` | Yes      | User identifier. UUID v4 format. Must match the session owner. Trimmed and lowercased.             |
-| `sessionId` | `string` | Yes      | Session ID to revoke. Must belong to the user specified in `sub`.                                    |
+| Property    | Type     | Required | Description              |
+| ----------- | -------- | -------- | ------------------------ |
+| `sessionId` | `string` | Yes      | Session ID to terminate. |
 
 ## Example
 
 ```json
 {
-  "sub": "a21b654c-2746-4168-acee-c175083a65cd",
   "sessionId": "123"
 }
 ```
@@ -57,7 +55,7 @@ import { LogoutSessionDTO } from '@nauth-toolkit/core';
 ## Security
 
 :::warning Authentication Required
-This endpoint **requires authentication**. For user endpoints, extract `sub` from authenticated user context. For admin endpoints, protect with admin guards and accept `sub` from route parameter. Session ownership is validated automatically.
+This endpoint **requires authentication**. The user's identity is extracted from the authenticated JWT token. Session ownership is validated automatically.
 :::
 
 ## Used By

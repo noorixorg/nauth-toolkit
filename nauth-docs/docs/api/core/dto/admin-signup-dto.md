@@ -45,8 +45,8 @@ import { AdminSignupDTO, AdminSignupResponseDTO } from '@nauth-toolkit/core';
 | `email`              | `string`                 | Yes      | User email address. Valid email format (RFC 5322). Max 255 chars. Trimmed, lowercased.          |
 | `password`           | `string`                 | No       | User password. Required unless `generatePassword` is true. 8-128 characters. Not trimmed.        |
 | `username`           | `string`                 | No       | Optional username. 3-255 characters. Alphanumeric, underscores, and hyphens only. Trimmed, lowercased. |
-| `firstName`          | `string`                 | No       | Optional first name. 1-100 characters. Letters, spaces, hyphens, and apostrophes only. Trimmed. |
-| `lastName`           | `string`                 | No       | Optional last name. 1-100 characters. Letters, spaces, hyphens, and apostrophes only. Trimmed.  |
+| `firstName`          | `string`                 | No       | Optional first name. 1-100 characters. Trimmed.                                                 |
+| `lastName`           | `string`                 | No       | Optional last name. 1-100 characters. Trimmed.                                                  |
 | `phone`              | `string`                 | No       | Optional phone number. E.164 format with + prefix. Max 20 chars. Example: +14155552671.          |
 | `metadata`           | `Record<string, unknown>` | No       | Optional custom metadata fields.                                                                |
 | `isEmailVerified`    | `boolean`                | No       | Bypass email verification requirement. Default: false.                                          |
@@ -89,8 +89,7 @@ import { AdminSignupDTO, AdminSignupResponseDTO } from '@nauth-toolkit/core';
     "lastName": "Doe",
     "isEmailVerified": true,
     "isPhoneVerified": false
-  },
-  "generatedPassword": null
+  }
 }
 ```
 

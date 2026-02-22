@@ -43,9 +43,9 @@ import { AdminSignupSocialDTO } from '@nauth-toolkit/core';
 | Property | Type | Required | Description |
 | -------- | ---- | -------- | ----------- |
 | `email` | `string` | Yes | User email address. Valid email format, max 255 chars. Trimmed and lowercased. Automatically verified for social imports (like normal social signup). |
-| `firstName` | `string` | No | First name. 1-100 chars. Letters, spaces, hyphens, apostrophes only. |
+| `firstName` | `string` | No | First name. 1-100 chars. Trimmed. |
 | `isPhoneVerified` | `boolean` | No | Bypass phone verification. Default: false. |
-| `lastName` | `string` | No | Last name. 1-100 chars. Letters, spaces, hyphens, apostrophes only. |
+| `lastName` | `string` | No | Last name. 1-100 chars. Trimmed. |
 | `metadata` | `Record<string, unknown>` | No | Custom user metadata. |
 | `mustChangePassword` | `boolean` | No | Force password change on first login. Only relevant if password provided. Default: false. |
 | `password` | `string` | No | Optional password for hybrid social+password accounts. Min 8, max 128 chars. Policy enforced. |

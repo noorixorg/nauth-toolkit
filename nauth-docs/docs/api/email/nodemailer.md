@@ -31,6 +31,10 @@ new NodemailerEmailProvider(options: NodemailerOptions)
 |--------|------|----------|-------------|
 | `transport` | `TransportOptions` | Yes | Nodemailer transport config |
 | `defaults` | `DefaultsOptions` | No | Default email options |
+| `useTemplates` | `boolean` | No | Enable HTML template rendering. When `false`, sends plain text only. Default: `true` |
+| `templateEngine` | `TemplateEngine` | No | Custom template engine. Defaults to built-in Handlebars engine |
+| `preview` | `boolean` | No | Log preview URL for test messages (Ethereal/Nodemailer preview). Default: `false` |
+| `skipVerification` | `boolean` | No | Skip SMTP transport verification on startup. Default: `false` |
 
 ### TransportOptions
 

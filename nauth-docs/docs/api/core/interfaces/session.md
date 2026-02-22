@@ -40,20 +40,34 @@ import { ISession } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property | Type | Required | Description |
-| --- | --- | --- | --- |
-| `id` | `number` | Yes | Database ID |
-| `userId` | `number` | Yes | User database ID |
-| `ipAddress` | `string \| null` | Yes | Client IP |
-| `userAgent` | `string \| null` | Yes | User agent |
-| `deviceId` | `string \| null` | Yes | Device ID |
-| `deviceName` | `string \| null` | Yes | Device name |
-| `deviceType` | `string \| null` | Yes | Device type |
-| `authMethod` | `string \| null` | Yes | Auth method (password/social/etc.) |
-| `isRemembered` | `boolean` | Yes | Remembered session |
-| `isTrustedDevice` | `boolean` | Yes | Trusted device flag |
-| `expiresAt` | `Date` | Yes | Expiration timestamp |
-| `metadata` | `Record<string, unknown> \| null` | Yes | Custom session metadata |
+| Property | Type | Description |
+| --- | --- | --- |
+| `id` | `number` | Database ID |
+| `userId` | `number` | User database ID |
+| `accessTokenHash` | `string` | Hashed access token |
+| `refreshTokenHash` | `string` | Hashed refresh token |
+| `tokenFamily` | `string` | Token family for rotation tracking |
+| `deviceId` | `string \| null` | Device identifier |
+| `deviceName` | `string \| null` | Device name |
+| `deviceType` | `string \| null` | Device type |
+| `deviceFingerprint` | `string \| null` | Device fingerprint |
+| `ipAddress` | `string \| null` | Client IP address |
+| `ipCountry` | `string \| null` | Country derived from IP |
+| `ipCity` | `string \| null` | City derived from IP |
+| `ipIsp` | `string \| null` | ISP derived from IP |
+| `userAgent` | `string \| null` | User agent string |
+| `platform` | `string \| null` | Platform (e.g., `'iOS'`, `'Windows'`) |
+| `browser` | `string \| null` | Browser name |
+| `authMethod` | `string \| null` | Auth method (e.g., `'password'`, `'social'`) |
+| `isTrustedDevice` | `boolean` | Whether session is on a trusted device |
+| `expiresAt` | `Date` | Expiration timestamp |
+| `lastActivityAt` | `Date \| null` | Last activity timestamp |
+| `isRevoked` | `boolean` | Whether session has been revoked |
+| `revokedAt` | `Date \| null` | Revocation timestamp |
+| `revokeReason` | `string \| null` | Reason for revocation |
+| `version` | `number` | Token version for rotation |
+| `metadata` | `Record<string, unknown> \| null` | Custom session metadata |
+| `createdAt` | `Date` | Session creation timestamp |
 
 ## Related APIs
 

@@ -42,8 +42,9 @@ import { EmailProvider } from '@nauth-toolkit/core';
 
 | Method | Returns | Description |
 | --- | --- | --- |
-| `sendVerificationEmail(to, code, link?)` | `Promise<void>` | Send email verification code (and optional link) |
-| `sendPasswordResetEmail(to, token, link?, expiryMinutes?)` | `Promise<void>` | Send password reset message. Code is always sent (mandatory). Link is optional and only included when baseUrl is provided in the forgotPassword request. |
+| `sendVerificationEmail(to, code, link?, expiryMinutes?)` | `Promise<void>` | Send email verification code (and optional link) |
+| `sendMFAEmailCode(to, code, expiryMinutes?)` | `Promise<void>` | Send MFA email code for two-factor authentication challenge |
+| `sendPasswordResetEmail(to, token, code, link?, expiryMinutes?)` | `Promise<void>` | Send password reset email. `code` is always sent. `link` is optional (only when `baseUrl` is provided). |
 | `sendAdminPasswordResetEmail(to, code, link?, expiryMinutes?)` | `Promise<void>` | Send admin-initiated password reset code/link |
 | `sendWelcomeEmail(to, name)` | `Promise<void>` | Send welcome message |
 | `sendLockoutEmail?(to, reason, duration)` | `Promise<void>` | (Optional) Account lockout notification |

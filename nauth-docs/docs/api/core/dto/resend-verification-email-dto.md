@@ -40,14 +40,15 @@ import { ResendVerificationEmailDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property  | Type     | Required | Description                                                                                    |
-| --------- | -------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `sub`     | `string` | No       | User identifier (UUID v4). Required if email not provided. Trimmed and lowercased.            |
-| `email`   | `string` | No       | User email address. Required if sub not provided. Valid email format. Max 255 chars. Trimmed and lowercased. |
-| `baseUrl` | `string` | No       | Base URL for verification link. Must be valid URL with http:// or https://. Max 2048 chars.   |
+| Property             | Type     | Required | Description                                                                                    |
+| -------------------- | -------- | -------- | ---------------------------------------------------------------------------------------------- |
+| `sub`                | `string` | No       | User identifier (UUID v4). Required if email not provided. Trimmed and lowercased.            |
+| `email`              | `string` | No       | User email address. Required if sub not provided. Valid email format. Max 255 chars. Trimmed and lowercased. |
+| `baseUrl`            | `string` | No       | Base URL for verification link. Must be valid URL with http:// or https://. Max 2048 chars.   |
+| `challengeSessionId` | `number` | No       | Challenge session ID to link this verification to. Prevents old tokens from being used with new sessions. |
 
 :::info
-Either `sub` or `email` must be provided (not both).
+At least one of `sub` or `email` must be provided.
 :::
 
 ## Example

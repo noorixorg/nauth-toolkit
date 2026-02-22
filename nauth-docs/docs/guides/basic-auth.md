@@ -120,7 +120,7 @@ export class AuthController {
 }
 ```
 
-`@UseGuards(AuthGuard)` at class level protects all routes by default. Routes marked `@Public()` skip JWT validation.
+[`@UseGuards(AuthGuard)`](/docs/api/nestjs/guards/auth-guard) at class level protects all routes by default. Routes marked [`@Public()`](/docs/api/nestjs/decorators/public) skip JWT validation.
 
 </TabItem>
 <TabItem value="express" label="Express">
@@ -887,7 +887,7 @@ fastify.get(
 
 ## Error Handling
 
-Set up a global error handler so `NAuthException` errors are returned as structured JSON.
+Set up a global error handler so [`NAuthException`](/docs/concepts/error-handling) errors are returned as structured JSON.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS" default>

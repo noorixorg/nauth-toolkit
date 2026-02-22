@@ -1,7 +1,7 @@
 ---
 title: LogoutAllDTO
-description: Request DTO for logging out user from all sessions. Requires user UUID for security validation.
-keywords: [logout, all, sessions, dto, request, uuid, api]
+description: Request DTO for logging out from all sessions with optional device revocation. User context is extracted from JWT.
+keywords: [logout, all, sessions, dto, request, api]
 image: /img/api-social-card.png
 ---
 import Tabs from '@theme/Tabs';
@@ -42,14 +42,12 @@ import { LogoutAllDTO } from '@nauth-toolkit/core';
 
 | Property        | Type      | Required | Description                                                                                          |
 | --------------- | --------- | -------- | ---------------------------------------------------------------------------------------------------- |
-| `sub`           | `string`  | Yes      | User identifier. UUID v4 format. Trimmed and lowercased.                                             |
 | `forgetDevices` | `boolean` | No       | If `true`, also revokes all trusted devices for the user. Default: `false` (devices remain trusted). |
 
 ## Example
 
 ```json
 {
-  "sub": "a21b654c-2746-4168-acee-c175083a65cd",
   "forgetDevices": false
 }
 ```
@@ -57,7 +55,7 @@ import { LogoutAllDTO } from '@nauth-toolkit/core';
 ## Security
 
 :::warning Authentication Required
-This endpoint **requires authentication**. The user must be logged in to call this endpoint. The `sub` field is automatically extracted from the authenticated user's JWT token by the framework adapters.
+This endpoint **requires authentication**. The user must be logged in to call this endpoint. The user's identity is automatically extracted from the authenticated user's JWT token by the framework adapters.
 :::
 
 When `forgetDevices` is `true`:

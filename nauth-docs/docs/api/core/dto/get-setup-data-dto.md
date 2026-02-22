@@ -1,6 +1,6 @@
 ---
 title: GetSetupDataDTO
-description: Request DTO for MFA setup data retrieval. Includes UUID session token and MFA method enum validation.
+description: Request DTO for MFA setup data retrieval. Includes UUID session token and MFAMethod enum validation.
 keywords: [mfa, setup, data, dto, request, uuid, api]
 image: /img/api-social-card.png
 ---
@@ -43,7 +43,7 @@ import { GetSetupDataDTO } from '@nauth-toolkit/core';
 | Property   | Type                      | Required | Description                                                      |
 | ---------- | ------------------------- | -------- | ---------------------------------------------------------------- |
 | `session`  | `string`                  | Yes      | Challenge session token. UUID v4 format. Trimmed and lowercased. |
-| `method`   | `MFASetupMethod`          | Yes      | MFA method. Must be: sms, email, totp, passkey.                  |
+| `method`   | `MFAMethod`               | Yes      | MFA method. Must be: `sms`, `email`, `totp`, `passkey`.          |
 | `setupData`| `Record<string, unknown>` | No       | Optional provider-specific setup data (e.g., phoneNumber for SMS). |
 
 ## Example

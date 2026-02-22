@@ -3,6 +3,8 @@ title: Data Transfer Objects (DTOs)
 description: Complete reference for all request and response DTOs used in nauth-toolkit authentication APIs. Includes validation rules and usage examples.
 keywords: [dto, data transfer objects, request, response, validation, api, typescript]
 image: /img/api-social-card.png
+sidebar_position: 1
+sidebar_label: Overview
 ---
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -137,7 +139,6 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [AdminGetMFAStatusDTO](./admin-get-mfa-status-dto)                 | Admin get MFA status               | Target user sub                     |
 | [AdminGetUserDevicesDTO](./admin-get-user-devices-dto)             | Admin get user MFA devices         | Target user sub                     |
 | [AdminRemoveDeviceDTO](./admin-remove-device-dto)                  | Admin remove MFA device by ID      | Device ID                           |
-| [AdminRemoveDevicesDTO](./admin-remove-devices-dto)                | Admin remove MFA devices by method | User sub and method type            |
 | [AdminSetPreferredDeviceDTO](./admin-set-preferred-device-dto)     | Admin set preferred MFA device     | User sub and device ID              |
 | [GetAvailableMethodsDTO](./get-available-methods-dto)              | Get available MFA methods          | User sub                            |
 | [GetMFAStatusResponseDTO](./get-mfa-status-dto)                    | MFA status response                | Status fields                       |
@@ -145,7 +146,6 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [GetSetupDataResponseDTO](./get-setup-data-response-dto)           | Setup data response                | Provider-specific setup data        |
 | [GetUserDevicesDTO](./get-user-devices-dto)                        | Get user MFA devices (self-service)| User from context                   |
 | [RemoveDeviceDTO](./remove-device-dto)                             | Remove MFA device by ID            | Device ID                           |
-| [RemoveDevicesDTO](./remove-devices-dto)                           | Remove MFA devices by method       | Method type                         |
 | [SetMFAExemptionDTO](./set-mfa-exemption-dto)                      | Set MFA exemption                  | User sub, exempt flag, reason       |
 | [SetPreferredDeviceDTO](./set-preferred-device-dto)                | Set preferred MFA device           | Device ID                           |
 | [SetupMFADTO](./setup-mfa-dto)                                     | Setup MFA device                   | Method name, setup data             |

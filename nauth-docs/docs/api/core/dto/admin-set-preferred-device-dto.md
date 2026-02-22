@@ -48,7 +48,7 @@ import { AdminSetPreferredDeviceDTO } from '@nauth-toolkit/core';
 | Property   | Type     | Required | Description                                                        |
 | ---------- | -------- | -------- | ------------------------------------------------------------------ |
 | `deviceId` | `number` | Yes      | MFA device ID to set as preferred. Must be positive integer. Auto-converted from string. |
-| `sub`      | `string` | Yes      | Target user identifier (UUID).                                     |
+| `sub`      | `string` | Yes      | Target user identifier.                                            |
 
 ## Example
 

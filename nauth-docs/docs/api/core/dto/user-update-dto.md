@@ -43,8 +43,8 @@ import { UserUpdateDTO } from '@nauth-toolkit/core';
 | Property             | Type                      | Required | Description                                                                             |
 | -------------------- | ------------------------- | -------- | --------------------------------------------------------------------------------------- |
 | `username`           | `string`                  | No       | Username. 3-255 characters. Alphanumeric, underscores, hyphens only. Trimmed.           |
-| `firstName`          | `string`                  | No       | First name. 1-100 characters. Letters, spaces, hyphens, apostrophes only. Trimmed.      |
-| `lastName`           | `string`                  | No       | Last name. 1-100 characters. Letters, spaces, hyphens, apostrophes only. Trimmed.       |
+| `firstName`          | `string`                  | No       | First name. 1-100 characters. Trimmed.                                                   |
+| `lastName`           | `string`                  | No       | Last name. 1-100 characters. Trimmed.                                                    |
 | `email`              | `string`                  | No       | Email address. Valid email format. Max 255 characters. Trimmed and lowercased.          |
 | `phone`              | `string`                  | No       | Phone number. E.164 format (e.g., +14155552671). Max 20 characters. Whitespace removed. |
 | `metadata`           | `Record<string, unknown>` | No       | Custom metadata fields. Merged with existing metadata. Set key to `null` to delete.     |

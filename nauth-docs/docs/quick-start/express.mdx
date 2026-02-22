@@ -296,7 +296,7 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
 
 ## Error Handler
 
-Map `NAuthException` errors to HTTP status codes and return a structured JSON response. Register this **last** with `app.use(errorHandler)`.
+Map [`NAuthException`](/docs/concepts/error-handling) errors to HTTP status codes and return a structured JSON response. Register this **last** with `app.use(errorHandler)`.
 
 ```typescript title="src/utils/error-handler.ts"
 import { Request, Response, NextFunction } from 'express';

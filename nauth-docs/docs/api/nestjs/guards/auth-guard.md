@@ -81,7 +81,6 @@ export class ExampleController {
 | `SESSION_EXPIRED`      | Session expired       | `undefined` |
 | `SESSION_NOT_FOUND`    | Session missing       | `undefined` |
 | `TOKEN_INVALID`        | Missing/invalid token | `undefined` |
-| `TOKEN_REUSE_DETECTED` | Revoked session       | `undefined` |
 
 Throws [`NAuthException`](../../core/exceptions/nauth-exception) with the codes listed above (protected routes only).
 

@@ -12,7 +12,7 @@ import TabItem from '@theme/TabItem';
 **Package:** `@nauth-toolkit/core`
 **Type:** Interface
 
-Contract for framework adapters that wrap requests/responses and manage request context.
+Contract for framework adapters that register middleware/hooks and manage AsyncLocalStorage request context.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
@@ -38,15 +38,19 @@ import { NAuthAdapter } from '@nauth-toolkit/core';
 </TabItem>
 </Tabs>
 
+## Properties
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `name` | `string` (readonly) | Adapter name for logging/debugging (e.g., `'express'`, `'fastify'`) |
+
 ## Methods
 
 | Method | Returns | Description |
 | --- | --- | --- |
-| `createRequestWrapper(rawRequest)` | `NAuthRequest` | Wrap framework request |
-| `createResponseWrapper(rawResponse)` | `NAuthResponse` | Wrap framework response |
-| `registerMiddleware(handler, req, res, next)` | `Promise<void>` | Register middleware |
-| `registerResponseInterceptor(handler, req, res, next)` | `Promise<void>` | Register response interceptor |
-| `wrapRouteHandler(handler)` | `(...args) => Promise<unknown>` | Wrap route handler with context |
+| `registerMiddleware(name, handler, options?)` | `unknown` | Register a middleware handler. `name` is a string identifier (e.g., `'auth'`), `handler` is a `NAuthMiddlewareHandler`, `options` is optional `MiddlewareOptions`. |
+| `registerResponseInterceptor(handler)` | `unknown` | Register a response interceptor for token delivery. `handler` is a `NAuthResponseInterceptorHandler`. |
+| `wrapRouteHandler(handler)` | `unknown` | Wrap a route handler to ensure AsyncLocalStorage context is available. |
 
 ## Related APIs
 

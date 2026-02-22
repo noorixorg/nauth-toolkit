@@ -1,6 +1,6 @@
 ---
 title: SetupMFADTO
-description: Request and response DTOs for setting up MFA device. Includes user sub, method name, and optional provider-specific setup data.
+description: Request and response DTOs for setting up an MFA device. Includes method name and optional provider-specific setup data.
 keywords: [mfa, setup, device, dto, request, response, api]
 image: /img/api-social-card.png
 ---
@@ -12,7 +12,7 @@ import TabItem from '@theme/TabItem';
 **Package:** `@nauth-toolkit/core`
 **Type:** DTO (Request/Response)
 
-Data transfer objects for setting up an MFA device using the appropriate provider.
+Data transfer objects for setting up an MFA device using the appropriate provider. The user's identity is resolved from the authenticated JWT context — no `sub` field is required in the request body.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
@@ -40,11 +40,10 @@ import { SetupMFADTO, SetupMFAResponseDTO } from '@nauth-toolkit/core';
 
 ## SetupMFADTO (Request)
 
-| Property    | Type                      | Required | Description                                                      |
-| ----------- | ------------------------- | -------- | ---------------------------------------------------------------- |
-| `sub`       | `string`                  | Yes      | User sub. UUID v4 format. Trimmed and lowercased.               |
-| `methodName` | `string`                  | Yes      | MFA method name. Must be: totp, sms, email, passkey. Max 50 characters. Trimmed and lowercased. |
-| `setupData` | `Record<string, unknown>` | No       | Optional provider-specific setup data. Structure varies by method (see below). Must be object if provided. |
+| Property     | Type                      | Required | Description                                                                                    |
+| ------------ | ------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
+| `methodName` | `string`                  | Yes      | MFA method name. Must be: `totp`, `sms`, `email`, `passkey`. Max 50 characters. Trimmed and lowercased. |
+| `setupData`  | `Record<string, unknown>` | No       | Optional provider-specific setup data. Structure varies by method (see below). Must be object if provided. |
 
 ### setupData by Method
 
@@ -153,7 +152,6 @@ import { SetupMFADTO, SetupMFAResponseDTO } from '@nauth-toolkit/core';
 
 ```json
 {
-  "sub": "a21b654c-2746-4168-acee-c175083a65cd",
   "methodName": "totp"
 }
 ```
@@ -175,7 +173,6 @@ import { SetupMFADTO, SetupMFAResponseDTO } from '@nauth-toolkit/core';
 
 ```json
 {
-  "sub": "a21b654c-2746-4168-acee-c175083a65cd",
   "methodName": "sms",
   "setupData": {
     "phoneNumber": "+1234567890",
@@ -207,7 +204,6 @@ import { SetupMFADTO, SetupMFAResponseDTO } from '@nauth-toolkit/core';
 
 ```json
 {
-  "sub": "a21b654c-2746-4168-acee-c175083a65cd",
   "methodName": "email",
   "setupData": {
     "email": "user@example.com",
@@ -229,7 +225,6 @@ import { SetupMFADTO, SetupMFAResponseDTO } from '@nauth-toolkit/core';
 
 ```json
 {
-  "sub": "a21b654c-2746-4168-acee-c175083a65cd",
   "methodName": "passkey"
 }
 ```

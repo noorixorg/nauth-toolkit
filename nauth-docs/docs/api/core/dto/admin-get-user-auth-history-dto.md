@@ -71,7 +71,7 @@ This DTO extends [`GetUserAuthHistoryDTO`](./get-user-auth-history-dto) and adds
 
 ## Used By
 
-- [AuthAuditService.getUserAuthHistory()](../services/auth-audit-service#getuserauthhistory) - Admin operation
+- [AdminAuthService](../services/admin-auth-service) - Admin operation
 
 ## Related DTOs
 

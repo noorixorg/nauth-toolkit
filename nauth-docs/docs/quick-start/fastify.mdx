@@ -325,7 +325,7 @@ Unlike Express (where routes are mounted under a prefix with `app.use('/auth', r
 
 ## Error Handler
 
-Map `NAuthException` errors to HTTP status codes and return a structured JSON response. Register this with `fastify.setErrorHandler(errorHandler)`.
+Map [`NAuthException`](/docs/concepts/error-handling) errors to HTTP status codes and return a structured JSON response. Register this with `fastify.setErrorHandler(errorHandler)`.
 
 ```typescript title="src/utils/error-handler.ts"
 import { FastifyError, FastifyRequest, FastifyReply } from 'fastify';
