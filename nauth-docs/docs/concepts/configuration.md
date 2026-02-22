@@ -2,6 +2,8 @@
 title: Configuration
 description: Complete configuration guide for nauth-toolkit
 sidebar_position: 6
+keywords: [configuration, config, options, settings, setup, environment, security]
+image: /img/api-social-card.png
 ---
 
 # Configuration
@@ -34,8 +36,7 @@ The toolkit is agnostic to how you manage configuration - use what works best fo
 **1. Create configuration file:**
 
 ```typescript title="src/config/auth.config.ts"
-import { NAuthModuleConfig } from '@nauth-toolkit/nestjs';
-import { createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
+import { NAuthModuleConfig, createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
 import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
 import { Logger } from '@nestjs/common';
 
@@ -43,32 +44,43 @@ export const authConfig: NAuthModuleConfig = {
   jwt: {
     algorithm: 'HS256',
     accessToken: {
-      secret: 'your-secret-key', // Load from your config source
+      secret: process.env.JWT_SECRET,
       expiresIn: '15m',
     },
     refreshToken: {
-      secret: 'your-refresh-secret', // Load from your config source
+      secret: process.env.JWT_REFRESH_SECRET,
       expiresIn: '7d',
+      reuseDetection: true,
     },
   },
 
-  storageAdapter: createRedisStorageAdapter('redis://localhost:6379'),
+  storageAdapter: createRedisStorageAdapter(process.env.REDIS_URL || 'redis://localhost:6379'),
 
   emailProvider: new NodemailerEmailProvider({
     transport: {
-      host: 'smtp.example.com',
+      host: process.env.SMTP_HOST,
       port: 587,
       auth: {
-        user: 'smtp-user',
-        pass: 'smtp-password',
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
       },
     },
     defaults: {
-      from: 'My App <noreply@example.com>',
+      from: `My App <${process.env.EMAIL_FROM || 'noreply@example.com'}>`,
     },
   }),
 
-  logger: new Logger('NAuth'),
+  email: {
+    globalVariables: {
+      appName: 'My App',
+      supportEmail: process.env.SUPPORT_EMAIL,
+    },
+  },
+
+  logger: {
+    instance: new Logger('NAuth'),
+    enablePiiRedaction: true,
+  },
 };
 ```
 
@@ -86,90 +98,75 @@ export class AppModule {}
 ```
 
   </TabItem>
-  <TabItem value="express" label="Express">
+  <TabItem value="express" label="Express / Fastify">
 
 **1. Create configuration file:**
 
 ```typescript title="src/config/auth.config.ts"
-import { NAuthConfig } from '@nauth-toolkit/express';
-import { createRedisStorageAdapter } from '@nauth-toolkit/express';
+import { NAuthConfig } from '@nauth-toolkit/core';
+import { RedisStorageAdapter } from '@nauth-toolkit/storage-redis';
 import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+import { createClient } from 'redis';
+
+const redisClient = createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
+await redisClient.connect();
 
 export const authConfig: NAuthConfig = {
   jwt: {
     algorithm: 'HS256',
     accessToken: {
-      secret: 'your-secret-key', // Load from your config source
+      secret: process.env.JWT_SECRET,
       expiresIn: '15m',
     },
     refreshToken: {
-      secret: 'your-refresh-secret', // Load from your config source
+      secret: process.env.JWT_REFRESH_SECRET,
       expiresIn: '7d',
+      reuseDetection: true,
     },
   },
 
-  storageAdapter: createRedisStorageAdapter('redis://localhost:6379'),
+  storageAdapter: new RedisStorageAdapter(redisClient),
 
   emailProvider: new NodemailerEmailProvider({
     transport: {
-      host: 'smtp.example.com',
+      host: process.env.SMTP_HOST,
       port: 587,
       auth: {
-        user: 'smtp-user',
-        pass: 'smtp-password',
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
       },
     },
     defaults: {
-      from: 'My App <noreply@example.com>',
+      from: `My App <${process.env.EMAIL_FROM || 'noreply@example.com'}>`,
     },
   }),
 
-  // Optional: Add logger for debugging
-  // logger: {
-  //   instance: yourLoggerInstance,  // Any logger implementing LoggerService interface
-  //   enablePiiRedaction: true,
-  // },
-};
-```
-
-**2. Import in main:**
-
-```typescript title="src/index.ts"
-import { createNAuth } from '@nauth-toolkit/express';
-import { authConfig } from './config/auth.config';
-
-const nauth = await createNAuth(authConfig, dataSource);
-app.use('/auth', nauth.routes);
-```
-
-  </TabItem>
-  <TabItem value="fastify" label="Fastify">
-
-```typescript title="src/config/auth.config.ts"
-import { NAuthConfig } from '@nauth-toolkit/fastify';
-import { createRedisStorageAdapter } from '@nauth-toolkit/fastify';
-import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
-
-export const authConfig: NAuthConfig = {
-  jwt: {
-    algorithm: 'HS256',
-    accessToken: { secret: 'your-secret-key', expiresIn: '15m' },
-    refreshToken: { secret: 'your-refresh-secret', expiresIn: '7d' },
+  email: {
+    globalVariables: {
+      appName: 'My App',
+      supportEmail: process.env.SUPPORT_EMAIL,
+    },
   },
-  storageAdapter: createRedisStorageAdapter('redis://localhost:6379'),
-  emailProvider: new NodemailerEmailProvider({
-    transport: { host: 'smtp.example.com', port: 587, auth: { user: 'smtp-user', pass: 'smtp-password' } },
-    defaults: { from: 'My App <noreply@example.com>' },
-  }),
+
+  logger: {
+    instance: console,  // Any logger implementing LoggerService (log/error/warn/debug)
+    enablePiiRedaction: true,
+  },
 };
 ```
 
+**2. Register in main:**
+
 ```typescript title="src/index.ts"
-import { createNAuth } from '@nauth-toolkit/fastify';
+import { NAuth } from '@nauth-toolkit/core';
+import { ExpressAdapter } from '@nauth-toolkit/core'; // or FastifyAdapter
 import { authConfig } from './config/auth.config';
 
-const nauth = await createNAuth(authConfig, dataSource);
-fastify.register(nauth.routes, { prefix: '/auth' });
+const nauth = await NAuth.create({
+  config: authConfig,
+  dataSource,
+  adapter: new ExpressAdapter(), // or new FastifyAdapter()
+});
 ```
 
   </TabItem>
@@ -179,32 +176,34 @@ fastify.register(nauth.routes, { prefix: '/auth' });
 
 ### Top-level options (NAuthConfig)
 
-These are the top-level keys you can provide in `NAuthConfig` / `NAuthModuleConfig`:
+These are the top-level keys you can provide in `NAuthConfig` / `NAuthModuleConfig`. Each links to its detailed section below.
 
-| Option          | Type                                             | Required | Description                                                                        |
-| --------------- | ------------------------------------------------ | -------- | ---------------------------------------------------------------------------------- |
-| `tablePrefix`   | `string`                                         | No       | Database table prefix (default: `nauth_`)                                          |
-| `jwt`           | `JwtConfig`                                      | Yes      | JWT configuration                                                                  |
-| `signup`        | `SignupConfig`                                   | No       | Signup + verification settings                                                     |
-| `login`         | `LoginConfig`                                    | No       | Login identifier policy                                                            |
-| `password`      | `PasswordConfig`                                 | No       | Password policy + password reset                                                   |
-| `lockout`       | `LockoutConfig`                                  | No       | IP-based lockout settings                                                          |
-| `session`       | `SessionConfig`                                  | No       | Session lifetime + concurrency                                                     |
-| `security`      | `SecurityConfig`                                 | No       | CSRF + security settings + sensitive data masking                                  |
-| `tokenDelivery` | `TokenDeliveryConfig`                            | No       | JSON/cookies/hybrid token delivery                                                 |
-| `challenge`     | `ChallengeConfig`                                | No       | Challenge session limits                                                           |
-| `auditLogs`     | `{ enabled?: boolean; fireAndForget?: boolean }` | No       | Audit logging behavior                                                             |
-| `emailProvider` | `EmailProvider`                                  | No       | Email provider instance (required when email verification or MFA email is enabled) |
-| `email`         | `EmailConfig`                                    | No       | Email branding + email templates                                                   |
-| `emailNotifications` | `EmailNotificationsConfig`                  | No       | Email notification suppression (optional notifications are disabled by default)    |
-| `smsProvider`   | `SMSProvider`                                    | No       | SMS provider instance (required when phone verification or MFA SMS is enabled)     |
-| `sms`           | `{ templates?: SMSTemplateConfig }`              | No       | SMS template configuration                                                         |
-| `social`        | `SocialConfig`                                   | No       | Social provider settings                                                           |
-| `mfa`           | `MFAConfig`                                      | No       | MFA configuration                                                                  |
-| `geoLocation`   | `GeoLocationConfig`                              | No       | IP geolocation (MaxMind)                                                           |
-| `logger`        | `LoggerService \| NAuthLoggerConfig`             | No       | Logger instance + PII redaction controls                                           |
+| Option          | Required | Description                                                                        |
+| --------------- | -------- | ---------------------------------------------------------------------------------- |
+| `tablePrefix`   | No       | Database table prefix. Default: `nauth_`. Example: `'myapp_'` → tables become `myapp_users`, `myapp_sessions`. |
+| [`jwt`](#jwt-configuration) | **Yes** | JWT signing algorithm, secrets, and token lifetimes. |
+| [`storageAdapter`](#storage-adapter) | No* | Transient storage for sessions, rate limits, and token reuse detection. Auto-detected if omitted and DB storage entities are registered. |
+| [`signup`](#signup-configuration) | No | Signup toggle, verification method (email/phone/both/none), and rate limits. |
+| [`login`](#login-configuration) | No | Login identifier policy: `email`, `username`, `phone`, or `email_or_username`. |
+| [`password`](#password-security) | No | Password policy (length, complexity, history, expiry) and password reset flow. |
+| [`lockout`](#password-security) | No | IP-based failed-login lockout. |
+| [`security`](#password-security) | No | CSRF protection and sensitive data masking in challenge responses. |
+| [`tokenDelivery`](#token-delivery) | No | How tokens reach clients: `json` (response body), `cookies` (httpOnly), or `hybrid`. Default: `json`. |
+| [`session`](#session-configuration) | No | Session concurrency limits and hard maximum lifetime. |
+| [`emailProvider`](#email-provider) | No* | Email provider instance. Required when email verification or MFA email is enabled. |
+| [`email`](#email-provider) | No | Email branding (`globalVariables`) and custom HTML/text templates. |
+| [`emailNotifications`](#email-notifications-optional) | No | Per-event suppression controls. Optional lifecycle emails are disabled by default. |
+| [`smsProvider`](#sms-provider) | No* | SMS provider instance. Required when phone verification or MFA SMS is enabled. |
+| [`sms`](#sms-templates) | No | SMS template branding and custom message content. |
+| [`social`](#social-authentication) | No | Social OAuth providers (Google, Apple, Facebook) and post-OAuth redirect config. |
+| [`mfa`](#multi-factor-authentication) | No | MFA methods, enforcement mode (OPTIONAL/REQUIRED/ADAPTIVE), and device trust. |
+| [`geoLocation`](#geolocation) | No | MaxMind IP geolocation database. Required for adaptive MFA. |
+| [`auditLogs`](#audit-logs) | No | Audit trail for authentication and security events. Default: enabled. |
+| [`recaptcha`](#recaptcha) | No | Google reCAPTCHA bot protection (v2, v3, Enterprise). |
+| [`challenge`](#challenge) | No | Max verification attempts before a challenge session is invalidated. Default: 3. |
+| [`logger`](#logger) | No | Logger instance and PII redaction controls. Silent by default. |
 
-### JWT Configuration
+### JWT Configuration {#jwt-configuration}
 
 Controls JWT token generation and validation. JWTs are used for stateless authentication - the access token authorizes API requests, while the refresh token allows obtaining new access tokens without re-authentication.
 
@@ -224,7 +223,6 @@ jwt: {
   refreshToken: {
     secret: process.env.JWT_REFRESH_SECRET,
     expiresIn: '7d',      // 7 days
-    rotation: true,       // Generate new refresh token on each use
     reuseDetection: true, // Detect and block token reuse attacks
   },
 }
@@ -243,7 +241,7 @@ jwt: {
 | `accessToken.expiresIn`       | **REQUIRED.** How long access tokens are valid. Short-lived for security (if stolen, limited damage). Format: 15m, 1h, or seconds.                                                                               | N/A     | 15m (15 minutes)                             |
 | `refreshToken.secret`         | **REQUIRED.** Secret for signing refresh tokens. Should be different from access token secret. Minimum 32 characters (256 bits).                                                                                 | N/A     | 256-bit random string from secure config     |
 | `refreshToken.expiresIn`      | **REQUIRED.** How long refresh tokens are valid. Longer-lived for better UX (users stay logged in). Format: 7d, 30d, or seconds.                                                                                 | N/A     | 7d to 30d                                    |
-| `refreshToken.rotation`       | Generate new refresh token on each use. Old token becomes invalid. Prevents token theft - if attacker uses stolen token, legitimate user's next request fails and triggers security alert.                       | false   | true                                         |
+| `refreshToken.rotation`       | **Deprecated.** Token rotation is always enabled and cannot be disabled. A new refresh token is issued on every use regardless of this flag. Accepted for backward compatibility but ignored at runtime.         | N/A     | Omit (always on)                             |
 | `refreshToken.reuseDetection` | Detect when an old refresh token is reused (sign of theft). When detected, invalidates entire token family and forces re-authentication.                                                                         | false   | true                                         |
 
 **When to use RS256 vs HS256:**
@@ -256,10 +254,9 @@ jwt: {
 - `algorithm`: Use `HS256` for simplicity, `RS256` for microservices
 - `accessToken.expiresIn`: Short-lived (15m recommended)
 - `refreshToken.expiresIn`: Long-lived (7d-30d)
-- `rotation`: Recommended for production
 - `reuseDetection`: Recommended for production
 
-### Storage Adapter
+### Storage Adapter {#storage-adapter}
 
 **Storage adapter is REQUIRED.** Choose between Redis or Database for transient storage.
 
@@ -283,18 +280,25 @@ If you don't provide a `storageAdapter` explicitly, `DatabaseStorageAdapter` wil
 
 See [Storage](/docs/concepts/storage) for detailed comparison and auto-detection behavior.
 
-### Login Configuration
+### Login Configuration {#login-configuration}
 
 Controls which identifier types are accepted during login.
 
+| `identifierType` | Accepts |
+| ---------------- | ------- |
+| `undefined` (default) | All types: email, username, phone |
+| `'email'` | Email addresses only |
+| `'username'` | Usernames only |
+| `'phone'` | Phone numbers only |
+| `'email_or_username'` | Email or username (phone excluded) |
+
 ```typescript
 login: {
-  // 'email' | 'username' | 'phone' | 'email_or_username'
   identifierType: 'email_or_username',
 },
 ```
 
-### Email Provider
+### Email Provider {#email-provider}
 
 Configure email delivery for verification codes and notifications.
 
@@ -308,7 +312,7 @@ emailProvider: new NodemailerEmailProvider({
   transport: {
     host: process.env.SMTP_HOST,
     port: 587,
-    secure: false,  // Use TLS
+    secure: false,  // false = STARTTLS on port 587; true = direct TLS on port 465
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -395,33 +399,33 @@ email: {
   </TabItem>
 </Tabs>
 
-### Email Notifications (Optional)
+### Email Notifications (Optional) {#email-notifications-optional}
 
 Optional notification emails are **opt-in** and controlled via `emailNotifications.suppress`.
-This is separate from template customization (see [Email Templates](/docs/features/email-templates)).
+This is separate from template customization (see [Email Templates](/docs/guides/email-templates)).
 
 ```typescript
 emailNotifications: {
   enabled: true,
   suppress: {
-    // Optional notifications (default: true = suppressed/disabled)
+    // Optional notifications — default: true (suppressed/disabled). Set false to enable.
     welcome: false,
     passwordChanged: false,
     mfaDeviceRemoved: false,
-    mfaFirstEnabled: false,
+    mfaFirstEnabled: false,       // Uses the mfaEnabled email template
     mfaMethodAdded: false,
-    adaptiveMfaRiskDetected: false,
+    adaptiveMfaRiskDetected: false, // Uses the adaptiveMfaRiskAlert template
     sessionsRevoked: false,
     accountLockout: false,
-    // ...
+    accountDisabled: false,
+    accountEnabled: false,
+    emailChangedOld: false,       // Alert sent to the old email address
+    emailChangedNew: false,       // Confirmation sent to the new email address
     // Note: Code emails (emailVerification, passwordReset, adminPasswordReset)
     // cannot be suppressed and are always sent when enabled: true
   },
 },
 ```
-
-**New additions:**
-- `emailNotifications.suppress.mfaMethodAdded`: sends an email when a user adds an additional MFA method (after MFA is already enabled).
 
 ::::note Naming tip
 Some notification keys map to a differently-named template type:
@@ -430,7 +434,7 @@ Some notification keys map to a differently-named template type:
 - `adaptiveMfaRiskDetected` notification uses the `adaptiveMfaRiskAlert` email template (`TemplateType.ADAPTIVE_MFA_RISK_ALERT`)
 ::::
 
-### SMS Provider
+### SMS Provider {#sms-provider}
 
 Configure SMS delivery for phone verification, MFA, and password reset.
 
@@ -462,7 +466,7 @@ smsProvider: new ConsoleSMSProvider(),
   </TabItem>
 </Tabs>
 
-### SMS Templates
+### SMS Templates {#sms-templates}
 
 Customize SMS message content globally (branding + custom templates).
 
@@ -494,9 +498,9 @@ sms: {
 },
 ```
 
-See [SMS Templates Feature Guide](/docs/features/sms-templates) and [SMS Templates Configuration](/docs/api/sms/templates).
+See [SMS Templates Feature Guide](/docs/guides/sms-templates) and [SMS Templates Configuration](/docs/api/sms/templates).
 
-### Logger
+### Logger {#logger}
 
 Configure logging with PII redaction.
 
@@ -528,7 +532,7 @@ logger: {
   </TabItem>
 </Tabs>
 
-## Signup Configuration
+## Signup Configuration {#signup-configuration}
 
 Controls user registration behavior, verification requirements, and anti-abuse measures.
 
@@ -615,7 +619,7 @@ signup: {
 - **IP-based Limits**: Stops distributed attacks from multiple accounts
 - **Expiration**: Short expiration windows reduce attack surface
 
-## Password & Security
+## Password & Security {#password-security}
 
 Configure password policies, account lockout, and CSRF protection.
 
@@ -679,11 +683,47 @@ security: {
 | `requireUppercase`    | Require at least one uppercase letter (A-Z).                                                                  | false   | true for moderate security         |
 | `requireLowercase`    | Require at least one lowercase letter (a-z).                                                                  | false   | true for moderate security         |
 | `requireNumbers`      | Require at least one number (0-9).                                                                            | false   | true for moderate security         |
-| `requireSpecialChars` | Require at least one special character (!@#$%^&\*).                                                           | false   | true for high security             |
+| `requireSpecialChars` | Require at least one special character. Defaults to `!@#$%^&*` if `specialChars` is not set.                 | false   | true for high security             |
+| `specialChars`        | Custom set of characters that satisfy `requireSpecialChars`. Overrides the default `!@#$%^&*` set.            | none    | `'$#!@'` or domain-appropriate set |
 | `preventCommon`       | Block common passwords (e.g., password123, qwerty). Uses built-in list of 10,000+ common passwords.           | false   | true (strongly recommended)        |
 | `preventUserInfo`     | Block passwords containing user's email or username. Prevents john@example.com using john123.                 | false   | true                               |
 | `historyCount`        | Number of previous passwords to remember. Prevents password reuse. 0 = disabled.                              | 0       | 5 for compliance, 0 for simplicity |
 | `expiryDays`          | Force password change after N days. 0 = never expires. **Note:** NIST no longer recommends forced expiration. | 0       | 0 (disabled) or 90 for compliance  |
+
+### Password Reset Options
+
+Controls the forgot-password flow (code delivery is handled by your configured email/SMS provider).
+
+| Option          | Description                                                    | Default |
+| --------------- | -------------------------------------------------------------- | ------- |
+| `codeLength`    | Verification code length sent to the user.                     | 6       |
+| `expiresIn`     | Code expiry in seconds.                                        | 900 (15 minutes) |
+| `rateLimitMax`  | Maximum reset requests per time window. Prevents abuse.        | 3       |
+| `rateLimitWindow` | Time window for rate limiting (seconds).                     | 3600 (1 hour) |
+| `maxAttempts`   | Maximum code verification attempts per code. Prevents brute force. | 3  |
+
+```typescript
+password: {
+  // ... policy options ...
+  passwordReset: {
+    codeLength: 6,
+    expiresIn: 900,       // 15 minutes
+    rateLimitMax: 3,
+    rateLimitWindow: 3600,
+    maxAttempts: 3,
+  },
+},
+```
+
+### Admin Password Reset Options
+
+Controls admin-initiated password resets. Longer expiry by default; no rate limiting (admin-initiated).
+
+| Option       | Description                                                        | Default           |
+| ------------ | ------------------------------------------------------------------ | ----------------- |
+| `codeLength` | Verification code length.                                          | 6                 |
+| `expiresIn`  | Code expiry in seconds. Longer than user-initiated (admin context). | 3600 (1 hour)    |
+| `maxAttempts`| Maximum code verification attempts per code.                       | 3                 |
 
 **Account Lockout Options:**
 
@@ -691,7 +731,8 @@ security: {
 | ---------------- | ---------------------------------------------------------------------------------------------- | ------- | ---------------- |
 | `enabled`        | Enable IP-based account lockout after failed login attempts.                                   | false   | true             |
 | `maxAttempts`    | Number of failed login attempts before lockout. Too low = UX issues, too high = security risk. | 5       | 5                |
-| `duration`       | Lockout duration in seconds. After this time, attempts reset.                                  | 900     | 900 (15 minutes) |
+| `attemptWindow`  | Time window in seconds over which `maxAttempts` is counted. Prevents indefinite accumulation.  | 3600    | 3600 (1 hour)    |
+| `duration`       | Lockout duration in seconds. After this time, the lockout lifts.                               | 900     | 900 (15 minutes) |
 | `resetOnSuccess` | Reset failed attempt counter on successful login. Recommended for better UX.                   | true    | true             |
 
 **Why IP-based lockout?**
@@ -714,7 +755,7 @@ Uses IP addresses instead of user identifiers. This prevents attackers from lock
 - **Required** when using `tokenDelivery.method = 'cookies'` or `'hybrid'`
 - **Not needed** when using `tokenDelivery.method = 'json'` (Bearer tokens are CSRF-safe)
 
-## Token Delivery
+## Token Delivery {#token-delivery}
 
 Control how tokens are delivered to clients.
 
@@ -780,7 +821,7 @@ tokenDelivery: {
 },
 ```
 
-## Session Configuration
+## Session Configuration {#session-configuration}
 
 Manage user sessions and concurrency.
 
@@ -798,43 +839,75 @@ Configure OAuth providers.
 
 ```typescript
 social: {
+  // social.redirect is required when any provider is enabled — see Social Redirect below
+  redirect: {
+    frontendBaseUrl: process.env.FRONTEND_BASE_URL || 'https://app.myapp.com',
+  },
+
   google: {
-    enabled: true,
-    clientId: 'your-google-client-id',
+    enabled: !!process.env.GOOGLE_CLIENT_ID,
+    clientId: process.env.GOOGLE_CLIENT_ID,
     // Or array for multi-platform: [webClientId, iosClientId, androidClientId]
-    clientSecret: 'your-google-client-secret',
-    callbackUrl: 'https://myapp.com/auth/google/callback',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackUrl: `${process.env.API_BASE_URL}/auth/social/google/callback`,
     scopes: ['openid', 'email', 'profile'],
-    autoLink: true,      // Auto-link to existing users by email
-    allowSignup: true,   // Allow new user creation
+    autoLink: true,      // Auto-link to existing account by email match
+    allowSignup: true,   // Create new account if no match found
   },
 
   apple: {
-    enabled: true,
-    clientId: 'com.myapp.services',
-    // Apple requires a JWT client secret for web OAuth, which is automatically generated
-    // and refreshed by the toolkit from your Apple Developer credentials below.
-    // The JWT is stored in the database and refreshed when it has less than 30 days until expiration.
-    teamId: 'ABC123DEF4', // Apple Developer Team ID (required for web OAuth)
-    keyId: 'XYZ789ABC0', // Apple Key ID (kid) from your .p8 key (required for web OAuth)
-    privateKeyPem: '-----BEGIN PRIVATE KEY-----\nMIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQg...\n-----END PRIVATE KEY-----', // Contents of your .p8 private key file in PEM format (required for web OAuth)
-    callbackUrl: 'https://myapp.com/auth/apple/callback',
+    enabled: !!process.env.APPLE_CLIENT_ID,
+    clientId: process.env.APPLE_CLIENT_ID,  // Apple Services ID (e.g., com.myapp.services)
+    // Apple requires a JWT client secret for web OAuth. The toolkit generates and refreshes
+    // it automatically from your Apple Developer credentials (stored in DB, refreshed ~30 days before expiry).
+    teamId: process.env.APPLE_TEAM_ID,      // Apple Developer Team ID
+    keyId: process.env.APPLE_KEY_ID,        // Key ID (kid) from your .p8 key file
+    privateKeyPem: process.env.APPLE_PRIVATE_KEY_PEM,  // Contents of your .p8 file as PEM string
+    callbackUrl: `${process.env.API_BASE_URL}/auth/social/apple/callback`,
     scopes: ['name', 'email'],
     autoLink: true,
     allowSignup: true,
   },
 
   facebook: {
-    enabled: true,
-    clientId: 'your-facebook-client-id',
-    clientSecret: 'your-facebook-client-secret',
-    callbackUrl: 'https://myapp.com/auth/facebook/callback',
+    enabled: !!process.env.FACEBOOK_CLIENT_ID,
+    clientId: process.env.FACEBOOK_CLIENT_ID,
+    clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+    callbackUrl: `${process.env.API_BASE_URL}/auth/social/facebook/callback`,
     scopes: ['email', 'public_profile'],
     autoLink: true,
     allowSignup: true,
   },
 },
 ```
+
+### Social Redirect (`social.redirect`)
+
+:::warning Required when social login is enabled
+`social.redirect.frontendBaseUrl` is **required** whenever any social provider is enabled. The Zod schema will throw a validation error at startup if it is missing.
+:::
+
+After OAuth completes, the backend redirects the user back to your frontend. Configure where that redirect lands:
+
+```typescript
+social: {
+  redirect: {
+    frontendBaseUrl: process.env.FRONTEND_BASE_URL || 'https://app.myapp.com',
+    // Allow returnTo query param to specify a post-login destination URL.
+    // false = relative paths only (safest); true = absolute URLs allowed (requires allowedReturnToOrigins)
+    allowAbsoluteReturnTo: false,
+    // Required when allowAbsoluteReturnTo is true — prevents open-redirect attacks
+    allowedReturnToOrigins: ['https://app.myapp.com', 'https://admin.myapp.com'],
+  },
+  google: { enabled: true, ... },
+},
+```
+
+| Option | Description | Default |
+| ------ | ----------- | ------- |
+| `frontendBaseUrl` | **Required.** Base URL of your frontend app. Used to resolve relative `returnTo` redirect paths after OAuth. | — |
+| `allowAbsoluteReturnTo` | Allow absolute URLs in `returnTo` query param. Enable only for multi-frontend setups. | false |
+| `allowedReturnToOrigins` | Origin allowlist enforced when `allowAbsoluteReturnTo` is true. Prevents open redirects. | — |
 
 ## Multi-Factor Authentication (MFA) {#multi-factor-authentication}
 
@@ -874,7 +947,7 @@ mfa: {
   },
 
   adaptive: {
-    triggers: ['new_device', 'new_ip', 'new_country', 'impossible_travel'],
+    triggers: ['new_device', 'new_ip', 'new_country', 'impossible_travel', 'suspicious_activity', 'recent_password_reset'],
     riskLevels: {
       low: { maxScore: 20, action: 'allow', notifyUser: false },
       medium: { maxScore: 50, action: 'require_mfa', notifyUser: true },
@@ -903,7 +976,7 @@ mfa: {
 },
 ```
 
-## Geolocation
+## Geolocation {#geolocation}
 
 Configure IP geolocation for adaptive MFA.
 
@@ -912,15 +985,15 @@ geoLocation: {
   maxMind: {
     licenseKey: process.env.MAXMIND_LICENSE_KEY,
     accountId: parseInt(process.env.MAXMIND_ACCOUNT_ID || '0'),
-    dbPath: '/app/data/maxmind',  // Optional: defaults to system temp
-    autoDownloadOnStartup: false,  // Download on first run
+    dbPath: '/app/data/maxmind',   // Optional: defaults to system temp directory
+    autoDownloadOnStartup: true,   // true = download DB files on startup (requires licenseKey + accountId)
     editions: ['GeoLite2-City', 'GeoLite2-Country'],
-    skipDownloads: false,  // Set true if managing files externally
+    skipDownloads: false,          // true = manage DB files externally (CI/CD pre-download pattern)
   },
 },
 ```
 
-## Audit Logs
+## Audit Logs {#audit-logs}
 
 Configure audit trail.
 
@@ -931,7 +1004,47 @@ auditLogs: {
 },
 ```
 
-## Challenge Configuration
+## reCAPTCHA {#recaptcha}
+
+Protect authentication endpoints from bot attacks using Google reCAPTCHA v2, v3, or Enterprise.
+
+:::note
+Social OAuth endpoints (`/auth/social/*`) are **not** protected by reCAPTCHA — OAuth providers handle their own bot protection.
+:::
+
+```bash npm2yarn
+npm install @nauth-toolkit/recaptcha
+```
+
+```typescript
+import { RecaptchaV3Provider } from '@nauth-toolkit/recaptcha';
+
+recaptcha: {
+  enabled: true,
+  provider: new RecaptchaV3Provider({
+    secretKey: process.env.RECAPTCHA_SECRET_KEY,
+  }),
+  minimumScore: 0.5,  // v3/Enterprise only. 0.0 = bot, 1.0 = human
+},
+```
+
+**reCAPTCHA Options:**
+
+| Option         | Description                                                                                    | Default |
+| -------------- | ---------------------------------------------------------------------------------------------- | ------- |
+| `enabled`      | Enable reCAPTCHA validation on auth endpoints.                                                 | false   |
+| `provider`     | Provider instance. Choose `RecaptchaV2Provider`, `RecaptchaV3Provider`, or `RecaptchaEnterpriseProvider`. | —  |
+| `minimumScore` | Minimum acceptable score (0.0–1.0). Only applies to v3 and Enterprise. 0.5 is a neutral starting point. | 0.5 |
+
+**Choosing a provider:**
+
+| Provider | Interaction | Best For |
+| -------- | ----------- | -------- |
+| `RecaptchaV3Provider` | Invisible, score-based | Most web apps — no user friction |
+| `RecaptchaV2Provider` | Checkbox ("I'm not a robot") | Highest-risk actions, legacy setups |
+| `RecaptchaEnterpriseProvider` | Score-based with advanced signals | Enterprise — requires GCP project |
+
+## Challenge Configuration {#challenge}
 
 Challenge session limits for flows like verification, MFA, and step-up challenges.
 
@@ -954,17 +1067,16 @@ import { Logger } from '@nestjs/common';
 export const authConfig: NAuthModuleConfig = {
   tablePrefix: 'nauth_',
 
-  storageAdapter: createRedisStorageAdapter('redis://localhost:6379'),
+  storageAdapter: createRedisStorageAdapter(process.env.REDIS_URL || 'redis://localhost:6379'),
 
   jwt: {
     algorithm: 'HS256',
     issuer: 'com.myapp',
     audience: ['web', 'mobile'],
-    accessToken: { secret: 'your-jwt-secret', expiresIn: '15m' },
+    accessToken: { secret: process.env.JWT_SECRET, expiresIn: '15m' },
     refreshToken: {
-      secret: 'your-refresh-secret',
+      secret: process.env.JWT_REFRESH_SECRET,
       expiresIn: '7d',
-      rotation: true,
       reuseDetection: true,
     },
   },
@@ -972,7 +1084,7 @@ export const authConfig: NAuthModuleConfig = {
   logger: {
     instance: new Logger('NAuth'),
     enablePiiRedaction: true,
-    logLevel: 'info',
+    logLevel: 'log',  // 'error' | 'warn' | 'log' | 'debug' | 'verbose'
   },
 
   signup: {
@@ -1019,15 +1131,15 @@ export const authConfig: NAuthModuleConfig = {
   // Option 1: SMTP Transport
   emailProvider: new NodemailerEmailProvider({
     transport: {
-      host: 'smtp.example.com',
+      host: process.env.SMTP_HOST,
       port: 587,
       auth: {
-        user: 'smtp-user',
-        pass: 'smtp-password',
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
       },
     },
     defaults: {
-      from: 'My App <noreply@myapp.com>',
+      from: `My App <${process.env.EMAIL_FROM || 'noreply@myapp.com'}>`,
     },
   }),
 
@@ -1046,11 +1158,13 @@ export const authConfig: NAuthModuleConfig = {
   // }),
 
   email: {
-    appName: 'My App',
-    companyName: 'My Company Inc.',
-    supportEmail: 'support@myapp.com',
-    logoUrl: 'https://myapp.com/logo.png',
-    brandColor: '#4f46e5',
+    globalVariables: {
+      appName: 'My App',
+      companyName: 'My Company Inc.',
+      supportEmail: 'support@myapp.com',
+      logoUrl: 'https://myapp.com/logo.png',
+      brandColor: '#4f46e5',
+    },
   },
 
   smsProvider: new AWSSMSProvider({
@@ -1071,11 +1185,14 @@ export const authConfig: NAuthModuleConfig = {
   },
 
   social: {
+    redirect: {
+      frontendBaseUrl: process.env.FRONTEND_BASE_URL || 'https://app.myapp.com',
+    },
     google: {
       enabled: true,
-      clientId: 'your-google-client-id',
-      clientSecret: 'your-google-client-secret',
-      callbackUrl: 'https://myapp.com/auth/google/callback',
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackUrl: `${process.env.API_BASE_URL || 'https://api.myapp.com'}/auth/social/google/callback`,
       autoLink: true,
       allowSignup: true,
     },

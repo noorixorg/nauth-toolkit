@@ -34,5 +34,5 @@ image: /img/api-social-card.png
 ## Related
 
 - [Configuration](/docs/concepts/configuration)
-- [Custom Adapters](/docs/concepts/architecture#custom-adapters)
+- [How It Works — Framework Support](/docs/concepts/how-it-works#framework-support)
 

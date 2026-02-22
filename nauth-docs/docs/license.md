@@ -1,0 +1,100 @@
+---
+sidebar_position: 99
+title: License
+description: NAuth Toolkit Early Access License terms
+---
+
+# License
+
+```text
+NAUTH TOOLKIT EARLY ACCESS LICENSE
+Version 1.0 (December 2025)
+
+================================================================================
+FUTURE OPEN SOURCE NOTICE
+================================================================================
+NAuth Toolkit will transition to an open-source license (MIT or Apache 2.0) for
+core authentication features once the project reaches production readiness.
+
+This Early Access License is temporary and designed to:
+- Allow developers to build with nauth-toolkit during preview/beta
+- Provide clear expectations during the pre-release phase
+- Enable feedback and real-world testing before GA
+
+We're committed to keeping core auth free and open source. Premium features
+(enterprise SSO, advanced compliance, hosted options) will be offered separately
+under fair commercial terms.
+
+================================================================================
+EARLY ACCESS LICENSE TERMS
+================================================================================
+
+1. Grant of Use
+   You are granted a free, non-exclusive, non-transferable license to:
+   - Install and use nauth-toolkit packages in development, testing, staging,
+     and production environments
+   - Modify the code for your own internal use
+   - Deploy applications using nauth-toolkit to serve your users
+
+   You may NOT:
+   - Redistribute NAuth Toolkit as a standalone product or service
+   - Sell, sublicense, or offer NAuth Toolkit as part of a competing auth
+     platform or toolkit
+   - Remove or alter copyright notices
+
+2. No Fees During Early Access
+   There are no license fees, subscription costs, or usage charges during the
+   Early Access period. You may use nauth-toolkit freely for commercial and
+   non-commercial purposes within the terms of this license.
+
+3. Production Use
+   Production use is permitted but comes with standard early-access caveats:
+   - Features and APIs may change between preview releases
+   - Support is community-based (GitHub issues/discussions)
+   - No SLA or guaranteed uptime (you run it on your infrastructure)
+
+   We recommend thorough testing and having rollback plans for critical systems.
+
+4. Future Transition
+   When nauth-toolkit releases v1.0 GA:
+   - Core packages will adopt an open-source license (MIT or Apache 2.0)
+   - Your existing deployments will continue to work
+   - Premium features (if any) will be clearly documented with separate licensing
+   - No forced upgrades or surprise fees
+
+5. Ownership
+   NAuth Toolkit is developed and maintained by Noorix Digital Solutions.
+   You retain full ownership of your applications and data.
+
+6. Data and Privacy
+   NAuth Toolkit runs in YOUR infrastructure and database. You control all data.
+   You are responsible for compliance with applicable data protection laws.
+
+7. Disclaimer of Warranty
+   THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+8. Limitation of Liability
+   IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY INDIRECT, INCIDENTAL,
+   SPECIAL, CONSEQUENTIAL, OR EXEMPLARY DAMAGES, INCLUDING BUT NOT LIMITED TO LOSS
+   OF PROFITS, REVENUE, DATA, OR USE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+   DAMAGES.
+
+9. Termination
+   This license remains in effect until:
+   - You stop using nauth-toolkit, or
+   - The project transitions to open source (at which point the new license applies)
+
+   If you breach these terms, your license terminates and you must stop using the
+   software.
+
+10. Contact and Support
+    - Documentation: https://nauth.dev
+    - Issues/Discussions: GitHub (when public repository launches)
+    - Commercial inquiries: Contact admin@noorix.com
+
+================================================================================
+Thank you for being an early adopter. Your feedback shapes the future of NAuth.
+================================================================================
+```

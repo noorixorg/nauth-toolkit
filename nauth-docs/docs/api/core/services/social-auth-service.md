@@ -45,7 +45,7 @@ import { SocialAuthService } from '@nauth-toolkit/core';
 Service for managing social authentication accounts and their relationships. This service provides account linking/unlinking, password management for social-only users, and querying linked accounts.
 
 :::tip OAuth Login Flows
-For OAuth authentication (login/signup), use `SocialRedirectHandler` or the frontend SDK's `loginWithSocial()` method. See the [Social Login Guide](/docs/features/social-login) for details.
+For OAuth authentication (login/signup), use `SocialRedirectHandler` or the frontend SDK's `loginWithSocial()` method. See the [Social Login Guide](/docs/guides/social/how-social-login-works) for details.
 :::
 
 :::tip Optional Feature
@@ -539,7 +539,7 @@ For backend-first OAuth flows (redirect to provider, then callback), use `Social
 - `callback(provider, dto)` - Returns `Promise<SocialRedirectCallbackResponseDTO>`. Cookies are applied to the response from ContextStorage when delivery is cookies.
 - `exchange(exchangeToken)` - Returns `Promise<AuthResponseDTO>` for JSON/hybrid or challenge flows.
 
-See the [Social Login Guide](/docs/features/social-login) for full implementation and DTOs (`StartSocialRedirectQueryDTO`, `SocialCallbackQueryDTO`, `SocialCallbackFormDTO`, `StartSocialRedirectResponseDTO`, `SocialRedirectCallbackResponseDTO`).
+See the [Social Login Guide](/docs/guides/social/how-social-login-works) for full implementation and DTOs (`StartSocialRedirectQueryDTO`, `SocialCallbackQueryDTO`, `SocialCallbackFormDTO`, `StartSocialRedirectResponseDTO`, `SocialRedirectCallbackResponseDTO`).
 
 ---
 
@@ -547,4 +547,4 @@ See the [Social Login Guide](/docs/features/social-login) for full implementatio
 
 - [AuthService](./auth-service) - Core authentication service
 - [NAuthException](../exceptions/nauth-exception) - Error handling
-- [Social Login Guide](/docs/features/social-login) - Implementation guide
+- [Social Login Guide](/docs/guides/social/how-social-login-works) - Implementation guide

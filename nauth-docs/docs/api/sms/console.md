@@ -111,7 +111,7 @@ AuthModule.forRoot({
 });
 ```
 
-See [SMS Templates](/docs/features/sms-templates) for complete documentation.
+See [SMS Templates](/docs/guides/sms-templates) for complete documentation.
 
 ## Related
 

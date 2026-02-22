@@ -68,5 +68,5 @@ export class PasswordChangedEmailHook implements IPasswordChangedHook {
 
 - [HookRegistryService](../services/hook-registry-service) - Hook registration
 - [@PasswordChangedHook()](/docs/api/nestjs/decorators/password-changed-hook) - NestJS decorator
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete hooks overview
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete hooks overview
 

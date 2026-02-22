@@ -245,6 +245,196 @@ fastify.post(
 
 ---
 
+## Guide Documentation Pattern
+
+Guides are sequential, code-focused implementation walkthroughs. They differ from API reference pages (which are minimal and scannable) — guides are **detailed, narrative, and DX-first**. A developer should be able to follow a guide start-to-finish and have a working feature.
+
+**Source of truth for code:** All code samples MUST come from the actual example apps in `~/development/nauth-examples` (NestJS, Express, Fastify, React, Angular). Never write theoretical or invented code. If an example app doesn't have the code you need, check the actual source in `packages/` and adapt minimally.
+
+**Gold standard:** `docs/guides/basic-auth.md`
+
+### Page Structure
+
+Every guide page follows this skeleton (sections are optional where noted):
+
+````markdown
+---
+title: "Guide Title"
+description: "Action-oriented summary, 50-160 chars for SEO"
+sidebar_position: N
+keywords: [relevant, search, terms]
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Guide Title
+
+One-paragraph intro: what the guide covers and what the developer will have by the end.
+
+| Endpoint | Method | Auth | Purpose |
+| --- | --- | --- | --- |
+| `/auth/route` | POST | Public | Brief purpose |
+
+:::tip Sample apps
+Link to the relevant example apps so developers can clone and run if stuck.
+:::
+
+## Prerequisites
+
+What the developer needs before starting (completed Quick Start, installed packages, config).
+Show the **relevant config snippet** so readers know what settings this guide assumes.
+
+## Conceptual Primer (if needed)
+
+Brief explanation of the core pattern this guide relies on (e.g., challenge system, MFA flow).
+Use a **Mermaid sequence diagram** to visualize the flow. Keep it to one diagram per guide.
+
+## Route Section (H2 per route or logical group)
+
+[Repeat for each route — see Route Section Pattern below]
+
+## Error Handling
+
+Global error handler setup with framework tabs. Show the error response JSON structure.
+Link to the full error reference: [Error Handling](/docs/concepts/error-handling).
+
+## Frontend Integration (if applicable)
+
+Show how the frontend (React/Angular) consumes the API. Use simplified code from the
+actual example apps. Group related operations (signup+challenge, login, resend with cooldown).
+
+## Complete Controller (optional)
+
+Wrap the full controller/routes file in a collapsible `<details>` block for quick reference.
+
+## What's Next
+
+Bullet list linking to the next guides in the sequence and related concept deep-dives.
+````
+
+### Route Section Pattern
+
+Each route (or logical group of routes) gets an H2 section following this structure:
+
+```markdown
+## Route Name
+
+1-2 sentence explanation of what this route does and when it's used.
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS" default>
+
+```typescript title="src/auth/auth.controller.ts"
+// Actual code from nauth-examples/nestjs
+```
+
+Framework-specific annotation (1 line) explaining the framework idiom used.
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript title="src/routes/auth.routes.ts"
+// Actual code from nauth-examples/express
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript title="src/routes/auth.routes.ts"
+// Actual code from nauth-examples/fastify
+```
+
+</TabItem>
+</Tabs>
+
+**Request body** ([`DTOName`](/docs/api/core/dto/dto-name)):
+
+```json
+{ "field": "value" }
+```
+
+**Response** (or **Possible responses** table for multi-outcome endpoints):
+
+```json
+{ "field": "value" }
+```
+
+:::note/warning/tip
+Caveats: security notes, rate limiting, config-dependent behavior, token delivery modes.
+:::
+```
+
+### Rules
+
+**Structure:**
+- H1: Guide title (matches `title` in front matter)
+- H2: Major sections (Prerequisites, each route, Error Handling, Frontend, What's Next)
+- H3: Sub-routes or variations within a section (e.g., Step 1/Step 2 of forgot password, challenge types)
+- Never skip heading levels
+
+**Code:**
+- ALL code samples from `~/development/nauth-examples` or `packages/` source — never invented
+- NestJS tab is always `default` (most common framework)
+- Always include `title="src/path/file.ts"` on code blocks to show file location
+- Framework-specific annotations after each tab explaining the idiom (e.g., `@Public()`, `nauth.helpers.public()`, `wrapRouteHandler()`)
+- For "inside class" snippets, show the relevant imports above and add a comment like `// Inside AuthController class:`
+- Complete controller/routes file goes in a collapsible `<details>` block at the end — not inline
+
+**Request/Response:**
+- Always link the DTO name to its API reference page
+- Show one complete JSON example per request (not multiple variations)
+- For endpoints with multiple possible outcomes (login can return tokens OR challenges), use a **Possible responses** table:
+  ```markdown
+  | Scenario | Response |
+  | --- | --- |
+  | Success | `{ accessToken, refreshToken, expiresIn }` |
+  | Email not verified | `{ challengeName: 'VERIFY_EMAIL', session, challengeParameters }` |
+  ```
+
+**Caveats and cross-references:**
+- Use `:::tip` for sample app links and helpful DX hints
+- Use `:::note` for behavioral explanations (why GET for logout, email masking, etc.)
+- Use `:::warning` for security concerns and rate limiting
+- Link to config sections using anchors: `[Configuration > Section](/docs/concepts/configuration#anchor)`
+- Link to concept deep-dives for topics explained elsewhere (challenge system, rate limiting, error handling)
+- Mention config-dependent behavior inline (e.g., "If `password.historyCount` is configured...")
+
+**Diagrams:**
+- Use Mermaid `sequenceDiagram` for request flows (one per guide, in the conceptual primer)
+- Keep diagrams focused — show the happy path with one `alt` branch for the most common alternative
+
+**Frontend:**
+- Simplified code showing the pattern, not the full component
+- Include the challenge loop pattern (check `challengeName` → navigate to challenge UI → respond → check again)
+- Show practical UX patterns (resend cooldown timer, error display)
+
+**Navigation:**
+- "What's Next" section at the bottom with 3-6 bullet links
+- First bullets: next guides in the sequence
+- Remaining bullets: related concept deep-dives
+- Guides are sequential — each guide can assume the reader completed previous guides
+
+### Guide Quality Checklist
+
+- [ ] Front matter complete (title, description, keywords)
+- [ ] Endpoint overview table at the top
+- [ ] Sample app tip with links to example repos
+- [ ] Prerequisites with relevant config snippet
+- [ ] ALL code samples verified against actual example apps
+- [ ] Framework tabs (NestJS default, Express, Fastify) with `groupId="platform"` on every route
+- [ ] Every DTO name linked to its API reference page
+- [ ] Possible responses table for multi-outcome endpoints
+- [ ] Admonitions for security, rate limiting, and config-dependent behavior
+- [ ] Mermaid diagram for the main flow (if applicable)
+- [ ] Frontend integration section (if applicable)
+- [ ] Complete controller in `<details>` block
+- [ ] "What's Next" linking to next guides and concept deep-dives
+- [ ] No "Coming Soon" stubs — either write the content or don't include the section
+- [ ] Builds without errors (`yarn build` from `nauth-docs/`)
+
+---
+
 ## Error Documentation
 
 **Errors Table Format:**
@@ -392,6 +582,7 @@ Brief message.
 - DTO: `docs/api/core/dto/login-dto.md` (56 lines)
 - Service: `docs/api/core/services/auth-service.md` (517 lines, 13 methods)
 - Overview: `docs/api/overview.md` - Framework tabs for contextual navigation
+- Guide: `docs/guides/basic-auth.md` - Sequential, code-focused implementation walkthrough
 
 **Style Inspiration:** Stripe, Twilio, AWS API docs (minimal, scannable, practical)
 ````

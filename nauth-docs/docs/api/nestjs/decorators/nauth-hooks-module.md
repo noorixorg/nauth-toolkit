@@ -237,5 +237,5 @@ export class InviteCodeCheck { }
 - [`HookRegistryService`](/docs/api/core/services/hook-registry-service) - Hook registry service
 - [`IPreSignupHookProvider`](/docs/api/core/hooks/pre-signup-hook-provider) - Pre-signup hook interface
 - [`IPostSignupHookProvider`](/docs/api/core/hooks/post-signup-hook-provider) - Post-signup hook interface
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete usage guide
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete usage guide
 

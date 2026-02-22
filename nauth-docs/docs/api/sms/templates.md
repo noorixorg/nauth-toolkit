@@ -195,7 +195,7 @@ sms: {
 
 ## Related
 
-- [SMS Templates Feature Guide](/docs/features/sms-templates)
+- [SMS Templates Feature Guide](/docs/guides/sms-templates)
 - [SMSTemplateEngine Interface](/docs/api/core/interfaces/sms-template-engine)
 - [SMS Providers Overview](./overview)
 

@@ -13,8 +13,12 @@ import TabItem from '@theme/TabItem';
 
 Connect an Angular application to a nauth-toolkit backend using `@nauth-toolkit/client-angular`. The SDK provides a built-in HTTP interceptor for automatic token attachment and silent refresh, and a route guard for protected routes.
 
+:::note Sample Application
+A complete working example is available at [github.com/noorixorg/nauth/tree/main/angular](https://github.com/noorixorg/nauth/tree/main/angular) — Angular standalone + `@nauth-toolkit/client-angular` paired with the NestJS backend example.
+:::
+
 :::info Backend Required
-This guide assumes you have a running nauth-toolkit backend. If you haven't set one up yet, complete the [NestJS](/docs/quick-start/nestjs-angular) quick start first.
+This guide assumes you have a running nauth-toolkit backend. If you haven't set one up yet, complete the [NestJS](/docs/quick-start/nestjs) quick start first.
 :::
 
 ## Prerequisites
@@ -90,7 +94,7 @@ export const appConfig: ApplicationConfig = {
 ```
 
 :::note Token Delivery
-This guide uses `tokenDelivery: 'cookies'` with CSRF protection — the recommended setup for web apps. To use Bearer tokens instead, set `tokenDelivery: 'json'` and remove the `csrf` block (no CSRF config needed in JSON mode). See [Token Delivery](/docs/features/token-delivery) for details.
+This guide uses `tokenDelivery: 'cookies'` with CSRF protection — the recommended setup for web apps. To use Bearer tokens instead, set `tokenDelivery: 'json'` and remove the `csrf` block (no CSRF config needed in JSON mode). See [Token Delivery](/docs/concepts/token-management) for details.
 :::
 
 </TabItem>
@@ -408,7 +412,8 @@ Start both servers (`http://localhost:3000` for the backend, `http://localhost:4
 
 ## What's Next
 
+- [Angular Sample App](https://github.com/noorixorg/nauth/tree/main/angular) — Full working example paired with the NestJS backend
 - [Challenge System](/docs/concepts/challenge-system) — Handle verification, MFA, and password-change challenges after login/signup
 - [Configuration](/docs/concepts/configuration) — Full backend configuration reference
-- [Token Delivery](/docs/features/token-delivery) — Cookie vs. JSON token delivery explained
-- [Social Login](/docs/features/social-login) — Add Google, Apple, and Facebook OAuth
+- [Token Delivery](/docs/concepts/token-management) — Cookie vs. JSON token delivery explained
+- [Social Login](/docs/guides/social/how-social-login-works) — Add Google, Apple, and Facebook OAuth

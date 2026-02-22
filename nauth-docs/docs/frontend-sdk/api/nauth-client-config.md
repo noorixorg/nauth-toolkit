@@ -512,7 +512,7 @@ export const routes: Routes = [
 - [`AuthResponse`](./types/auth-response) - Authentication response type
 - [`AuthResponseContext`](#authresponsecontext) - Context object for `onAuthResponse` callback
 - [`AuthUser`](./types/auth-user) - User type for callbacks
-- [Configuration Guide](../configuration) - Detailed configuration guide
+- [Configuration Guide](../concepts/configuration) - Detailed configuration guide
 - [`MfaRoutesConfig`](./types/nauth-redirects-config#mfaroutesconfig) - MFA routes configuration (see [`NAuthRedirectsConfig`](./types/nauth-redirects-config))
 - [NAuthClient](./nauth-client) - Client class using this config
 - [NAuthClientError](./nauth-client-error) - Error handling
@@ -520,4 +520,4 @@ export const routes: Routes = [
 - [`NAuthRedirectsConfig`](./types/nauth-redirects-config) - Redirect configuration interface
 - [`NAuthStorageAdapter`](./types/nauth-storage-adapter) - Storage adapter interface
 - [`TokenDeliveryMode`](./types/token-delivery-mode) - Token delivery mode type
-- [Token Management](../token-management) - Token delivery modes explained
+- [Token Management](../concepts/token-management) - Token delivery modes explained

@@ -75,5 +75,5 @@ export class EmailChangedNotificationHook implements IEmailChangedHook {
 
 - [HookRegistryService](../services/hook-registry-service) - Hook registration
 - [@EmailChangedHook()](/docs/api/nestjs/decorators/email-changed-hook) - NestJS decorator
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete hooks overview
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete hooks overview
 

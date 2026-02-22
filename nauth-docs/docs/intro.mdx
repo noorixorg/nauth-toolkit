@@ -1,7 +1,7 @@
 ---
 sidebar_position: 1
 title: Introduction
-description: A platform-agnostic authentication toolkit for Node.js applications
+description: A framework-agnostic authentication toolkit for Node.js applications
 ---
 
 import Tooltip from '@site/src/components/Tooltip';
@@ -9,18 +9,13 @@ import FeatureCard from '@site/src/components/FeatureCard';
 
 # Introduction
 
-**nauth-toolkit** is a platform-agnostic authentication library for Node.js. It runs inside your application as an embedded library—not a SaaS service, proxy, or microservice. Authentication logic executes in your process, using your database and infrastructure. Add complete authentication to NestJS, Express, Fastify, or any Node.js framework without vendor lock-in.
-
-The inspiration was to free developers from commercial SaaS services (AWS Cognito, Auth0) that provide limited UI control and complex social auth in hybrid mobile apps. This toolkit enables seamless, integrated authentication without heavy lifting—yet with all features of a commercial platform.
-
-There are some core dependencies: Argon2 for hashing, jose for JWT, and TypeORM for database storage of authentication data. Optional features use lightweight packages: SimpleWebAuthn for passkeys, Redis for transient storage, MaxMind GeoIP2 for geolocation.
+**nauth-toolkit** is a framework-agnostic authentication library for Node.js. It runs inside your application as an embedded library—not a SaaS service, proxy, or microservice. Authentication logic executes in your process, using your database and infrastructure. Add complete authentication to NestJS, Express, Fastify, or any Node.js framework without vendor lock-in.
 
 :::warning Under Active Development
-nauth-toolkit is under active development. Features including email/password authentication, social login, and MFA. **API may change. Not recommended for production yet.** Public source will be shared later; current evaluation builds are available on npm: https://www.npmjs.com/package/@nauth-toolkit.
+nauth-toolkit is under active development. API may change frequently.
 :::
 
-
-Ready to start? Check out [Quick Start](/docs/quick-start/nestjs-angular) to configure nauth-toolkit.
+Ready to start? Check out [Quick Start](/docs/quick-start/nestjs) to configure nauth-toolkit.
 
 ## Features
 
@@ -195,17 +190,24 @@ Ready to start? Check out [Quick Start](/docs/quick-start/nestjs-angular) to con
 
 ## Framework Support
 
-:::danger IMPORTANT
-NestJS and Angular for frontend SDK are being prioritised for stability and maturity, express/fastify and other platform adaptations are experimental. Documentation may not be accurate and will improve over time.
-:::
+Backend integrations plug into your Node.js server; client SDKs run in the browser or mobile app and talk to your nauth-toolkit API.
 
-| Framework    | Status                | Package                 |
-| ------------ | --------------------- | ----------------------- |
-| **NestJS**   | Full adapter          | `@nauth-toolkit/nestjs` |
-| **Express**  | Built-in adapter      | `@nauth-toolkit/express`   |
-| **Fastify**  | Built-in adapter      | `@nauth-toolkit/fastify`   |
-| **Koa/Hapi** | Create custom adapter | TBA   |
+### Backend (Node.js)
 
+| Framework   | Status       | Package                  |
+| ----------- | ------------ | ------------------------ |
+| **NestJS**  | Full adapter | `@nauth-toolkit/nestjs`  |
+| **Express** | Full adapter | `@nauth-toolkit/express` |
+| **Fastify** | Full adapter | `@nauth-toolkit/fastify` |
+
+### Frontend (Client SDKs)
+
+| SDK            | Status             | Package                         |
+| -------------- | ------------------ | ------------------------------- |
+| **Client SDK** | Framework-agnostic | `@nauth-toolkit/client`         |
+| **Angular**    | Full adapter       | `@nauth-toolkit/client-angular` |
+
+The **Client SDK** (`@nauth-toolkit/client`) is framework-agnostic and can be used with React, Vue, Svelte, and other TypeScript-based frontends. The **Angular** package builds on the Client SDK and adds Angular-specific services and wiring.
 
 ## Why nauth-toolkit?
 
@@ -217,6 +219,7 @@ NestJS and Angular for frontend SDK are being prioritised for stability and matu
 - No vendor lock-in or usage-based pricing
 - Customize flows without limitations
 - Data in your database, your infrastructure
+- No additional costs
 
 **What you trade:**
 
@@ -226,36 +229,23 @@ NestJS and Angular for frontend SDK are being prioritised for stability and matu
 
 ### When to Choose nauth-toolkit
 
-**Good fit:**
-
 - Need full control over auth logic
 - Want predictable infrastructure costs
 - Require deep customization
 - Building on Node.js (NestJS, Express, Fastify)
 
-**Consider SaaS:**
+---
 
-- Need OAuth/OIDC provider for third-party apps
-- Require managed compliance certifications
-- Want zero infrastructure responsibility
-- Need 40+ pre-integrated social providers
+## GitHub & Community
 
-## What's Not Included (Yet)
-
-**Roadmap:**
-
-- OAuth 2.0 provider (can consume, not provide)
-- SAML 2.0 for enterprise SSO
-- Additional social providers (GitHub, Discord, LinkedIn)
-- Advanced RBAC with role hierarchies
-- Enterprise directory sync (LDAP, AD)
-
-## Next Steps
-
-- [Quick Start](/docs/quick-start/nestjs-angular) - Get started quickly
-- [Architecture](/docs/concepts/architecture) - Understand the design
-- [API Reference](/docs/api/overview) - Complete service documentation
+| Resource | Link |
+| -------- | ---- |
+| Source code | [github.com/noorixorg/nauth-toolkit](https://github.com/noorixorg/nauth-toolkit) |
+| Sample applications | [github.com/noorixorg/nauth](https://github.com/noorixorg/nauth) |
+| npm packages | [npmjs.com/org/nauth-toolkit](https://www.npmjs.com/org/nauth-toolkit) |
+| Discussions & support | [github.com/noorixorg/nauth/discussions](https://github.com/noorixorg/nauth/discussions) |
+| Bug reports | [github.com/noorixorg/nauth/issues](https://github.com/noorixorg/nauth/issues) |
 
 ---
 
-**License:** Evaluation-only (UNLICENSED) | **Version:** v0.1.0 | **Status:** Active Development
+**License:** Free for commercial and non-commercial use — [see LICENSE](/docs/license) | **Version:** v0.1.0 | **Status:** Active Development

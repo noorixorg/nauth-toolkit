@@ -403,4 +403,4 @@ analyticsTracking.execute(); // Executes normally
 - [IPreSignupHookProvider](../hooks/pre-signup-hook-provider) - Pre-signup hook interface
 - [IPostSignupHookProvider](../hooks/post-signup-hook-provider) - Post-signup hook interface
 - [IUserProfileUpdatedHook](../hooks/user-profile-updated-hook) - User profile updated hook interface
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete usage guide
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete usage guide

@@ -60,4 +60,4 @@ const client = new NAuthClient({
 ## Related Types
 
 - [`NAuthClientConfig`](../nauth-client-config) - Client configuration
-- [Token Management](../../token-management) - Complete token management guide
+- [Token Management](../../concepts/token-management) - Complete token management guide

@@ -619,7 +619,7 @@ async checkOauthState() {
 **See**
 
 - [Social Authentication Guide](/docs/frontend-sdk/guides/social-auth)
-- [Social Login Feature](/docs/features/social-login)
+- [Social Login](/docs/guides/social/how-social-login-works)
 
 ---
 

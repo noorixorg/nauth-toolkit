@@ -145,4 +145,4 @@ nauth.helpers.tokenDelivery('json') // Allowed
 - [public()](./public-route) - Mark routes as public
 - [requireAuth()](./require-auth) - Require authentication
 - [CSRF Middleware](../middleware/csrf-middleware) - CSRF protection (required for cookies)
-- [Token Delivery](/docs/features/token-delivery) - Token delivery modes guide
+- [Token Delivery](/docs/concepts/token-management) - Token delivery modes guide

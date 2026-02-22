@@ -6,7 +6,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'nauth-toolkit',
-  tagline: 'Platform-Agnostic Authentication Toolkit for Node.js',
+  tagline: 'Framework-Agnostic Authentication Toolkit for Node.js',
   favicon: 'img/favicon.ico',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
@@ -21,8 +21,8 @@ const config: Config = {
   baseUrl: '/',
 
   customFields: {
-    defaultAuthor: 'Murtaza Nooruddin',
-    metaAuthor: 'Murtaza Nooruddin',
+    defaultAuthor: 'Admin',
+    metaAuthor: 'Admin',
   },
 
   // GitHub pages deployment config.
@@ -66,8 +66,8 @@ const config: Config = {
           routeBasePath: 'docs', // Base URL for docs
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
-          showLastUpdateTime: true,
-          showLastUpdateAuthor: true,
+          showLastUpdateTime: false,
+          showLastUpdateAuthor: false,
         },
 
         theme: {
@@ -100,10 +100,31 @@ const config: Config = {
     ],
   ],
 
+  stylesheets: [
+    {
+      rel: 'preconnect',
+      href: 'https://fonts.googleapis.com',
+    },
+    {
+      rel: 'preconnect',
+      href: 'https://fonts.gstatic.com',
+      crossorigin: 'anonymous',
+    },
+    {
+      rel: 'preconnect',
+      href: 'https://kit.fontawesome.com',
+    },
+    {
+      href: 'https://fonts.googleapis.com/css2?family=Red+Hat+Text:ital,wght@0,300..700;1,300..700&display=swap',
+      type: 'text/css',
+    },
+  ],
+
   scripts: [
     {
       src: 'https://kit.fontawesome.com/d6545e9070.js',
       crossorigin: 'anonymous',
+      async: true,
     },
   ],
 
@@ -157,7 +178,7 @@ const config: Config = {
     footer: {
       style: 'dark',
 
-      copyright: `Copyright © ${new Date().getFullYear()} nauth-toolkit by Murtaza Nooruddin. Early Access License - transitioning to open source.`,
+      copyright: `Copyright © ${new Date().getFullYear()} nauth-toolkit. Early Access License`,
     },
     prism: {
       theme: prismThemes.nightOwl,

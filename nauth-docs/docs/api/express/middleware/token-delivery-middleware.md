@@ -126,4 +126,4 @@ const nauth = await NAuth.create({
 - [tokenDelivery() Helper](../helpers/token-delivery) - Override delivery mode per route
 - [CSRF Middleware](./csrf-middleware) - CSRF validation
 - [Auth Middleware](./auth-middleware) - JWT validation
-- [Token Delivery](/docs/features/token-delivery) - Token delivery modes guide
+- [Token Delivery](/docs/concepts/token-management) - Token delivery modes guide

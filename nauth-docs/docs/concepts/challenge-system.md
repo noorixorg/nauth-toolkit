@@ -1,7 +1,9 @@
 ---
 title: Challenge System
-description: Understanding the challenge-based authentication flow
+description: 'How the challenge-based authentication flow works in nauth-toolkit'
 sidebar_position: 1
+keywords: [challenge, verification, mfa, email, phone, authentication, flow, multi-step]
+image: /img/api-social-card.png
 ---
 
 # Auth Challenge System
@@ -96,77 +98,36 @@ export class AuthController {
 ```
 
   </TabItem>
-  <TabItem value="express" label="Express">
+  <TabItem value="express" label="Express / Fastify">
 
 ```typescript
-import { Router } from 'express';
-import { NAuthExpress } from '@nauth-toolkit/express';
-import { AuthErrorCode, NAuthException } from '@nauth-toolkit/core';
+// authService is available from NAuth.create() result
+router.post('/login', async (req, res) => {
+  const result = await authService.login(req.body);
 
-export function createAuthRoutes(nauth: NAuthExpress) {
-  const router = Router();
+  // Check if challenge is required
+  if (result.challengeName) {
+    return res.status(200).json({
+      challengeName: result.challengeName,
+      session: result.session,
+      challengeParameters: result.challengeParameters,
+    });
+  }
 
-  router.post('/login', async (req, res) => {
-    const result = await nauth.authService.login(req.body);
+  // Return tokens if no challenge
+  res.status(200).json(result);
+});
 
-    // Check if challenge is required
-    if (result.challengeName) {
-      return res.status(200).json({
-        challengeName: result.challengeName,
-        session: result.session,
-        challengeParameters: result.challengeParameters,
-      });
-    }
-
-    // Return tokens if no challenge
-    res.status(200).json(result);
+router.post('/challenge', async (req, res) => {
+  // Single endpoint for ALL challenge types
+  const result = await authService.respondToChallenge({
+    session: req.body.session,
+    type: req.body.challengeType,
+    code: req.body.code,
   });
 
-  router.post('/challenge', async (req, res) => {
-    // Single endpoint for ALL challenge types
-    const result = await nauth.authService.respondToChallenge({
-      session: req.body.session,
-      type: req.body.challengeType,
-      code: req.body.code,
-    });
-
-    res.status(200).json(result);
-  });
-
-  return router;
-}
-```
-
-  </TabItem>
-  <TabItem value="fastify" label="Fastify">
-
-```typescript
-import { FastifyInstance } from 'fastify';
-import { createNAuth } from '@nauth-toolkit/fastify';
-
-export async function registerAuthRoutes(fastify: FastifyInstance, nauth: Awaited<ReturnType<typeof createNAuth>>) {
-  fastify.post('/auth/login', nauth.adapter.wrapRouteHandler(async (req) => {
-    const result = await nauth.authService.login(req.body);
-
-    if (result.challengeName) {
-      return {
-        challengeName: result.challengeName,
-        session: result.session,
-        challengeParameters: result.challengeParameters,
-      };
-    }
-
-    return result;
-  }));
-
-  fastify.post('/auth/challenge', nauth.adapter.wrapRouteHandler(async (req) => {
-    return nauth.authService.respondToChallenge({
-      session: (req.body as any).session,
-      type: (req.body as any).challengeType,
-      code: (req.body as any).code,
-    });
-  }));
-}
+  res.status(200).json(result);
+});
 ```
 
   </TabItem>
@@ -311,7 +272,23 @@ Related:
 - [Configuration → MFA](/docs/concepts/configuration#multi-factor-authentication)
 - [MFAService API](/docs/api/core/services/mfa-service)
 
-### 5. Email + Phone verification (chained challenges)
+### 5. `FORCE_CHANGE_PASSWORD`
+
+Issued during login when an admin has flagged the user's password for mandatory change.
+
+**User Action**: Enter a new password.
+
+**Example Response**:
+
+```json
+{
+  "challengeName": "FORCE_CHANGE_PASSWORD",
+  "session": "challenge-session-uuid",
+  "challengeParameters": {}
+}
+```
+
+### 6. Email + Phone verification (chained challenges)
 
 If your configuration requires both verifications (`signup.verificationMethod = 'both'`), challenges are returned **sequentially**:
 
@@ -369,12 +346,12 @@ async respondToChallenge(@Body() dto: RespondToChallengeDTO) {
 ```
 
   </TabItem>
-  <TabItem value="express" label="Express">
+  <TabItem value="express" label="Express / Fastify">
 
 ```typescript
 router.post('/challenge', async (req, res) => {
   try {
-    const result = await nauth.authService.respondToChallenge({
+    const result = await authService.respondToChallenge({
       session: req.body.session,
       type: req.body.challengeType,
       code: req.body.code,
@@ -382,7 +359,6 @@ router.post('/challenge', async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     if (error instanceof NAuthException) {
-      // Handle specific error codes
       if (error.code === AuthErrorCode.VERIFICATION_CODE_INVALID) {
         return res.status(400).json({ error: 'Invalid verification code' });
       }
@@ -396,31 +372,6 @@ router.post('/challenge', async (req, res) => {
 ```
 
   </TabItem>
-  <TabItem value="fastify" label="Fastify">
-
-```typescript
-fastify.post('/auth/challenge', nauth.adapter.wrapRouteHandler(async (req) => {
-  try {
-    return await nauth.authService.respondToChallenge({
-      session: (req.body as any).session,
-      type: (req.body as any).challengeType,
-      code: (req.body as any).code,
-    });
-  } catch (error) {
-    if (error instanceof NAuthException) {
-      if (error.code === AuthErrorCode.VERIFICATION_CODE_INVALID) {
-        throw new Error('Invalid verification code');
-      }
-      if (error.code === AuthErrorCode.VERIFICATION_CODE_EXPIRED) {
-        throw new Error('Code expired. Please request a new one');
-      }
-    }
-    throw error;
-  }
-}));
-```
-
-  </TabItem>
 </Tabs>
 
 ## Why This Approach?
@@ -430,3 +381,10 @@ fastify.post('/auth/challenge', nauth.adapter.wrapRouteHandler(async (req) => {
 3.  **User Experience**: Handles complex flows like "Social Login → Phone Verification → MFA" seamlessly with a consistent API.
 4.  **Unified Interface**: Single `respondToChallenge` method handles all challenge types, reducing code duplication.
 5.  **Progressive Disclosure**: Users only see verification steps that are actually required for their specific situation.
+
+## What's Next
+
+- **[Basic Auth Guide](/docs/guides/basic-auth)** --- Implement login and signup with challenge handling
+- **[MFA Guide](/docs/guides/mfa/how-mfa-works)** --- Multi-factor authentication setup and challenge flows
+- **[Error Handling](/docs/concepts/error-handling)** --- How to handle challenge errors
+- **[Configuration](/docs/concepts/configuration)** --- Configure verification methods and MFA enforcement

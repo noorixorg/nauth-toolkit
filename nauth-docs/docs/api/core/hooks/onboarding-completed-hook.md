@@ -59,4 +59,4 @@ hookRegistry.registerOnboardingCompleted(new WelcomeEmailHook());
 ## Related
 
 - [`IPostSignupHookProvider`](./post-signup-hook-provider) - Runs after user creation (before verification completion)
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks)
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks)

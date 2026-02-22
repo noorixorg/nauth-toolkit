@@ -79,5 +79,5 @@ export class RiskAlertHook implements IAdaptiveMFARiskDetectedHook {
 - [HookRegistryService](../services/hook-registry-service) - Hook registration
 - [@AdaptiveMFARiskDetectedHook()](/docs/api/nestjs/decorators/adaptive-mfa-risk-detected-hook) - NestJS decorator
 - [RiskFactor](../enums/risk-factor) - Risk factor enum
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete hooks overview
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete hooks overview
 

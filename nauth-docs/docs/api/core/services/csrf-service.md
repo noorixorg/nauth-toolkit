@@ -459,5 +459,5 @@ See `validateToken()` example above.
 ## Related APIs
 
 - [CsrfGuard](/docs/api/nestjs/guards/csrf-guard) - NestJS guard for CSRF protection
-- [Token Delivery Modes](/docs/features/token-delivery) - When CSRF protection is active
+- [Token Delivery Modes](/docs/concepts/token-management) - When CSRF protection is active
 - [Password & Security Configuration](/docs/concepts/configuration#password--security) - CSRF configuration options

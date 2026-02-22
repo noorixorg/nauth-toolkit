@@ -68,5 +68,5 @@ export class SessionsRevokedAlertHook implements ISessionsRevokedHook {
 
 - [HookRegistryService](../services/hook-registry-service) - Hook registration
 - [@SessionsRevokedHook()](/docs/api/nestjs/decorators/sessions-revoked-hook) - NestJS decorator
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete hooks overview
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete hooks overview
 

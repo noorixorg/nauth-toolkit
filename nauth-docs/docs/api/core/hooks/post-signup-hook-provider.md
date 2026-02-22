@@ -82,5 +82,5 @@ export class WelcomeEmailHook implements IPostSignupHookProvider {
 
 - [HookRegistryService](../services/hook-registry-service) - Hook registration
 - [@PostSignupHook()](/docs/api/nestjs/decorators/post-signup-hook) - NestJS decorator
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete hooks overview
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete hooks overview
 

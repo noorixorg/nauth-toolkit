@@ -142,6 +142,6 @@ All methods throw `NAuthException` with `AuthErrorCode.INTERNAL_ERROR` when:
 ## Related
 
 - [SMS Templates Configuration](/docs/api/sms/templates)
-- [SMS Templates Feature Guide](/docs/features/sms-templates)
+- [SMS Templates Feature Guide](/docs/guides/sms-templates)
 - [SMSTemplateType Enum](../enums/sms-template-type)
 

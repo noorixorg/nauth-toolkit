@@ -70,7 +70,7 @@ social: {
 }
 ```
 
-See [Social Login Guide](/docs/features/social-login) for usage examples.
+See [Social Login Guide](/docs/guides/social/how-social-login-works) for usage examples.
 
 **Note:** For native iOS apps, `teamId`, `keyId`, and `privateKeyPem` are not required as native apps do not use the web OAuth flow.
 

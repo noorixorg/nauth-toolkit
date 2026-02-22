@@ -76,5 +76,5 @@ export class MFAMethodAddedSecurityAlertHook implements IMFAMethodAddedHook {
 
 - [HookRegistryService](../services/hook-registry-service) - Hook registration
 - [MFADeviceMethod](../enums/mfa-method) - MFA method enum
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete hooks overview
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete hooks overview
 

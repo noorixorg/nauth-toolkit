@@ -23,5 +23,5 @@ Template type identifiers used by the SMS template engine and SMS providers.
 
 - [SMSTemplateEngine Interface](/docs/api/core/interfaces/sms-template-engine)
 - [SMS Templates Configuration](/docs/api/sms/templates)
-- [SMS Templates Feature Guide](/docs/features/sms-templates)
+- [SMS Templates Feature Guide](/docs/guides/sms-templates)
 

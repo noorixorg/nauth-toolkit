@@ -413,9 +413,9 @@ See [Configuration](/docs/concepts/configuration) for config options.
 
 **Getting Started:**
 
-- [Quick Start Guide](/docs/quick-start/nestjs-angular)
+- [Quick Start Guide](/docs/quick-start/nestjs)
 - [Configuration Reference](/docs/concepts/configuration)
-- [Architecture Overview](/docs/concepts/architecture)
+- [How It Works](/docs/concepts/how-it-works)
 
 **Need Help?**
 

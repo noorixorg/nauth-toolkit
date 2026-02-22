@@ -1026,7 +1026,7 @@ async refreshToken(dto: RefreshTokenDTO): Promise<TokenResponse>
 | ----------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **JSON** (`tokenDelivery.method: 'json'`)       | `{ accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt }`      | Tokens present in response body; client must store securely                                                                                                                                    |
 | **Cookies** (`tokenDelivery.method: 'cookies'`) | `{}` (empty object - tokens removed)                                              | Tokens NOT in body (httpOnly cookies only); client reads via secure context                                                                                                                    |
-| **Hybrid** (`tokenDelivery.method: 'hybrid'`)   | Depends on `hybridPolicy`: web=cookies (empty body), mobile=json (tokens in body) | Policy-driven: web clients get cookies, mobile/API gets JSON tokens. See [Token Delivery Modes](/docs/features/token-delivery) and [Token Management](/docs/concepts/token-management) guides. |
+| **Hybrid** (`tokenDelivery.method: 'hybrid'`)   | Depends on `hybridPolicy`: web=cookies (empty body), mobile=json (tokens in body) | Policy-driven: web clients get cookies, mobile/API gets JSON tokens. See [Token Delivery Modes](/docs/concepts/token-management) and [Token Management](/docs/concepts/token-management) guides. |
 
 **Behavior**
 

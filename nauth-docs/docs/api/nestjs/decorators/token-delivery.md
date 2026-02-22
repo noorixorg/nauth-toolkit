@@ -145,4 +145,4 @@ The decorator validates that the requested mode is allowed by global configurati
 - [AuthGuard](../guards/auth-guard) - Route protection
 - [CsrfGuard](../guards/csrf-guard) - CSRF protection (required for cookies)
 - [`@Public()` Decorator](./public) - Mark routes as public
-- [Token Delivery](/docs/features/token-delivery) - Token delivery modes guide
+- [Token Delivery](/docs/concepts/token-management) - Token delivery modes guide

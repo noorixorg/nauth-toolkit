@@ -785,7 +785,7 @@ Ensure your backend has:
 - MFA endpoints available
 - MFA methods configured (TOTP, SMS, Email, Passkey)
 
-See [Backend MFA Configuration](/docs/features/mfa) for setup details.
+See [Backend MFA Configuration](/docs/guides/mfa/how-mfa-works) for setup details.
 :::
 
 ### getMfaStatus()
@@ -999,7 +999,7 @@ Ensure your backend has:
 - Social auth endpoints enabled
 - OAuth credentials set up
 
-See [Backend Social Login Configuration](/docs/features/social-login) for setup details.
+See [Backend Social Login Configuration](/docs/guides/social/how-social-login-works) for setup details.
 :::
 
 ### loginWithSocial()
@@ -1151,7 +1151,7 @@ if (appState) {
 **See**
 
 - [Social Authentication Guide](/docs/frontend-sdk/guides/social-auth)
-- [Social Login Feature](/docs/features/social-login)
+- [Social Login](/docs/guides/social/how-social-login-works)
 
 ---
 

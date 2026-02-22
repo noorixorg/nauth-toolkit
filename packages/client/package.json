@@ -40,7 +40,7 @@
   "engines": {
     "node": ">=22.0.0"
   },
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
     "url": "https://github.com/noorix/nauth-toolkit"

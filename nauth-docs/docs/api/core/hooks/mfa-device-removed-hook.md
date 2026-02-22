@@ -74,5 +74,5 @@ export class MFADeviceRemovedAlertHook implements IMFADeviceRemovedHook {
 - [HookRegistryService](../services/hook-registry-service) - Hook registration
 - [@MFADeviceRemovedHook()](/docs/api/nestjs/decorators/mfa-device-removed-hook) - NestJS decorator
 - [MFADeviceMethod](../enums/mfa-method) - MFA method enum
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete hooks overview
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete hooks overview
 

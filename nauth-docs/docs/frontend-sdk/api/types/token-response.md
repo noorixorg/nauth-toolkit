@@ -44,5 +44,5 @@ import { TokenResponse } from '@nauth-toolkit/client';
 ## Used By
 
 - [NAuthClient.refreshTokens()](../nauth-client#refreshtokens) - Returns [`TokenResponse`](./token-response)
-- [Token Management](../../token-management) - Token refresh strategy guide
+- [Token Management](../../concepts/token-management) - Token refresh strategy guide
 - [Angular Interceptor](../../angular/interceptor) - Automatic token refresh

@@ -4,6 +4,17 @@ Unified rules for all nauth-toolkit documentation pages. Every contributor (huma
 
 ---
 
+## Core Principles
+
+These four principles override any other preference. When in doubt, apply them.
+
+1. **Accuracy-first** — Every code sample, method signature, config option, and error code must be verified against the source before it's written. If you can't verify it, delete it — never leave accuracy disclaimers.
+2. **Copy-paste ready** — Examples must compile and run against the current codebase. No pseudocode, no partial snippets missing required imports.
+3. **Developer journey** — Structure pages around what a developer needs to DO, not what the code IS. Task-oriented over reference-oriented.
+4. **Code-first** — Minimal prose, maximum working code. No filler text. No "Coming Soon" stubs — delete placeholder pages rather than publishing them.
+
+---
+
 ## Page Types
 
 ### Quickstart
@@ -117,6 +128,34 @@ Strict template for service and DTO documentation. Carries over all rules from t
 
 ## Cross-Cutting Rules (All Page Types)
 
+### Visual Style
+
+**Icons — FontAwesome only, never emojis.**
+
+All icons use the duotone light variant:
+```
+fa-duotone fa-light fa-[icon-name]
+```
+
+Pass the class string to the `icon` prop of `<FeatureCard>`. Never use emoji characters anywhere in docs — not in headings, prose, tables, or admonitions.
+
+**Components — use what's built, don't improvise.**
+
+| Component | When to use |
+|-----------|-------------|
+| `<FeatureCard icon="..." heading="..." description="..." />` | Feature grids on overview/intro pages |
+| `<Tooltip content="...">term</Tooltip>` | Inline glossary definitions |
+| `<Tabs groupId="platform">` | Any framework-specific code (NestJS / Express / Fastify) |
+| `:::warning` / `:::note` / `:::tip` | Callouts — see Admonitions section |
+| Mermaid code blocks | Architecture diagrams, state machines, request flows |
+| `<details><summary>` | Collapsible reference content (large config tables, optional context) |
+
+Always prefer these over custom HTML or inline styles.
+
+**Color — use CSS variables, never hardcoded values.**
+
+The site uses a single blue-based palette (`--ifm-color-primary` and its variants). Don't introduce custom colors via inline `style` attributes or one-off class names.
+
 ### Front Matter
 
 Required on every page:
@@ -167,6 +206,22 @@ Never use `bash` alone, `npm`, or `yarn add` directly for install instructions.
 - The client SDK (`@nauth-toolkit/client`) is framework-agnostic — works with React, Vue, Svelte, etc.
 - Examples use Angular because that's the tested integration
 - Note framework-agnostic nature where relevant, but don't provide untested examples for other frameworks
+
+### Terminology
+
+Use these terms exactly — never substitute alternatives:
+
+| Correct | Never use |
+|---------|-----------|
+| `Node.js` | `NodeJS`, `nodejs`, `Node.JS` |
+| `framework-agnostic` | `platform-agnostic` (Node.js is the platform; Express/Fastify/NestJS are the frameworks) |
+| `nauth-toolkit` | `nauth`, `NAuth`, `nAuth-toolkit` |
+
+### Lean Docs
+
+- Delete stub pages rather than publishing "Coming Soon" content
+- Remove a page before adding an accuracy disclaimer to it
+- Pages should be as short as possible while remaining complete — cut prose that doesn't help a developer take action
 
 ### Navigation
 

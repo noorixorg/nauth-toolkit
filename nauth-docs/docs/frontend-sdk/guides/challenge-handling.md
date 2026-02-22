@@ -122,7 +122,7 @@ All challenges go to one route:
 
 **Implementation:**
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="angular" label="Angular">
 
 ```typescript
@@ -242,7 +242,7 @@ For fine-grained control over MFA navigation, use `mfaRoutes`:
 
 Handle challenges with dialogs instead of pages:
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="vanilla" label="Vanilla JS/TS">
 
 ```typescript
@@ -383,7 +383,7 @@ Social OAuth flows use the **same challenge configuration** as regular login/sig
 
 **Key difference**: Social OAuth requires a callback route handler to exchange the OAuth token. After token exchange, challenge handling works identically to regular flows.
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="angular" label="Angular">
 
 Use the [`socialRedirectCallbackGuard`](../angular/oauth-callback-guard) to automatically handle the OAuth callback:
@@ -460,7 +460,7 @@ The same `redirects` configuration from your `NAuthClient` setup applies. See [A
 
 ### Email Verification
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="angular" label="Angular">
 
 ```typescript
@@ -549,7 +549,7 @@ function VerifyEmail() {
 
 ### MFA Verification
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="angular" label="Angular">
 
 ```typescript
@@ -764,7 +764,7 @@ await client.respondToChallenge({
 
 The SDK automatically persists challenge sessions to storage (survives page refresh):
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="angular" label="Angular">
 
 ```typescript

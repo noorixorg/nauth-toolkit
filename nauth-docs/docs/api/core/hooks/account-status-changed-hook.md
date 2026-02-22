@@ -73,5 +73,5 @@ export class AccountStatusNotificationHook implements IAccountStatusChangedHook 
 
 - [HookRegistryService](../services/hook-registry-service) - Hook registration
 - [@AccountStatusChangedHook()](/docs/api/nestjs/decorators/account-status-changed-hook) - NestJS decorator
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete hooks overview
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete hooks overview
 

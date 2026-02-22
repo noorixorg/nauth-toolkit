@@ -53,7 +53,7 @@ This service must be called within the context of an HTTP request. If called out
 :::
 
 :::info Geolocation Data (IP Country, City, Coordinates)
-Optional geolocation fields (`ipCountry`, `ipCity`, `ipLatitude`, `ipLongitude`) are only populated when MaxMind GeoIP2 is configured. See the [Geolocation guide](/docs/features/geolocation) for setup instructions.
+Optional geolocation fields (`ipCountry`, `ipCity`, `ipLatitude`, `ipLongitude`) are only populated when MaxMind GeoIP2 is configured. See the [Geolocation guide](/docs/guides/geolocation) for setup instructions.
 :::
 
 ## Methods
@@ -74,10 +74,10 @@ get(): GetClientInfoResponseDTO
   - `deviceToken?: string` - Device token for trusted device feature (optional)
   - `deviceName?: string` - Device name (optional)
   - `deviceType?: 'mobile' | 'desktop' | 'tablet'` - Device type (optional)
-  - `ipCountry?: string` - IP country from geolocation (optional, requires [MaxMind configuration](/docs/features/geolocation))
-  - `ipCity?: string` - IP city from geolocation (optional, requires [MaxMind configuration](/docs/features/geolocation))
-  - `ipLatitude?: number` - IP latitude (optional, requires [MaxMind configuration](/docs/features/geolocation))
-  - `ipLongitude?: number` - IP longitude (optional, requires [MaxMind configuration](/docs/features/geolocation))
+  - `ipCountry?: string` - IP country from geolocation (optional, requires [MaxMind configuration](/docs/guides/geolocation))
+  - `ipCity?: string` - IP city from geolocation (optional, requires [MaxMind configuration](/docs/guides/geolocation))
+  - `ipLatitude?: number` - IP latitude (optional, requires [MaxMind configuration](/docs/guides/geolocation))
+  - `ipLongitude?: number` - IP longitude (optional, requires [MaxMind configuration](/docs/guides/geolocation))
   - `platform?: string` - Platform extracted from user agent (optional)
   - `browser?: string` - Browser extracted from user agent (optional)
   - `sessionId?: number` - Session ID from JWT token (optional, only after authentication)

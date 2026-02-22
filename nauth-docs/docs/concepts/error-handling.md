@@ -1,7 +1,9 @@
 ---
 title: Error Handling
-description: Strategy for handling errors and exceptions
+description: 'How nauth-toolkit throws and maps structured authentication errors'
 sidebar_position: 4
+keywords: [errors, exceptions, error-codes, http-status, filter, NAuthException]
+image: /img/api-social-card.png
 ---
 
 # Error Handling
@@ -28,22 +30,23 @@ The toolkit's responsibility is to **throw consistent, structured errors**. Cons
 
 ### Separation of Concerns
 
-```
-┌─────────────────────────────────────┐
-│   nauth-toolkit (Domain Layer)      │
-│   Throws: NAuthException            │
-│   - code: AuthErrorCode             │
-│   - message: string                 │
-│   - details: Record<string, unknown>│
-└─────────────────────────────────────┘
-              ▼
-┌─────────────────────────────────────┐
-│   Consumer App (Transport Layer)    │
-│   Maps: NAuthException → Response   │
-│   - HTTP status codes (REST)        │
-│   - WebSocket events                │
-│   - GraphQL errors                  │
-└─────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Domain["nauth-toolkit (Domain Layer)"]
+        Throw["Throws: NAuthException"]
+        Code["code: AuthErrorCode"]
+        Msg["message: string"]
+        Details["details?: Record&lt;string, unknown&gt;"]
+    end
+
+    subgraph Transport["Consumer App (Transport Layer)"]
+        Map["Maps: NAuthException → Response"]
+        HTTP["HTTP status codes (REST)"]
+        WS["WebSocket events"]
+        GQL["GraphQL errors"]
+    end
+
+    Domain --> Transport
 ```
 
 ---
@@ -465,11 +468,24 @@ throw new NAuthException(AuthErrorCode.RATE_LIMIT_SMS, 'Too many SMS sent', { re
 
 ## Error Codes Reference
 
-See `AuthErrorCode` enum for all available codes:
+`AuthErrorCode` enum contains 60+ error codes organized by category. Common codes:
 
-- **Authentication**: `INVALID_CREDENTIALS`, `ACCOUNT_LOCKED`, `TOKEN_EXPIRED`
-- **Signup**: `EMAIL_EXISTS`, `WEAK_PASSWORD`, `SIGNUP_DISABLED`
-- **Verification**: `VERIFICATION_CODE_INVALID`, `VERIFICATION_CODE_EXPIRED`
-- **Rate Limits**: `RATE_LIMIT_SMS`, `RATE_LIMIT_EMAIL`, `RATE_LIMIT_RESEND`
-- **Social Auth**: `SOCIAL_TOKEN_INVALID`, `SOCIAL_ACCOUNT_LINKED`
-- **General**: `NOT_FOUND`, `FORBIDDEN`, `INTERNAL_ERROR`
+| Category | Codes |
+|---|---|
+| **Authentication** | `INVALID_CREDENTIALS`, `ACCOUNT_LOCKED`, `ACCOUNT_INACTIVE`, `TOKEN_EXPIRED`, `TOKEN_INVALID`, `TOKEN_REUSE_DETECTED`, `SESSION_NOT_FOUND` |
+| **Signup** | `EMAIL_EXISTS`, `USERNAME_EXISTS`, `PHONE_EXISTS`, `WEAK_PASSWORD`, `SIGNUP_DISABLED` |
+| **Verification** | `VERIFICATION_CODE_INVALID`, `VERIFICATION_CODE_EXPIRED`, `VERIFICATION_TOO_MANY_ATTEMPTS` |
+| **Challenge** | `CHALLENGE_EXPIRED`, `CHALLENGE_INVALID`, `CHALLENGE_TYPE_MISMATCH`, `CHALLENGE_MAX_ATTEMPTS` |
+| **MFA** | `MFA_SETUP_REQUIRED`, `MFA_DEVICE_NOT_FOUND`, `MFA_BACKUP_CODE_INVALID` |
+| **Rate Limits** | `RATE_LIMIT_SMS`, `RATE_LIMIT_EMAIL`, `RATE_LIMIT_LOGIN`, `RATE_LIMIT_RESEND`, `RATE_LIMIT_PASSWORD_RESET` |
+| **Password** | `PASSWORD_INCORRECT`, `PASSWORD_REUSED`, `PASSWORD_RESET_CODE_INVALID`, `PASSWORD_RESET_CODE_EXPIRED` |
+| **Social Auth** | `SOCIAL_TOKEN_INVALID`, `SOCIAL_ACCOUNT_LINKED`, `SOCIAL_ACCOUNT_NOT_FOUND`, `SOCIAL_EMAIL_REQUIRED` |
+| **CSRF** | `CSRF_TOKEN_INVALID`, `CSRF_TOKEN_MISSING` |
+| **reCAPTCHA** | `RECAPTCHA_REQUIRED`, `RECAPTCHA_VALIDATION_FAILED`, `RECAPTCHA_SCORE_TOO_LOW` |
+| **General** | `NOT_FOUND`, `USER_NOT_FOUND`, `FORBIDDEN`, `INTERNAL_ERROR`, `VALIDATION_FAILED` |
+
+## What's Next
+
+- **[Challenge System](/docs/concepts/challenge-system)** --- Challenge error handling patterns
+- **[Rate Limiting](/docs/guides/rate-limiting)** --- Configure and handle rate limit errors
+- **[Configuration](/docs/concepts/configuration)** --- Full configuration reference

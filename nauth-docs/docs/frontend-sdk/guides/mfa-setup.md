@@ -59,7 +59,7 @@ See [`AuthResponse`](../api/types/auth-response) for challenge structure and [`A
 
 ### Verifying MFA
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="vanilla" label="Vanilla JS/TS">
 
 ```typescript
@@ -458,7 +458,7 @@ displayBackupCodes(codes);
 
 ## Complete MFA Setup UI
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="angular" label="Angular">
 
 ```typescript
@@ -694,7 +694,7 @@ if (window.PublicKeyCredential) {
 **Platform authenticators** (built-in): Touch ID, Face ID, Windows Hello
 **Cross-platform authenticators** (removable): USB security keys, NFC
 
-See [Backend Passkey Configuration](/docs/features/mfa#passkey-webauthn) for server setup.
+See [Backend Passkey Configuration](/docs/guides/mfa/passkey#step-2-configure) for server setup.
 
 ## Error Handling
 
@@ -842,7 +842,7 @@ Trusted devices allow users to skip MFA verification on devices they've previous
 
 ### Configuration
 
-Backend configuration (see [Backend MFA Configuration](/docs/features/mfa)):
+Backend configuration (see [Backend MFA Configuration](/docs/guides/mfa/how-mfa-works)):
 
 ```typescript
 mfa: {
@@ -862,7 +862,7 @@ mfa: {
 
 After successful MFA verification, allow user to trust the device:
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="vanilla" label="Vanilla JS">
 
 ```typescript
@@ -982,7 +982,7 @@ export class TrustDevicePromptComponent {
 
 Check if the current device is already trusted:
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="vanilla" label="Vanilla JS">
 
 ```typescript
@@ -1154,4 +1154,4 @@ All logout methods (`logout()` and `logoutAll()`) require the user to be authent
 - [Challenge Handling](./challenge-handling) - Challenge flows
 - [GetSetupDataResponse](../api/types/get-setup-data-response) - Setup data structure
 - [ChallengeResponse](../api/types/challenge-response) - Challenge response types
-- [Backend MFA Configuration](/docs/features/mfa) - Server setup
+- [Backend MFA Configuration](/docs/guides/mfa/how-mfa-works) - Server setup

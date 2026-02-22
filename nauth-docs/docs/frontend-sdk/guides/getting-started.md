@@ -12,6 +12,10 @@ import TabItem from '@theme/TabItem';
 
 Complete guide to setting up authentication in your frontend application with `@nauth-toolkit/client`.
 
+:::tip Framework-Specific Guides
+For dedicated setup guides with full working examples, see [Angular Standalone](../angular/standalone-setup), [Angular NgModule](../angular/ngmodule-setup), [React](../react/setup), or [Capacitor Mobile](../mobile/capacitor-setup). This page covers the generic SDK setup that works with any framework.
+:::
+
 ## Prerequisites
 
 - nauth-toolkit backend running and configured
@@ -66,7 +70,7 @@ For JSON token delivery mode, tokens are stored using a storage adapter. The SDK
 
 **Note:** For `cookies` mode, tokens are managed by the browser and backend—no storage adapter needed.
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="vanilla" label="Vanilla JS/TS">
 
 **Cookies mode (no storage needed):**
@@ -142,7 +146,7 @@ export const authClient = new NAuthClient({
 
 See [`NAuthStorageAdapter`](../api/types/nauth-storage-adapter) for interface details and more examples.
 
-See [NAuthClient API](../api/nauth-client) and [Configuration](../configuration) for details.
+See [NAuthClient API](../api/nauth-client) and [Configuration](../concepts/configuration) for details.
 
 ```typescript
 // main.ts
@@ -313,7 +317,7 @@ function App() {
 
 Handle user authentication with email/password. The `login()` method returns an [`AuthResponse`](../api/types/auth-response) that may contain a challenge (email verification, MFA, etc.) or successful authentication with tokens. Always check for `challengeName` to handle multi-step flows.
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="vanilla" label="Vanilla JS/TS">
 
 ```typescript
@@ -477,7 +481,7 @@ function LoginPage() {
 
 Protect routes that require authentication. You can use the built-in [`authGuard`](../angular/guards) (Angular) or implement your own route protection logic.
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="vanilla" label="Vanilla JS/TS">
 
 ```typescript
@@ -582,13 +586,13 @@ The SDK automatically handles token refresh for you. When using the Angular [`au
 - Queues concurrent requests during refresh to prevent race conditions
 - Synchronizes tokens across browser tabs using `localStorage` events (JSON mode)
 
-For detailed information on token refresh strategies, cross-tab synchronization, and SSR considerations, see [Token Management](../token-management).
+For detailed information on token refresh strategies, cross-tab synchronization, and SSR considerations, see [Token Management](../concepts/token-management).
 
 ## Step 5: Handle Logout
 
 Clear authentication state and redirect to login. The `logout()` method invalidates the session on the backend and clears local tokens.
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="vanilla" label="Vanilla JS/TS">
 
 ```typescript
@@ -630,6 +634,6 @@ async function handleLogout() {
 ## Next Steps
 
 - [Challenge Handling](./challenge-handling) - Handle verification flows
-- [Token Management](../token-management) - Token refresh and storage
+- [Token Management](../concepts/token-management) - Token refresh and storage
 - [Social Authentication](./social-auth) - OAuth integration
 - [MFA Setup](./mfa-setup) - Multi-factor authentication

@@ -37,7 +37,7 @@ interface SMSProvider {
 
 Customize SMS message content with templates:
 
-- [SMS Templates Feature Guide](/docs/features/sms-templates) - Complete guide to customizing SMS messages
+- [SMS Templates Feature Guide](/docs/guides/sms-templates) - Complete guide to customizing SMS messages
 - [SMS Templates Configuration](./templates) - API reference for template configuration
 
 ## Related

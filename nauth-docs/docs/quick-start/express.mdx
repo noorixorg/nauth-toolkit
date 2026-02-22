@@ -8,11 +8,15 @@ image: /img/api-social-card.png
 
 # Quick Start: Express
 
-Add authentication to an Express application using nauth-toolkit's platform-agnostic core. By the end of this guide you'll have signup, login, logout, token refresh, and a protected profile endpoint working.
+Add authentication to an Express application using nauth-toolkit's framework-agnostic core. By the end of this guide you'll have signup, login, logout, token refresh, and a protected profile endpoint working.
+
+:::note Sample Application
+A complete working example is available at [github.com/noorixorg/nauth/tree/main/express](https://github.com/noorixorg/nauth/tree/main/express) — Express + TypeORM + PostgreSQL with Google OAuth and TOTP MFA preconfigured.
+:::
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 22+ (older versions may work but are untested)
 - PostgreSQL or MySQL database running
 - An Express application
 
@@ -397,7 +401,7 @@ export const authConfig: NAuthConfig = {
 };
 ```
 
-See the [Social Login](/docs/features/social-login) guide for the full route implementation.
+See the [Social Login](/docs/guides/social/how-social-login-works) guide for the full route implementation.
 
 ### MFA (TOTP)
 
@@ -422,18 +426,19 @@ export const authConfig: NAuthConfig = {
 };
 ```
 
-See the [MFA](/docs/features/mfa) guide for setup and verification route implementations.
+See the [MFA](/docs/guides/mfa/how-mfa-works) guide for setup and verification route implementations.
 
 :::tip Complete Route Examples
-This quick start covers the essential routes. For complete implementations including MFA management, session management, social linking, admin endpoints, and more, see the [Authentication Routes](/docs/features/routes) guide.
+This quick start covers the essential routes. For complete implementations including MFA management, session management, social linking, admin endpoints, and more, see the [Authentication Routes](/docs/guides/routes) guide.
 :::
 
 ---
 
 ## What's Next
 
+- [Express Sample App](https://github.com/noorixorg/nauth/tree/main/express) — Full working example with Google OAuth, TOTP MFA, and complete route implementations
 - [Configuration](/docs/concepts/configuration) — Full configuration reference with all available options
 - [Challenge System](/docs/concepts/challenge-system) — Understand multi-step authentication flows (MFA, verification)
-- [Authentication Routes](/docs/features/routes) — Complete route implementations for all auth flows
-- [Token Delivery](/docs/features/token-delivery) — Switch between cookie and JSON token delivery
+- [Authentication Routes](/docs/guides/routes) — Complete route implementations for all auth flows
+- [Token Delivery](/docs/concepts/token-management) — Switch between cookie and JSON token delivery
 - [React Frontend](/docs/quick-start/react) — Connect a React frontend to this backend

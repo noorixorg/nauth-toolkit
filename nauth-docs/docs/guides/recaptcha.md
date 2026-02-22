@@ -160,4 +160,4 @@ export const appConfig: ApplicationConfig = {
 - [RecaptchaConfig](/docs/api/core/interfaces/recaptcha-config)
 - [reCAPTCHA Overview](/docs/api/recaptcha/overview)
 - [NAuthClientConfig](/docs/frontend-sdk/api/nauth-client-config) (`recaptcha` property)
-- [Configuration](/docs/frontend-sdk/configuration) (reCAPTCHA section)
+- [Configuration](/docs/frontend-sdk/concepts/configuration) (reCAPTCHA section)

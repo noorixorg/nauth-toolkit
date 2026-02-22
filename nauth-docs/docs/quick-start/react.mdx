@@ -10,12 +10,16 @@ image: /img/api-social-card.png
 
 Connect a React application to a nauth-toolkit backend using `@nauth-toolkit/client`.
 
+:::note Sample Application
+A complete working example is available at [github.com/noorixorg/nauth/tree/main/react](https://github.com/noorixorg/nauth/tree/main/react) — React + Vite + `@nauth-toolkit/client` with Auth context, protected routes, Google OAuth, and challenge handling.
+:::
+
 :::info No React-specific SDK
 There is no React-specific SDK package. `@nauth-toolkit/client` supports all auth operations and works in any JS environment, but requires a bit more manual wiring than the Angular SDK — you'll set up a React Context, a token-refresh adapter, and a protected route component yourself. This guide provides the complete, production-ready patterns for all of these.
 :::
 
 :::info Backend Required
-This guide assumes you have a running nauth-toolkit backend. Complete the [NestJS](/docs/quick-start/nestjs-angular) or [Express](/docs/quick-start/express) quick start first.
+This guide assumes you have a running nauth-toolkit backend. Complete the [NestJS](/docs/quick-start/nestjs) or [Express](/docs/quick-start/express) quick start first.
 :::
 
 ## Prerequisites
@@ -893,7 +897,8 @@ If you enable email or phone verification (`verificationMethod: 'email'`), login
 
 ## What's Next
 
+- [React Sample App](https://github.com/noorixorg/nauth/tree/main/react) — Full working example with Google OAuth, challenge handling, and protected routes
 - [Challenge System](/docs/concepts/challenge-system) — Handle verification, MFA, and password-change challenges
 - [Configuration](/docs/concepts/configuration) — Full backend configuration reference
-- [Token Delivery](/docs/features/token-delivery) — Cookie vs. JSON token delivery explained
-- [Social Login](/docs/features/social-login) — Add Google, Apple, and Facebook OAuth
+- [Token Delivery](/docs/concepts/token-management) — Cookie vs. JSON token delivery explained
+- [Social Login](/docs/guides/social/how-social-login-works) — Add Google, Apple, and Facebook OAuth

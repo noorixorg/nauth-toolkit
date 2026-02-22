@@ -51,7 +51,7 @@ Only available when `geoLocation.maxMind` is configured. Auto-injected by framew
 :::info Requirements
 - `@maxmind/geoip2-node` peer dependency must be installed
 - MaxMind license key and account ID (for downloads) OR pre-existing .mmdb files
-- See the [Geolocation guide](/docs/features/geolocation) for setup instructions
+- See the [Geolocation guide](/docs/guides/geolocation) for setup instructions
 :::
 
 ## Methods
@@ -473,6 +473,6 @@ export class GeoReloadService {
 
 ## Related
 
-- [Geolocation Feature Guide](/docs/features/geolocation) - Setup and configuration
+- [Geolocation Feature Guide](/docs/guides/geolocation) - Setup and configuration
 - [Configuration Reference](/docs/concepts/configuration#geolocation) - All configuration options
 - [ClientInfoService](/docs/api/core/services/client-info-service) - Access geolocation in request context

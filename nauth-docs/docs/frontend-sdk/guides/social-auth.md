@@ -33,7 +33,7 @@ Social login for web apps (redirect-first OAuth) and native mobile apps (token v
 
 ## Requirements
 
-- **Backend** must implement the redirect-first endpoints. See [Social Login (backend)](/docs/features/social-login).
+- **Backend** must implement the redirect-first endpoints. See [Social Login (backend)](/docs/guides/social/how-social-login-works).
 - **Frontend** must configure redirect routes in [`NAuthClientConfig`](../api/nauth-client-config) and optionally override endpoints in [`NAuthEndpoints`](../api/types/nauth-endpoints).
 
 ## Frontend (web)
@@ -51,7 +51,7 @@ Options: [`SocialLoginOptions`](../api/types/social-login-options)
 - **cookies mode**: backend sets httpOnly cookies before redirecting; callback URL typically has `appState` only
 - **json/hybrid** (and **cookies-with-challenge**): callback URL includes `exchangeToken`; frontend exchanges it
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="angular" label="Angular">
 
 ```typescript
@@ -256,11 +256,11 @@ const authResponse = await client.verifyNativeSocial({
 
 ## Related
 
-- [Social Login (backend)](/docs/features/social-login)
+- [Social Login (backend)](/docs/guides/social/how-social-login-works)
 - [`NAuthClient.loginWithSocial()`](/docs/frontend-sdk/api/nauth-client#loginwithsocial) - Web redirect-first
 - [`NAuthClient.verifyNativeSocial()`](/docs/frontend-sdk/api/nauth-client#verifynativesocial) - Native mobile
 - [`NAuthClient.exchangeSocialRedirect()`](/docs/frontend-sdk/api/nauth-client#exchangesocialredirect) - Web callback
 - [`SocialLoginOptions`](../api/types/social-login-options)
 - [`socialRedirectCallbackGuard`](/docs/frontend-sdk/angular/oauth-callback-guard)
-- [Social Login (backend)](/docs/features/social-login) - Backend setup including native mobile verify endpoints
+- [Social Login (backend)](/docs/guides/social/how-social-login-works) - Backend setup including native mobile verify endpoints
 - [@capgo/capacitor-social-login](https://github.com/Cap-go/capacitor-social-login) - Plugin documentation

@@ -89,5 +89,5 @@ export class CustomAuthModule {}
 
 - [IPasswordChangedHook](/docs/api/core/hooks/password-changed-hook) - Hook interface
 - [HookRegistryService](/docs/api/core/services/hook-registry-service) - Hook registry
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete hooks overview
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete hooks overview
 

@@ -102,5 +102,5 @@ export class CrmSyncHook implements IUserProfileUpdatedHook {
 
 - [HookRegistryService](../services/hook-registry-service) - Hook registration
 - [@UserProfileUpdatedHook()](/docs/api/nestjs/decorators/user-profile-updated-hook) - NestJS decorator
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete hooks overview
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete hooks overview
 

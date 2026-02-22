@@ -72,5 +72,5 @@ export class DomainValidationHook implements IPreSignupHookProvider {
 - [HookRegistryService](../services/hook-registry-service) - Hook registration
 - [@PreSignupHook()](/docs/api/nestjs/decorators/pre-signup-hook) - NestJS decorator
 - [NAuthException](../exceptions/nauth-exception) - Exception handling
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete hooks overview
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete hooks overview
 

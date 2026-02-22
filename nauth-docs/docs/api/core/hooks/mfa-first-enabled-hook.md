@@ -68,5 +68,5 @@ export class MFAFirstEnabledConfirmationHook implements IMFAFirstEnabledHook {
 - [HookRegistryService](../services/hook-registry-service) - Hook registration
 - [@MFAFirstEnabledHook()](/docs/api/nestjs/decorators/mfa-first-enabled-hook) - NestJS decorator
 - [MFADeviceMethod](../enums/mfa-method) - MFA method enum
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete hooks overview
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete hooks overview
 

@@ -76,7 +76,7 @@
     "access": "public",
     "tag": "latest"
   },
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE",
   "keywords": [
     "nestjs",
     "authentication",

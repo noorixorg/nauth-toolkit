@@ -235,5 +235,5 @@ describe('DomainValidationHook', () => {
 - [`@PostSignupHook()`](./post-signup-hook) - Post-signup hook decorator
 - [`HookRegistryService`](/docs/api/core/services/hook-registry-service) - Hook registry service
 - [`NAuthHooksModule`](./nauth-hooks-module) - Hook registration module
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete usage guide
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete usage guide
 

@@ -73,5 +73,5 @@ export class AccountLockedNotificationHook implements IAccountLockedHook {
 
 - [HookRegistryService](../services/hook-registry-service) - Hook registration
 - [@AccountLockedHook()](/docs/api/nestjs/decorators/account-locked-hook) - NestJS decorator
-- [Lifecycle Hooks Guide](/docs/features/lifecycle-hooks) - Complete hooks overview
+- [Lifecycle Hooks Guide](/docs/guides/lifecycle-hooks) - Complete hooks overview
 

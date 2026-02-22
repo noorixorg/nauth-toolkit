@@ -140,7 +140,7 @@ export class AuthController {
 }
 ```
 
-**Note on params/query in Swagger UI:** NestJS Swagger can auto-expand `@Param()` and `@Query()` DTOs **only** if the DTO class has `@ApiProperty()` decorators on each field. Since `nauth-toolkit` DTOs are platform-agnostic (no framework-specific decorators), they won't auto-expand in Swagger UI. The params/query will still work at runtime via `class-validator`, but Swagger UI won't show individual input fields for each property. If you need full Swagger UI expansion, you'd have to manually add `@ApiParam()` or `@ApiQuery()` decorators for each field (tedious, not recommended). The response schemas will expand correctly.
+**Note on params/query in Swagger UI:** NestJS Swagger can auto-expand `@Param()` and `@Query()` DTOs **only** if the DTO class has `@ApiProperty()` decorators on each field. Since `nauth-toolkit` DTOs are framework-agnostic (no framework-specific decorators), they won't auto-expand in Swagger UI. The params/query will still work at runtime via `class-validator`, but Swagger UI won't show individual input fields for each property. If you need full Swagger UI expansion, you'd have to manually add `@ApiParam()` or `@ApiQuery()` decorators for each field (tedious, not recommended). The response schemas will expand correctly.
 
 #### DELETE (path params + response)
 
