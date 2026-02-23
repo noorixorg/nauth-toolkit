@@ -321,6 +321,81 @@ fastify.post('/auth/forgot-password', async (req, reply) => {
 
 ---
 
+### getUserAuthHistory()
+
+Get paginated authentication audit history for the current authenticated user. Returns login attempts, password changes, MFA events, device trust events, and risk factors.
+
+```typescript
+async getUserAuthHistory(dto?: GetUserAuthHistoryDTO): Promise<GetUserAuthHistoryResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`GetUserAuthHistoryDTO`](../dto/get-user-auth-history-dto) (optional) - Filtering and pagination options. **No `sub` field required** - user is automatically derived from the authenticated user's context.
+
+**Returns**
+
+- [`GetUserAuthHistoryResponseDTO`](../dto/get-user-auth-history-response-dto) - Paginated audit events
+
+**Behavior**
+
+- Automatically uses the authenticated user's context (no `sub` needed in DTO)
+- Supports filtering by event types, status, and date ranges
+- Supports pagination with configurable page size (max 500)
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+const result = await authService.getUserAuthHistory({
+  page: 1,
+  limit: 50,
+  eventTypes: [AuthAuditEventType.LOGIN_SUCCESS],
+  startDate: new Date('2025-01-01'),
+});
+// result.data - IAuthAudit[]
+// result.total - number
+// result.page - number
+// result.limit - number
+// result.totalPages - number
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.get('/auth/audit/history', nauth.helpers.requireAuth(), async (req, res) => {
+  const result = await nauth.authService.getUserAuthHistory({
+    page: parseInt(req.query.page) || 1,
+    limit: parseInt(req.query.limit) || 50,
+  });
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.get(
+  '/auth/audit/history',
+  { preHandler: nauth.helpers.requireAuth() },
+  nauth.adapter.wrapRouteHandler(async () => {
+    return nauth.authService.getUserAuthHistory({
+      page: 1,
+      limit: 50,
+    });
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+---
+
 ### getUserForAuthContext()
 
 Get user for authentication context with sensitive fields removed. This method ensures consistent user object shape across platforms (core + NestJS) with sensitive fields removed and `hasPasswordHash` flag added.
@@ -461,89 +536,6 @@ fastify.get(
 
 ---
 
-### getUserAuthHistory()
-
-Get paginated authentication audit history for the current authenticated user. Returns login attempts, password changes, MFA events, device trust events, and risk factors.
-
-```typescript
-async getUserAuthHistory(dto?: GetUserAuthHistoryDTO): Promise<GetUserAuthHistoryResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`GetUserAuthHistoryDTO`](../dto/get-user-auth-history-dto) (optional) - Filtering and pagination options. **No `sub` field required** - user is automatically derived from the authenticated user's context.
-
-**Returns**
-
-- [`GetUserAuthHistoryResponseDTO`](../dto/get-user-auth-history-response-dto) - Paginated audit events
-
-**Behavior**
-
-- Automatically uses the authenticated user's context (no `sub` needed in DTO)
-- Supports filtering by event types, status, and date ranges
-- Supports pagination with configurable page size (max 500)
-
-**Errors**
-
-Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed below.
-
-| Code            | When                    | Details     |
-| --------------- | ----------------------- | ----------- |
-| `INTERNAL_ERROR` | Audit service not available | `undefined` |
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-const result = await authService.getUserAuthHistory({
-  page: 1,
-  limit: 50,
-  eventTypes: [AuthAuditEventType.LOGIN_SUCCESS],
-  startDate: new Date('2025-01-01'),
-});
-// result.data - IAuthAudit[]
-// result.total - number
-// result.page - number
-// result.limit - number
-// result.totalPages - number
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-app.get('/auth/audit/history', nauth.helpers.requireAuth(), async (req, res) => {
-  const result = await nauth.authService.getUserAuthHistory({
-    page: parseInt(req.query.page) || 1,
-    limit: parseInt(req.query.limit) || 50,
-  });
-  res.json(result);
-});
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-fastify.get(
-  '/auth/audit/history',
-  { preHandler: nauth.helpers.requireAuth() },
-  nauth.adapter.wrapRouteHandler(async () => {
-    return nauth.authService.getUserAuthHistory({
-      page: 1,
-      limit: 50,
-    });
-  }),
-);
-```
-
-</TabItem>
-</Tabs>
-
----
-
 ### isTrustedDevice()
 
 Check whether the **current device** is trusted (eligible for trusted-device MFA bypass). Requires an authenticated session (sessionId must be present in request context).
@@ -645,7 +637,6 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed b
 | `ACCOUNT_INACTIVE`         | User account `isActive = false`                                                                | `undefined`                                    |
 | `RATE_LIMIT_LOGIN`         | Only if `lockout.enabled = true` AND IP has exceeded max failed attempts                       | `undefined`                                    |
 | `SIGNIN_BLOCKED_HIGH_RISK` | Only if `mfa.adaptive.enabled = true` AND risk score exceeds threshold                         | `{ expiresAt?: Date }`                         |
-| `INTERNAL_ERROR`           | State machine error (rare)                                                                     | `undefined`                                    |
 
 **INVALID_CREDENTIALS details**
 
@@ -1090,7 +1081,6 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed b
 | `CHALLENGE_EXPIRED` | Challenge session expired                                                                                                   | `undefined`                                    |
 | `VALIDATION_FAILED` | Challenge session has no user, phone not provided (VERIFY_PHONE), method not specified (MFA), or unsupported challenge type | `undefined`                                    |
 | `RATE_LIMIT_RESEND` | Only if resend delay not met (default: 60 seconds since last code sent)                                                     | `{ retryAfter: number, resendDelay?: number }` |
-| `INTERNAL_ERROR`    | Framework adapter setup issue: phone verification service or MFA service not configured                                     | `undefined`                                    |
 
 **RATE_LIMIT_RESEND details**
 
@@ -1182,7 +1172,6 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed b
 | `NOT_FOUND`                      | User not found after verification/setup or during MFA verification                             | `undefined`                                                         |
 | `WEAK_PASSWORD`                  | Password policy violation (FORCE_CHANGE_PASSWORD challenge only)                               | `{ errors: string[] }`                                              |
 | `PASSWORD_REUSED`                | Password reused (FORCE_CHANGE_PASSWORD challenge only, conditional on `password.historyCount`) | `undefined`                                                         |
-| `INTERNAL_ERROR`                 | Framework adapter setup issue: MFA service not configured                                      | `undefined`                                                         |
 
 **VERIFICATION_CODE_INVALID details**
 
@@ -1319,7 +1308,6 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed b
 | Code                | When                                                                                              | Details     |
 | ------------------- | ------------------------------------------------------------------------------------------------- | ----------- |
 | `FORBIDDEN`         | Only if `mfa.rememberDevices` is not `'user_opt_in'` (feature only available in user opt-in mode) | `undefined` |
-| `INTERNAL_ERROR`    | Framework adapter setup issue: trusted device service not configured                              | `undefined` |
 | `SESSION_NOT_FOUND` | Session ID not found in request context, or session not found/revoked                             | `undefined` |
 | `NOT_FOUND`         | User not found                                                                                    | `undefined` |
 

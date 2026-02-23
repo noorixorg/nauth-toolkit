@@ -62,9 +62,11 @@ Configured via `config.tokenDelivery.cookieOptions`:
 | Option | Type | Description |
 |--------|------|-------------|
 | `secure` | `boolean` | HTTPS only |
-| `httpOnly` | `boolean` | No JS access |
-| `sameSite` | `string` | CSRF protection |
+| `httpOnly` | `boolean` | Always `true` --- hardcoded for security, cannot be disabled |
+| `sameSite` | `'strict' \| 'lax' \| 'none'` | CSRF protection |
 | `domain` | `string` | Cookie domain |
+| `path` | `string` | Cookie path (defaults to `'/'`) |
+| `maxAge` | `number` | Cookie max age in milliseconds |
 
 ## Related
 

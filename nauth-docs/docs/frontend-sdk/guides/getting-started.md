@@ -103,7 +103,7 @@ import { NAuthClient, BrowserStorage } from '@nauth-toolkit/client';
 export const authClient = new NAuthClient({
   baseUrl: 'https://api.yourapp.com/auth',
   tokenDelivery: 'json', // JSON mode requires storage
-  storage: new BrowserStorage('localStorage'), // Default for web apps
+  storage: new BrowserStorage(), // Default for web apps (uses localStorage)
   onSessionExpired: () => {
     if (typeof window !== 'undefined') {
       window.location.replace('/login');
@@ -233,7 +233,7 @@ export const authClient = new NAuthClient({
 // export const authClient = new NAuthClient({
 //   baseUrl: 'https://api.yourapp.com/auth',
 //   tokenDelivery: 'json',
-//   storage: new BrowserStorage('localStorage'),
+//   storage: new BrowserStorage(),
 //   onSessionExpired: () => { /* ... */ },
 // });
 ```

@@ -13,8 +13,10 @@ sidebar_label: Overview
 
 ## Configuration
 
-- [Configuration](/docs/concepts/configuration) - Complete `NAuthConfig` reference (single source of truth)
+- [NAuthConfig](./nauth-config) - Top-level configuration interface
+- [RecaptchaConfig](./recaptcha-config) - reCAPTCHA integration settings
 - [SMSTemplateEngine](./sms-template-engine) - Template engine contract for SMS templates
+- [Configuration Guide](/docs/concepts/configuration) - Complete `NAuthConfig` reference (single source of truth)
 
 ## Providers
 
@@ -26,6 +28,15 @@ sidebar_label: Overview
 
 - [IUser](./user) - User record contract
 - [ISession](./session) - Session record contract
+
+## Response types
+
+- [AuthResponseUser](./auth-response-user) - Sanitized user object returned in auth responses
+
+## Adaptive MFA
+
+- [AdaptiveMFAUser](./adaptive-mfa-user) - User context for risk assessment
+- [AdaptiveMFARiskEventPayload](./adaptive-mfa-risk-event-payload) - Risk event hook payload
 
 ## Platform adapter contracts
 

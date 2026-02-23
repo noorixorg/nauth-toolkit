@@ -26,12 +26,20 @@ npm install @nauth-toolkit/mfa-totp
 
 ## Configuration
 
+### `mfa.totp` options
+
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `window` | `number` | `1` | Validation window (codes before/after) |
 | `stepSeconds` | `number` | `30` | Code rotation interval |
 | `digits` | `number` | `6` | Code length |
-| `algorithm` | `string` | `'sha1'` | Hash algorithm |
+| `algorithm` | `'sha1' \| 'sha256' \| 'sha512'` | `'sha1'` | Hash algorithm |
+
+### `mfa` top-level options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `issuer` | `string` | `'nauth-toolkit'` | Issuer name displayed in authenticator apps (e.g. Google Authenticator, Authy) |
 
 ## Usage
 

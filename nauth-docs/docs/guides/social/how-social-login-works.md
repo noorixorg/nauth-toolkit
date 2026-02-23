@@ -215,6 +215,14 @@ export function createSocialRoutes(nauth, socialRedirect: SocialRedirectHandler)
     } catch (err) { next(err); }
   });
 
+  // Apple uses form_post response mode — requires a POST callback handler
+  router.post('/:provider/callback', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { url } = await socialRedirect.callback(req.params.provider, req.body);
+      res.redirect(url);
+    } catch (err) { next(err); }
+  });
+
   router.post('/exchange', nauth.helpers.public(), nauth.helpers.tokenDelivery('json'),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
@@ -249,6 +257,14 @@ export async function registerSocialRoutes(fastify: FastifyInstance, nauth, soci
     }) as any
   );
 
+  // Apple uses form_post response mode — requires a POST callback handler
+  fastify.post('/auth/social/:provider/callback', { preHandler: [nauth.helpers.public()] },
+    nauth.adapter.wrapRouteHandler(async (req, res) => {
+      const { url } = await socialRedirect.callback(String((req.params as any).provider), req.body as any);
+      (res.raw as any).redirect(url, 302);
+    }) as any
+  );
+
   fastify.post('/auth/social/exchange',
     { preHandler: [nauth.helpers.public(), nauth.helpers.tokenDelivery('json')] },
     nauth.adapter.wrapRouteHandler(async (req, res) => {
@@ -272,19 +288,41 @@ For Capacitor/React Native apps that receive tokens directly from native SDKs (G
 import { Inject, BadRequestException, Optional } from '@nestjs/common';
 import { VerifyTokenDTO } from '@nauth-toolkit/nestjs';
 import { GoogleSocialAuthService } from '@nauth-toolkit/social-google/nestjs';
+import { AppleSocialAuthService } from '@nauth-toolkit/social-apple/nestjs';
+import { FacebookSocialAuthService } from '@nauth-toolkit/social-facebook/nestjs';
 
 // Inside SocialRedirectController:
 constructor(
   private readonly socialRedirect: SocialRedirectHandler,
   @Optional() @Inject(GoogleSocialAuthService)
   private readonly googleAuth?: GoogleSocialAuthService,
+  @Optional() @Inject(AppleSocialAuthService)
+  private readonly appleAuth?: AppleSocialAuthService,
+  @Optional() @Inject(FacebookSocialAuthService)
+  private readonly facebookAuth?: FacebookSocialAuthService,
 ) {}
 
 @Public()
-@Post('google/verify')
-async verifyGoogle(@Body() dto: VerifyTokenDTO): Promise<AuthResponseDTO> {
-  if (!this.googleAuth) throw new BadRequestException('Google OAuth is not configured');
-  return await this.googleAuth.verifyToken(dto);
+@Post(':provider/verify')
+async verifyNative(@Body() dto: VerifyTokenDTO): Promise<AuthResponseDTO> {
+  const provider = dto.provider;
+
+  if (provider === 'google') {
+    if (!this.googleAuth) throw new BadRequestException('Google OAuth is not configured');
+    return await this.googleAuth.verifyToken(dto);
+  }
+
+  if (provider === 'apple') {
+    if (!this.appleAuth) throw new BadRequestException('Apple OAuth is not configured');
+    return await this.appleAuth.verifyToken(dto);
+  }
+
+  if (provider === 'facebook') {
+    if (!this.facebookAuth) throw new BadRequestException('Facebook OAuth is not configured');
+    return await this.facebookAuth.verifyToken(dto);
+  }
+
+  throw new BadRequestException(`Unsupported provider: ${provider}`);
 }
 ```
 
@@ -368,7 +406,7 @@ Users can manage linked accounts from their security settings:
 
 | Endpoint | Method | Auth | Purpose |
 | --- | --- | --- | --- |
-| `/auth/social/linked-accounts` | GET | Protected | List linked social accounts |
+| `/auth/social/linked` | GET | Protected | List linked social accounts |
 | `/auth/social/link` | POST | Protected | Link a social account |
 | `/auth/social/unlink` | POST | Protected | Unlink a social account |
 | `/auth/social/can-set-password` | GET | Protected | Check if social-only user can set a password |
@@ -436,12 +474,14 @@ Apple uses POST with `form_post` response mode for callbacks. Ensure your backen
 
 | Error Code | Reason | User Action |
 | --- | --- | --- |
-| `SOCIAL_PROVIDER_NOT_CONFIGURED` | Provider not enabled in config | Check backend configuration |
-| `SOCIAL_AUTH_FAILED` | OAuth flow failed (denied, expired) | Try again |
-| `SOCIAL_EMAIL_NOT_VERIFIED` | Provider email not verified | Verify email with provider first |
-| `SOCIAL_ACCOUNT_ALREADY_LINKED` | Social account linked to another user | Unlink from other account first |
-| `SOCIAL_SIGNUP_DISABLED` | `allowSignup: false` and no matching account | Contact admin or sign up with email |
-| `EXCHANGE_TOKEN_INVALID` | Exchange token expired or already used | Restart social login flow |
+| `SOCIAL_CONFIG_MISSING` | Provider not enabled in config | Check backend configuration |
+| `SOCIAL_TOKEN_INVALID` | OAuth flow failed (denied, expired) | Try again |
+| `SOCIAL_EMAIL_REQUIRED` | Provider did not return a verified email | Verify email with provider first |
+| `SOCIAL_ACCOUNT_LINKED` | Social account linked to another user | Unlink from other account first |
+| `SOCIAL_ACCOUNT_NOT_FOUND` | Social account not linked to any user | Link the account or sign in differently |
+| `SOCIAL_ACCOUNT_EXISTS` | Provider and provider ID already registered | Use existing account or sign in with that account |
+| `SIGNUP_DISABLED` | `allowSignup: false` and no matching account | Contact admin or sign up with email |
+| `VALIDATION_FAILED` | Request payload failed validation | Check request parameters |
 
 ## What's Next
 

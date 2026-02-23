@@ -45,7 +45,7 @@ Verify email with 6-digit code.
 | Property             | Type     | Required | Description                                                                      |
 | -------------------- | -------- | -------- | -------------------------------------------------------------------------------- |
 | `email`              | `string` | Yes      | Email address. Valid email format. Max 255 characters. Trimmed and lowercased.   |
-| `code`               | `string` | Yes      | Verification code. Exactly 6 digits. Whitespace removed.                         |
+| `code`               | `string` | Yes      | Verification code. Max 6 numeric characters. Whitespace removed.                 |
 | `challengeSessionId` | `number` | No       | Links verification to a specific challenge session. Positive integer if provided. |
 
 ## VerifyEmailWithTokenDTO

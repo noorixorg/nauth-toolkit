@@ -96,7 +96,6 @@ sequenceDiagram
   tokenDelivery: {
     method: 'cookies',
     cookieOptions: {
-      httpOnly: true,
       secure: true,
       sameSite: 'strict',
       domain: 'yourdomain.com',
@@ -152,7 +151,6 @@ sequenceDiagram
   tokenDelivery: {
     method: 'hybrid',
     cookieOptions: {
-      httpOnly: true,
       secure: true,
       sameSite: 'strict',
     },
@@ -513,6 +511,33 @@ fastify.post(
 If you're using `@nauth-toolkit/client`, token refresh is handled automatically. The SDK intercepts 401 responses, calls the refresh endpoint, and retries the original request.
 :::
 
+## Token Rotation
+
+nauth-toolkit always issues a new refresh token on every use — the old token is immediately invalidated. This limits the damage if a refresh token is intercepted.
+
+**Enable reuse detection** to catch stolen tokens:
+
+```typescript title="config/auth.config.ts"
+{
+  jwt: {
+    refreshToken: {
+      secret: process.env.JWT_REFRESH_SECRET,
+      expiresIn: '7d',
+      reuseDetection: true,  // Revoke all sessions when reuse is detected
+    },
+  },
+}
+```
+
+When `reuseDetection: true` is set and a previously-used refresh token is presented, nauth-toolkit:
+
+1. Revokes **all active sessions** for that user (prevents the attacker from using other tokens)
+2. Returns `AUTH_TOKEN_REUSE_DETECTED` — the user must log in again
+
+:::tip When to Enable
+Enable `reuseDetection` for security-sensitive applications. Without it, token theft may go undetected until the token expires naturally.
+:::
+
 ## CSRF Protection
 
 When using `cookies` or `hybrid` mode, CSRF protection is **mandatory**. nauth-toolkit uses the **double-submit cookie pattern**:
@@ -652,7 +677,6 @@ Fine-tune cookie behavior for your deployment:
     method: 'cookies',
     cookieNamePrefix: 'nauth_',
     cookieOptions: {
-      httpOnly: true,
       secure: true,
       sameSite: 'strict',
       domain: 'example.com',
@@ -665,7 +689,7 @@ Fine-tune cookie behavior for your deployment:
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `cookieNamePrefix` | `string` | `nauth_` | Prefix for all cookie names |
-| `httpOnly` | `boolean` | `true` | Prevent JavaScript access |
+| `httpOnly` | — | Always `true` | Hardcoded — not configurable |
 | `secure` | `boolean` | `true` | HTTPS only |
 | `sameSite` | `string` | `strict` | `strict`, `lax`, or `none` |
 | `domain` | `string` | --- | Share across subdomains |

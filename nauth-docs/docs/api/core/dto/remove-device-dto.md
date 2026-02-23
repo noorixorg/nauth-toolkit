@@ -42,7 +42,7 @@ import { RemoveDeviceDTO, RemoveDeviceResponseDTO } from '@nauth-toolkit/core';
 
 | Property   | Type     | Required | Description                                  |
 | ---------- | -------- | -------- | -------------------------------------------- |
-| `deviceId` | `number` | Yes      | MFA device id. Must be an integer \(\(\(\ge 1\)\)\). |
+| `deviceId` | `number` | Yes      | MFA device ID. Must be a positive integer (>= 1). |
 
 ## RemoveDeviceResponseDTO (Response)
 

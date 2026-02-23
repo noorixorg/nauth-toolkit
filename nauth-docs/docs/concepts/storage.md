@@ -107,6 +107,66 @@ Transient storage handles short-lived authentication state that must be shared a
 | Token reuse markers | Detect refresh token replay attacks | Matches refresh token TTL |
 | Token families | Track token lineage for rotation | Matches refresh token TTL |
 
+### StorageAdapter Interface
+
+Any transient storage backend must implement `StorageAdapter`. The interface has 21 methods across six categories:
+
+<details>
+<summary>Full method reference</summary>
+
+**Key-value operations**
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `get` | `(key: string) => Promise<string \| null>` | Retrieve a value by key |
+| `set` | `(key: string, value: string, ttlSeconds?: number, options?: { nx?: boolean }) => Promise<string \| null \| void>` | Store a value with optional TTL and `nx` (set-if-not-exists) |
+| `del` | `(key: string) => Promise<void>` | Delete a key |
+| `exists` | `(key: string) => Promise<boolean>` | Check if a key exists |
+
+**Atomic operations**
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `incr` | `(key: string, ttlSeconds?: number) => Promise<number>` | Increment a counter (used by rate limiting) |
+| `decr` | `(key: string) => Promise<number>` | Decrement a counter |
+| `expire` | `(key: string, ttl: number) => Promise<void>` | Set TTL on an existing key |
+| `ttl` | `(key: string) => Promise<number>` | Get remaining TTL in seconds |
+
+**Hash operations**
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `hget` | `(key: string, field: string) => Promise<string \| null>` | Get a single hash field |
+| `hset` | `(key: string, field: string, value: string) => Promise<void>` | Set a single hash field |
+| `hgetall` | `(key: string) => Promise<Record<string, string>>` | Get all fields in a hash |
+| `hdel` | `(key: string, ...fields: string[]) => Promise<number>` | Delete hash fields |
+
+**List operations** (used for token families)
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `lpush` | `(key: string, value: string) => Promise<void>` | Push to the head of a list |
+| `lrange` | `(key: string, start: number, stop: number) => Promise<string[]>` | Get a range of list elements |
+| `llen` | `(key: string) => Promise<number>` | Get the length of a list |
+
+**Pattern operations**
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `keys` | `(pattern: string) => Promise<string[]>` | Find keys matching a glob pattern |
+| `scan` | `(cursor: number, pattern: string, count: number) => Promise<[number, string[]]>` | Incrementally iterate keys |
+
+**Lifecycle**
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `initialize` | `() => Promise<void>` | Called once at startup |
+| `isHealthy` | `() => Promise<boolean>` | Health check for readiness probes |
+| `cleanup` | `() => Promise<void>` | Release resources (graceful shutdown) |
+| `disconnect` | `() => Promise<void>` | Close the underlying connection |
+
+</details>
+
 ### Redis Adapter (Recommended)
 
 Best for production and multi-server deployments. Required when running multiple application instances --- rate limits and locks must be shared.

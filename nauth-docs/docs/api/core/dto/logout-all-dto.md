@@ -65,9 +65,6 @@ When `forgetDevices` is `true`:
 - Device token cookies are cleared (cookies mode)
 - Device tokens are removed from storage (JSON mode)
 
-```
-
 ## Used By
 
 - [AuthService.logoutAll()](../services/auth-service#logoutall)
-```

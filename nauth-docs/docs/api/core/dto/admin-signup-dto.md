@@ -58,7 +58,7 @@ import { AdminSignupDTO, AdminSignupResponseDTO } from '@nauth-toolkit/core';
 
 | Property           | Type              | Description                                                      |
 | ------------------ | ----------------- | ---------------------------------------------------------------- |
-| `user`             | `UserResponseDto` | Created user object (sanitized, excludes sensitive fields).      |
+| `user`             | `UserResponseDTO` | Created user object (sanitized, excludes sensitive fields).      |
 | `generatedPassword` | `string \| undefined` | Generated password (only present if `generatePassword` was true). |
 
 ## Example

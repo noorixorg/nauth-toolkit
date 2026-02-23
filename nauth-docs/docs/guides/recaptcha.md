@@ -31,12 +31,12 @@ npm install @nauth-toolkit/recaptcha
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-import { NAuthModule } from '@nauth-toolkit/nestjs';
+import { AuthModule } from '@nauth-toolkit/nestjs';
 import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
 
 @Module({
   imports: [
-    NAuthModule.forRoot({
+    AuthModule.forRoot({
       recaptcha: {
         enabled: true,
         provider: new RecaptchaEnterpriseProvider({
@@ -76,40 +76,48 @@ export class AuthController {
 <TabItem value="express" label="Express">
 
 ```typescript
-import { createNAuthInstance } from '@nauth-toolkit/core';
+import { NAuth } from '@nauth-toolkit/core';
 import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
 
-const nauth = createNAuthInstance({
-  recaptcha: {
-    enabled: true,
-    provider: new RecaptchaEnterpriseProvider({
-      projectId: process.env.RECAPTCHA_PROJECT_ID!,
-      apiKey: process.env.RECAPTCHA_API_KEY!,
-      siteKey: process.env.RECAPTCHA_SITE_KEY!,
-    }),
-    minimumScore: 0.5,
-  },
-});
+const nauth = await NAuth.create(config, dataSource);
+```
+
+The `recaptcha` configuration is passed as part of the `config` object passed to `NAuth.create()`:
+
+```typescript
+recaptcha: {
+  enabled: true,
+  provider: new RecaptchaEnterpriseProvider({
+    projectId: process.env.RECAPTCHA_PROJECT_ID!,
+    apiKey: process.env.RECAPTCHA_API_KEY!,
+    siteKey: process.env.RECAPTCHA_SITE_KEY!,
+  }),
+  minimumScore: 0.5,
+},
 ```
 
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { createNAuthInstance } from '@nauth-toolkit/core';
+import { NAuth } from '@nauth-toolkit/core';
 import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
 
-const nauth = createNAuthInstance({
-  recaptcha: {
-    enabled: true,
-    provider: new RecaptchaEnterpriseProvider({
-      projectId: process.env.RECAPTCHA_PROJECT_ID!,
-      apiKey: process.env.RECAPTCHA_API_KEY!,
-      siteKey: process.env.RECAPTCHA_SITE_KEY!,
-    }),
-    minimumScore: 0.5,
-  },
-});
+const nauth = await NAuth.create(config, dataSource);
+```
+
+The `recaptcha` configuration is passed as part of the `config` object passed to `NAuth.create()`:
+
+```typescript
+recaptcha: {
+  enabled: true,
+  provider: new RecaptchaEnterpriseProvider({
+    projectId: process.env.RECAPTCHA_PROJECT_ID!,
+    apiKey: process.env.RECAPTCHA_API_KEY!,
+    siteKey: process.env.RECAPTCHA_SITE_KEY!,
+  }),
+  minimumScore: 0.5,
+},
 ```
 
 </TabItem>

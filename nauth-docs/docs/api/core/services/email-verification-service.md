@@ -183,7 +183,7 @@ async sendMFAEmailCode(dto: SendVerificationEmailDTO): Promise<SendVerificationE
 
 - `dto` - [`SendVerificationEmailDTO`](../dto/send-verification-email-dto) - Request DTO
   - `sub` - `string` - User identifier (UUID v4)
-  - `challengeSessionId` - `string` (optional) - Challenge session ID
+  - `challengeSessionId` - `number` (optional) - Challenge session ID to link the verification token to a specific session
   - `skipAlreadyVerifiedCheck` - `boolean` (optional) - Skip already verified check
 
 **Returns**
@@ -193,10 +193,12 @@ async sendMFAEmailCode(dto: SendVerificationEmailDTO): Promise<SendVerificationE
 
 **Errors**
 
-| Code               | When              | Details                                        |
-| ------------------ | ----------------- | ---------------------------------------------- |
-| `NOT_FOUND`        | User not found    | `{ userId: string }`                           |
-| `RATE_LIMIT_EMAIL` | Too many requests | `{ retryAfter: number, currentCount: number }` |
+| Code                | When                   | Details                                        |
+| ------------------- | ---------------------- | ---------------------------------------------- |
+| `ALREADY_VERIFIED`  | Email already verified | `{}`                                           |
+| `NOT_FOUND`         | User not found         | `{ userId: string }`                           |
+| `RATE_LIMIT_EMAIL`  | Too many requests      | `{ retryAfter: number, currentCount: number }` |
+| `RATE_LIMIT_RESEND` | Resend delay not met   | `{ retryAfter: number, resendDelay: number }`  |
 
 ---
 
@@ -214,6 +216,8 @@ async sendVerificationEmail(dto: SendVerificationEmailDTO): Promise<SendVerifica
   - `sub` - `string` - User identifier (UUID v4)
   - `baseUrl` - `string` (optional) - Base URL for verification link
   - `skipAlreadyVerifiedCheck` - `boolean` (optional) - Skip already verified check (for MFA)
+  - `challengeSessionId` - `number` (optional) - Challenge session ID to link the verification token to a specific session
+  - `challengeSessionToken` - `string` (optional) - Challenge session token (UUID v4) to embed in the verification link for cross-browser verification
 
 **Returns**
 

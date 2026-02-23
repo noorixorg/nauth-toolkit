@@ -1,6 +1,7 @@
 ---
 title: "@CurrentUser()"
 description: Parameter decorator to extract authenticated user from request
+image: /img/api-social-card.png
 ---
 # @CurrentUser()
 

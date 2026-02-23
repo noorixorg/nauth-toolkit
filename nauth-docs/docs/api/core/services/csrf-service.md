@@ -185,20 +185,20 @@ getCookieOptions(): NAuthCookieOptions
 
 **Returns**
 
-- `NAuthCookieOptions` - Cookie options object with:
-  - `httpOnly?: boolean` - Defaults to `false` (token must be readable by JavaScript)
-  - `secure?: boolean` - Inherited from `tokenDelivery.cookieOptions.secure`
-  - `sameSite?: 'strict' | 'lax' | 'none'` - Inherited from `tokenDelivery.cookieOptions.sameSite`
-  - `domain?: string` - Inherited from `tokenDelivery.cookieOptions.domain`
-  - `path?: string` - Always `'/'` for CSRF cookies
-  - `maxAge?: number` - Optional expiration
-  - `expires?: Date` - Optional expiration date
+- `NAuthCookieOptions` - Cookie options object as configured in `security.csrf.cookieOptions`. Fields depend on what is set in config, for example:
+  - `httpOnly?: boolean`
+  - `secure?: boolean`
+  - `sameSite?: 'strict' | 'lax' | 'none'`
+  - `domain?: string`
+  - `path?: string`
+  - `maxAge?: number`
+  - `expires?: Date`
 
 **Behavior**
 
-- Returns merged options from `security.csrf.cookieOptions` and `tokenDelivery.cookieOptions`
-- `httpOnly` defaults to `false` (unlike auth tokens) so JavaScript can read the token
-- `path` is always `'/'` to ensure token is available across all routes
+- Returns the cookie options set in `security.csrf.cookieOptions` (defaults to an empty object `{}` if not configured)
+- Does not merge with `tokenDelivery.cookieOptions` — only `security.csrf.cookieOptions` is used
+- Any overrides such as `httpOnly: false` or `path: '/'` must be applied by the caller when setting the cookie
 
 **Errors**
 

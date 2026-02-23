@@ -1,57 +1,56 @@
 ---
-title: ConfirmForgotPasswordDTO
-description: DTOs for completing a password reset with a 6-digit verification code.
-keywords: [password, reset, confirm, dto, request, response, api, code]
+title: ConfirmAdminResetPasswordDTO
+description: DTOs for completing an admin-initiated password reset with a verification code.
+keywords: [admin, password, reset, confirm, dto, request, response, api, code]
 image: /img/api-social-card.png
 ---
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# ConfirmForgotPasswordDTO
+# ConfirmAdminResetPasswordDTO
 
 **Package:** `@nauth-toolkit/core`
 **Type:** DTO (Request/Response)
 
-Data transfer objects for completing a password reset using a 6-digit numeric verification code delivered via email or SMS.
+Data transfer objects for completing an admin-initiated password reset using a verification code delivered via email or SMS.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-import { ConfirmForgotPasswordDTO, ConfirmForgotPasswordResponseDTO } from '@nauth-toolkit/nestjs';
+import { ConfirmAdminResetPasswordDTO, ConfirmAdminResetPasswordResponseDTO } from '@nauth-toolkit/nestjs';
 ```
 
 </TabItem>
 <TabItem value="express" label="Express">
 
 ```typescript
-import { ConfirmForgotPasswordDTO, ConfirmForgotPasswordResponseDTO } from '@nauth-toolkit/core';
+import { ConfirmAdminResetPasswordDTO, ConfirmAdminResetPasswordResponseDTO } from '@nauth-toolkit/core';
 ```
 
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { ConfirmForgotPasswordDTO, ConfirmForgotPasswordResponseDTO } from '@nauth-toolkit/core';
+import { ConfirmAdminResetPasswordDTO, ConfirmAdminResetPasswordResponseDTO } from '@nauth-toolkit/core';
 ```
 
 </TabItem>
 </Tabs>
 
-## ConfirmForgotPasswordDTO (Request)
+## ConfirmAdminResetPasswordDTO (Request)
 
 | Property      | Type     | Required | Description                                                                             |
 | ------------- | -------- | -------- | --------------------------------------------------------------------------------------- |
-| `identifier`  | `string` | Yes      | User identifier (email, username, or phone). Max 255 characters. Trimmed. Lowercased if email. |
-| `code`        | `string` | Yes      | Verification code. Exactly 6 digits. Numeric characters only.                           |
+| `identifier`  | `string` | Yes      | User identifier (email, username, or phone). 1-255 characters. Trimmed. Lowercased if email. |
+| `code`        | `string` | Yes      | Verification code. 6-10 characters. Trimmed.                                            |
 | `newPassword` | `string` | Yes      | New password. 8-128 characters. Not trimmed.                                            |
 
-## ConfirmForgotPasswordResponseDTO (Response)
+## ConfirmAdminResetPasswordResponseDTO (Response)
 
-| Property              | Type      | Description                                        |
-| --------------------- | --------- | -------------------------------------------------- |
-| `success`             | `boolean` | Always `true` on success.                          |
-| `mustChangePassword`  | `boolean` | Whether the user must change their password again on next sign-in. Typically `false` for forgot-password flows. |
+| Property  | Type      | Description                       |
+| --------- | --------- | --------------------------------- |
+| `success` | `boolean` | Always `true` on successful reset. |
 
 ## Example
 
@@ -65,4 +64,4 @@ import { ConfirmForgotPasswordDTO, ConfirmForgotPasswordResponseDTO } from '@nau
 
 ## Used By
 
-- [AuthService.confirmForgotPassword()](../services/auth-service#confirmforgotpassword)
+- [AdminAuthService.confirmResetPassword()](../services/admin-auth-service#confirmresetpassword)

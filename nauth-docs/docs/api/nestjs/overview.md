@@ -36,9 +36,35 @@ npm install @nauth-toolkit/nestjs
 |--------|---------------|
 | `@CurrentUser()` | [CurrentUser](/docs/api/nestjs/decorators/current-user) |
 | `@Public()` | [Public](/docs/api/nestjs/decorators/public) |
+| `IS_PUBLIC_KEY` | Metadata key set by `@Public()` — use in custom guards |
 | `@ClientInfo()` | [ClientInfo](/docs/api/nestjs/decorators/client-info) |
 | `@TokenDelivery()` | [TokenDelivery](/docs/api/nestjs/decorators/token-delivery) |
+| `TOKEN_DELIVERY_KEY` | Metadata key set by `@TokenDelivery()` — use in custom interceptors |
+| `RouteDelivery` | Enum of delivery modes used with `@TokenDelivery()` |
 | `@RequireRecaptcha()` | [RequireRecaptcha](/docs/api/nestjs/decorators/require-recaptcha) |
+
+### Hook Decorators
+
+| Export | When It Fires |
+|--------|---------------|
+| `@PreSignupHook()` | Before a user account is created |
+| `@PostSignupHook()` | After a user account is created |
+| `@UserProfileUpdatedHook()` | After user profile attributes change |
+| `@PasswordChangedHook()` | After a password is changed |
+| `@MFADeviceRemovedHook()` | After an MFA device is removed |
+| `@AdaptiveMFARiskDetectedHook()` | When high-risk signin activity is detected |
+| `@AccountStatusChangedHook()` | After an account is enabled or disabled |
+| `@EmailChangedHook()` | After a user's email address is changed |
+| `@AccountLockedHook()` | After an account is locked |
+| `@SessionsRevokedHook()` | After user sessions are bulk revoked |
+| `@MFAFirstEnabledHook()` | After a user enables MFA for the first time |
+| `HookDecoratorOptions` | Options interface shared by all hook decorators |
+
+### Hooks Module
+
+| Export | Description |
+|--------|-------------|
+| `NAuthHooksModule` | [NAuthHooksModule](/docs/api/nestjs/decorators/nauth-hooks-module) — auto-registers lifecycle hook providers |
 
 ### Interceptors
 
@@ -64,6 +90,12 @@ npm install @nauth-toolkit/nestjs
 | Export | Documentation |
 |--------|---------------|
 | `NestJsLoggerAdapter` | [NestJsLoggerAdapter](/docs/api/nestjs/providers/nestjs-logger-adapter) |
+
+### Services
+
+| Export | Description |
+|--------|-------------|
+| `CsrfService` | CSRF token generation and validation service |
 
 ### Storage Factories
 

@@ -86,8 +86,8 @@ import { AuthGuard, MFAService } from '@nauth-toolkit/nestjs';
 @Controller('auth/mfa')
 export class MfaController {
   constructor(
-    @Inject(MFAService)
-    private readonly mfaService: MFAService,
+    @Optional() @Inject(MFAService)
+    private readonly mfaService?: MFAService,
   ) {}
 
   @Get('status')
@@ -399,7 +399,7 @@ POST /auth/login
 ```json
 {
   "challengeName": "MFA_REQUIRED",
-  "session": "eyJhbGciOiJIUzI1NiJ9...",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
   "challengeParameters": {
     "availableMethods": ["totp"],
     "preferredMethod": "totp"
@@ -419,7 +419,7 @@ POST /auth/respond-challenge
 
 ```json
 {
-  "session": "eyJhbGciOiJIUzI1NiJ9...",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
   "type": "MFA_REQUIRED",
   "method": "totp",
   "code": "123456"

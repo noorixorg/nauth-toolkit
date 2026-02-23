@@ -18,21 +18,21 @@ Data transfer objects for admin-initiated user profile updates. Extends `UserUpd
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-import { AdminUpdateUserAttributesDTO, UserResponseDto } from '@nauth-toolkit/nestjs';
+import { AdminUpdateUserAttributesDTO, UserResponseDTO } from '@nauth-toolkit/nestjs';
 ```
 
 </TabItem>
 <TabItem value="express" label="Express">
 
 ```typescript
-import { AdminUpdateUserAttributesDTO, UserResponseDto } from '@nauth-toolkit/core';
+import { AdminUpdateUserAttributesDTO, UserResponseDTO } from '@nauth-toolkit/core';
 ```
 
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { AdminUpdateUserAttributesDTO, UserResponseDto } from '@nauth-toolkit/core';
+import { AdminUpdateUserAttributesDTO, UserResponseDTO } from '@nauth-toolkit/core';
 ```
 
 </TabItem>
@@ -52,9 +52,9 @@ import { AdminUpdateUserAttributesDTO, UserResponseDto } from '@nauth-toolkit/co
 | `preferredMfaMethod`  | `string`  | No       | Preferred MFA method. One of: `totp`, `sms`, `email`, `passkey`.                                 |
 | `retainVerification`  | `boolean` | No       | Whether to retain email/phone verification status when updating email/phone. Default: false.      |
 
-## UserResponseDto (Response)
+## UserResponseDTO (Response)
 
-Returns the updated user object. See [UserResponseDto](./user-response-dto) for full structure.
+Returns the updated user object. See [UserResponseDTO](./user-response-dto) for full structure.
 
 ## Example
 

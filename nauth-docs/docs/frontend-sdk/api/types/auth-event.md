@@ -189,11 +189,11 @@ export class AppComponent implements OnInit {
 - [`AuthEventType`](#autheventtype) - Event type enumeration
 - [`AuthResponse`](./auth-response) - Authentication response data
 - [`NAuthClientError`](../nauth-client-error) - Error data
-- [`AuthEventListener`](../nauth-client#event-methods) - Event listener callback type
+- [`AuthEventListener`](../nauth-client#on) - Event listener callback type
 
 ## See Also
 
 - [Authentication Events Guide](../../guides/authentication-events) - Complete event documentation
-- [NAuthClient Events](../nauth-client#event-methods) - How to subscribe to events
+- [NAuthClient Events](../nauth-client#on) - How to subscribe to events
 - [AuthService Events](../../angular/auth-service#observables) - Angular Observable streams
 

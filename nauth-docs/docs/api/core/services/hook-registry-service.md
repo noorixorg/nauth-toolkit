@@ -54,403 +54,181 @@ Auto-injected by framework adapters. Manual instantiation not recommended.
 
 ## Methods
 
-### registerPreSignup()
+### executeAccountLocked()
 
-Register a pre-signup hook provider. Hooks execute before user creation and can block signups.
-
-```typescript
-registerPreSignup(provider: IPreSignupHookProvider): void
-```
-
-**Parameters**
-
-- `provider` - [`IPreSignupHookProvider`](../hooks/pre-signup-hook-provider)
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
+**Internal method.** Executes all registered account locked hooks. Called automatically by AuthServiceInternalHelpers. Errors are logged but don't block lockout.
 
 ```typescript
-import { Injectable } from '@nestjs/common';
-import { PreSignupHook, IPreSignupHookProvider, PreSignupHookData } from '@nauth-toolkit/nestjs';
-
-// Use decorators - automatic registration
-@Injectable()
-@PreSignupHook()
-export class MyHook implements IPreSignupHookProvider {
-  async execute(
-    data: PreSignupHookData,
-    signupType: 'password' | 'social',
-    provider?: string,
-    adminSignup?: boolean,
-  ): Promise<void> {
-    // Validation logic
-  }
-}
+async executeAccountLocked(metadata: AccountLockedMetadata): Promise<void>
 ```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-class MyHook implements IPreSignupHookProvider {
-  async execute(userData, signupMethod, providerId, adminSignup) {
-    // Validation logic
-  }
-}
-
-nauth.hookRegistry.registerPreSignup(new MyHook());
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-class MyHook implements IPreSignupHookProvider {
-  async execute(userData, signupMethod, providerId, adminSignup) {
-    // Validation logic
-  }
-}
-
-nauth.hookRegistry.registerPreSignup(new MyHook());
-```
-
-</TabItem>
-</Tabs>
 
 ---
 
-### registerPostSignup()
+### executeAccountStatusChanged()
 
-Register a post-signup hook provider. Hooks execute after successful user creation. Non-blocking - errors are logged.
-
-```typescript
-registerPostSignup(provider: IPostSignupHookProvider): void
-```
-
-**Parameters**
-
-- `provider` - [`IPostSignupHookProvider`](../hooks/post-signup-hook-provider)
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
+**Internal method.** Executes all registered account status changed hooks. Called automatically by UserService. Errors are logged but don't block the operation.
 
 ```typescript
-// Use decorators - automatic registration
-@Injectable()
-@PostSignupHook()
-export class WelcomeEmailHook implements IPostSignupHookProvider {
-  constructor(private emailService: EmailService) {}
-
-  async execute(user, metadata) {
-    // For social signups, include profile picture
-    if (metadata?.signupType === 'social' && metadata.profilePicture) {
-      await this.emailService.sendWelcome({
-        email: user.email,
-        profilePicture: metadata.profilePicture,
-      });
-    } else {
-      await this.emailService.sendWelcome(user.email);
-    }
-  }
-}
+async executeAccountStatusChanged(metadata: AccountStatusChangedMetadata): Promise<void>
 ```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-class WelcomeEmailHook implements IPostSignupHookProvider {
-  constructor(private emailService: EmailService) {}
-
-  async execute(user, metadata) {
-    await this.emailService.sendWelcome(user.email);
-  }
-}
-
-nauth.hookRegistry.registerPostSignup(new WelcomeEmailHook(emailService));
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-class WelcomeEmailHook implements IPostSignupHookProvider {
-  constructor(private emailService: EmailService) {}
-
-  async execute(user, metadata) {
-    await this.emailService.sendWelcome(user.email);
-  }
-}
-
-nauth.hookRegistry.registerPostSignup(new WelcomeEmailHook(emailService));
-```
-
-</TabItem>
-</Tabs>
 
 ---
 
-### registerOnboardingCompleted()
+### executeAdaptiveMFARiskDetected()
 
-Register an onboarding completed hook. Hooks execute when a user completes onboarding (email/phone verification). Non-blocking - errors are logged.
-
-```typescript
-registerOnboardingCompleted(provider: IOnboardingCompletedHook): void
-```
-
-**Parameters**
-
-- `provider` - `IOnboardingCompletedHook`
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
+**Internal method.** Executes all registered adaptive MFA risk detected hooks. Called automatically by AdaptiveMFADecisionService. Errors are logged but don't block authentication.
 
 ```typescript
-@Injectable()
-@OnboardingCompletedHook()
-export class OnboardingHook implements IOnboardingCompletedHook {
-  async execute(user, metadata) {
-    await this.analyticsService.track('onboarding_completed', {
-      userId: user.sub,
-      method: metadata.verificationMethod,
-    });
-  }
-}
+async executeAdaptiveMFARiskDetected(metadata: AdaptiveMFARiskDetectedMetadata): Promise<void>
 ```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-class OnboardingHook implements IOnboardingCompletedHook {
-  async execute(user, metadata) {
-    await analyticsService.track('onboarding_completed', { userId: user.sub });
-  }
-}
-
-nauth.hookRegistry.registerOnboardingCompleted(new OnboardingHook());
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-class OnboardingHook implements IOnboardingCompletedHook {
-  async execute(user, metadata) {
-    await analyticsService.track('onboarding_completed', { userId: user.sub });
-  }
-}
-
-nauth.hookRegistry.registerOnboardingCompleted(new OnboardingHook());
-```
-
-</TabItem>
-</Tabs>
 
 ---
 
-### registerUserProfileUpdated()
+### executeEmailChanged()
 
-Register a user profile updated hook provider. Hooks execute after profile attribute changes. Non-blocking - errors are logged.
-
-```typescript
-registerUserProfileUpdated(provider: IUserProfileUpdatedHook): void
-```
-
-**Parameters**
-
-- `provider` - [`IUserProfileUpdatedHook`](../hooks/user-profile-updated-hook)
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
+**Internal method.** Executes all registered email changed hooks. Called automatically by UserService. Errors are logged but don't block the operation.
 
 ```typescript
-@Injectable()
-@UserProfileUpdatedHook()
-export class CrmSyncHook implements IUserProfileUpdatedHook {
-  async execute(metadata: UserProfileUpdatedMetadata) {
-    const emailChange = metadata.changedFields.find((f) => f.fieldName === 'email');
-    if (emailChange) {
-      await this.crmService.updateContact(metadata.user.sub, {
-        email: emailChange.newValue,
-      });
-    }
-  }
-}
+async executeEmailChanged(metadata: EmailChangedMetadata): Promise<void>
 ```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-class CrmSyncHook implements IUserProfileUpdatedHook {
-  async execute(metadata) {
-    const emailChange = metadata.changedFields.find((f) => f.fieldName === 'email');
-    if (emailChange) {
-      await crmService.updateContact(metadata.user.sub, emailChange.newValue);
-    }
-  }
-}
-
-nauth.hookRegistry.registerUserProfileUpdated(new CrmSyncHook());
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-class CrmSyncHook implements IUserProfileUpdatedHook {
-  async execute(metadata) {
-    const emailChange = metadata.changedFields.find((f) => f.fieldName === 'email');
-    if (emailChange) {
-      await crmService.updateContact(metadata.user.sub, emailChange.newValue);
-    }
-  }
-}
-
-nauth.hookRegistry.registerUserProfileUpdated(new CrmSyncHook());
-```
-
-</TabItem>
-</Tabs>
 
 ---
 
-### registerPasswordChanged()
+### executeMFADeviceRemoved()
 
-Register a password changed hook. Hooks execute after a user's password is changed. Non-blocking - errors are logged.
-
-```typescript
-registerPasswordChanged(provider: IPasswordChangedHook): void
-```
-
-**Parameters**
-
-- `provider` - `IPasswordChangedHook`
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
+**Internal method.** Executes all registered MFA device removed hooks. Called automatically by UserService and MFAService. Errors are logged but don't block the operation.
 
 ```typescript
-@Injectable()
-@PasswordChangedHook()
-export class PasswordAuditHook implements IPasswordChangedHook {
-  async execute(metadata) {
-    await this.auditService.log('password_changed', { userId: metadata.user.sub });
-  }
-}
+async executeMFADeviceRemoved(metadata: MFADeviceRemovedMetadata): Promise<void>
 ```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-class PasswordAuditHook implements IPasswordChangedHook {
-  async execute(metadata) {
-    await auditService.log('password_changed', { userId: metadata.user.sub });
-  }
-}
-
-nauth.hookRegistry.registerPasswordChanged(new PasswordAuditHook());
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-class PasswordAuditHook implements IPasswordChangedHook {
-  async execute(metadata) {
-    await auditService.log('password_changed', { userId: metadata.user.sub });
-  }
-}
-
-nauth.hookRegistry.registerPasswordChanged(new PasswordAuditHook());
-```
-
-</TabItem>
-</Tabs>
 
 ---
 
-### registerMFADeviceRemoved()
+### executeMFAFirstEnabled()
 
-Register an MFA device removed hook. Hooks execute after an MFA device is removed from a user account. Non-blocking - errors are logged.
-
-```typescript
-registerMFADeviceRemoved(provider: IMFADeviceRemovedHook): void
-```
-
-**Parameters**
-
-- `provider` - `IMFADeviceRemovedHook`
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
+**Internal method.** Executes all registered MFA first enabled hooks. Called automatically by BaseMFAProviderService. Errors are logged but don't block MFA enrollment.
 
 ```typescript
-@Injectable()
-@MFADeviceRemovedHook()
-export class SecurityAlertHook implements IMFADeviceRemovedHook {
-  async execute(metadata) {
-    await this.notifyService.sendSecurityAlert(metadata.user.email, 'mfa_device_removed');
-  }
-}
+async executeMFAFirstEnabled(metadata: MFAFirstEnabledMetadata): Promise<void>
 ```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-class SecurityAlertHook implements IMFADeviceRemovedHook {
-  async execute(metadata) {
-    await notifyService.sendSecurityAlert(metadata.user.email, 'mfa_device_removed');
-  }
-}
-
-nauth.hookRegistry.registerMFADeviceRemoved(new SecurityAlertHook());
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-class SecurityAlertHook implements IMFADeviceRemovedHook {
-  async execute(metadata) {
-    await notifyService.sendSecurityAlert(metadata.user.email, 'mfa_device_removed');
-  }
-}
-
-nauth.hookRegistry.registerMFADeviceRemoved(new SecurityAlertHook());
-```
-
-</TabItem>
-</Tabs>
 
 ---
 
-### registerAdaptiveMFARiskDetected()
+### executeMFAMethodAdded()
 
-Register an adaptive MFA risk detected hook. Hooks execute when a risk factor is detected during authentication. Non-blocking - errors are logged.
+**Internal method.** Executes all registered MFA method added hooks. Called automatically by BaseMFAProviderService. Errors are logged but don't block MFA enrollment.
 
 ```typescript
-registerAdaptiveMFARiskDetected(provider: IAdaptiveMFARiskDetectedHook): void
+async executeMFAMethodAdded(metadata: MFAMethodAddedMetadata): Promise<void>
+```
+
+---
+
+### executeOnboardingCompleted()
+
+**Internal method.** Executes all registered onboarding completed hooks. Called automatically by AuthService, EmailVerificationService, and PhoneVerificationService. Errors are logged but don't block the flow.
+
+```typescript
+async executeOnboardingCompleted(user: IUser, metadata: OnboardingCompletedMetadata): Promise<void>
 ```
 
 **Parameters**
 
-- `provider` - `IAdaptiveMFARiskDetectedHook`
+- `user` - User entity
+- `metadata` - Completion metadata (verification method, source, timestamp)
+
+---
+
+### executePasswordChanged()
+
+**Internal method.** Executes all registered password changed hooks. Called automatically by AuthServiceInternalHelpers. Errors are logged but don't block the operation.
+
+```typescript
+async executePasswordChanged(metadata: PasswordChangedMetadata): Promise<void>
+```
+
+---
+
+### executePostSignup()
+
+**Internal method.** Executes all registered post-signup hooks in order. Called automatically by AuthService. Errors are logged but don't block signup.
+
+```typescript
+async executePostSignup(user: IUser, metadata?: SignupMetadata): Promise<void>
+```
+
+**Parameters**
+
+- `user` - Created user entity
+- `metadata` - Optional signup metadata
+
+---
+
+### executePreSignup()
+
+**Internal method.** Executes all registered pre-signup hooks in order. Called automatically by AuthService.
+
+```typescript
+async executePreSignup(
+  data: PreSignupHookData,
+  signupType: 'password' | 'social',
+  provider?: string,
+  adminSignup?: boolean,
+): Promise<void>
+```
+
+**Parameters**
+
+- `data` - `SignupDTO`, `AdminSignupDTO`, or `OAuthUserProfile` depending on signup type
+- `signupType` - Type of signup ('password' or 'social')
+- `provider` - Social provider name (e.g., 'google', 'apple', 'facebook') - only for social signups
+- `adminSignup` - Whether this is an admin-initiated signup
+
+**Errors**
+
+| Code               | When                  | Details               |
+| ------------------ | --------------------- | --------------------- |
+| `PRESIGNUP_FAILED` | Hook throws exception | `{ message: string }` |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with code `PRESIGNUP_FAILED` if any hook throws an error.
+
+---
+
+### executeSessionsRevoked()
+
+**Internal method.** Executes all registered sessions revoked hooks. Called automatically by SessionService. Errors are logged but don't block the operation.
+
+```typescript
+async executeSessionsRevoked(metadata: SessionsRevokedMetadata): Promise<void>
+```
+
+---
+
+### executeUserProfileUpdated()
+
+**Internal method.** Executes all registered user profile updated hooks in order. Called automatically by AuthService, EmailVerificationService, and PhoneVerificationService. Errors are logged but don't block updates.
+
+```typescript
+async executeUserProfileUpdated(metadata: UserProfileUpdatedMetadata): Promise<void>
+```
+
+**Parameters**
+
+- `metadata` - [`UserProfileUpdatedMetadata`](../hooks/user-profile-updated-hook#userprofileupdatedmetadata) containing updated user and change details
+
+---
+
+### registerAccountLocked()
+
+Register an account locked hook. Hooks execute when an account is locked due to failed login attempts. Non-blocking - errors are logged.
+
+```typescript
+registerAccountLocked(provider: IAccountLockedHook): void
+```
+
+**Parameters**
+
+- `provider` - `IAccountLockedHook`
 
 **Example**
 
@@ -459,10 +237,10 @@ registerAdaptiveMFARiskDetected(provider: IAdaptiveMFARiskDetectedHook): void
 
 ```typescript
 @Injectable()
-@AdaptiveMFARiskDetectedHook()
-export class RiskLoggingHook implements IAdaptiveMFARiskDetectedHook {
+@AccountLockedHook()
+export class LockoutNotificationHook implements IAccountLockedHook {
   async execute(metadata) {
-    await this.securityService.logRiskEvent(metadata.user.sub, metadata.riskFactors);
+    await this.alertService.notifyAdmin('account_locked', { userId: metadata.user.sub });
   }
 }
 ```
@@ -471,26 +249,26 @@ export class RiskLoggingHook implements IAdaptiveMFARiskDetectedHook {
 <TabItem value="express" label="Express">
 
 ```typescript
-class RiskLoggingHook implements IAdaptiveMFARiskDetectedHook {
+class LockoutNotificationHook implements IAccountLockedHook {
   async execute(metadata) {
-    await securityService.logRiskEvent(metadata.user.sub, metadata.riskFactors);
+    await alertService.notifyAdmin('account_locked', { userId: metadata.user.sub });
   }
 }
 
-nauth.hookRegistry.registerAdaptiveMFARiskDetected(new RiskLoggingHook());
+nauth.hookRegistry.registerAccountLocked(new LockoutNotificationHook());
 ```
 
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-class RiskLoggingHook implements IAdaptiveMFARiskDetectedHook {
+class LockoutNotificationHook implements IAccountLockedHook {
   async execute(metadata) {
-    await securityService.logRiskEvent(metadata.user.sub, metadata.riskFactors);
+    await alertService.notifyAdmin('account_locked', { userId: metadata.user.sub });
   }
 }
 
-nauth.hookRegistry.registerAdaptiveMFARiskDetected(new RiskLoggingHook());
+nauth.hookRegistry.registerAccountLocked(new LockoutNotificationHook());
 ```
 
 </TabItem>
@@ -559,6 +337,64 @@ nauth.hookRegistry.registerAccountStatusChanged(new AccountStatusHook());
 
 ---
 
+### registerAdaptiveMFARiskDetected()
+
+Register an adaptive MFA risk detected hook. Hooks execute when a risk factor is detected during authentication. Non-blocking - errors are logged.
+
+```typescript
+registerAdaptiveMFARiskDetected(provider: IAdaptiveMFARiskDetectedHook): void
+```
+
+**Parameters**
+
+- `provider` - `IAdaptiveMFARiskDetectedHook`
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Injectable()
+@AdaptiveMFARiskDetectedHook()
+export class RiskLoggingHook implements IAdaptiveMFARiskDetectedHook {
+  async execute(metadata) {
+    await this.securityService.logRiskEvent(metadata.user.sub, metadata.riskFactors);
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+class RiskLoggingHook implements IAdaptiveMFARiskDetectedHook {
+  async execute(metadata) {
+    await securityService.logRiskEvent(metadata.user.sub, metadata.riskFactors);
+  }
+}
+
+nauth.hookRegistry.registerAdaptiveMFARiskDetected(new RiskLoggingHook());
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+class RiskLoggingHook implements IAdaptiveMFARiskDetectedHook {
+  async execute(metadata) {
+    await securityService.logRiskEvent(metadata.user.sub, metadata.riskFactors);
+  }
+}
+
+nauth.hookRegistry.registerAdaptiveMFARiskDetected(new RiskLoggingHook());
+```
+
+</TabItem>
+</Tabs>
+
+---
+
 ### registerEmailChanged()
 
 Register an email changed hook. Hooks execute after a user's email address is changed. Non-blocking - errors are logged.
@@ -617,17 +453,17 @@ nauth.hookRegistry.registerEmailChanged(new EmailSyncHook());
 
 ---
 
-### registerAccountLocked()
+### registerMFADeviceRemoved()
 
-Register an account locked hook. Hooks execute when an account is locked due to failed login attempts. Non-blocking - errors are logged.
+Register an MFA device removed hook. Hooks execute after an MFA device is removed from a user account. Non-blocking - errors are logged.
 
 ```typescript
-registerAccountLocked(provider: IAccountLockedHook): void
+registerMFADeviceRemoved(provider: IMFADeviceRemovedHook): void
 ```
 
 **Parameters**
 
-- `provider` - `IAccountLockedHook`
+- `provider` - `IMFADeviceRemovedHook`
 
 **Example**
 
@@ -636,10 +472,10 @@ registerAccountLocked(provider: IAccountLockedHook): void
 
 ```typescript
 @Injectable()
-@AccountLockedHook()
-export class LockoutNotificationHook implements IAccountLockedHook {
+@MFADeviceRemovedHook()
+export class SecurityAlertHook implements IMFADeviceRemovedHook {
   async execute(metadata) {
-    await this.alertService.notifyAdmin('account_locked', { userId: metadata.user.sub });
+    await this.notifyService.sendSecurityAlert(metadata.user.email, 'mfa_device_removed');
   }
 }
 ```
@@ -648,87 +484,26 @@ export class LockoutNotificationHook implements IAccountLockedHook {
 <TabItem value="express" label="Express">
 
 ```typescript
-class LockoutNotificationHook implements IAccountLockedHook {
+class SecurityAlertHook implements IMFADeviceRemovedHook {
   async execute(metadata) {
-    await alertService.notifyAdmin('account_locked', { userId: metadata.user.sub });
+    await notifyService.sendSecurityAlert(metadata.user.email, 'mfa_device_removed');
   }
 }
 
-nauth.hookRegistry.registerAccountLocked(new LockoutNotificationHook());
+nauth.hookRegistry.registerMFADeviceRemoved(new SecurityAlertHook());
 ```
 
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-class LockoutNotificationHook implements IAccountLockedHook {
+class SecurityAlertHook implements IMFADeviceRemovedHook {
   async execute(metadata) {
-    await alertService.notifyAdmin('account_locked', { userId: metadata.user.sub });
+    await notifyService.sendSecurityAlert(metadata.user.email, 'mfa_device_removed');
   }
 }
 
-nauth.hookRegistry.registerAccountLocked(new LockoutNotificationHook());
-```
-
-</TabItem>
-</Tabs>
-
----
-
-### registerSessionsRevoked()
-
-Register a sessions revoked hook. Hooks execute when user sessions are revoked (logout, global sign-out, admin action). Non-blocking - errors are logged.
-
-```typescript
-registerSessionsRevoked(provider: ISessionsRevokedHook): void
-```
-
-**Parameters**
-
-- `provider` - `ISessionsRevokedHook`
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-@Injectable()
-@SessionsRevokedHook()
-export class SessionAuditHook implements ISessionsRevokedHook {
-  async execute(metadata) {
-    await this.auditService.log('sessions_revoked', {
-      userId: metadata.user.sub,
-      sessionCount: metadata.sessionCount,
-    });
-  }
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-class SessionAuditHook implements ISessionsRevokedHook {
-  async execute(metadata) {
-    await auditService.log('sessions_revoked', { userId: metadata.user.sub });
-  }
-}
-
-nauth.hookRegistry.registerSessionsRevoked(new SessionAuditHook());
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-class SessionAuditHook implements ISessionsRevokedHook {
-  async execute(metadata) {
-    await auditService.log('sessions_revoked', { userId: metadata.user.sub });
-  }
-}
-
-nauth.hookRegistry.registerSessionsRevoked(new SessionAuditHook());
+nauth.hookRegistry.registerMFADeviceRemoved(new SecurityAlertHook());
 ```
 
 </TabItem>
@@ -855,167 +630,392 @@ nauth.hookRegistry.registerMFAMethodAdded(new MFAMethodHook());
 
 ---
 
-### executePreSignup()
+### registerOnboardingCompleted()
 
-**Internal method.** Executes all registered pre-signup hooks in order. Called automatically by AuthService.
+Register an onboarding completed hook. Hooks execute when a user completes onboarding (email/phone verification). Non-blocking - errors are logged.
 
 ```typescript
-async executePreSignup(
-  data: PreSignupHookData,
-  signupType: 'password' | 'social',
-  provider?: string,
-  adminSignup?: boolean,
-): Promise<void>
+registerOnboardingCompleted(provider: IOnboardingCompletedHook): void
 ```
 
 **Parameters**
 
-- `data` - `SignupDTO`, `AdminSignupDTO`, or `OAuthUserProfile` depending on signup type
-- `signupType` - Type of signup ('password' or 'social')
-- `provider` - Social provider name (e.g., 'google', 'apple', 'facebook') - only for social signups
-- `adminSignup` - Whether this is an admin-initiated signup
+- `provider` - `IOnboardingCompletedHook`
 
-**Errors**
+**Example**
 
-| Code               | When                  | Details               |
-| ------------------ | --------------------- | --------------------- |
-| `PRESIGNUP_FAILED` | Hook throws exception | `{ message: string }` |
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
 
-Throws [`NAuthException`](../exceptions/nauth-exception) with code `PRESIGNUP_FAILED` if any hook throws an error.
+```typescript
+@Injectable()
+@OnboardingCompletedHook()
+export class OnboardingHook implements IOnboardingCompletedHook {
+  async execute(user, metadata) {
+    await this.analyticsService.track('onboarding_completed', {
+      userId: user.sub,
+      method: metadata.verificationMethod,
+    });
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+class OnboardingHook implements IOnboardingCompletedHook {
+  async execute(user, metadata) {
+    await analyticsService.track('onboarding_completed', { userId: user.sub });
+  }
+}
+
+nauth.hookRegistry.registerOnboardingCompleted(new OnboardingHook());
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+class OnboardingHook implements IOnboardingCompletedHook {
+  async execute(user, metadata) {
+    await analyticsService.track('onboarding_completed', { userId: user.sub });
+  }
+}
+
+nauth.hookRegistry.registerOnboardingCompleted(new OnboardingHook());
+```
+
+</TabItem>
+</Tabs>
 
 ---
 
-### executePostSignup()
+### registerPasswordChanged()
 
-**Internal method.** Executes all registered post-signup hooks in order. Called automatically by AuthService. Errors are logged but don't block signup.
+Register a password changed hook. Hooks execute after a user's password is changed. Non-blocking - errors are logged.
 
 ```typescript
-async executePostSignup(user: IUser, metadata?: SignupMetadata): Promise<void>
+registerPasswordChanged(provider: IPasswordChangedHook): void
 ```
 
 **Parameters**
 
-- `user` - Created user entity
-- `metadata` - Optional signup metadata
+- `provider` - `IPasswordChangedHook`
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Injectable()
+@PasswordChangedHook()
+export class PasswordAuditHook implements IPasswordChangedHook {
+  async execute(metadata) {
+    await this.auditService.log('password_changed', { userId: metadata.user.sub });
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+class PasswordAuditHook implements IPasswordChangedHook {
+  async execute(metadata) {
+    await auditService.log('password_changed', { userId: metadata.user.sub });
+  }
+}
+
+nauth.hookRegistry.registerPasswordChanged(new PasswordAuditHook());
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+class PasswordAuditHook implements IPasswordChangedHook {
+  async execute(metadata) {
+    await auditService.log('password_changed', { userId: metadata.user.sub });
+  }
+}
+
+nauth.hookRegistry.registerPasswordChanged(new PasswordAuditHook());
+```
+
+</TabItem>
+</Tabs>
 
 ---
 
-### executeOnboardingCompleted()
+### registerPostSignup()
 
-**Internal method.** Executes all registered onboarding completed hooks. Called automatically by AuthService, EmailVerificationService, and PhoneVerificationService. Errors are logged but don't block the flow.
+Register a post-signup hook provider. Hooks execute after successful user creation. Non-blocking - errors are logged.
 
 ```typescript
-async executeOnboardingCompleted(user: IUser, metadata: OnboardingCompletedMetadata): Promise<void>
+registerPostSignup(provider: IPostSignupHookProvider): void
 ```
 
 **Parameters**
 
-- `user` - User entity
-- `metadata` - Completion metadata (verification method, source, timestamp)
+- `provider` - [`IPostSignupHookProvider`](../hooks/post-signup-hook-provider)
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+// Use decorators - automatic registration
+@Injectable()
+@PostSignupHook()
+export class WelcomeEmailHook implements IPostSignupHookProvider {
+  constructor(private emailService: EmailService) {}
+
+  async execute(user, metadata) {
+    // For social signups, include profile picture
+    if (metadata?.signupType === 'social' && metadata.profilePicture) {
+      await this.emailService.sendWelcome({
+        email: user.email,
+        profilePicture: metadata.profilePicture,
+      });
+    } else {
+      await this.emailService.sendWelcome(user.email);
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+class WelcomeEmailHook implements IPostSignupHookProvider {
+  constructor(private emailService: EmailService) {}
+
+  async execute(user, metadata) {
+    await this.emailService.sendWelcome(user.email);
+  }
+}
+
+nauth.hookRegistry.registerPostSignup(new WelcomeEmailHook(emailService));
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+class WelcomeEmailHook implements IPostSignupHookProvider {
+  constructor(private emailService: EmailService) {}
+
+  async execute(user, metadata) {
+    await this.emailService.sendWelcome(user.email);
+  }
+}
+
+nauth.hookRegistry.registerPostSignup(new WelcomeEmailHook(emailService));
+```
+
+</TabItem>
+</Tabs>
 
 ---
 
-### executeUserProfileUpdated()
+### registerPreSignup()
 
-**Internal method.** Executes all registered user profile updated hooks in order. Called automatically by AuthService, EmailVerificationService, and PhoneVerificationService. Errors are logged but don't block updates.
+Register a pre-signup hook provider. Hooks execute before user creation and can block signups.
 
 ```typescript
-async executeUserProfileUpdated(metadata: UserProfileUpdatedMetadata): Promise<void>
+registerPreSignup(provider: IPreSignupHookProvider): void
 ```
 
 **Parameters**
 
-- `metadata` - [`UserProfileUpdatedMetadata`](../hooks/user-profile-updated-hook#userprofileupdatedmetadata) containing updated user and change details
+- `provider` - [`IPreSignupHookProvider`](../hooks/pre-signup-hook-provider)
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { PreSignupHook, IPreSignupHookProvider, PreSignupHookData } from '@nauth-toolkit/nestjs';
+
+// Use decorators - automatic registration
+@Injectable()
+@PreSignupHook()
+export class MyHook implements IPreSignupHookProvider {
+  async execute(
+    data: PreSignupHookData,
+    signupType: 'password' | 'social',
+    provider?: string,
+    adminSignup?: boolean,
+  ): Promise<void> {
+    // Validation logic
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+class MyHook implements IPreSignupHookProvider {
+  async execute(userData, signupMethod, providerId, adminSignup) {
+    // Validation logic
+  }
+}
+
+nauth.hookRegistry.registerPreSignup(new MyHook());
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+class MyHook implements IPreSignupHookProvider {
+  async execute(userData, signupMethod, providerId, adminSignup) {
+    // Validation logic
+  }
+}
+
+nauth.hookRegistry.registerPreSignup(new MyHook());
+```
+
+</TabItem>
+</Tabs>
 
 ---
 
-### executePasswordChanged()
+### registerSessionsRevoked()
 
-**Internal method.** Executes all registered password changed hooks. Called automatically by AuthServiceInternalHelpers. Errors are logged but don't block the operation.
+Register a sessions revoked hook. Hooks execute when user sessions are revoked (logout, global sign-out, admin action). Non-blocking - errors are logged.
 
 ```typescript
-async executePasswordChanged(metadata: PasswordChangedMetadata): Promise<void>
+registerSessionsRevoked(provider: ISessionsRevokedHook): void
 ```
+
+**Parameters**
+
+- `provider` - `ISessionsRevokedHook`
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Injectable()
+@SessionsRevokedHook()
+export class SessionAuditHook implements ISessionsRevokedHook {
+  async execute(metadata) {
+    await this.auditService.log('sessions_revoked', {
+      userId: metadata.user.sub,
+      sessionCount: metadata.sessionCount,
+    });
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+class SessionAuditHook implements ISessionsRevokedHook {
+  async execute(metadata) {
+    await auditService.log('sessions_revoked', { userId: metadata.user.sub });
+  }
+}
+
+nauth.hookRegistry.registerSessionsRevoked(new SessionAuditHook());
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+class SessionAuditHook implements ISessionsRevokedHook {
+  async execute(metadata) {
+    await auditService.log('sessions_revoked', { userId: metadata.user.sub });
+  }
+}
+
+nauth.hookRegistry.registerSessionsRevoked(new SessionAuditHook());
+```
+
+</TabItem>
+</Tabs>
 
 ---
 
-### executeMFADeviceRemoved()
+### registerUserProfileUpdated()
 
-**Internal method.** Executes all registered MFA device removed hooks. Called automatically by UserService and MFAService. Errors are logged but don't block the operation.
-
-```typescript
-async executeMFADeviceRemoved(metadata: MFADeviceRemovedMetadata): Promise<void>
-```
-
----
-
-### executeAdaptiveMFARiskDetected()
-
-**Internal method.** Executes all registered adaptive MFA risk detected hooks. Called automatically by AdaptiveMFADecisionService. Errors are logged but don't block authentication.
+Register a user profile updated hook provider. Hooks execute after profile attribute changes. Non-blocking - errors are logged.
 
 ```typescript
-async executeAdaptiveMFARiskDetected(metadata: AdaptiveMFARiskDetectedMetadata): Promise<void>
+registerUserProfileUpdated(provider: IUserProfileUpdatedHook): void
 ```
 
----
+**Parameters**
 
-### executeAccountStatusChanged()
+- `provider` - [`IUserProfileUpdatedHook`](../hooks/user-profile-updated-hook)
 
-**Internal method.** Executes all registered account status changed hooks. Called automatically by UserService. Errors are logged but don't block the operation.
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
 
 ```typescript
-async executeAccountStatusChanged(metadata: AccountStatusChangedMetadata): Promise<void>
+@Injectable()
+@UserProfileUpdatedHook()
+export class CrmSyncHook implements IUserProfileUpdatedHook {
+  async execute(metadata: UserProfileUpdatedMetadata) {
+    const emailChange = metadata.changedFields.find((f) => f.fieldName === 'email');
+    if (emailChange) {
+      await this.crmService.updateContact(metadata.user.sub, {
+        email: emailChange.newValue,
+      });
+    }
+  }
+}
 ```
 
----
-
-### executeEmailChanged()
-
-**Internal method.** Executes all registered email changed hooks. Called automatically by UserService. Errors are logged but don't block the operation.
+</TabItem>
+<TabItem value="express" label="Express">
 
 ```typescript
-async executeEmailChanged(metadata: EmailChangedMetadata): Promise<void>
+class CrmSyncHook implements IUserProfileUpdatedHook {
+  async execute(metadata) {
+    const emailChange = metadata.changedFields.find((f) => f.fieldName === 'email');
+    if (emailChange) {
+      await crmService.updateContact(metadata.user.sub, emailChange.newValue);
+    }
+  }
+}
+
+nauth.hookRegistry.registerUserProfileUpdated(new CrmSyncHook());
 ```
 
----
-
-### executeAccountLocked()
-
-**Internal method.** Executes all registered account locked hooks. Called automatically by AuthServiceInternalHelpers. Errors are logged but don't block lockout.
+</TabItem>
+<TabItem value="fastify" label="Fastify">
 
 ```typescript
-async executeAccountLocked(metadata: AccountLockedMetadata): Promise<void>
+class CrmSyncHook implements IUserProfileUpdatedHook {
+  async execute(metadata) {
+    const emailChange = metadata.changedFields.find((f) => f.fieldName === 'email');
+    if (emailChange) {
+      await crmService.updateContact(metadata.user.sub, emailChange.newValue);
+    }
+  }
+}
+
+nauth.hookRegistry.registerUserProfileUpdated(new CrmSyncHook());
 ```
 
----
-
-### executeSessionsRevoked()
-
-**Internal method.** Executes all registered sessions revoked hooks. Called automatically by SessionService. Errors are logged but don't block the operation.
-
-```typescript
-async executeSessionsRevoked(metadata: SessionsRevokedMetadata): Promise<void>
-```
-
----
-
-### executeMFAFirstEnabled()
-
-**Internal method.** Executes all registered MFA first enabled hooks. Called automatically by BaseMFAProviderService. Errors are logged but don't block MFA enrollment.
-
-```typescript
-async executeMFAFirstEnabled(metadata: MFAFirstEnabledMetadata): Promise<void>
-```
-
----
-
-### executeMFAMethodAdded()
-
-**Internal method.** Executes all registered MFA method added hooks. Called automatically by BaseMFAProviderService. Errors are logged but don't block MFA enrollment.
-
-```typescript
-async executeMFAMethodAdded(metadata: MFAMethodAddedMetadata): Promise<void>
-```
+</TabItem>
+</Tabs>
 
 ---
 

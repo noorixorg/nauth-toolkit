@@ -119,14 +119,14 @@ Forces JSON token delivery:
 
 ## Configuration Validation
 
-The decorator validates that the requested mode is allowed by global configuration:
+The decorator only sets route metadata. Validation against global configuration happens at request time inside `TokenDeliveryHttpService`, which is called by the response interceptor. If the route-level mode conflicts with global config, the interceptor throws an error:
 
 ```typescript
 // Global config: tokenDelivery.method = 'json'
-@TokenDelivery('cookies') // Throws COOKIES_NOT_ALLOWED
+@TokenDelivery('cookies') // COOKIES_NOT_ALLOWED thrown by interceptor at request time
 
 // Global config: tokenDelivery.method = 'cookies'
-@TokenDelivery('json') // Throws BEARER_NOT_ALLOWED
+@TokenDelivery('json') // BEARER_NOT_ALLOWED thrown by interceptor at request time
 
 // Global config: tokenDelivery.method = 'hybrid'
 @TokenDelivery('cookies') // Allowed
@@ -135,10 +135,12 @@ The decorator validates that the requested mode is allowed by global configurati
 
 ## Errors
 
+These errors are thrown by the token delivery interceptor (not by the decorator itself).
+
 | Code | When | Details |
 | ---- | ---- | ------- |
-| `COOKIES_NOT_ALLOWED` | Route requests cookies but global config is 'json' | `undefined` |
-| `BEARER_NOT_ALLOWED` | Route requests JSON but global config is 'cookies' | `undefined` |
+| `COOKIES_NOT_ALLOWED` | Route requests cookies but global config is `'json'` | `undefined` |
+| `BEARER_NOT_ALLOWED` | Route requests JSON but global config is `'cookies'` | `undefined` |
 
 ## Related APIs
 

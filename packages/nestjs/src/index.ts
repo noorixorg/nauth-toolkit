@@ -51,6 +51,14 @@ export {
   PreSignupHook,
   PostSignupHook,
   UserProfileUpdatedHook,
+  PasswordChangedHook,
+  MFADeviceRemovedHook,
+  AdaptiveMFARiskDetectedHook,
+  AccountStatusChangedHook,
+  EmailChangedHook,
+  AccountLockedHook,
+  SessionsRevokedHook,
+  MFAFirstEnabledHook,
   HookDecoratorOptions,
 } from './decorators/hook.decorator';
 

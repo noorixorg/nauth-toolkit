@@ -48,9 +48,9 @@ import { createRedisClusterAdapter } from '@nauth-toolkit/nestjs';
 
 AuthModule.forRoot({
   storageAdapter: createRedisClusterAdapter([
-    'redis://node1:6379',
-    'redis://node2:6379',
-    'redis://node3:6379',
+    { url: 'redis://node1:6379' },
+    { url: 'redis://node2:6379' },
+    { url: 'redis://node3:6379' },
   ]),
 })
 ```

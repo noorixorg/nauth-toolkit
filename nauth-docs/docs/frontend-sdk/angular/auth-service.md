@@ -26,7 +26,7 @@ AuthService wraps the core NAuthClient and provides:
 - Direct access to underlying client when needed
 
 :::note
-AuthService is provided in root. No manual provider configuration needed.
+`AuthService` is provided by `NAuthModule.forRoot()`. It is not `providedIn: 'root'` — the module registration is required to inject the service.
 :::
 
 ## Properties

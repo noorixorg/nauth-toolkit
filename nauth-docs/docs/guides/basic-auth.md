@@ -3,6 +3,7 @@ title: 'Basic Auth Flows'
 description: 'Implement signup, login, email verification, token refresh, logout, and password reset with nauth-toolkit'
 sidebar_position: 1
 keywords: [authentication, signup, login, logout, refresh, email verification, password reset, routes]
+image: /img/api-social-card.png
 ---
 
 import Tabs from '@theme/Tabs';
@@ -154,15 +155,15 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
 import { FastifyInstance } from 'fastify';
 import { NAuthInstance } from '@nauth-toolkit/core';
 
-export async function registerAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<any, any>): Promise<void> {
+export async function registerAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance): Promise<void> {
   const { authService } = nauth;
 
   fastify.post(
     '/signup',
     { preHandler: nauth.helpers.public() as any },
-    nauth.adapter.wrapRouteHandler(async (req) => {
-      return authService.signup(req.body);
-    }),
+    nauth.adapter.wrapRouteHandler(async (req, res) => {
+      res.status(201).json(await authService.signup(req.body as any));
+    }) as any,
   );
 }
 ```
@@ -188,10 +189,9 @@ export async function registerAuthRoutes(fastify: FastifyInstance, nauth: NAuthI
 ```json
 {
   "challengeName": "VERIFY_EMAIL",
-  "session": "eyJhbGciOiJIUzI1NiJ9...",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
   "challengeParameters": {
-    "destination": "j***@example.com",
-    "deliveryMedium": "EMAIL"
+    "codeDeliveryDestination": "j***@example.com"
   }
 }
 ```
@@ -199,7 +199,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance, nauth: NAuthI
 The `session` token is short-lived and scoped to this verification flow. Store it in your frontend state — you will need it for the next step.
 
 :::note Email masking
-`destination` shows a masked email by default (`j***@example.com`). To return the full email (development only), set `security.maskSensitiveData: false` in your config.
+`codeDeliveryDestination` shows a masked email by default (`j***@example.com`). To return the full email (development only), set `security.maskSensitiveData: false` in your config.
 :::
 
 ## Respond to Challenge
@@ -242,9 +242,9 @@ router.post('/respond-challenge', nauth.helpers.public(), async (req: Request, r
 fastify.post(
   '/respond-challenge',
   { preHandler: nauth.helpers.public() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return authService.respondToChallenge(req.body);
-  }),
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    res.json(await authService.respondToChallenge(req.body as any));
+  }) as any,
 );
 ```
 
@@ -259,7 +259,7 @@ After signup, the user receives a 6-digit code via email. Send it back with the 
 
 ```json
 {
-  "session": "eyJhbGciOiJIUzI1NiJ9...",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
   "type": "VERIFY_EMAIL",
   "code": "123456"
 }
@@ -271,7 +271,17 @@ After signup, the user receives a 6-digit code via email. Send it back with the 
 {
   "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
   "refreshToken": "eyJhbGciOiJIUzI1NiJ9...",
-  "expiresIn": 900
+  "accessTokenExpiresAt": 1740000900,
+  "refreshTokenExpiresAt": 1740604800,
+  "authMethod": "password",
+  "trusted": false,
+  "user": {
+    "sub": "a21b654c-2746-4168-acee-c175083a65cd",
+    "email": "john@example.com",
+    "firstName": "John",
+    "lastName": "Doe",
+    "isEmailVerified": true
+  }
 }
 ```
 
@@ -364,9 +374,9 @@ router.post('/challenge/resend', nauth.helpers.public(), async (req: Request, re
 fastify.post(
   '/challenge/resend',
   { preHandler: nauth.helpers.public() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return authService.resendCode(req.body);
-  }),
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    res.json(await authService.resendCode(req.body as any));
+  }) as any,
 );
 ```
 
@@ -377,7 +387,7 @@ fastify.post(
 
 ```json
 {
-  "session": "eyJhbGciOiJIUzI1NiJ9..."
+  "session": "a21b654c-2746-4168-acee-c175083a65cd"
 }
 ```
 
@@ -433,9 +443,9 @@ router.post('/login', nauth.helpers.public(), async (req: Request, res: Response
 fastify.post(
   '/login',
   { preHandler: nauth.helpers.public() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return authService.login(req.body);
-  }),
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    res.json(await authService.login(req.body as any));
+  }) as any,
 );
 ```
 
@@ -457,7 +467,7 @@ The `identifier` field accepts email, username, or phone depending on your [`log
 
 | Scenario                                   | Response                                                                |
 | ------------------------------------------ | ----------------------------------------------------------------------- |
-| Email verified, no MFA                     | `{ accessToken, refreshToken, expiresIn }`                              |
+| Email verified, no MFA                     | `{ accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt }` |
 | Email not verified                         | `{ challengeName: 'VERIFY_EMAIL', session, challengeParameters }`       |
 | MFA required                               | `{ challengeName: 'MFA_REQUIRED', session, challengeParameters }`       |
 | MFA setup required (enforcement: REQUIRED) | `{ challengeName: 'MFA_SETUP_REQUIRED', session, challengeParameters }` |
@@ -515,10 +525,10 @@ router.post('/refresh', nauth.helpers.public(), async (req: Request, res: Respon
 fastify.post(
   '/refresh',
   { preHandler: nauth.helpers.public() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
     const token = (req.body as any)?.refreshToken?.trim() || req.cookies?.['nauth_refresh_token'];
-    return authService.refreshToken({ refreshToken: token });
-  }),
+    res.json(await authService.refreshToken({ refreshToken: token }));
+  }) as any,
 );
 ```
 
@@ -541,7 +551,8 @@ For `cookies` or `hybrid` mode, the refresh token is sent automatically via the 
 {
   "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
   "refreshToken": "eyJhbGciOiJIUzI1NiJ9...",
-  "expiresIn": 900
+  "accessTokenExpiresAt": 1740000900,
+  "refreshTokenExpiresAt": 1740604800
 }
 ```
 
@@ -594,9 +605,9 @@ router.get(
 fastify.get(
   '/logout',
   { preHandler: nauth.helpers.requireAuth({ csrf: false }) as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return authService.logout(req.query);
-  }),
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    res.json(await authService.logout(req.query as any));
+  }) as any,
 );
 ```
 
@@ -613,7 +624,7 @@ fastify.get(
 
 ```json
 {
-  "message": "Logged out successfully"
+  "success": true
 }
 ```
 
@@ -674,12 +685,12 @@ router.post('/forgot-password', nauth.helpers.public(), async (req: Request, res
 fastify.post(
   '/forgot-password',
   { preHandler: nauth.helpers.public() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return authService.forgotPassword({
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    res.json(await authService.forgotPassword({
       ...(req.body as any),
       baseUrl: 'http://localhost:4200/auth/reset-password',
-    });
-  }),
+    }));
+  }) as any,
 );
 ```
 
@@ -698,7 +709,10 @@ fastify.post(
 
 ```json
 {
-  "message": "If an account exists, a password reset code has been sent."
+  "success": true,
+  "destination": "u***@example.com",
+  "deliveryMedium": "email",
+  "expiresIn": 900
 }
 ```
 
@@ -748,9 +762,9 @@ router.post(
 fastify.post(
   '/forgot-password/confirm',
   { preHandler: nauth.helpers.public() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return authService.confirmForgotPassword(req.body);
-  }),
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    res.json(await authService.confirmForgotPassword(req.body as any));
+  }) as any,
 );
 ```
 
@@ -812,9 +826,9 @@ router.post(
 fastify.post(
   '/change-password',
   { preHandler: nauth.helpers.requireAuth() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return authService.changePassword(req.body);
-  }),
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    res.json(await authService.changePassword(req.body as any));
+  }) as any,
 );
 ```
 
@@ -875,10 +889,10 @@ router.get('/profile', nauth.helpers.requireAuth(), (_req: Request, res: Respons
 fastify.get(
   '/profile',
   { preHandler: nauth.helpers.requireAuth() as any },
-  nauth.adapter.wrapRouteHandler(async () => {
+  nauth.adapter.wrapRouteHandler(async (_req, res) => {
     const user = nauth.helpers.getCurrentUser() as IUser;
-    return UserResponseDTO.fromEntity(user);
-  }),
+    res.json(UserResponseDTO.fromEntity(user));
+  }) as any,
 );
 ```
 
@@ -919,12 +933,12 @@ async function bootstrap(): Promise<void> {
 <TabItem value="express" label="Express">
 
 ```typescript title="src/index.ts"
-import { NAuthException } from '@nauth-toolkit/core';
+import { NAuthException, getHttpStatusForErrorCode } from '@nauth-toolkit/core';
 
 // After all routes — Express error handler
 app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
   if (error instanceof NAuthException) {
-    return res.status(error.statusCode).json(error.toJSON());
+    return res.status(getHttpStatusForErrorCode(error.code)).json(error.toJSON());
   }
   console.error('Unexpected error:', error);
   res.status(500).json({ error: 'Internal server error' });
@@ -935,11 +949,11 @@ app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
 <TabItem value="fastify" label="Fastify">
 
 ```typescript title="src/index.ts"
-import { NAuthException } from '@nauth-toolkit/core';
+import { NAuthException, getHttpStatusForErrorCode } from '@nauth-toolkit/core';
 
 fastify.setErrorHandler((error, _request, reply) => {
   if (error instanceof NAuthException) {
-    return reply.status(error.statusCode).send(error.toJSON());
+    return reply.status(getHttpStatusForErrorCode(error.code)).send(error.toJSON());
   }
   fastify.log.error(error);
   reply.status(500).send({ error: 'Internal server error' });
@@ -953,8 +967,7 @@ Error responses follow this structure:
 
 ```json
 {
-  "statusCode": 400,
-  "errorCode": "INVALID_CREDENTIALS",
+  "code": "AUTH_INVALID_CREDENTIALS",
   "message": "Invalid email or password",
   "timestamp": "2025-01-15T10:30:00.000Z"
 }

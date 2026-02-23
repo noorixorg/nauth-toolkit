@@ -116,13 +116,30 @@ export class ProfileController {
 
 ```typescript
 interface IClientInfo {
-  ipAddress: string;
-  userAgent: string;
-  deviceToken?: string;
+  // Required
+  ipAddress: string;          // Client IP (handles proxies/load balancers)
+  userAgent: string;          // User-Agent header from the request
+
+  // Optional — device
+  origin?: string;            // HTTP Origin header
+  deviceToken?: string;       // Trusted device token (cookie or X-Device-Token header)
+  deviceName?: string;        // Device name supplied by the client
+  deviceType?: 'mobile' | 'desktop' | 'tablet';
+
+  // Optional — geolocation
   ipCountry?: string;
   ipCity?: string;
   ipLatitude?: number;
   ipLongitude?: number;
+
+  // Optional — parsed user-agent
+  platform?: string;          // e.g. "iOS", "Android", "Windows", "macOS"
+  browser?: string;           // e.g. "Chrome", "Safari", "Firefox"
+
+  // Optional — populated after JWT validation
+  sessionId?: number;
+  userId?: number;
+  sub?: string;               // User UUID — prefer over userId for audit references
 }
 ```
 

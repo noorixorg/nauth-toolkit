@@ -43,7 +43,7 @@ import { VerifyEmailWithCodeDTO } from '@nauth-toolkit/core';
 | Property             | Type     | Required | Description                                                                                    |
 | -------------------- | -------- | -------- | ---------------------------------------------------------------------------------------------- |
 | `email`              | `string` | Yes      | User email address. Valid email format (RFC 5322). Max 255 characters. Trimmed and lowercased. |
-| `code`               | `string` | Yes      | 6-digit verification code. Numeric string only. Exactly 6 digits. Whitespace removed.          |
+| `code`               | `string` | Yes      | Verification code. Numeric string only. Max 6 characters. Whitespace removed.                  |
 | `challengeSessionId` | `number` | No       | Challenge session ID to link this verification to. Ensures codes are only valid for the session they were created for. |
 
 ## Example

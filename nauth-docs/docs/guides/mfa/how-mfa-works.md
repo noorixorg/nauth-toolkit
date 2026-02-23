@@ -3,6 +3,7 @@ title: "How MFA Works"
 description: "How multi-factor authentication works — configuration, enforcement modes, shared endpoints, and device management"
 sidebar_position: 0
 keywords: [mfa, 2fa, multi-factor, authentication, totp, sms, email, passkey, webauthn]
+image: /img/api-social-card.png
 ---
 
 import Tabs from '@theme/Tabs';
@@ -147,18 +148,19 @@ Check whether the current user has MFA enabled and which methods are enrolled.
 ```typescript title="src/auth/mfa.controller.ts"
 import { Controller, Get, Post, Delete, Body, Param, UseGuards, HttpCode, HttpStatus, Inject } from '@nestjs/common';
 import { AuthGuard, MFAService } from '@nauth-toolkit/nestjs';
+import { Optional, Inject } from '@nestjs/common';
 
 @UseGuards(AuthGuard)
 @Controller('auth/mfa')
 export class MfaController {
   constructor(
-    @Inject(MFAService)
-    private readonly mfaService: MFAService,
+    @Optional() @Inject(MFAService)
+    private readonly mfaService?: MFAService,
   ) {}
 
   @Get('status')
   async getStatus() {
-    return await this.mfaService.getMfaStatus();
+    return await this.mfaService!.getMfaStatus();
   }
 }
 ```
@@ -167,9 +169,11 @@ export class MfaController {
 <TabItem value="express" label="Express">
 
 ```typescript title="src/routes/auth.routes.ts"
+const { mfaService } = nauth;
+
 router.get('/mfa/status', nauth.helpers.requireAuth(), async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    res.json(await mfaService.getMfaStatus());
+    res.json(await mfaService!.getMfaStatus());
   } catch (err) { next(err); }
 });
 ```
@@ -197,7 +201,6 @@ fastify.get('/auth/mfa/status', { preHandler: [nauth.helpers.requireAuth()] },
   "configuredMethods": [],
   "availableMethods": ["email", "sms", "totp", "passkey"],
   "hasBackupCodes": false,
-  "preferredMethod": null,
   "mfaExempt": false,
   "mfaExemptReason": null,
   "mfaExemptGrantedAt": null
@@ -216,13 +219,13 @@ All methods use the same two endpoints. Only the request/response payloads diffe
 
 @Post('setup-data')
 @HttpCode(HttpStatus.OK)
-async setup(@Body() dto: any) {
+async setup(@Body() dto: SetupMFADTO) {
   return await this.mfaService.setup(dto);
 }
 
 @Post('verify-setup')
 @HttpCode(HttpStatus.OK)
-async verifySetup(@Body() dto: any) {
+async verifySetup(@Body() dto: SetupMFADTO) {
   const provider = this.mfaService.getProvider(dto.methodName);
   const deviceId = await provider.verifySetup(dto.setupData);
   return { deviceId };
@@ -252,6 +255,8 @@ router.post('/mfa/verify-setup', nauth.helpers.requireAuth(), async (req: Reques
 <TabItem value="fastify" label="Fastify">
 
 ```typescript title="src/routes/auth.routes.ts"
+import { SetupMFADTO } from '@nauth-toolkit/core';
+
 fastify.post('/auth/mfa/setup-data', { preHandler: [nauth.helpers.requireAuth()] },
   nauth.adapter.wrapRouteHandler(async (req, res) => {
     res.json(await mfaService.setup(req.body as any));
@@ -260,7 +265,7 @@ fastify.post('/auth/mfa/setup-data', { preHandler: [nauth.helpers.requireAuth()]
 
 fastify.post('/auth/mfa/verify-setup', { preHandler: [nauth.helpers.requireAuth()] },
   nauth.adapter.wrapRouteHandler(async (req, res) => {
-    const body = req.body as any;
+    const body = req.body as SetupMFADTO;
     const provider = mfaService.getProvider(body.methodName);
     const deviceId = await provider.verifySetup(body.setupData);
     res.json({ deviceId });
@@ -339,7 +344,7 @@ fastify.post('/auth/challenge/challenge-data', { preHandler: [nauth.helpers.publ
 </Tabs>
 
 - `challenge/setup-data` — used during `MFA_SETUP_REQUIRED` (forced setup at login)
-- `challenge/challenge-data` — used during `MFA_REQUIRED` for Passkey (gets WebAuthn assertion options)
+- `challenge/challenge-data` — used during `MFA_REQUIRED` for Passkey (WebAuthn assertion options), SMS (sends code, returns masked phone), or Email (sends code, returns masked email)
 
 ### Device Management
 
@@ -444,7 +449,7 @@ The Angular example app handles MFA with dedicated components:
 **`otp-verify.component.ts`** — handles `MFA_REQUIRED` challenges. Detects the MFA method and adjusts UI accordingly:
 
 ```typescript title="Angular — otp-verify.component.ts (simplified)"
-import { getMFAMethod, AuthChallenge, type MFACodeResponse } from '@nauth-toolkit/client-angular';
+import { getMFAMethod, AuthChallenge, type MFACodeResponse } from '@nauth-toolkit/client';
 
 // In component:
 readonly challenge = this.auth.challenge;            // signal

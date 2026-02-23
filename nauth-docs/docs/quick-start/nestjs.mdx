@@ -1,7 +1,7 @@
 ---
 sidebar_position: 1
 title: NestJS
-description: Add authentication to a NestJS backend using nauth-toolkit
+description: "Set up nauth-toolkit with NestJS: install packages, configure AuthModule, add signup/login/logout/profile routes, handle challenges, and verify with curl"
 keywords: [quick-start, nestjs, setup, installation, authentication]
 image: /img/api-social-card.png
 ---
@@ -12,6 +12,10 @@ Add authentication to a NestJS application using nauth-toolkit. By the end of th
 
 :::note Sample Application
 A complete working example is available at [github.com/noorixorg/nauth/tree/main/nestjs](https://github.com/noorixorg/nauth/tree/main/nestjs) — NestJS + TypeORM + PostgreSQL with lifecycle hooks, custom email templates, Google OAuth, and TOTP MFA preconfigured.
+:::
+
+:::tip Live Demo
+Try the finished result at **[demo.nauth.dev](https://demo.nauth.dev)** — a working app built on nauth-toolkit showcasing signup, login, MFA, social auth, and session management.
 :::
 
 ## Prerequisites
@@ -34,7 +38,7 @@ npm install @nauth-toolkit/core @nauth-toolkit/nestjs @nauth-toolkit/database-ty
 Yarn 1.x doesn't auto-install peer dependencies. You'll need to also run:
 
 ```bash
-yarn add typeorm @nestjs/common @nestjs/core @nestjs/typeorm reflect-metadata rxjs jose pg cookie-parser
+yarn add typeorm @nestjs/common @nestjs/core @nestjs/typeorm reflect-metadata rxjs pg cookie-parser
 # For MySQL instead: yarn add mysql2 (and replace pg)
 ```
 
@@ -173,7 +177,7 @@ import { AuthController } from './auth/auth.controller';
       // Storage entities are required when using DatabaseStorageAdapter.
       // If you use RedisStorageAdapter instead, you can omit getNAuthTransientStorageEntities().
       entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()],
-      synchronize: process.env.NODE_ENV === 'development',
+      synchronize: process.env.NODE_ENV === 'development', // ⚠️ See warning below
     }),
     AuthModule.forRoot(authConfig),
   ],
@@ -181,6 +185,10 @@ import { AuthController } from './auth/auth.controller';
 })
 export class AppModule {}
 ```
+
+:::warning Production Database
+`synchronize: true` auto-creates database tables from entities --- convenient for development but **must be `false` in production**. Use TypeORM migrations instead: `typeorm migration:generate` and `typeorm migration:run`.
+:::
 
 ---
 
@@ -267,7 +275,7 @@ curl -X POST http://localhost:3000/auth/signup \
 # Login
 curl -X POST http://localhost:3000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "user@example.com", "password": "MyPassword1!"}'
+  -d '{"identifier": "user@example.com", "password": "MyPassword1!"}'
 
 # Profile (use the accessToken from the login response)
 curl http://localhost:3000/auth/profile \

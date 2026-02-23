@@ -68,9 +68,22 @@ const nauth = await NAuth.create({
     },
     security: {
       csrf: {
+        // Name of the CSRF header to check. Default: 'x-csrf-token'
         headerName: 'x-csrf-token',
+        // Name of the CSRF cookie. Default: '<prefix>csrf_token'
         cookieName: 'nauth_csrf_token',
-        excludedPaths: ['/webhook'],
+        // Length of CSRF token in bytes. Default: 32
+        tokenLength: 32,
+        // Paths that bypass CSRF validation entirely (prefix match)
+        excludedPaths: ['/webhook', '/public-api'],
+        // Cookie options for the CSRF token cookie
+        cookieOptions: {
+          secure: true,        // HTTPS only. Set false for localhost
+          sameSite: 'strict',  // 'strict' | 'lax' | 'none'
+          domain: undefined,   // e.g. '.example.com' for subdomain sharing
+          path: '/',
+          priority: 'high',    // 'low' | 'medium' | 'high'
+        },
       },
     },
   },
@@ -78,6 +91,10 @@ const nauth = await NAuth.create({
   adapter: new ExpressAdapter(),
 });
 ```
+
+:::note
+`excludedPaths` uses a prefix match (`String.prototype.startsWith`). A path of `/webhook` will match `/webhook`, `/webhook/stripe`, etc.
+:::
 
 ## Behavior
 

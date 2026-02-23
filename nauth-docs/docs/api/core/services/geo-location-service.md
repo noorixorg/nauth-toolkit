@@ -187,8 +187,10 @@ Promise that resolves when databases are reloaded
 
 **Errors**
 
-- `NAuthException` - If MaxMind configuration is missing or `@maxmind/geoip2-node` is not installed
-- May throw if database files are corrupted or unreadable
+| Code | When |
+| ---- | ---- |
+| `VALIDATION_FAILED` | MaxMind configuration not provided |
+| `VALIDATION_FAILED` | `@maxmind/geoip2-node` peer dependency not installed |
 
 **Example**
 
@@ -294,8 +296,12 @@ Promise that resolves when databases are downloaded and reloaded
 
 **Errors**
 
-- `NAuthException` - If configuration is missing, MaxMind library not installed, `skipDownloads: true`, or credentials missing
-- May throw if network errors or MaxMind API errors occur
+| Code | When |
+| ---- | ---- |
+| `VALIDATION_FAILED` | MaxMind configuration not provided |
+| `VALIDATION_FAILED` | `@maxmind/geoip2-node` peer dependency not installed |
+| `VALIDATION_FAILED` | `skipDownloads: true` is set in configuration |
+| `VALIDATION_FAILED` | `licenseKey` or `accountId` is missing from configuration |
 
 **Example**
 

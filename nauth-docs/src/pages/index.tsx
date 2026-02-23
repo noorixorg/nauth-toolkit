@@ -311,6 +311,14 @@ export default function Home() {
               Frontend SDK
             </Link>
             <a
+              href="https://demo.nauth.dev"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Live Demo
+            </a>
+            <a
               href="https://github.com/noorixorg/nauth"
               target="_blank"
               rel="noopener noreferrer"
@@ -356,6 +364,9 @@ export default function Home() {
               <Link className="btn btn-ghost" to="/docs/quick-start/nestjs">
                 Quick Start
               </Link>
+              <a className="btn btn-ghost" href="https://demo.nauth.dev" target="_blank" rel="noopener noreferrer">
+                Live Demo <i className="fa-light fa-arrow-up-right-from-square" style={{ marginLeft: '0.3em', fontSize: '0.85em' }}></i>
+              </a>
             </div>
           </div>
           <div className="hero-code">
@@ -814,6 +825,9 @@ export default function Home() {
             <Link className="btn btn-ghost" to="/docs/quick-start/nestjs">
               Quick Start
             </Link>
+            <a className="btn btn-ghost" href="https://demo.nauth.dev" target="_blank" rel="noopener noreferrer">
+              Live Demo <i className="fa-light fa-arrow-up-right-from-square" style={{ marginLeft: '0.3em', fontSize: '0.85em' }}></i>
+            </a>
           </div>
           <div className="cta-links">
             <a href="https://github.com/noorixorg/nauth" target="_blank" rel="noopener noreferrer" className="cta-link">

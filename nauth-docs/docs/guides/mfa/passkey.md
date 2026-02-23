@@ -107,8 +107,8 @@ import { AuthGuard, MFAService } from '@nauth-toolkit/nestjs';
 @Controller('auth/mfa')
 export class MfaController {
   constructor(
-    @Inject(MFAService)
-    private readonly mfaService: MFAService,
+    @Optional() @Inject(MFAService)
+    private readonly mfaService?: MFAService,
   ) {}
 
   @Get('status')
@@ -442,7 +442,7 @@ POST /auth/login
 ```json
 {
   "challengeName": "MFA_REQUIRED",
-  "session": "eyJhbGciOiJIUzI1NiJ9...",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
   "challengeParameters": {
     "availableMethods": ["passkey"],
     "preferredMethod": "passkey"
@@ -462,7 +462,7 @@ POST /auth/challenge/challenge-data
 
 ```json
 {
-  "session": "eyJhbGciOiJIUzI1NiJ9...",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
   "method": "passkey"
 }
 ```
@@ -503,14 +503,14 @@ The browser shows the biometric/security key prompt.
 POST /auth/respond-challenge
 ```
 
-**Request body** — send the assertion result as the `code` field:
+**Request body** — send the assertion result as the `credential` field:
 
 ```json
 {
-  "session": "eyJhbGciOiJIUzI1NiJ9...",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
   "type": "MFA_REQUIRED",
   "method": "passkey",
-  "code": {
+  "credential": {
     "id": "credential-id-base64url",
     "rawId": "raw-id-base64url",
     "type": "public-key",
@@ -547,7 +547,7 @@ const handlePasskeyChallenge = async (session: string) => {
       session,
       type: 'MFA_REQUIRED',
       method: 'passkey',
-      code: assertion,
+      credential: assertion,
     }),
   }).then(r => r.json());
 

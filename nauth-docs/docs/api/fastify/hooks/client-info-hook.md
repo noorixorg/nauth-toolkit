@@ -34,6 +34,30 @@ fastify.addHook('onRequest', nauth.middleware.clientInfo);
 | `platform` | `string` | OS platform |
 | `browser` | `string` | Browser name |
 
+## Proxy Trust
+
+The hook reads the client IP from Fastify's `request.ip`. Fastify only populates `request.ip` from forwarding headers (`X-Forwarded-For`, etc.) when `trustProxy` is enabled in the Fastify server options. Without it, `request.ip` will be the IP of the last network hop (e.g. your load balancer), not the real client.
+
+Enable `trustProxy` when creating the Fastify instance:
+
+```typescript
+import Fastify from 'fastify';
+
+const fastify = Fastify({
+  // Trust the first proxy in front of the app
+  trustProxy: true,
+
+  // Or trust specific IP addresses / CIDR ranges:
+  // trustProxy: '10.0.0.0/8',
+  // trustProxy: ['loopback', '10.0.0.0/8'],
+});
+
+fastify.addHook('onRequest', nauth.middleware.clientInfo);
+// ...
+```
+
+See the [Fastify server options documentation](https://fastify.dev/docs/latest/Reference/Server/#trustproxy) for all valid values.
+
 ## Related
 
 - [ClientInfoService](/docs/api/core/services/client-info-service)

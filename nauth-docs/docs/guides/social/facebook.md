@@ -206,6 +206,7 @@ Standard Facebook SDK login returns an opaque access token. The backend verifies
 
 ```json
 {
+  "provider": "facebook",
   "accessToken": "EAAGm0PX4ZCps..."
 }
 ```
@@ -218,6 +219,7 @@ Facebook's [Limited Login](https://developers.facebook.com/docs/facebook-login/l
 
 ```json
 {
+  "provider": "facebook",
   "idToken": "eyJhbGciOiJSUzI1NiIs..."
 }
 ```

@@ -40,9 +40,9 @@ import { GetUserAgentResponseDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property    | Type     | Description                                                      |
-| ----------- | -------- | ---------------------------------------------------------------- |
-| `userAgent` | `string` | User agent string from the request. Returns 'unknown' if called outside request context. |
+| Property    | Type     | Required | Description                                                      |
+| ----------- | -------- | -------- | ---------------------------------------------------------------- |
+| `userAgent` | `string` | Yes      | User agent string from the request. Returns 'unknown' if called outside request context. |
 
 ## Example
 

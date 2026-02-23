@@ -21,6 +21,7 @@ import { NAuthClientConfig } from '@nauth-toolkit/client';
 | Property            | Type                                                                                                                               | Required | Description                                                                                                                                                            |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `baseUrl`           | `string`                                                                                                                           | Yes      | Backend auth API base URL (e.g., `https://api.example.com/auth`)                                                                                                       |
+| `authPathPrefix`    | `string`                                                                                                                           | No       | Path prefix prepended to all endpoint paths (e.g., `/auth`). Useful when your auth routes share a common prefix.                                                       |
 | `tokenDelivery`     | [`TokenDeliveryMode`](./types/token-delivery-mode)                                                                                 | Yes      | Token delivery mode. Choose based on platform (web or mobile).                                                                                                         |
 | `onAuthResponse`    | `(response: [AuthResponse](./types/auth-response), context: [AuthResponseContext](#authresponsecontext)) => void \| Promise<void>` | No       | Custom handler for auth responses. Overrides automatic navigation. Use for dialog-based flows. See [AuthResponseContext](#authresponsecontext) for context properties. |
 | `navigationHandler` | `(url: string) => void \| Promise<void>`                                                                                           | No       | Custom navigation function. If not provided, uses `window.location.replace` (guards) or `window.location.href`                                                         |
@@ -36,6 +37,7 @@ import { NAuthClientConfig } from '@nauth-toolkit/client';
 | `onTokenRefresh`    | `() => void`                                                                                                                       | No       | Callback after successful token refresh                                                                                                                                |
 | `onAuthStateChange` | `(user: [AuthUser](./types/auth-user) \| null) => void`                                                                            | No       | Callback when authentication state changes                                                                                                                             |
 | `onError`           | `(error: [NAuthClientError](./nauth-client-error)) => void`                                                                        | No       | Global error handler                                                                                                                                                   |
+| `httpAdapter`       | `HttpAdapter`                                                                                                                      | No       | HTTP adapter for making requests. Auto-provided in Angular (`NAuthModule`). In React/Vue, uses the built-in `FetchAdapter` by default.                                 |
 | `debug`             | `boolean`                                                                                                                          | No       | Enable debug logging                                                                                                                                                   |
 | `admin`             | `{ pathPrefix?: string; endpoints?: Partial<[NAuthAdminEndpoints](./types/nauth-admin-endpoints)>; headers?: Record<string, string> }` | No       | Admin operations configuration. When provided, enables `client.admin.*` methods. See [AdminOperations](./admin-operations) for details.                                |
 
@@ -288,7 +290,7 @@ const client = new NAuthClient({
   },
 
   // Optional - custom storage
-  storage: new BrowserStorage('sessionStorage'),
+  storage: new BrowserStorage(window.sessionStorage),
 
   // Optional - CSRF config
   csrf: {

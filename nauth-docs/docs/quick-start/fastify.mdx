@@ -14,6 +14,10 @@ Add authentication to a Fastify application using nauth-toolkit's framework-agno
 A complete working example is available at [github.com/noorixorg/nauth/tree/main/fastify](https://github.com/noorixorg/nauth/tree/main/fastify) — Fastify + TypeORM + PostgreSQL with Google OAuth and TOTP MFA preconfigured.
 :::
 
+:::tip Live Demo
+See nauth-toolkit in action at **[demo.nauth.dev](https://demo.nauth.dev)** — a working demo app showcasing signup, login, MFA, social auth, and session management.
+:::
+
 ## Prerequisites
 
 - Node.js 22+ (older versions may work but are untested)
@@ -195,7 +199,7 @@ async function main(): Promise<void> {
 
   const port = parseInt(process.env.PORT || '3000', 10);
   await fastify.listen({ port, host: '0.0.0.0' });
-  console.log(`Server running on http://0.0.0.0:${port}`);
+  // server listening
 }
 
 main().catch((error) => {

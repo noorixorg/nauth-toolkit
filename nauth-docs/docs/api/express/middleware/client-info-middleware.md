@@ -77,11 +77,34 @@ app.get('/api/info', async (req, res) => {
 
 ## Behavior
 
-- Extracts IP address from headers (handles X-Forwarded-For, etc.)
+- Extracts IP address from `req.ip` (set by Express after applying trust proxy rules)
 - Parses user agent string
 - Extracts device token from request body or headers
 - Optionally performs geolocation lookup
 - Stores data in async local storage for transparent access
+
+## Proxy Trust
+
+The middleware reads the client IP from Express's `req.ip`. Express only populates `req.ip` from forwarding headers (`X-Forwarded-For`, etc.) when `trust proxy` is configured on the Express app. Without it, `req.ip` will be the IP of the last network hop (e.g. your load balancer), not the real client.
+
+Configure trust proxy on your Express application before mounting NAuth middleware:
+
+```typescript
+import express from 'express';
+
+const app = express();
+
+// Trust the first proxy in front of the app (e.g. a single Nginx or AWS ALB)
+app.set('trust proxy', 1);
+
+// For multiple known proxy IPs or CIDR ranges:
+// app.set('trust proxy', ['loopback', '10.0.0.0/8']);
+
+app.use(nauth.middleware.clientInfo);
+// ...
+```
+
+See the [Express behind proxies guide](https://expressjs.com/en/guide/behind-proxies.html) for all valid values.
 
 ## Configuration
 

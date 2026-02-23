@@ -159,7 +159,7 @@ import { BrowserStorage } from '@nauth-toolkit/client';
   useValue: {
     baseUrl: 'https://api.example.com/auth',
     tokenDelivery: 'json',
-    storage: new BrowserStorage('localStorage'),
+    storage: new BrowserStorage(),
   },
 },
 ```

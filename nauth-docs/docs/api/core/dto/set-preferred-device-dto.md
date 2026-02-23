@@ -1,6 +1,8 @@
 ---
 title: SetPreferredDeviceDTO
 description: DTO for setting a user's preferred MFA device
+keywords: [mfa, device, preferred, dto, request, response, api]
+image: /img/api-social-card.png
 ---
 
 # SetPreferredDeviceDTO

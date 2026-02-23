@@ -50,6 +50,177 @@ Auto-injected by framework. No manual instantiation required.
 
 ## Methods
 
+### adminGetMfaStatus()
+
+Get comprehensive MFA status for a target user (admin operation).
+
+```typescript
+async adminGetMfaStatus(dto: AdminGetMFAStatusDTO): Promise<GetMFAStatusResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminGetMFAStatusDTO`](../dto/admin-get-mfa-status-dto)
+
+**Returns**
+
+- [`GetMFAStatusResponseDTO`](../dto/get-mfa-status-dto)
+
+**Errors**
+
+| Code                | When                 | Details                                          |
+| ------------------- | -------------------- | ------------------------------------------------ |
+| `VALIDATION_FAILED` | DTO validation fails | `{ validationErrors: Record<string, string[]> }` |
+| `NOT_FOUND`         | User not found       | `undefined`                                      |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+**Example (NestJS)**
+
+```typescript
+@Post('admin/mfa/status')
+async adminGetStatus(@Body() dto: AdminGetMFAStatusDTO) {
+  return await this.mfaService.adminGetMfaStatus(dto);
+}
+```
+
+---
+
+### adminGetUserDevices()
+
+Get all active MFA devices for a specific user (admin operation).
+
+```typescript
+async adminGetUserDevices(dto: AdminGetUserDevicesDTO): Promise<GetUserDevicesResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminGetUserDevicesDTO`](../dto/admin-get-user-devices-dto) - Contains `sub` (target user's UUID)
+
+**Returns**
+
+- [`GetUserDevicesResponseDTO`](../dto/get-user-devices-dto) - `{ devices: MFADeviceResponseDTO[] }`
+
+**Errors**
+
+| Code                | When                 | Details                                          |
+| ------------------- | -------------------- | ------------------------------------------------ |
+| `VALIDATION_FAILED` | DTO validation fails | `{ validationErrors: Record<string, string[]> }` |
+| `USER_NOT_FOUND`    | User not found       | `{ sub: string }`                                |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Get('admin/users/:sub/mfa/devices')
+@UseGuards(AdminAuthGuard)
+async adminGetUserDevices(@Param() dto: AdminGetUserDevicesDTO): Promise<GetUserDevicesResponseDTO> {
+  return await this.mfaService.adminGetUserDevices(dto);
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.get('/admin/users/:sub/mfa/devices', requireAdminAuth(), async (req, res) => {
+  const result = await nauth.mfaService.adminGetUserDevices({ sub: req.params.sub });
+  res.json(result);
+});
+```
+
+</TabItem>
+
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.get(
+  '/admin/users/:sub/mfa/devices',
+  { preHandler: requireAdminAuth() },
+  nauth.adapter.wrapRouteHandler(async (req) => {
+    return nauth.mfaService.adminGetUserDevices({ sub: req.params.sub });
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+### adminRemoveDevice()
+
+Remove a single MFA device by device ID (admin operation). Does not require user context.
+
+```typescript
+async adminRemoveDevice(dto: AdminRemoveDeviceDTO): Promise<RemoveDeviceResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminRemoveDeviceDTO`](../dto/admin-remove-device-dto) - Contains `deviceId`
+
+**Returns**
+
+- [`RemoveDeviceResponseDTO`](../dto/remove-device-dto) - `{ removedDeviceId: number, removedMethod: string, mfaDisabled: boolean }`
+
+**Errors**
+
+| Code        | When              | Details            |
+| ----------- | ----------------- | ------------------ |
+| `NOT_FOUND` | Device not found  | `{ deviceId: number }` |
+
+**Example (NestJS)**
+
+```typescript
+@Delete('admin/mfa/devices/:deviceId')
+@UseGuards(AdminAuthGuard)
+async adminRemoveDevice(@Param() dto: AdminRemoveDeviceDTO): Promise<RemoveDeviceResponseDTO> {
+  return await this.mfaService.adminRemoveDevice(dto);
+}
+```
+
+---
+
+### adminSetPreferredDevice()
+
+Set a specific device as preferred for a user (admin operation).
+
+```typescript
+async adminSetPreferredDevice(dto: AdminSetPreferredDeviceDTO): Promise<AdminSetPreferredDeviceResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminSetPreferredDeviceDTO`](../dto/set-preferred-device-dto) - Contains `sub` and `deviceId`
+
+**Returns**
+
+- `AdminSetPreferredDeviceResponseDTO` - `{ message: string }`
+
+**Errors**
+
+| Code        | When                                      | Details                |
+| ----------- | ----------------------------------------- | ---------------------- |
+| `NOT_FOUND` | User or device not found                  | `{ sub?: string, deviceId?: number }` |
+
+**Example (NestJS)**
+
+```typescript
+@Post('admin/users/:sub/mfa/devices/:deviceId/preferred')
+@UseGuards(AdminAuthGuard)
+async adminSetPreferredDevice(@Param() dto: AdminSetPreferredDeviceDTO): Promise<SetPreferredDeviceResponseDTO> {
+  return await this.mfaService.adminSetPreferredDevice(dto);
+}
+```
+
+---
+
 ### getAvailableMethods()
 
 Get available MFA methods for a user. Returns all registered and allowed methods that can be set up.
@@ -125,74 +296,6 @@ fastify.get(
 
 </TabItem>
 </Tabs>
-
----
-
-### adminRemoveDevice()
-
-Remove a single MFA device by device ID (admin operation). Does not require user context.
-
-```typescript
-async adminRemoveDevice(dto: AdminRemoveDeviceDTO): Promise<RemoveDeviceResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`AdminRemoveDeviceDTO`](../dto/admin-remove-device-dto) - Contains `deviceId`
-
-**Returns**
-
-- [`RemoveDeviceResponseDTO`](../dto/remove-device-dto) - `{ removedDeviceId: number, removedMethod: string, mfaDisabled: boolean }`
-
-**Errors**
-
-| Code        | When              | Details            |
-| ----------- | ----------------- | ------------------ |
-| `NOT_FOUND` | Device not found  | `{ deviceId: number }` |
-
-**Example (NestJS)**
-
-```typescript
-@Delete('admin/mfa/devices/:deviceId')
-@UseGuards(AdminAuthGuard)
-async adminRemoveDevice(@Param() dto: AdminRemoveDeviceDTO): Promise<RemoveDeviceResponseDTO> {
-  return await this.mfaService.adminRemoveDevice(dto);
-}
-```
-
----
-
-### adminSetPreferredDevice()
-
-Set a specific device as preferred for a user (admin operation).
-
-```typescript
-async adminSetPreferredDevice(dto: AdminSetPreferredDeviceDTO): Promise<AdminSetPreferredDeviceResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`AdminSetPreferredDeviceDTO`](../dto/set-preferred-device-dto) - Contains `sub` and `deviceId`
-
-**Returns**
-
-- `AdminSetPreferredDeviceResponseDTO` - `{ message: string }`
-
-**Errors**
-
-| Code        | When                                      | Details                |
-| ----------- | ----------------------------------------- | ---------------------- |
-| `NOT_FOUND` | User or device not found                  | `{ sub?: string, deviceId?: number }` |
-
-**Example (NestJS)**
-
-```typescript
-@Post('admin/users/:sub/mfa/devices/:deviceId/preferred')
-@UseGuards(AdminAuthGuard)
-async adminSetPreferredDevice(@Param() dto: AdminSetPreferredDeviceDTO): Promise<SetPreferredDeviceResponseDTO> {
-  return await this.mfaService.adminSetPreferredDevice(dto);
-}
-```
 
 ---
 
@@ -354,42 +457,6 @@ fastify.get(
 
 </TabItem>
 </Tabs>
-
----
-
-### adminGetMfaStatus()
-
-Get comprehensive MFA status for a target user (admin operation).
-
-```typescript
-async adminGetMfaStatus(dto: AdminGetMFAStatusDTO): Promise<GetMFAStatusResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`AdminGetMFAStatusDTO`](../dto/admin-get-mfa-status-dto)
-
-**Returns**
-
-- [`GetMFAStatusResponseDTO`](../dto/get-mfa-status-dto)
-
-**Errors**
-
-| Code                | When                 | Details                                          |
-| ------------------- | -------------------- | ------------------------------------------------ |
-| `VALIDATION_FAILED` | DTO validation fails | `{ validationErrors: Record<string, string[]> }` |
-| `NOT_FOUND`         | User not found       | `undefined`                                      |
-
-Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
-
-**Example (NestJS)**
-
-```typescript
-@Post('admin/mfa/status')
-async adminGetStatus(@Body() dto: AdminGetMFAStatusDTO) {
-  return await this.mfaService.adminGetMfaStatus(dto);
-}
-```
 
 ---
 
@@ -561,73 +628,6 @@ fastify.get(
 
 ---
 
-### adminGetUserDevices()
-
-Get all active MFA devices for a specific user (admin operation).
-
-```typescript
-async adminGetUserDevices(dto: AdminGetUserDevicesDTO): Promise<GetUserDevicesResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`AdminGetUserDevicesDTO`](../dto/admin-get-user-devices-dto) - Contains `sub` (target user's UUID)
-
-**Returns**
-
-- [`GetUserDevicesResponseDTO`](../dto/get-user-devices-dto) - `{ devices: MFADeviceResponseDTO[] }`
-
-**Errors**
-
-| Code                | When                 | Details                                          |
-| ------------------- | -------------------- | ------------------------------------------------ |
-| `VALIDATION_FAILED` | DTO validation fails | `{ validationErrors: Record<string, string[]> }` |
-| `NOT_FOUND`         | User not found       | `{ sub: string }`                                |
-
-Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-@Get('admin/users/:sub/mfa/devices')
-@UseGuards(AdminAuthGuard)
-async adminGetUserDevices(@Param() dto: AdminGetUserDevicesDTO): Promise<GetUserDevicesResponseDTO> {
-  return await this.mfaService.adminGetUserDevices(dto);
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-app.get('/admin/users/:sub/mfa/devices', requireAdminAuth(), async (req, res) => {
-  const result = await nauth.mfaService.adminGetUserDevices({ sub: req.params.sub });
-  res.json(result);
-});
-```
-
-</TabItem>
-
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-fastify.get(
-  '/admin/users/:sub/mfa/devices',
-  { preHandler: requireAdminAuth() },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    return nauth.mfaService.adminGetUserDevices({ sub: req.params.sub });
-  }),
-);
-```
-
-</TabItem>
-</Tabs>
-
----
-
 ### hasProvider()
 
 Check if an MFA provider is registered.
@@ -770,39 +770,18 @@ async removeDevice(dto: RemoveDeviceDTO): Promise<RemoveDeviceResponseDTO>
 
 - `RemoveDeviceResponseDTO` - `{ removedDeviceId: number, removedMethod: string, mfaDisabled: boolean }`
 
+**Errors**
+
+| Code | When |
+|------|------|
+| `USER_NOT_FOUND` | Device not found or doesn't belong to authenticated user |
+
 **Example (NestJS)**
 
 ```typescript
 @Delete('mfa/devices/:deviceId')
 async removeDevice(@Param('deviceId') deviceId: string) {
   return await this.mfaService.removeDevice({ deviceId: Number(deviceId) });
-}
-```
-
----
-
-### setPreferredDevice()
-
-Set a specific MFA device as preferred by `deviceId`. This updates both the device's preferred status and the user's preferred method.
-
-```typescript
-async setPreferredDevice(dto: SetPreferredDeviceDTO): Promise<SetPreferredDeviceResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`SetPreferredDeviceDTO`](../dto/set-preferred-device-dto) - Contains `deviceId`
-
-**Returns**
-
-- [`SetPreferredDeviceResponseDTO`](../dto/set-preferred-device-dto) - `{ message: string }`
-
-**Example (NestJS)**
-
-```typescript
-@Post('mfa/devices/:deviceId/preferred')
-async setPreferredDevice(@Param() dto: SetPreferredDeviceDTO) {
-  return await this.mfaService.setPreferredDevice(dto);
 }
 ```
 
@@ -890,6 +869,32 @@ fastify.post(
 
 ---
 
+### setPreferredDevice()
+
+Set a specific MFA device as preferred by `deviceId`. This updates both the device's preferred status and the user's preferred method.
+
+```typescript
+async setPreferredDevice(dto: SetPreferredDeviceDTO): Promise<SetPreferredDeviceResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`SetPreferredDeviceDTO`](../dto/set-preferred-device-dto) - Contains `deviceId`
+
+**Returns**
+
+- [`SetPreferredDeviceResponseDTO`](../dto/set-preferred-device-dto) - `{ message: string }`
+
+**Example (NestJS)**
+
+```typescript
+@Post('mfa/devices/:deviceId/preferred')
+async setPreferredDevice(@Param() dto: SetPreferredDeviceDTO) {
+  return await this.mfaService.setPreferredDevice(dto);
+}
+```
+
+---
 
 ### setup()
 

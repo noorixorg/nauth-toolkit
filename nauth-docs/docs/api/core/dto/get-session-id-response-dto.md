@@ -40,9 +40,9 @@ import { GetSessionIdResponseDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property   | Type       | Description                                                      |
-| ---------- | ---------- | ---------------------------------------------------------------- |
-| `sessionId` | `number?`  | Current session ID (if available from authenticated request). Extracted from JWT token payload after authentication. Optional - undefined if not available. |
+| Property   | Type       | Required | Description                                                      |
+| ---------- | ---------- | -------- | ---------------------------------------------------------------- |
+| `sessionId` | `number?`  | No       | Current session ID (if available from authenticated request). Extracted from JWT token payload after authentication. Undefined if not available. |
 
 ## Example
 

@@ -135,21 +135,6 @@ new NodemailerEmailProvider({
 The AWS SES SDK transport automatically uses IAM roles when running on AWS infrastructure (EC2, ECS, Lambda), eliminating the need to manage credentials manually.
 :::
 
-## Methods
-
-### sendEmail()
-
-```typescript
-sendEmail(options: SendEmailOptions): Promise<void>
-```
-
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `to` | `string` | Yes | Recipient email |
-| `subject` | `string` | Yes | Email subject |
-| `html` | `string` | Yes | HTML content |
-| `text` | `string` | No | Plain text fallback |
-
 ## Related
 
 - [Email Providers Overview](/docs/api/email/overview)

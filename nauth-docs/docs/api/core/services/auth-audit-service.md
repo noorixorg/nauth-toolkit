@@ -149,7 +149,7 @@ const result = await this.auditService.getRiskAssessmentHistory({
 
 ```typescript
 const result = await nauth.authAuditService.getRiskAssessmentHistory({
-  userSub: 'user-uuid',
+  sub: 'user-uuid',
   limit: 50,
 });
 ```
@@ -159,7 +159,7 @@ const result = await nauth.authAuditService.getRiskAssessmentHistory({
 
 ```typescript
 const result = await nauth.authAuditService.getRiskAssessmentHistory({
-  userSub: 'user-uuid',
+  sub: 'user-uuid',
   limit: 50,
 });
 ```
@@ -210,7 +210,7 @@ const result = await this.auditService.getSuspiciousActivity({
 
 ```typescript
 const result = await nauth.authAuditService.getSuspiciousActivity({
-  userSub: 'user-uuid',
+  sub: 'user-uuid',
   limit: 50,
 });
 ```
@@ -220,7 +220,7 @@ const result = await nauth.authAuditService.getSuspiciousActivity({
 
 ```typescript
 const result = await nauth.authAuditService.getSuspiciousActivity({
-  userSub: 'user-uuid',
+  sub: 'user-uuid',
   limit: 50,
 });
 ```

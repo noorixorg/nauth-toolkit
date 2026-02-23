@@ -75,8 +75,8 @@ import { AuthGuard, MFAService } from '@nauth-toolkit/nestjs';
 @Controller('auth/mfa')
 export class MfaController {
   constructor(
-    @Inject(MFAService)
-    private readonly mfaService: MFAService,
+    @Optional() @Inject(MFAService)
+    private readonly mfaService?: MFAService,
   ) {}
 
   @Get('status')
@@ -277,7 +277,10 @@ GET /auth/mfa/status
   "required": false,
   "configuredMethods": [],
   "availableMethods": ["email"],
-  "preferredMethod": null
+  "hasBackupCodes": false,
+  "mfaExempt": false,
+  "mfaExemptReason": null,
+  "mfaExemptGrantedAt": null
 }
 ```
 
@@ -374,7 +377,7 @@ POST /auth/login
 ```json
 {
   "challengeName": "MFA_REQUIRED",
-  "session": "eyJhbGciOiJIUzI1NiJ9...",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
   "challengeParameters": {
     "availableMethods": ["email"],
     "preferredMethod": "email",
@@ -396,7 +399,7 @@ POST /auth/respond-challenge
 
 ```json
 {
-  "session": "eyJhbGciOiJIUzI1NiJ9...",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
   "type": "MFA_REQUIRED",
   "method": "email",
   "code": "123456"
@@ -429,7 +432,7 @@ POST /auth/challenge/resend
 
 ```json
 {
-  "session": "eyJhbGciOiJIUzI1NiJ9..."
+  "session": "a21b654c-2746-4168-acee-c175083a65cd"
 }
 ```
 
@@ -466,7 +469,7 @@ When `enforcement: 'REQUIRED'`, users who haven't set up MFA receive an `MFA_SET
 ```json
 {
   "challengeName": "MFA_SETUP_REQUIRED",
-  "session": "eyJhbGciOiJIUzI1NiJ9...",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
   "challengeParameters": {
     "allowedMethods": ["email"]
   }
@@ -483,7 +486,7 @@ POST /auth/challenge/setup-data
 
 ```json
 {
-  "session": "eyJhbGciOiJIUzI1NiJ9...",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
   "method": "email"
 }
 ```
@@ -505,7 +508,7 @@ If the user already verified their email during signup, the setup auto-completes
 
 ```json
 {
-  "session": "eyJhbGciOiJIUzI1NiJ9...",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
   "type": "MFA_SETUP_REQUIRED",
   "method": "email",
   "setupData": { "deviceId": 42 }
@@ -516,7 +519,7 @@ If the user already verified their email during signup, the setup auto-completes
 
 ```json
 {
-  "session": "eyJhbGciOiJIUzI1NiJ9...",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
   "type": "MFA_SETUP_REQUIRED",
   "method": "email",
   "setupData": { "code": "123456" }

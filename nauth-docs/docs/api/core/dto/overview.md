@@ -65,6 +65,16 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [RefreshTokenDTO](./refresh-token-dto)                | Token refresh request           | Refresh token                                  |
 | [SignupDTO](./signup-dto)                             | User registration request       | Email, password, optional username/phone       |
 | [TrustDeviceResponseDTO](./trust-device-response-dto) | Device trust response           | Device trust token                             |
+| [IsTrustedDeviceResponseDTO](./is-trusted-device-response-dto) | Trusted device check response | Whether current device is trusted              |
+
+## Session Management DTOs
+
+| DTO                                                              | Description              | Documentation                |
+| ---------------------------------------------------------------- | ------------------------ | ---------------------------- |
+| [GetUserSessionsDTO](./get-user-sessions-dto)                    | Get user sessions        | Pagination and filters       |
+| [GetUserSessionsResponseDTO](./get-user-sessions-response-dto)   | Sessions list response   | Active sessions with details |
+| [LogoutSessionDTO](./logout-session-dto)                         | Logout specific session  | Session ID                   |
+| [LogoutSessionResponseDTO](./logout-session-response-dto)        | Session logout response  | Success confirmation         |
 
 ## Admin Operations DTOs
 
@@ -84,7 +94,10 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [GetUsersResponseDTO](./get-users-response-dto)                    | Admin listing response       | User list with pagination metadata                                                  |
 | [AdminLogoutAllDTO](./admin-logout-all-dto)                        | Admin global logout          | Revoke all sessions for a target user                                              |
 | [AdminUpdateUserAttributesDTO](./admin-update-user-attributes-dto) | Admin user update            | Update user profile attributes with required sub                                   |
+| [AdminResetPasswordDTO](./confirm-admin-reset-password-dto)        | Admin password reset request | Initiate admin-driven password reset                                               |
 | [AdminRevokeSessionDTO](./admin-revoke-session-dto)                | Admin session revoke         | Revoke a specific session for a target user                                        |
+| [ConfirmAdminResetPasswordDTO](./confirm-admin-reset-password-dto) | Confirm admin password reset | Code, new password, and session                                                    |
+| [UpdateVerifiedStatusRequestDTO](./update-verified-status-request-dto) | Admin verification status | Update email/phone verified flags                                                  |
 
 ## Password Management DTOs
 
@@ -92,7 +105,8 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | --------------------------------------------------------------------------- | ------------------------------ | ------------------------------------ |
 | [ChangePasswordDTO](./change-password-dto)                                  | Change password request        | Current and new password             |
 | [ChangePasswordResponseDTO](./change-password-response-dto)                 | Change password response       | Success confirmation                 |
-| [ForgotPasswordDTO](./forgot-password-dto)                                  | Forgot password flow           | Request reset code and confirm reset |
+| [ConfirmForgotPasswordDTO](./forgot-password-dto)                           | Confirm password reset         | Reset code and new password          |
+| [ForgotPasswordDTO](./forgot-password-dto)                                  | Forgot password flow           | Request reset code                   |
 | [ResetPasswordDTO](./reset-password-dto)                                    | Reset password request         | Reset token and new password         |
 | [SetMustChangePasswordDTO](./set-must-change-password-dto)                  | Force password change          | Admin operation                      |
 | [SetMustChangePasswordResponseDTO](./set-must-change-password-response-dto) | Force password change response | Success confirmation                 |
@@ -106,7 +120,7 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [SendVerificationEmailDTO](./send-verification-email-dto)                      | Send verification email   | User sub and optional base URL |
 | [SendVerificationEmailResponseDTO](./send-verification-email-response-dto)     | Send email response       | Token ID                       |
 | [VerifyEmailResponseDTO](./verify-email-response-dto)                          | Verify email response     | Success message                |
-| [VerifyEmailWithCodeDTO](./verify-email-with-code-dto)                         | Verify email with code    | User sub and verification code |
+| [VerifyEmailWithCodeDTO](./verify-email-with-code-dto)                         | Verify email with code    | Email address and 6-digit verification code |
 | [VerifyEmailWithTokenDTO](./verify-email-with-token-dto)                       | Verify email with token   | Verification token from URL    |
 
 ## Phone Verification DTOs
@@ -130,7 +144,7 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [GetChallengeDataDTO](./get-challenge-data-dto)                  | Get challenge data       | Challenge session token                 |
 | [GetChallengeDataResponseDTO](./get-challenge-data-response-dto) | Challenge data response  | Challenge information                   |
 | [RespondChallengeDTO](./respond-challenge-dto)                   | Respond to challenge     | Challenge session and response data     |
-| [ResponseChallengeDTO](./response-challenge-dto)                 | Challenge response       | Challenge type, session, and parameters |
+| [AuthChallengeResponseDTO](./auth-challenge-dto)                 | Challenge response       | Challenge type, session, and parameters |
 
 ## MFA DTOs
 
@@ -171,6 +185,8 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [StartSocialRedirectResponseDTO](./start-social-redirect-response-dto)             | Start redirect response           | url for @Redirect()        |
 | [UnlinkSocialAccountDTO](./unlink-social-account-dto)                              | Unlink social account             | User sub and provider      |
 | [UnlinkSocialAccountResponseDTO](./unlink-social-account-response-dto)             | Unlink account response           | Success confirmation       |
+| [VerifyTokenDTO](./verify-token-dto)                                               | Verify native social token        | Provider, ID token, access token |
+| [HandleCallbackDTO](./handle-callback-dto)                                         | Handle OAuth callback             | Provider callback data     |
 
 ## User Management DTOs
 
@@ -195,6 +211,17 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [GetSuspiciousActivityDTO](./get-suspicious-activity-dto)        | Get suspicious activity     | User sub (optional), limit         |
 | [GetUserAgentResponseDTO](./get-user-agent-response-dto)         | User agent response         | Client user agent                  |
 | [GetUserAuthHistoryDTO](./get-user-auth-history-dto)             | Get auth history            | User sub, pagination, filters      |
+| [GetUserAuthHistoryResponseDTO](./get-user-auth-history-response-dto) | Auth history response  | Paginated event list               |
+| [GetEventsByTypeResponseDTO](./get-events-by-type-response-dto)  | Events by type response     | Filtered event list                |
+| [GetRiskAssessmentHistoryResponseDTO](./get-risk-assessment-history-response-dto) | Risk assessment response | Risk scores and factors |
+| [GetSuspiciousActivityResponseDTO](./get-suspicious-activity-response-dto) | Suspicious activity response | Flagged events             |
+
+## Token Validation DTOs
+
+| DTO                                                                    | Description                 | Documentation                |
+| ---------------------------------------------------------------------- | --------------------------- | ---------------------------- |
+| [ValidateAccessTokenDTO](./validate-access-token-dto)                  | Validate access token       | Token string                 |
+| [ValidateAccessTokenResponseDTO](./validate-access-token-response-dto) | Validation response         | Decoded JWT payload          |
 
 ## Error & Utility DTOs
 

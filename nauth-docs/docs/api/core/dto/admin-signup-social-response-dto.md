@@ -43,7 +43,7 @@ import { AdminSignupSocialResponseDTO } from '@nauth-toolkit/core';
 | Property | Type | Description |
 | -------- | ---- | ----------- |
 | `socialAccount` | `{ provider: string; providerId: string; providerEmail: string \| null }` | Social account linkage confirmation. |
-| `user` | [`UserResponseDto`](./user-response-dto) | Created user object (sanitized, excludes sensitive fields). |
+| `user` | [`UserResponseDTO`](./user-response-dto) | Created user object (sanitized, excludes sensitive fields). |
 
 ## Example
 

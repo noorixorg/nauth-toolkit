@@ -1,7 +1,7 @@
 ---
 sidebar_position: 4
 title: Express
-description: Add authentication to an Express application with nauth-toolkit
+description: "Set up nauth-toolkit with Express: install packages, initialize NAuth, mount middleware, add signup/login/logout/profile routes with error handling, and verify with curl"
 keywords: [quick-start, express, setup, installation, authentication]
 image: /img/api-social-card.png
 ---
@@ -12,6 +12,10 @@ Add authentication to an Express application using nauth-toolkit's framework-agn
 
 :::note Sample Application
 A complete working example is available at [github.com/noorixorg/nauth/tree/main/express](https://github.com/noorixorg/nauth/tree/main/express) — Express + TypeORM + PostgreSQL with Google OAuth and TOTP MFA preconfigured.
+:::
+
+:::tip Live Demo
+See nauth-toolkit in action at **[demo.nauth.dev](https://demo.nauth.dev)** — a working demo app showcasing signup, login, MFA, social auth, and session management.
 :::
 
 ## Prerequisites
@@ -192,7 +196,7 @@ async function main(): Promise<void> {
 
   const port = parseInt(process.env.PORT || '3000', 10);
   app.listen(port, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${port}`);
+    // server listening
   });
 }
 
@@ -365,7 +369,7 @@ curl -c cookies.txt -X POST http://localhost:3000/auth/login \
 curl -b cookies.txt http://localhost:3000/auth/profile
 ```
 
-With `tokenDelivery: 'cookies'`, auth tokens are set as `httpOnly` cookies. The profile endpoint is protected — requests without a valid session cookie return `401`.
+With `tokenDelivery: { method: 'cookies' }`, auth tokens are set as `httpOnly` cookies. The profile endpoint is protected — requests without a valid session cookie return `401`.
 
 ---
 

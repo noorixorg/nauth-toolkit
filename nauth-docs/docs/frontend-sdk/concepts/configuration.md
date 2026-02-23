@@ -118,7 +118,7 @@ Required for `cookies` mode:
 {
   tokenDelivery: 'cookies',
   csrf: {
-    cookieName: 'csrf_token',    // Default
+    cookieName: 'nauth_csrf_token',    // Default
     headerName: 'x-csrf-token',  // Default
   },
 }
@@ -171,7 +171,7 @@ import { NAuthClient, InMemoryStorage, BrowserStorage } from '@nauth-toolkit/cli
 const client = new NAuthClient({
   baseUrl: 'https://api.example.com/auth',
   tokenDelivery: 'json',
-  storage: new BrowserStorage('sessionStorage'),
+  storage: new BrowserStorage(window.sessionStorage),
   onSessionExpired: () => {},
 });
 
@@ -487,7 +487,7 @@ const client = new NAuthClient({
 
   // CSRF (for cookies mode)
   csrf: {
-    cookieName: 'csrf_token',
+    cookieName: 'nauth_csrf_token',
     headerName: 'x-csrf-token',
   },
 

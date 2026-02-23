@@ -172,6 +172,36 @@ Challenges can chain: signup may require email verification → then MFA setup �
 
 → [Challenge System](/docs/concepts/challenge-system) — all challenge types and how to resolve them
 
+## Request Processing Pipeline
+
+Every request passes through a fixed handler chain before reaching your route. The order is the same across all frameworks — only the registration mechanism differs:
+
+```mermaid
+graph LR
+    REQ(["Incoming Request"])
+    CI["ClientInfoHandler"]
+    CSRF["CsrfHandler"]
+    AUTH["AuthHandler"]
+    ROUTE["Your Route Handler"]
+    TD["TokenDeliveryHandler"]
+    RES(["Response"])
+
+    REQ --> CI --> CSRF --> AUTH --> ROUTE --> TD --> RES
+```
+
+| Order | Handler | Responsibility |
+|-------|---------|----------------|
+| 1 | **ClientInfoHandler** | Extracts IP, user-agent, device token, and geo data from the request. Initializes the `AsyncLocalStorage` context that all downstream handlers depend on. |
+| 2 | **CsrfHandler** | Validates the CSRF token when token delivery uses cookies or hybrid mode. Skipped for JSON-only delivery. |
+| 3 | **AuthHandler** | Validates the JWT access token and attaches the authenticated user to the request context. Routes marked `@Public()` skip validation. |
+| 4 | **TokenDeliveryHandler** | Response interceptor — rewrites the outgoing response to deliver tokens via `Set-Cookie` headers (cookie/hybrid mode) or leaves them in the JSON body (JSON mode). |
+
+:::note Framework specifics
+- **NestJS** — Handlers 1-3 run as global guards (`NAuthContextGuard` → `CsrfGuard`); handler 4 runs as a global interceptor (`CookieTokenInterceptor`).
+- **Express** — Handlers 1-3 register as middleware via `app.use()`; handler 4 registers via `registerResponseInterceptor()`.
+- **Fastify** — Handlers 1-3 register as `onRequest`/`preHandler` hooks; handler 4 registers as an `onSend` hook. Each hook restores the `AsyncLocalStorage` context from the request object.
+:::
+
 ## Framework Support
 
 nauth-toolkit has a framework-agnostic core. The same services work across all three integrations:

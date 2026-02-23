@@ -313,6 +313,11 @@ const config: Config = {
         },
 
         {
+          href: 'https://demo.nauth.dev',
+          label: 'Live Demo',
+          position: 'right',
+        },
+        {
           href: 'https://www.npmjs.com/package/@nauth-toolkit/core',
           label: 'npm',
           position: 'right',

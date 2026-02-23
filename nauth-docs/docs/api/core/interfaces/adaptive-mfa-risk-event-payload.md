@@ -48,7 +48,7 @@ import { AdaptiveMFARiskEventPayload } from '@nauth-toolkit/core';
 | `metadata`    | `Record<string, unknown>`                    | No       | Additional metadata. |
 | `riskFactors` | `string[]`                                   | Yes      | Risk factor identifiers. |
 | `riskLevel`   | `'low' \| 'medium' \| 'high'`                | Yes      | Risk level classification. |
-| `riskScore`   | `number`                                     | Yes      | Risk score (0-1 or configured scale). |
+| `riskScore`   | `number`                                     | Yes      | Risk score (0-100). |
 | `timestamp`   | `Date`                                       | Yes      | Timestamp of the risk event. |
 | `user`        | [`AdaptiveMFAUser`](./adaptive-mfa-user)     | Yes      | User being authenticated. |
 

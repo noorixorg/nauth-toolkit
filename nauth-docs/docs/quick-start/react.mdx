@@ -14,6 +14,10 @@ Connect a React application to a nauth-toolkit backend using `@nauth-toolkit/cli
 A complete working example is available at [github.com/noorixorg/nauth/tree/main/react](https://github.com/noorixorg/nauth/tree/main/react) — React + Vite + `@nauth-toolkit/client` with Auth context, protected routes, Google OAuth, and challenge handling.
 :::
 
+:::tip Live Demo
+See nauth-toolkit in action at **[demo.nauth.dev](https://demo.nauth.dev)** — a working demo app showcasing signup, login, MFA, social auth, and session management.
+:::
+
 :::info No React-specific SDK
 There is no React-specific SDK package. `@nauth-toolkit/client` supports all auth operations and works in any JS environment, but requires a bit more manual wiring than the Angular SDK — you'll set up a React Context, a token-refresh adapter, and a protected route component yourself. This guide provides the complete, production-ready patterns for all of these.
 :::
@@ -54,10 +58,13 @@ src/
 ├── hooks/
 │   └── useAuth.ts           # useAuth hook
 ├── components/
+│   ├── GoogleIcon.tsx       # Google logo for OAuth button
 │   └── ProtectedRoute.tsx   # Route guard
 ├── pages/
 │   ├── LoginPage.tsx
 │   ├── SignupPage.tsx
+│   ├── ChallengePage.tsx
+│   ├── MfaSetupPage.tsx
 │   ├── DashboardPage.tsx
 │   └── OAuthCallbackPage.tsx
 └── App.tsx                  # Routes
@@ -199,6 +206,7 @@ import {
   type AuthResponse,
   type ChallengeResponse,
   type SignupRequest,
+  type GetSetupDataResponse,
 } from '@nauth-toolkit/client';
 import authConfig from '../config/auth.config';
 import { RefreshingFetchAdapter } from '../lib/authHttpAdapter';
@@ -221,11 +229,16 @@ export interface AuthContextValue {
   logout: () => Promise<void>;
   respondToChallenge: (response: ChallengeResponse) => Promise<AuthResponse>;
   resendCode: (session: string) => Promise<{ destination: string }>;
+  getSetupData: (session: string, method: string) => Promise<GetSetupDataResponse>;
 
   // Social
   loginWithGoogle: () => Promise<void>;
-  /** Call this on the /auth/callback page after the OAuth redirect. */
-  handleOAuthCallback: () => Promise<AuthUser | null>;
+  /**
+   * Call this on the /auth/callback page after the OAuth redirect.
+   * Returns { user } on success, { needsChallenge: true } when MFA is required,
+   * or { user: null } if authentication failed.
+   */
+  handleOAuthCallback: () => Promise<{ user: AuthUser | null; needsChallenge: boolean }>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
@@ -266,6 +279,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubSuccess = client.on('auth:success', () => {
       if (!mounted) return;
       setChallenge(null);
+      // Set user immediately from SDK cache so ProtectedRoute sees isAuthenticated=true
+      // before any navigation happens, then update with the full server profile.
+      const currentUser = client.getCurrentUser();
+      if (currentUser) setUser(currentUser);
       client.getProfile().then(
         (profile) => {
           if (mounted) setUser(profile);
@@ -337,6 +354,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resendCode = (session: string) => client.resendCode(session);
 
+  const getSetupData = (session: string, method: string) =>
+    client.getSetupData(session, method as Parameters<typeof client.getSetupData>[1]);
+
   const loginWithGoogle = () =>
     client.loginWithSocial('google', {
       // Pass the full URL so the backend redirects back to whichever port this
@@ -348,28 +368,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /**
    * Completes the OAuth redirect flow on /auth/callback.
    *
-   * Cookie mode: backend already set auth cookies; we just fetch the profile.
-   * JSON mode:   backend embeds an exchangeToken in the redirect URL query
-   *              params; we exchange it for tokens.
+   * Cookie mode:  backend already set auth cookies; we just fetch the profile.
+   * Hybrid mode:  backend embeds an exchangeToken in the redirect URL; we
+   *               exchange it for tokens (or a pending MFA challenge).
    */
-  const handleOAuthCallback = async (): Promise<AuthUser | null> => {
+  const handleOAuthCallback = async (): Promise<{ user: AuthUser | null; needsChallenge: boolean }> => {
     const params = new URLSearchParams(window.location.search);
     const error = params.get('error');
-    if (error) return null;
+    if (error) return { user: null, needsChallenge: false };
 
     const exchangeToken = params.get('exchangeToken');
 
     if (exchangeToken) {
-      // JSON token delivery mode — fetch full profile after exchange
-      await client.exchangeSocialRedirect(exchangeToken);
+      const response = await client.exchangeSocialRedirect(exchangeToken);
+      if (response.challengeName) {
+        // MFA required after social login — challenge event already fired via SDK,
+        // but sync React state here too to avoid any timing gaps.
+        setChallenge(response);
+        return { user: null, needsChallenge: true };
+      }
       const profileUser = await client.getProfile();
       setUser(profileUser);
-      return profileUser;
+      return { user: profileUser, needsChallenge: false };
     } else {
-      // Cookie mode — cookies are already set by the backend; fetch profile
+      // Cookie mode — cookies already set by backend; just fetch the profile.
       const profileUser = await client.getProfile();
       setUser(profileUser);
-      return profileUser;
+      return { user: profileUser, needsChallenge: false };
     }
   };
 
@@ -385,6 +410,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         respondToChallenge,
         resendCode,
+        getSetupData,
         loginWithGoogle,
         handleOAuthCallback,
       }}
@@ -422,6 +448,8 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
+import { ChallengePage } from './pages/ChallengePage';
+import { MfaSetupPage } from './pages/MfaSetupPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 
@@ -431,6 +459,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/auth/challenge" element={<ChallengePage />} />
+        <Route path="/auth/mfa-setup" element={<MfaSetupPage />} />
         <Route path="/auth/callback" element={<OAuthCallbackPage />} />
         <Route
           path="/dashboard"
@@ -743,7 +773,7 @@ export function DashboardPage() {
   return (
     <div className="dashboard-layout">
       <header className="dashboard-header">
-        <span className="dashboard-brand">My App</span>
+        <span className="dashboard-brand">nauth</span>
         <button type="button" className="btn-outline" onClick={handleLogout}>
           Sign out
         </button>
@@ -771,6 +801,15 @@ export function DashboardPage() {
                 <span className="detail-value">{user.phone}</span>
                 <span className={user.isPhoneVerified ? 'badge-success' : 'badge-neutral'}>
                   {user.isPhoneVerified ? 'Verified' : 'Unverified'}
+                </span>
+              </div>
+            )}
+
+            {user?.socialProviders && user.socialProviders.length > 0 && (
+              <div className="detail-row">
+                <span className="detail-label">Linked</span>
+                <span className="detail-value">
+                  {user.socialProviders.join(', ')}
                 </span>
               </div>
             )}
@@ -842,9 +881,11 @@ export function OAuthCallbackPage() {
     }
 
     handleOAuthCallback()
-      .then((user) => {
+      .then(({ user, needsChallenge }) => {
         if (user) {
           navigate('/dashboard', { replace: true });
+        } else if (needsChallenge) {
+          navigate('/auth/challenge', { replace: true });
         } else {
           navigate('/login', { replace: true });
         }
@@ -868,9 +909,9 @@ export function OAuthCallbackPage() {
 
   return (
     <div className="auth-layout">
-      <div className="auth-card" style={{ textAlign: 'center' }}>
+      <div className="auth-card loading-card">
         <div className="spinner" />
-        <p style={{ color: 'var(--text-muted)', marginTop: 12 }}>Completing sign in…</p>
+        <p className="loading-text">Completing sign in…</p>
       </div>
     </div>
   );

@@ -9,7 +9,7 @@ image: /img/api-social-card.png
 **Package:** `@nauth-toolkit/nestjs`
 **Type:** Dynamic Module
 
-NestJS module for automatic hook registration. Discovers and registers classes decorated with [`@PreSignupHook`](./pre-signup-hook) or [`@PostSignupHook`](./post-signup-hook) at module initialization.
+NestJS module for automatic hook registration. Discovers and registers classes decorated with any of the 11 lifecycle hook decorators at module initialization.
 
 :::tip Import from NestJS Package
 ```typescript
@@ -29,6 +29,22 @@ import { NAuthHooksModule } from '@nauth-toolkit/nestjs';
 - Global hook registry integration
 - Type-safe registration
 
+**Supported Hook Decorators:**
+
+| Decorator | Hook Type | When It Fires |
+| --------- | --------- | ------------- |
+| `@PreSignupHook` | `preSignup` | Before a user account is created |
+| `@PostSignupHook` | `postSignup` | After a user account is created |
+| `@UserProfileUpdatedHook` | `userProfileUpdated` | After user profile attributes change |
+| `@PasswordChangedHook` | `passwordChanged` | After a password is changed |
+| `@MFADeviceRemovedHook` | `mfaDeviceRemoved` | After an MFA device is removed |
+| `@AdaptiveMFARiskDetectedHook` | `adaptiveMfaRiskDetected` | When high-risk signin activity is detected |
+| `@AccountStatusChangedHook` | `accountStatusChanged` | After an account is enabled or disabled |
+| `@EmailChangedHook` | `emailChanged` | After a user's email address is changed |
+| `@AccountLockedHook` | `accountLocked` | After an account is locked due to failed login attempts |
+| `@SessionsRevokedHook` | `sessionsRevoked` | After user sessions are bulk revoked |
+| `@MFAFirstEnabledHook` | `mfaFirstEnabled` | After a user enables MFA for the first time |
+
 ## Methods
 
 ### forFeature()
@@ -43,7 +59,7 @@ static forFeature(hooks: Type<any>[]): DynamicModule
 
 | Parameter | Type         | Description                                                                        |
 | --------- | ------------ | ---------------------------------------------------------------------------------- |
-| `hooks`   | `Type<any>[]` | Array of hook provider classes decorated with `@PreSignupHook` or `@PostSignupHook` |
+| `hooks`   | `Type<any>[]` | Array of hook provider classes decorated with any lifecycle hook decorator |
 
 **Returns**
 
@@ -204,9 +220,9 @@ export class AuthModule {}
 
 1. **Module Initialization**: `NAuthHooksModule.forFeature()` is called with hook classes
 2. **Hook Discovery**: On module init, the module uses `ModuleRef` to discover all providers
-3. **Metadata Check**: For each provider, checks for hook decorator metadata
-4. **Registration**: Calls `HookRegistryService.registerPreSignup()` or `registerPostSignup()`
-5. **Execution**: Hooks execute in priority order during authentication flows
+3. **Metadata Check**: For each provider, checks for lifecycle hook decorator metadata
+4. **Registration**: Calls the appropriate `HookRegistryService` registration method based on the hook type
+5. **Execution**: Hooks execute in priority order during the corresponding authentication lifecycle events
 
 ## Execution Order
 
@@ -234,6 +250,15 @@ export class InviteCodeCheck { }
 
 - [`@PreSignupHook()`](./pre-signup-hook) - Pre-signup hook decorator
 - [`@PostSignupHook()`](./post-signup-hook) - Post-signup hook decorator
+- [`@UserProfileUpdatedHook()`](./user-profile-updated-hook) - User profile updated hook decorator
+- [`@PasswordChangedHook()`](./password-changed-hook) - Password changed hook decorator
+- [`@MFADeviceRemovedHook()`](./mfa-device-removed-hook) - MFA device removed hook decorator
+- [`@AdaptiveMFARiskDetectedHook()`](./adaptive-mfa-risk-detected-hook) - Adaptive MFA risk detected hook decorator
+- [`@AccountStatusChangedHook()`](./account-status-changed-hook) - Account status changed hook decorator
+- [`@EmailChangedHook()`](./email-changed-hook) - Email changed hook decorator
+- [`@AccountLockedHook()`](./account-locked-hook) - Account locked hook decorator
+- [`@SessionsRevokedHook()`](./sessions-revoked-hook) - Sessions revoked hook decorator
+- [`@MFAFirstEnabledHook()`](./mfa-first-enabled-hook) - MFA first enabled hook decorator
 - [`HookRegistryService`](/docs/api/core/services/hook-registry-service) - Hook registry service
 - [`IPreSignupHookProvider`](/docs/api/core/hooks/pre-signup-hook-provider) - Pre-signup hook interface
 - [`IPostSignupHookProvider`](/docs/api/core/hooks/post-signup-hook-provider) - Post-signup hook interface

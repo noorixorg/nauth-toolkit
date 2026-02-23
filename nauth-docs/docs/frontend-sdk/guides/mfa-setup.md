@@ -404,15 +404,22 @@ const devices = await client.getMfaDevices(); // Returns MFADevice[]
 ### Add New MFA Device
 
 ```typescript
-// 1. Initiate setup
+// 1. Get setup data (QR code, secret, etc.)
 const setupData = await client.setupMfaDevice('totp');
 
-// 2. Verify and complete
-const result = await client.verifyMfaSetup('totp', {
-  secret: setupData.secret,
-  code: '123456',
-  deviceName: 'My Authenticator',
-});
+// 2. Display QR code to user and wait for them to scan it
+// setupData.setupData.qrCode — QR code data URL
+// setupData.setupData.manualEntryKey — for manual entry fallback
+
+// 3. Verify and complete (secret comes from setupData response)
+const result = await client.verifyMfaSetup(
+  'totp',
+  {
+    secret: setupData.setupData.secret, // From setupMfaDevice() response
+    code: '123456', // User-entered code from authenticator app
+  },
+  'My Authenticator', // Optional device name (third parameter)
+);
 // result: { deviceId: 3 }
 ```
 

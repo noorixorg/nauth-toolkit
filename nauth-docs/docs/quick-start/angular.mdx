@@ -17,6 +17,10 @@ Connect an Angular application to a nauth-toolkit backend using `@nauth-toolkit/
 A complete working example is available at [github.com/noorixorg/nauth/tree/main/angular](https://github.com/noorixorg/nauth/tree/main/angular) — Angular standalone + `@nauth-toolkit/client-angular` paired with the NestJS backend example.
 :::
 
+:::tip Live Demo
+See the Angular + NestJS stack in action at **[demo.nauth.dev](https://demo.nauth.dev)** — signup, login, MFA, social auth, and session management working end-to-end.
+:::
+
 :::info Backend Required
 This guide assumes you have a running nauth-toolkit backend. If you haven't set one up yet, complete the [NestJS](/docs/quick-start/nestjs) quick start first.
 :::
@@ -103,7 +107,7 @@ This guide uses `tokenDelivery: 'cookies'` with CSRF protection — the recommen
 Import `NAuthModule.forRoot()` in your root `AppModule`. It registers the HTTP interceptor and all providers automatically.
 
 :::note baseUrl in NgModule
-In `NAuthModule.forRoot()`, `baseUrl` is the full auth base URL — include the `/auth` path prefix directly (e.g., `http://localhost:3000/auth`). Unlike the standalone config, there is no separate `authPathPrefix` option.
+In `NAuthModule.forRoot()`, `baseUrl` is the full auth base URL — include the `/auth` path prefix directly (e.g., `http://localhost:3000/auth`).
 :::
 
 ```typescript title="src/main.ts"
@@ -134,6 +138,10 @@ import { routes } from './app-routing.module';
       // Include /auth in the baseUrl — no authPathPrefix in NgModule mode
       baseUrl: 'http://localhost:3000/auth',
       tokenDelivery: 'cookies',
+      csrf: {
+        cookieName: 'nauth_csrf_token',
+        headerName: 'x-csrf-token',
+      },
       redirects: {
         loginSuccess: '/dashboard',
         sessionExpired: '/login',
@@ -193,7 +201,7 @@ import { Routes } from '@angular/router';
 import { AuthGuard } from '@nauth-toolkit/client-angular';
 
 export const routes: Routes = [
-  { path: '', redirectTo: '/login', pathMatch: 'full' },
+  { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
   { path: 'login', component: LoginComponent },
   { path: 'signup', component: SignupComponent },
   { path: 'dashboard', component: DashboardComponent, canActivate: [AuthGuard] },
@@ -219,7 +227,7 @@ The components below use the standalone import. Replace it with `@nauth-toolkit/
 
 ### Login Component
 
-`AuthService.login()` returns a promise. Check the response for `challengeName` — if present, a multi-step flow is required (email verification, MFA, etc.) and you should navigate to the challenge route.
+`AuthService.login()` returns a promise. The SDK handles post-login navigation automatically via the `redirects` config — navigate to `/dashboard` on success, or to the challenge route if a multi-step flow is required.
 
 ```typescript title="src/app/login/login.component.ts"
 import { Component, signal } from '@angular/core';
@@ -266,18 +274,10 @@ export class LoginComponent {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const response = await this.auth.login(
+      await this.auth.login(
         this.form.value.email,
         this.form.value.password,
       );
-      if (response.challengeName) {
-        // A challenge is required — navigate to the challenge route
-        await this.router.navigate(['/auth/challenge', response.challengeName.toLowerCase()], {
-          state: { response },
-        });
-      } else {
-        await this.router.navigate(['/dashboard']);
-      }
     } catch (err) {
       this.error.set(err instanceof NAuthClientError ? err.message : 'Login failed');
     } finally {
@@ -336,17 +336,10 @@ export class SignupComponent {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const response = await this.auth.signup({
+      await this.auth.signup({
         email: this.form.value.email,
         password: this.form.value.password,
       });
-      if (response.challengeName) {
-        await this.router.navigate(['/auth/challenge', response.challengeName.toLowerCase()], {
-          state: { response },
-        });
-      } else {
-        await this.router.navigate(['/dashboard']);
-      }
     } catch (err) {
       this.error.set(err instanceof NAuthClientError ? err.message : 'Signup failed');
     } finally {
@@ -363,6 +356,7 @@ The dashboard is protected by the route guard. Load the profile via `getClient()
 ```typescript title="src/app/dashboard/dashboard.component.ts"
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { AuthService, AuthUser } from '@nauth-toolkit/client-angular/standalone';
 
 @Component({
@@ -382,18 +376,18 @@ import { AuthService, AuthUser } from '@nauth-toolkit/client-angular/standalone'
 export class DashboardComponent implements OnInit {
   user = signal<AuthUser | null>(null);
 
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly router: Router,
+  ) {}
 
   ngOnInit(): void {
-    this.auth
-      .getClient()
-      .getProfile()
-      .then((user) => this.user.set(user));
+    this.auth.getProfile().then((user) => this.user.set(user));
   }
 
   async logout(): Promise<void> {
     await this.auth.logout();
-    // SDK navigates to redirects.sessionExpired (/login) automatically
+    await this.router.navigate(['/login']);
   }
 }
 ```

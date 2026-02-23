@@ -80,7 +80,7 @@ export class AppRoutingModule {}
 
 ## authGuard
 
-Functional guard factory that redirects unauthenticated users to `/login`.
+Functional guard factory that redirects unauthenticated users to the configured `redirects.sessionExpired` route, or `/login` by default.
 
 :::important Call the Function
 `authGuard` is a **factory function** that must be called with `()` to return the guard function:
@@ -104,31 +104,50 @@ const routes: Routes = [
 ];
 ```
 
+### Signature
+
+```typescript
+function authGuard(redirectTo?: string): CanActivateFn
+```
+
+| Parameter    | Type     | Description                                                                                                    |
+| ------------ | -------- | -------------------------------------------------------------------------------------------------------------- |
+| `redirectTo` | `string` | Optional path to redirect to when not authenticated. Overrides `redirects.sessionExpired` for this route only. |
+
 ### Behavior
 
 1. Checks `AuthService.isAuthenticated()` synchronously
 2. If authenticated → allows navigation
-3. If not authenticated → redirects to `/login`
+3. If not authenticated → redirects to `redirectTo` if provided, else `redirects.sessionExpired` from config, else `/login`
 
-### Custom Login Route
+### Custom Redirect per Route
 
-The default redirect is `/login`. To customize:
+Pass an optional `redirectTo` argument to override the config for a specific route:
 
 ```typescript
-// Create custom guard with different redirect
-export const customAuthGuard: CanActivateFn = (route, state) => {
-  const auth = inject(AuthService);
-  const router = inject(Router);
+const routes: Routes = [
+  {
+    path: 'admin',
+    component: AdminComponent,
+    canActivate: [authGuard('/admin/login')],
+  },
+];
+```
 
-  if (auth.isAuthenticated()) {
-    return true;
-  }
+The optional `redirectTo` parameter overrides the `redirects.sessionExpired` config for that specific route. Example: `authGuard('/custom-login')`.
 
-  // Custom redirect with return URL
-  return router.createUrlTree(['/signin'], {
-    queryParams: { returnUrl: state.url },
-  });
-};
+### Global Redirect Configuration
+
+Set `redirects.sessionExpired` in your module config to apply a default redirect to all guards:
+
+```typescript
+NAuthModule.forRoot({
+  baseUrl: 'https://api.example.com/auth',
+  tokenDelivery: 'cookies',
+  redirects: {
+    sessionExpired: '/login?expired=true',
+  },
+})
 ```
 
 ## Lazy Loading with Guards

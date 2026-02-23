@@ -41,8 +41,8 @@ This is NOT user data storage. User accounts and sessions are stored in your dat
 interface StorageAdapter {
   get(key: string): Promise<string | null>;
   set(key: string, value: string, ttlSeconds?: number): Promise<void>;
-  delete(key: string): Promise<void>;
-  increment(key: string, ttlSeconds?: number): Promise<number>;
+  del(key: string): Promise<void>;
+  incr(key: string, ttlSeconds?: number): Promise<number>;
   // Hash operations for complex state
   hget(key: string, field: string): Promise<string | null>;
   hset(key: string, field: string, value: string): Promise<void>;

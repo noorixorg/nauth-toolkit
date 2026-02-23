@@ -40,9 +40,9 @@ import { GetIpAddressResponseDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property    | Type     | Description                                                      |
-| ----------- | -------- | ---------------------------------------------------------------- |
-| `ipAddress` | `string` | Client IP address. Extracted from X-Forwarded-For, CF-Connecting-IP, etc. Returns 'unknown' if called outside request context. |
+| Property    | Type     | Required | Description                                                      |
+| ----------- | -------- | -------- | ---------------------------------------------------------------- |
+| `ipAddress` | `string` | Yes      | Client IP address. Extracted from X-Forwarded-For, CF-Connecting-IP, etc. Returns 'unknown' if called outside request context. |
 
 ## Example
 

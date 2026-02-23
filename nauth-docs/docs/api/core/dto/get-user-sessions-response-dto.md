@@ -101,6 +101,7 @@ import { GetUserSessionsResponseDTO } from '@nauth-toolkit/core';
       "createdAt": "2025-01-12T09:00:00.000Z",
       "expiresAt": "2025-01-19T09:00:00.000Z",
       "isTrustedDevice": false,
+      "deviceId": null,
       "isCurrent": false,
       "authMethod": "social",
       "authProvider": "google"

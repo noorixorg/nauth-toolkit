@@ -117,29 +117,6 @@ Forces JSON token delivery:
 - CSRF protection not required
 - Suitable for mobile/API clients
 
-## Configuration Validation
-
-The helper validates that the requested mode is allowed by global configuration:
-
-```typescript
-// Global config: tokenDelivery.method = 'json'
-nauth.helpers.tokenDelivery('cookies') // Throws COOKIES_NOT_ALLOWED
-
-// Global config: tokenDelivery.method = 'cookies'
-nauth.helpers.tokenDelivery('json') // Throws BEARER_NOT_ALLOWED
-
-// Global config: tokenDelivery.method = 'hybrid'
-nauth.helpers.tokenDelivery('cookies') // Allowed
-nauth.helpers.tokenDelivery('json') // Allowed
-```
-
-## Errors
-
-| Code | When | Details |
-| ---- | ---- | ------- |
-| `COOKIES_NOT_ALLOWED` | Route requests cookies but global config is 'json' | `undefined` |
-| `BEARER_NOT_ALLOWED` | Route requests JSON but global config is 'cookies' | `undefined` |
-
 ## Related APIs
 
 - [public()](./public-route) - Mark routes as public

@@ -53,7 +53,7 @@ const client = new NAuthClient({
   baseUrl: 'https://api.example.com/auth',
   tokenDelivery: 'cookies',
   csrf: {
-    cookieName: 'csrf_token',
+    cookieName: 'nauth_csrf_token',
     headerName: 'x-csrf-token',
   },
   onSessionExpired: () => {},
@@ -318,7 +318,7 @@ const client = new NAuthClient({
   baseUrl: 'https://api.example.com/auth',
   tokenDelivery: 'cookies',
   csrf: {
-    cookieName: 'csrf_token', // Must match backend
+    cookieName: 'nauth_csrf_token', // Must match backend
     headerName: 'x-csrf-token', // Must match backend
   },
   onSessionExpired: () => {},

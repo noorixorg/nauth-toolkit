@@ -37,11 +37,11 @@ export const appConfig: ApplicationConfig = {
 ```typescript
 // app.module.ts
 import { HTTP_INTERCEPTORS } from '@angular/common/http';
-import { AuthInterceptor } from '@nauth-toolkit/client-angular';
+import { AuthInterceptorClass } from '@nauth-toolkit/client-angular';
 
 @NgModule({
   providers: [
-    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
+    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptorClass, multi: true },
   ],
 })
 export class AppModule {}
@@ -63,7 +63,7 @@ export class AppModule {}
 
 For `cookies` mode, the interceptor automatically:
 
-1. Reads the CSRF token from cookie (default: `csrf_token`)
+1. Reads the CSRF token from cookie (default: `nauth_csrf_token`)
 2. Attaches it to mutating requests (`POST`, `PUT`, `PATCH`, `DELETE`)
 3. Uses configured header name (default: `x-csrf-token`)
 
@@ -75,7 +75,7 @@ For `cookies` mode, the interceptor automatically:
     baseUrl: 'https://api.example.com/auth',
     tokenDelivery: 'cookies',
     csrf: {
-      cookieName: 'csrf_token',      // Default
+      cookieName: 'nauth_csrf_token',      // Default
       headerName: 'x-csrf-token',    // Default
     },
     onSessionExpired: () => {},
@@ -113,7 +113,7 @@ Request C → 401 ─┘
 | Export | Type | Description |
 | ------ | ---- | ----------- |
 | `authInterceptor` | `HttpInterceptorFn` | Functional interceptor (Angular 17+) |
-| `AuthInterceptor` | `class` | Class-based interceptor (NgModule) |
+| `AuthInterceptorClass` | `class` | Class-based interceptor (NgModule) |
 
 ## Customization
 

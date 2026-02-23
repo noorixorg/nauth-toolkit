@@ -250,6 +250,7 @@ For native iOS apps using `AuthenticationServices`:
 
 ```json
 {
+  "provider": "apple",
   "idToken": "eyJraWQiOiJXNldjT0tCIiwiYWxn..."
 }
 ```

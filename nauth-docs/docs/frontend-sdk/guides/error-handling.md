@@ -24,7 +24,7 @@ try {
   await client.login(email, password);
 } catch (err) {
   if (err instanceof NAuthClientError) {
-    err.code;       // Error code string (e.g., 'INVALID_CREDENTIALS')
+    err.code;       // Error code string (e.g., 'AUTH_INVALID_CREDENTIALS')
     err.message;    // Human-readable message
     err.statusCode; // HTTP status (e.g., 401, 429)
     err.details;    // Additional context (optional)
@@ -38,34 +38,32 @@ try {
 
 | Code | When | Status |
 | ---- | ---- | ------ |
-| `INVALID_CREDENTIALS` | Wrong email or password | 401 |
-| `ACCOUNT_LOCKED` | Too many failed attempts | 423 |
-| `ACCOUNT_DISABLED` | Account disabled by admin | 403 |
+| `AUTH_INVALID_CREDENTIALS` | Wrong email or password | 401 |
+| `AUTH_ACCOUNT_LOCKED` | Too many failed attempts | 423 |
+| `AUTH_ACCOUNT_INACTIVE` | Account disabled by admin | 403 |
 | `USER_NOT_FOUND` | Email not registered | 404 |
-| `EMAIL_ALREADY_EXISTS` | Signup with existing email | 409 |
+| `SIGNUP_EMAIL_EXISTS` | Signup with existing email | 409 |
 
 ### Challenge Errors
 
 | Code | When | Status |
 | ---- | ---- | ------ |
-| `INVALID_CODE` | Wrong verification code | 400 |
-| `CODE_EXPIRED` | Verification code expired | 400 |
-| `SESSION_EXPIRED` | Challenge session timed out | 401 |
-| `MAX_ATTEMPTS_EXCEEDED` | Too many wrong codes | 429 |
+| `VERIFY_CODE_INVALID` | Wrong verification code | 400 |
+| `VERIFY_CODE_EXPIRED` | Verification code expired | 400 |
+| `CHALLENGE_EXPIRED` | Challenge session timed out | 401 |
+| `CHALLENGE_MAX_ATTEMPTS` | Too many wrong codes | 429 |
 
 ### MFA Errors
 
 | Code | When | Status |
 | ---- | ---- | ------ |
-| `MFA_ALREADY_ENABLED` | MFA method already set up | 409 |
-| `INVALID_TOTP_CODE` | Wrong TOTP code | 400 |
-| `MFA_DEVICE_NOT_FOUND` | Device ID does not exist | 404 |
+| `MFA_SETUP_REQUIRED` | MFA setup required before login | 403 |
 
 ### Rate Limiting
 
 | Code | When | Status |
 | ---- | ---- | ------ |
-| `TOO_MANY_REQUESTS` | Rate limit exceeded | 429 |
+| `RATE_LIMIT_LOGIN` | Login rate limit exceeded | 429 |
 
 ### Network Errors
 
@@ -95,13 +93,13 @@ async login(): Promise<void> {
   } catch (err) {
     if (err instanceof NAuthClientError) {
       switch (err.code) {
-        case 'INVALID_CREDENTIALS':
+        case 'AUTH_INVALID_CREDENTIALS':
           this.error = 'Invalid email or password';
           break;
-        case 'ACCOUNT_LOCKED':
+        case 'AUTH_ACCOUNT_LOCKED':
           this.error = 'Account locked. Try again later.';
           break;
-        case 'TOO_MANY_REQUESTS':
+        case 'RATE_LIMIT_LOGIN':
           this.error = 'Too many attempts. Please wait.';
           break;
         default:
@@ -129,13 +127,13 @@ async function handleLogin(email: string, password: string) {
   } catch (err) {
     if (err instanceof NAuthClientError) {
       switch (err.code) {
-        case 'INVALID_CREDENTIALS':
+        case 'AUTH_INVALID_CREDENTIALS':
           setError('Invalid email or password');
           break;
-        case 'ACCOUNT_LOCKED':
+        case 'AUTH_ACCOUNT_LOCKED':
           setError('Account locked. Try again later.');
           break;
-        case 'TOO_MANY_REQUESTS':
+        case 'RATE_LIMIT_LOGIN':
           setError('Too many attempts. Please wait.');
           break;
         default:
@@ -168,7 +166,7 @@ const client = new NAuthClient({
 
 ### Rate Limiting
 
-When you receive `TOO_MANY_REQUESTS` (HTTP 429), the response may include a `retryAfter` value in `details`:
+When you receive a rate limit error (HTTP 429), the response may include a `retryAfter` value in `details`:
 
 ```typescript
 try {
@@ -190,7 +188,7 @@ try {
   await client.login(email, password);
 } catch (err) {
   if (err instanceof NAuthClientError) {
-    if (err.isCode('INVALID_CREDENTIALS')) {
+    if (err.isCode('AUTH_INVALID_CREDENTIALS')) {
       // Handle invalid credentials
     }
   }

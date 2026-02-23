@@ -213,7 +213,7 @@ If MFA is configured, the exchange may return a challenge instead:
 ```json
 {
   "challengeName": "MFA_REQUIRED",
-  "session": "eyJhbGciOiJIUzI1NiJ9...",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
   "challengeParameters": {
     "availableMethods": ["totp"],
     "preferredMethod": "totp"
@@ -231,6 +231,7 @@ For Capacitor/React Native apps using the Google Sign-In SDK:
 
 ```json
 {
+  "provider": "google",
   "idToken": "eyJhbGciOiJSUzI1NiIs...",
   "accessToken": "ya29.a0AfH6SM..."
 }

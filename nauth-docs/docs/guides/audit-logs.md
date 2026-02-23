@@ -53,7 +53,7 @@ For high-throughput environments, enable fire-and-forget mode to avoid awaiting 
 | `fireAndForget` | `boolean` | `false` | Don't await audit writes on request path |
 
 :::warning Disabling Audit Logs
-Disabling audit logs reduces security observability. Recommended for production systems.
+Disabling audit logs reduces security observability. Keep audit logging enabled in production systems.
 :::
 
 ## Step 2: Query Audit History (Backend)
