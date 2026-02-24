@@ -10,6 +10,9 @@ WORKDIR /app
 # Copy package files
 COPY package.json ./
 
+# Pin all @nauth-toolkit/* deps to latest so Docker always pulls the newest release
+RUN sed -i 's/"@nauth-toolkit\/\([^"]*\)": "[^"]*"/"@nauth-toolkit\/\1": "latest"/g' package.json
+
 # Install dependencies
 RUN npm install --legacy-peer-deps
 
@@ -38,6 +41,9 @@ USER nestjs
 
 # Copy package files with ownership
 COPY --chown=nestjs:nodejs package.json ./
+
+# Pin all @nauth-toolkit/* deps to latest so Docker always pulls the newest release
+RUN sed -i 's/"@nauth-toolkit\/\([^"]*\)": "[^"]*"/"@nauth-toolkit\/\1": "latest"/g' package.json
 
 # Install production dependencies (peer deps e.g. qrcode come from package.json)
 RUN npm install --legacy-peer-deps --omit=dev --include=optional

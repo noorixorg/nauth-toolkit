@@ -7,9 +7,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json ./
 
-# Replace file: dependencies with latest npm versions for Docker build
-RUN sed -i 's|"@nauth-toolkit/client": "file:.*"|"@nauth-toolkit/client": "latest"|' package.json && \
-    sed -i 's|"@nauth-toolkit/client-angular": "file:.*"|"@nauth-toolkit/client-angular": "latest"|' package.json
+# Replace all @nauth-toolkit/* deps with latest npm versions for Docker build
+RUN sed -i 's/"@nauth-toolkit\/\([^"]*\)": "[^"]*"/"@nauth-toolkit\/\1": "latest"/g' package.json
 
 # Install dependencies
 RUN npm install --legacy-peer-deps
