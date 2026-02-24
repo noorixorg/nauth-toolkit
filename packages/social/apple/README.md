@@ -1,9 +1,7 @@
 # @nauth-toolkit/social-apple
 
-Apple OAuth provider for nauth-toolkit
+Apple Sign In provider for [nauth-toolkit](https://nauth.dev).
 
-## Preview Release Notice
+Adds Sign in with Apple with support for web redirect flows and native iOS token verification. Handles authorization code exchange, identity token validation, and user profile retrieval. Automatically links Apple accounts to existing users by email.
 
-**This is a preview release for internal testing. Do not use in production yet.**
-
-This package is part of nauth-toolkit and is currently in early access/preview. Features and APIs may change between releases. For production use, please wait for the stable v1.0 release.
+**Docs:** [nauth.dev](https://nauth.dev) · **Examples:** [github.com/noorixorg/nauth](https://github.com/noorixorg/nauth) · **Live demo:** [demo.nauth.dev](https://demo.nauth.dev)

@@ -1,7 +1,7 @@
 {
   "name": "@nauth-toolkit/core",
-  "version": "0.1.133",
-  "description": "Core authentication toolkit for Node JS",
+  "version": "0.2.0",
+  "description": "Embedded authentication engine for Node.js — NestJS, Express, Fastify",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -49,7 +49,7 @@
   },
   "peerDependencies": {
     "@maxmind/geoip2-node": "^4.0.0 || ^5.0.0 || ^6.0.0",
-    "@nauth-toolkit/recaptcha": "^0.1.133",
+    "@nauth-toolkit/recaptcha": "^0.2.0",
     "typeorm": "^0.3.0"
   },
   "peerDependenciesMeta": {
@@ -76,12 +76,36 @@
     "access": "public",
     "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "keywords": [
-    "nestjs",
+    "nauth",
     "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
     "jwt",
-    "typeorm"
+    "oauth",
+    "mfa",
+    "2fa",
+    "totp",
+    "passkey",
+    "webauthn",
+    "social-login",
+    "session-management",
+    "express",
+    "fastify",
+    "nestjs",
+    "email-verification",
+    "phone-verification",
+    "magic-link",
+    "password-reset",
+    "refresh-token",
+    "adaptive-security",
+    "rate-limiting",
+    "account-lockout",
+    "audit-log",
+    "recaptcha",
+    "security"
   ],
   "files": [
     "dist",
@@ -91,6 +115,7 @@
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/noorixorg/nauth-toolkit"
-  }
+    "url": "https://github.com/noorixorg/nauth"
+  },
+  "homepage": "https://nauth.dev"
 }

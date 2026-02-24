@@ -1,9 +1,9 @@
 # @nauth-toolkit/storage-redis
 
-Redis storage adapter for nauth-toolkit using the redis package (node-redis)
+Redis session storage for [nauth-toolkit](https://nauth.dev).
 
-## Preview Release Notice
+Stores sessions, rate limit counters, and distributed locks in Redis. Compatible with Redis and Dragonfly. Designed for production deployments that need fast session lookups and horizontal scaling.
 
-**This is a preview release for internal testing. Do not use in production yet.**
+Uses the `redis` (node-redis) package.
 
-This package is part of nauth-toolkit and is currently in early access/preview. Features and APIs may change between releases. For production use, please wait for the stable v1.0 release.
+**Docs:** [nauth.dev](https://nauth.dev) · **Examples:** [github.com/noorixorg/nauth](https://github.com/noorixorg/nauth) · **Live demo:** [demo.nauth.dev](https://demo.nauth.dev)

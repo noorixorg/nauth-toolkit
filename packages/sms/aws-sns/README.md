@@ -1,9 +1,7 @@
 # @nauth-toolkit/sms-aws-sns
 
-AWS SNS SMS provider for nauth-toolkit
+AWS SNS SMS provider for [nauth-toolkit](https://nauth.dev).
 
-## Preview Release Notice
+Sends SMS verification codes and MFA one-time passwords through Amazon SNS. Plug in your AWS credentials and nauth-toolkit handles message formatting and delivery.
 
-**This is a preview release for internal testing. Do not use in production yet.**
-
-This package is part of nauth-toolkit and is currently in early access/preview. Features and APIs may change between releases. For production use, please wait for the stable v1.0 release.
+**Docs:** [nauth.dev](https://nauth.dev) · **Examples:** [github.com/noorixorg/nauth](https://github.com/noorixorg/nauth) · **Live demo:** [demo.nauth.dev](https://demo.nauth.dev)

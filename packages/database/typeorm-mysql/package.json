@@ -1,7 +1,7 @@
 {
   "name": "@nauth-toolkit/database-typeorm-mysql",
-  "version": "0.1.133",
-  "description": "MySQL TypeORM adapter for nauth-toolkit",
+  "version": "0.2.0",
+  "description": "MySQL storage adapter for nauth-toolkit via TypeORM",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -14,7 +14,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.133",
+    "@nauth-toolkit/core": "^0.2.0",
     "typeorm": "^0.3.20",
     "mysql2": "^2.3.0 || ^3.0.0"
   },
@@ -32,17 +32,35 @@
     "access": "public",
     "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "keywords": [
-    "nestjs",
+    "nauth",
     "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
     "typeorm",
     "mysql",
-    "database"
+    "mariadb",
+    "database",
+    "storage"
   ],
   "files": [
     "dist",
     "LICENSE",
     "README.md"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth"
+  },
+  "homepage": "https://nauth.dev",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": false
 }

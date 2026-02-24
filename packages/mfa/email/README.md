@@ -1,9 +1,7 @@
 # @nauth-toolkit/mfa-email
 
-Email MFA provider for nauth-toolkit
+Email one-time code MFA provider for [nauth-toolkit](https://nauth.dev).
 
-## Preview Release Notice
+Sends verification codes via email for multi-factor authentication. Requires an email provider (`@nauth-toolkit/email-nodemailer` or `@nauth-toolkit/email-console` for development).
 
-**This is a preview release for internal testing. Do not use in production yet.**
-
-This package is part of nauth-toolkit and is currently in early access/preview. Features and APIs may change between releases. For production use, please wait for the stable v1.0 release.
+**Docs:** [nauth.dev](https://nauth.dev) · **Examples:** [github.com/noorixorg/nauth](https://github.com/noorixorg/nauth) · **Live demo:** [demo.nauth.dev](https://demo.nauth.dev)

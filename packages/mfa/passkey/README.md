@@ -1,9 +1,9 @@
 # @nauth-toolkit/mfa-passkey
 
-Passkey/WebAuthn MFA provider for nauth-toolkit
+Passkey and WebAuthn MFA provider for [nauth-toolkit](https://nauth.dev).
 
-## Preview Release Notice
+Adds FIDO2 passkey support — Face ID, Touch ID, Windows Hello, YubiKey, and other platform/roaming authenticators. Handles registration ceremonies, authentication assertions, and credential management.
 
-**This is a preview release for internal testing. Do not use in production yet.**
+Supports both platform authenticators (biometric) and cross-platform authenticators (security keys).
 
-This package is part of nauth-toolkit and is currently in early access/preview. Features and APIs may change between releases. For production use, please wait for the stable v1.0 release.
+**Docs:** [nauth.dev](https://nauth.dev) · **Examples:** [github.com/noorixorg/nauth](https://github.com/noorixorg/nauth) · **Live demo:** [demo.nauth.dev](https://demo.nauth.dev)

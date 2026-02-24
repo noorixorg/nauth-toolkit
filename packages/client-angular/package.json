@@ -1,21 +1,24 @@
 {
   "name": "@nauth-toolkit/client-angular",
-  "version": "0.1.133",
-  "description": "Angular adapter for nauth-toolkit client SDK",
+  "version": "0.2.0",
+  "description": "Angular SDK for nauth-toolkit — services, guards, interceptors",
   "keywords": [
     "nauth",
     "authentication",
-    "angular",
     "auth",
-    "jwt",
-    "oauth",
-    "mfa"
+    "nodejs",
+    "typescript",
+    "angular",
+    "frontend",
+    "sdk",
+    "client",
+    "rxjs"
   ],
   "author": "nauth-toolkit",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "repository": {
     "type": "git",
-    "url": "https://github.com/noorix/nauth-toolkit"
+    "url": "https://github.com/noorixorg/nauth"
   },
   "publishConfig": {
     "access": "public",
@@ -24,7 +27,7 @@
   "peerDependencies": {
     "@angular/common": ">=17.0.0",
     "@angular/core": ">=17.0.0",
-    "@nauth-toolkit/client": "^0.1.133",
+    "@nauth-toolkit/client": "workspace:^",
     "rxjs": "^7.0.0 || ^8.0.0"
   },
   "dependencies": {
@@ -53,5 +56,7 @@
   },
   "engines": {
     "node": ">=22.0.0"
-  }
+  },
+  "homepage": "https://nauth.dev",
+  "sideEffects": false
 }

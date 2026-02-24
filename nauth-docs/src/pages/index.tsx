@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from '@docusaurus/Link';
+import Head from '@docusaurus/Head';
 import '../css/homepage.css';
 
 // ─── TypewriterCode ───────────────────────────────────────────────────────────
@@ -285,6 +286,13 @@ export default function Home() {
 
   return (
     <div className="homepage">
+      <Head>
+        <title>NAuth Toolkit — Embedded Authentication for Node.js</title>
+        <meta
+          name="description"
+          content="Embedded TypeScript auth library for NestJS, Express, and Fastify. JWT, MFA, social login, passkeys — runs in your server, your database. Free to use."
+        />
+      </Head>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {/* ── Nav ────────────────────────────────────────────────────────── */}
       <nav className="homepage-nav">

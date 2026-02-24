@@ -1,9 +1,7 @@
 # @nauth-toolkit/storage-database
 
-Database storage adapter for nauth-toolkit using TypeORM
+Database-backed session storage for [nauth-toolkit](https://nauth.dev).
 
-## Preview Release Notice
+Stores sessions, rate limit counters, and locks in your existing database via TypeORM. Simpler than Redis for single-server deployments — no additional infrastructure required.
 
-**This is a preview release for internal testing. Do not use in production yet.**
-
-This package is part of nauth-toolkit and is currently in early access/preview. Features and APIs may change between releases. For production use, please wait for the stable v1.0 release.
+**Docs:** [nauth.dev](https://nauth.dev) · **Examples:** [github.com/noorixorg/nauth](https://github.com/noorixorg/nauth) · **Live demo:** [demo.nauth.dev](https://demo.nauth.dev)

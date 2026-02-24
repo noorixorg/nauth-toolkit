@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@nauth-toolkit/core': 0.1.66
+  '@nauth-toolkit/core': workspace:*
 
 importers:
 
@@ -85,7 +85,7 @@ importers:
         version: dist@file:packages/client/dist
       '@nauth-toolkit/client-angular':
         specifier: file:../../packages/client-angular/dist
-        version: file:packages/client-angular/dist(@angular/common@21.0.5(@angular/core@21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2))(dist@file:packages/client/dist)(rxjs@7.8.2)
+        version: dist@file:packages/client-angular/dist
       '@primeuix/themes':
         specifier: ^2.0.2
         version: 2.0.2
@@ -149,46 +149,46 @@ importers:
         version: 6.3.4
       '@nauth-toolkit/database-typeorm-postgres':
         specifier: ^0.1.92
-        version: 0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(pg@8.16.3)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        version: 0.1.133(pg@8.16.3)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
       '@nauth-toolkit/email-console':
         specifier: ^0.1.92
-        version: 0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))
+        version: 0.1.133
       '@nauth-toolkit/mfa-email':
         specifier: ^0.1.92
-        version: 0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))
+        version: 0.1.133
       '@nauth-toolkit/mfa-passkey':
         specifier: ^0.1.92
-        version: 0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(@simplewebauthn/server@13.2.2)
+        version: 0.1.133(@simplewebauthn/server@13.2.2)
       '@nauth-toolkit/mfa-sms':
         specifier: ^0.1.92
-        version: 0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))
+        version: 0.1.133
       '@nauth-toolkit/mfa-totp':
         specifier: ^0.1.92
-        version: 0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(qrcode@1.5.4)
+        version: 0.1.133(qrcode@1.5.4)
       '@nauth-toolkit/nestjs':
         specifier: ^0.1.92
-        version: 0.1.133(@maxmind/geoip2-node@6.3.4)(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.9)(@nestjs/typeorm@11.0.0(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.9)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        version: 0.1.133(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.9)(@nestjs/typeorm@11.0.0(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.9)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
       '@nauth-toolkit/recaptcha':
         specifier: ^0.1.92
-        version: 0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))
+        version: 0.1.133(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))
       '@nauth-toolkit/sms-aws-sns':
         specifier: ^0.1.92
-        version: 0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))
+        version: 0.1.133
       '@nauth-toolkit/sms-console':
         specifier: ^0.1.92
-        version: 0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))
+        version: 0.1.133
       '@nauth-toolkit/social-apple':
         specifier: ^0.1.92
-        version: 0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(jose@6.1.3)
+        version: 0.1.133(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(jose@6.1.3)
       '@nauth-toolkit/social-facebook':
         specifier: ^0.1.92
-        version: 0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(jose@6.1.3)
+        version: 0.1.133(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(jose@6.1.3)
       '@nauth-toolkit/social-google':
         specifier: ^0.1.92
-        version: 0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(jose@6.1.3)
+        version: 0.1.133(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(jose@6.1.3)
       '@nauth-toolkit/storage-redis':
         specifier: ^0.1.92
-        version: 0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(redis@5.10.0)
+        version: 0.1.133(redis@5.10.0)
       '@nestjs/common':
         specifier: ^11.0.0
         version: 11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -296,8 +296,8 @@ importers:
   packages/client-angular:
     dependencies:
       '@nauth-toolkit/client':
-        specifier: ^0.1.133
-        version: 0.1.133
+        specifier: workspace:^
+        version: link:../client
       tslib:
         specifier: ^2.3.0
         version: 2.8.1
@@ -351,8 +351,8 @@ importers:
         specifier: ^4.0.0 || ^5.0.0 || ^6.0.0
         version: 6.3.4
       '@nauth-toolkit/recaptcha':
-        specifier: ^0.1.133
-        version: 0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))
+        specifier: workspace:^
+        version: link:../recaptcha
       argon2:
         specifier: ^0.40.0
         version: 0.40.3
@@ -394,8 +394,8 @@ importers:
   packages/database/typeorm-mysql:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../../core
       mysql2:
         specifier: ^2.3.0 || ^3.0.0
         version: 3.15.3
@@ -422,8 +422,8 @@ importers:
   packages/database/typeorm-postgres:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../../core
       pg:
         specifier: ^8.0.0
         version: 8.16.3
@@ -450,8 +450,8 @@ importers:
   packages/email/console:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../../core
     devDependencies:
       '@types/jest':
         specifier: ^29.5.0
@@ -472,8 +472,8 @@ importers:
   packages/email/nodemailer:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../../core
       handlebars:
         specifier: ^4.7.8
         version: 4.7.8
@@ -503,8 +503,8 @@ importers:
   packages/mfa/email:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../../core
     devDependencies:
       '@types/jest':
         specifier: ^29.5.0
@@ -528,8 +528,8 @@ importers:
   packages/mfa/passkey:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../../core
     devDependencies:
       '@simplewebauthn/server':
         specifier: ^13.2.2
@@ -550,8 +550,8 @@ importers:
   packages/mfa/sms:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../../core
     devDependencies:
       '@types/jest':
         specifier: ^29.5.0
@@ -575,8 +575,8 @@ importers:
   packages/mfa/totp:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../../core
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -597,8 +597,8 @@ importers:
   packages/nestjs:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@nestjs/common':
         specifier: ^11.1.8
@@ -640,8 +640,8 @@ importers:
   packages/recaptcha:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../core
       '@nestjs/common':
         specifier: ^9 || ^10 || ^11
         version: 11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -671,8 +671,8 @@ importers:
         specifier: ^3.0.0
         version: 3.948.0
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../../core
     devDependencies:
       '@types/jest':
         specifier: ^29.5.0
@@ -693,8 +693,8 @@ importers:
   packages/sms/console:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../../core
     devDependencies:
       '@types/jest':
         specifier: ^29.5.0
@@ -715,8 +715,8 @@ importers:
   packages/social/apple:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../../core
       '@nestjs/common':
         specifier: ^9 || ^10 || ^11
         version: 11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -737,8 +737,8 @@ importers:
   packages/social/facebook:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../../core
       '@nestjs/common':
         specifier: ^9 || ^10 || ^11
         version: 11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -771,8 +771,8 @@ importers:
   packages/social/google:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../../core
       '@nestjs/common':
         specifier: ^9 || ^10 || ^11
         version: 11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -802,8 +802,8 @@ importers:
   packages/storage/database:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../../core
       typeorm:
         specifier: ^0.3.0
         version: 0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)
@@ -827,8 +827,8 @@ importers:
   packages/storage/redis:
     dependencies:
       '@nauth-toolkit/core':
-        specifier: 0.1.66
-        version: 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+        specifier: workspace:*
+        version: link:../../core
       redis:
         specifier: ^4.6.0 || ^5.0.0
         version: 5.10.0
@@ -2902,34 +2902,11 @@ packages:
   '@napi-rs/wasm-runtime@1.1.0':
     resolution: {integrity: sha512-Fq6DJW+Bb5jaWE69/qOE0D1TUN9+6uWhCeZpdnSBk14pjLcCWR7Q8n49PTSPHazM37JqrsdpEthXy2xn6jWWiA==}
 
-  '@nauth-toolkit/client-angular@file:packages/client-angular/dist':
-    resolution: {directory: packages/client-angular/dist, type: directory}
-    engines: {node: '>=22.0.0'}
-    peerDependencies:
-      '@angular/common': '>=17.0.0'
-      '@angular/core': '>=17.0.0'
-      '@nauth-toolkit/client': ^0.1.133
-      rxjs: ^7.0.0 || ^8.0.0
-
-  '@nauth-toolkit/client@0.1.133':
-    resolution: {integrity: sha512-dX+zpyTkWwVFgYwLv2IAIcZADh8mE1k6JWweqcg1CC4yILpMVUBO8c/rcJC5MmTsa4LEvtszQa0+kINHme9lOQ==}
-    engines: {node: '>=22.0.0'}
-
-  '@nauth-toolkit/core@0.1.66':
-    resolution: {integrity: sha512-f4jzCaLBSE3zOt4rI3Qs6/ihVfWM4tktfkiXnvMv4lc059H+WvSaHi4c64RjxxHlYYQkXbHuDNu5mE0j5u1IXg==}
-    engines: {node: '>=22.0.0'}
-    peerDependencies:
-      '@maxmind/geoip2-node': ^4.0.0 || ^5.0.0 || ^6.0.0
-      typeorm: ^0.3.0
-    peerDependenciesMeta:
-      '@maxmind/geoip2-node':
-        optional: true
-
   '@nauth-toolkit/database-typeorm-postgres@0.1.133':
     resolution: {integrity: sha512-b1x290oH90sP7z5yT71yCRAjVf4hYgYoyWuVNbxbaMF0gT7m9cOhiQ0q3CkzAArNsegDbhX86WCuHQ3UKRNXTA==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@nauth-toolkit/core': 0.1.66
+      '@nauth-toolkit/core': workspace:*
       pg: ^8.0.0
       typeorm: ^0.3.20
 
@@ -2937,32 +2914,32 @@ packages:
     resolution: {integrity: sha512-6iGtOZeIn+3O+wYgDCm9gOPiDxNrQRZk4Pru0qc7VPTU9jJcYh7p14g2/CIN6g2kQy8ga4ojyXGR7wbzKRrz7w==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@nauth-toolkit/core': 0.1.66
+      '@nauth-toolkit/core': workspace:*
 
   '@nauth-toolkit/mfa-email@0.1.133':
     resolution: {integrity: sha512-5cI2V0OCM/lpgqxbQpZEdvHh2+ootAp6zmWKQppPOLhcBxJLR4oRXwHhgc19FUNkAiiI6/W/FeMtMoqSrOPHZg==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@nauth-toolkit/core': 0.1.66
+      '@nauth-toolkit/core': workspace:*
 
   '@nauth-toolkit/mfa-passkey@0.1.133':
     resolution: {integrity: sha512-V+3N1/jOpwvB38l0MJVyyMlaib2gqV10eMzB22iK1sP8XUeeJoX7k0LuiSKhNLQgar/Q8QRM1lmTiOBlqx0lEQ==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@nauth-toolkit/core': 0.1.66
+      '@nauth-toolkit/core': workspace:*
       '@simplewebauthn/server': ^13.2.2
 
   '@nauth-toolkit/mfa-sms@0.1.133':
     resolution: {integrity: sha512-zPvuxVcLdR3t6kDI4pV+g7u6Y5YM6KHiSR1QDTGo1YR4dHAXYGjh25+XrVoM/68XzZ4ZnTZAAw3dtYcULas7GA==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@nauth-toolkit/core': 0.1.66
+      '@nauth-toolkit/core': workspace:*
 
   '@nauth-toolkit/mfa-totp@0.1.133':
     resolution: {integrity: sha512-UE/E1lLTwSQ2rMwG6e0idZM2h7XjrmwFX9pyEF2o5fPcx1+wEXufQdXdVDs6vqgifPx52dfTcn8zB1Ks+POClA==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@nauth-toolkit/core': 0.1.66
+      '@nauth-toolkit/core': workspace:*
       qrcode: ^1.5.3
 
   '@nauth-toolkit/nestjs@0.1.133':
@@ -2980,7 +2957,7 @@ packages:
     resolution: {integrity: sha512-DcOsQJdeFQAeLJlPbOR/bf5HPtJQSJOBmarx/pmhDwy/tsIjAr07F+i9/uO9c4XlQDmigEGCQvyxNF4qeN9B6Q==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@nauth-toolkit/core': 0.1.66
+      '@nauth-toolkit/core': workspace:*
       '@nestjs/common': ^9 || ^10 || ^11
     peerDependenciesMeta:
       '@nestjs/common':
@@ -2990,19 +2967,19 @@ packages:
     resolution: {integrity: sha512-8cot4J2tphja7xTXnIDShrzQuShAa9vTXo++pPHEv1ZhaunUtyVUCQa7E0OuZf+SRG9rWABIwHCeEOjUg8PWHg==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@nauth-toolkit/core': 0.1.66
+      '@nauth-toolkit/core': workspace:*
 
   '@nauth-toolkit/sms-console@0.1.133':
     resolution: {integrity: sha512-J4FPlNvqwAjBPrAMIFi6sIq2jbfSeCBHTPxQq+4kMvZw4y7EZGfDgz+7vHr+VuBCJPu6I5ksmMAped+G6QGKaQ==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@nauth-toolkit/core': 0.1.66
+      '@nauth-toolkit/core': workspace:*
 
   '@nauth-toolkit/social-apple@0.1.133':
     resolution: {integrity: sha512-Hzo3Z4HQAPyYxdf0SPde0SU5k2uFkAJjOTGmv+nPRp+ruUBkvrlmlHSGA0fLZNbt0VxopZu4neBoa3YKvXcZ5A==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@nauth-toolkit/core': 0.1.66
+      '@nauth-toolkit/core': workspace:*
       '@nestjs/common': ^9 || ^10 || ^11
       jose: ^6.0.0
     peerDependenciesMeta:
@@ -3013,7 +2990,7 @@ packages:
     resolution: {integrity: sha512-g/dchAztEsZAfljP69LoYyAZNNizR0S5ZAgCKrrelbu90Haxy+MnMZ/j0K9QXseFo547BmGB2ZZIiDmp5U/gHA==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@nauth-toolkit/core': 0.1.66
+      '@nauth-toolkit/core': workspace:*
       '@nestjs/common': ^9 || ^10 || ^11
       jose: ^6.0.0
     peerDependenciesMeta:
@@ -3024,7 +3001,7 @@ packages:
     resolution: {integrity: sha512-3rUyec81Cnk0eiN43IKVhg1sN+LRsPeAKh/lFSD2TTUaOk6iU6Jb6VpkzzJiDdgBI7Yvw/hlQUvola9koAyjEQ==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@nauth-toolkit/core': 0.1.66
+      '@nauth-toolkit/core': workspace:*
       '@nestjs/common': ^9 || ^10 || ^11
       jose: ^6.0.0
     peerDependenciesMeta:
@@ -3035,7 +3012,7 @@ packages:
     resolution: {integrity: sha512-gMasOp4aezLni7M6RhKQJq3lQmS+K+C1Qkqx8/+TfZSSZKglP8C164cmaeuG1TA0C0nTagLjMlybOhZoNBNrEw==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@nauth-toolkit/core': 0.1.66
+      '@nauth-toolkit/core': workspace:*
       redis: ^4.6.0 || ^5.0.0
 
   '@nestjs/cli@10.4.9':
@@ -5045,6 +5022,9 @@ packages:
 
   dijkstrajs@1.0.3:
     resolution: {integrity: sha512-qiSlmBq9+BCdCA/L46dw8Uy93mloxsPSbwnm5yrKn2vMPiy8KyAskTF6zuV/j5BMsmOGZDPs7KjU+mjb670kfA==}
+
+  dist@file:packages/client-angular/dist:
+    resolution: {directory: packages/client-angular/dist, type: directory}
 
   dist@file:packages/client/dist:
     resolution: {directory: packages/client/dist, type: directory}
@@ -11449,95 +11429,56 @@ snapshots:
       '@tybys/wasm-util': 0.10.1
     optional: true
 
-  '@nauth-toolkit/client-angular@file:packages/client-angular/dist(@angular/common@21.0.5(@angular/core@21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2))(dist@file:packages/client/dist)(rxjs@7.8.2)':
+  '@nauth-toolkit/database-typeorm-postgres@0.1.133(pg@8.16.3)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))':
     dependencies:
-      '@angular/common': 21.0.5(@angular/core@21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2))(rxjs@7.8.2)
-      '@angular/core': 21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2)
-      '@nauth-toolkit/client': dist@file:packages/client/dist
-      rxjs: 7.8.2
-      tslib: 2.8.1
-
-  '@nauth-toolkit/client@0.1.133': {}
-
-  '@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))':
-    dependencies:
-      argon2: 0.40.3
-      class-transformer: 0.5.1
-      class-validator: 0.14.3
-      jose: 6.1.3
-      typeorm: 0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)
-      zod: 3.25.76
-    optionalDependencies:
-      '@maxmind/geoip2-node': 6.3.4
-
-  '@nauth-toolkit/database-typeorm-postgres@0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(pg@8.16.3)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))':
-    dependencies:
-      '@nauth-toolkit/core': 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
       pg: 8.16.3
       typeorm: 0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)
 
-  '@nauth-toolkit/email-console@0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))':
-    dependencies:
-      '@nauth-toolkit/core': 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+  '@nauth-toolkit/email-console@0.1.133': {}
 
-  '@nauth-toolkit/mfa-email@0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))':
-    dependencies:
-      '@nauth-toolkit/core': 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+  '@nauth-toolkit/mfa-email@0.1.133': {}
 
-  '@nauth-toolkit/mfa-passkey@0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(@simplewebauthn/server@13.2.2)':
+  '@nauth-toolkit/mfa-passkey@0.1.133(@simplewebauthn/server@13.2.2)':
     dependencies:
-      '@nauth-toolkit/core': 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
       '@simplewebauthn/server': 13.2.2
 
-  '@nauth-toolkit/mfa-sms@0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))':
-    dependencies:
-      '@nauth-toolkit/core': 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+  '@nauth-toolkit/mfa-sms@0.1.133': {}
 
-  '@nauth-toolkit/mfa-totp@0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(qrcode@1.5.4)':
+  '@nauth-toolkit/mfa-totp@0.1.133(qrcode@1.5.4)':
     dependencies:
-      '@nauth-toolkit/core': 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
       qrcode: 1.5.4
 
-  '@nauth-toolkit/nestjs@0.1.133(@maxmind/geoip2-node@6.3.4)(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.9)(@nestjs/typeorm@11.0.0(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.9)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))':
+  '@nauth-toolkit/nestjs@0.1.133(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.9)(@nestjs/typeorm@11.0.0(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.9)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))':
     dependencies:
-      '@nauth-toolkit/core': 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+      '@nauth-toolkit/core': link:packages/core
       '@nestjs/common': 11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/core': 11.1.9(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.13)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@nestjs/typeorm': 11.0.0(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.9)(reflect-metadata@0.2.2)(rxjs@7.8.2)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
       reflect-metadata: 0.2.2
       rxjs: 7.8.2
       typeorm: 0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)
-    transitivePeerDependencies:
-      - '@maxmind/geoip2-node'
 
-  '@nauth-toolkit/recaptcha@0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))':
-    dependencies:
-      '@nauth-toolkit/core': 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+  '@nauth-toolkit/recaptcha@0.1.133(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))':
     optionalDependencies:
       '@nestjs/common': 11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
 
-  '@nauth-toolkit/sms-aws-sns@0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))':
+  '@nauth-toolkit/sms-aws-sns@0.1.133':
     dependencies:
       '@aws-sdk/client-pinpoint-sms-voice-v2': 3.989.0
       '@aws-sdk/client-sns': 3.948.0
-      '@nauth-toolkit/core': 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
     transitivePeerDependencies:
       - aws-crt
 
-  '@nauth-toolkit/sms-console@0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))':
-    dependencies:
-      '@nauth-toolkit/core': 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
+  '@nauth-toolkit/sms-console@0.1.133': {}
 
-  '@nauth-toolkit/social-apple@0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(jose@6.1.3)':
+  '@nauth-toolkit/social-apple@0.1.133(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(jose@6.1.3)':
     dependencies:
-      '@nauth-toolkit/core': 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
       jose: 6.1.3
     optionalDependencies:
       '@nestjs/common': 11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
 
-  '@nauth-toolkit/social-facebook@0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(jose@6.1.3)':
+  '@nauth-toolkit/social-facebook@0.1.133(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(jose@6.1.3)':
     dependencies:
-      '@nauth-toolkit/core': 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
       axios: 1.13.2
       jose: 6.1.3
     optionalDependencies:
@@ -11545,16 +11486,14 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
-  '@nauth-toolkit/social-google@0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(jose@6.1.3)':
+  '@nauth-toolkit/social-google@0.1.133(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))(jose@6.1.3)':
     dependencies:
-      '@nauth-toolkit/core': 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
       jose: 6.1.3
     optionalDependencies:
       '@nestjs/common': 11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
 
-  '@nauth-toolkit/storage-redis@0.1.133(@nauth-toolkit/core@0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)))(redis@5.10.0)':
+  '@nauth-toolkit/storage-redis@0.1.133(redis@5.10.0)':
     dependencies:
-      '@nauth-toolkit/core': 0.1.66(@maxmind/geoip2-node@6.3.4)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))
       redis: 5.10.0
 
   '@nestjs/cli@10.4.9':
@@ -13811,6 +13750,8 @@ snapshots:
   diff-sequences@29.6.3: {}
 
   dijkstrajs@1.0.3: {}
+
+  dist@file:packages/client-angular/dist: {}
 
   dist@file:packages/client/dist: {}
 

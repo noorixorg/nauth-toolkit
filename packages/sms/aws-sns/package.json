@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/sms-aws-sns",
-  "version": "0.1.133",
+  "version": "0.2.0",
   "description": "AWS SNS SMS provider for nauth-toolkit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,7 +18,7 @@
     "@aws-sdk/client-sns": "^3.0.0"
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.133"
+    "@nauth-toolkit/core": "^0.2.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
@@ -34,17 +34,34 @@
     "access": "public",
     "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "keywords": [
-    "nestjs",
+    "nauth",
     "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
     "sms",
     "aws",
-    "sns"
+    "sns",
+    "phone-verification"
   ],
   "files": [
     "dist",
     "LICENSE",
     "README.md"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth"
+  },
+  "homepage": "https://nauth.dev",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": false
 }

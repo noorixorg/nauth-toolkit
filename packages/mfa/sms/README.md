@@ -1,9 +1,7 @@
 # @nauth-toolkit/mfa-sms
 
-SMS MFA provider for nauth-toolkit
+SMS one-time code MFA provider for [nauth-toolkit](https://nauth.dev).
 
-## Preview Release Notice
+Sends verification codes via SMS for multi-factor authentication. Requires an SMS provider (`@nauth-toolkit/sms-aws-sns` or `@nauth-toolkit/sms-console` for development).
 
-**This is a preview release for internal testing. Do not use in production yet.**
-
-This package is part of nauth-toolkit and is currently in early access/preview. Features and APIs may change between releases. For production use, please wait for the stable v1.0 release.
+**Docs:** [nauth.dev](https://nauth.dev) · **Examples:** [github.com/noorixorg/nauth](https://github.com/noorixorg/nauth) · **Live demo:** [demo.nauth.dev](https://demo.nauth.dev)

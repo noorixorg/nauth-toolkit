@@ -1,7 +1,7 @@
 {
   "name": "@nauth-toolkit/storage-redis",
-  "version": "0.1.133",
-  "description": "Redis storage adapter for nauth-toolkit using the redis package (node-redis)",
+  "version": "0.2.0",
+  "description": "Redis session storage for nauth-toolkit — supports Redis and Dragonfly",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -14,7 +14,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.133",
+    "@nauth-toolkit/core": "^0.2.0",
     "redis": "^4.6.0 || ^5.0.0"
   },
   "devDependencies": {
@@ -31,17 +31,35 @@
     "access": "public",
     "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "keywords": [
-    "nestjs",
+    "nauth",
     "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
     "storage",
+    "session",
     "redis",
-    "dragonfly"
+    "dragonfly",
+    "cache"
   ],
   "files": [
     "dist",
     "LICENSE",
     "README.md"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth"
+  },
+  "homepage": "https://nauth.dev",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": false
 }

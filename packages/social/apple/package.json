@@ -1,7 +1,7 @@
 {
   "name": "@nauth-toolkit/social-apple",
-  "version": "0.1.133",
-  "description": "Apple OAuth provider for nauth-toolkit",
+  "version": "0.2.0",
+  "description": "Apple Sign In provider for nauth-toolkit — web and native flows",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "typesVersions": {
@@ -44,7 +44,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.133",
+    "@nauth-toolkit/core": "^0.2.0",
     "jose": "^6.0.0",
     "@nestjs/common": "^9 || ^10 || ^11"
   },
@@ -66,17 +66,27 @@
     "access": "public",
     "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "keywords": [
-    "nestjs",
+    "nauth",
     "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
     "apple",
     "oauth",
-    "social"
+    "social-login",
+    "sign-in-with-apple"
   ],
   "files": [
     "dist",
     "LICENSE",
     "README.md"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth"
+  },
+  "homepage": "https://nauth.dev",
+  "sideEffects": false
 }

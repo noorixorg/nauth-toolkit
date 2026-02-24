@@ -5,8 +5,8 @@ import type * as Preset from '@docusaurus/preset-classic';
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const config: Config = {
-  title: 'nauth-toolkit',
-  tagline: 'Framework-Agnostic Authentication Toolkit for Node.js',
+  title: 'NAuth Toolkit — Embedded Authentication for Node.js',
+  tagline: 'Embedded TypeScript authentication for NestJS, Express, and Fastify.',
   favicon: 'img/favicon.ico',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future

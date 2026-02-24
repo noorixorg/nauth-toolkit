@@ -1,9 +1,17 @@
 # @nauth-toolkit/nestjs
 
-NestJS adapter for nauth-toolkit - Platform-specific integrations
+NestJS module for [nauth-toolkit](https://nauth.dev) — the embedded authentication library for Node.js.
 
-## Preview Release Notice
+Provides a `DynamicModule` with `forRoot()` / `forRootAsync()` that wires the nauth-toolkit core into NestJS dependency injection. Adds guards, decorators, and interceptors so authentication integrates with NestJS conventions.
 
-**This is a preview release for internal testing. Do not use in production yet.**
+## What's included
 
-This package is part of nauth-toolkit and is currently in early access/preview. Features and APIs may change between releases. For production use, please wait for the stable v1.0 release.
+- **AuthModule** — `forRoot()` and `forRootAsync()` registration with full config support
+- **Guards** — `AuthGuard` (JWT validation), `CsrfGuard` (CSRF token enforcement)
+- **Decorators** — `@CurrentUser()`, `@Public()`, `@ClientInfo()`, `@TokenDelivery()`, `@RequireRecaptcha()`
+- **Interceptors** — context management and cookie-based token delivery
+- **Auto-registration** — MFA and social providers are discovered and registered at bootstrap
+
+Requires `@nauth-toolkit/core` and a database adapter (e.g. `@nauth-toolkit/database-typeorm-postgres`). Add storage, email, SMS, MFA, and social providers as needed.
+
+**Docs:** [nauth.dev](https://nauth.dev) · **Examples:** [github.com/noorixorg/nauth](https://github.com/noorixorg/nauth) · **Live demo:** [demo.nauth.dev](https://demo.nauth.dev)

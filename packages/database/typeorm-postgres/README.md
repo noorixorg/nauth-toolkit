@@ -1,9 +1,9 @@
 # @nauth-toolkit/database-typeorm-postgres
 
-PostgreSQL TypeORM adapter for nauth-toolkit
+PostgreSQL database adapter for [nauth-toolkit](https://nauth.dev).
 
-## Preview Release Notice
+Implements the nauth-toolkit storage interface using TypeORM with PostgreSQL. Provides entity definitions, repositories, and migrations for all auth-related tables — users, sessions, MFA devices, audit logs, and more.
 
-**This is a preview release for internal testing. Do not use in production yet.**
+Plug this into your existing TypeORM `DataSource` and nauth-toolkit manages the rest.
 
-This package is part of nauth-toolkit and is currently in early access/preview. Features and APIs may change between releases. For production use, please wait for the stable v1.0 release.
+**Docs:** [nauth.dev](https://nauth.dev) · **Examples:** [github.com/noorixorg/nauth](https://github.com/noorixorg/nauth) · **Live demo:** [demo.nauth.dev](https://demo.nauth.dev)

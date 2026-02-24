@@ -1,7 +1,7 @@
 {
   "name": "@nauth-toolkit/recaptcha",
-  "version": "0.1.133",
-  "description": "Google reCAPTCHA v2/v3/Enterprise provider for nauth-toolkit",
+  "version": "0.2.0",
+  "description": "reCAPTCHA v3 and Enterprise provider for nauth-toolkit",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "typesVersions": {
@@ -38,7 +38,7 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.133",
+    "@nauth-toolkit/core": "^0.2.0",
     "@nestjs/common": "^9 || ^10 || ^11"
   },
   "peerDependenciesMeta": {
@@ -60,18 +60,28 @@
     "access": "public",
     "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "keywords": [
+    "nauth",
+    "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
     "recaptcha",
     "google-recaptcha",
+    "recaptcha-enterprise",
     "bot-protection",
-    "security",
-    "authentication",
-    "nestjs"
+    "captcha"
   ],
   "files": [
     "dist",
     "LICENSE",
     "README.md"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth"
+  },
+  "homepage": "https://nauth.dev",
+  "sideEffects": false
 }

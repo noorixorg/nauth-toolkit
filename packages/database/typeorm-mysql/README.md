@@ -1,9 +1,7 @@
 # @nauth-toolkit/database-typeorm-mysql
 
-MySQL TypeORM adapter for nauth-toolkit
+MySQL / MariaDB database adapter for [nauth-toolkit](https://nauth.dev).
 
-## Preview Release Notice
+Implements the nauth-toolkit storage interface using TypeORM with MySQL or MariaDB. Same entity structure and behavior as the PostgreSQL adapter — swap the driver, keep the same auth logic.
 
-**This is a preview release for internal testing. Do not use in production yet.**
-
-This package is part of nauth-toolkit and is currently in early access/preview. Features and APIs may change between releases. For production use, please wait for the stable v1.0 release.
+**Docs:** [nauth.dev](https://nauth.dev) · **Examples:** [github.com/noorixorg/nauth](https://github.com/noorixorg/nauth) · **Live demo:** [demo.nauth.dev](https://demo.nauth.dev)

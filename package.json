@@ -1,12 +1,13 @@
 {
   "name": "nauth-toolkit",
   "version": "0.1.0",
-  "description": "Drop-in authentication toolkit for NestJS backends",
+  "description": "Embedded authentication library for Node.js — NestJS, Express, Fastify",
+  "homepage": "https://nauth.dev",
   "private": true,
   "packageManager": "pnpm@10.30.2",
   "pnpm": {
     "overrides": {
-      "@nauth-toolkit/core": "0.1.66"
+      "@nauth-toolkit/core": "workspace:*"
     },
     "onlyBuiltDependencies": [
       "argon2",
@@ -41,7 +42,8 @@
     "lint:commit": "commitlint --from=HEAD~1 --to=HEAD",
     "kill": "kill -9 $(lsof -t -i :3000) ",
     "publish:packages": "node scripts/publish.js latest",
-    "publish:packages:dry-run": "node scripts/publish.js latest --dry-run"
+    "publish:packages:dry-run": "node scripts/publish.js latest --dry-run",
+    "publish:packages:no-bump": "node scripts/publish.js latest --skip-version-bump"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.1.0",
@@ -63,15 +65,19 @@
   "engines": {
     "node": ">=22.0.0"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "keywords": [
-    "nestjs",
+    "nauth",
     "authentication",
     "auth",
+    "nodejs",
+    "typescript",
     "jwt",
-    "passport",
     "oauth",
-    "mfa"
+    "mfa",
+    "nestjs",
+    "express",
+    "fastify"
   ],
   "publishConfig": {
     "access": "public",
@@ -79,6 +85,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/noorixorg/nauth-toolkit"
+    "url": "https://github.com/noorixorg/nauth"
   }
 }

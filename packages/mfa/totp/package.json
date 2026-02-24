@@ -1,7 +1,7 @@
 {
   "name": "@nauth-toolkit/mfa-totp",
-  "version": "0.1.133",
-  "description": "TOTP/Authenticator MFA provider for nauth-toolkit",
+  "version": "0.2.0",
+  "description": "TOTP authenticator app MFA provider for nauth-toolkit",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "typesVersions": {
@@ -44,7 +44,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.133",
+    "@nauth-toolkit/core": "^0.2.0",
     "qrcode": "^1.5.3"
   },
   "devDependencies": {
@@ -61,18 +61,29 @@
     "access": "public",
     "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "keywords": [
-    "nestjs",
+    "nauth",
     "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
     "mfa",
-    "totp",
     "2fa",
-    "otp"
+    "totp",
+    "authenticator",
+    "otp",
+    "google-authenticator"
   ],
   "files": [
     "dist",
     "LICENSE",
     "README.md"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth"
+  },
+  "homepage": "https://nauth.dev",
+  "sideEffects": false
 }

@@ -1,9 +1,14 @@
 # @nauth-toolkit/recaptcha
 
-Google reCAPTCHA v2/v3/Enterprise provider for nauth-toolkit
+reCAPTCHA provider for [nauth-toolkit](https://nauth.dev).
 
-## Preview Release Notice
+Integrates Google reCAPTCHA v3 and reCAPTCHA Enterprise into nauth-toolkit's authentication flows. Verifies CAPTCHA tokens server-side during signup, login, and other protected endpoints.
 
-**This is a preview release for internal testing. Do not use in production yet.**
+## Supports
 
-This package is part of nauth-toolkit and is currently in early access/preview. Features and APIs may change between releases. For production use, please wait for the stable v1.0 release.
+- **reCAPTCHA v3** — score-based bot detection
+- **reCAPTCHA Enterprise** — Google Cloud project-based verification with site keys
+- Configurable score thresholds
+- Per-action verification (signup, login, password reset)
+
+**Docs:** [nauth.dev](https://nauth.dev) · **Examples:** [github.com/noorixorg/nauth](https://github.com/noorixorg/nauth) · **Live demo:** [demo.nauth.dev](https://demo.nauth.dev)

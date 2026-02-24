@@ -1,9 +1,15 @@
 # @nauth-toolkit/client-angular
 
-Angular adapter for nauth-toolkit client SDK
+Angular SDK for [nauth-toolkit](https://nauth.dev).
 
-## Preview Release Notice
+Wraps the framework-agnostic `@nauth-toolkit/client` with Angular services, guards, and HTTP interceptors. Integrates with Angular dependency injection and handles token refresh, auth state, and route protection.
 
-**This is a preview release for internal testing. Do not use in production yet.**
+## What's included
 
-This package is part of nauth-toolkit and is currently in early access/preview. Features and APIs may change between releases. For production use, please wait for the stable v1.0 release.
+- **NAuthModule** — Angular module for DI integration
+- **AuthService** — reactive auth state, login, signup, logout, token refresh
+- **AuthGuard** — route protection with automatic redirect
+- **HTTP interceptor** — attaches tokens to outgoing requests, handles 401 refresh
+- **Lazy-loadable** — ships only what your app imports
+
+**Docs:** [nauth.dev](https://nauth.dev) · **Examples:** [github.com/noorixorg/nauth](https://github.com/noorixorg/nauth) · **Live demo:** [demo.nauth.dev](https://demo.nauth.dev)

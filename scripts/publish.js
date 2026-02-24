@@ -7,6 +7,7 @@ const { execSync } = require('child_process');
 const PACKAGES_DIR = path.join(__dirname, '..', 'packages');
 const TAG = process.argv[2] || 'latest';
 const DRY_RUN = process.argv.includes('--dry-run') || process.argv.includes('-d');
+const SKIP_VERSION_BUMP = process.argv.includes('--skip-version-bump');
 
 const PUBLISH_ORDER = [
   'core',
@@ -34,6 +35,35 @@ const PUBLISH_ORDER = [
 function incrementVersion(version) {
   const parts = version.split('.');
   return `${parts[0]}.${parts[1]}.${parseInt(parts[2] || 0, 10) + 1}`;
+}
+
+/**
+ * Resolve workspace: protocol references in a package.json file.
+ * Converts `workspace:*`, `workspace:^`, `workspace:~` to real semver ranges.
+ * Returns true if the file was modified.
+ */
+function resolveWorkspaceProtocol(packageJsonPath, version) {
+  const pkgJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  let modified = false;
+
+  ['dependencies', 'peerDependencies'].forEach((depType) => {
+    if (pkgJson[depType]) {
+      Object.keys(pkgJson[depType]).forEach((dep) => {
+        if (!dep.startsWith('@nauth-toolkit/')) return;
+        const val = pkgJson[depType][dep];
+        if (typeof val === 'string' && val.startsWith('workspace:')) {
+          const range = val.slice('workspace:'.length);
+          pkgJson[depType][dep] = range === '~' ? `~${version}` : `^${version}`;
+          modified = true;
+        }
+      });
+    }
+  });
+
+  if (modified) {
+    fs.writeFileSync(packageJsonPath, JSON.stringify(pkgJson, null, 2) + '\n');
+  }
+  return modified;
 }
 
 function updatePackageVersion(packagePath, newVersion) {
@@ -99,8 +129,45 @@ function getAllPackages() {
   return packages;
 }
 
+/**
+ * Get the directory from which a package should be published.
+ * client-angular publishes from dist/ (ng-packagr output).
+ */
+function getPublishCwd(pkg) {
+  return pkg.name === '@nauth-toolkit/client-angular' ? path.join(pkg.path, 'dist') : pkg.path;
+}
+
+function publishPackage(pkg, newVersion) {
+  const publishCwd = getPublishCwd(pkg);
+
+  // Copy .npmrc to dist directory for client-angular (npm looks for it in cwd)
+  // SECURITY: .npmrc is automatically excluded from published packages by npm
+  // and is also explicitly listed in .npmignore for extra safety
+  if (pkg.name === '@nauth-toolkit/client-angular') {
+    const rootNpmrc = path.join(__dirname, '..', '.npmrc');
+    const distNpmrc = path.join(publishCwd, '.npmrc');
+    if (fs.existsSync(rootNpmrc) && !fs.existsSync(distNpmrc)) {
+      fs.copyFileSync(rootNpmrc, distNpmrc);
+    }
+  }
+
+  // Resolve workspace: protocol in the publish directory's package.json.
+  // For most packages this is the root package.json (already handled by
+  // updatePackageVersion in normal flow, but needed for --skip-version-bump).
+  // For client-angular this is dist/package.json where ng-packagr copies
+  // peerDependencies verbatim from root.
+  resolveWorkspaceProtocol(path.join(publishCwd, 'package.json'), newVersion);
+
+  execSync(`npm publish --tag ${TAG} --registry https://registry.npmjs.org/`, {
+    stdio: 'inherit',
+    cwd: publishCwd,
+  });
+}
+
 function main() {
-  console.log(`Publishing nauth-toolkit packages (tag: ${TAG})${DRY_RUN ? ' [DRY RUN]' : ''}\n`);
+  const flags = [DRY_RUN && 'DRY RUN', SKIP_VERSION_BUMP && 'SKIP VERSION BUMP'].filter(Boolean);
+  const flagStr = flags.length ? ` [${flags.join(', ')}]` : '';
+  console.log(`Publishing nauth-toolkit packages (tag: ${TAG})${flagStr}\n`);
 
   const allPackages = getAllPackages();
   const corePackage = allPackages.find((p) => p.name === '@nauth-toolkit/core');
@@ -109,15 +176,23 @@ function main() {
     process.exit(1);
   }
 
-  const newVersion = incrementVersion(corePackage.version);
-  console.log(`Updating versions: ${corePackage.version} -> ${newVersion}\n`);
+  const currentVersion = corePackage.version;
+  const newVersion = SKIP_VERSION_BUMP ? currentVersion : incrementVersion(currentVersion);
 
-  // Update versions
+  if (SKIP_VERSION_BUMP) {
+    console.log(`Publishing at current version: ${currentVersion}\n`);
+  } else {
+    console.log(`Updating versions: ${currentVersion} -> ${newVersion}\n`);
+  }
+
+  // Update versions (or just collect packages if skipping bump)
   const updatedPackages = new Map();
   for (const pkg of allPackages) {
-    if (DRY_RUN) {
+    if (SKIP_VERSION_BUMP || DRY_RUN) {
       updatedPackages.set(pkg.relativePath, { ...pkg, newVersion });
-      console.log(`  [DRY RUN] ${pkg.name}: ${pkg.version} -> ${newVersion}`);
+      if (!SKIP_VERSION_BUMP) {
+        console.log(`  [DRY RUN] ${pkg.name}: ${pkg.version} -> ${newVersion}`);
+      }
     } else {
       const oldVersion = updatePackageVersion(pkg.path, newVersion);
       updatedPackages.set(pkg.relativePath, { ...pkg, oldVersion, newVersion });
@@ -147,32 +222,7 @@ function main() {
       success++;
     } else {
       try {
-        // ============================================================================
-        // Publishing strategy
-        // ============================================================================
-        // WARNING: Security/compatibility critical packaging
-        //
-        // `@nauth-toolkit/client-angular` must be published from its `dist/` output
-        // generated by ng-packagr. The root package contains sources and build config,
-        // but the distributable entrypoints (exports/typings/fesm/esm) live in `dist/`.
-        // If we publish from the root, consumers will fail to resolve the package.
-        const publishCwd = pkg.name === '@nauth-toolkit/client-angular' ? path.join(pkg.path, 'dist') : pkg.path;
-
-        // Copy .npmrc to dist directory for client-angular (npm looks for it in cwd)
-        // SECURITY: .npmrc is automatically excluded from published packages by npm
-        // and is also explicitly listed in .npmignore for extra safety
-        if (pkg.name === '@nauth-toolkit/client-angular') {
-          const rootNpmrc = path.join(__dirname, '..', '.npmrc');
-          const distNpmrc = path.join(publishCwd, '.npmrc');
-          if (fs.existsSync(rootNpmrc) && !fs.existsSync(distNpmrc)) {
-            fs.copyFileSync(rootNpmrc, distNpmrc);
-          }
-        }
-
-        execSync(`npm publish --tag ${TAG} --registry https://registry.npmjs.org/`, {
-          stdio: 'inherit',
-          cwd: publishCwd,
-        });
+        publishPackage(pkg, newVersion);
         console.log(`  OK ${pkg.name}`);
         success++;
       } catch (error) {
@@ -188,7 +238,7 @@ function main() {
     }
   }
 
-  // Publish any remaining packages
+  // Publish any remaining packages not in PUBLISH_ORDER
   for (const [relPath, pkg] of updatedPackages.entries()) {
     if (!PUBLISH_ORDER.includes(relPath)) {
       if (DRY_RUN) {
@@ -196,10 +246,7 @@ function main() {
         success++;
       } else {
         try {
-          execSync(`npm publish --tag ${TAG} --registry https://registry.npmjs.org/`, {
-            stdio: 'inherit',
-            cwd: pkg.path,
-          });
+          publishPackage(pkg, newVersion);
           console.log(`  OK ${pkg.name}`);
           success++;
         } catch (error) {

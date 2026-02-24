@@ -1,9 +1,7 @@
 # @nauth-toolkit/mfa-totp
 
-TOTP/Authenticator MFA provider for nauth-toolkit
+TOTP authenticator app MFA provider for [nauth-toolkit](https://nauth.dev).
 
-## Preview Release Notice
+Adds time-based one-time password (TOTP) support — works with Google Authenticator, Authy, 1Password, and any TOTP-compatible app. Handles secret generation, QR code provisioning URIs, and code verification.
 
-**This is a preview release for internal testing. Do not use in production yet.**
-
-This package is part of nauth-toolkit and is currently in early access/preview. Features and APIs may change between releases. For production use, please wait for the stable v1.0 release.
+**Docs:** [nauth.dev](https://nauth.dev) · **Examples:** [github.com/noorixorg/nauth](https://github.com/noorixorg/nauth) · **Live demo:** [demo.nauth.dev](https://demo.nauth.dev)
