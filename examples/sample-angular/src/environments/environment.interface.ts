@@ -9,4 +9,6 @@ export interface Environment {
   recaptchaVersion: 'v3' | 'enterprise';
   tokenMode: 'cookies' | 'json';
   recaptchaEnabled: boolean;
+  showAppleLogin: boolean;
+  showFacebookLogin: boolean;
 }

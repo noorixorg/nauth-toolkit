@@ -155,7 +155,7 @@ export const authConfig: NAuthModuleConfig = {
       // - Domain must match both subdomains (use leading dot)
       secure: true,
       sameSite: 'none',
-      domain: '.angular.dev1.noorix.com',
+      domain: process.env.COOKIE_DOMAIN || '.angular.dev1.noorix.com',
     },
   },
   security: {
@@ -166,7 +166,7 @@ export const authConfig: NAuthModuleConfig = {
       cookieName: 'nauth_csrf_token',
       headerName: 'x-csrf-token',
       cookieOptions: {
-        domain: '.angular.dev1.noorix.com',
+        domain: process.env.COOKIE_DOMAIN || '.angular.dev1.noorix.com',
       },
     },
   },
@@ -201,7 +201,7 @@ export const authConfig: NAuthModuleConfig = {
       },
     },
     apple: {
-      enabled: true,
+      enabled: !!process.env.APPLE_SERVICE_ID,
       clientId: [process.env.APPLE_SERVICE_ID!, process.env.APPLE_CLIENT_ID!],
 
       // Apple requires a JWT client secret for web OAuth, which is automatically generated and refreshed

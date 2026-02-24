@@ -15,4 +15,6 @@ export const environment: Environment = {
   recaptchaVersion: 'enterprise',
   tokenMode: 'json',
   recaptchaEnabled: false,
+  showAppleLogin: true,
+  showFacebookLogin: true,
 };

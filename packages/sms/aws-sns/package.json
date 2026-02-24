@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/sms-aws-sns",
-  "version": "0.1.132",
+  "version": "0.1.133",
   "description": "AWS SNS SMS provider for nauth-toolkit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,7 +18,7 @@
     "@aws-sdk/client-sns": "^3.0.0"
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.132"
+    "@nauth-toolkit/core": "^0.1.133"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",

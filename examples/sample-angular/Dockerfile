@@ -24,11 +24,15 @@ COPY . .
 # RECAPTCHA_VERSION -> recaptchaVersion
 # RECAPTCHA_ENABLED -> recaptchaEnabled
 # TOKEN_MODE -> tokenMode
+# SHOW_APPLE_LOGIN -> showAppleLogin
+# SHOW_FACEBOOK_LOGIN -> showFacebookLogin
 ARG API_BASE_URL=https://demo.nauth.dev/api
 ARG RECAPTCHA_SITE_KEY
 ARG RECAPTCHA_VERSION=enterprise
 ARG RECAPTCHA_ENABLED=true
 ARG TOKEN_MODE=cookies
+ARG SHOW_APPLE_LOGIN=true
+ARG SHOW_FACEBOOK_LOGIN=true
 
 # Create environment file from build args (must match Environment interface)
 RUN echo "import type { Environment } from './environment.interface';" > src/environments/environment.prod.ts && \
@@ -39,6 +43,8 @@ RUN echo "import type { Environment } from './environment.interface';" > src/env
     echo "  recaptchaVersion: '${RECAPTCHA_VERSION}' as 'v3' | 'enterprise'," >> src/environments/environment.prod.ts && \
     echo "  tokenMode: '${TOKEN_MODE}' as 'cookies' | 'json'," >> src/environments/environment.prod.ts && \
     echo "  recaptchaEnabled: ${RECAPTCHA_ENABLED}," >> src/environments/environment.prod.ts && \
+    echo "  showAppleLogin: ${SHOW_APPLE_LOGIN}," >> src/environments/environment.prod.ts && \
+    echo "  showFacebookLogin: ${SHOW_FACEBOOK_LOGIN}," >> src/environments/environment.prod.ts && \
     echo "};" >> src/environments/environment.prod.ts
 
 # Build Angular app

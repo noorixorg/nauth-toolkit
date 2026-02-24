@@ -10,6 +10,7 @@ import { MessageModule } from 'primeng/message';
 import { DividerModule } from 'primeng/divider';
 import { CommonModule } from '@angular/common';
 import { handleAuthError } from '../utils/error-handler.util';
+import { environment } from '../../environments/environment';
 
 /**
  * Login component
@@ -44,6 +45,11 @@ export class LoginComponent implements OnInit {
    * Login form group
    */
   loginForm: FormGroup;
+
+  /** Show Apple login button (controlled via build-time env flag) */
+  readonly showAppleLogin = environment.showAppleLogin;
+  /** Show Facebook login button (controlled via build-time env flag) */
+  readonly showFacebookLogin = environment.showFacebookLogin;
 
   /**
    * Loading state signal

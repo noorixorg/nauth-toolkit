@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/core",
-  "version": "0.1.132",
+  "version": "0.1.133",
   "description": "Core authentication toolkit for Node JS",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -49,7 +49,7 @@
   },
   "peerDependencies": {
     "@maxmind/geoip2-node": "^4.0.0 || ^5.0.0 || ^6.0.0",
-    "@nauth-toolkit/recaptcha": "^0.1.132",
+    "@nauth-toolkit/recaptcha": "^0.1.133",
     "typeorm": "^0.3.0"
   },
   "peerDependenciesMeta": {

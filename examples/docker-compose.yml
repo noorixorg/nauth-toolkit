@@ -122,6 +122,8 @@ services:
         RECAPTCHA_VERSION: ${RECAPTCHA_VERSION:-enterprise}
         RECAPTCHA_ENABLED: ${RECAPTCHA_ENABLED:-true}
         TOKEN_MODE: ${TOKEN_MODE:-cookies}
+        SHOW_APPLE_LOGIN: ${SHOW_APPLE_LOGIN:-true}
+        SHOW_FACEBOOK_LOGIN: ${SHOW_FACEBOOK_LOGIN:-true}
     container_name: nauth-frontend
     restart: unless-stopped
     logging: *default-logging

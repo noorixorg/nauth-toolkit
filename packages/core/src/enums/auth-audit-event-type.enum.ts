@@ -318,21 +318,6 @@ export enum AuthAuditEventType {
   PROFILE_UPDATED = 'PROFILE_UPDATED',
 
   /**
-   * User email address changed
-   */
-  EMAIL_CHANGED = 'EMAIL_CHANGED',
-
-  /**
-   * User phone number changed
-   */
-  PHONE_CHANGED = 'PHONE_CHANGED',
-
-  /**
-   * User username changed
-   */
-  USERNAME_CHANGED = 'USERNAME_CHANGED',
-
-  /**
    * Email verification status updated by admin
    */
   EMAIL_VERIFICATION_STATUS_UPDATED = 'EMAIL_VERIFICATION_STATUS_UPDATED',

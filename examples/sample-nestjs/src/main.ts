@@ -29,14 +29,25 @@ async function bootstrap() {
   // Enable global validation pipe for all DTOs
   app.useGlobalPipes(new NAuthValidationPipe());
 
+  const allowedOrigins: string[] = [
+    'http://localhost:4200',
+    'http://192.168.50.39:4200',
+    'capacitor://localhost',
+    'ionic://localhost',
+    'https://angular.dev1.noorix.com',
+  ];
+
+  if (process.env.ALLOWED_ORIGINS) {
+    const envOrigins = process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean);
+    for (const origin of envOrigins) {
+      if (!allowedOrigins.includes(origin)) {
+        allowedOrigins.push(origin);
+      }
+    }
+  }
+
   app.enableCors({
-    origin: [
-      'http://localhost:4200',
-      'http://192.168.50.39:4200',
-      'capacitor://localhost',
-      'ionic://localhost',
-      'https://angular.dev1.noorix.com',
-    ],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id', 'x-csrf-token', 'x-device-token'],

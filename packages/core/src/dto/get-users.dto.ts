@@ -1,4 +1,4 @@
-import { IsOptional, IsNumber, Min, Max, IsString, IsBoolean, IsEnum, ValidateNested } from 'class-validator';
+import { IsOptional, IsNumber, Min, Max, IsString, IsBoolean, IsEnum, ValidateNested, IsDate } from 'class-validator';
 import { Type } from 'class-transformer';
 import { UserResponseDTO } from './user-response.dto';
 
@@ -32,6 +32,7 @@ export class DateFilterDTO {
   /**
    * Date value to compare against
    */
+  @IsDate()
   @Type(() => Date)
   value!: Date;
 }

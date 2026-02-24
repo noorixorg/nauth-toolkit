@@ -22,6 +22,7 @@ import { CommonModule } from '@angular/common';
 import { ChallengeOrchestratorService } from '../services/challenge-orchestrator.service';
 import { SimulatedVerificationCodeService } from '../services/simulated-verification-code.service';
 import { handleAuthError } from '../utils/error-handler.util';
+import { environment } from '../../environments/environment';
 import { faker } from '@faker-js/faker';
 
 /**
@@ -113,6 +114,11 @@ export class SignupComponent implements OnInit {
    * Signup form group
    */
   signupForm: FormGroup;
+
+  /** Show Apple signup button (controlled via build-time env flag) */
+  readonly showAppleLogin = environment.showAppleLogin;
+  /** Show Facebook signup button (controlled via build-time env flag) */
+  readonly showFacebookLogin = environment.showFacebookLogin;
 
   /**
    * Loading state signal

@@ -730,7 +730,6 @@ export class UserService {
         },
       });
 
-      // Record specific field changes
       const clientInfoForSource = this.clientInfoService.get();
       const inferredUpdateSource =
         clientInfoForSource?.sub && clientInfoForSource.sub !== user.sub
@@ -739,18 +738,6 @@ export class UserService {
 
       const newEmail = updateFields.email;
       if (fieldChanges.email && typeof newEmail === 'string') {
-        await this.auditService?.recordEvent({
-          userId: user.id,
-          eventType: AuthAuditEventType.EMAIL_CHANGED,
-          eventStatus: 'INFO',
-          metadata: {
-            // Client info automatically included from context
-            oldEmail: user.email,
-            newEmail,
-            retainVerification: dto.retainVerification || false,
-          },
-        });
-
         // ============================================================================
         // Lifecycle Hook: Email Changed
         // ============================================================================
@@ -779,34 +766,6 @@ export class UserService {
         }
       }
 
-      const newPhone = updateFields.phone;
-      if (fieldChanges.phone && typeof newPhone === 'string') {
-        await this.auditService?.recordEvent({
-          userId: user.id,
-          eventType: AuthAuditEventType.PHONE_CHANGED,
-          eventStatus: 'INFO',
-          metadata: {
-            // Client info automatically included from context
-            oldPhone: user.phone,
-            newPhone,
-            retainVerification: dto.retainVerification || false,
-          },
-        });
-      }
-
-      const newUsername = updateFields.username;
-      if (fieldChanges.username && (typeof newUsername === 'string' || newUsername === null)) {
-        await this.auditService?.recordEvent({
-          userId: user.id,
-          eventType: AuthAuditEventType.USERNAME_CHANGED,
-          eventStatus: 'INFO',
-          metadata: {
-            // Client info automatically included from context
-            oldUsername: user.username,
-            newUsername,
-          },
-        });
-      }
     } catch (auditError) {
       // Non-blocking: Log but continue
       const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
