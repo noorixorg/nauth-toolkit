@@ -1,8 +1,9 @@
 import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
 import { MFAMethod, NAuthModuleConfig, createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
+import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
 
 // import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
-import { AWSSMSProvider, AWSSMSConfig } from '@nauth-toolkit/sms-aws-sns';
+// import { AWSSMSProvider, AWSSMSConfig } from '@nauth-toolkit/sms-aws-sns';
 import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
 // import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
 import { Logger } from '@nestjs/common';
@@ -10,15 +11,15 @@ import { Logger } from '@nestjs/common';
 
 // AWS SES SDK imports (install: yarn add @aws-sdk/client-sesv2)
 
-const smsConfig: AWSSMSConfig = {
-  region: 'ap-southeast-2',
-  originationNumber: 'anyspaces',
-  apiMode: 'end-user-messaging-sms',
-  configurationSetName: 'as2-sms-auth',
-  // Credentials optional - AWS SDK auto-discovers from IAM role or environment
-  // accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  // secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-};
+// const smsConfig: AWSSMSConfig = {
+//   region: 'ap-southeast-2',
+//   originationNumber: 'anyspaces',
+//   apiMode: 'end-user-messaging-sms',
+//   configurationSetName: 'as2-sms-auth',
+//   // Credentials optional - AWS SDK auto-discovers from IAM role or environment
+//   // accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+//   // secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+// };
 
 /**
  * Helper function to parse comma-separated origins from environment variable
@@ -64,7 +65,7 @@ export const authConfig: NAuthModuleConfig = {
 
   signup: {
     enabled: true,
-    verificationMethod: 'both',
+    verificationMethod: 'email',
     allowDuplicatePhones: true,
     emailVerification: {
       expiresIn: 3600,
@@ -89,8 +90,8 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
   mfa: {
-    enabled: false,
-    enforcement: 'REQUIRED',
+    enabled: true,
+    enforcement: 'ADAPTIVE',
     gracePeriod: 2,
     requireForSocialLogin: false,
     allowedMethods: [MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.TOTP, MFAMethod.PASSKEY],
@@ -202,7 +203,9 @@ export const authConfig: NAuthModuleConfig = {
     },
     apple: {
       enabled: !!process.env.APPLE_SERVICE_ID,
-      clientId: [process.env.APPLE_SERVICE_ID!, process.env.APPLE_CLIENT_ID!],
+      clientId: process.env.APPLE_SERVICE_ID
+        ? ([process.env.APPLE_SERVICE_ID, process.env.APPLE_CLIENT_ID].filter(Boolean) as string[])
+        : undefined,
 
       // Apple requires a JWT client secret for web OAuth, which is automatically generated and refreshed
       // by the toolkit from your Apple Developer credentials below.
@@ -297,8 +300,8 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
 
-  smsProvider: new AWSSMSProvider(smsConfig),
-  // smsProvider: new ConsoleSMSProvider(),
+  // smsProvider: new AWSSMSProvider(smsConfig),
+  smsProvider: new ConsoleSMSProvider(),
 
   // ============================================================================
   // SMS Templates Configuration

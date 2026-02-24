@@ -3,6 +3,16 @@
 
 ENV_FILE=".env"
 
+# Use docker compose (v2) or docker-compose (v1)
+if docker compose version &>/dev/null; then
+  COMPOSE="docker compose"
+elif command -v docker-compose &>/dev/null; then
+  COMPOSE="docker-compose"
+else
+  echo "Error: Neither 'docker compose' nor 'docker-compose' found. Install Docker Compose."
+  exit 1
+fi
+
 if [ ! -f "$ENV_FILE" ]; then
     echo "No .env found - generating from .env.example..."
     echo ""
@@ -38,5 +48,5 @@ echo "Pruning dangling images..."
 docker image prune -f
 
 echo "Building and starting services..."
-docker-compose build --no-cache
-docker-compose up -d "$@"
+$COMPOSE build --no-cache
+$COMPOSE up -d "$@"

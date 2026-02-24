@@ -15,7 +15,7 @@ export const environment: Environment = {
   /** Token delivery mode: 'cookies' for traditional web apps, 'json' for SPAs with localStorage */
   tokenMode: 'cookies' as 'cookies' | 'json',
   recaptchaEnabled: true,
-  showAppleLogin: true,
-  showFacebookLogin: true,
+  showAppleLogin: false,
+  showFacebookLogin: false,
 };
 

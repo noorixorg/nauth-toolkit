@@ -29,6 +29,9 @@ async function bootstrap() {
   // Enable global validation pipe for all DTOs
   app.useGlobalPipes(new NAuthValidationPipe());
 
+  // Global prefix so routes match API_BASE_URL (e.g. https://demo.nauth.dev/api)
+  app.setGlobalPrefix('api');
+
   const allowedOrigins: string[] = [
     'http://localhost:4200',
     'http://192.168.50.39:4200',

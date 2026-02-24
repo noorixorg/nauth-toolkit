@@ -4,15 +4,14 @@
 
 # Single domain setup - demo.nauth.dev
 {$FRONTEND_DOMAIN:demo.nauth.dev} {
-	# API routes
+	# API routes (backend has global prefix /api)
 	handle /api/* {
-		uri strip_prefix /api
-		reverse_proxy backend:3000
+		reverse_proxy 127.0.0.1:13005
 	}
 
 	# Frontend (everything else)
 	handle {
-		reverse_proxy frontend:80
+		reverse_proxy 127.0.0.1:13006
 	}
 
 	header {

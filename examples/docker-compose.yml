@@ -22,7 +22,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-nauth_user}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-nauth_user} -d ${DB_DATABASE:-nauth_sample}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -122,8 +122,8 @@ services:
         RECAPTCHA_VERSION: ${RECAPTCHA_VERSION:-enterprise}
         RECAPTCHA_ENABLED: ${RECAPTCHA_ENABLED:-true}
         TOKEN_MODE: ${TOKEN_MODE:-cookies}
-        SHOW_APPLE_LOGIN: ${SHOW_APPLE_LOGIN:-true}
-        SHOW_FACEBOOK_LOGIN: ${SHOW_FACEBOOK_LOGIN:-true}
+        SHOW_APPLE_LOGIN: ${SHOW_APPLE_LOGIN:-false}
+        SHOW_FACEBOOK_LOGIN: ${SHOW_FACEBOOK_LOGIN:-false}
     container_name: nauth-frontend
     restart: unless-stopped
     logging: *default-logging
