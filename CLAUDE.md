@@ -21,27 +21,27 @@ nauth-toolkit is a monorepo authentication framework for Node.js backends. It pr
 
 ### Build
 ```bash
-yarn build                                    # Build core package only (most common)
-yarn build:all                                # Build entire monorepo (sequential dependency chain)
-yarn workspace @nauth-toolkit/core build      # Build specific package
+pnpm build                                    # Build core package only (most common)
+pnpm build:all                                # Build entire monorepo (sequential dependency chain)
+pnpm --filter @nauth-toolkit/core run build   # Build specific package
 ```
 
 ### Test
 ```bash
-yarn test                                     # Run core package tests
-yarn workspace @nauth-toolkit/core test       # Same as above
-yarn workspace @nauth-toolkit/nestjs test     # Test NestJS package
-yarn workspace @nauth-toolkit/core test -- --testPathPattern="auth.service"  # Run single test file
-yarn workspace @nauth-toolkit/core test -- --coverage  # With coverage report
+pnpm test                                     # Run core package tests
+pnpm --filter @nauth-toolkit/core run test    # Same as above
+pnpm --filter @nauth-toolkit/nestjs run test  # Test NestJS package
+pnpm --filter @nauth-toolkit/core run test -- --testPathPattern="auth.service"  # Run single test file
+pnpm --filter @nauth-toolkit/core run test -- --coverage  # With coverage report
 ```
 
 ### Lint & Format
 ```bash
-yarn workspace @nauth-toolkit/core lint       # Lint core
-yarn workspace @nauth-toolkit/core lint:fix   # Lint + autofix
-yarn workspace @nauth-toolkit/core format     # Format with Prettier
-yarn lint                                     # Lint all workspaces
-yarn fix                                      # Lint fix + format all
+pnpm --filter @nauth-toolkit/core run lint       # Lint core
+pnpm --filter @nauth-toolkit/core run lint:fix   # Lint + autofix
+pnpm --filter @nauth-toolkit/core run format     # Format with Prettier
+pnpm lint                                        # Lint all workspaces
+pnpm fix                                         # Lint fix + format all
 ```
 
 ### E2E Tests
@@ -51,8 +51,8 @@ npx playwright test                           # Run Playwright E2E tests
 
 ## Critical Rules
 
-- **Yarn only** — never use npm or pnpm. The repo enforces this via a preinstall hook.
-- **Never run `yarn start` or `nest start`** — causes port conflicts.
+- **pnpm only** — never use npm or yarn. The repo enforces this via a preinstall hook.
+- **Never run `pnpm start` or `nest start`** — causes port conflicts.
 - **No `console.log()`** — use the project logger module. `console.warn`/`console.error` are allowed.
 - **No `any` types** — use `unknown` if needed. TypeScript strict mode is fully enabled.
 - **Explicit return types** on all functions.
@@ -61,7 +61,7 @@ npx playwright test                           # Run Playwright E2E tests
 
 ## Monorepo Structure
 
-Yarn workspaces with ~20 packages. No Lerna/Nx/Turborepo — plain Yarn with manual build orchestration.
+pnpm workspaces with ~20 packages. No Lerna/Nx/Turborepo — plain pnpm with manual build orchestration. Workspace config in `pnpm-workspace.yaml`.
 
 ### Key Packages
 
@@ -125,7 +125,7 @@ HTTP Request → Framework (Express/Fastify/NestJS)
 
 - Tests use direct service instantiation with mocked dependencies (no NestJS test module in core).
 - Test files are colocated: `foo.service.ts` → `foo.service.spec.ts`.
-- Jest with ts-jest. The `jose` ESM module is transformed (see `transformIgnorePatterns`).
+- Jest with ts-jest. The `jose` ESM module is transformed (see `transformIgnorePatterns` in jest.config.js — pattern accounts for pnpm's `.pnpm` directory).
 - `jest.setup.ts` imports `reflect-metadata` for TypeORM decorator support.
 - Coverage thresholds (core): statements 75%, branches 57%, functions 70%, lines 75%.
 
@@ -143,9 +143,9 @@ Docusaurus 3.x site in `nauth-docs/`. Published at https://nauth.dev.
 
 ### Commands (run from `nauth-docs/`)
 ```bash
-yarn start        # Dev server on :3001
-yarn build        # Production build
-yarn typecheck    # TypeScript check
+pnpm start        # Dev server on :3001
+pnpm build        # Production build
+pnpm typecheck    # TypeScript check
 ```
 
 ### Docs Structure

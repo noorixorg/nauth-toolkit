@@ -16,8 +16,8 @@ module.exports = {
     },
   },
   testEnvironment: 'node',
-  // Transform ESM modules like jose
-  transformIgnorePatterns: ['node_modules/(?!(jose)/)'],
+  // Transform ESM modules like jose (pattern accounts for pnpm's .pnpm directory)
+  transformIgnorePatterns: ['node_modules/(?!(\\.pnpm|jose)/)'],
   // Setup reflect-metadata for TypeORM
   setupFilesAfterEnv: ['<rootDir>/../jest.setup.ts'],
 };

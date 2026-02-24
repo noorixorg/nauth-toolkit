@@ -18,15 +18,15 @@ Full docs and guides live at **https://nauth.dev**. Start there for setup, usage
 ## Quick Start
 
 ```bash
-yarn install
-yarn build
+pnpm install
+pnpm build
 ```
 
 Then import the services you need, configure storage, and wire into your own controllers or routes. Examples for NestJS, Express, and Fastify are in the docs.
 
 ## Contributing
 
-- Yarn only (no npm/pnpm)
+- pnpm only (no npm/yarn)
 - Follow the documented coding standards (JSDoc required, no `any`, tests required)
 - Conventional commits are enforced via Husky + commitlint
 

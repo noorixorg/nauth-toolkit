@@ -130,7 +130,7 @@ function main() {
     console.log('\n[DRY RUN] Would build packages...\n');
   } else {
     console.log('\nBuilding packages...\n');
-    execSync('yarn clean && yarn build:all', { stdio: 'inherit', cwd: path.join(__dirname, '..') });
+    execSync('pnpm run clean && pnpm run build:all', { stdio: 'inherit', cwd: path.join(__dirname, '..') });
   }
 
   // Publish
