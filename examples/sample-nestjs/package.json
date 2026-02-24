@@ -25,6 +25,7 @@
     "@nauth-toolkit/mfa-totp": "^0.1.92",
     "@nauth-toolkit/nestjs": "^0.1.92",
     "@nauth-toolkit/recaptcha": "^0.1.92",
+    "@nauth-toolkit/sms-aws-sns": "^0.1.92",
     "@nauth-toolkit/sms-console": "^0.1.92",
     "@nauth-toolkit/social-apple": "^0.1.92",
     "@nauth-toolkit/social-facebook": "^0.1.92",
@@ -49,6 +50,8 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
+    "@types/cookie-parser": "^1.4.8",
+    "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
     "typescript": "^5.5.0"
   }
