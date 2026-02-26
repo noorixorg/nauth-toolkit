@@ -1,7 +1,7 @@
 ---
 sidebar_position: 1
 title: NestJS
-description: "Set up nauth-toolkit with NestJS: install packages, configure AuthModule, add signup/login/logout/profile routes, handle challenges, and verify with curl"
+description: 'Set up nauth-toolkit with NestJS: install packages, configure AuthModule, add signup/login/logout/profile routes, handle challenges, and verify with curl'
 keywords: [quick-start, nestjs, setup, installation, authentication]
 image: /img/api-social-card.png
 ---
@@ -177,7 +177,7 @@ import { AuthController } from './auth/auth.controller';
       // Storage entities are required when using DatabaseStorageAdapter.
       // If you use RedisStorageAdapter instead, you can omit getNAuthTransientStorageEntities().
       entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()],
-      synchronize: process.env.NODE_ENV === 'development', // ⚠️ See warning below
+      synchronize: false, // nauth runs its own migration on startup
     }),
     AuthModule.forRoot(authConfig),
   ],
@@ -185,10 +185,6 @@ import { AuthController } from './auth/auth.controller';
 })
 export class AppModule {}
 ```
-
-:::warning Production Database
-`synchronize: true` auto-creates database tables from entities --- convenient for development but **must be `false` in production**. Use TypeORM migrations instead: `typeorm migration:generate` and `typeorm migration:run`.
-:::
 
 ---
 
@@ -298,10 +294,7 @@ npm install @nauth-toolkit/social-google
 import { GoogleSocialAuthModule } from '@nauth-toolkit/social-google/nestjs';
 
 @Module({
-  imports: [
-    AuthModule.forRoot(authConfig),
-    GoogleSocialAuthModule,
-  ],
+  imports: [AuthModule.forRoot(authConfig), GoogleSocialAuthModule],
 })
 export class AppModule {}
 ```
@@ -318,10 +311,7 @@ npm install @nauth-toolkit/mfa-totp
 import { TOTPMFAModule } from '@nauth-toolkit/mfa-totp/nestjs';
 
 @Module({
-  imports: [
-    AuthModule.forRoot(authConfig),
-    TOTPMFAModule,
-  ],
+  imports: [AuthModule.forRoot(authConfig), TOTPMFAModule],
 })
 export class AppModule {}
 ```

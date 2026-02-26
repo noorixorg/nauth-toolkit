@@ -251,6 +251,13 @@ export class ClientInfoService {
       } else {
         platform = 'Windows';
       }
+    } else if (/iphone|ipad|ipod/i.test(ua)) {
+      const match = ua.match(/os (\d+)[._](\d+)/);
+      if (match) {
+        platform = `iOS ${match[1]}.${match[2]}`;
+      } else {
+        platform = 'iOS';
+      }
     } else if (/macintosh|mac os x/i.test(ua)) {
       const match = ua.match(/mac os x (\d+)[._](\d+)/);
       if (match) {
@@ -267,13 +274,6 @@ export class ClientInfoService {
         }
       } else {
         platform = 'macOS';
-      }
-    } else if (/iphone|ipad|ipod/i.test(ua)) {
-      const match = ua.match(/os (\d+)[._](\d+)/);
-      if (match) {
-        platform = `iOS ${match[1]}.${match[2]}`;
-      } else {
-        platform = 'iOS';
       }
     } else if (/android/i.test(ua)) {
       const match = ua.match(/android (\d+)[._](\d+)/);

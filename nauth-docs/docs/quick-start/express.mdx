@@ -1,7 +1,7 @@
 ---
 sidebar_position: 4
 title: Express
-description: "Set up nauth-toolkit with Express: install packages, initialize NAuth, mount middleware, add signup/login/logout/profile routes with error handling, and verify with curl"
+description: 'Set up nauth-toolkit with Express: install packages, initialize NAuth, mount middleware, add signup/login/logout/profile routes with error handling, and verify with curl'
 keywords: [quick-start, express, setup, installation, authentication]
 image: /img/api-social-card.png
 ---
@@ -117,12 +117,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { DataSource } from 'typeorm';
-import {
-  NAuth,
-  ExpressAdapter,
-  ExpressMiddlewareType,
-  NAuthInstance,
-} from '@nauth-toolkit/core';
+import { NAuth, ExpressAdapter, ExpressMiddlewareType, NAuthInstance } from '@nauth-toolkit/core';
 import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
 import { authConfig } from './config/auth.config';
 import { createAuthRoutes } from './routes/auth.routes';
@@ -177,8 +172,8 @@ async function main(): Promise<void> {
 
   // ── NAuth Middleware (ORDER MATTERS) ──────────────────────────────────────────
   app.use(nauth.middleware.clientInfo as ExpressMiddlewareType); // MUST BE FIRST — initializes AsyncLocalStorage
-  app.use(nauth.middleware.csrf as ExpressMiddlewareType);       // CSRF validation
-  app.use(nauth.middleware.auth as ExpressMiddlewareType);       // JWT validation (sets user on context)
+  app.use(nauth.middleware.csrf as ExpressMiddlewareType); // CSRF validation
+  app.use(nauth.middleware.auth as ExpressMiddlewareType); // JWT validation (sets user on context)
   app.use(nauth.middleware.tokenDelivery as ExpressMiddlewareType); // Response interceptor for cookie delivery
 
   // ── Health Check ──────────────────────────────────────────────────────────────
@@ -225,19 +220,25 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
   router.post('/signup', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.status(201).json(await authService.signup(req.body));
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   });
 
   router.post('/login', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(await authService.login(req.body));
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   });
 
   router.post('/respond-challenge', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(await authService.respondToChallenge(req.body));
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   });
 
   router.post('/refresh', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
@@ -245,17 +246,25 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
       // Cookies mode: fall back to cookie if body token is absent or empty
       const token = req.body?.refreshToken?.trim() || req.cookies?.['nauth_refresh_token'];
       res.json(await authService.refreshToken({ refreshToken: token }));
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   });
 
   // ── Logout ───────────────────────────────────────────────────────────────────
   // GET avoids CSRF issues for session destruction; csrf: false bypasses the CSRF check
 
-  router.get('/logout', nauth.helpers.requireAuth({ csrf: false }), async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      res.json(await authService.logout(req.query));
-    } catch (err) { next(err); }
-  });
+  router.get(
+    '/logout',
+    nauth.helpers.requireAuth({ csrf: false }),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        res.json(await authService.logout(req.query));
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
 
   // ── User Profile ─────────────────────────────────────────────────────────────
 
@@ -263,34 +272,57 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
     try {
       const user = nauth.helpers.getCurrentUser() as IUser;
       res.json(UserResponseDTO.fromEntity(user));
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   });
 
   router.put('/profile', nauth.helpers.requireAuth(), async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(await authService.updateUserAttributes(req.body));
-    } catch (err) { next(err); }
+    } catch (err) {
+      next(err);
+    }
   });
 
-  router.post('/change-password', nauth.helpers.requireAuth(), async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      res.json(await authService.changePassword(req.body));
-    } catch (err) { next(err); }
-  });
+  router.post(
+    '/change-password',
+    nauth.helpers.requireAuth(),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        res.json(await authService.changePassword(req.body));
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
 
   // ── Account Recovery ─────────────────────────────────────────────────────────
 
   router.post('/forgot-password', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(await authService.forgotPassword({ ...req.body, baseUrl: process.env.FRONTEND_BASE_URL || 'http://localhost:5173' }));
-    } catch (err) { next(err); }
+      res.json(
+        await authService.forgotPassword({
+          ...req.body,
+          baseUrl: process.env.FRONTEND_BASE_URL || 'http://localhost:5173',
+        }),
+      );
+    } catch (err) {
+      next(err);
+    }
   });
 
-  router.post('/forgot-password/confirm', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      res.json(await authService.confirmForgotPassword(req.body));
-    } catch (err) { next(err); }
-  });
+  router.post(
+    '/forgot-password/confirm',
+    nauth.helpers.public(),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        res.json(await authService.confirmForgotPassword(req.body));
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
 
   return router;
 }
@@ -344,7 +376,7 @@ JWT_SECRET=your-access-token-secret-min-32-chars
 JWT_REFRESH_SECRET=your-refresh-token-secret-min-32-chars
 
 # Cookie settings (for production)
-COOKIE_SECURE=false
+COOKIE_SECURE=true
 COOKIE_SAME_SITE=lax
 ```
 

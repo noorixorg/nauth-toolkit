@@ -119,11 +119,7 @@ import Fastify from 'fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCors from '@fastify/cors';
 import { DataSource } from 'typeorm';
-import {
-  NAuth,
-  FastifyAdapter,
-  NAuthInstance,
-} from '@nauth-toolkit/core';
+import { NAuth, FastifyAdapter, NAuthInstance } from '@nauth-toolkit/core';
 import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
 import { authConfig } from './config/auth.config';
 import { registerAuthRoutes } from './routes/auth.routes';
@@ -174,8 +170,8 @@ async function main(): Promise<void> {
 
   // ── NAuth Hooks (ORDER MATTERS) ───────────────────────────────────────────────
   fastify.addHook('preHandler', nauth.middleware.clientInfo as FastifyPreHandler); // MUST BE FIRST — initializes AsyncLocalStorage
-  fastify.addHook('preHandler', nauth.middleware.csrf as FastifyPreHandler);       // CSRF validation
-  fastify.addHook('preHandler', nauth.middleware.auth as FastifyPreHandler);       // JWT validation (sets user on context)
+  fastify.addHook('preHandler', nauth.middleware.csrf as FastifyPreHandler); // CSRF validation
+  fastify.addHook('preHandler', nauth.middleware.auth as FastifyPreHandler); // JWT validation (sets user on context)
   // tokenDelivery is a response interceptor — use onSend, not preHandler
   fastify.addHook(
     'onSend',
@@ -234,7 +230,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance, nauth: TypedN
     { preHandler: [nauth.helpers.public()] },
     nauth.adapter.wrapRouteHandler(async (req, res) => {
       res.status(201).json(await authService.signup(req.body as any));
-    }) as any
+    }) as any,
   );
 
   fastify.post(
@@ -242,7 +238,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance, nauth: TypedN
     { preHandler: [nauth.helpers.public()] },
     nauth.adapter.wrapRouteHandler(async (req, res) => {
       res.json(await authService.login(req.body as any));
-    }) as any
+    }) as any,
   );
 
   fastify.post(
@@ -250,7 +246,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance, nauth: TypedN
     { preHandler: [nauth.helpers.public()] },
     nauth.adapter.wrapRouteHandler(async (req, res) => {
       res.json(await authService.respondToChallenge(req.body as any));
-    }) as any
+    }) as any,
   );
 
   fastify.post(
@@ -258,9 +254,10 @@ export async function registerAuthRoutes(fastify: FastifyInstance, nauth: TypedN
     { preHandler: [nauth.helpers.public()] },
     nauth.adapter.wrapRouteHandler(async (req, res) => {
       // Cookies mode: fall back to cookie if body token is absent or empty
-      const token = (req.body as { refreshToken?: string })?.refreshToken?.trim() || req.cookies?.['nauth_refresh_token'];
+      const token =
+        (req.body as { refreshToken?: string })?.refreshToken?.trim() || req.cookies?.['nauth_refresh_token'];
       res.json(await authService.refreshToken({ refreshToken: token }));
-    }) as any
+    }) as any,
   );
 
   // ── Logout ───────────────────────────────────────────────────────────────────
@@ -271,7 +268,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance, nauth: TypedN
     { preHandler: [nauth.helpers.requireAuth({ csrf: false })] },
     nauth.adapter.wrapRouteHandler(async (req, res) => {
       res.json(await authService.logout(req.query as any));
-    }) as any
+    }) as any,
   );
 
   // ── User Profile ─────────────────────────────────────────────────────────────
@@ -282,7 +279,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance, nauth: TypedN
     nauth.adapter.wrapRouteHandler(async (_req, res) => {
       const user = nauth.helpers.getCurrentUser() as IUser;
       res.json(UserResponseDTO.fromEntity(user));
-    }) as any
+    }) as any,
   );
 
   fastify.put(
@@ -290,7 +287,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance, nauth: TypedN
     { preHandler: [nauth.helpers.requireAuth()] },
     nauth.adapter.wrapRouteHandler(async (req, res) => {
       res.json(await authService.updateUserAttributes(req.body as any));
-    }) as any
+    }) as any,
   );
 
   fastify.post(
@@ -298,7 +295,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance, nauth: TypedN
     { preHandler: [nauth.helpers.requireAuth()] },
     nauth.adapter.wrapRouteHandler(async (req, res) => {
       res.json(await authService.changePassword(req.body as any));
-    }) as any
+    }) as any,
   );
 
   // ── Account Recovery ─────────────────────────────────────────────────────────
@@ -307,8 +304,13 @@ export async function registerAuthRoutes(fastify: FastifyInstance, nauth: TypedN
     '/auth/forgot-password',
     { preHandler: [nauth.helpers.public()] },
     nauth.adapter.wrapRouteHandler(async (req, res) => {
-      res.json(await authService.forgotPassword({ ...(req.body as object), baseUrl: process.env.FRONTEND_BASE_URL || 'http://localhost:5173' } as any));
-    }) as any
+      res.json(
+        await authService.forgotPassword({
+          ...(req.body as object),
+          baseUrl: process.env.FRONTEND_BASE_URL || 'http://localhost:5173',
+        } as any),
+      );
+    }) as any,
   );
 
   fastify.post(
@@ -316,7 +318,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance, nauth: TypedN
     { preHandler: [nauth.helpers.public()] },
     nauth.adapter.wrapRouteHandler(async (req, res) => {
       res.json(await authService.confirmForgotPassword(req.body as any));
-    }) as any
+    }) as any,
   );
 }
 ```
@@ -380,7 +382,7 @@ JWT_SECRET=your-access-token-secret-min-32-chars
 JWT_REFRESH_SECRET=your-refresh-token-secret-min-32-chars
 
 # Cookie settings (for production)
-COOKIE_SECURE=false
+COOKIE_SECURE=true
 COOKIE_SAME_SITE=lax
 ```
 
