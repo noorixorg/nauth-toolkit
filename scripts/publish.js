@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const readline = require('readline');
 
 const PACKAGES_DIR = path.join(__dirname, '..', 'packages');
 const TAG = process.argv[2] || 'latest';
@@ -164,7 +165,31 @@ function publishPackage(pkg, newVersion) {
   });
 }
 
-function main() {
+/**
+ * Prompt the user for confirmation via stdin.
+ * Returns a promise that resolves to true (yes) or false (no).
+ */
+function confirm(question) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim().toLowerCase() === 'y' || answer.trim().toLowerCase() === 'yes');
+    });
+  });
+}
+
+/**
+ * Check whether CHANGELOG.md contains an entry for the given version.
+ */
+function changelogHasVersion(version) {
+  const changelogPath = path.join(__dirname, '..', 'CHANGELOG.md');
+  if (!fs.existsSync(changelogPath)) return false;
+  const content = fs.readFileSync(changelogPath, 'utf8');
+  return content.includes(`## [${version}]`);
+}
+
+async function main() {
   const flags = [DRY_RUN && 'DRY RUN', SKIP_VERSION_BUMP && 'SKIP VERSION BUMP'].filter(Boolean);
   const flagStr = flags.length ? ` [${flags.join(', ')}]` : '';
   console.log(`Publishing nauth-toolkit packages (tag: ${TAG})${flagStr}\n`);
@@ -183,6 +208,17 @@ function main() {
     console.log(`Publishing at current version: ${currentVersion}\n`);
   } else {
     console.log(`Updating versions: ${currentVersion} -> ${newVersion}\n`);
+  }
+
+  // Check CHANGELOG.md for an entry matching the target version
+  if (!DRY_RUN && !changelogHasVersion(newVersion)) {
+    console.warn(`\n  WARNING: CHANGELOG.md has no entry for version ${newVersion}\n`);
+    const proceed = await confirm('  Continue without a changelog entry? (y/N) ');
+    if (!proceed) {
+      console.log('\n  Aborted. Update CHANGELOG.md and try again.\n');
+      process.exit(0);
+    }
+    console.log('');
   }
 
   // Update versions (or just collect packages if skipping bump)
