@@ -87,6 +87,8 @@ const config: Config = {
           showLastUpdateAuthor: false,
         },
 
+        blog: false,
+
         googleTagManager: {
           containerId: 'GTM-MDBSGWPT',
         },
@@ -99,6 +101,22 @@ const config: Config = {
   ],
 
   plugins: [
+    [
+      '@docusaurus/plugin-content-blog',
+      {
+        id: 'changelog',
+        routeBasePath: 'changelog',
+        path: 'changelog',
+        blogTitle: 'Changelog',
+        blogDescription: 'nauth-toolkit release notes and changelog',
+        blogSidebarTitle: 'Releases',
+        blogSidebarCount: 'ALL',
+        showReadingTime: false,
+        feedOptions: {
+          type: null,
+        },
+      },
+    ],
     [
       'docusaurus-plugin-llms',
       {
@@ -329,6 +347,11 @@ const config: Config = {
           label: 'Frontend SDK',
         },
 
+        {
+          to: '/changelog',
+          label: 'Changelog',
+          position: 'left',
+        },
         {
           href: 'https://demo.nauth.dev',
           label: 'Live Demo',
