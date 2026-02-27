@@ -483,7 +483,7 @@ export interface GetPasskeyChallengeResponseDTO {
  * Generate Backup Codes Response DTO
  *
  * Returns newly generated backup codes.
- * ⚠️ Codes are only shown once - user must save them securely.
+ * Codes are only shown once - user must save them securely.
  *
  * @example
  * ```typescript
@@ -526,7 +526,7 @@ export interface GenerateBackupCodesResponseDTO {
  *   type: 'totp',
  *   name: 'Google Authenticator',
  *   isActive: true,
- *   isPrimary: true,
+ *   isPreferred: true,
  *   lastUsedAt: '2024-01-15T10:30:00Z',
  *   createdAt: '2024-01-01T00:00:00Z'
  * }
@@ -554,9 +554,9 @@ export interface MFADeviceDTO {
   isActive: boolean;
 
   /**
-   * Whether this is the primary/preferred device
+   * Whether this is the preferred device for this method
    */
-  isPrimary: boolean;
+  isPreferred: boolean;
 
   /**
    * Last usage timestamp
@@ -605,13 +605,13 @@ export interface ListMFADevicesResponseDTO {
 /**
  * Update MFA Device DTO
  *
- * Update device name or primary status.
+ * Update device name or preferred status.
  *
  * @example
  * ```typescript
  * {
  *   name: 'My New Authenticator',
- *   isPrimary: true
+ *   isPreferred: true
  * }
  * ```
  */
@@ -622,9 +622,9 @@ export interface UpdateMFADeviceDTO {
   name?: string;
 
   /**
-   * Set as primary device
+   * Set as preferred device
    */
-  isPrimary?: boolean;
+  isPreferred?: boolean;
 }
 
 /**

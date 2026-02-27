@@ -3,9 +3,7 @@ title: PhoneVerificationService
 description: Phone verification service for sending SMS codes, verifying with code, and resending with rate limiting. Supports both phone number and user sub-based verification.
 keywords: [phone, verification, service, sms, code, api]
 image: /img/api-social-card.png
-sidebar_position: 6
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -188,6 +186,7 @@ async sendVerificationSMS(dto: SendVerificationSMSDTO): Promise<SendVerification
 - `dto` - [`SendVerificationSMSDTO`](../dto/send-verification-sms-dto) - Request DTO
   - `sub` - `string` - User identifier (UUID v4)
   - `skipAlreadyVerifiedCheck` - `boolean` (optional) - Skip already verified check (for MFA)
+  - `challengeSessionId` - `number` (optional) - Challenge session ID to link the verification token to a specific session
 
 **Returns**
 
@@ -278,6 +277,7 @@ async verifyPhoneWithCode(dto: VerifyPhoneWithCodeDTO): Promise<VerifyPhoneRespo
 - `dto` - [`VerifyPhoneWithCodeDTO`](../dto/verify-phone-dto) - Request DTO
   - `phone` - `string` - Phone number (E.164 format)
   - `code` - `string` - 6-digit verification code
+  - `challengeSessionId` - `number` (optional) - Restrict validation to a specific challenge session
 
 **Returns**
 
@@ -368,6 +368,7 @@ async verifyPhoneWithCodeBySub(dto: VerifyPhoneWithCodeBySubDTO): Promise<Verify
 - `dto` - [`VerifyPhoneWithCodeBySubDTO`](../dto/verify-phone-by-sub-dto) - Request DTO
   - `sub` - `string` - User identifier (UUID v4)
   - `code` - `string` - 6-digit verification code
+  - `challengeSessionId` - `number` (optional) - Restrict validation to a specific challenge session
 
 **Returns**
 

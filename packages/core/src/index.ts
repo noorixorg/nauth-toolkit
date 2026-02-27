@@ -11,6 +11,12 @@
 export * from './services/auth.service';
 
 /**
+ * Administrative authentication service
+ * Handles admin-only user and session management
+ */
+export * from './services/admin-auth.service';
+
+/**
  * Multi-Factor Authentication service
  * Manages MFA setup, verification, and device management
  */
@@ -41,6 +47,13 @@ export * from './services/phone-verification.service';
 export * from './services/client-info.service';
 
 /**
+ * Geolocation service
+ * Provides IP geolocation using MaxMind GeoIP2 database files
+ * Only available when geoLocation.maxMind is configured
+ */
+export { GeoLocationService } from './services/geo-location.service';
+
+/**
  * Authentication audit service
  * Logs and queries authentication events for security monitoring
  *
@@ -53,6 +66,12 @@ export { AuthAuditService } from './services/auth-audit.service';
  * CSRF Protection Service
  */
 export { CsrfService } from './services/csrf.service';
+
+/**
+ * Hook Registry Service
+ * Manages registration and execution of lifecycle hooks
+ */
+export { HookRegistryService } from './services/hook-registry.service';
 
 // ============================================================================
 // Internal Services - NOT EXPORTED
@@ -116,3 +135,8 @@ export * from './adapters';
 
 // Storage Factories
 export * from './adapters/storage.factory';
+
+// ============================================================================
+// Framework-neutral Handlers (for consumer backends to delegate to)
+// ============================================================================
+export * from './services/social-redirect.handler';

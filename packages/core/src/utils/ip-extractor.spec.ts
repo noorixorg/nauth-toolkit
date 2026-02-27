@@ -2,7 +2,7 @@
  * Tests for IP Address Extractor
  */
 
-import { extractClientIp } from './ip-extractor';
+import { extractClientIp, isPrivateIp, getIpGeolocation } from './ip-extractor';
 
 describe('extractClientIp', () => {
   describe('X-Forwarded-For header', () => {
@@ -326,5 +326,53 @@ describe('extractClientIp', () => {
       const result = extractClientIp(req);
       expect(result).toBe('203.0.113.1');
     });
+  });
+});
+
+describe('isPrivateIp', () => {
+  it('should detect localhost IPv4 as private', () => {
+    expect(isPrivateIp('127.0.0.1')).toBe(true);
+    expect(isPrivateIp('127.1.1.1')).toBe(true);
+  });
+
+  it('should detect localhost IPv6 as private', () => {
+    expect(isPrivateIp('::1')).toBe(true);
+  });
+
+  it('should detect 10.x.x.x as private', () => {
+    expect(isPrivateIp('10.0.0.1')).toBe(true);
+    expect(isPrivateIp('10.255.255.255')).toBe(true);
+  });
+
+  it('should detect 172.16-31.x.x as private', () => {
+    expect(isPrivateIp('172.16.0.1')).toBe(true);
+    expect(isPrivateIp('172.31.255.255')).toBe(true);
+    expect(isPrivateIp('172.15.0.1')).toBe(false);
+    expect(isPrivateIp('172.32.0.1')).toBe(false);
+  });
+
+  it('should detect 192.168.x.x as private', () => {
+    expect(isPrivateIp('192.168.0.1')).toBe(true);
+    expect(isPrivateIp('192.168.255.255')).toBe(true);
+  });
+
+  it('should detect link-local addresses as private', () => {
+    expect(isPrivateIp('169.254.0.1')).toBe(true);
+    expect(isPrivateIp('169.254.255.255')).toBe(true);
+  });
+
+  it('should detect public IPs as not private', () => {
+    expect(isPrivateIp('8.8.8.8')).toBe(false);
+    expect(isPrivateIp('203.0.113.1')).toBe(false);
+    expect(isPrivateIp('1.1.1.1')).toBe(false);
+  });
+});
+
+describe('getIpGeolocation', () => {
+  it('should return empty object (placeholder implementation)', () => {
+    const result = getIpGeolocation('8.8.8.8');
+    expect(result).toEqual({});
+    expect(result.country).toBeUndefined();
+    expect(result.city).toBeUndefined();
   });
 });

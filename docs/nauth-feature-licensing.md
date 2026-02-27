@@ -4,21 +4,21 @@ A clean breakdown of which features belong to the **Community (Open Source)** ed
 
 ---
 
-## 🧱 Overview
+## Overview
 
-**NAUTH Toolkit** is a platform‑agnostic authentication toolkit for Node.js applications.  
+**NAUTH Toolkit** is a platform‑agnostic authentication toolkit for Node.js applications.
 The goal: offer a self‑hosted, extensible alternative to hosted auth services (Auth0, Cognito, etc.) while keeping developers in full control.
 
 ---
 
-## ⚙️ Core Philosophy
+## Core Philosophy
 
-- **Community Edition (MIT/Apache)** → Complete authentication for small/medium projects.  
+- **Community Edition (MIT/Apache)** → Complete authentication for small/medium projects.
 - **Pro Edition (Commercial)** → Advanced security, scaling, and compliance features for production‑scale or enterprise users.
 
 ---
 
-## 🧩 Feature Breakdown
+## Feature Breakdown
 
 | Category | **Community Edition (Free / OSS)** | **Pro Edition (Commercial)** |
 |-----------|------------------------------------|-------------------------------|
@@ -35,7 +35,7 @@ The goal: offer a self‑hosted, extensible alternative to hosted auth services 
 
 ---
 
-## 💰 Licensing Model
+## Licensing Model
 
 | Component | License | Notes |
 |------------|----------|-------|
@@ -46,7 +46,7 @@ The goal: offer a self‑hosted, extensible alternative to hosted auth services 
 
 ---
 
-## 🪪 Example Pro License Header
+## Example Pro License Header
 
 ```
 Copyright (c) 2025 Noorix
@@ -62,36 +62,36 @@ In `package.json` for Pro packages:
 
 ---
 
-## 🧭 Release Timeline
+## Release Timeline
 
 | Phase | Status | Description |
 |--------|---------|-------------|
-| **0.x (Private Alpha)** | 🔒 | Security review, internal tests |
-| **0.5 (Public Preview)** | 🌤️ | GitHub open, marked experimental |
-| **1.0 (Community Stable)** | 🌞 | Full OSS core released |
-| **1.1+ (Pro Launch)** | 💼 | Commercial extensions (adaptive MFA, analytics, etc.) |
-| **2.x+ (Optional SaaS)** | ☁️ | Hosted management console (future) |
+| **0.x (Private Alpha)** | Locked | Security review, internal tests |
+| **0.5 (Public Preview)** | Preview | GitHub open, marked experimental |
+| **1.0 (Community Stable)** | Stable | Full OSS core released |
+| **1.1+ (Pro Launch)** | Pro | Commercial extensions (adaptive MFA, analytics, etc.) |
+| **2.x+ (Optional SaaS)** | Future | Hosted management console (future) |
 
 ---
 
-## 🧠 Positioning vs Auth.js
+## Positioning vs Auth.js
 
 | Feature | Auth.js | NAUTH Community | NAUTH Pro |
 |----------|----------|----------------|------------|
-| Self‑hosted | ❌ | ✅ | ✅ |
-| Social login | ✅ limited | ✅ full | ✅ full |
-| Password auth | ⚠️ plugin only | ✅ built‑in | ✅ |
-| MFA | ❌ | ✅ basic (TOTP, SMS) | ✅ adaptive, WebAuthn |
-| Session control | ⚠️ cookies | ✅ DB sessions | ✅ analytics, policies |
-| Audit logs | ❌ | ✅ basic | ✅ export/stream |
-| CLI / Dashboard | ❌ | ❌ | ✅ |
-| Rate limiting | ❌ | ✅ basic | ✅ adaptive |
+| Self‑hosted | No | Yes | Yes |
+| Social login | Limited | Full | Full |
+| Password auth | Plugin only | Built‑in | Built‑in |
+| MFA | No | Basic (TOTP, SMS) | Adaptive, WebAuthn |
+| Session control | Cookies only | DB sessions | Analytics, policies |
+| Audit logs | No | Basic | Export/stream |
+| CLI / Dashboard | No | No | Yes |
+| Rate limiting | No | Basic | Adaptive |
 | Licensing | OSS only | MIT/Apache | Commercial |
 
 ---
 
-**Summary:**  
-- Keep **developer essentials** free to ensure adoption.  
-- Monetize **scale, compliance, and analytics** under Pro.  
-- Clearly mark Pro‑only modules in docs with “⚡ Available in NAUTH Pro”.  
+**Summary:**
+- Keep **developer essentials** free to ensure adoption.
+- Monetize **scale, compliance, and analytics** under Pro.
+- Clearly mark Pro‑only modules in docs with "Available in NAUTH Pro".
 - Transition to Pro tier once Community hits stable v1.0.

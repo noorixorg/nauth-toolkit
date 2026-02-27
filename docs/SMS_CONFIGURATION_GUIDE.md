@@ -4,7 +4,7 @@ Complete guide for configuring SMS providers (AWS End User Messaging, Twilio) wi
 
 ---
 
-## 📋 Overview
+##  Overview
 
 nauth-toolkit supports multiple SMS providers for phone verification:
 
@@ -19,7 +19,7 @@ Only SMS provider adapters are optional external packages.
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Option 1: Console Provider (Development)
 
@@ -75,7 +75,7 @@ AuthModule.forRoot({
 
 ---
 
-## 🔧 Environment Variables
+##  Environment Variables
 
 ### AWS End User Messaging
 
@@ -138,7 +138,7 @@ TWILIO_MESSAGING_SERVICE_SID=MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 ---
 
-## 📱 AWS End User Messaging Setup
+##  AWS End User Messaging Setup
 
 ### Step 1: Create AWS Account
 
@@ -177,7 +177,7 @@ Or use AWS managed policy: `SNSSendSMSPermissions`
 
 ### Step 4: Save Credentials
 
-**⚠️ IMPORTANT:** Save these immediately (they're shown only once):
+**WARNING: IMPORTANT:** Save these immediately (they're shown only once):
 - **Access Key ID** → `AWS_ACCESS_KEY_ID`
 - **Secret Access Key** → `AWS_SECRET_ACCESS_KEY`
 
@@ -287,7 +287,7 @@ curl -X POST http://localhost:3000/auth/verify-phone/send \
 
 ---
 
-## 💰 AWS SMS Pricing (2024 Rates)
+##  AWS SMS Pricing (2024 Rates)
 
 ### Per-SMS Costs by Region
 
@@ -333,11 +333,11 @@ curl -X POST http://localhost:3000/auth/verify-phone/send \
 
 ---
 
-## 🔒 Security Best Practices
+##  Security Best Practices
 
 ### 1. Secure Credential Storage
 
-**❌ DON'T:**
+**- DON'T:**
 ```typescript
 // Hardcoded credentials (NEVER do this!)
 smsProvider: new AWSSMSProvider({
@@ -347,7 +347,7 @@ smsProvider: new AWSSMSProvider({
 });
 ```
 
-**✅ DO:**
+**- DO:**
 ```typescript
 // Environment variables
 smsProvider: new AWSSMSProvider({
@@ -357,7 +357,7 @@ smsProvider: new AWSSMSProvider({
 });
 ```
 
-**✅ BETTER:**
+**- BETTER:**
 ```bash
 # Use AWS IAM roles (no credentials needed!)
 # For ECS/EC2/Lambda deployments
@@ -435,7 +435,7 @@ Check CloudWatch Logs for:
 
 ---
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### Error: "Invalid credentials"
 
@@ -479,10 +479,10 @@ Check CloudWatch Logs for:
 
 **Fix:**
 ```typescript
-// ❌ Wrong
+// - Wrong
 const phone = '206-555-1234';
 
-// ✅ Correct
+// - Correct
 const phone = '+12065551234'; // E.164 with + prefix
 ```
 
@@ -500,7 +500,7 @@ const phone = '+12065551234'; // E.164 with + prefix
 
 ---
 
-## 📊 Monitoring & Analytics
+##  Monitoring & Analytics
 
 ### CloudWatch Metrics
 
@@ -546,7 +546,7 @@ function maskPhone(phone: string): string {
 
 ---
 
-## 🚀 Production Checklist
+##  Production Checklist
 
 Before going live:
 
@@ -565,7 +565,38 @@ Before going live:
 
 ---
 
-## 📚 Additional Resources
+##  SMS Templates
+
+Customize SMS message content with templates. See the [SMS Templates Guide](/docs/features/sms-templates) for complete documentation.
+
+### Quick Example
+
+```typescript
+AuthModule.forRoot({
+  smsProvider: new AWSSMSProvider(config),
+  sms: {
+    templates: {
+      globalVariables: {
+        appName: 'My App',
+        supportPhone: '+1-800-123-4567',
+      },
+      customTemplates: {
+        verification: {
+          content: '{{appName}}: Your code is {{code}}. Expires in {{expiryMinutes}} min.',
+        },
+      },
+    },
+  },
+});
+```
+
+**Benefits:**
+- Consistent branding across all SMS messages
+- Customize message format per template type
+- Support for Handlebars-like conditionals
+- Automatic variable injection (code, expiryMinutes, appName, etc.)
+
+##  Additional Resources
 
 **AWS Documentation:**
 - SNS SMS Guide: https://docs.aws.amazon.com/sns/latest/dg/sns-mobile-phone-number-as-subscriber.html
@@ -573,6 +604,8 @@ Before going live:
 - Pricing: https://aws.amazon.com/sns/sms-pricing/
 
 **nauth-toolkit Documentation:**
+- [SMS Templates Feature Guide](/docs/features/sms-templates) - Customize SMS message content
+- [SMS Templates API Reference](/docs/api/sms/templates) - Configuration API
 - Phone Verification API: `/docs/API.md#phone-verification`
 - Configuration Reference: `/docs/NESTJS_AUTH_TOOLKIT_REQUIREMENTS.md`
 
@@ -583,5 +616,5 @@ Before going live:
 
 ---
 
-**🎉 You're ready to send production SMS with nauth-toolkit!**
+** You're ready to send production SMS with nauth-toolkit!**
 

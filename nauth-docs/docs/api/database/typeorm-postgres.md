@@ -3,9 +3,7 @@ title: TypeORM PostgreSQL
 description: PostgreSQL database entities for NAuth
 keywords: [database, typeorm, postgres, entities, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -26,7 +24,8 @@ npm install @nauth-toolkit/database-typeorm-postgres
 |--------|-------------|
 | `getNAuthEntities()` | User/session entities (always include) |
 | `getNAuthTransientStorageEntities()` | Rate limit/lock entities (only if using `DatabaseStorageAdapter`) |
-| Individual entities | `User`, `Session`, `MFADevice`, etc. |
+| `runNAuthMigrations` | Run pending nauth-toolkit migrations. Called automatically during bootstrap. |
+| Individual entities | `User`, `Session`, `MFADevice`, `SocialProviderSecret`, etc. |
 
 ## getNAuthEntities()
 
@@ -42,6 +41,7 @@ Returns core authentication entities.
 - `MFADevice` - Registered devices
 - `AuthAudit` - Audit logs
 - `TrustedDevice` - Trusted devices
+- `SocialProviderSecret` - Apple JWT client secret storage
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
@@ -189,8 +189,7 @@ const nauth = await NAuth.create({
 | Storage Adapter | Include `getNAuthTransientStorageEntities()`? |
 |-----------------|----------------------------------------------|
 | `RedisStorageAdapter` | No |
-| `MemoryStorageAdapter` | No |
-| `DatabaseStorageAdapter` | **Yes** |
+| `DatabaseStorageAdapter` | **Yes** (required) |
 
 ## Related
 

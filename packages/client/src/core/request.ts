@@ -27,15 +27,24 @@ const buildUrl = (baseUrl: string, path: string): string => {
 const isBrowser = (): boolean => typeof window !== 'undefined' && typeof document !== 'undefined';
 
 /**
- * Add CSRF header when in cookies mode on web.
+ * Add CSRF header when in cookies mode on web for mutating requests.
+ *
+ * CSRF protection is required for mutating HTTP methods (POST, PUT, PATCH, DELETE)
+ * to prevent cross-site request forgery attacks when using cookie-based auth.
  */
 const addCsrfHeader = (
   headers: Headers,
   config: ResolvedNAuthClientConfig,
   tokenDelivery: 'json' | 'cookies',
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
 ): void => {
   if (!isBrowser()) return;
   if (tokenDelivery === 'json') return;
+
+  // Only add CSRF for mutating methods
+  const mutatingMethods: readonly ('POST' | 'PUT' | 'PATCH' | 'DELETE')[] = ['POST', 'PUT', 'PATCH', 'DELETE'];
+  if (!(mutatingMethods as readonly string[]).includes(method)) return;
+
   const csrfCookieName = config.csrf.cookieName;
   const headerName = config.csrf.headerName;
   const cookies = document.cookie?.split(';').map((c) => c.trim()) ?? [];
@@ -106,7 +115,7 @@ export const httpRequest = async <T>(
 
   // Cookies mode: Add CSRF header for mutating requests
   // Note: Device token is handled automatically via httpOnly cookie (nauth_device_token)
-  addCsrfHeader(headers, config, options.tokenDelivery);
+  addCsrfHeader(headers, config, options.tokenDelivery, options.method);
 
   const fetchOptions: RequestInit = {
     method: options.method,

@@ -3,9 +3,7 @@ title: Passkey Provider
 description: WebAuthn/FIDO2 passkey MFA provider
 keywords: [mfa, passkey, webauthn, fido2, biometric, api]
 image: /img/api-social-card.png
-sidebar_position: 4
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -23,6 +21,7 @@ npm install @nauth-toolkit/mfa-passkey
 | Export | Type | Entry |
 |--------|------|-------|
 | `PasskeyMFAProviderService` | Service | Default |
+| `PasskeyService` | Service | Default |
 | `PasskeyMFAModule` | NestJS Module | `/nestjs` |
 
 ## Configuration
@@ -34,6 +33,7 @@ npm install @nauth-toolkit/mfa-passkey
 | `origin` | `string[]` | Allowed origins |
 | `timeout` | `number` | Timeout in milliseconds |
 | `userVerification` | `string` | `'preferred'` \| `'required'` \| `'discouraged'` |
+| `authenticatorAttachment` | `string` | `'platform'` \| `'cross-platform'` — restrict to built-in (FaceID/TouchID) or roaming (security key) authenticators |
 
 ## Usage
 

@@ -1,5 +1,5 @@
-import { Module, DynamicModule, Global } from '@nestjs/common';
-import { APP_INTERCEPTOR, APP_GUARD, Reflector } from '@nestjs/core';
+import { Inject, Injectable, Module, DynamicModule, Global, OnApplicationBootstrap, Optional } from '@nestjs/common';
+import { APP_INTERCEPTOR, APP_GUARD, ModuleRef } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource, EntityMetadata, Repository } from 'typeorm';
 // Public API imports
@@ -22,6 +22,7 @@ import {
   StorageAdapter,
   authConfigSchema,
   AuthService,
+  AdminAuthService,
   EmailVerificationService,
   PhoneVerificationService,
   SocialAuthService,
@@ -31,6 +32,13 @@ import {
   AccountLockoutStorageService,
   NAuthLogger,
   AuthAuditService, // Public type for DI token
+  EmailProvider,
+  SMSProvider,
+  SMSTemplateEngine,
+  SMSTemplateEngineImpl,
+  SocialRedirectHandler,
+  type IMFAProviderService,
+  type ISocialAuthProviderService,
 } from '@nauth-toolkit/core';
 
 // Internal API imports (for framework adapter use only)
@@ -48,7 +56,13 @@ import {
   ChallengeService,
   AuthChallengeHelperService,
   SocialProviderRegistry,
+  NAUTH_MFA_PROVIDER_TOKEN,
+  NAUTH_SOCIAL_PROVIDER_TOKEN,
   AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent() for instantiation
+  PasswordResetService,
+  SocialAuthStateStore,
+  HookRegistryService,
+  registerBuiltInEmailNotificationHooks,
 } from '@nauth-toolkit/core/internal';
 
 // MaxMind module type (for type safety in factory)
@@ -71,11 +85,148 @@ type MaxMindModule = {
     }>;
   };
 };
-import { ClientInfoInterceptor } from './interceptors/client-info.interceptor';
 import { CookieTokenInterceptor } from './interceptors/cookie-token.interceptor';
+import { NAuthContextInterceptor } from './interceptors/nauth-context.interceptor';
 import { AuthGuard } from './guards/auth.guard';
+import { NAuthContextGuard } from './guards/nauth-context.guard';
 import { CsrfGuard } from './guards/csrf.guard';
 import { CsrfService } from './services/csrf.service';
+import { TokenDeliveryHttpService } from './services/token-delivery-http.service';
+import { nauthMigrationsBootstrapProvider } from './services/migrations-bootstrap.service';
+
+// ============================================================================
+// Provider Auto-Registration (NestJS)
+// ============================================================================
+
+/**
+ * Auto-registers MFA + Social provider services into their respective registries.
+ *
+ * @remarks
+ * This runs on `OnApplicationBootstrap` to guarantee **all modules** have been instantiated,
+ * removing any dependency on the order of `imports: []` in the consumer application.
+ *
+ * Provider modules contribute providers by binding their service to the shared tokens:
+ * - `NAUTH_MFA_PROVIDER_TOKEN`
+ * - `NAUTH_SOCIAL_PROVIDER_TOKEN`
+ */
+@Injectable()
+class NAuthProviderAutoRegistrationService implements OnApplicationBootstrap {
+  constructor(
+    private readonly moduleRef: ModuleRef,
+    private readonly mfaService: MFAService,
+    private readonly socialProviderRegistry: SocialProviderRegistry,
+    private readonly hookRegistry: HookRegistryService,
+    @Inject('EMAIL_PROVIDER') private readonly emailProvider: EmailProvider,
+    // NOTE: These are provided by AuthModule. Marked optional for safe initialization in edge test contexts.
+    @Optional() @Inject('NAUTH_LOGGER') private readonly logger?: NAuthLogger,
+    @Optional() @Inject('NAUTH_CONFIG') private readonly config?: NAuthConfig,
+  ) {}
+
+  /**
+   * Runs after all modules are initialized; discovers providers and registers them.
+   */
+  onApplicationBootstrap(): void {
+    // ==========================================================================
+    // MFA Providers
+    // ==========================================================================
+    const mfaProviders = this.safeGetAllProviders<unknown>(NAUTH_MFA_PROVIDER_TOKEN);
+    let registeredMfa = 0;
+    for (const p of mfaProviders) {
+      // Only register providers that match the public contract.
+      if (!this.isMfaProvider(p)) continue;
+      if (p.isMethodAllowed()) {
+        this.mfaService.registerProvider(p);
+        registeredMfa += 1;
+      }
+    }
+
+    // ==========================================================================
+    // Social Providers
+    // ==========================================================================
+    const socialProviders = this.safeGetAllProviders<unknown>(NAUTH_SOCIAL_PROVIDER_TOKEN);
+    let validSocialProviders = 0;
+    let registeredSocial = 0;
+    const socialConfig = this.config?.social as unknown as Record<string, { enabled?: boolean }> | undefined;
+
+    for (const p of socialProviders) {
+      if (!this.isSocialProvider(p)) continue;
+      validSocialProviders += 1;
+      // Follow existing behavior: register only if enabled in config.
+      const enabled = socialConfig?.[p.providerName]?.enabled === true;
+      if (enabled) {
+        this.socialProviderRegistry.registerProvider(p);
+        registeredSocial += 1;
+      } else if (this.logger?.isEnabled?.()) {
+        this.logger.debug(
+          `[nauth-toolkit] Social provider '${p.providerName}' found but not enabled in config (social.${p.providerName}.enabled !== true)`,
+        );
+      }
+    }
+
+    if (this.logger?.isEnabled?.()) {
+      this.logger.debug(
+        `[nauth-toolkit] Auto-registered providers (NestJS): MFA=${registeredMfa}/${mfaProviders.length}, Social=${registeredSocial}/${validSocialProviders} (${socialProviders.length} total from DI)`,
+      );
+    }
+
+    // ==========================================================================
+    // Built-in Email Notification Hooks (opt-in via config.emailNotifications)
+    // ==========================================================================
+    // Register built-in hooks on bootstrap to guarantee they are wired before any requests,
+    // similar to MFA/Social provider auto-registration.
+    if (this.config) {
+      registerBuiltInEmailNotificationHooks(this.hookRegistry, this.emailProvider, this.config, this.logger);
+      if (this.logger?.isEnabled?.()) {
+        this.logger.debug('[nauth-toolkit] Registered built-in email notification hooks (NestJS)');
+      }
+    }
+  }
+
+  private safeGetAllProviders<T>(token: string): T[] {
+    // `ModuleRef.get()` throws if the token is unknown. We treat "not present" as empty.
+    try {
+      const resolved = this.moduleRef.get<T>(token as unknown as never, { strict: false, each: true } as never);
+      return Array.isArray(resolved) ? resolved : [resolved];
+    } catch {
+      return [];
+    }
+  }
+
+  private isMfaProvider(value: unknown): value is IMFAProviderService {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      'methodName' in value &&
+      'isMethodAllowed' in value &&
+      'setup' in value &&
+      'verifySetup' in value &&
+      'verify' in value &&
+      typeof (value as { isMethodAllowed?: unknown }).isMethodAllowed === 'function' &&
+      typeof (value as { setup?: unknown }).setup === 'function' &&
+      typeof (value as { verifySetup?: unknown }).verifySetup === 'function' &&
+      typeof (value as { verify?: unknown }).verify === 'function'
+    );
+  }
+
+  private isSocialProvider(value: unknown): value is ISocialAuthProviderService {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      'providerName' in value &&
+      'getAuthUrl' in value &&
+      'handleCallback' in value &&
+      'verifyToken' in value &&
+      'linkAccount' in value &&
+      'getUserProfileFromCallback' in value &&
+      typeof (value as { providerName?: unknown }).providerName === 'string' &&
+      typeof (value as { getAuthUrl?: unknown }).getAuthUrl === 'function' &&
+      typeof (value as { handleCallback?: unknown }).handleCallback === 'function' &&
+      typeof (value as { verifyToken?: unknown }).verifyToken === 'function' &&
+      typeof (value as { linkAccount?: unknown }).linkAccount === 'function' &&
+      typeof (value as { getUserProfileFromCallback?: unknown }).getUserProfileFromCallback === 'function'
+    );
+  }
+}
 
 /**
  * Extended NAuth Configuration (includes optional entities)
@@ -94,11 +245,11 @@ export interface NAuthModuleConfig extends NAuthConfig {
    *
    * @example
    * ```typescript
-   * // ✅ PREFERRED - Auto-discovery (entities in TypeORM.forRoot())
+   * // PREFERRED - Auto-discovery (entities in TypeORM.forRoot())
    * TypeOrmModule.forRoot({ entities: getNAuthEntities(), ... })
    * AuthModule.forRoot({ jwt: {...} }) // entities not needed
    *
-   * // ✅ ALSO VALID - Explicit entities (if not using TypeORM.forRoot())
+   * // ALSO VALID - Explicit entities (if not using TypeORM.forRoot())
    * AuthModule.forRoot({ entities: getNAuthEntities(), jwt: {...} })
    * ```
    */
@@ -146,28 +297,52 @@ export class AuthModule {
         ...(entities.length > 0 ? [TypeOrmModule.forFeature(entities)] : []),
       ],
       providers: [
-        // Global interceptor for automatic client info extraction
+        // Auto-run nauth-toolkit migrations on startup (no consumer burden)
+        nauthMigrationsBootstrapProvider,
+
+        // Auto-register social + MFA provider modules at application bootstrap (order-independent)
+        NAuthProviderAutoRegistrationService,
+
+        // Global guard for AsyncLocalStorage context initialization (runs FIRST)
+        // Must run before other guards to ensure context is available
         {
-          provide: APP_INTERCEPTOR,
-          useClass: ClientInfoInterceptor,
+          provide: APP_GUARD,
+          useClass: NAuthContextGuard,
         },
-        // Global interceptor for cookie token delivery (no-op in JSON mode)
+
+        // Global interceptor for context restoration (restores context for controllers)
         {
           provide: APP_INTERCEPTOR,
+          useClass: NAuthContextInterceptor,
+        },
+        // Shared token delivery helper (used by interceptor + controllers)
+        TokenDeliveryHttpService,
+
+        // Social redirect handler (framework-neutral). Consumer apps define controllers and delegate here.
+        {
+          provide: SocialRedirectHandler,
           useFactory: (
             config: NAuthConfig,
-            jwtService: JwtService,
-            reflector: Reflector,
-            csrfService?: CsrfService, // Optional - only available when CSRF is enabled
+            providerRegistry: SocialProviderRegistry,
+            stateStore: SocialAuthStateStore,
+            storage: StorageAdapter,
+            logger: NAuthLogger,
           ) => {
-            return new CookieTokenInterceptor(config, jwtService, reflector, csrfService);
+            return new SocialRedirectHandler(config, providerRegistry, stateStore, storage, logger);
           },
           inject: [
             'NAUTH_CONFIG',
-            JwtService,
-            Reflector,
-            { token: CsrfService, optional: true }, // Optional - only available when CSRF is enabled
+            SocialProviderRegistry,
+            'SOCIAL_AUTH_STATE_STORE',
+            'STORAGE_ADAPTER',
+            'NAUTH_LOGGER',
           ],
+        },
+
+        // Global interceptor for cookie token delivery (no-op in JSON mode)
+        {
+          provide: APP_INTERCEPTOR,
+          useClass: CookieTokenInterceptor,
         },
 
         // CSRF Service (always provided, but only used when tokenDelivery.method === 'cookies' or 'hybrid')
@@ -217,6 +392,7 @@ export class AuthModule {
             // If storage adapter is explicitly provided, use it
             if (config.storageAdapter) {
               const adapter = config.storageAdapter;
+
               // Inject logger into adapter if it supports setLogger (for factory-created adapters)
               if (
                 adapter &&
@@ -257,8 +433,9 @@ export class AuthModule {
               try {
                 // Lazy import to avoid bundling if not used
                 const { DatabaseStorageAdapter } = await import('@nauth-toolkit/storage-database');
+
                 const adapter = new DatabaseStorageAdapter(null, null, logger);
-                adapter.setRepositories(rateLimitRepo as any, storageLockRepo as any);
+                adapter.setRepositories(rateLimitRepo, storageLockRepo);
                 await adapter.initialize();
                 logger?.warn?.(
                   'WARNING: Storage adapter not provided. Using DatabaseStorageAdapter as default. ' +
@@ -286,8 +463,8 @@ export class AuthModule {
                 '  import { RedisStorageAdapter } from "@nauth-toolkit/storage-redis";\n' +
                 '  storageAdapter: new RedisStorageAdapter(redisClient)\n\n' +
                 'Make sure to include storage entities in your TypeORM configuration:\n' +
-                '  import { getNAuthStorageEntities } from "@nauth-toolkit/database-typeorm-postgres";\n' +
-                '  entities: [...getNAuthEntities(), ...getNAuthStorageEntities()]',
+                '  import { getNAuthTransientStorageEntities } from "@nauth-toolkit/database-typeorm-postgres";\n' +
+                '  entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()]',
             );
           },
           inject: ['NAUTH_CONFIG', 'NAUTH_LOGGER', 'RateLimitRepository', 'StorageLockRepository'],
@@ -296,7 +473,7 @@ export class AuthModule {
         // Rate Limit Repository (optional - only needed for DatabaseStorageAdapter)
         {
           provide: 'RateLimitRepository',
-          useFactory: (dataSource: DataSource) => {
+          useFactory: (dataSource: DataSource, _logger?: NAuthLogger) => {
             // Try to find entity from config first
             const entityFromConfig = entities.find((e: Function) => e.name === 'RateLimit');
             if (entityFromConfig) {
@@ -319,13 +496,13 @@ export class AuthModule {
             // Return null if not found (storage adapter might not be DatabaseStorageAdapter)
             return null;
           },
-          inject: [DataSource],
+          inject: [DataSource, 'NAUTH_LOGGER'],
         },
 
         // Storage Lock Repository (optional - only needed for DatabaseStorageAdapter)
         {
           provide: 'StorageLockRepository',
-          useFactory: (dataSource: DataSource) => {
+          useFactory: (dataSource: DataSource, _logger?: NAuthLogger) => {
             // Try to find entity from config first
             const entityFromConfig = entities.find((e: Function) => e.name === 'StorageLock');
             if (entityFromConfig) {
@@ -348,14 +525,14 @@ export class AuthModule {
             // Return null if not found (storage adapter might not be DatabaseStorageAdapter)
             return null;
           },
-          inject: [DataSource],
+          inject: [DataSource, 'NAUTH_LOGGER'],
         },
 
         // Repository Tokens - discover entities from DataSource metadata
         // This allows entities to be auto-discovered if registered in TypeORM.forRoot()
         {
           provide: 'UserRepository',
-          useFactory: (dataSource: DataSource) => {
+          useFactory: (dataSource: DataSource, _logger?: NAuthLogger) => {
             // Try to find entity from provided config first
             const entityFromConfig = entities.find((e: Function) => e.name === 'User');
             if (entityFromConfig) {
@@ -371,7 +548,7 @@ export class AuthModule {
             }
             return dataSource.getRepository(metadata.target);
           },
-          inject: [DataSource],
+          inject: [DataSource, 'NAUTH_LOGGER'],
         },
         {
           provide: 'SessionRepository',
@@ -450,6 +627,46 @@ export class AuthModule {
             return dataSource.getRepository(metadata.target);
           },
           inject: [DataSource],
+        },
+        {
+          provide: 'SocialProviderSecretRepository',
+          useFactory: (dataSource: DataSource, logger?: LoggerService) => {
+            // Try to find entity from config first
+            const entityFromConfig = entities.find((e: Function) => e.name === 'SocialProviderSecret');
+            if (entityFromConfig) {
+              const repo = dataSource.getRepository(entityFromConfig);
+              if (logger) {
+                (logger as { debug?: (msg: string) => void }).debug?.(
+                  '[NAuth] SocialProviderSecretRepository: Found entity from config',
+                );
+              }
+              return repo;
+            }
+
+            // Fallback: find by table name in DataSource metadata
+            const metadata = dataSource.entityMetadatas.find(
+              (m: EntityMetadata) => m.tableName === 'nauth_social_provider_secrets',
+            );
+
+            if (metadata) {
+              const repo = dataSource.getRepository(metadata.target);
+              if (logger) {
+                (logger as { debug?: (msg: string) => void }).debug?.(
+                  '[NAuth] SocialProviderSecretRepository: Found entity from DataSource metadata',
+                );
+              }
+              return repo;
+            }
+
+            // Not found: keep this OPTIONAL at the AuthModule layer.
+            // WHY: social providers are optional; we only require this repository when Apple is enabled.
+            // Apple module/service will validate presence when apple.enabled === true.
+            (logger as { debug?: (msg: string) => void } | undefined)?.debug?.(
+              '[NAuth] SocialProviderSecretRepository: entity not registered (optional unless Apple is enabled)',
+            );
+            return null;
+          },
+          inject: [DataSource, 'NAUTH_LOGGER'],
         },
         {
           provide: 'ChallengeSessionRepository',
@@ -581,15 +798,17 @@ export class AuthModule {
             challengeSessionRepository: Repository<BaseChallengeSession>,
             clientInfoService: ClientInfoService,
             logger: NAuthLogger,
-            auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
+            auditService: InternalAuthAuditService | undefined, // Optional - only available when auditLogs.enabled is true
+            config: NAuthConfig,
           ) => {
-            return new ChallengeService(challengeSessionRepository, clientInfoService, logger, auditService);
+            return new ChallengeService(challengeSessionRepository, clientInfoService, logger, auditService, config);
           },
           inject: [
             'ChallengeSessionRepository',
             ClientInfoService,
             'NAUTH_LOGGER',
             { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
+            'NAUTH_CONFIG',
           ],
         },
         // AuthFlowContextBuilder - builds context with pre-computed values
@@ -636,6 +855,7 @@ export class AuthModule {
             clientInfoService: ClientInfoService,
             emailVerificationService?: EmailVerificationService,
             phoneVerificationService?: PhoneVerificationService,
+            trustedDeviceService?: TrustedDeviceService,
           ) => {
             return new AuthChallengeHelperService(
               challengeService,
@@ -648,6 +868,7 @@ export class AuthModule {
               clientInfoService,
               emailVerificationService,
               phoneVerificationService,
+              trustedDeviceService,
             );
           },
           inject: [
@@ -661,6 +882,89 @@ export class AuthModule {
             ClientInfoService,
             { token: EmailVerificationService, optional: true },
             { token: PhoneVerificationService, optional: true },
+            { token: TrustedDeviceService, optional: true },
+          ],
+        },
+        {
+          provide: AdminAuthService,
+          useFactory: (
+            userRepository: Repository<BaseUser>,
+            loginAttemptRepository: Repository<BaseLoginAttempt>,
+            passwordService: PasswordService,
+            sessionService: SessionService,
+            challengeService: ChallengeService,
+            challengeHelper: AuthChallengeHelperService,
+            emailVerificationService: EmailVerificationService,
+            clientInfoService: ClientInfoService,
+            accountLockoutStorage: AccountLockoutStorageService,
+            nauthConfig: NAuthConfig,
+            logger: NAuthLogger,
+            hookRegistry: HookRegistryService,
+            auditService?: InternalAuthAuditService,
+            phoneVerificationService?: PhoneVerificationService,
+            mfaDeviceRepository?: Repository<BaseMFADevice>,
+            trustedDeviceService?: TrustedDeviceService,
+            passwordResetService?: PasswordResetService,
+            socialAuthService?: SocialAuthService,
+            sessionRepository?: Repository<BaseSession>,
+            verificationTokenRepository?: Repository<BaseVerificationToken>,
+            socialAccountRepository?: Repository<BaseSocialAccount>,
+            challengeSessionRepository?: Repository<BaseChallengeSession>,
+            authAuditRepository?: Repository<BaseAuthAudit>,
+            trustedDeviceRepository?: Repository<BaseTrustedDevice>,
+          ) => {
+            return new AdminAuthService(
+              userRepository,
+              loginAttemptRepository,
+              passwordService,
+              sessionService,
+              challengeService,
+              challengeHelper,
+              emailVerificationService,
+              clientInfoService,
+              accountLockoutStorage,
+              nauthConfig,
+              logger,
+              hookRegistry,
+              auditService,
+              phoneVerificationService,
+              mfaDeviceRepository,
+              trustedDeviceService,
+              passwordResetService,
+              socialAuthService,
+              sessionRepository,
+              verificationTokenRepository,
+              socialAccountRepository,
+              challengeSessionRepository,
+              authAuditRepository,
+              trustedDeviceRepository,
+            );
+          },
+          inject: [
+            'UserRepository',
+            'LoginAttemptRepository',
+            PasswordService,
+            SessionService,
+            ChallengeService,
+            AuthChallengeHelperService,
+            EmailVerificationService,
+            ClientInfoService,
+            AccountLockoutStorageService,
+            'NAUTH_CONFIG',
+            'NAUTH_LOGGER',
+            HookRegistryService,
+            { token: InternalAuthAuditService, optional: true },
+            { token: PhoneVerificationService, optional: true },
+            { token: 'MFADeviceRepository', optional: true },
+            { token: TrustedDeviceService, optional: true },
+            { token: PasswordResetService, optional: true },
+            { token: SocialAuthService, optional: true },
+            { token: 'SessionRepository', optional: true },
+            { token: 'VerificationTokenRepository', optional: true },
+            { token: 'SocialAccountRepository', optional: true },
+            { token: 'ChallengeSessionRepository', optional: true },
+            { token: 'AuthAuditRepository', optional: true },
+            { token: 'TrustedDeviceRepository', optional: true },
           ],
         },
         {
@@ -678,11 +982,20 @@ export class AuthModule {
             accountLockoutStorage: AccountLockoutStorageService,
             nauthConfig: NAuthConfig,
             logger: NAuthLogger,
+            hookRegistry: HookRegistryService,
             auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
             phoneVerificationService?: PhoneVerificationService,
             mfaService?: MFAService,
             mfaDeviceRepository?: Repository<BaseMFADevice>,
             trustedDeviceService?: TrustedDeviceService,
+            passwordResetService?: PasswordResetService,
+            socialAuthService?: SocialAuthService, // Optional - only available when social auth is configured
+            sessionRepository?: Repository<BaseSession>, // Optional - for cascade deletion
+            verificationTokenRepository?: Repository<BaseVerificationToken>, // Optional - for cascade deletion
+            socialAccountRepository?: Repository<BaseSocialAccount>, // Optional - for cascade deletion
+            challengeSessionRepository?: Repository<BaseChallengeSession>, // Optional - for cascade deletion
+            authAuditRepository?: Repository<BaseAuthAudit>, // Optional - for cascade deletion
+            trustedDeviceRepository?: Repository<BaseTrustedDevice>, // Optional - for cascade deletion
           ) => {
             return new AuthService(
               userRepository,
@@ -697,11 +1010,20 @@ export class AuthModule {
               accountLockoutStorage,
               nauthConfig,
               logger,
+              hookRegistry,
               auditService,
               phoneVerificationService,
               mfaService,
               mfaDeviceRepository,
               trustedDeviceService,
+              passwordResetService,
+              socialAuthService,
+              sessionRepository,
+              verificationTokenRepository,
+              socialAccountRepository,
+              challengeSessionRepository,
+              authAuditRepository,
+              trustedDeviceRepository,
             );
           },
           inject: [
@@ -717,11 +1039,20 @@ export class AuthModule {
             AccountLockoutStorageService,
             'NAUTH_CONFIG',
             'NAUTH_LOGGER',
+            HookRegistryService,
             { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
             { token: PhoneVerificationService, optional: true },
             { token: MFAService, optional: true }, // No circular dependency - MFAService no longer depends on AuthService
             { token: 'MFADeviceRepository', optional: true },
             { token: TrustedDeviceService, optional: true },
+            { token: PasswordResetService, optional: true },
+            { token: SocialAuthService, optional: true }, // Optional - only available when social auth is configured
+            { token: 'SessionRepository', optional: true }, // Optional - for cascade deletion
+            { token: 'VerificationTokenRepository', optional: true }, // Optional - for cascade deletion
+            { token: 'SocialAccountRepository', optional: true }, // Optional - for cascade deletion
+            { token: 'ChallengeSessionRepository', optional: true }, // Optional - for cascade deletion
+            { token: 'AuthAuditRepository', optional: true }, // Optional - for cascade deletion
+            { token: 'TrustedDeviceRepository', optional: true }, // Optional - for cascade deletion
           ],
         },
         {
@@ -740,10 +1071,13 @@ export class AuthModule {
           inject: ['NAUTH_CONFIG', 'NAUTH_LOGGER', { token: 'TrustedDeviceRepository', optional: true }],
         },
 
-        // Social Auth State Store - shared Map for CSRF state validation across all providers
+        // Social Auth State Store - StorageAdapter-backed, cluster-safe CSRF state + redirect context store
         {
           provide: 'SOCIAL_AUTH_STATE_STORE',
-          useValue: new Map<string, { timestamp: number; provider: string }>(),
+          useFactory: (storageAdapter: StorageAdapter, logger: NAuthLogger) => {
+            return new SocialAuthStateStore(storageAdapter, logger);
+          },
+          inject: ['STORAGE_ADAPTER', 'NAUTH_LOGGER'],
         },
 
         // Social Provider Registry - internal registry for social providers
@@ -764,6 +1098,7 @@ export class AuthModule {
             logger?: NAuthLogger,
             auditService?: InternalAuthAuditService,
             clientInfoService?: ClientInfoService,
+            hookRegistry?: HookRegistryService,
           ) => {
             return new MFAService(
               mfaDeviceRepository,
@@ -773,6 +1108,7 @@ export class AuthModule {
               logger,
               auditService,
               clientInfoService,
+              hookRegistry,
             );
           },
           inject: [
@@ -781,8 +1117,9 @@ export class AuthModule {
             { token: ChallengeService, optional: true },
             { token: 'NAUTH_CONFIG', optional: true },
             { token: 'NAUTH_LOGGER', optional: true },
-            { token: AuthAuditService, optional: true },
+            { token: InternalAuthAuditService, optional: true },
             { token: ClientInfoService, optional: true },
+            { token: HookRegistryService, optional: true },
           ],
         },
         {
@@ -791,7 +1128,6 @@ export class AuthModule {
             providerRegistry: SocialProviderRegistry,
             userRepository: Repository<BaseUser>,
             socialAccountRepository: Repository<BaseSocialAccount>,
-            authService: AuthService,
             logger: NAuthLogger,
             auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
           ) => {
@@ -799,7 +1135,7 @@ export class AuthModule {
               providerRegistry,
               userRepository,
               socialAccountRepository,
-              authService,
+              null, // Don't inject AuthService to avoid circular dependency
               logger,
               auditService,
             );
@@ -808,12 +1144,12 @@ export class AuthModule {
             SocialProviderRegistry,
             'UserRepository',
             'SocialAccountRepository',
-            AuthService,
             'NAUTH_LOGGER',
             { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
           ],
         },
         ClientInfoService,
+        HookRegistryService,
         // Conditionally provide AuthAuditService based on config.auditLogs.enabled
         // Default to enabled if not specified (backward compatibility)
         //
@@ -855,7 +1191,13 @@ export class AuthModule {
             logger: NAuthLogger,
             trustedDeviceService?: TrustedDeviceService | null, // TrustedDeviceService - optional
           ) => {
-            return new RiskDetectionService(sessionRepository, auditRepository, config, logger, trustedDeviceService ?? undefined);
+            return new RiskDetectionService(
+              sessionRepository,
+              auditRepository,
+              config,
+              logger,
+              trustedDeviceService ?? undefined,
+            );
           },
           inject: [
             'SessionRepository',
@@ -882,6 +1224,7 @@ export class AuthModule {
             config: NAuthConfig,
             logger: NAuthLogger,
             auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
+            hookRegistry?: HookRegistryService,
           ) => {
             return new AdaptiveMFADecisionService(
               riskDetectionService,
@@ -891,6 +1234,7 @@ export class AuthModule {
               config,
               logger,
               auditService,
+              hookRegistry,
             );
           },
           inject: [
@@ -901,6 +1245,7 @@ export class AuthModule {
             'NAUTH_CONFIG',
             'NAUTH_LOGGER',
             { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
+            { token: HookRegistryService, optional: true },
           ],
         },
 
@@ -957,7 +1302,7 @@ export class AuthModule {
         // Email Provider (required - must be provided in config or from email package)
         {
           provide: 'EMAIL_PROVIDER',
-          useFactory: () => {
+          useFactory: async (): Promise<EmailProvider> => {
             if (!config.emailProvider) {
               throw new NAuthException(
                 AuthErrorCode.VALIDATION_FAILED,
@@ -966,29 +1311,135 @@ export class AuthModule {
                   '  yarn add @nauth-toolkit/email-nodemailer (for production)',
               );
             }
-            const provider = config.emailProvider;
+            const provider = config.emailProvider as EmailProvider;
+
+            // Validate required methods (core contract)
+            if (
+              typeof provider.sendVerificationEmail !== 'function' ||
+              typeof provider.sendPasswordResetEmail !== 'function' ||
+              typeof provider.sendWelcomeEmail !== 'function'
+            ) {
+              throw new NAuthException(
+                AuthErrorCode.VALIDATION_FAILED,
+                'emailProvider must implement sendVerificationEmail, sendPasswordResetEmail, and sendWelcomeEmail',
+              );
+            }
+
             // Inject logger into provider if it has setLogger method
-            if (provider && typeof provider.setLogger === 'function') {
-              provider.setLogger(nauthLogger);
+            {
+              const maybeLoggerAware = provider as unknown as { setLogger?: (logger: NAuthLogger) => void };
+              if (typeof maybeLoggerAware.setLogger === 'function') {
+                maybeLoggerAware.setLogger(nauthLogger);
+              }
+            }
+
+            // Inject config into provider if it supports it (used for suppression logic in some providers)
+            {
+              const maybeConfigAware = provider as unknown as { setConfig?: (cfg: NAuthConfig) => void };
+              if (typeof maybeConfigAware.setConfig === 'function') {
+                maybeConfigAware.setConfig(config);
+              }
             }
             // Inject global variables from email config if provider supports it
-            if (provider && typeof provider.setGlobalVariables === 'function' && config.email) {
-              const globalVars: Record<string, any> = {};
-              // Extract top-level branding fields
-              if (config.email.appName) globalVars.appName = config.email.appName;
-              if (config.email.companyName) globalVars.companyName = config.email.companyName;
-              if (config.email.logoUrl) globalVars.logoUrl = config.email.logoUrl;
-              if (config.email.supportEmail) globalVars.supportEmail = config.email.supportEmail;
-              if (config.email.dashboardUrl) globalVars.dashboardUrl = config.email.dashboardUrl;
-              if (config.email.brandColor) globalVars.brandColor = config.email.brandColor;
-              if (config.email.footerDisclaimer) globalVars.footerDisclaimer = config.email.footerDisclaimer;
-              // Merge with templates.globalVariables (templates.globalVariables takes precedence)
-              const mergedVars = {
-                ...globalVars,
-                ...(config.email.templates?.globalVariables || {}),
-              };
-              provider.setGlobalVariables(mergedVars);
+            if (
+              typeof (provider as unknown as { setGlobalVariables?: (vars: Record<string, unknown>) => void })
+                .setGlobalVariables === 'function' &&
+              config.email
+            ) {
+              const mergedVars = (config.email.globalVariables ?? {}) as Record<string, unknown>;
+              (
+                provider as unknown as { setGlobalVariables: (vars: Record<string, unknown>) => void }
+              ).setGlobalVariables(mergedVars);
             }
+
+            // ============================================================================
+            // Register Custom Email Templates
+            // ============================================================================
+            const emailTemplates = config.email?.templates;
+            if (emailTemplates?.customTemplates) {
+              // Check if provider has getTemplateEngine method (NodemailerProvider)
+              const maybeTemplateEngineAware = provider as unknown as {
+                getTemplateEngine?: () => {
+                  registerTemplate?: (type: string, template: { subject: string; html: string; text?: string }) => void;
+                  registerTemplateFromFile?: (type: string, htmlPath: string, textPath?: string) => Promise<void>;
+                  registerTemplateFromSources?: (
+                    type: string,
+                    sources: {
+                      subject: { content?: string; filePath?: string };
+                      html: { content?: string; filePath?: string };
+                      text?: { content?: string; filePath?: string };
+                    },
+                  ) => Promise<void>;
+                };
+              };
+
+              if (typeof maybeTemplateEngineAware.getTemplateEngine === 'function') {
+                const templateEngine = maybeTemplateEngineAware.getTemplateEngine();
+
+                // Register each custom template
+                for (const [type, templateDef] of Object.entries(emailTemplates.customTemplates)) {
+                  try {
+                    if (templateDef.htmlPath) {
+                      // File-based template
+                      // NOTE: We intentionally avoid framework-specific path magic here.
+                      // The template engine resolves relative paths against its baseDir (default: process.cwd()).
+                      const htmlPath = templateDef.htmlPath;
+                      const textPath = templateDef.textPath;
+
+                      if (templateDef.subject && templateEngine.registerTemplateFromSources) {
+                        // Explicit subject + file paths
+                        await templateEngine.registerTemplateFromSources(type, {
+                          subject: { content: templateDef.subject },
+                          html: { filePath: htmlPath },
+                          text: textPath ? { filePath: textPath } : undefined,
+                        });
+                      } else if (templateEngine.registerTemplateFromFile) {
+                        // Subject is expected in HTML frontmatter
+                        await templateEngine.registerTemplateFromFile(type, htmlPath, textPath);
+                      }
+                    } else if (templateDef.html) {
+                      // Inline template
+                      if (templateEngine.registerTemplate) {
+                        // Parse subject from frontmatter if present, otherwise require explicit subject.
+                        let subject = templateDef.subject;
+                        let html = templateDef.html;
+
+                        const frontmatterMatch = html.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
+                        if (frontmatterMatch) {
+                          const frontmatter = frontmatterMatch[1];
+                          html = frontmatterMatch[2];
+                          const subjectMatch = frontmatter.match(/subject:\s*(.+)/);
+                          if (subjectMatch) subject = subjectMatch[1].trim();
+                        }
+
+                        // Graceful fallback: if subject is missing, do not register (avoids sending malformed emails).
+                        if (!subject) {
+                          throw new Error(
+                            `Inline template "${type}" must provide "subject" or HTML frontmatter (--- subject: ... ---)`,
+                          );
+                        }
+
+                        templateEngine.registerTemplate(type, {
+                          subject,
+                          html,
+                          text: templateDef.text,
+                        });
+                      }
+                    }
+                  } catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                    nauthLogger.warn?.(
+                      `Failed to register email template "${type}": ${errorMessage}. Using default template.`,
+                    );
+                  }
+                }
+              } else {
+                nauthLogger.warn?.(
+                  '[EmailTemplates] Email provider does not support getTemplateEngine(). Custom templates will not be registered.',
+                );
+              }
+            }
+
             return provider;
           },
         },
@@ -997,21 +1448,23 @@ export class AuthModule {
           useFactory: (
             verificationTokenRepo: Repository<BaseVerificationToken>,
             userRepo: Repository<BaseUser>,
-            emailProvider: unknown,
+            emailProvider: EmailProvider,
             storageAdapter: StorageAdapter,
             nauthConfig: NAuthConfig,
             clientInfoService: ClientInfoService,
             logger: NAuthLogger,
+            hookRegistry: HookRegistryService,
             auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
           ) => {
             return new EmailVerificationService(
               verificationTokenRepo,
               userRepo,
-              emailProvider as any,
+              emailProvider,
               storageAdapter,
               nauthConfig,
               clientInfoService,
               logger,
+              hookRegistry,
               auditService,
             );
           },
@@ -1023,6 +1476,7 @@ export class AuthModule {
             'NAUTH_CONFIG',
             ClientInfoService,
             'NAUTH_LOGGER',
+            HookRegistryService,
             { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
           ],
         },
@@ -1032,11 +1486,102 @@ export class AuthModule {
           ? [
               {
                 provide: 'SMS_PROVIDER',
-                useFactory: () => {
-                  const provider = config.smsProvider!;
-                  if (provider && typeof provider.setLogger === 'function') {
-                    provider.setLogger(nauthLogger);
+                useFactory: async (): Promise<SMSProvider> => {
+                  const provider = config.smsProvider as SMSProvider;
+
+                  if (!provider || typeof provider.sendOTP !== 'function') {
+                    throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'smsProvider must implement sendOTP');
                   }
+
+                  // Inject logger into provider if it has setLogger method
+                  {
+                    const maybeLoggerAware = provider as unknown as { setLogger?: (logger: NAuthLogger) => void };
+                    if (typeof maybeLoggerAware.setLogger === 'function') {
+                      maybeLoggerAware.setLogger(nauthLogger);
+                    }
+                  }
+
+                  // ============================================================================
+                  // Initialize SMS Template Engine
+                  // ============================================================================
+                  const smsTemplates = config.sms?.templates;
+                  if (smsTemplates) {
+                    // If user configured templates, the provider must support the template hooks.
+                    // This avoids silent fallback to hard-coded messages when templates are expected.
+                    if (typeof provider.setTemplateEngine !== 'function') {
+                      throw new NAuthException(
+                        AuthErrorCode.VALIDATION_FAILED,
+                        'sms.templates is configured, but smsProvider does not support templates. ' +
+                          'Please upgrade your SMS provider package to a version that implements setTemplateEngine().',
+                      );
+                    }
+
+                    // Use provided engine or create new one
+                    const templateEngine: SMSTemplateEngine =
+                      smsTemplates.engine ?? new SMSTemplateEngineImpl(process.cwd(), nauthLogger);
+
+                    // Register custom templates
+                    if (smsTemplates.customTemplates) {
+                      for (const [type, templateDef] of Object.entries(smsTemplates.customTemplates)) {
+                        try {
+                          if (templateDef.content) {
+                            // Inline template
+                            templateEngine.registerTemplate(type, { content: templateDef.content });
+                          } else if (templateDef.contentPath) {
+                            // File-based template
+                            await templateEngine.registerTemplateFromSources(type, {
+                              content: { filePath: templateDef.contentPath },
+                            });
+                          }
+                        } catch (error) {
+                          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                          nauthLogger.error?.(
+                            `Failed to register SMS template "${type}": ${errorMessage}. Using default template.`,
+                          );
+                        }
+                      }
+                    }
+
+                    // Inject template engine into provider
+                    provider.setTemplateEngine(templateEngine);
+
+                    // Set global variables
+                    if (typeof provider.setGlobalVariables === 'function' && smsTemplates.globalVariables) {
+                      // Extract selected branding fields from email.globalVariables (if available)
+                      const globalVars: Record<string, string | number | boolean | undefined> = {};
+                      const emailGlobals = config.email?.globalVariables as Record<string, unknown> | undefined;
+                      if (typeof emailGlobals?.appName === 'string') {
+                        globalVars.appName = emailGlobals.appName;
+                      }
+                      if (typeof emailGlobals?.companyName === 'string') {
+                        globalVars.companyName = emailGlobals.companyName;
+                      }
+                      if (typeof emailGlobals?.supportEmail === 'string') {
+                        globalVars.supportEmail = emailGlobals.supportEmail;
+                      }
+
+                      // Merge with sms.templates.globalVariables (sms.templates.globalVariables takes precedence)
+                      // Filter out non-compatible types from globalVariables
+                      const smsGlobalVars: Record<string, string | number | boolean | undefined> = {};
+                      for (const [key, value] of Object.entries(smsTemplates.globalVariables)) {
+                        if (
+                          typeof value === 'string' ||
+                          typeof value === 'number' ||
+                          typeof value === 'boolean' ||
+                          value === undefined
+                        ) {
+                          smsGlobalVars[key] = value;
+                        }
+                      }
+
+                      const mergedVars: Record<string, string | number | boolean | undefined> = {
+                        ...globalVars,
+                        ...smsGlobalVars,
+                      };
+                      provider.setGlobalVariables(mergedVars as import('@nauth-toolkit/core').SMSTemplateVariables);
+                    }
+                  }
+
                   return provider;
                 },
               },
@@ -1045,21 +1590,23 @@ export class AuthModule {
                 useFactory: (
                   verificationTokenRepo: Repository<BaseVerificationToken>,
                   userRepo: Repository<BaseUser>,
-                  smsProvider: unknown,
+                  smsProvider: SMSProvider,
                   storageAdapter: StorageAdapter,
                   nauthConfig: NAuthConfig,
                   clientInfoService: ClientInfoService,
                   logger: NAuthLogger,
+                  hookRegistry: HookRegistryService,
                   auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
                 ) => {
                   return new PhoneVerificationService(
                     verificationTokenRepo,
                     userRepo,
-                    smsProvider as any,
+                    smsProvider,
                     storageAdapter,
                     nauthConfig,
                     clientInfoService,
                     logger,
+                    hookRegistry,
                     auditService,
                   );
                 },
@@ -1070,12 +1617,48 @@ export class AuthModule {
                   'STORAGE_ADAPTER',
                   'NAUTH_CONFIG',
                   ClientInfoService,
-                  { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
                   'NAUTH_LOGGER',
+                  HookRegistryService,
+                  { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
                 ],
               },
             ]
           : []),
+
+        {
+          provide: PasswordResetService,
+          useFactory: (
+            verificationTokenRepo: Repository<BaseVerificationToken>,
+            emailProvider: EmailProvider,
+            storageAdapter: StorageAdapter,
+            nauthConfig: NAuthConfig,
+            clientInfoService: ClientInfoService,
+            logger: NAuthLogger,
+            auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
+            smsProvider?: SMSProvider, // Optional - only available when smsProvider is configured
+          ) => {
+            return new PasswordResetService(
+              verificationTokenRepo,
+              emailProvider,
+              storageAdapter,
+              nauthConfig,
+              clientInfoService,
+              logger,
+              auditService,
+              smsProvider,
+            );
+          },
+          inject: [
+            'VerificationTokenRepository',
+            'EMAIL_PROVIDER',
+            'STORAGE_ADAPTER',
+            'NAUTH_CONFIG',
+            ClientInfoService,
+            'NAUTH_LOGGER',
+            { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
+            { token: 'SMS_PROVIDER', optional: true }, // Optional - only available when smsProvider is configured
+          ],
+        },
 
         {
           provide: RateLimitStorageService,
@@ -1098,6 +1681,8 @@ export class AuthModule {
       ],
       exports: [
         AuthService,
+        AdminAuthService,
+        SocialAuthService, // Needed by social auth provider modules
         PasswordService,
         JwtService,
         SessionService,
@@ -1105,6 +1690,7 @@ export class AuthModule {
         AuthChallengeHelperService, // Needed by social auth providers
         SocialProviderRegistry, // Needed by social auth provider modules for auto-registration
         ClientInfoService,
+        HookRegistryService, // Needed by NAuthHooksModule for hook registration
         // Audit Services (conditional - only if enabled)
         // Single instance, exported under two tokens:
         //   - AuthAuditService (public API) - For consumer apps to fetch audit logs (TypeScript prevents recordEvent)
@@ -1123,15 +1709,20 @@ export class AuthModule {
         ...(config.smsProvider ? ['SMS_PROVIDER', PhoneVerificationService] : []),
         SocialAuthService, // Always export - providers register themselves when modules are imported
         MFAService, // Always export - MFA providers register themselves when modules are imported
+        // Social redirect helper (framework-neutral handler consumers delegate to)
+        SocialRedirectHandler,
         // TrustedDeviceService is provided but not exported (used internally by AuthService)
         'NAUTH_LOGGER',
         'NAUTH_CONFIG', // Export config so other modules can access it
         'SOCIAL_AUTH_STATE_STORE', // Needed by social auth providers for CSRF protection
         // Repository tokens exported for internal toolkit packages (MFA providers, etc.)
-        // ⚠️ WARNING: These are for INTERNAL toolkit packages ONLY, not consumer apps
+        // WARNING: These are for INTERNAL toolkit packages ONLY, not consumer apps
         // Consumer apps should use service methods (AuthService, MFAService, etc.) instead of direct repository access
         'UserRepository',
+        'SocialAccountRepository', // Needed by social auth provider modules
         'MFADeviceRepository',
+        // Needed by @nauth-toolkit/social-apple for Apple JWT client secret rotation
+        'SocialProviderSecretRepository',
         // Note: TypeOrmModule not exported to prevent consumer apps from accessing entities directly
 
         // Note: MFA provider services (TOTPMFAProviderService, SMSMFAProviderService, PasskeyMFAProviderService)
@@ -1140,21 +1731,6 @@ export class AuthModule {
         // Note: PhoneVerificationService is provided from core when an SMS provider is configured
       ],
     };
-  }
-
-  /**
-   * Configure module with async configuration
-   * @deprecated in v2.0 - Use forRoot() instead. Async config not needed in modular architecture.
-   */
-  static forRootAsync(_options: {
-    useFactory: (...args: unknown[]) => Promise<NAuthModuleConfig> | NAuthModuleConfig;
-    inject?: unknown[];
-  }): DynamicModule {
-    throw new NAuthException(
-      AuthErrorCode.INTERNAL_ERROR,
-      'forRootAsync() is deprecated in v2.0. Use forRoot() instead.\n' +
-        'The modular architecture requires entities to be provided synchronously.',
-    );
   }
 
   /**
@@ -1175,7 +1751,7 @@ export class AuthModule {
 
     if (!result.success) {
       // Format Zod errors into readable messages
-      const errors = result.error.errors
+      const errors = result.error.issues
         .map((err) => {
           const path = err.path.length > 0 ? err.path.join('.') : 'root';
           return `  - ${path}: ${err.message}`;

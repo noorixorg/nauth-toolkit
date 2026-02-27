@@ -323,13 +323,13 @@ ${properties.map((p) => `  ${p.name}: undefined, // TODO: Add example value`).jo
  * Main execution
  */
 async function main() {
-  console.log('🔍 Scanning nauth-toolkit packages...\n');
+  console.log('Scanning nauth-toolkit packages...\n');
 
   const packagesDir = path.join(__dirname, '../../packages');
   const packages = ['core', 'nestjs', 'express'];
 
   for (const pkg of packages) {
-    console.log(`📦 Scanning ${pkg}...`);
+    console.log(`Scanning ${pkg}...`);
     const packagePath = path.join(packagesDir, pkg);
     const exports = scanPackage(packagePath);
 
@@ -355,7 +355,7 @@ async function main() {
 
       const content = generateServiceDoc(service, pkg);
       fs.writeFileSync(path.join(serviceDir, filename), content);
-      console.log(`  ✓ Generated ${filename}`);
+      console.log(`  Generated ${filename}`);
     }
 
     // Generate DTO docs
@@ -372,11 +372,11 @@ async function main() {
 
       const content = generateDTODoc(dto, pkg);
       fs.writeFileSync(path.join(dtoDir, filename), content);
-      console.log(`  ✓ Generated ${filename}`);
+      console.log(`  Generated ${filename}`);
     }
   }
 
-  console.log('\n✅ Documentation skeleton generation complete!');
+  console.log('\nDocumentation skeleton generation complete!');
 }
 
 main().catch(console.error);

@@ -1,6 +1,13 @@
-import { Injectable, CanActivate, ExecutionContext, Inject } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, Inject, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { NAuthConfig, NAuthException, AuthErrorCode, resolveDeliveryForRequest } from '@nauth-toolkit/core';
+import {
+  NAuthConfig,
+  NAuthException,
+  AuthErrorCode,
+  resolveDeliveryForRequest,
+  getAccessTokenCookieName,
+  getRefreshTokenCookieName,
+} from '@nauth-toolkit/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { TOKEN_DELIVERY_KEY, RouteDelivery } from '../decorators/token-delivery.decorator';
 import { CsrfService } from '../services/csrf.service';
@@ -28,6 +35,8 @@ import { CsrfService } from '../services/csrf.service';
  */
 @Injectable()
 export class CsrfGuard implements CanActivate {
+  private readonly logger = new Logger(CsrfGuard.name);
+
   constructor(
     @Inject('NAUTH_CONFIG')
     private readonly config: NAuthConfig,
@@ -77,7 +86,27 @@ export class CsrfGuard implements CanActivate {
     if (routeMode) {
       effective = routeMode;
     } else if (method === 'hybrid') {
-      effective = resolveDeliveryForRequest(request, deliveryConfig?.hybridPolicy);
+      // ============================================================================
+      // HYBRID MODE: Prefer the credential that is actually present
+      // ============================================================================
+      // Match AuthGuard logic: if client sends Bearer token, treat as JSON mode
+      // This prevents CSRF enforcement for mobile apps using Bearer tokens
+      // Handle case-insensitive header lookup (Express uses lowercase, Fastify may use original case)
+      const authHeader: string | undefined =
+        (request.headers?.authorization as string | undefined) ||
+        (request.headers?.Authorization as string | undefined);
+      const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+      const accessTokenCookieName = getAccessTokenCookieName(this.config);
+      const cookieToken: string | undefined = request.cookies?.[accessTokenCookieName];
+
+      if (headerToken && !cookieToken) {
+        effective = 'json';
+      } else if (cookieToken && !headerToken) {
+        effective = 'cookies';
+      } else {
+        // Both present, neither present, or edge case - fall back to origin-based
+        effective = resolveDeliveryForRequest(request, deliveryConfig?.hybridPolicy);
+      }
     } else if (method === 'cookies') {
       effective = 'cookies';
     } else {
@@ -87,6 +116,26 @@ export class CsrfGuard implements CanActivate {
     // Only enforce CSRF for cookie-based token delivery
     if (effective !== 'cookies') {
       return true; // JSON mode doesn't need CSRF (Bearer tokens are CSRF-safe)
+    }
+
+    // ============================================================================
+    // CSRF ENFORCEMENT CONDITION (SECURITY-CRITICAL)
+    // ============================================================================
+    // CSRF protection is only meaningful when a request is authenticated via cookies.
+    // In hybrid deployments, non-browser clients (mobile/M2M/webhooks) may have no Origin
+    // header; delivery resolution safely defaults to 'cookies' to avoid leaking tokens to
+    // browsers. Enforcing CSRF purely based on that fallback would block legitimate
+    // non-cookie requests while adding no security.
+    //
+    // Therefore, enforce CSRF only when an auth cookie is actually present.
+    const accessTokenCookieName = getAccessTokenCookieName(this.config);
+    const refreshTokenCookieName = getRefreshTokenCookieName(this.config);
+    const hasAuthCookie = Boolean(
+      request.cookies?.[accessTokenCookieName] || request.cookies?.[refreshTokenCookieName],
+    );
+
+    if (!hasAuthCookie) {
+      return true;
     }
 
     // Validate CSRF token

@@ -1,7 +1,6 @@
 ---
 title: AuthUserSummary
 description: Minimal user info returned in authentication responses
-sidebar_position: 80
 keywords: [user, summary, authentication, response, api]
 image: /img/api-social-card.png
 ---

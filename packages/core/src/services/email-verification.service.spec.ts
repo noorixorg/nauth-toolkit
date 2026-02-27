@@ -6,7 +6,7 @@ import { EmailProvider } from '../interfaces/provider.interface';
 import { StorageAdapter } from '../interfaces/storage-adapter.interface';
 import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
-import { AuthAuditService } from './auth-audit.service';
+import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { BaseVerificationToken, BaseUser } from '../entities';
 import { IUser, IVerificationToken } from '../interfaces/entities.interface';
 import { AuthErrorCode } from '../enums/error-codes.enum';
@@ -19,9 +19,18 @@ import {
   ResendVerificationEmailDTO,
 } from '../dto/verify-email.dto';
 
+// ============================================================================
+// Test Constants
+// ============================================================================
+// Use valid UUID v4 values to satisfy DTO validation (service now enforces ensureValidatedDto()).
+const TEST_USER_SUB = 'a21b654c-2746-4168-acee-c175083a65cd';
+const TEST_OTHER_SUB = 'b21b654c-2746-4168-acee-c175083a65cd';
+
 // Helper to create DTOs from plain objects
 function createSendVerificationEmailDto(data: Partial<SendVerificationEmailDTO>): SendVerificationEmailDTO {
-  return Object.assign(new SendVerificationEmailDTO(), data);
+  const sub =
+    data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
+  return Object.assign(new SendVerificationEmailDTO(), { ...data, sub });
 }
 
 function createVerifyEmailWithCodeDto(data: Partial<VerifyEmailWithCodeDTO>): VerifyEmailWithCodeDTO {
@@ -33,7 +42,9 @@ function createVerifyEmailWithTokenDto(data: Partial<VerifyEmailWithTokenDTO>): 
 }
 
 function createResendVerificationEmailDto(data: Partial<ResendVerificationEmailDTO>): ResendVerificationEmailDTO {
-  return Object.assign(new ResendVerificationEmailDTO(), data);
+  const sub =
+    data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
+  return Object.assign(new ResendVerificationEmailDTO(), { ...data, sub });
 }
 
 /**
@@ -62,11 +73,15 @@ describe('EmailVerificationService', () => {
   let mockClientInfoService: jest.Mocked<ClientInfoService>;
   let mockLogger: jest.Mocked<NAuthLogger>;
   let mockAuditService: jest.Mocked<AuthAuditService>;
+  let mockHookRegistry: {
+    executeUserProfileUpdated: jest.Mock;
+    executeOnboardingCompleted: jest.Mock;
+  };
   let mockConfig: NAuthConfig;
 
   const mockUser: IUser = {
     id: 123,
-    sub: 'user-sub-123',
+    sub: TEST_USER_SUB,
     email: 'test@example.com',
     username: 'testuser',
     phone: null,
@@ -133,6 +148,7 @@ describe('EmailVerificationService', () => {
 
     mockEmailProvider = {
       sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
+      sendMFAEmailCode: jest.fn().mockResolvedValue(undefined),
       sendPasswordResetEmail: jest.fn(),
       sendWelcomeEmail: jest.fn(),
     } as any;
@@ -178,6 +194,11 @@ describe('EmailVerificationService', () => {
       recordEvent: jest.fn().mockResolvedValue(null),
     } as any;
 
+    mockHookRegistry = {
+      executeUserProfileUpdated: jest.fn().mockResolvedValue(undefined),
+      executeOnboardingCompleted: jest.fn().mockResolvedValue(undefined),
+    };
+
     mockConfig = {
       jwt: {
         accessToken: { secret: 'test-secret', expiresIn: '15m' },
@@ -202,6 +223,7 @@ describe('EmailVerificationService', () => {
       mockConfig,
       mockClientInfoService,
       mockLogger,
+      mockHookRegistry as any, // hookRegistry (mock)
       mockAuditService,
     );
   });
@@ -231,21 +253,21 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      const result = await service.sendVerificationEmail('user-sub-123', 'https://example.com');
+      const result = await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123', baseUrl: 'https://example.com' }));
 
       expect(mockStorageAdapter.incr).toHaveBeenCalled();
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'user-sub-123' } as any });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: TEST_USER_SUB } as any });
       expect(mockVerificationTokenRepository.save).toHaveBeenCalled();
       expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalled();
       const callArgs = mockEmailProvider.sendVerificationEmail.mock.calls[0];
       expect(callArgs[0]).toBe('test@example.com');
       expect(typeof callArgs[1]).toBe('string'); // 6-digit code
-      expect(callArgs[2]).toContain('https://example.com/verify-email?token='); // token in URL
+      expect(callArgs[2]).toContain('https://example.com?code='); // verification link uses code
       expect(mockAuditService.recordEvent).toHaveBeenCalled();
-      expect(result).toBe(456);
+      expect(result).toEqual({ tokenId: 456 });
     });
 
-    it('should use default baseUrl if not provided', async () => {
+    it('should send email without verification link if baseUrl not provided', async () => {
       mockStorageAdapter.incr.mockResolvedValue(1);
       mockStorageAdapter.ttl.mockResolvedValue(3600);
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
@@ -253,12 +275,13 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.sendVerificationEmail('user-sub-123');
+      await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
 
       expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalledWith(
         'test@example.com',
         (expect as any).any(String),
-        (expect as any).stringContaining('http://localhost:3000/verify-email?token='),
+        undefined, // No verification link when baseUrl is not provided
+        60, // expiryMinutes (default 3600 seconds = 60 minutes)
       );
     });
 
@@ -268,7 +291,7 @@ describe('EmailVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.sendVerificationEmail('invalid-sub');
+        await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'invalid-sub' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -283,7 +306,7 @@ describe('EmailVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(verifiedUser as any);
 
       try {
-        await service.sendVerificationEmail('user-sub-123');
+        await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -296,7 +319,7 @@ describe('EmailVerificationService', () => {
       mockStorageAdapter.ttl.mockResolvedValue(3600);
 
       try {
-        await service.sendVerificationEmail('user-sub-123');
+        await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -316,7 +339,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(recentToken as any);
 
       try {
-        await service.sendVerificationEmail('user-sub-123');
+        await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -336,7 +359,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.sendVerificationEmail('user-sub-123');
+      await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
 
       expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalled();
     });
@@ -349,7 +372,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.sendVerificationEmail('user-sub-123');
+      await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
 
       expect(mockVerificationTokenRepository.update).toHaveBeenCalledWith(
         (expect as any).objectContaining({
@@ -371,9 +394,9 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.sendVerificationEmail('user-sub-123');
+      await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
 
-      expect(mockStorageAdapter.del).toHaveBeenCalledWith('email-verification:user-sub-123');
+      expect(mockStorageAdapter.del).toHaveBeenCalledWith(`email-verification:${TEST_USER_SUB}`);
     });
 
     it('should handle storage adapter errors gracefully', async () => {
@@ -386,7 +409,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
       // Should still work, just log the error
-      await service.sendVerificationEmail('user-sub-123');
+      await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
 
       expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalled();
     });
@@ -401,7 +424,7 @@ describe('EmailVerificationService', () => {
       mockEmailProvider.sendVerificationEmail.mockRejectedValue(new Error('Email service error'));
 
       try {
-        await service.sendVerificationEmail('user-sub-123');
+        await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
         fail('Should have thrown error');
       } catch (error: any) {
         expect(error.message).toContain('Email service error');
@@ -417,7 +440,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
       mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-      await service.sendVerificationEmail('user-sub-123');
+      await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
 
       expect(mockLogger.error).toHaveBeenCalled();
       expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalled(); // Should still send email
@@ -434,6 +457,7 @@ describe('EmailVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        mockHookRegistry as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -441,7 +465,7 @@ describe('EmailVerificationService', () => {
       mockStorageAdapter.ttl.mockResolvedValue(1800);
 
       try {
-        await service.sendVerificationEmail('user-sub-123');
+        await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.RATE_LIMIT_EMAIL);
@@ -458,6 +482,7 @@ describe('EmailVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        mockHookRegistry as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -471,11 +496,179 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(recentToken as any);
 
       try {
-        await service.sendVerificationEmail('user-sub-123');
+        await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.RATE_LIMIT_RESEND);
       }
+    });
+  });
+
+  // ============================================================================
+  // sendMFAEmailCode
+  // ============================================================================
+
+  describe('sendMFAEmailCode', () => {
+    it('should send MFA email code successfully', async () => {
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockVerificationTokenRepository.findOne.mockResolvedValue(null);
+      mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
+      mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
+
+      const result = await service.sendMFAEmailCode(
+        createSendVerificationEmailDto({ sub: 'user-sub-123', skipAlreadyVerifiedCheck: true }),
+      );
+
+      expect(result.tokenId).toBeDefined();
+      expect(mockEmailProvider.sendMFAEmailCode).toHaveBeenCalledWith(
+        'test@example.com',
+        expect.any(String),
+        expect.any(Number),
+      );
+      expect(mockVerificationTokenRepository.save).toHaveBeenCalled();
+      expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 123,
+          metadata: expect.objectContaining({
+            mfaContext: true,
+          }),
+        }),
+      );
+    });
+
+    it('should enforce rate limit for MFA email codes', async () => {
+      mockStorageAdapter.incr.mockResolvedValue(4); // Exceeds default limit of 3
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+
+      try {
+        await service.sendMFAEmailCode(
+          createSendVerificationEmailDto({ sub: 'user-sub-123', skipAlreadyVerifiedCheck: true }),
+        );
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.RATE_LIMIT_EMAIL);
+        expect(error.details.currentCount).toBe(4);
+      }
+    });
+
+    it('should enforce resend delay for MFA email codes', async () => {
+      const recentToken = {
+        ...mockVerificationToken,
+        createdAt: new Date(Date.now() - 30 * 1000), // 30 seconds ago (less than 60s default)
+      };
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockVerificationTokenRepository.findOne.mockResolvedValue(recentToken as any);
+
+      try {
+        await service.sendMFAEmailCode(
+          createSendVerificationEmailDto({ sub: 'user-sub-123', skipAlreadyVerifiedCheck: true }),
+        );
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.RATE_LIMIT_RESEND);
+      }
+    });
+
+    it('should allow sending MFA code even if email is already verified', async () => {
+      const verifiedUser = { ...mockUser, isEmailVerified: true };
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+      mockUserRepository.findOne.mockResolvedValue(verifiedUser as any);
+      mockVerificationTokenRepository.findOne.mockResolvedValue(null);
+      mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
+      mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
+
+      const result = await service.sendMFAEmailCode(
+        createSendVerificationEmailDto({ sub: 'user-sub-123', skipAlreadyVerifiedCheck: true }),
+      );
+
+      expect(result.tokenId).toBeDefined();
+      expect(mockEmailProvider.sendMFAEmailCode).toHaveBeenCalled();
+    });
+
+    it('should throw NAuthException if user not found', async () => {
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      try {
+        await service.sendMFAEmailCode(
+          createSendVerificationEmailDto({ sub: 'invalid-sub', skipAlreadyVerifiedCheck: true }),
+        );
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.NOT_FOUND);
+      }
+    });
+
+    it('should invalidate existing tokens before creating new one', async () => {
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockVerificationTokenRepository.findOne.mockResolvedValue(null);
+      mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
+      mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
+
+      await service.sendMFAEmailCode(
+        createSendVerificationEmailDto({ sub: 'user-sub-123', skipAlreadyVerifiedCheck: true }),
+      );
+
+      expect(mockVerificationTokenRepository.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 123,
+          type: 'email',
+        }),
+        expect.objectContaining({
+          usedAt: expect.any(Date),
+        }),
+      );
+    });
+
+    it('should link MFA code to challenge session if provided', async () => {
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockVerificationTokenRepository.findOne.mockResolvedValue(null);
+      mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
+      mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
+
+      await service.sendMFAEmailCode(
+        createSendVerificationEmailDto({
+          sub: 'user-sub-123',
+          skipAlreadyVerifiedCheck: true,
+          challengeSessionId: 456,
+        }),
+      );
+
+      expect(mockVerificationTokenRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          challengeSessionId: 456,
+        }),
+      );
+    });
+
+    it('should handle audit service errors gracefully', async () => {
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.ttl.mockResolvedValue(3600);
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockVerificationTokenRepository.findOne.mockResolvedValue(null);
+      mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
+      mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
+      mockAuditService.recordEvent.mockRejectedValueOnce(new Error('Audit failed'));
+
+      await service.sendMFAEmailCode(
+        createSendVerificationEmailDto({ sub: 'user-sub-123', skipAlreadyVerifiedCheck: true }),
+      );
+
+      expect(mockLogger.error).toHaveBeenCalled();
+      expect(mockEmailProvider.sendMFAEmailCode).toHaveBeenCalled(); // Should still send email
     });
   });
 
@@ -485,7 +678,10 @@ describe('EmailVerificationService', () => {
 
   describe('verifyEmailWithCode', () => {
     it('should verify email with valid code', async () => {
-      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockConfig.signup!.verificationMethod = 'email';
+      mockUserRepository.findOne
+        .mockResolvedValueOnce(mockUser as any) // user lookup by email
+        .mockResolvedValueOnce({ ...mockUser, isEmailVerified: true } as any); // refetch after update
       mockStorageAdapter.incr.mockResolvedValue(1);
       mockStorageAdapter.expire.mockResolvedValue();
       mockVerificationTokenRepository.findOne.mockResolvedValue(mockVerificationToken as any);
@@ -503,21 +699,36 @@ describe('EmailVerificationService', () => {
         isActive: true,
       });
       expect(mockAuditService.recordEvent).toHaveBeenCalled();
+      expect(mockHookRegistry.executeOnboardingCompleted).toHaveBeenCalledTimes(1);
+      expect(mockHookRegistry.executeOnboardingCompleted).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 123, isEmailVerified: true }),
+        expect.objectContaining({
+          verificationMethod: 'email',
+          source: 'email_verification',
+          completedAt: expect.any(Date),
+        }),
+      );
     });
 
-    it('should throw NAuthException if challengeSessionId is missing', async () => {
-      try {
-        await service.verifyEmailWithCode({
-          email: 'test@example.com',
-          code: '123456',
-          challengeSessionId: undefined as any,
-        });
-        fail('Should have thrown NAuthException');
-      } catch (error: any) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect(error.code).toBe(AuthErrorCode.VALIDATION_FAILED);
-        expect(error.message).toContain('Challenge session ID is required');
-      }
+    it('should verify email with code when challengeSessionId is not provided', async () => {
+      // challengeSessionId is optional - verification should work without it
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      const tokenWithCode = {
+        ...mockVerificationToken,
+        code: '123456',
+        challengeSessionId: null, // No challenge session linked
+      };
+      mockVerificationTokenRepository.findOne.mockResolvedValue(tokenWithCode as any);
+      mockVerificationTokenRepository.save.mockResolvedValue(tokenWithCode as any);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
+
+      const result = await service.verifyEmailWithCode({
+        email: 'test@example.com',
+        code: '123456',
+      });
+
+      expect(result.message).toBeDefined();
+      expect(mockUserRepository.update).toHaveBeenCalled();
     });
 
     it('should throw NAuthException if user not found', async () => {
@@ -551,7 +762,8 @@ describe('EmailVerificationService', () => {
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
-        expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_INVALID);
+        // Invalid code format is caught at DTO validation level
+        expect(error.code).toBe(AuthErrorCode.VALIDATION_FAILED);
       }
     });
 
@@ -822,6 +1034,45 @@ describe('EmailVerificationService', () => {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_TOO_MANY_ATTEMPTS);
       }
     });
+
+    it('should use custom maxAttempts config', async () => {
+      mockConfig.signup!.emailVerification!.maxAttempts = 5;
+      service = new EmailVerificationService(
+        mockVerificationTokenRepository,
+        mockUserRepository,
+        mockEmailProvider,
+        mockStorageAdapter,
+        mockConfig,
+        mockClientInfoService,
+        mockLogger,
+        mockHookRegistry as any, // hookRegistry (mock)
+        mockAuditService,
+      );
+
+      const tokenWithMethod = {
+        ...mockVerificationToken,
+        attempts: 5, // Equal to custom limit of 5 (should exceed)
+        maxAttemptsExceeded: jest.fn((max: number) => {
+          return 5 >= max; // Should return true when attempts >= max
+        }),
+      };
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockStorageAdapter.incr.mockResolvedValue(1);
+      mockStorageAdapter.expire.mockResolvedValue();
+      mockVerificationTokenRepository.findOne.mockResolvedValue(tokenWithMethod as any);
+
+      try {
+        await service.verifyEmailWithCode({
+          email: 'test@example.com',
+          code: '123456',
+          challengeSessionId: 1,
+        });
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error.code).toBe(AuthErrorCode.VERIFICATION_TOO_MANY_ATTEMPTS);
+        expect(tokenWithMethod.maxAttemptsExceeded).toHaveBeenCalledWith(5);
+      }
+    });
   });
 
   // ============================================================================
@@ -832,7 +1083,7 @@ describe('EmailVerificationService', () => {
     it('should verify email with valid token', async () => {
       // Token is hashed before lookup
       const tokenHash = 'hashed-token-abc123';
-      const token = 'abc123';
+      const token = 'a'.repeat(64);
       const tokenWithHash = {
         ...mockVerificationToken,
         token: tokenHash,
@@ -842,7 +1093,7 @@ describe('EmailVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
 
-      const result = await service.verifyEmailWithToken(token);
+      const result = await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token }));
 
       expect(result.message).toBe('Email verified successfully. Please log in to continue.');
       expect(mockVerificationTokenRepository.findOne).toHaveBeenCalledWith({
@@ -863,7 +1114,8 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.verifyEmailWithToken('invalid-token');
+        // Use a valid token format to reach service-level "token not found" error
+        await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'b'.repeat(64) }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -880,7 +1132,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(expiredToken as any);
 
       try {
-        await service.verifyEmailWithToken('abc123');
+        await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'a'.repeat(64) }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -899,7 +1151,7 @@ describe('EmailVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
 
-      await service.verifyEmailWithToken('abc123');
+      await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'a'.repeat(64) }));
 
       expect(mockVerificationTokenRepository.save).toHaveBeenCalledWith(
         (expect as any).objectContaining({
@@ -919,7 +1171,7 @@ describe('EmailVerificationService', () => {
       mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-      const result = await service.verifyEmailWithToken('abc123');
+      const result = await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'a'.repeat(64) }));
 
       expect(mockLogger.error).toHaveBeenCalled();
       expect(result.message).toBeDefined(); // Should still verify
@@ -935,7 +1187,7 @@ describe('EmailVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(null); // User not found
       mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
 
-      const result = await service.verifyEmailWithToken('abc123');
+      const result = await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'a'.repeat(64) }));
 
       // Should still update user and return success
       expect(result.message).toBeDefined();
@@ -951,7 +1203,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(expiredToken as any);
 
       try {
-        await service.verifyEmailWithToken('abc123');
+        await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'a'.repeat(64) }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_EXPIRED);
@@ -969,7 +1221,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(expiredToken as any);
 
       try {
-        await service.verifyEmailWithToken('abc123');
+        await service.verifyEmailWithToken(createVerifyEmailWithTokenDto({ token: 'a'.repeat(64) }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_EXPIRED);
@@ -990,11 +1242,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      const result = await service.resendVerificationEmail('user-sub-123', 'https://example.com');
+      const result = await service.resendVerificationEmail(createResendVerificationEmailDto({ sub: 'user-sub-123', baseUrl: 'https://example.com' }));
 
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'user-sub-123' } as any });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: TEST_USER_SUB } as any });
       expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalled();
-      expect(result).toBe(456);
+      expect(result).toEqual({ tokenId: 456 });
     });
 
     it('should enforce resend delay', async () => {
@@ -1006,7 +1258,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(recentToken as any);
 
       try {
-        await service.resendVerificationEmail('user-sub-123');
+        await service.resendVerificationEmail(createResendVerificationEmailDto({ sub: 'user-sub-123' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -1026,7 +1278,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.resendVerificationEmail('user-sub-123');
+      await service.resendVerificationEmail(createResendVerificationEmailDto({ sub: 'user-sub-123' }));
 
       expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalled();
     });
@@ -1035,7 +1287,7 @@ describe('EmailVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.resendVerificationEmail('invalid-sub');
+        await service.resendVerificationEmail(createResendVerificationEmailDto({ sub: 'invalid-sub' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -1051,7 +1303,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.resendVerificationEmail('user-sub-123', 'https://example.com');
+      await service.resendVerificationEmail(createResendVerificationEmailDto({ sub: 'user-sub-123', baseUrl: 'https://example.com' }));
 
       // Should call sendVerificationEmail with same parameters
       expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalled();
@@ -1078,7 +1330,7 @@ describe('EmailVerificationService', () => {
 
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { email: 'test@example.com' } as any });
       expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalled();
-      expect(result).toBe(456);
+      expect(result).toEqual({ tokenId: 456 });
     });
 
     it('should throw NAuthException if user not found by email', async () => {
@@ -1123,6 +1375,7 @@ describe('EmailVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        mockHookRegistry as any, // hookRegistry (mock)
         undefined, // No audit service
       );
 
@@ -1133,7 +1386,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await serviceWithoutAudit.sendVerificationEmail('user-sub-123');
+      await serviceWithoutAudit.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
 
       // Should not throw error
       expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalled();
@@ -1153,11 +1406,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.sendVerificationEmail('user-sub-123');
+      await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
 
       // Should create new window
       expect(mockStorageAdapter.incr).toHaveBeenCalledWith(
-        'email-verification:user-sub-123',
+        `email-verification:${TEST_USER_SUB}`,
         3600, // Window expiry
       );
     });
@@ -1170,14 +1423,14 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.sendVerificationEmail('user-sub-123');
+      await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
 
       // Should create new window (when TTL is 0, window is expired, so TTL parameter is passed)
       expect(mockStorageAdapter.incr).toHaveBeenCalled();
       // When window is expired (TTL < 0 or TTL === 0), incr is called with TTL parameter
       // Check that at least one call was made with the rate limit key
       const incrCalls = mockStorageAdapter.incr.mock.calls;
-      const rateLimitCall = incrCalls.find((call) => call[0] === 'email-verification:user-sub-123');
+      const rateLimitCall = incrCalls.find((call) => call[0] === `email-verification:${TEST_USER_SUB}`);
       expect(rateLimitCall).toBeDefined();
       // When expired, second parameter should be the window (3600)
       // But if it's not passed, that's also fine - the important thing is that it works
@@ -1191,11 +1444,11 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.sendVerificationEmail('user-sub-123');
+      await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
 
       // Should create new window
       expect(mockStorageAdapter.incr).toHaveBeenCalledWith(
-        'email-verification:user-sub-123',
+        `email-verification:${TEST_USER_SUB}`,
         3600, // Window expiry
       );
     });
@@ -1210,6 +1463,7 @@ describe('EmailVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        mockHookRegistry as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -1221,7 +1475,7 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
       // Should use defaults (rateLimitMax: 3, rateLimitWindow: 3600, resendDelay: 60)
-      await service.sendVerificationEmail('user-sub-123');
+      await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123' }));
 
       expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalled();
     });

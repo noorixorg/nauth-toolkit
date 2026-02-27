@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, Optional, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   FormBuilder,
@@ -8,7 +8,7 @@ import {
   AbstractControl,
   ValidationErrors,
 } from '@angular/forms';
-import { AuthService, AuthResponse, SocialProvider } from '@nauth-toolkit/client/angular';
+import { AuthService, AuthResponse, SocialProvider } from '@nauth-toolkit/client-angular/standalone';
 import { NAuthClientError } from '@nauth-toolkit/client';
 import { InputTextModule } from 'primeng/inputtext';
 import { AutoFocusModule } from 'primeng/autofocus';
@@ -22,6 +22,7 @@ import { CommonModule } from '@angular/common';
 import { ChallengeOrchestratorService } from '../services/challenge-orchestrator.service';
 import { SimulatedVerificationCodeService } from '../services/simulated-verification-code.service';
 import { handleAuthError } from '../utils/error-handler.util';
+import { environment } from '../../environments/environment';
 import { faker } from '@faker-js/faker';
 
 /**
@@ -114,6 +115,11 @@ export class SignupComponent implements OnInit {
    */
   signupForm: FormGroup;
 
+  /** Show Apple signup button (controlled via build-time env flag) */
+  readonly showAppleLogin = environment.showAppleLogin;
+  /** Show Facebook signup button (controlled via build-time env flag) */
+  readonly showFacebookLogin = environment.showFacebookLogin;
+
   /**
    * Loading state signal
    */
@@ -183,7 +189,7 @@ export class SignupComponent implements OnInit {
    * Registers user and navigates to dashboard on success.
    * Handles challenge responses (email/phone verification, etc.).
    */
-  onSubmit(): void {
+  async onSubmit(): Promise<void> {
     if (this.signupForm.invalid) {
       // Mark all fields as touched to show validation errors
       Object.keys(this.signupForm.controls).forEach((key) => {
@@ -201,25 +207,24 @@ export class SignupComponent implements OnInit {
     const formattedPhone = phone ? phone.replace(/[\s_]/g, '') : undefined;
     const normalizedEmail = email.trim().toLowerCase();
 
-    this.auth
-      .signup({
+    try {
+      const response: AuthResponse = await this.auth.signup({
         email: normalizedEmail,
         password,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phone: formattedPhone,
-      })
-      .subscribe({
-        next: async (response: AuthResponse) => {
-          this.loading.set(false);
-          // Universal handler for signup, challenges, and redirects
-          await this.orchestrator.handleAuthResponse(response);
-        },
-        error: (err: unknown) => {
-          this.loading.set(false);
-          this.handleError(err);
+        metadata: {
+          invite_code: '92837984372',
         },
       });
+      // Universal handler for signup, challenges, and redirects
+      await this.orchestrator.handleAuthResponse(response);
+    } catch (err: unknown) {
+      this.handleError(err);
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   /**
@@ -229,14 +234,20 @@ export class SignupComponent implements OnInit {
    *
    * @param provider - Social provider (google, apple, facebook)
    */
-  onSocialSignup(provider: SocialProvider): void {
+  async onSocialSignup(provider: SocialProvider): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
 
-    this.auth.loginWithSocial(provider).catch((err: unknown) => {
+    try {
+      await this.auth.loginWithSocial(provider, {
+        returnTo: '/auth/callback',
+        // Google: force consent screen every time (default skips for returning users)
+        ...(provider === 'google' && { oauthParams: { prompt: 'consent' } }),
+      });
+    } catch (err: unknown) {
       this.loading.set(false);
       this.handleError(err);
-    });
+    }
   }
 
   /**

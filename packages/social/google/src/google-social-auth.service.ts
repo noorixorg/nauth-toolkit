@@ -12,6 +12,7 @@ import {
   ITokenVerifierService,
   PhoneVerificationService,
   BaseUser,
+  ISocialAuthStateStore,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import {
@@ -21,6 +22,7 @@ import {
   AuthChallengeHelperService,
   AuthAuditService, // Internal version with recordEvent()
   TrustedDeviceService,
+  HookRegistryService,
 } from '@nauth-toolkit/core/internal';
 import { Repository } from 'typeorm';
 import { GoogleOAuthClient } from './google-oauth.client';
@@ -72,7 +74,7 @@ export class GoogleSocialAuthService extends BaseSocialAuthProviderService imple
     challengeHelper: AuthChallengeHelperService,
     clientInfoService: ClientInfoService,
     // State store shared across all providers
-    stateStore: Map<string, { timestamp: number; provider: string }>,
+    stateStore: ISocialAuthStateStore,
     userRepository: Repository<BaseUser>,
     // Phone verification service (optional - only available when SMS provider is configured)
     phoneVerificationService?: PhoneVerificationService,
@@ -80,6 +82,8 @@ export class GoogleSocialAuthService extends BaseSocialAuthProviderService imple
     auditService?: AuthAuditService,
     // Trusted device service (optional - only available when rememberDevices is enabled)
     trustedDeviceService?: TrustedDeviceService,
+    // Hook registry for lifecycle hooks (required)
+    hookRegistry?: HookRegistryService,
     // Google-specific token verifier (optional, fallback to TOKEN_VERIFIER)
     tokenVerifier?: ITokenVerifierService,
   ) {
@@ -97,6 +101,7 @@ export class GoogleSocialAuthService extends BaseSocialAuthProviderService imple
       phoneVerificationService,
       auditService,
       trustedDeviceService,
+      hookRegistry,
     );
 
     // Initialize Google OAuth client only if enabled
@@ -134,22 +139,44 @@ export class GoogleSocialAuthService extends BaseSocialAuthProviderService imple
 
   /**
    * Generate OAuth authorization URL for Google
+   *
+   * @param state - Optional state parameter for CSRF protection
+   * @param oauthParams - Optional OAuth parameters to append to URL (overrides config defaults)
+   * @returns Authorization URL for redirecting user to Google
    */
-  async getAuthUrl(state?: string): Promise<string> {
+  async getAuthUrl(state?: string, oauthParams?: Record<string, string>): Promise<string> {
     if (!this.oauthClient) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Google OAuth is not enabled');
     }
 
-    const finalState = state || this.generateState();
-    return this.oauthClient.getAuthorizationUrl(finalState);
+    const finalState = state || (await this.generateState());
+
+    // Merge config-level oauthParams with per-request params (per-request takes precedence)
+    const providerConfig = this.getProviderConfig();
+    const mergedParams = {
+      ...providerConfig?.oauthParams,
+      ...oauthParams,
+    };
+
+    return this.oauthClient.getAuthorizationUrl(finalState, Object.keys(mergedParams).length > 0 ? mergedParams : undefined);
   }
 
   /**
    * Get OAuth user profile from callback
    *
    * Exchanges authorization code for access token and fetches user profile.
+   *
+   * @param code - Authorization code from Google OAuth callback
+   * @param _state - State parameter (validated by base class)
+   * @param _profileData - Optional profile data (not used by Google)
+   * @returns User profile from Google
+   * @protected
    */
-  protected async getOAuthProfile(code: string, _state: string): Promise<OAuthUserProfile> {
+  protected async getOAuthProfile(
+    code: string,
+    _state: string,
+    _profileData?: Record<string, unknown>,
+  ): Promise<OAuthUserProfile> {
     if (!this.oauthClient) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Google OAuth is not enabled');
     }

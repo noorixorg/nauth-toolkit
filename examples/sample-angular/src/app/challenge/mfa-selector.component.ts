@@ -5,7 +5,7 @@ import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { Subject, takeUntil } from 'rxjs';
 
-import { AuthService, AuthResponse } from '@nauth-toolkit/client/angular';
+import { AuthService, AuthResponse } from '@nauth-toolkit/client-angular/standalone';
 import { AuthChallenge, MFAMethod } from '@nauth-toolkit/client';
 import {
   getMfaMethodName,
@@ -67,6 +67,26 @@ export class MfaSelectorComponent implements OnInit, OnDestroy {
   });
 
   /**
+   * Device information from challenge parameters
+   * Contains individual devices for methods that support multiple devices (TOTP, Passkey)
+   */
+  protected readonly devices = computed(() => {
+    const challenge = this.challenge();
+    if (!challenge) return [];
+    // SDK helper method - zero manual parsing needed!
+    return this.auth.getMFADevicesFromChallenge(challenge);
+  });
+
+  /**
+   * Preferred device ID from challenge parameters
+   */
+  protected readonly preferredDeviceId = computed(() => {
+    const challenge = this.challenge();
+    if (!challenge) return undefined;
+    return challenge.challengeParameters?.['preferredDeviceId'] as number | undefined;
+  });
+
+  /**
    * Preferred method from challenge parameters
    */
   protected readonly preferredMethod = computed(() => {
@@ -95,6 +115,30 @@ export class MfaSelectorComponent implements OnInit, OnDestroy {
    * Whether Passkey method is available
    */
   protected readonly passkeyAvailable = computed(() => this.availableMethods().includes('passkey'));
+
+  /**
+   * TOTP devices (if multiple exist)
+   */
+  protected readonly totpDevices = computed(() => {
+    return this.devices().filter((d) => d.type === 'totp');
+  });
+
+  /**
+   * Passkey devices (if multiple exist)
+   */
+  protected readonly passkeyDevices = computed(() => {
+    return this.devices().filter((d) => d.type === 'passkey');
+  });
+
+  /**
+   * Whether TOTP has multiple devices
+   */
+  protected readonly hasMultipleTotpDevices = computed(() => this.totpDevices().length > 1);
+
+  /**
+   * Whether Passkey has multiple devices
+   */
+  protected readonly hasMultiplePasskeyDevices = computed(() => this.passkeyDevices().length > 1);
 
   ngOnInit(): void {
     this.auth.challenge$.pipe(takeUntil(this.destroy$)).subscribe((challenge) => {
@@ -126,13 +170,13 @@ export class MfaSelectorComponent implements OnInit, OnDestroy {
   /**
    * Select MFA method for verification
    *
-   * Routes to the appropriate component based on method:
-   * - Passkey: Routes to passkey component
-   * - SMS/Email/TOTP: Routes to otp-verify component with method in query params
+   * Routes to the appropriate component based on method.
+   * SDK automatically handles deviceId tracking internally.
    *
    * @param method - Selected MFA method
+   * @param deviceId - Optional device ID when multiple devices exist for the method
    */
-  async selectMethod(method: MFAMethod): Promise<void> {
+  async selectMethod(method: MFAMethod, deviceId?: number): Promise<void> {
     const challenge = this.challenge();
     if (!challenge || !challenge.session) {
       this.error.set('Invalid challenge session');
@@ -143,14 +187,18 @@ export class MfaSelectorComponent implements OnInit, OnDestroy {
     this.error.set(null);
 
     try {
+      // Tell SDK which device was selected - SDK stores it internally
+      if (deviceId) {
+        this.auth.selectMFADevice(deviceId);
+      }
+
+      // Navigate to verification component - NO deviceId query params needed!
+      // SDK will auto-inject deviceId when respondToChallenge() is called
       if (method === 'passkey') {
-        // For passkey, navigate to passkey component
-        // The component will handle loading challenge data itself
         await this.router.navigate(['/auth/challenge/mfa-required/passkey']);
       } else {
-        // For SMS/Email/TOTP - navigate to otp-verify with method
         await this.router.navigate(['/auth/challenge/mfa-required'], {
-          queryParams: { method },
+          queryParams: { method }, // Only pass method, SDK handles deviceId
         });
       }
     } catch (err) {

@@ -1,11 +1,9 @@
 ---
 title: GetRiskAssessmentHistoryDTO
 description: Request DTO for getting risk assessment history for adaptive MFA analysis
-sidebar_position: 103
 keywords: [dto, request, audit, risk, assessment, mfa, api]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -44,14 +42,14 @@ import { GetRiskAssessmentHistoryDTO } from '@nauth-toolkit/core';
 
 | Property | Type     | Required | Description                                 |
 | -------- | -------- | -------- | -------------------------------------------- |
-| `userSub` | `string` | Yes      | User identifier (UUID v4)                    |
-| `limit`  | `number` | No       | Maximum number of records to return. Default: 100 |
+| `sub`    | `string` | Yes      | User identifier (UUID v4). Trimmed and lowercased. |
+| `limit`  | `number` | No       | Maximum number of records to return. Default: 100. Max: 500 |
 
 ## Example
 
 ```json
 {
-  "userSub": "550e8400-e29b-41d4-a716-446655440000",
+  "sub": "550e8400-e29b-41d4-a716-446655440000",
   "limit": 50
 }
 ```

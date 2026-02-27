@@ -3,9 +3,7 @@ title: IsTrustedDeviceResponseDTO
 description: Response DTO for checking if the current device is trusted
 keywords: [trusted, device, response, dto, api, mfa]
 image: /img/api-social-card.png
-sidebar_position: 54
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -61,7 +59,7 @@ import { IsTrustedDeviceResponseDTO } from '@nauth-toolkit/core';
 ## Related
 
 - [TrustDeviceResponseDTO](./trust-device-response-dto) - Response for trusting a device
-- [Trusted Device Feature](../../../../guides/trusted-devices) - Guide on trusted devices
+- [Trusted Device Feature](../../../frontend-sdk/guides/mfa-setup#trusted-devices) - Guide on trusted devices
 
 ## Notes
 
@@ -72,5 +70,8 @@ import { IsTrustedDeviceResponseDTO } from '@nauth-toolkit/core';
   - Device token is invalid or tampered
   - Trust has expired
   - Trusted device feature is disabled
+
+
+
 
 

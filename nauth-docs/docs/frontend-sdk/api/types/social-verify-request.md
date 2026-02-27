@@ -1,7 +1,6 @@
 ---
 title: SocialVerifyRequest
 description: Request payload for verifying native social tokens (mobile apps)
-sidebar_position: 260
 keywords: [social, native, mobile, verify, request, dto, api]
 image: /img/api-social-card.png
 ---
@@ -46,6 +45,5 @@ import { SocialVerifyRequest } from '@nauth-toolkit/client';
 
 ## Related Types
 
-- [`SocialAuthUrlRequest`](./social-auth-url-request) - Web OAuth URL request
-- [`SocialCallbackRequest`](./social-callback-request) - Web OAuth callback
+- [`SocialLoginOptions`](./social-login-options) - Web redirect-first options
 - [`AuthResponse`](./auth-response) - Authentication response

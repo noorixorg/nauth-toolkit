@@ -1,4 +1,3 @@
-import * as crypto from 'crypto';
 import { Repository } from 'typeorm';
 import { BaseUser } from '../entities';
 import { IUser } from '../interfaces/entities.interface';
@@ -12,13 +11,15 @@ import { ClientInfoService } from './client-info.service';
 import { PhoneVerificationService } from './phone-verification.service';
 import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
-import { NAuthConfig } from '../interfaces/config.interface';
+import { NAuthConfig, SocialProviderConfig } from '../interfaces/config.interface';
+import { ISocialAuthStateStore } from '../interfaces/social-auth-state-store.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
-import { AuthResponseDTO } from '../dto';
+import { AuthResponseDTO, HandleCallbackDTO, VerifyTokenDTO } from '../dto';
 import { OAuthUserProfile } from '../interfaces/oauth.interface';
 import { ISocialAuthProviderService } from '../interfaces/social-auth-provider.interface';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
+import { ensureValidatedDto } from '../utils/dto-validator';
 
 /**
  * Base Social Auth Provider Service
@@ -70,14 +71,15 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     protected readonly sessionService: SessionService,
     protected readonly challengeHelper: AuthChallengeHelperService,
     protected readonly clientInfoService: ClientInfoService,
-    // State store for CSRF protection - shared across all providers
-    protected readonly stateStore: Map<string, { timestamp: number; provider: string }>,
+    // State store for OAuth CSRF protection - MUST be shared across instances (StorageAdapter-backed)
+    protected readonly stateStore: ISocialAuthStateStore,
     // User repository for creating social users
     protected readonly userRepository: Repository<BaseUser>,
     // Phone verification service (optional - only available when SMS provider is configured)
     protected readonly phoneVerificationService?: PhoneVerificationService,
     protected readonly auditService?: AuthAuditService, // Optional - audit trail service (enabled via config.auditLogs.enabled)
     protected readonly trustedDeviceService?: TrustedDeviceService, // Optional - only available when rememberDevices is not 'never'
+    protected readonly hookRegistry?: import('./hook-registry.service').HookRegistryService, // Optional - hook registry for lifecycle hooks
   ) {}
 
   /**
@@ -89,12 +91,13 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
    * @returns Provider configuration from NAuthConfig
    * @protected
    */
-  protected getProviderConfig(): any {
+  protected getProviderConfig(): SocialProviderConfig | null {
     const socialConfig = this.config.social;
     if (!socialConfig) return null;
 
     // Access config dynamically using providerName (no hardcoding)
-    return (socialConfig as Record<string, unknown>)[this.providerName] || null;
+    const providerConfig = (socialConfig as Record<string, SocialProviderConfig | undefined>)[this.providerName];
+    return providerConfig || null;
   }
 
   /**
@@ -116,10 +119,15 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
    *
    * @param code - Authorization code from OAuth callback
    * @param state - State parameter from OAuth callback
+   * @param profileData - Optional profile data from OAuth callback (e.g., Apple user field)
    * @returns OAuth user profile
    * @protected
    */
-  protected abstract getOAuthProfile(code: string, state: string): Promise<OAuthUserProfile>;
+  protected abstract getOAuthProfile(
+    code: string,
+    state: string,
+    profileData?: Record<string, unknown>,
+  ): Promise<OAuthUserProfile>;
 
   /**
    * Verify social authentication token from native mobile apps
@@ -135,7 +143,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
   protected abstract verifyNativeToken(
     idToken: string,
     accessToken?: string,
-    profileData?: any,
+    profileData?: Record<string, unknown>,
   ): Promise<OAuthUserProfile>;
 
   /**
@@ -143,8 +151,24 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
    *
    * Uses the provider-specific getOAuthProfile method and then handles
    * user creation, session management, and token generation.
+   *
+   * @param dto - HandleCallbackDTO containing code and state
+   * @returns AuthResponseDTO with tokens and user data
+   * @throws {NAuthException} SOCIAL_CONFIG_MISSING if provider not configured
+   * @throws {NAuthException} SOCIAL_TOKEN_INVALID if OAuth flow fails
+   *
+   * @example
+   * ```typescript
+   * const response = await googleService.handleCallback({
+   *   code: 'auth_code_from_google',
+   *   state: 'csrf_state_token'
+   * });
+   * ```
    */
-  async handleCallback(code: string, state: string): Promise<AuthResponseDTO> {
+  async handleCallback(dto: HandleCallbackDTO): Promise<AuthResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(HandleCallbackDTO, dto);
+
     const providerConfig = this.getProviderConfig();
     if (!providerConfig) {
       throw new NAuthException(
@@ -154,11 +178,11 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     }
 
     // Validate state (basic CSRF protection)
-    this.validateState(state);
+    await this.validateState(dto.state);
 
     try {
       // Get user profile from provider
-      const profile = await this.getOAuthProfile(code, state);
+      const profile = await this.getOAuthProfile(dto.code, dto.state, dto.profileData);
       this.logger?.log?.(`[SocialAuth] ${this.providerName} callback verified (secure): ${profile.email}`);
 
       // Find or create user
@@ -182,10 +206,40 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
 
   /**
    * Verify social authentication token from native mobile apps
+   *
+   * Used when mobile apps use native SDKs (Google Sign-In, Sign in with Apple, etc.)
+   * to obtain ID tokens that need backend verification.
+   *
+   * @param dto - VerifyTokenDTO containing idToken, optional accessToken, and profileData
+   * @returns AuthResponseDTO with tokens and user data
+   * @throws {NAuthException} SOCIAL_CONFIG_MISSING if provider not configured
+   * @throws {NAuthException} SOCIAL_TOKEN_INVALID if token verification fails
+   * @throws {NAuthException} PRESIGNUP_FAILED if pre-signup hook rejects user
+   *
+   * @example
+   * ```typescript
+   * // Google Sign-In from iOS/Android
+   * const response = await googleService.verifyToken({
+   *   idToken: 'eyJhbGciOiJSUzI1NiIs...',
+   *   accessToken: 'ya29.a0AfH6SM...'
+   * });
+   *
+   * // Sign in with Apple from iOS
+   * const response = await appleService.verifyToken({
+   *   idToken: 'eyJraWQiOiJlWGF1bm...',
+   *   profileData: {
+   *     name: { firstName: 'John', lastName: 'Doe' },
+   *     email: 'user@privaterelay.appleid.com'
+   *   }
+   * });
+   * ```
    */
-  async verifyToken(idToken: string, accessToken?: string, profileData?: any): Promise<AuthResponseDTO> {
+  async verifyToken(dto: VerifyTokenDTO): Promise<AuthResponseDTO> {
+    // Ensure DTO is validated (supports direct usage without framework validation)
+    dto = await ensureValidatedDto(VerifyTokenDTO, dto);
+
     const providerConfig = this.getProviderConfig();
-    if (!providerConfig || !providerConfig.enabled) {
+    if (!providerConfig || providerConfig.enabled !== true) {
       throw new NAuthException(
         AuthErrorCode.SOCIAL_CONFIG_MISSING,
         `Provider '${this.providerName}' is not configured or not enabled`,
@@ -194,7 +248,13 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
 
     try {
       // Verify token and get profile
-      const profile = await this.verifyNativeToken(idToken, accessToken, profileData);
+      // Note: For Facebook classic login, idToken may be undefined and accessToken is used instead.
+      // Provider-specific implementations handle this mapping internally.
+      const profile = await this.verifyNativeToken(
+        dto.idToken || dto.accessToken || '',
+        dto.accessToken,
+        dto.profileData,
+      );
 
       // Find or create user
       const user = await this.findOrCreateUser(profile, providerConfig);
@@ -205,6 +265,10 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
       // Generate JWT tokens and session
       return await this.createAuthResponse(user, 'mobile');
     } catch (error) {
+      // Re-throw PRESIGNUP_FAILED errors as-is (from preSignup hook)
+      if (error instanceof NAuthException && error.code === AuthErrorCode.PRESIGNUP_FAILED) {
+        throw error;
+      }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger?.error?.(`Native token verification failed for ${this.providerName}: ${errorMessage}`);
       throw new NAuthException(AuthErrorCode.SOCIAL_TOKEN_INVALID, `Token verification failed: ${errorMessage}`);
@@ -230,7 +294,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     }
 
     // Validate state
-    this.validateState(state);
+    await this.validateState(state);
 
     try {
       // Get user profile from provider
@@ -246,7 +310,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
         );
       }
 
-      // Create social account using service
+      // Create social account
       await this.socialAuthService.createOrUpdateSocialAccount(
         user.id as number,
         this.providerName,
@@ -321,9 +385,14 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
    * Get OAuth user profile from callback
    *
    * Alias for getOAuthProfile for interface compliance.
+   * Delegates to the protected getOAuthProfile method.
+   *
+   * @param dto - HandleCallbackDTO containing code and state
+   * @returns OAuth user profile
+   * @protected
    */
-  async getUserProfileFromCallback(code: string, state: string): Promise<OAuthUserProfile> {
-    return this.getOAuthProfile(code, state);
+  async getUserProfileFromCallback(dto: HandleCallbackDTO): Promise<OAuthUserProfile> {
+    return this.getOAuthProfile(dto.code, dto.state, dto.profileData);
   }
 
   // ============================================================================
@@ -333,42 +402,25 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
   /**
    * Validate state parameter for CSRF protection
    */
-  protected validateState(state: string): void {
-    const stateData = this.stateStore.get(state);
-    if (!stateData) {
-      throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Invalid state parameter', { field: 'state' });
-    }
-
-    if (stateData.provider !== this.providerName) {
-      throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'State provider mismatch', { field: 'state' });
-    }
-
-    // Check if state is not too old (5 minutes)
-    if (Date.now() - stateData.timestamp > 5 * 60 * 1000) {
-      this.stateStore.delete(state);
-      throw new NAuthException(AuthErrorCode.CHALLENGE_EXPIRED, 'State parameter expired');
-    }
-
-    // Clean up used state
-    this.stateStore.delete(state);
+  protected async validateState(state: string): Promise<void> {
+    // ========================================================================
+    // SECURITY: CSRF state MUST be one-time use
+    // ========================================================================
+    // The store enforces single-use semantics in a multi-server safe way.
+    await this.stateStore.validateAndConsumeCsrfState(this.providerName, state);
   }
 
   /**
    * Generate random state for CSRF protection
    */
-  protected generateState(): string {
-    const state = crypto.randomBytes(32).toString('hex');
-    this.stateStore.set(state, {
-      timestamp: Date.now(),
-      provider: this.providerName,
-    });
-    return state;
+  protected async generateState(): Promise<string> {
+    return await this.stateStore.createCsrfState(this.providerName);
   }
 
   /**
    * Find existing user or create new one
    */
-  protected async findOrCreateUser(profile: OAuthUserProfile, providerConfig: any): Promise<IUser> {
+  protected async findOrCreateUser(profile: OAuthUserProfile, providerConfig: SocialProviderConfig): Promise<IUser> {
     // First, try to find user by social account
     const socialAccount = await this.socialAuthService.findSocialAccountByProvider(this.providerName, profile.id);
 
@@ -377,22 +429,48 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     }
 
     // If auto-link is enabled, try to find by email
-    if (providerConfig.autoLink && profile.email) {
+    if (providerConfig.autoLink === true && profile.email) {
       // Get full user entity (need internal id for foreign keys)
+      // ============================================================================
+      // SECURITY: Safe auto-linking rules
+      // ============================================================================
+      // We allow auto-linking when:
+      // - The existing local account email is already verified, OR
+      // - The provider asserts the email is verified (`profile.verified === true`)
+      //
+      // WHY: This enables "password-first account -> later social login (same email)" without requiring
+      // the local account to be verified first, while still requiring proof of email ownership.
       const existingUser = (await this.userRepository.findOne({
-        where: { email: profile.email, isEmailVerified: true },
+        where: { email: profile.email },
       })) as IUser | null;
 
       if (existingUser) {
-        return existingUser;
+        const providerVerified = profile.verified === true;
+
+        if (!existingUser.isEmailVerified && providerVerified) {
+          // Provider verified the email; promote local email verification.
+          await this.userRepository.update({ id: existingUser.id }, { isEmailVerified: true });
+          existingUser.isEmailVerified = true;
+        }
+
+        if (existingUser.isEmailVerified || providerVerified) {
+          return existingUser;
+        }
       }
     }
 
     // Create new user if allowSignup is enabled
-    if (providerConfig.allowSignup) {
+    if (providerConfig.allowSignup !== false) {
       this.logger?.log?.(
         `[SocialAuth] Creating user: email=${profile.email}, isEmailVerified=${profile.verified || false}`,
       );
+
+      // ============================================================================
+      // Pre-Signup Hook: Execute validation hooks before user creation
+      // ============================================================================
+      if (this.hookRegistry) {
+        await this.hookRegistry.executePreSignup(profile, 'social', this.providerName, false);
+      }
 
       const savedUser = await this.createSocialUser(
         profile.email || '',
@@ -400,6 +478,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
         profile.lastName,
         profile.verified || false,
         this.providerName,
+        profile, // Pass profile for post-signup hook metadata
       );
 
       this.logger?.log?.(
@@ -420,6 +499,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
    * @param lastName - Optional last name
    * @param isEmailVerified - Whether email is verified (default: true)
    * @param socialProvider - Initial social provider name
+   * @param profile - Optional OAuth profile for passing to post-signup hook
    * @returns Created user
    * @protected
    */
@@ -429,6 +509,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     lastName?: string | null,
     isEmailVerified: boolean = true,
     socialProvider?: string,
+    profile?: OAuthUserProfile,
   ): Promise<IUser> {
     const user = this.userRepository.create({
       email,
@@ -442,11 +523,55 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
 
     const savedUser = (await this.userRepository.save(user)) as unknown as IUser;
     this.logger?.log?.(`Social user created: ${email} (sub: ${savedUser.sub})`);
+
+    // ============================================================================
+    // Audit: Record account creation for social signup
+    // ============================================================================
+    try {
+      await this.auditService?.recordEvent({
+        userId: savedUser.id,
+        eventType: AuthAuditEventType.ACCOUNT_CREATED,
+        eventStatus: 'INFO',
+        authMethod: socialProvider ? `social-${socialProvider}` : 'social',
+        // Client info automatically included from context
+        metadata: {
+          email: savedUser.email,
+          provider: socialProvider || null,
+          isEmailVerified: savedUser.isEmailVerified,
+          hasSocialAuth: true,
+        },
+      });
+    } catch (auditError) {
+      // Non-blocking: Log but continue
+      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to record ACCOUNT_CREATED audit event for social signup: ${errorMessage}`, {
+        error: auditError,
+        userId: savedUser.id,
+      });
+    }
+
+    // ============================================================================
+    // After-Signup Hook: Execute post-creation actions (non-blocking)
+    // ============================================================================
+    if (this.hookRegistry) {
+      await this.hookRegistry.executePostSignup(savedUser, {
+        requiresVerification: false, // Social signups are typically pre-verified
+        signupType: 'social',
+        provider: socialProvider,
+        socialMetadata: profile?.raw || null,
+        profilePicture: profile?.picture || null,
+      });
+    }
+
     return savedUser;
   }
 
   /**
-   * Create or update social account
+   * Create or update social account linkage
+   *
+   * @param user - User entity
+   * @param profile - OAuth profile from provider
+   * @protected
    */
   protected async createOrUpdateSocialAccount(user: IUser, profile: OAuthUserProfile): Promise<void> {
     await this.socialAuthService.createOrUpdateSocialAccount(
@@ -464,6 +589,66 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
   protected async createAuthResponse(user: IUser, _deviceType: 'web' | 'mobile'): Promise<AuthResponseDTO> {
     // Get actual client info from context (IP, userAgent, etc.)
     const clientInfo = this.clientInfoService.get();
+
+    // ============================================================================
+    // Account Lock Check (Admin Disabled / Rate Limit Lockout)
+    // ============================================================================
+    // Check if account is permanently locked (lockedUntil = NULL) or temporarily locked (lockedUntil > now)
+    if (user.isLocked) {
+      const now = new Date();
+      const isPermanentlyLocked = user.lockedUntil === null;
+      const isTemporarilyLocked = user.lockedUntil && new Date(user.lockedUntil) > now;
+
+      if (isPermanentlyLocked || isTemporarilyLocked) {
+        const lockReason = user.lockReason || 'Account is locked';
+        this.logger?.warn?.(
+          `Social login blocked - account locked for user: ${user.email} (sub: ${user.sub}). Reason: ${lockReason}`,
+        );
+
+        // ============================================================================
+        // Audit: Record blocked login (account locked)
+        // ============================================================================
+        try {
+          await this.auditService?.recordEvent({
+            userId: user.id,
+            eventType: AuthAuditEventType.LOGIN_BLOCKED,
+            eventStatus: 'FAILURE',
+            authMethod: this.providerName.toLowerCase(),
+            reason: 'account_locked',
+            description: `Social login blocked - account locked: ${lockReason}`,
+            metadata: {
+              provider: this.providerName.toLowerCase(),
+              lockReason: user.lockReason,
+              lockedAt: user.lockedAt,
+              lockedUntil: user.lockedUntil,
+              isPermanent: isPermanentlyLocked,
+            },
+          });
+        } catch (auditError) {
+          const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+          this.logger?.error?.(`Failed to record LOGIN_BLOCKED audit event (social, account locked): ${errorMessage}`, {
+            error: auditError,
+            userId: user.id,
+            provider: this.providerName,
+          });
+        }
+
+        throw new NAuthException(AuthErrorCode.ACCOUNT_LOCKED, lockReason, {
+          lockReason: user.lockReason,
+          lockedAt: user.lockedAt,
+          lockedUntil: user.lockedUntil,
+          isPermanent: isPermanentlyLocked,
+        });
+      } else {
+        // Account was temporarily locked but lock has expired - unlock it
+        this.logger?.debug?.(`Account lock expired for user: ${user.email} (sub: ${user.sub}), unlocking account`);
+        user.isLocked = false;
+        user.lockReason = null;
+        user.lockedAt = null;
+        user.lockedUntil = null;
+        await this.userRepository.save(user as unknown as BaseUser);
+      }
+    }
 
     // ============================================================================
     // Audit: Record login attempt for social authentication
@@ -532,26 +717,10 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     // Just record SOCIAL_LOGIN audit event and return the response
     // ============================================================================
 
-    // Check trusted device status (for audit metadata)
-    let isTrustedDevice = false;
-    if (
-      this.config.mfa?.rememberDevices &&
-      this.config.mfa?.rememberDevices !== 'never' &&
-      this.trustedDeviceService &&
-      clientInfo.deviceToken
-    ) {
-      try {
-        isTrustedDevice = await this.trustedDeviceService.isDeviceTrusted(clientInfo.deviceToken, user.id);
-      } catch (error) {
-        // Non-blocking: Log but continue
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        this.logger?.warn?.(`Failed to check trusted device for social login: ${errorMessage}`, {
-          error,
-          userId: user.id,
-          provider: this.providerName,
-        });
-      }
-    }
+    // Determine trusted device status from the auth response.
+    // WHY: `determineAuthResponse()` already computed device trust using request context (ClientInfoService).
+    // Re-checking here can drift (e.g., due to repository/adapter differences), so reuse the computed result.
+    const isTrustedDevice = response.trusted === true;
 
     // Record SOCIAL_LOGIN audit event
     try {

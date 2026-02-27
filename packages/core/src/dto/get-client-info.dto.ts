@@ -101,4 +101,10 @@ export class GetClientInfoResponseDTO implements ClientInfo {
    * Used to identify who performed an action (e.g., for audit trails).
    */
   userId?: number;
+
+  /**
+   * Current user's sub (UUID, if available from authenticated request).
+   * Prefer this over userId for performedBy in audit and mfaExemptGrantedBy.
+   */
+  sub?: string;
 }

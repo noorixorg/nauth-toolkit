@@ -165,11 +165,11 @@ export class GeoLocationService {
    * // { country: 'US', city: 'Mountain View', latitude: 37.386, longitude: -122.0838 }
    * ```
    */
-  async getIpGeolocation(ip: string): Promise<{ 
-    country?: string; 
-    city?: string; 
-    latitude?: number; 
-    longitude?: number 
+  async getIpGeolocation(ip: string): Promise<{
+    country?: string;
+    city?: string;
+    latitude?: number;
+    longitude?: number;
   }> {
     // ============================================================================
     // Check if Service is Available
@@ -203,23 +203,22 @@ export class GeoLocationService {
           latitude: result.location?.latitude,
           longitude: result.location?.longitude,
         };
-        
+
         // Warn if coordinates are missing (useful for production debugging)
         if (!geoData.latitude || !geoData.longitude) {
           this.logger?.warn?.(
             `MaxMind city lookup for IP ${ip} returned city/country but NO coordinates: ` +
-            `city=${geoData.city}, country=${geoData.country}`,
+              `city=${geoData.city}, country=${geoData.country}`,
           );
         }
-        
+
         return geoData;
-      } catch (error) {
+      } catch {
         // Non-fatal: Try country database (error logged at warn level if needed)
       }
     } else {
       this.logger?.warn?.(
-        `MaxMind cityReader is not initialized for IP ${ip}. ` +
-        `Only country database available (no coordinates).`,
+        `MaxMind cityReader is not initialized for IP ${ip}. ` + `Only country database available (no coordinates).`,
       );
     }
 
@@ -232,7 +231,7 @@ export class GeoLocationService {
         return {
           country: result.country?.isoCode,
         };
-      } catch (error) {
+      } catch {
         // Non-fatal: Return empty result (error handled gracefully)
       }
     }
@@ -242,15 +241,65 @@ export class GeoLocationService {
   }
 
   /**
+   * Reload MaxMind database files from disk
+   *
+   * Reloads .mmdb files from the configured dbPath without downloading.
+   * Useful when database files are managed externally (e.g., via geoipupdate,
+   * cron jobs, or container volume updates).
+   *
+   * This method will:
+   * - Attempt to load GeoLite2-City.mmdb
+   * - Attempt to load GeoLite2-Country.mmdb
+   * - Replace in-memory database readers with newly loaded ones
+   * - Log warnings if no database files are found
+   *
+   * Safe to call repeatedly - if files haven't changed, it just reloads the same data.
+   *
+   * @example
+   * ```typescript
+   * // After external process updates database files
+   * await geoLocationService.reloadGeoLocationDatabaseFromDisk();
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // In a NestJS scheduled job
+   * @Cron('0 0 * * *')
+   * async reloadGeoDb() {
+   *   await this.geoLocationService.reloadGeoLocationDatabaseFromDisk();
+   * }
+   * ```
+   */
+  async reloadGeoLocationDatabaseFromDisk(): Promise<void> {
+    if (!this.config) {
+      throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'MaxMind configuration not provided');
+    }
+
+    if (!this.maxMindLib) {
+      throw new NAuthException(
+        AuthErrorCode.VALIDATION_FAILED,
+        'MaxMind library not available. Install @maxmind/geoip2-node peer dependency.',
+      );
+    }
+
+    await this.loadDatabaseFiles();
+    this.logger?.log?.('Reloaded MaxMind database files from disk');
+  }
+
+  /**
    * Update MaxMind GeoIP2 database files
    *
    * Downloads the latest database files from MaxMind using distributed locking
-   * to prevent concurrent downloads in multi-server deployments.
+   * to prevent concurrent downloads in multi-server deployments, then reloads
+   * the in-memory database readers.
    *
    * Uses storage adapter for distributed locking:
    * - Lock key: 'maxmind-db-update-lock'
    * - Lock TTL: 5 minutes (300 seconds)
    * - Only one server/process can download at a time
+   *
+   * After successful download, the in-memory database readers are automatically
+   * updated to use the new files.
    *
    * @throws {NAuthException} If MaxMind credentials are missing or download fails
    *
@@ -484,16 +533,19 @@ export class GeoLocationService {
           // Add timeout to prevent hanging requests
           signal: AbortSignal.timeout(30000), // 30 second timeout
         });
-      } catch (fetchError: any) {
+      } catch (fetchError: unknown) {
+        const fetchErrorObj = fetchError as { code?: unknown; name?: unknown; message?: unknown };
+        const errorCode = typeof fetchErrorObj.code === 'string' ? fetchErrorObj.code : undefined;
+        const errorName = typeof fetchErrorObj.name === 'string' ? fetchErrorObj.name : undefined;
+        const errorMessage = typeof fetchErrorObj.message === 'string' ? fetchErrorObj.message : undefined;
+
         // Handle network errors (DNS failures, connection errors, etc.)
-        if (
-          fetchError?.code === 'ENOTFOUND' ||
-          fetchError?.code === 'ECONNREFUSED' ||
-          fetchError?.name === 'AbortError'
-        ) {
+        if (errorCode === 'ENOTFOUND' || errorCode === 'ECONNREFUSED' || errorName === 'AbortError') {
           throw new NAuthException(
             AuthErrorCode.INTERNAL_ERROR,
-            `Network error while downloading MaxMind database ${edition}: ${fetchError.message || 'DNS lookup failed or connection refused'}. Check your network connection and proxy settings.`,
+            `Network error while downloading MaxMind database ${edition}: ${
+              errorMessage || 'DNS lookup failed or connection refused'
+            }. Check your network connection and proxy settings.`,
           );
         }
         throw fetchError;

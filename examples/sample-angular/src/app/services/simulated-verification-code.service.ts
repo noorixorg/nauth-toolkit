@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { MessageService } from 'primeng/api';
-import { AuthResponse } from '@nauth-toolkit/client/angular';
+import { AuthResponse } from '@nauth-toolkit/client-angular/standalone';
 import { AuthChallenge, getMFAMethod } from '@nauth-toolkit/client';
 import { environment } from '../../environments/environment';
 
@@ -68,8 +68,12 @@ export class SimulatedVerificationCodeService {
    * @param method - Optional MFA method override (for MFA_SETUP_REQUIRED when method isn't in challenge)
    */
   async handleChallenge(challenge: AuthResponse, method?: string): Promise<void> {
+    console.log('[SimulatedVerificationCodeService] handleChallenge called:', challenge.challengeName, challenge.session, method);
     const challengeName = challenge.challengeName;
-    if (!challengeName) return;
+    if (!challengeName) {
+      console.log('[SimulatedVerificationCodeService] No challengeName, returning');
+      return;
+    }
 
     // Only handle SMS and email verification challenges
     const isSmsChallenge = challengeName === AuthChallenge.VERIFY_PHONE;
@@ -156,9 +160,11 @@ export class SimulatedVerificationCodeService {
       }
       if (!code) {
         // No code found - silently return (may not be available in all configurations)
+        console.log('[SimulatedVerificationCodeService] No code found for challenge:', challengeName, 'session:', sessionId);
         return;
       }
 
+      console.log('[SimulatedVerificationCodeService] Code found, showing toast:', code, 'type:', type);
       // Show toast with verification code - replaces the dismissed one
       this.showVerificationCodeToast(code, type);
     } catch {
@@ -182,13 +188,19 @@ export class SimulatedVerificationCodeService {
       params.method = method;
     }
 
-    const response = await firstValueFrom(
-      this.http.get<{ code: string | null }>(`${environment.apiBaseUrl}/test/code/latest`, {
-        params,
-      }),
-    );
-
-    return response?.code || null;
+    console.log('[SimulatedVerificationCodeService] Fetching code:', `${environment.apiBaseUrl}/test/code/latest`, params);
+    try {
+      const response = await firstValueFrom(
+        this.http.get<{ code: string | null }>(`${environment.apiBaseUrl}/test/code/latest`, {
+          params,
+        }),
+      );
+      console.log('[SimulatedVerificationCodeService] Code fetch response:', response);
+      return response?.code || null;
+    } catch (error) {
+      console.error('[SimulatedVerificationCodeService] Error fetching code:', error);
+      throw error;
+    }
   }
 
   /**
@@ -212,6 +224,53 @@ export class SimulatedVerificationCodeService {
     );
 
     return response?.code || null;
+  }
+
+  /**
+   * Fetch password reset code for an identifier
+   *
+   * @param identifier - User identifier (email, username, or phone)
+   * @returns Password reset code or null if not found
+   * @throws Error if the request fails
+   */
+  async fetchPasswordResetCode(identifier: string): Promise<string | null> {
+    try {
+      const response = await firstValueFrom(
+        this.http.get<{ code: string | null }>(`${environment.apiBaseUrl}/test/code/latest`, {
+          params: { identifier, type: 'password_reset' },
+        }),
+      );
+
+      return response?.code || null;
+    } catch {
+      // Failed to fetch code - silently return (service should be resilient)
+      return null;
+    }
+  }
+
+  /**
+   * Show password reset code toast
+   *
+   * Fetches the code and displays it in a toast notification.
+   * Also logs to console for development.
+   *
+   * @param identifier - User identifier used for password reset
+   * @param deliveryMedium - Delivery medium (email or sms)
+   */
+  async showPasswordResetCode(identifier: string, deliveryMedium?: string): Promise<void> {
+    // Wait for code to be saved to database
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const code = await this.fetchPasswordResetCode(identifier);
+    if (!code) {
+      return;
+    }
+
+    // Determine type based on delivery medium or default to email
+    const type: 'sms' | 'email' = deliveryMedium === 'sms' ? 'sms' : 'email';
+
+    // Show toast with verification code
+    this.showVerificationCodeToast(code, type);
   }
 
   /**

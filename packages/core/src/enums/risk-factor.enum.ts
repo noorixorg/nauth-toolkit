@@ -75,6 +75,19 @@ export enum RiskFactor {
    */
   INCOMPLETE_LOCATION_DATA = 'incomplete_location_data',
 
+  /**
+   * Password was reset/changed after the user's last successful login
+   * Weight: 40 points (default)
+   *
+   * This is a strong signal of account recovery activity. Industry-leading providers
+   * typically treat \"post-reset sign-in\" as higher risk and require step-up auth
+   * when adaptive MFA is enabled.
+   *
+   * Detection strategy (implementation detail):
+   * - If passwordChangedAt > lastLoginAt, user has not logged in since the reset.
+   */
+  RECENT_PASSWORD_RESET = 'recent_password_reset',
+
   // ============================================================================
   // Security Event Risk Factors
   // ============================================================================

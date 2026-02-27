@@ -12,6 +12,8 @@ import { AuthErrorCode } from '../enums/error-codes.enum';
 import { IMFAProviderService } from '../interfaces/mfa-provider.interface';
 import { MFADeviceMethod, MFADeviceMethods } from '../enums/mfa-method.enum';
 import { ChallengeService } from './challenge.service';
+import { HookRegistryService } from './hook-registry.service';
+import { ContextStorage } from '../utils/context-storage';
 
 /**
  * Base MFA Provider Service
@@ -68,6 +70,7 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
     protected readonly challengeService?: ChallengeService,
     protected readonly auditService?: AuthAuditService,
     protected readonly clientInfoService?: ClientInfoService,
+    protected readonly hookRegistry?: HookRegistryService,
   ) {}
 
   /**
@@ -80,10 +83,31 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
     return allowedMethods.includes(this.methodName as MFADeviceMethod);
   }
 
+  // ============================================================================
+  // Context helpers
+  // ============================================================================
+
+  /**
+   * Resolve the current authenticated user from request context.
+   *
+   * Security: MFA providers must never accept user identity from consumer apps.
+   * The user is derived from request-scoped context (AuthGuard / adapter sets CURRENT_USER).
+   *
+   * @returns Current authenticated user
+   * @throws {NAuthException} FORBIDDEN when user context is missing
+   */
+  protected getCurrentUserOrThrow(): IUser {
+    const currentUser = ContextStorage.get<IUser>('CURRENT_USER');
+    if (!currentUser) {
+      throw new NAuthException(AuthErrorCode.FORBIDDEN, 'Authentication required');
+    }
+    return currentUser;
+  }
+
   // Abstract methods to be implemented by providers
-  abstract setup(user: IUser, setupData?: unknown): Promise<unknown>;
-  abstract verifySetup(user: IUser, verificationData: unknown, deviceName?: string): Promise<number>;
-  abstract verify(user: IUser, code: unknown, deviceId?: number): Promise<boolean>;
+  abstract setup(setupData?: unknown): Promise<unknown>;
+  abstract verifySetup(verificationData: unknown, deviceName?: string): Promise<number>;
+  abstract verify(code: unknown, deviceId?: number): Promise<boolean>;
   // sendChallenge is optional - only providers like SMS need it
   // TOTP doesn't need it (user generates code locally)
 
@@ -111,23 +135,27 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
   /**
    * Create MFA device for user
    *
-   * Creates a new MFA device with proper duplicate prevention and transaction safety.
-   * Uses database-level unique constraint (userId, type) to prevent race conditions.
+   * Creates a new MFA device with transaction safety.
+   *
+   * NAuth supports multiple devices per MFA method (e.g., multiple TOTP apps, multiple passkeys).
+   * Some methods still behave like singletons (e.g., SMS/Email) and should enable de-duplication
+   * explicitly via the `options.dedupeWhere` parameter.
    *
    * **Race Condition Prevention:**
-   * - Checks for existing device before creation
+   * - Optionally checks for an existing device before creation (provider-controlled)
    * - Wraps in transaction with pessimistic write lock on user row
    * - Database unique constraint provides final safety net
    *
    * **Transaction Flow:**
    * 1. Lock user row (prevents concurrent MFA setup)
-   * 2. Check for existing device of this type
-   * 3. Create device if none exists
+   * 2. (Optional) Check for existing device matching de-duplication criteria
+   * 3. Create device if none exists / de-dup disabled
    * 4. Update user MFA flags
    * 5. Commit transaction
    *
    * @param userId - Internal user ID
    * @param deviceData - Device data to create
+   * @param options - Optional creation options (e.g., de-duplication criteria)
    * @returns Created device (or existing device if already present)
    * @protected
    *
@@ -141,7 +169,24 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
    * });
    * ```
    */
-  protected async createDevice(userId: number, deviceData: Partial<IMFADevice>): Promise<IMFADevice> {
+  protected async createDevice(
+    userId: number,
+    deviceData: Partial<IMFADevice>,
+    options?: {
+      /**
+       * Optional de-duplication criteria.
+       *
+       * - When provided (even as an empty object), `createDevice` will first attempt to find an
+       *   existing device for this user/method and return it.
+       * - Providers can add method-specific keys (e.g., `{ credentialId }` for passkeys).
+       *
+       * SECURITY: Only use stable identifiers here (never secrets).
+       *
+       * @example { credentialId: 'base64url-credential-id' }
+       */
+      dedupeWhere?: Record<string, unknown>;
+    },
+  ): Promise<IMFADevice> {
     // ============================================================================
     // Transaction-Safe Device Creation with Race Condition Prevention
     // ============================================================================
@@ -158,35 +203,90 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
         .setLock('pessimistic_write')
         .getOne();
 
-      // Step 2: Check for existing device of this type (within transaction)
-      // This prevents duplicates even if called concurrently
-      const existingDevice = await transactionalEntityManager
-        .getRepository(this.mfaDeviceRepository.target)
-        .createQueryBuilder('device')
-        .where('device.userId = :userId', { userId })
-        .andWhere('device.type = :type', { type: this.methodName })
-        .getOne();
+      const shouldDedupe = options && options.dedupeWhere !== undefined;
+      const dedupeWhere = options?.dedupeWhere ?? {};
 
+      const findExistingDevice = async (): Promise<IMFADevice | null> => {
+        if (!shouldDedupe) {
+          return null;
+        }
+
+        const qb = transactionalEntityManager
+          .getRepository(this.mfaDeviceRepository.target)
+          .createQueryBuilder('device')
+          .where('device.userId = :userId', { userId })
+          .andWhere('device.type = :type', { type: this.methodName });
+
+        // Provider-supplied de-duplication keys (e.g., credentialId for passkeys).
+        for (const [key, value] of Object.entries(dedupeWhere)) {
+          if (value === undefined) {
+            continue;
+          }
+          qb.andWhere(`device.${key} = :${key}`, { [key]: value });
+        }
+
+        const existing = await qb.getOne();
+        return existing ? (existing as unknown as IMFADevice) : null;
+      };
+
+      // Step 2 (Optional): De-duplication within transaction (provider-controlled)
+      const existingDevice = await findExistingDevice();
       if (existingDevice) {
-        this.logger?.log?.(
-          `MFA device of type '${this.methodName}' already exists for user ${userId}, returning existing device`,
-        );
-        return existingDevice as unknown as IMFADevice;
+        this.logger?.log?.(`MFA device already exists for user ${userId} (method='${this.methodName}'), reusing it`);
+        return existingDevice;
       }
 
-      // Step 3: Create new device (no duplicate exists)
+      // Step 3: Create new device
       const newDevice = transactionalEntityManager.getRepository(this.mfaDeviceRepository.target).create({
         userId,
         type: this.methodName,
         ...deviceData,
       } as Record<string, unknown>);
 
-      // Step 4: Save device (unique constraint provides final safety net)
-      const saved = await transactionalEntityManager.getRepository(this.mfaDeviceRepository.target).save(newDevice);
+      // Step 4: Save device (DB constraints provide final safety net)
+      const isUniqueConstraintViolation = (error: unknown): boolean => {
+        if (!error || typeof error !== 'object') {
+          return false;
+        }
+        const err = error as { code?: unknown; errno?: unknown };
+        const code = typeof err.code === 'string' ? err.code : undefined;
+        const errno = typeof err.errno === 'number' ? err.errno : undefined;
+
+        // PostgreSQL: unique_violation = 23505
+        if (code === '23505') {
+          return true;
+        }
+
+        // MySQL: ER_DUP_ENTRY / errno 1062
+        if (code === 'ER_DUP_ENTRY' || errno === 1062) {
+          return true;
+        }
+
+        return false;
+      };
+
+      let saved: IMFADevice;
+      try {
+        saved = (await transactionalEntityManager
+          .getRepository(this.mfaDeviceRepository.target)
+          .save(newDevice)) as unknown as IMFADevice;
+      } catch (error: unknown) {
+        // If a concurrent request created the same device, attempt to re-fetch and return it.
+        if (shouldDedupe && isUniqueConstraintViolation(error)) {
+          const concurrentDevice = await findExistingDevice();
+          if (concurrentDevice) {
+            this.logger?.warn?.(
+              `MFA device create hit a uniqueness constraint but existing device was found (method='${this.methodName}', userId=${userId})`,
+            );
+            return concurrentDevice;
+          }
+        }
+        throw error;
+      }
 
       this.logger?.log?.(`Created new MFA device: type='${this.methodName}', userId=${userId}, deviceId=${saved.id}`);
 
-      return saved as unknown as IMFADevice;
+      return saved;
     });
 
     // ============================================================================
@@ -284,6 +384,9 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
 
     const userEntityRecord = userEntity as unknown as Record<string, unknown>;
     const isFirstDevice = !userEntityRecord.mfaEnabled;
+    const previousMethods = Array.isArray(userEntityRecord.mfaMethods)
+      ? (userEntityRecord.mfaMethods as unknown as string[])
+      : [];
 
     if (!userEntityRecord.mfaEnabled) {
       userEntityRecord.mfaEnabled = true;
@@ -293,6 +396,7 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
     // Update mfaMethods array
     const devices = await this.getUserDevices(userId);
     const methods = [...new Set(devices.filter((d) => d.isActive).map((d) => d.type))];
+    const newlyAddedMethods = methods.filter((m) => !previousMethods.includes(m));
     userEntityRecord.mfaMethods = methods;
 
     // Set preferred method if not set
@@ -302,6 +406,41 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
     }
 
     await this.userRepository.save(userEntity);
+
+    // ============================================================================
+    // Lifecycle Hook: MFA Method Added (additional methods only)
+    // ============================================================================
+    // This complements (and avoids duplicating) the "first enabled" hook:
+    // - First ever method → `executeMFAFirstEnabled`
+    // - Subsequent new method → `executeMFAMethodAdded`
+    if (!isFirstDevice && newlyAddedMethods.length > 0 && this.hookRegistry && this.clientInfoService) {
+      try {
+        const clientInfo = this.clientInfoService.get();
+        for (const method of newlyAddedMethods) {
+          await this.hookRegistry.executeMFAMethodAdded({
+            user: userEntity as unknown as IUser,
+            method: method as import('../enums/mfa-method.enum').MFADeviceMethod,
+            isFirstMethod: false,
+            enabledMethods: methods as unknown as import('../enums/mfa-method.enum').MFADeviceMethod[],
+            timestamp: new Date(),
+            clientInfo: {
+              ipAddress: clientInfo.ipAddress,
+              userAgent: clientInfo.userAgent,
+              ipCountry: clientInfo.ipCountry,
+              ipCity: clientInfo.ipCity,
+            },
+          });
+        }
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute mfaMethodAdded hooks: ${errorMessage}`, {
+          error: hookError,
+          userId: user.id,
+          methodName: this.methodName,
+        });
+      }
+    }
 
     // If this is the first MFA device being set up, clear any MFA_SETUP_REQUIRED challenges
     // This prevents phantom challenges when user sets up MFA while logged in
@@ -340,6 +479,34 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
         });
       }
     }
+
+    // ============================================================================
+    // Lifecycle Hook: MFA First Enabled (only for first device)
+    // ============================================================================
+    if (isFirstDevice && this.hookRegistry && this.clientInfoService) {
+      try {
+        const clientInfo = this.clientInfoService.get();
+        await this.hookRegistry.executeMFAFirstEnabled({
+          user: userEntity as unknown as IUser,
+          firstMethod: this.methodName as import('../enums/mfa-method.enum').MFADeviceMethod,
+          enforcedAt: new Date(),
+          clientInfo: {
+            ipAddress: clientInfo.ipAddress,
+            userAgent: clientInfo.userAgent,
+            ipCountry: clientInfo.ipCountry,
+            ipCity: clientInfo.ipCity,
+          },
+        });
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute mfaFirstEnabled hooks: ${errorMessage}`, {
+          error: hookError,
+          userId: user.id,
+          methodName: this.methodName,
+        });
+      }
+    }
   }
 
   // ============================================================================
@@ -355,7 +522,8 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
    * @param user - User to generate codes for
    * @returns Generated backup codes (plain text - shown only once)
    */
-  async generateBackupCodes(user: IUser): Promise<string[]> {
+  async generateBackupCodes(): Promise<string[]> {
+    const user = this.getCurrentUserOrThrow();
     const userEntity = user as unknown as Record<string, unknown>;
     const config = this.config.mfa?.backup;
     const codeCount = config?.codeCount || 10;
@@ -510,11 +678,25 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
   /**
    * Mask phone number for display
    *
+   * Uses centralized ChallengeService if available (respects config.security.maskSensitiveData).
+   * Falls back to default masking logic if ChallengeService not available.
+   *
    * @param phone - Phone number
    * @returns Masked phone number
    * @protected
    */
   protected maskPhone(phone: string): string {
+    // Use ChallengeService if available (respects config.security.maskSensitiveData)
+    if (this.challengeService) {
+      return this.challengeService.maskPhone(phone);
+    }
+
+    // Fallback: check config directly
+    const shouldMask = this.config?.security?.maskSensitiveData !== false;
+    if (!shouldMask) {
+      return phone;
+    }
+
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 4) return phone;
     return `***-***-${digits.slice(-4)}`;
@@ -522,6 +704,9 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
 
   /**
    * Mask email address for display
+   *
+   * Uses centralized ChallengeService if available (respects config.security.maskSensitiveData).
+   * Falls back to default masking logic if ChallengeService not available.
    *
    * Masks the local part of the email while showing the domain.
    * Example: user@example.com → u***r@example.com
@@ -537,6 +722,17 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
    * ```
    */
   protected maskEmail(email: string): string {
+    // Use ChallengeService if available (respects config.security.maskSensitiveData)
+    if (this.challengeService) {
+      return this.challengeService.maskEmail(email);
+    }
+
+    // Fallback: check config directly
+    const shouldMask = this.config?.security?.maskSensitiveData !== false;
+    if (!shouldMask) {
+      return email;
+    }
+
     const [localPart, domain] = email.split('@');
     if (!localPart || !domain) return email;
     if (localPart.length <= 2) {
@@ -554,7 +750,7 @@ export abstract class BaseMFAProviderService implements IMFAProviderService {
    * - Grace period for REQUIRED enforcement
    * - User's MFA enrollment date
    *
-   * ⚠️ ADAPTIVE enforcement currently behaves like REQUIRED (placeholder for future risk-based logic)
+   * ADAPTIVE enforcement currently behaves like REQUIRED (placeholder for future risk-based logic)
    *
    * @param user - User to check
    * @returns True if MFA is required

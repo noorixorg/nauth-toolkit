@@ -3,9 +3,7 @@ title: ResendVerificationEmailResponseDTO
 description: Response DTO for resend verification email operation. Returns internal verification token ID.
 keywords: [email, verification, dto, response, token, api]
 image: /img/api-social-card.png
-sidebar_position: 20
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

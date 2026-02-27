@@ -56,7 +56,6 @@ export class UserUpdateDTO {
    *
    * Validation:
    * - 1-100 characters
-   * - Letters, spaces, hyphens, and apostrophes only
    * - Max 100 characters (DB limit)
    *
    * Sanitization:
@@ -67,9 +66,6 @@ export class UserUpdateDTO {
   @IsString({ message: 'First name must be a string' })
   @MinLength(1, { message: 'First name must be at least 1 character' })
   @MaxLength(100, { message: 'First name must not exceed 100 characters' })
-  @Matches(/^[a-zA-Z\s\-']+$/, {
-    message: 'First name can only contain letters, spaces, hyphens, and apostrophes',
-  })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       return value.trim();
@@ -83,7 +79,6 @@ export class UserUpdateDTO {
    *
    * Validation:
    * - 1-100 characters
-   * - Letters, spaces, hyphens, and apostrophes only
    * - Max 100 characters (DB limit)
    *
    * Sanitization:
@@ -94,9 +89,6 @@ export class UserUpdateDTO {
   @IsString({ message: 'Last name must be a string' })
   @MinLength(1, { message: 'Last name must be at least 1 character' })
   @MaxLength(100, { message: 'Last name must not exceed 100 characters' })
-  @Matches(/^[a-zA-Z\s\-']+$/, {
-    message: 'Last name can only contain letters, spaces, hyphens, and apostrophes',
-  })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       return value.trim();
@@ -162,10 +154,30 @@ export class UserUpdateDTO {
   /**
    * Optional metadata update (custom fields)
    *
+   * Behavior:
+   * - Existing metadata is merged with new values
+   * - To delete a metadata key, set it to null
+   * - To update a value, provide the new value
+   * - To add a new key, include it in the object
+   *
    * Security:
    * - Validated in service layer if used
    * - Max depth/size limits should be enforced
-   * - Existing metadata merged with new values
+   *
+   * @example
+   * ```typescript
+   * // Add or update keys
+   * await authService.updateUserAttributes({
+   *   sub: 'user-123',
+   *   metadata: { newKey: 'value', existingKey: 'updated' }
+   * });
+   *
+   * // Delete a key by setting it to null
+   * await authService.updateUserAttributes({
+   *   sub: 'user-123',
+   *   metadata: { keyToDelete: null }
+   * });
+   * ```
    */
   @IsOptional()
   metadata?: Record<string, unknown>;

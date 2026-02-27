@@ -14,7 +14,11 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { AuthService, AuthResponse, NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client/angular';
+import {
+  AuthService,
+  AuthResponse,
+  NAUTH_CLIENT_CONFIG,
+} from '@nauth-toolkit/client-angular/standalone';
 import {
   AuthChallenge,
   MFASetupResponse,
@@ -157,6 +161,7 @@ export class TotpSetupComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly router: Router,
   ) {
     this.totpForm = this.fb.group({
+      deviceName: ['', [Validators.maxLength(100)]],
       code: ['', [Validators.required, Validators.minLength(6), Validators.maxLength(6)]],
     });
   }
@@ -195,9 +200,10 @@ export class TotpSetupComponent implements OnInit, AfterViewInit, OnDestroy {
       // Use different API based on flow type
       if (this.isAuthenticatedFlow()) {
         // Authenticated flow - use direct MFA setup endpoint
+        // Backend returns { setupData: { secret, qrCode, ... } }
         const client = this.auth.getClient();
-        const setupData = (await client.setupMfaDevice('totp')) as Record<string, unknown>;
-        response = { setupData };
+        const result = await client.setupMfaDevice('totp');
+        response = result as GetSetupDataResponse;
       } else {
         // Challenge flow - use challenge-based endpoint
         const session = this.session();
@@ -206,7 +212,7 @@ export class TotpSetupComponent implements OnInit, AfterViewInit, OnDestroy {
           this.loading.set(false);
           return;
         }
-        const resp = await this.auth.getSetupData(session, 'totp').toPromise();
+        const resp = await this.auth.getSetupData(session, 'totp');
         if (!resp) {
           throw new Error('Failed to get TOTP setup data');
         }
@@ -236,6 +242,7 @@ export class TotpSetupComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const code = this.totpForm.get('code')?.value;
+    const deviceNameControlValue = this.totpForm.get('deviceName')?.value;
     if (!code) {
       return;
     }
@@ -258,6 +265,10 @@ export class TotpSetupComponent implements OnInit, AfterViewInit, OnDestroy {
         await client.verifyMfaSetup('totp', {
           secret,
           code: code.trim(),
+          deviceName:
+            typeof deviceNameControlValue === 'string' && deviceNameControlValue.trim().length > 0
+              ? deviceNameControlValue.trim()
+              : undefined,
         });
 
         // Emit success event
@@ -278,10 +289,14 @@ export class TotpSetupComponent implements OnInit, AfterViewInit, OnDestroy {
           setupData: {
             secret,
             code: code.trim(),
+            deviceName:
+              typeof deviceNameControlValue === 'string' && deviceNameControlValue.trim().length > 0
+                ? deviceNameControlValue.trim()
+                : undefined,
           },
         };
 
-        const authResponse = await this.auth.respondToChallenge(response).toPromise();
+        const authResponse = await this.auth.respondToChallenge(response);
         if (!authResponse) {
           throw new Error('Failed to complete TOTP setup');
         }

@@ -12,6 +12,7 @@ import {
   ISocialAuthProviderService,
   ITokenVerifierService,
   BaseUser,
+  ISocialAuthStateStore,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import {
@@ -21,11 +22,26 @@ import {
   AuthChallengeHelperService,
   AuthAuditService, // Internal version with recordEvent()
   TrustedDeviceService,
+  HookRegistryService,
 } from '@nauth-toolkit/core/internal';
 import { Repository } from 'typeorm';
 import { FacebookOAuthClient } from './facebook-oauth.client';
 import { TokenVerifierService as FacebookTokenVerifierService } from './token-verifier.service';
 import { VerifiedFacebookTokenProfile } from './verified-token-profile.interface';
+
+/**
+ * Lightweight check for JWT format (header.payload.signature).
+ *
+ * Used to distinguish Facebook Limited Login ID tokens (JWT) from classic access tokens.
+ *
+ * @param token - Raw token string
+ * @returns True if token looks like a JWT
+ */
+function isJwt(token: string): boolean {
+  // JWTs are 3 base64url segments separated by dots.
+  const parts = token.split('.');
+  return parts.length === 3 && parts.every((p) => p.length > 0);
+}
 
 /**
  * Facebook Social Authentication Service (Platform-Agnostic)
@@ -72,7 +88,7 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
     challengeHelper: AuthChallengeHelperService,
     clientInfoService: ClientInfoService,
     // State store shared across all providers
-    stateStore: Map<string, { timestamp: number; provider: string }>,
+    stateStore: ISocialAuthStateStore,
     userRepository: Repository<BaseUser>,
     // Phone verification service (optional - only available when SMS provider is configured)
     phoneVerificationService?: PhoneVerificationService,
@@ -80,6 +96,8 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
     auditService?: AuthAuditService,
     // Trusted device service (optional - only available when rememberDevices is enabled)
     trustedDeviceService?: TrustedDeviceService,
+    // Hook registry for lifecycle hooks (required)
+    hookRegistry?: HookRegistryService,
     // Facebook-specific token verifier (optional, fallback to default)
     tokenVerifier?: ITokenVerifierService,
   ) {
@@ -97,6 +115,7 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
       phoneVerificationService,
       auditService,
       trustedDeviceService,
+      hookRegistry,
     );
 
     // Initialize Facebook OAuth client
@@ -107,7 +126,8 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
       return; // Exit constructor early if disabled
     }
 
-    if (!providerConfig.clientId || !providerConfig.clientSecret) {
+    const webClientId = Array.isArray(providerConfig.clientId) ? providerConfig.clientId[0] : providerConfig.clientId;
+    if (!webClientId || !providerConfig.clientSecret) {
       // Schema validation should catch this, but handle gracefully
       this.oauthClient = null;
       this.tokenVerifier = null;
@@ -115,7 +135,7 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
     }
 
     this.oauthClient = new FacebookOAuthClient({
-      clientId: providerConfig.clientId,
+      clientId: webClientId,
       clientSecret: providerConfig.clientSecret,
       redirectUri: providerConfig.callbackUrl || '',
       scopes: providerConfig.scopes || ['email', 'public_profile'],
@@ -135,14 +155,26 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
    * Generate OAuth authorization URL for Facebook
    *
    * @param state - Optional state parameter for CSRF protection
+   * @param oauthParams - Optional OAuth parameters to append to URL (overrides config defaults)
    * @returns Authorization URL for redirecting user to Facebook
    */
-  async getAuthUrl(state?: string): Promise<string> {
+  async getAuthUrl(state?: string, oauthParams?: Record<string, string>): Promise<string> {
     if (!this.oauthClient) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Facebook OAuth is not enabled');
     }
-    const finalState = state || this.generateState();
-    return this.oauthClient.getAuthorizationUrl(finalState);
+    const finalState = state || (await this.generateState());
+
+    // Merge config-level oauthParams with per-request params (per-request takes precedence)
+    const providerConfig = this.getProviderConfig();
+    const mergedParams = {
+      ...providerConfig?.oauthParams,
+      ...oauthParams,
+    };
+
+    return this.oauthClient.getAuthorizationUrl(
+      finalState,
+      Object.keys(mergedParams).length > 0 ? mergedParams : undefined,
+    );
   }
 
   /**
@@ -152,10 +184,15 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
    *
    * @param code - Authorization code from Facebook OAuth callback
    * @param _state - State parameter (validated by base class)
+   * @param _profileData - Optional profile data (not used by Facebook)
    * @returns User profile from Facebook
    * @protected
    */
-  protected async getOAuthProfile(code: string, _state: string): Promise<OAuthUserProfile> {
+  protected async getOAuthProfile(
+    code: string,
+    _state: string,
+    _profileData?: Record<string, unknown>,
+  ): Promise<OAuthUserProfile> {
     if (!this.oauthClient) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Facebook OAuth is not enabled');
     }
@@ -184,7 +221,7 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
    */
   protected async verifyNativeToken(
     idToken: string,
-    _accessToken?: string,
+    accessToken?: string,
     profileData?: unknown,
   ): Promise<OAuthUserProfile> {
     if (!this.tokenVerifier) {
@@ -195,24 +232,64 @@ export class FacebookSocialAuthService extends BaseSocialAuthProviderService imp
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Facebook OAuth is not configured');
     }
 
-    const appId = providerConfig.clientId || '';
+    const appId = Array.isArray(providerConfig.clientId) ? providerConfig.clientId[0] : providerConfig.clientId || '';
     const appSecret = providerConfig.clientSecret || '';
 
     if (!this.tokenVerifier.verifyFacebookToken) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Facebook token verifier is not available');
     }
 
-    // For Facebook, the idToken parameter actually contains the access token
-    // Facebook native SDKs return access tokens, not ID tokens
-    const accessToken = idToken;
+    // ============================================================================
+    // Facebook Native Token Verification
+    // ============================================================================
+    // Facebook supports two native token shapes:
+    // - Classic login: access token (opaque string) -> verify via Graph API debug_token
+    // - Limited Login (iOS): ID token (JWT) -> verify via OIDC JWKS (RS256)
+    //
+    // NOTE: Base class passes dto.idToken as first arg; dto.accessToken as second arg.
+    // Consumers might send:
+    // - { accessToken } only (client SDK supports this) -> controller should map it into dto.idToken or dto.accessToken.
+    // - { idToken } (JWT) for Limited Login.
+    let verified: VerifiedFacebookTokenProfile;
 
-    // Verify access token with Facebook's Graph API
-    const verified = (await this.tokenVerifier.verifyFacebookToken(
-      accessToken,
-      appId,
-      appSecret,
-    )) as VerifiedFacebookTokenProfile;
-    this.logger?.debug?.(`Verified Facebook token for: ${verified.email || verified.id}`);
+    const isJwtToken = isJwt(idToken);
+    const hasIdTokenVerifier = !!this.tokenVerifier.verifyFacebookIdToken;
+
+    if (isJwtToken && hasIdTokenVerifier) {
+      // Limited Login: verify ID token (JWT) via Facebook OIDC JWKS.
+      if (!this.tokenVerifier.verifyFacebookIdToken) {
+        throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Facebook ID token verifier is not available');
+      }
+      const jwtProfile = (await this.tokenVerifier.verifyFacebookIdToken(idToken, appId)) as {
+        sub: string;
+        email?: string;
+        name?: string;
+        given_name?: string;
+        family_name?: string;
+        picture?: string;
+      };
+
+      verified = {
+        id: jwtProfile.sub,
+        email: jwtProfile.email,
+        first_name: jwtProfile.given_name || (jwtProfile.name ? jwtProfile.name.split(' ')[0] : undefined),
+        last_name: jwtProfile.family_name || undefined,
+        picture: jwtProfile.picture ? { data: { url: jwtProfile.picture } } : undefined,
+      };
+      this.logger?.debug?.(`Verified Facebook ID token for: ${verified.email || verified.id}`);
+    } else {
+      // Classic login: verify access token via Graph API.
+      // Prefer explicit accessToken if provided, otherwise treat idToken as access token for backward compatibility.
+      const tokenToVerify = accessToken || idToken;
+
+      const verifiedAccess = (await this.tokenVerifier.verifyFacebookToken(
+        tokenToVerify,
+        appId,
+        appSecret,
+      )) as VerifiedFacebookTokenProfile;
+      verified = verifiedAccess;
+      this.logger?.debug?.(`Verified Facebook access token for: ${verified.email || verified.id}`);
+    }
 
     // CRITICAL: Require email from all social providers for signup
     if (!verified.email) {

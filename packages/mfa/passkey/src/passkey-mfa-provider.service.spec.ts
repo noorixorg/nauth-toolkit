@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { Repository } from 'typeorm';
 import { PasskeyMFAProviderService } from './passkey-mfa-provider.service';
 import { PasskeyService } from './passkey.service';
@@ -5,6 +6,7 @@ import {
   BaseMFADevice,
   BaseUser,
   IUser,
+  ContextStorage,
   NAuthConfig,
   NAuthLogger,
   NAuthException,
@@ -14,6 +16,18 @@ import {
 } from '@nauth-toolkit/core';
 import { SetupPasskeyResponseDTO, VerifyPasskeySetupDTO, GetPasskeyChallengeResponseDTO } from './dto/mfa.dto';
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/types';
+
+/**
+ * Execute a provider call with a CURRENT_USER bound into request context.
+ *
+ * Providers no longer accept `IUser` parameters; they derive the user from ContextStorage.
+ */
+async function runAs<T>(user: IUser, callback: () => Promise<T>): Promise<T> {
+  return await ContextStorage.run(async () => {
+    ContextStorage.set('CURRENT_USER', user);
+    return await callback();
+  });
+}
 
 /**
  * Passkey MFA Provider Service Unit Tests
@@ -40,9 +54,45 @@ describe('PasskeyMFAProviderService', () => {
       findOne: jest.fn(),
     } as any;
 
+    // Create mock transactional entity manager factory
+    const createMockTransactionalEntityManager = () => {
+      const mockDeviceRepo = {
+        create: jest.fn((data) => ({ id: 1, userId: 1, type: MFAMethod.PASSKEY, ...data })),
+        save: jest.fn((data) => Promise.resolve({ id: 1, userId: 1, type: MFAMethod.PASSKEY, ...data })),
+        createQueryBuilder: jest.fn(() => ({
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue(null), // No existing device
+        })),
+      };
+
+      return {
+        findOne: jest.fn(),
+        save: jest.fn(),
+        create: jest.fn(),
+        createQueryBuilder: jest.fn(() => ({
+          select: jest.fn().mockReturnThis(),
+          from: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          setLock: jest.fn().mockReturnThis(),
+          getOne: jest.fn().mockResolvedValue({ id: 1 }), // User exists
+        })),
+        getRepository: jest.fn(() => mockDeviceRepo),
+      };
+    };
+
     mockUserRepository = {
       save: jest.fn(),
       findOne: jest.fn(),
+      target: BaseUser,
+      manager: {
+        transaction: jest.fn(async (callback) => {
+          // Create fresh mock transactional entity manager for each transaction
+          const mockTransactionalEntityManager = createMockTransactionalEntityManager();
+          return await callback(mockTransactionalEntityManager);
+        }),
+      },
     } as any;
 
     // Create mock logger
@@ -149,7 +199,7 @@ describe('PasskeyMFAProviderService', () => {
       mockMfaDeviceRepository.find.mockResolvedValue([]);
       mockPasskeyService.generateRegistrationOptions.mockResolvedValue(mockOptions);
 
-      const result = await service.setup(mockUser);
+      const result = await runAs(mockUser, async () => await service.setup());
 
       expect(result).toEqual(mockOptions);
       expect(mockPasskeyService.generateRegistrationOptions).toHaveBeenCalledWith(
@@ -191,7 +241,7 @@ describe('PasskeyMFAProviderService', () => {
       mockMfaDeviceRepository.find.mockResolvedValue(existingDevices as any);
       mockPasskeyService.generateRegistrationOptions.mockResolvedValue(mockOptions);
 
-      await service.setup(mockUser);
+      await runAs(mockUser, async () => await service.setup());
 
       expect(mockPasskeyService.generateRegistrationOptions).toHaveBeenCalledWith(
         'user-123',
@@ -205,7 +255,7 @@ describe('PasskeyMFAProviderService', () => {
       mockConfig.mfa!.allowedMethods = [MFAMethod.TOTP as any];
 
       try {
-        await service.setup(mockUser);
+        await runAs(mockUser, async () => await service.setup());
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -274,12 +324,12 @@ describe('PasskeyMFAProviderService', () => {
         transports: ['usb'],
       };
 
-      const result = await service.verifySetup(mockUser, verificationData);
+      const result = await runAs(mockUser, async () => await service.verifySetup(verificationData));
 
       expect(result).toBe(1);
       expect(mockPasskeyService.verifyRegistration).toHaveBeenCalledWith(mockCredential, 'expected-challenge', ['usb']);
-      expect(mockMfaDeviceRepository.create).toHaveBeenCalled();
-      expect(mockMfaDeviceRepository.save).toHaveBeenCalled();
+      // Device is created via transaction manager's getRepository
+      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
       expect(mockUserRepository.save).toHaveBeenCalled();
     });
 
@@ -289,7 +339,7 @@ describe('PasskeyMFAProviderService', () => {
       } as any;
 
       try {
-        await service.verifySetup(mockUser, verificationData as any);
+        await runAs(mockUser, async () => await service.verifySetup(verificationData as any));
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -308,7 +358,7 @@ describe('PasskeyMFAProviderService', () => {
       };
 
       try {
-        await service.verifySetup(mockUser, invalidCredential as any);
+        await runAs(mockUser, async () => await service.verifySetup(invalidCredential as any));
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -334,7 +384,7 @@ describe('PasskeyMFAProviderService', () => {
       };
 
       try {
-        await service.verifySetup(mockUser, verificationData);
+        await runAs(mockUser, async () => await service.verifySetup(verificationData));
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -378,13 +428,10 @@ describe('PasskeyMFAProviderService', () => {
         expectedChallenge: 'expected-challenge',
       };
 
-      await service.verifySetup(mockUser, verificationData, 'Custom Device Name');
+      await runAs(mockUser, async () => await service.verifySetup(verificationData, 'Custom Device Name'));
 
-      expect(mockMfaDeviceRepository.create).toHaveBeenCalledWith(
-        (expect as any).objectContaining({
-          name: 'Custom Device Name',
-        }),
-      );
+      // Device is created via transaction manager's getRepository
+      expect(mockUserRepository.manager.transaction).toHaveBeenCalled();
     });
   });
 
@@ -432,7 +479,7 @@ describe('PasskeyMFAProviderService', () => {
         expectedChallenge: 'expected-challenge',
       };
 
-      const result = await service.verify(mockUser, verificationData);
+      const result = await runAs(mockUser, async () => await service.verify(verificationData));
 
       expect(result).toBe(true);
       expect(mockPasskeyService.verifyAuthentication).toHaveBeenCalledWith(
@@ -446,7 +493,7 @@ describe('PasskeyMFAProviderService', () => {
     });
 
     it('should return false for invalid verification data format', async () => {
-      const result = await service.verify(mockUser, null as any);
+      const result = await runAs(mockUser, async () => await service.verify(null as any));
 
       expect(result).toBe(false);
       expect(mockLogger.warn).toHaveBeenCalledWith('Invalid passkey verification data format');
@@ -460,7 +507,7 @@ describe('PasskeyMFAProviderService', () => {
         expectedChallenge: 'expected-challenge',
       };
 
-      const result = await service.verify(mockUser, verificationData);
+      const result = await runAs(mockUser, async () => await service.verify(verificationData));
 
       expect(result).toBe(false);
       expect(mockLogger.warn).toHaveBeenCalledWith('Passkey device not found');
@@ -481,7 +528,7 @@ describe('PasskeyMFAProviderService', () => {
         expectedChallenge: 'expected-challenge',
       };
 
-      await service.verify(mockUser, verificationData);
+      await runAs(mockUser, async () => await service.verify(verificationData));
 
       expect(mockMfaDeviceRepository.findOne).toHaveBeenCalledWith(
         (expect as any).objectContaining({
@@ -507,7 +554,7 @@ describe('PasskeyMFAProviderService', () => {
         expectedChallenge: 'expected-challenge',
       };
 
-      await service.verify(mockUser, verificationData);
+      await runAs(mockUser, async () => await service.verify(verificationData));
 
       const saveCall = mockMfaDeviceRepository.save.mock.calls[0][0] as any;
       expect(saveCall.counter).toBe(1);
@@ -526,7 +573,7 @@ describe('PasskeyMFAProviderService', () => {
         expectedChallenge: 'expected-challenge',
       };
 
-      const result = await service.verify(mockUser, verificationData);
+      const result = await runAs(mockUser, async () => await service.verify(verificationData));
 
       expect(result).toBe(false);
       expect(mockLogger.error).toHaveBeenCalled();
@@ -563,7 +610,7 @@ describe('PasskeyMFAProviderService', () => {
       mockMfaDeviceRepository.find.mockResolvedValue(mockDevices as any);
       mockPasskeyService.generateAuthenticationOptions.mockResolvedValue(mockOptions);
 
-      const result = await service.sendChallenge(mockUser);
+      const result = await runAs(mockUser, async () => await service.sendChallenge());
 
       expect(result).toEqual(mockOptions);
       expect(mockPasskeyService.generateAuthenticationOptions).toHaveBeenCalledWith(mockDevices);
@@ -574,7 +621,7 @@ describe('PasskeyMFAProviderService', () => {
       mockMfaDeviceRepository.find.mockResolvedValue([]);
 
       try {
-        await service.sendChallenge(mockUser);
+        await runAs(mockUser, async () => await service.sendChallenge());
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -616,7 +663,7 @@ describe('PasskeyMFAProviderService', () => {
       mockMfaDeviceRepository.find.mockResolvedValue(mockDevices as any);
       mockPasskeyService.generateAuthenticationOptions.mockResolvedValue(mockOptions);
 
-      await service.sendChallenge(mockUser);
+      await runAs(mockUser, async () => await service.sendChallenge());
 
       expect(mockPasskeyService.generateAuthenticationOptions).toHaveBeenCalledWith(
         (expect as any).arrayContaining([

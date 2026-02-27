@@ -1,7 +1,9 @@
 ---
 title: Error Handling
-description: Strategy for handling errors and exceptions
+description: 'NAuthException class, AuthErrorCode enum values, HTTP status mapping, NestJS exception filter setup, and Express/Fastify error handler patterns'
 sidebar_position: 4
+keywords: [errors, exceptions, error-codes, http-status, filter, NAuthException]
+image: /img/api-social-card.png
 ---
 
 # Error Handling
@@ -28,22 +30,23 @@ The toolkit's responsibility is to **throw consistent, structured errors**. Cons
 
 ### Separation of Concerns
 
-```
-┌─────────────────────────────────────┐
-│   nauth-toolkit (Domain Layer)      │
-│   Throws: NAuthException            │
-│   - code: AuthErrorCode             │
-│   - message: string                 │
-│   - details: Record<string, any>    │
-└─────────────────────────────────────┘
-              ▼
-┌─────────────────────────────────────┐
-│   Consumer App (Transport Layer)    │
-│   Maps: NAuthException → Response   │
-│   - HTTP status codes (REST)        │
-│   - WebSocket events                │
-│   - GraphQL errors                  │
-└─────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Domain["nauth-toolkit (Domain Layer)"]
+        Throw["Throws: NAuthException"]
+        Code["code: AuthErrorCode"]
+        Msg["message: string"]
+        Details["details?: Record&lt;string, unknown&gt;"]
+    end
+
+    subgraph Transport["Consumer App (Transport Layer)"]
+        Map["Maps: NAuthException → Response"]
+        HTTP["HTTP status codes (REST)"]
+        WS["WebSocket events"]
+        GQL["GraphQL errors"]
+    end
+
+    Domain --> Transport
 ```
 
 ---
@@ -67,6 +70,12 @@ throw new NAuthException(AuthErrorCode.RATE_LIMIT_SMS, 'Too many verification SM
 For HTTP/REST APIs, the toolkit provides a ready-to-use exception filter:
 
 #### Option A: Use Provided Filter (Easiest)
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS" default>
 
 ```typescript
 // src/main.ts
@@ -99,6 +108,19 @@ export class AuthController {}
 @UseFilters(NAuthHttpExceptionFilter)
 async signup() {}
 ```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+The toolkit does not ship an Express-specific filter. Use the “Custom Mapping” pattern below to map `NAuthException` to your API responses.
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+The toolkit does not ship a Fastify-specific filter. Use the “Custom Mapping” pattern below to map `NAuthException` to your API responses.
+
+</TabItem>
+</Tabs>
 
 #### Option B: Custom HTTP Filter
 
@@ -370,10 +392,10 @@ try {
 ### <i className="fa-duotone fa-check-circle" style={{color: 'var(--ifm-color-primary)'}}></i> What nauth-toolkit provides:
 
 - `NAuthException` - Framework-agnostic exception class
-- `AuthErrorCode` - Enum with all error codes
+- [`AuthErrorCode`](/docs/api/core/enums/auth-error-code) - Enum with all error codes
 - Structured metadata (retryAfter, validation details, etc.)
 - `getHttpStatusForErrorCode()` - Helper for HTTP status mapping
-- `NAuthHttpExceptionFilter` - **Optional** ready-to-use HTTP filter
+- [`NAuthHttpExceptionFilter`](/docs/api/nestjs/filters/nauth-exception-filter) - **Optional** ready-to-use HTTP filter
 
 ### <i className="fa-duotone fa-circle-xmark" style={{color: 'var(--ifm-color-primary)'}}></i> What nauth-toolkit does NOT do:
 
@@ -446,11 +468,26 @@ throw new NAuthException(AuthErrorCode.RATE_LIMIT_SMS, 'Too many SMS sent', { re
 
 ## Error Codes Reference
 
-See `AuthErrorCode` enum for all available codes:
+[`AuthErrorCode`](/docs/api/core/enums/auth-error-code) enum contains 60+ error codes organized by category. Common codes:
 
-- **Authentication**: `INVALID_CREDENTIALS`, `ACCOUNT_LOCKED`, `TOKEN_EXPIRED`
-- **Signup**: `EMAIL_EXISTS`, `WEAK_PASSWORD`, `SIGNUP_DISABLED`
-- **Verification**: `VERIFICATION_CODE_INVALID`, `VERIFICATION_CODE_EXPIRED`
-- **Rate Limits**: `RATE_LIMIT_SMS`, `RATE_LIMIT_EMAIL`, `RATE_LIMIT_RESEND`
-- **Social Auth**: `SOCIAL_TOKEN_INVALID`, `SOCIAL_ACCOUNT_LINKED`
-- **General**: `NOT_FOUND`, `FORBIDDEN`, `INTERNAL_ERROR`
+| Category | Codes |
+|---|---|
+| **Authentication** | `AUTH_INVALID_CREDENTIALS`, `AUTH_ACCOUNT_LOCKED`, `AUTH_ACCOUNT_INACTIVE`, `AUTH_TOKEN_EXPIRED`, `AUTH_TOKEN_INVALID`, `AUTH_TOKEN_REUSE_DETECTED`, `AUTH_SESSION_NOT_FOUND`, `AUTH_SESSION_EXPIRED`, `AUTH_BEARER_NOT_ALLOWED`, `AUTH_COOKIES_NOT_ALLOWED` |
+| **Signup** | `SIGNUP_EMAIL_EXISTS`, `SIGNUP_USERNAME_EXISTS`, `SIGNUP_PHONE_EXISTS`, `SIGNUP_WEAK_PASSWORD`, `SIGNUP_DISABLED`, `SIGNUP_NOT_ALLOWED`, `SIGNUP_PRESIGNUP_FAILED` |
+| **Verification** | `VERIFY_CODE_INVALID`, `VERIFY_CODE_EXPIRED`, `VERIFY_TOO_MANY_ATTEMPTS`, `VERIFY_ALREADY_VERIFIED` |
+| **Challenge** | `CHALLENGE_EXPIRED`, `CHALLENGE_INVALID`, `CHALLENGE_TYPE_MISMATCH`, `CHALLENGE_MAX_ATTEMPTS`, `CHALLENGE_ALREADY_COMPLETED` |
+| **MFA** | `MFA_SETUP_REQUIRED` |
+| **Rate Limits** | `RATE_LIMIT_SMS`, `RATE_LIMIT_EMAIL`, `RATE_LIMIT_LOGIN`, `RATE_LIMIT_RESEND`, `RATE_LIMIT_PASSWORD_RESET` |
+| **Password** | `PASSWORD_INCORRECT`, `PASSWORD_REUSED`, `PASSWORD_CHANGE_NOT_ALLOWED`, `PASSWORD_RESET_CODE_INVALID`, `PASSWORD_RESET_CODE_EXPIRED`, `PASSWORD_RESET_MAX_ATTEMPTS` |
+| **Social Auth** | `SOCIAL_TOKEN_INVALID`, `SOCIAL_ACCOUNT_LINKED`, `SOCIAL_ACCOUNT_NOT_FOUND`, `SOCIAL_EMAIL_REQUIRED`, `SOCIAL_CONFIG_MISSING`, `SOCIAL_ACCOUNT_EXISTS` |
+| **CSRF** | `AUTH_CSRF_TOKEN_INVALID`, `AUTH_CSRF_TOKEN_MISSING` |
+| **reCAPTCHA** | `RECAPTCHA_REQUIRED`, `RECAPTCHA_VALIDATION_FAILED`, `RECAPTCHA_SCORE_TOO_LOW`, `RECAPTCHA_PROVIDER_MISSING` |
+| **Validation** | `VALIDATION_FAILED`, `VALIDATION_INVALID_PHONE`, `VALIDATION_INVALID_EMAIL`, `VALIDATION_INVALID_PASSWORD` |
+| **Adaptive MFA** | `SIGNIN_BLOCKED_HIGH_RISK` |
+| **General** | `RESOURCE_NOT_FOUND`, `USER_NOT_FOUND`, `FORBIDDEN`, `SERVICE_UNAVAILABLE` |
+
+## What's Next
+
+- **[Challenge System](/docs/concepts/challenge-system)** --- Challenge error handling patterns
+- **[Rate Limiting](/docs/guides/rate-limiting)** --- Configure and handle rate limit errors
+- **[Configuration](/docs/concepts/configuration)** --- Full configuration reference

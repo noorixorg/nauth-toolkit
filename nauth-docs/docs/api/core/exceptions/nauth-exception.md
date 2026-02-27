@@ -3,9 +3,7 @@ title: NAuthException
 description: Framework-agnostic authentication exception class with structured error codes, messages, and metadata for error handling across any transport layer.
 keywords: [exception, error, authentication, error-handling, api, nauthexception]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -67,12 +65,12 @@ When caught, `NAuthException` has the following structure:
 
 | Property    | Type                      | Required | Description                               |
 | ----------- | ------------------------- | -------- | ----------------------------------------- |
-| `code`      | `AuthErrorCode` | ✅ Yes   | Machine-readable error code for programmatic handling |
-| `message`   | `string`                  | ✅ Yes   | Human-readable error message              |
-| `details`   | `Record<string, unknown>` | ❌ No    | Optional metadata (retryAfter, field names, etc.) |
-| `timestamp` | `string`                  | ✅ Yes   | ISO 8601 timestamp when error occurred    |
-| `name`      | `string`                  | ✅ Yes   | Always `"NAuthException"`                 |
-| `stack`     | `string`                  | ❌ No    | Stack trace (standard Error property)     |
+| `code`      | `AuthErrorCode`           | Yes      | Machine-readable error code for programmatic handling |
+| `message`   | `string`                  | Yes      | Human-readable error message              |
+| `details`   | `Record<string, unknown>` | No       | Optional metadata (retryAfter, field names, etc.) |
+| `timestamp` | `string`                  | Yes      | ISO 8601 timestamp when error occurred    |
+| `name`      | `string`                  | Yes      | Always `"NAuthException"`                 |
+| `stack`     | `string`                  | No       | Stack trace (standard Error property)     |
 
 ### Details Object Structure
 

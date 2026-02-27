@@ -1,7 +1,6 @@
 ---
 title: GetChallengeDataResponse
 description: Response containing challenge-specific data for verification flows
-sidebar_position: 120
 keywords: [challenge, response, passkey, webauthn, verification, api]
 image: /img/api-social-card.png
 ---

@@ -97,7 +97,7 @@ app.get('/profile', nauth.helpers.requireAuth(), (req, res) => {
 ### Fastify
 
 ```typescript
-import { NAuth, FastifyAdapter, withNAuthContext } from '@nauth-toolkit/core';
+import { NAuth, FastifyAdapter } from '@nauth-toolkit/core';
 
 const nauth = await NAuth.create({ config, dataSource, adapter: new FastifyAdapter() });
 
@@ -107,16 +107,16 @@ fastify.addHook('onRequest', nauth.middleware.csrf);
 fastify.addHook('onRequest', nauth.middleware.auth);
 fastify.addHook('onSend', nauth.middleware.tokenDelivery);
 
-// Routes - wrap with withNAuthContext for context access
+// Routes - wrap with nauth.adapter.wrapRouteHandler for context access
 fastify.post(
   '/signup',
   { preHandler: nauth.helpers.public() },
-  withNAuthContext(async (req, reply) => nauth.authService.signup(req.body)),
+  nauth.adapter.wrapRouteHandler(async (req) => nauth.authService.signup(req.body as any)),
 );
 fastify.get(
   '/profile',
   { preHandler: nauth.helpers.requireAuth() },
-  withNAuthContext(async () => ({ user: nauth.helpers.getCurrentUser() })),
+  nauth.adapter.wrapRouteHandler(async () => ({ user: nauth.helpers.getCurrentUser() })),
 );
 ```
 
@@ -150,7 +150,7 @@ export class AppModule {}
 **Flow:** `ClientInfoHandler` → `CsrfHandler` → `AuthHandler` → Route handler
 
 **Express:** Context propagates automatically.
-**Fastify:** Context stored on `request.__nauthContextStore`, restored by adapters. Use `withNAuthContext()` wrapper.
+**Fastify:** Context stored on `request.__nauthContextStore`, restored by adapters. Use `nauth.adapter.wrapRouteHandler()` for route handlers.
 
 ---
 
@@ -186,7 +186,7 @@ Base entities in core (fields + logic). Database packages extend with ORM decora
 | `BaseAuthAudit`                    | Audit trail                 |
 | `BaseRateLimit`, `BaseStorageLock` | Storage entities            |
 
-Use `getNAuthEntities()` for TypeORM config. Add `getNAuthStorageEntities()` if using DatabaseStorageAdapter.
+Use `getNAuthEntities()` for TypeORM config. Add `getNAuthTransientStorageEntities()` if using DatabaseStorageAdapter.
 
 ---
 
@@ -210,7 +210,7 @@ Challenges are HTTP 200 responses, not errors. Single endpoint: `respondToChalle
 | --------- | -------------------------------------- |
 | `json`    | Tokens in response body only           |
 | `cookies` | Tokens in httpOnly cookies only        |
-| `hybrid`  | Auto-detect (web=cookies, mobile=json) |
+| `hybrid`  | Mixed delivery via route override (recommended) or `hybridPolicy` (Origin-based) |
 
 Override per-route: `nauth.helpers.tokenDelivery('cookies')` or `@TokenDelivery('cookies')`
 
@@ -218,10 +218,10 @@ Override per-route: `nauth.helpers.tokenDelivery('cookies')` or `@TokenDelivery(
 
 ## CSRF Protection
 
-Auto-enabled for `cookies`/`hybrid` modes.
+Enforced when cookie delivery is used (`cookies` or `hybrid` effective delivery). CSRF settings are customizable via `security.csrf` in config.
 
-- Server sets httpOnly cookie: `nauth_csrf_token`
-- Client sends header: `X-CSRF-Token`
+- Server sets readable cookie: `nauth_csrf_token` (not httpOnly)
+- Client sends header: `x-csrf-token`
 - Skips GET, HEAD, OPTIONS
 
 Bypass: `nauth.helpers.public()` or `@Public()`

@@ -46,15 +46,15 @@ console.log('\n' + '='.repeat(80));
 console.log('Delegating to other test files...');
 console.log('='.repeat(80));
 if (matchingConfigs.length > 0) {
-  console.log(`\n✅ Tests from complete-lifecycle.spec.ts`);
+  console.log(`\nTests from complete-lifecycle.spec.ts`);
   console.log(`   matching configs: ${configNames}`);
   console.log(`   will run automatically when you run:`);
   console.log(`   npx playwright test --project ${expectedProject}`);
   console.log(`\n   Or run specific test files:`);
   console.log(`   npx playwright test complete-lifecycle --project ${expectedProject} --grep "${grepPattern}"`);
-  console.log(`\n   ✅ deferred-verification.spec.ts is enabled`);
+  console.log(`\n   deferred-verification.spec.ts is enabled`);
 } else {
-  console.log(`\n⚠️  No matching test configurations found!`);
+  console.log(`\nWARNING: No matching test configurations found!`);
   console.log(`\nPlease add a matching configuration to tests/e2e/config-matrix.ts`);
   console.log(`or update your auth.config.ts to match an existing configuration.`);
 }

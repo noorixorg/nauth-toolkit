@@ -1,8 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { AuthService, AuthResponse, SocialProvider } from '@nauth-toolkit/client/angular';
-import { NAuthClientError } from '@nauth-toolkit/client';
+import { AuthService, SocialProvider } from '@nauth-toolkit/client-angular/standalone';
 import { InputTextModule } from 'primeng/inputtext';
 import { AutoFocusModule } from 'primeng/autofocus';
 import { PasswordModule } from 'primeng/password';
@@ -10,9 +9,8 @@ import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { DividerModule } from 'primeng/divider';
 import { CommonModule } from '@angular/common';
-import { ChallengeOrchestratorService } from '../services/challenge-orchestrator.service';
-import { SimulatedVerificationCodeService } from '../services/simulated-verification-code.service';
 import { handleAuthError } from '../utils/error-handler.util';
+import { environment } from '../../environments/environment';
 
 /**
  * Login component
@@ -48,6 +46,11 @@ export class LoginComponent implements OnInit {
    */
   loginForm: FormGroup;
 
+  /** Show Apple login button (controlled via build-time env flag) */
+  readonly showAppleLogin = environment.showAppleLogin;
+  /** Show Facebook login button (controlled via build-time env flag) */
+  readonly showFacebookLogin = environment.showFacebookLogin;
+
   /**
    * Loading state signal
    */
@@ -59,17 +62,21 @@ export class LoginComponent implements OnInit {
   error = signal<string | null>(null);
 
   /**
+   * Success message signal (for password reset success)
+   */
+  success = signal<string | null>(null);
+
+  /**
    * @param fb - Form builder for reactive forms
    * @param auth - Auth service for authentication
    * @param router - Router for navigation
-   * @param orchestrator - Challenge orchestrator service
+   * @param route - Activated route for query params
    */
   constructor(
     private readonly fb: FormBuilder,
     private readonly auth: AuthService,
     private readonly router: Router,
-    private readonly orchestrator: ChallengeOrchestratorService,
-    private readonly verificationCodeService: SimulatedVerificationCodeService,
+    private readonly route: ActivatedRoute,
   ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
@@ -81,15 +88,31 @@ export class LoginComponent implements OnInit {
     this.auth.authEvents$.subscribe((_event) => {
       // Handle auth events if needed
     });
+
+    // Check for password reset success query param
+    this.route.queryParams.subscribe((params) => {
+      if (params['passwordReset'] === 'success') {
+        this.success.set('Password reset successful. Please sign in with your new password.');
+        // Clear query params
+        this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: {},
+          replaceUrl: true,
+        });
+        // Clear success message after 5 seconds
+        setTimeout(() => {
+          this.success.set(null);
+        }, 5000);
+      }
+    });
   }
 
   /**
    * Handle form submission
    *
-   * Authenticates user and navigates to dashboard on success.
-   * Handles challenge responses (MFA, email verification, etc.).
+   * Authenticates user - SDK handles navigation automatically to dashboard or challenges.
    */
-  onSubmit(): void {
+  async onSubmit(): Promise<void> {
     if (this.loginForm.invalid) {
       // Mark all fields as touched to show validation errors
       Object.keys(this.loginForm.controls).forEach((key) => {
@@ -103,17 +126,14 @@ export class LoginComponent implements OnInit {
 
     const { email, password } = this.loginForm.value;
 
-    this.auth.login(email, password).subscribe({
-      next: async (response: AuthResponse) => {
-        this.loading.set(false);
-        // Universal handler for login, challenges, and redirects
-        await this.orchestrator.handleAuthResponse(response);
-      },
-      error: (err: unknown) => {
-        this.loading.set(false);
-        this.handleError(err);
-      },
-    });
+    try {
+      // SDK automatically navigates to challenge or success route
+      await this.auth.login(email, password);
+    } catch (err: unknown) {
+      this.handleError(err);
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   /**
@@ -123,14 +143,21 @@ export class LoginComponent implements OnInit {
    *
    * @param provider - Social provider (google, apple, facebook)
    */
-  onSocialLogin(provider: SocialProvider): void {
+  async onSocialLogin(provider: SocialProvider): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
 
-    this.auth.loginWithSocial(provider).catch((err: unknown) => {
+    try {
+      await this.auth.loginWithSocial(provider, {
+        returnTo: '/auth/callback',
+        appState: 'invite-code-123',
+        // Google: force consent screen every time (default skips for returning users)
+        ...(provider === 'google' && { oauthParams: { prompt: 'consent' } }),
+      });
+    } catch (err: unknown) {
       this.loading.set(false);
       this.handleError(err);
-    });
+    }
   }
 
   /**
@@ -138,6 +165,13 @@ export class LoginComponent implements OnInit {
    */
   navigateToSignup(): void {
     this.router.navigate(['/signup']);
+  }
+
+  /**
+   * Navigate to forgot password page
+   */
+  navigateToForgotPassword(): void {
+    this.router.navigate(['/forgot-password']);
   }
 
   /**

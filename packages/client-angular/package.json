@@ -1,0 +1,62 @@
+{
+  "name": "@nauth-toolkit/client-angular",
+  "version": "0.2.0",
+  "description": "Angular SDK for nauth-toolkit — services, guards, interceptors",
+  "keywords": [
+    "nauth",
+    "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
+    "angular",
+    "frontend",
+    "sdk",
+    "client",
+    "rxjs"
+  ],
+  "author": "nauth-toolkit",
+  "license": "SEE LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
+  },
+  "peerDependencies": {
+    "@angular/common": ">=17.0.0",
+    "@angular/core": ">=17.0.0",
+    "@nauth-toolkit/client": "workspace:^",
+    "rxjs": "^7.0.0 || ^8.0.0"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/common": "^17.3.12",
+    "@angular/compiler": "^17.3.12",
+    "@angular/compiler-cli": "^17.3.12",
+    "@angular/core": "^17.3.12",
+    "@angular/platform-browser": "^17.3.12",
+    "@angular/platform-browser-dynamic": "^17.3.12",
+    "@angular/router": "^17.3.12",
+    "@types/jest": "^29.5.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "ng-packagr": "^17.0.0",
+    "rxjs": "~7.8.0",
+    "ts-jest": "^29.2.0",
+    "typescript": "~5.3.3"
+  },
+  "scripts": {
+    "build": "ng-packagr -p ng-package.json",
+    "clean": "rm -rf dist",
+    "test": "jest"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "homepage": "https://nauth.dev",
+  "sideEffects": false
+}

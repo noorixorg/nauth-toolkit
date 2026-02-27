@@ -1,7 +1,6 @@
 ---
 title: Getting Started
 description: Step-by-step guide to bootstrapping authentication with nauth-toolkit client SDK
-sidebar_position: 1
 keywords: [getting started, setup, bootstrap, installation]
 image: /img/api-social-card.png
 ---
@@ -12,6 +11,10 @@ import TabItem from '@theme/TabItem';
 # Getting Started
 
 Complete guide to setting up authentication in your frontend application with `@nauth-toolkit/client`.
+
+:::tip Framework-Specific Guides
+For dedicated setup guides with full working examples, see [Angular Standalone](../angular/standalone-setup), [Angular NgModule](../angular/ngmodule-setup), [React](../react/setup), or [Capacitor Mobile](../mobile/capacitor-setup). This page covers the generic SDK setup that works with any framework.
+:::
 
 ## Prerequisites
 
@@ -32,7 +35,7 @@ Your frontend must match your backend's token delivery mode:
 | Frontend Mode | Backend Endpoint                                       | Use Case               |
 | ------------- | ------------------------------------------------------ | ---------------------- |
 | `cookies`     | `/auth` (cookies mode)                                 | Web apps (recommended) |
-| `json`        | `/auth` (JSON mode) or `/mobile/auth` (hybrid backend) | Mobile/native apps     |
+| `json`        | `/auth` (JSON mode)                                    | Mobile/native apps     |
 
 Check your backend's `nauth.config.ts`:
 
@@ -40,11 +43,13 @@ Check your backend's `nauth.config.ts`:
 // Backend configuration
 NAuthModule.forRoot({
   tokenDelivery: {
-    mode: 'cookies', // Your mode
+    method: 'cookies', // Your mode
     // ...
   },
 });
 ```
+
+If your backend uses `tokenDelivery.method = 'hybrid'`, the same `/auth` endpoints can serve both web (cookies) and native/mobile (JSON) clients. The backend selects delivery based on request origin (see [Configuration](/docs/concepts/configuration#hybrid-policy-tokendeliverymethod--hybrid)).
 
 See [NAuthClientConfig](../api/nauth-client-config) for all configuration options including custom storage adapters, CSRF settings, endpoint overrides, and callbacks.
 
@@ -65,7 +70,7 @@ For JSON token delivery mode, tokens are stored using a storage adapter. The SDK
 
 **Note:** For `cookies` mode, tokens are managed by the browser and backend—no storage adapter needed.
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="vanilla" label="Vanilla JS/TS">
 
 **Cookies mode (no storage needed):**
@@ -85,7 +90,7 @@ export const authClient = new NAuthClient({
   },
   onAuthStateChange: (user) => {
     // React to auth changes
-    console.log('Auth state changed:', user?.email ?? 'logged out');
+    // Use your application's logger/telemetry here
   },
 });
 ```
@@ -98,7 +103,7 @@ import { NAuthClient, BrowserStorage } from '@nauth-toolkit/client';
 export const authClient = new NAuthClient({
   baseUrl: 'https://api.yourapp.com/auth',
   tokenDelivery: 'json', // JSON mode requires storage
-  storage: new BrowserStorage('localStorage'), // Default for web apps
+  storage: new BrowserStorage(), // Default for web apps (uses localStorage)
   onSessionExpired: () => {
     if (typeof window !== 'undefined') {
       window.location.replace('/login');
@@ -124,6 +129,9 @@ class CapacitorStorage implements NAuthStorageAdapter {
   async removeItem(key: string): Promise<void> {
     await Preferences.remove({ key });
   }
+  async clear(): Promise<void> {
+    await Preferences.clear();
+  }
 }
 
 export const authClient = new NAuthClient({
@@ -138,7 +146,7 @@ export const authClient = new NAuthClient({
 
 See [`NAuthStorageAdapter`](../api/types/nauth-storage-adapter) for interface details and more examples.
 
-See [NAuthClient API](../api/nauth-client) and [Configuration](../configuration) for details.
+See [NAuthClient API](../api/nauth-client) and [Configuration](../concepts/configuration) for details.
 
 ```typescript
 // main.ts
@@ -150,7 +158,7 @@ async function bootstrap(): Promise<void> {
 
   // Check if already logged in
   if (authClient.isAuthenticatedSync()) {
-    console.log('User:', authClient.getCurrentUser());
+    // Use your application's logger/telemetry here
   }
 
   // Render your app
@@ -168,7 +176,7 @@ bootstrap();
 import { ApplicationConfig, inject } from '@angular/core';
 import { Router, provideRouter } from '@angular/router';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { NAUTH_CLIENT_CONFIG, authInterceptor } from '@nauth-toolkit/client/angular';
+import { NAUTH_CLIENT_CONFIG, authInterceptor } from '@nauth-toolkit/client-angular';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -199,7 +207,7 @@ import { appConfig } from './app/app.config';
 bootstrapApplication(AppComponent, appConfig);
 ```
 
-Storage configuration for Angular is covered in the [Angular Integration Guide](../angular/overview). The `NAUTH_CLIENT_CONFIG` provider accepts a `storage` property for custom adapters when using JSON token delivery mode.
+Storage configuration for Angular is covered in the [Angular Integration Guide](../angular/standalone-setup). The `NAUTH_CLIENT_CONFIG` provider accepts a `storage` property for custom adapters when using JSON token delivery mode.
 
 </TabItem>
 <TabItem value="react" label="React">
@@ -225,7 +233,7 @@ export const authClient = new NAuthClient({
 // export const authClient = new NAuthClient({
 //   baseUrl: 'https://api.yourapp.com/auth',
 //   tokenDelivery: 'json',
-//   storage: new BrowserStorage('localStorage'),
+//   storage: new BrowserStorage(),
 //   onSessionExpired: () => { /* ... */ },
 // });
 ```
@@ -309,7 +317,7 @@ function App() {
 
 Handle user authentication with email/password. The `login()` method returns an [`AuthResponse`](../api/types/auth-response) that may contain a challenge (email verification, MFA, etc.) or successful authentication with tokens. Always check for `challengeName` to handle multi-step flows.
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="vanilla" label="Vanilla JS/TS">
 
 ```typescript
@@ -361,7 +369,7 @@ function handleChallenge(response: AuthResponse): void {
 ```typescript
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthService } from '@nauth-toolkit/client/angular';
+import { AuthService } from '@nauth-toolkit/client-angular';
 
 @Component({
   selector: 'app-login',
@@ -473,7 +481,7 @@ function LoginPage() {
 
 Protect routes that require authentication. You can use the built-in [`authGuard`](../angular/guards) (Angular) or implement your own route protection logic.
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="vanilla" label="Vanilla JS/TS">
 
 ```typescript
@@ -502,7 +510,7 @@ Use the built-in [`authGuard`](../angular/guards) for automatic route protection
 ```typescript
 // app.routes.ts
 import { Routes } from '@angular/router';
-import { authGuard } from '@nauth-toolkit/client/angular';
+import { authGuard } from '@nauth-toolkit/client-angular';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -526,7 +534,7 @@ Or implement a custom guard with additional logic:
 // custom-auth.guard.ts
 import { inject } from '@angular/core';
 import { Router, CanActivateFn } from '@angular/router';
-import { AuthService } from '@nauth-toolkit/client/angular';
+import { AuthService } from '@nauth-toolkit/client-angular';
 
 export const customAuthGuard: CanActivateFn = (route, state) => {
   const auth = inject(AuthService);
@@ -578,13 +586,13 @@ The SDK automatically handles token refresh for you. When using the Angular [`au
 - Queues concurrent requests during refresh to prevent race conditions
 - Synchronizes tokens across browser tabs using `localStorage` events (JSON mode)
 
-For detailed information on token refresh strategies, cross-tab synchronization, and SSR considerations, see [Token Management](../token-management).
+For detailed information on token refresh strategies, cross-tab synchronization, and SSR considerations, see [Token Management](../concepts/token-management).
 
 ## Step 5: Handle Logout
 
 Clear authentication state and redirect to login. The `logout()` method invalidates the session on the backend and clears local tokens.
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="vanilla" label="Vanilla JS/TS">
 
 ```typescript
@@ -626,6 +634,6 @@ async function handleLogout() {
 ## Next Steps
 
 - [Challenge Handling](./challenge-handling) - Handle verification flows
-- [Token Management](../token-management) - Token refresh and storage
+- [Token Management](../concepts/token-management) - Token refresh and storage
 - [Social Authentication](./social-auth) - OAuth integration
 - [MFA Setup](./mfa-setup) - Multi-factor authentication

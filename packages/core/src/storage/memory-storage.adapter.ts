@@ -11,7 +11,7 @@ interface StoredValue {
 /**
  * In-memory storage adapter for development and single-server deployments
  *
- * ⚠️ CRITICAL LIMITATIONS FOR PRODUCTION:
+ * CRITICAL LIMITATIONS FOR PRODUCTION:
  * - Data is lost on server restart
  * - Data is NOT shared across multiple server instances/containers
  * - Rate limiting may be bypassed in ECS/multi-container deployments

@@ -119,6 +119,21 @@ export enum AuthAuditEventType {
    */
   PASSWORD_FORCE_CHANGE_COMPLETED = 'PASSWORD_FORCE_CHANGE_COMPLETED',
 
+  /**
+   * Admin initiated password reset (code sent to user)
+   */
+  ADMIN_PASSWORD_RESET_INITIATED = 'ADMIN_PASSWORD_RESET_INITIATED',
+
+  /**
+   * Admin-initiated password reset completed successfully
+   */
+  ADMIN_PASSWORD_RESET_COMPLETED = 'ADMIN_PASSWORD_RESET_COMPLETED',
+
+  /**
+   * Admin-initiated password reset failed (invalid code, expired, etc.)
+   */
+  ADMIN_PASSWORD_RESET_FAILED = 'ADMIN_PASSWORD_RESET_FAILED',
+
   // ============================================================================
   // Multi-Factor Authentication (MFA) Events
   // ============================================================================
@@ -283,6 +298,12 @@ export enum AuthAuditEventType {
   ACCOUNT_UNLOCKED = 'ACCOUNT_UNLOCKED',
 
   /**
+   * User account disabled by admin (permanent lock)
+   */
+  ACCOUNT_DISABLED = 'ACCOUNT_DISABLED',
+  ACCOUNT_ENABLED = 'ACCOUNT_ENABLED',
+
+  /**
    * User account deleted
    */
   ACCOUNT_DELETED = 'ACCOUNT_DELETED',
@@ -297,19 +318,14 @@ export enum AuthAuditEventType {
   PROFILE_UPDATED = 'PROFILE_UPDATED',
 
   /**
-   * User email address changed
+   * Email verification status updated by admin
    */
-  EMAIL_CHANGED = 'EMAIL_CHANGED',
+  EMAIL_VERIFICATION_STATUS_UPDATED = 'EMAIL_VERIFICATION_STATUS_UPDATED',
 
   /**
-   * User phone number changed
+   * Phone verification status updated by admin
    */
-  PHONE_CHANGED = 'PHONE_CHANGED',
-
-  /**
-   * User username changed
-   */
-  USERNAME_CHANGED = 'USERNAME_CHANGED',
+  PHONE_VERIFICATION_STATUS_UPDATED = 'PHONE_VERIFICATION_STATUS_UPDATED',
 
   // ============================================================================
   // Social Authentication Events

@@ -1,7 +1,7 @@
 import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { AuthService, AuthUser } from '@nauth-toolkit/client/angular';
+import { AuthService, AuthUser } from '@nauth-toolkit/client-angular/standalone';
 import { NAuthClientError, NAuthErrorCode, SocialProvider } from '@nauth-toolkit/client';
 import { CardModule } from 'primeng/card';
 import { InplaceModule } from 'primeng/inplace';
@@ -13,6 +13,8 @@ import { AvatarModule } from 'primeng/avatar';
 import { MessageModule } from 'primeng/message';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { TooltipModule } from 'primeng/tooltip';
+import { DialogModule } from 'primeng/dialog';
+import { PasswordModule } from 'primeng/password';
 import { ConfirmationService } from 'primeng/api';
 
 /**
@@ -44,6 +46,8 @@ import { ConfirmationService } from 'primeng/api';
     MessageModule,
     ConfirmDialogModule,
     TooltipModule,
+    DialogModule,
+    PasswordModule,
   ],
   providers: [ConfirmationService],
   templateUrl: './profile.component.html',
@@ -131,32 +135,47 @@ export class ProfileComponent implements OnInit {
   unlinking = signal<string | null>(null);
 
   /**
+   * Change password dialog visibility
+   */
+  showChangePasswordDialog = signal(false);
+
+  /**
+   * Changing password state
+   */
+  changingPassword = signal(false);
+
+  /**
+   * Change password form group
+   */
+  changePasswordForm: FormGroup;
+
+  /**
    * Check if account is pure social (no password)
    * Pure social means: no password AND has social providers
-   * Determined by: username is null OR hasPasswordHash is false
+   * Determined by: hasPasswordHash is false
    */
   isPureSocialAccount = computed((): boolean => {
     const currentUser = this.user();
     if (!currentUser) return false;
-    // Pure social: no username (null) OR explicitly no password hash (false) AND has social providers
-    const hasNoPassword = currentUser.username === null || currentUser.hasPasswordHash === false;
+    // IMPORTANT:
+    // - `username` may legitimately be null for password users (username is optional)
+    // - `hasPasswordHash` is the canonical capability flag
+    const hasNoPassword = currentUser.hasPasswordHash === false;
     const hasSocial = this.hasSocialProviders();
     return hasNoPassword && hasSocial;
   });
 
   /**
    * Check if account has password (is password-based)
+   *
+   * Returns false for pure social accounts (no password set).
+   * Returns true if account has a password (password-based or hybrid).
    */
   hasPassword = computed((): boolean => {
     const currentUser = this.user();
     if (!currentUser) return false;
-    // Has password if: username is not null OR hasPasswordHash is true/undefined
-    // If both username is null and hasPasswordHash is false, then no password
-    if (currentUser.username === null && currentUser.hasPasswordHash === false) {
-      return false;
-    }
-    // If username exists or hasPasswordHash is not explicitly false, assume has password
-    return currentUser.username !== null || currentUser.hasPasswordHash !== false;
+
+    return currentUser.hasPasswordHash === true;
   });
 
   /**
@@ -213,6 +232,22 @@ export class ProfileComponent implements OnInit {
   });
 
   /**
+   * Social provider used for the CURRENT session (if any).
+   *
+   * This is derived from `user.sessionAuthMethod` and only returns known social providers.
+   * For password sessions, this returns null.
+   */
+  sessionSocialProvider = computed((): SocialProvider | null => {
+    const currentUser = this.user();
+    const method = currentUser?.sessionAuthMethod?.toLowerCase();
+    if (!method) return null;
+    if (method === 'google' || method === 'apple' || method === 'facebook') {
+      return method;
+    }
+    return null;
+  });
+
+  /**
    * Get provider display name
    *
    * @param provider - Social provider identifier
@@ -248,6 +283,27 @@ export class ProfileComponent implements OnInit {
       lastName: ['', [Validators.maxLength(100)]],
       email: ['', [Validators.required, Validators.email, Validators.maxLength(255)]],
       phone: ['', [Validators.maxLength(20)]],
+    });
+
+    this.changePasswordForm = this.fb.group({
+      oldPassword: ['', [Validators.required]],
+      newPassword: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(128)]],
+      confirmPassword: ['', [Validators.required]],
+    });
+
+    // Add custom validator for password match
+    this.changePasswordForm.get('confirmPassword')?.addValidators((control) => {
+      const newPassword = this.changePasswordForm.get('newPassword')?.value;
+      const confirmPassword = control.value;
+      if (newPassword && confirmPassword && newPassword !== confirmPassword) {
+        return { passwordMismatch: true };
+      }
+      return null;
+    });
+
+    // Re-validate confirm password when new password changes
+    this.changePasswordForm.get('newPassword')?.valueChanges.subscribe(() => {
+      this.changePasswordForm.get('confirmPassword')?.updateValueAndValidity();
     });
   }
 
@@ -450,5 +506,70 @@ export class ProfileComponent implements OnInit {
         }
       },
     });
+  }
+
+  /**
+   * Open change password dialog
+   *
+   * Prevents opening for pure social accounts (no password set).
+   */
+  openChangePasswordDialog(): void {
+    // Prevent opening dialog for pure social accounts
+    if (this.isPureSocialAccount() || !this.hasPassword()) {
+      this.error.set('Password change is not available for social-only accounts.');
+      return;
+    }
+
+    this.changePasswordForm.reset();
+    this.error.set(null);
+    this.success.set(null);
+    this.showChangePasswordDialog.set(true);
+  }
+
+  /**
+   * Close change password dialog
+   */
+  closeChangePasswordDialog(): void {
+    this.showChangePasswordDialog.set(false);
+    this.changePasswordForm.reset();
+    this.error.set(null);
+  }
+
+  /**
+   * Change user password
+   */
+  async changePassword(): Promise<void> {
+    if (this.changePasswordForm.invalid) {
+      Object.keys(this.changePasswordForm.controls).forEach((key) => {
+        this.changePasswordForm.get(key)?.markAsTouched();
+      });
+      return;
+    }
+
+    this.changingPassword.set(true);
+    this.error.set(null);
+    this.success.set(null);
+
+    try {
+      const { oldPassword, newPassword } = this.changePasswordForm.value;
+      await this.auth.changePassword(oldPassword, newPassword);
+      this.success.set('Password changed successfully');
+      this.closeChangePasswordDialog();
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        this.success.set(null);
+      }, 3000);
+    } catch (err: unknown) {
+      if (err instanceof NAuthClientError) {
+        this.error.set(err.message);
+      } else if (err instanceof Error) {
+        this.error.set(err.message || 'Failed to change password');
+      } else {
+        this.error.set('Failed to change password');
+      }
+    } finally {
+      this.changingPassword.set(false);
+    }
   }
 }

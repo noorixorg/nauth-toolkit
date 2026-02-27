@@ -1,8 +1,16 @@
-import * as jose from 'jose';
 import { JwtConfig } from '../interfaces/config.interface';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import * as crypto from 'crypto';
+
+/**
+ * jose module type (ESM-only dependency).
+ *
+ * IMPORTANT: `jose@6` is ESM-only. This monorepo currently compiles core to CommonJS, so
+ * a static `import ... from 'jose'` emits `require('jose')` and fails at runtime with
+ * `ERR_REQUIRE_ESM`. We therefore load jose via dynamic import.
+ */
+type JoseModule = typeof import('jose');
 
 /**
  * JWT Payload structure
@@ -116,12 +124,73 @@ export class JwtService {
   /** Cached access token key (for performance) */
   private accessTokenKey: Uint8Array | crypto.KeyObject | null = null;
 
+  /**
+   * Cached access-token public key for verification (RS*)
+   *
+   * WHY:
+   * - `crypto.createPublicKey(pem)` is synchronous and relatively expensive.
+   * - Parsing the PEM on every request adds unnecessary CPU overhead and increases event-loop contention.
+   *
+   * NOTE:
+   * - We intentionally cache the parsed KeyObject (static config) rather than re-parsing per request.
+   * - If parsing fails, we store the error message and fail validation deterministically without repeated parsing.
+   */
+  private accessTokenPublicKey: crypto.KeyObject | null = null;
+
+  /**
+   * Cached parse error for accessToken.publicKey (if invalid)
+   *
+   * Kept as a string to avoid leaking complex Error objects across boundaries.
+   */
+  private accessTokenPublicKeyError: string | null = null;
+
   /** Cached refresh token key (for performance) */
   private refreshTokenKey: Uint8Array | crypto.KeyObject | null = null;
+
+  /**
+   * Cached jose module load.
+   * Kept as a promise so concurrent calls share the same module load.
+   */
+  private joseModulePromise: Promise<JoseModule> | null = null;
 
   constructor(jwtConfig: JwtConfig) {
     this.config = jwtConfig;
     this.prepareKeys();
+  }
+
+  // ============================================================================
+  // jose loader
+  // ============================================================================
+
+  /**
+   * Load jose in a way that works for both ESM and CommonJS consumers.
+   *
+   * "Proper" usage per jose docs:
+   * - ESM: `import * as jose from 'jose'`
+   * - CJS: `const jose = require('jose')` (when `require(esm)` is supported/enabled)
+   *
+   * In some production setups, `require()` is wrapped/intercepted (e.g. PM2), which can
+   * break `require(esm)` and surface `ERR_REQUIRE_ESM`. In that case we fall back to a
+   * native dynamic import so Node's ESM loader can resolve jose.
+   *
+   * @private
+   */
+  private async getJose(): Promise<JoseModule> {
+    if (!this.joseModulePromise) {
+      this.joseModulePromise = (async () => {
+        try {
+          return require('jose') as JoseModule;
+        } catch {
+          // Native dynamic import fallback (avoids TypeScript rewriting to require()).
+
+          const nativeImport = new Function('modulePath', 'return import(modulePath)') as (
+            modulePath: string,
+          ) => Promise<unknown>;
+          return (await nativeImport('jose')) as JoseModule;
+        }
+      })();
+    }
+    return await this.joseModulePromise;
   }
 
   // ============================================================================
@@ -140,6 +209,21 @@ export class JwtService {
     } else if (this.config.accessToken.secret) {
       // For symmetric algorithms (HS256, HS384, HS512), use secret as Uint8Array
       this.accessTokenKey = new TextEncoder().encode(this.config.accessToken.secret);
+    }
+
+    // Access token public key (verification key for RS*)
+    // SECURITY NOTE:
+    // This is a pure performance optimization; caching does not change verification semantics.
+    this.accessTokenPublicKey = null;
+    this.accessTokenPublicKeyError = null;
+    if (this.config.accessToken.publicKey) {
+      try {
+        this.accessTokenPublicKey = crypto.createPublicKey(this.config.accessToken.publicKey);
+      } catch (error) {
+        // Do not throw during initialization; keep behavior consistent with runtime validation failures.
+        this.accessTokenPublicKey = null;
+        this.accessTokenPublicKeyError = error instanceof Error ? error.message : 'Invalid access token public key';
+      }
     }
 
     // Refresh token key (always uses secret for symmetric algorithms)
@@ -271,6 +355,7 @@ export class JwtService {
       );
     }
 
+    const jose = await this.getJose();
     const algorithm = this.getAlgorithm();
     let jwt = new jose.SignJWT({
       sub: data.userId,
@@ -306,7 +391,7 @@ export class JwtService {
    * Refresh tokens are long-lived (typically 30 days) and used to obtain new access tokens.
    * They should be stored securely and rotated on each use.
    *
-   * ⚠️ NOTE: Refresh tokens always use a symmetric algorithm (HS256/HS384/HS512)
+   * NOTE: Refresh tokens always use a symmetric algorithm (HS256/HS384/HS512)
    * because RefreshTokenConfig only provides a secret, not a privateKey.
    * This ensures compatibility between the algorithm and key type.
    *
@@ -323,6 +408,7 @@ export class JwtService {
       throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Refresh token secret not configured.');
     }
 
+    const jose = await this.getJose();
     // Use refresh token-specific algorithm (always symmetric)
     const algorithm = this.getRefreshTokenAlgorithm();
     const jwt = new jose.SignJWT({
@@ -370,12 +456,19 @@ export class JwtService {
    */
   async validateAccessToken(token: string): Promise<TokenValidationResult> {
     try {
+      const jose = await this.getJose();
       // Determine key for verification
       let verificationKey: Uint8Array | crypto.KeyObject;
 
       if (this.config.accessToken.publicKey) {
         // Use public key for asymmetric verification (RS256, RS384, RS512)
-        verificationKey = crypto.createPublicKey(this.config.accessToken.publicKey);
+        if (this.accessTokenPublicKey) {
+          verificationKey = this.accessTokenPublicKey;
+        } else {
+          // Fail deterministically without re-parsing the key on each request.
+          // This preserves the "invalid token" outcome while removing repeated CPU overhead.
+          throw new Error(this.accessTokenPublicKeyError || 'Access token public key is not available');
+        }
       } else if (this.accessTokenKey) {
         // Use secret for symmetric verification (HS256, HS512)
         verificationKey = this.accessTokenKey;
@@ -425,6 +518,7 @@ export class JwtService {
         throw new Error('Refresh token key not configured');
       }
 
+      const jose = await this.getJose();
       // Verify and decode token
       const { payload } = await jose.jwtVerify(token, this.refreshTokenKey);
 
@@ -452,7 +546,7 @@ export class JwtService {
   /**
    * Decode a token without verification
    *
-   * ⚠️ WARNING: This method does NOT validate the token signature or expiration.
+   * WARNING: This method does NOT validate the token signature or expiration.
    * Only use for non-security-critical operations like logging or analytics.
    *
    * @param token - JWT token to decode
@@ -460,12 +554,28 @@ export class JwtService {
    */
   decodeToken(token: string): JwtPayload | null {
     try {
-      const payload = jose.decodeJwt(token);
-      // Convert jose.JWTPayload to our JwtPayload via unknown
-      return payload as unknown as JwtPayload;
+      // This is intentionally NOT signature-validated.
+      // Avoid jose here to keep this method synchronous and safe in CJS builds.
+      const parts = token.split('.');
+      if (parts.length < 2) return null;
+
+      const payloadJson = Buffer.from(this.base64UrlToBase64(parts[1]), 'base64').toString('utf8');
+      const parsed = JSON.parse(payloadJson) as unknown;
+      return parsed as JwtPayload;
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Convert base64url-encoded strings to standard base64 for decoding.
+   * @private
+   */
+  private base64UrlToBase64(input: string): string {
+    // Replace URL-safe chars, then pad to a multiple of 4.
+    const base64 = input.replace(/-/g, '+').replace(/_/g, '/');
+    const padLength = (4 - (base64.length % 4)) % 4;
+    return `${base64}${'='.repeat(padLength)}`;
   }
 
   // ============================================================================
@@ -478,7 +588,7 @@ export class JwtService {
    * Token families are used to track token rotation and detect reuse attacks.
    * All tokens in the same "family" (original + rotated versions) share this ID.
    *
-   * ⚠️ SECURITY FIX #10: Increased from 16 bytes (128 bits) to 32 bytes (256 bits)
+   * SECURITY FIX #10: Increased from 16 bytes (128 bits) to 32 bytes (256 bits)
    *
    * @returns Random token family ID (256 bits)
    */

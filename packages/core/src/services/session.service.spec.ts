@@ -5,9 +5,10 @@ import { BaseSession } from '../entities';
 import { StorageAdapter } from '../interfaces/storage-adapter.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { NAuthConfig } from '../interfaces/config.interface';
-import { AuthAuditService } from './auth-audit.service';
+import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { ClientInfoService } from './client-info.service';
+import { AuthErrorCode } from '../enums/error-codes.enum';
 
 /**
  * SessionService Unit Tests
@@ -54,7 +55,6 @@ describe('SessionService', () => {
     platform: 'iOS',
     browser: 'Safari',
     authMethod: 'password',
-    isRemembered: false,
     isTrustedDevice: false,
     expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     lastActivityAt: new Date(),
@@ -74,6 +74,7 @@ describe('SessionService', () => {
       update: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
+      createQueryBuilder: jest.fn(),
       manager: {
         transaction: jest.fn(),
       } as any,
@@ -145,6 +146,70 @@ describe('SessionService', () => {
     );
   });
 
+  // ============================================================================
+  // findAuthContextBySessionId (hot-path)
+  // ============================================================================
+
+  describe('findAuthContextBySessionId', () => {
+    it('should return null when session not found', async () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      };
+      (mockSessionRepository.createQueryBuilder as unknown as jest.Mock).mockReturnValue(qb);
+
+      const result = await service.findAuthContextBySessionId('123');
+      expect(result).toBeNull();
+    });
+
+    it('should throw when user is inactive', async () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({
+          id: 1,
+          version: 1,
+          isRevoked: false,
+          expiresAt: new Date(Date.now() + 60_000),
+          userId: 1,
+          authMethod: 'password',
+          user: { id: 1, sub: 'sub-1', isActive: false, passwordHash: null },
+        }),
+      };
+      (mockSessionRepository.createQueryBuilder as unknown as jest.Mock).mockReturnValue(qb);
+
+      await expect(service.findAuthContextBySessionId(1)).rejects.toMatchObject({ code: AuthErrorCode.ACCOUNT_INACTIVE });
+    });
+
+    it('should return safe user without passwordHash', async () => {
+      const qb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({
+          id: 1,
+          version: 2,
+          isRevoked: false,
+          expiresAt: new Date(Date.now() + 60_000),
+          userId: 1,
+          authMethod: 'google',
+          user: { id: 1, sub: 'sub-1', email: 'test@example.com', isActive: true, passwordHash: 'hashed' },
+        }),
+      };
+      (mockSessionRepository.createQueryBuilder as unknown as jest.Mock).mockReturnValue(qb);
+
+      const result = await service.findAuthContextBySessionId('1');
+      expect(result).toBeDefined();
+      expect(result?.session.version).toBe(2);
+      expect(result?.user.sub).toBe('sub-1');
+      expect((result?.user as unknown as { passwordHash?: string }).passwordHash).toBeUndefined();
+      expect(result?.user.hasPasswordHash).toBe(true);
+    });
+  });
+
   afterEach(() => {
     jest.clearAllMocks();
   });
@@ -185,7 +250,7 @@ describe('SessionService', () => {
         deviceType: 'mobile',
         // Client info (ipAddress, ipCountry, ipCity, userAgent) automatically extracted from ClientInfoService
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        isRemembered: true,
+        isTrustedDevice: true,
         authMethod: 'password',
       };
 
@@ -209,7 +274,7 @@ describe('SessionService', () => {
           ipCity: 'New York',
           userAgent: 'Mozilla/5.0...',
           authMethod: sessionData.authMethod,
-          isRemembered: true,
+          isTrustedDevice: true,
         }),
       );
       expect(mockSessionRepository.save).toHaveBeenCalled();
@@ -235,7 +300,7 @@ describe('SessionService', () => {
       expect(result).toEqual(mockSession);
     });
 
-    it('should set isRemembered to false by default', async () => {
+    it('should set isTrustedDevice to false by default', async () => {
       const sessionData = {
         userId: 123,
         accessTokenHash: 'access-hash',
@@ -251,7 +316,7 @@ describe('SessionService', () => {
 
       expect(mockSessionRepository.create).toHaveBeenCalledWith(
         (expect as any).objectContaining({
-          isRemembered: false,
+          isTrustedDevice: false,
         }),
       );
     });
@@ -511,13 +576,14 @@ describe('SessionService', () => {
         isRevoked: false,
         expiresAt: new Date(),
         userId: 123,
+        authMethod: null,
       };
       mockSessionRepository.findOne.mockResolvedValue(lightSession as any);
 
       const result = await service.findByIdLight(123);
 
       expect(mockSessionRepository.findOne).toHaveBeenCalledWith({
-        select: ['id', 'version', 'isRevoked', 'expiresAt', 'userId'],
+        select: ['id', 'version', 'isRevoked', 'expiresAt', 'userId', 'authMethod'],
         where: { id: 123 },
       });
       expect(result).toEqual(lightSession);
@@ -538,13 +604,14 @@ describe('SessionService', () => {
         isRevoked: false,
         expiresAt: new Date(),
         userId: 123,
+        authMethod: null,
       };
       mockSessionRepository.findOne.mockResolvedValue(lightSession as any);
 
       const result = await service.findByIdLight('123');
 
       expect(mockSessionRepository.findOne).toHaveBeenCalledWith({
-        select: ['id', 'version', 'isRevoked', 'expiresAt', 'userId'],
+        select: ['id', 'version', 'isRevoked', 'expiresAt', 'userId', 'authMethod'],
         where: { id: 123 },
       });
       expect(result).toEqual(lightSession);
@@ -883,6 +950,112 @@ describe('SessionService', () => {
     });
   });
 
+  describe('revokeUserSessionsByDeviceId', () => {
+    it('should revoke all active sessions with same deviceId', async () => {
+      const deviceId = 'device-uuid-123';
+      const sessions = [
+        { ...mockSession, id: 1, deviceId },
+        { ...mockSession, id: 2, deviceId },
+      ];
+      mockSessionRepository.find.mockResolvedValue(sessions as any);
+      mockSessionRepository.update.mockResolvedValue({ affected: 2 } as any);
+      mockAuditService.recordEvent.mockResolvedValue(null);
+
+      const count = await service.revokeUserSessionsByDeviceId(123, deviceId, 'New login on same device');
+
+      expect(mockSessionRepository.find).toHaveBeenCalledWith({
+        where: {
+          userId: 123,
+          deviceId,
+          isRevoked: false,
+          expiresAt: (expect as any).anything(),
+        },
+      });
+      expect(mockSessionRepository.update).toHaveBeenCalledWith(
+        { id: (expect as any).anything() },
+        {
+          isRevoked: true,
+          revokedAt: (expect as any).any(Date),
+          revokeReason: 'New login on same device',
+        },
+      );
+      expect(count).toBe(2);
+      expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          userId: 123,
+          eventType: AuthAuditEventType.SESSION_REVOKED,
+          reason: 'New login on same device',
+          description: 'Revoked 2 session(s) with deviceId device-uuid-123 due to new login on same device',
+          metadata: {
+            deviceId,
+            revokedCount: 2,
+            sessionIds: [1, 2],
+          },
+        }),
+      );
+    });
+
+    it('should return 0 if no active sessions with deviceId', async () => {
+      mockSessionRepository.find.mockResolvedValue([]);
+
+      const count = await service.revokeUserSessionsByDeviceId(123, 'device-uuid-456');
+
+      expect(count).toBe(0);
+      expect(mockSessionRepository.update).not.toHaveBeenCalled();
+      expect(mockAuditService.recordEvent).not.toHaveBeenCalled();
+    });
+
+    it('should use default reason if not provided', async () => {
+      const deviceId = 'device-uuid-789';
+      const session = { ...mockSession, id: 1, deviceId };
+      mockSessionRepository.find.mockResolvedValue([session] as any);
+      mockSessionRepository.update.mockResolvedValue({ affected: 1 } as any);
+      mockAuditService.recordEvent.mockResolvedValue(null);
+
+      await service.revokeUserSessionsByDeviceId(123, deviceId);
+
+      expect(mockSessionRepository.update).toHaveBeenCalledWith(
+        { id: (expect as any).anything() },
+        (expect as any).objectContaining({
+          revokeReason: 'New login on same device',
+        }),
+      );
+    });
+
+    it('should handle audit logging errors gracefully', async () => {
+      const deviceId = 'device-uuid-error';
+      mockSessionRepository.find.mockResolvedValue([mockSession] as any);
+      mockSessionRepository.update.mockResolvedValue({ affected: 1 } as any);
+      mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
+
+      const count = await service.revokeUserSessionsByDeviceId(123, deviceId);
+
+      expect(count).toBe(1);
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to record SESSION_REVOKED audit event for deviceId revocation'),
+        expect.anything(),
+      );
+    });
+
+    it('should only revoke non-expired sessions', async () => {
+      const deviceId = 'device-uuid-expired-check';
+      
+      // The find query includes expiresAt: MoreThan(now)
+      // So expired sessions won't be in the results
+      mockSessionRepository.find.mockResolvedValue([]);
+
+      await service.revokeUserSessionsByDeviceId(123, deviceId);
+
+      expect(mockSessionRepository.find).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          where: (expect as any).objectContaining({
+            expiresAt: (expect as any).anything(),
+          }),
+        }),
+      );
+    });
+  });
+
   describe('revokeAllUserSessions', () => {
     it('should revoke all user sessions (global signout)', async () => {
       const sessions = [
@@ -948,8 +1121,14 @@ describe('SessionService', () => {
       expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
         (expect as any).objectContaining({
           eventType: AuthAuditEventType.SESSION_REVOKED,
-          reason: 'Global signout',
+          eventStatus: 'INFO',
+          reason: 'Session revocation',
           description: 'All user sessions revoked (1 session(s))',
+          userId: 123,
+          metadata: expect.objectContaining({
+            revokedCount: 1,
+            sessionIds: [123],
+          }),
         }),
       );
     });

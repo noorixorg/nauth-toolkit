@@ -3,9 +3,7 @@ title: LoginDTO
 description: User login request DTO with email, username, or phone authentication support. Includes optional device tracking for session management.
 keywords: [login, dto, authentication, request, email, username, phone, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -44,10 +42,11 @@ import { LoginDTO } from '@nauth-toolkit/core';
 
 | Property     | Type                                | Required | Description                                                                                    |
 | ------------ | ----------------------------------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `identifier` | `string`                            | Yes      | Email, username, or phone number. Auto-detects type. 1-255 characters.                         |
-| `password`   | `string`                            | Yes      | User password. 1-128 characters. Not trimmed.                                                  |
 | `deviceName` | `string`                            | No       | Human-readable device name (e.g., "John's iPhone"). Max 255 characters.                        |
 | `deviceType` | `'mobile' \| 'desktop' \| 'tablet'` | No       | Device type for session categorization. Must be `mobile`, `desktop`, or `tablet`. Lowercased. |
+| `identifier` | `string`                            | Yes      | Email, username, or phone number. Auto-detects type. 1-255 characters.                         |
+| `password`   | `string`                            | Yes      | User password. 1-128 characters. Not trimmed.                                                  |
+| `recaptchaToken` | `string`                        | No       | reCAPTCHA token from client. Required when reCAPTCHA is enforced. See [reCAPTCHA Guide](/docs/guides/recaptcha). |
 
 ## Example
 
@@ -56,7 +55,8 @@ import { LoginDTO } from '@nauth-toolkit/core';
   "identifier": "user@example.com",
   "password": "SecurePass123!",
   "deviceName": "John's iPhone 15",
-  "deviceType": "mobile"
+  "deviceType": "mobile",
+  "recaptchaToken": "03AGdBq25..."
 }
 ```
 

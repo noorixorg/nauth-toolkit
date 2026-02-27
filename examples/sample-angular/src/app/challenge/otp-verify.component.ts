@@ -19,7 +19,11 @@ import {
   AbstractControl,
   ValidationErrors,
 } from '@angular/forms';
-import { AuthService, AuthResponse, NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client/angular';
+import {
+  AuthService,
+  AuthResponse,
+  NAUTH_CLIENT_CONFIG,
+} from '@nauth-toolkit/client-angular/standalone';
 import {
   AuthChallenge,
   VerifyEmailResponse,
@@ -40,7 +44,7 @@ import { AutoFocusModule } from 'primeng/autofocus';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { CommonModule } from '@angular/common';
-import { catchError, of, takeUntil, Subject } from 'rxjs';
+import { takeUntil, Subject } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { ChallengeOrchestratorService } from '../services/challenge-orchestrator.service';
 import { SimulatedVerificationCodeService } from '../services/simulated-verification-code.service';
@@ -188,6 +192,7 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private triggerToast(sessionId: string, challengeName: string, method: 'sms' | 'email'): void {
     if (!sessionId) {
+      console.log('[OTP Component] triggerToast: No sessionId provided');
       return;
     }
 
@@ -198,11 +203,18 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
     // Mark as triggered immediately to prevent multiple calls
     // Resend operations will clear this flag before calling triggerToast again
     if (this.toastTriggeredSessions.has(toastKey)) {
+      console.log('[OTP Component] triggerToast: Toast already triggered for', toastKey);
       return;
     }
 
     // Mark as triggered to prevent duplicate calls
     this.toastTriggeredSessions.add(toastKey);
+    console.log(
+      '[OTP Component] triggerToast: Triggering toast for',
+      toastKey,
+      'challenge:',
+      challengeName,
+    );
 
     // Delay to ensure code is saved to database after challenge event occurs
     // Backend typically completes in 20-50ms, 500ms provides comfortable buffer
@@ -215,12 +227,14 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
         challengeParameters: {},
       };
 
+      console.log('[OTP Component] triggerToast: Calling handleChallenge with', challenge, method);
       this.simulatedVerificationCodeService
         .handleChallenge(challenge, method)
         .then(() => {
-          // Toast shown successfully
+          console.log('[OTP Component] triggerToast: Toast shown successfully');
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error('[OTP Component] triggerToast: Error showing toast', error);
           // Silently handle errors - if fetch fails, remove from set to allow retry
           this.toastTriggeredSessions.delete(toastKey);
         });
@@ -261,17 +275,20 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
   });
 
   /**
-   * Computed title based on challenge type
+   * Computed title based on challenge type and device name
    */
   title = computed(() => {
     const type = this.currentChallengeType();
+    const deviceName = this.deviceName();
+
     switch (type) {
       case AuthChallenge.VERIFY_EMAIL:
         return 'Verify Email';
       case AuthChallenge.VERIFY_PHONE:
         return 'Verify Phone';
       case AuthChallenge.MFA_REQUIRED:
-        return 'Two-Factor Authentication';
+        // Show device name if available (e.g., "Verify microsoft")
+        return deviceName ? `Verify ${deviceName}` : 'Two-Factor Authentication';
       case AuthChallenge.MFA_SETUP_REQUIRED:
         return 'Set Up Multi-Factor Authentication';
       default:
@@ -374,12 +391,19 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
       case AuthChallenge.MFA_REQUIRED: {
         // Use mfaMethod() which respects user's selected method from query params
         const method = this.mfaMethod();
+        const deviceName = this.deviceName();
+
         if (method === 'totp') {
-          return 'Please enter the code from your authenticator app.';
+          // Show device name if available (e.g., "microsoft", "Google")
+          return deviceName
+            ? `Please enter the code from ${deviceName}.`
+            : 'Please enter the code from your authenticator app.';
         }
-        // For SMS/Email, show destination only if method matches
-        if ((method === 'sms' || method === 'email') && destination) {
-          return `We've sent a verification code to ${destination}. Please enter it below.`;
+        // For SMS/Email, show destination
+        if (method === 'sms' || method === 'email') {
+          return destination
+            ? `We've sent a verification code to ${destination}. Please enter it below.`
+            : 'Please enter the verification code.';
         }
         return 'Please enter the verification code.';
       }
@@ -442,6 +466,27 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
     // Otherwise use method from challenge parameters
     if (!challenge) return undefined;
     return getMFAMethod(challenge);
+  });
+
+  /**
+   * Device name for the current verification
+   * Gets device name from preferredDeviceId in challenge parameters
+   */
+  deviceName = computed(() => {
+    const challenge = this.challenge();
+    if (!challenge) return undefined;
+
+    const params = challenge.challengeParameters;
+    const preferredDeviceId = params?.['preferredDeviceId'] as number | undefined;
+    const devices =
+      (params?.['devices'] as Array<{ id: number; name: string; type: string }>) || [];
+
+    if (preferredDeviceId && devices.length > 0) {
+      const device = devices.find((d) => d.id === preferredDeviceId);
+      return device?.name;
+    }
+
+    return undefined;
   });
 
   /**
@@ -544,9 +589,25 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
    * Validates challenge type and updates component state.
    * Handles route changes for progressive challenges.
    * Reads method from query params if user selected a different method.
+   * Handles deep links with session + code for cross-browser/device verification.
    */
   ngOnInit(): void {
     let isFirstLoad = true;
+
+    // ============================================================================
+    // Handle deep links with session + code (cross-browser/device verification)
+    // ============================================================================
+    // When user clicks verification link from email in fresh browser:
+    // URL: /auth/challenge/verify-email?session=uuid-session-token&code=123456
+    // This allows verification without localStorage/session state
+    const sessionParam = this.route.snapshot.queryParams['session'] as string | undefined;
+    const codeParam = this.route.snapshot.queryParams['code'] as string | undefined;
+
+    if (sessionParam && codeParam) {
+      // Auto-fill code and trigger verification
+      this.handleDeepLinkVerification(sessionParam, codeParam);
+      return; // Skip normal initialization
+    }
 
     // Read method from query params (if user selected different method)
     this.route.queryParams
@@ -810,6 +871,20 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
       challengeName === AuthChallenge.VERIFY_PHONE
     ) {
       this.startResendTimer();
+
+      // Trigger toast for email/phone verification
+      // Code is sent automatically when challenge is created
+      const sessionId = challenge.session;
+      if (sessionId) {
+        const method = challengeName === AuthChallenge.VERIFY_EMAIL ? 'email' : 'sms';
+        console.log(
+          '[OTP Component] Triggering toast for initial challenge:',
+          challengeName,
+          sessionId,
+          method,
+        );
+        this.triggerToast(sessionId, challengeName, method);
+      }
     }
 
     // For MFA_REQUIRED with SMS/Email preferred (or implicitly selected by backend),
@@ -820,6 +895,18 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
       const method = this.mfaMethod();
       if (method === 'sms' || method === 'email') {
         this.startResendTimer();
+        // Trigger toast for verification code (code was sent when challenge was created)
+        const challengeSessionId = challenge.session;
+        if (challengeSessionId) {
+          // Small delay to ensure challenge is fully loaded
+          setTimeout(() => {
+            this.triggerToast(
+              challengeSessionId,
+              AuthChallenge.MFA_REQUIRED,
+              method as 'sms' | 'email',
+            );
+          }, 100);
+        }
       }
     }
 
@@ -848,7 +935,7 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
    * Submits phone number (for collection) or OTP code (for verification) to complete the challenge.
    * Handles progressive challenges by routing to next challenge if needed.
    */
-  onSubmit(): void {
+  async onSubmit(): Promise<void> {
     const challenge = this.challenge();
     const challengeName = challenge?.challengeName;
 
@@ -907,18 +994,16 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
         phone: formattedPhone,
       };
 
-      this.auth.respondToChallenge(collectResponse).subscribe({
-        next: (response: AuthResponse) => {
-          // After phone collection, backend sends verification code
-          // The response will have the same VERIFY_PHONE challenge but with masked phone
-          // Update challenge state and reload
-          this.loadChallenge(response);
-        },
-        error: (err: unknown) => {
-          this.loading.set(false);
-          this.handleError(err);
-        },
-      });
+      try {
+        const response: AuthResponse = await this.auth.respondToChallenge(collectResponse);
+        // After phone collection, backend sends verification code
+        // The response will have the same VERIFY_PHONE challenge but with masked phone
+        // Update challenge state and reload
+        this.loadChallenge(response);
+      } catch (err: unknown) {
+        this.loading.set(false);
+        this.handleError(err);
+      }
       return;
     }
 
@@ -965,11 +1050,13 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
           this.error.set('MFA method not specified.');
           return;
         }
+        // SDK auto-injects deviceId if one was selected via selectMFADevice()
         challengeResponse = {
           type: AuthChallenge.MFA_REQUIRED,
           session: challenge.session!,
           method,
           code: code.trim(),
+          // No manual deviceId needed - SDK handles it!
         };
         break;
       }
@@ -1017,24 +1104,22 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
         return;
     }
 
-    this.auth.respondToChallenge(challengeResponse).subscribe({
-      next: (response: AuthResponse) => {
-        this.loading.set(false);
+    try {
+      const response: AuthResponse = await this.auth.respondToChallenge(challengeResponse);
 
-        // If response has another challenge, route to it
-        if (response.challengeName) {
-          this.handleNextChallenge(response);
-        } else {
-          // All challenges complete, redirect to success
-          const successUrl = this.config.redirects?.success || '/dashboard';
-          this.router.navigate([successUrl]);
-        }
-      },
-      error: (err: unknown) => {
-        this.loading.set(false);
-        this.handleError(err);
-      },
-    });
+      // If response has another challenge, route to it
+      if (response.challengeName) {
+        await this.handleNextChallenge(response);
+      } else {
+        // All challenges complete, redirect to success
+        const successUrl = this.config.redirects?.success || '/dashboard';
+        await this.router.navigate([successUrl]);
+      }
+    } catch (err: unknown) {
+      this.handleError(err);
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   /**
@@ -1055,7 +1140,7 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
    *
    * @param method - MFA method to request code for
    */
-  private requestCodeForMethod(method: MFAMethod): void {
+  private async requestCodeForMethod(method: MFAMethod): Promise<void> {
     const challenge = this.challenge();
     if (!challenge?.session || challenge.challengeName !== AuthChallenge.MFA_REQUIRED) {
       return;
@@ -1072,45 +1157,38 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Use getChallengeData() which accepts a method parameter
     // This triggers code sending and returns masked destination
-    this.auth
-      .getChallengeData(challenge.session, method)
-      .pipe(
-        catchError((err) => {
-          this.loading.set(false);
-          this.handleError(err);
-          return of(null);
-        }),
-      )
-      .subscribe({
-        next: (response) => {
-          this.loading.set(false);
-          if (response) {
-            // For SMS/Email, challengeData is the masked destination string
-            const maskedDest =
-              (typeof response.challengeData === 'string' ? response.challengeData : null) ||
-              'your device';
+    try {
+      const response = await this.auth.getChallengeData(challenge.session, method);
+      if (response) {
+        // For SMS/Email, challengeData is the masked destination string
+        const maskedDest =
+          (typeof response.challengeData === 'string' ? response.challengeData : null) ||
+          'your device';
 
-            // Store masked destination from API response
-            this.maskedDestinationFromQuery.set(maskedDest);
+        // Store masked destination from API response
+        this.maskedDestinationFromQuery.set(maskedDest);
 
-            // Trigger toast for verification code
-            if (challenge.session) {
-              this.triggerToast(
-                challenge.session,
-                AuthChallenge.MFA_REQUIRED,
-                method as 'sms' | 'email',
-              );
-            }
+        // Trigger toast for verification code
+        if (challenge.session) {
+          this.triggerToast(
+            challenge.session,
+            AuthChallenge.MFA_REQUIRED,
+            method as 'sms' | 'email',
+          );
+        }
 
-            this.success.set(`Code sent to ${maskedDest}`);
-            setTimeout(() => {
-              this.success.set(null);
-            }, 3000);
+        this.success.set(`Code sent to ${maskedDest}`);
+        setTimeout(() => {
+          this.success.set(null);
+        }, 3000);
 
-            this.startResendTimer();
-          }
-        },
-      });
+        this.startResendTimer();
+      }
+    } catch (err) {
+      this.handleError(err);
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   /**
@@ -1120,7 +1198,7 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
    * Starts a 60-second countdown timer to prevent spam.
    * For MFA_SETUP_REQUIRED, calls getSetupData() instead of resendCode().
    */
-  resendCode(): void {
+  async resendCode(): Promise<void> {
     const challenge = this.challenge();
     const isMfaSetupVerifyRoute = this.router.url.includes('/mfa-setup-required/verify');
 
@@ -1236,49 +1314,42 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
       }
       // Start timer immediately when resend is triggered (before API call)
       this.startResendTimer();
-      this.auth
-        .getSetupData(challenge.session, method)
-        .pipe(
-          catchError((err) => {
-            this.resending.set(false);
-            this.handleError(err);
-            return of(null);
-          }),
-        )
-        .subscribe({
-          next: (response) => {
-            this.resending.set(false);
-            if (response) {
-              const destination =
-                (response.setupData['maskedPhone'] as string) ||
-                (response.setupData['maskedEmail'] as string) ||
-                'your device';
-              this.success.set(`Code sent to ${destination}`);
-              setTimeout(() => {
-                this.success.set(null);
-              }, 5000);
+      try {
+        const response = await this.auth.getSetupData(challenge.session, method);
+        if (response) {
+          const destination =
+            (response.setupData['maskedPhone'] as string) ||
+            (response.setupData['maskedEmail'] as string) ||
+            'your device';
+          this.success.set(`Code sent to ${destination}`);
+          setTimeout(() => {
+            this.success.set(null);
+          }, 5000);
 
-              // Update masked destination from response
-              if (response.setupData['maskedPhone']) {
-                this.maskedDestinationFromQuery.set(response.setupData['maskedPhone'] as string);
-              } else if (response.setupData['maskedEmail']) {
-                this.maskedDestinationFromQuery.set(response.setupData['maskedEmail'] as string);
-              }
+          // Update masked destination from response
+          if (response.setupData['maskedPhone']) {
+            this.maskedDestinationFromQuery.set(response.setupData['maskedPhone'] as string);
+          } else if (response.setupData['maskedEmail']) {
+            this.maskedDestinationFromQuery.set(response.setupData['maskedEmail'] as string);
+          }
 
-              // Refresh toast with new code
-              if (challenge) {
-                const sessionId = challenge.session;
-                if (sessionId && method) {
-                  // Clear toast flag to allow new toast on resend
-                  const toastKey = `${sessionId}-${method}`;
-                  this.toastTriggeredSessions.delete(toastKey);
-                  // Trigger toast after resend
-                  this.triggerToast(sessionId, challengeName, method as 'sms' | 'email');
-                }
-              }
+          // Refresh toast with new code
+          if (challenge) {
+            const sessionId = challenge.session;
+            if (sessionId && method) {
+              // Clear toast flag to allow new toast on resend
+              const toastKey = `${sessionId}-${method}`;
+              this.toastTriggeredSessions.delete(toastKey);
+              // Trigger toast after resend
+              this.triggerToast(sessionId, challengeName, method as 'sms' | 'email');
             }
-          },
-        });
+          }
+        }
+      } catch (err) {
+        this.handleError(err);
+      } finally {
+        this.resending.set(false);
+      }
       return;
     }
 
@@ -1317,34 +1388,27 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
     this.error.set(null);
     this.success.set(null);
 
-    this.auth
-      .resendCode(challenge.session)
-      .pipe(
-        catchError((err) => {
-          this.resending.set(false);
-          this.handleError(err);
-          return of(null);
-        }),
-      )
-      .subscribe({
-        next: (response) => {
-          this.resending.set(false);
-          if (response) {
-            this.success.set(`Code sent to ${response.destination || 'your device'}`);
-            setTimeout(() => {
-              this.success.set(null);
-            }, 5000);
+    try {
+      const response = await this.auth.resendCode(challenge.session);
+      if (response) {
+        this.success.set(`Code sent to ${response.destination || 'your device'}`);
+        setTimeout(() => {
+          this.success.set(null);
+        }, 5000);
 
-            this.startResendTimer();
+        this.startResendTimer();
 
-            // Trigger toast after resend
-            if (challenge && challenge.session && toastMethod) {
-              const challengeName = challenge.challengeName || AuthChallenge.MFA_REQUIRED;
-              this.triggerToast(challenge.session, challengeName, toastMethod);
-            }
-          }
-        },
-      });
+        // Trigger toast after resend
+        if (challenge && challenge.session && toastMethod) {
+          const challengeName = challenge.challengeName || AuthChallenge.MFA_REQUIRED;
+          this.triggerToast(challenge.session, challengeName, toastMethod);
+        }
+      }
+    } catch (err) {
+      this.handleError(err);
+    } finally {
+      this.resending.set(false);
+    }
   }
 
   /**
@@ -1377,6 +1441,58 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
       this.timerInterval = null;
     }
     this.resendTimer.set(0);
+  }
+
+  /**
+   * Handle deep link verification from email
+   * Auto-submits verification when user clicks link with session + code
+   *
+   * @param sessionToken - Challenge session token from URL
+   * @param code - Verification code from URL
+   */
+  private async handleDeepLinkVerification(sessionToken: string, code: string): Promise<void> {
+    this.loading.set(true);
+    this.error.set(null);
+
+    try {
+      // Determine challenge type from route path
+      // Route: /auth/challenge/verify-email?session=X&code=Y
+      const url = this.router.url;
+      let challengeType: AuthChallenge = AuthChallenge.VERIFY_EMAIL; // Default
+
+      if (url.includes('verify-phone')) {
+        challengeType = AuthChallenge.VERIFY_PHONE;
+      } else if (url.includes('verify-email')) {
+        challengeType = AuthChallenge.VERIFY_EMAIL;
+      }
+
+      // Build challenge response based on type
+      const challengeResponse: VerifyEmailResponse | VerifyPhoneCodeResponse = {
+        type: challengeType,
+        session: sessionToken,
+        code: code.trim(),
+      };
+
+      const response: AuthResponse = await this.auth.respondToChallenge(challengeResponse);
+
+      // If response has another challenge, route to it
+      if (response.challengeName) {
+        await this.handleNextChallenge(response);
+      } else {
+        // All challenges complete, redirect to success
+        const successUrl = this.config.redirects?.success || '/dashboard';
+        await this.router.navigate([successUrl]);
+      }
+    } catch (err: unknown) {
+      this.loading.set(false);
+
+      this.handleError(err);
+      // Show manual entry form on error
+      this.otpForm.patchValue({ code });
+    } finally {
+      // Always turn off loading state
+      this.loading.set(false);
+    }
   }
 
   /**

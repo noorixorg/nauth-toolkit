@@ -43,7 +43,7 @@ const DEFAULT_ARGON2_CONFIG = {
  * - Password history tracking
  * - Protection against timing attacks
  *
- * ⚠️ SECURITY FIX #8: Now loads 10K+ common passwords from bundled file
+ * SECURITY FIX #8: Now loads 10K+ common passwords from bundled file
  *
  * @example
  * ```typescript
@@ -88,6 +88,18 @@ export class PasswordService {
       preventUserInfo: passwordConfig?.preventUserInfo ?? true,
       historyCount: passwordConfig?.historyCount ?? 5,
       expiryDays: passwordConfig?.expiryDays ?? 0, // 0 = disabled
+      passwordReset: {
+        codeLength: passwordConfig?.passwordReset?.codeLength ?? 6,
+        expiresIn: passwordConfig?.passwordReset?.expiresIn ?? 900, // 15 minutes
+        rateLimitMax: passwordConfig?.passwordReset?.rateLimitMax ?? 3,
+        rateLimitWindow: passwordConfig?.passwordReset?.rateLimitWindow ?? 3600, // 1 hour
+        maxAttempts: passwordConfig?.passwordReset?.maxAttempts ?? 3,
+      },
+      adminPasswordReset: {
+        codeLength: passwordConfig?.adminPasswordReset?.codeLength ?? 6,
+        expiresIn: passwordConfig?.adminPasswordReset?.expiresIn ?? 3600,
+        maxAttempts: passwordConfig?.adminPasswordReset?.maxAttempts ?? 3,
+      },
     };
   }
 

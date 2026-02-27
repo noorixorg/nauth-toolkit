@@ -8,17 +8,16 @@
  * Context is managed by the adapter, not this handler.
  */
 
-import { Repository } from 'typeorm';
 import {
   NAuthConfig,
   NAuthException,
   AuthErrorCode,
   resolveDeliveryForRequest,
-  BaseUser,
   getAccessTokenCookieName,
   NAuthLogger,
   ContextStorage,
   IClientInfo,
+  AuthService,
 } from '../index';
 import { JwtService, SessionService } from '../internal';
 import { NAuthRequest, NAuthResponse } from '../platform/interfaces';
@@ -33,7 +32,7 @@ export class AuthHandler {
   constructor(
     private jwtService: JwtService,
     private sessionService: SessionService,
-    private userRepository: Repository<BaseUser>,
+    private authService: AuthService,
     private config: NAuthConfig,
     private logger?: NAuthLogger,
   ) {}
@@ -67,17 +66,17 @@ export class AuthHandler {
         return;
       }
 
-      // Validate session
       const sessionId = validation.payload!.sessionId;
-      const userId = validation.payload!.sub; // Extract userId from token sub claim
-      const session = await this.sessionService.findByIdLight(sessionId);
+      const authContext = await this.sessionService.findAuthContextBySessionId(sessionId);
 
-      if (!session) {
+      if (!authContext) {
         this.logger?.debug?.('Session not found:', sessionId);
         await next();
         return;
       }
 
+      // Validate session
+      const session = authContext.session;
       const initialVersion = session.version;
 
       if (session.isRevoked) {
@@ -92,23 +91,21 @@ export class AuthHandler {
         return;
       }
 
-      // Load user
-      const user = await this.userRepository.findOne({
-        select: this.getUserSelectFields(),
-        where: { sub: validation.payload!.sub },
-      });
-
-      if (!user) {
-        this.logger?.warn?.('User not found:', validation.payload!.sub);
+      // Cross-check token sub matches the session user (defensive integrity validation)
+      const user = authContext.user;
+      if (user.sub !== validation.payload!.sub) {
+        this.logger?.error?.('Token sub does not match session user - possible token inconsistency');
         await next();
         return;
       }
 
-      if (!user.isActive) {
-        this.logger?.warn?.('Account is not active:', user.sub);
-        await next();
-        return;
-      }
+      // ============================================================================
+      // Session-scoped auth method propagation
+      // ============================================================================
+      // WHY: `/profile` (and other "current user" reads) must be able to show how the user
+      // authenticated for THIS session, even after a page refresh or cookie-based OAuth redirect.
+      // The source of truth is the session record (`session.authMethod`), not the user account.
+      user.sessionAuthMethod = session.authMethod ?? null;
 
       // Optimistic locking check - ensure session wasn't modified during request
       const revalidated = await this.sessionService.findByIdLight(sessionId);
@@ -129,9 +126,10 @@ export class AuthHandler {
 
       this.logger?.debug?.(`User ${user.sub} authenticated successfully`);
 
-      // Update CLIENT_INFO with sessionId and userId
+      // Update CLIENT_INFO with sessionId, userId, and sub
       this.updateClientInfoSessionId(sessionId);
-      this.updateClientInfoUserId(userId);
+      this.updateClientInfoUserId(user.id);
+      this.updateClientInfoSub(user.sub);
 
       await next();
     } catch (error) {
@@ -206,7 +204,7 @@ export class AuthHandler {
   }
 
   /**
-   * Update CLIENT_INFO with user ID from token
+   * Update CLIENT_INFO with user ID from token (internal id)
    */
   private updateClientInfoUserId(userId: string | number): void {
     const clientInfo = ContextStorage.get<IClientInfo>('CLIENT_INFO');
@@ -221,40 +219,13 @@ export class AuthHandler {
   }
 
   /**
-   * Get fields to select when loading user
+   * Update CLIENT_INFO with user sub (UUID) from authenticated user
    */
-  private getUserSelectFields(): (keyof BaseUser)[] {
-    return [
-      'id',
-      'sub',
-      'username',
-      'firstName',
-      'lastName',
-      'email',
-      'phone',
-      'isEmailVerified',
-      'isPhoneVerified',
-      'isActive',
-      'mustChangePassword',
-      'isLocked',
-      'lockReason',
-      'lockedAt',
-      'lockedUntil',
-      'failedLoginAttempts',
-      'lastFailedLoginAt',
-      'lastLoginAt',
-      'lastLoginIp',
-      'hasSocialAuth',
-      'socialProviders',
-      'mfaEnabled',
-      'mfaMethods',
-      'preferredMfaMethod',
-      'mfaExempt',
-      'mfaExemptReason',
-      'mfaExemptGrantedAt',
-      'metadata',
-      'createdAt',
-      'updatedAt',
-    ] as (keyof BaseUser)[];
+  private updateClientInfoSub(sub: string): void {
+    const clientInfo = ContextStorage.get<IClientInfo>('CLIENT_INFO');
+    if (clientInfo && sub) {
+      clientInfo.sub = sub;
+      ContextStorage.set('CLIENT_INFO', clientInfo);
+    }
   }
 }

@@ -1,135 +1,5 @@
-import { IsString, IsUUID, IsOptional, MaxLength, MinLength } from 'class-validator';
+import { IsString, IsUUID, MaxLength, MinLength, IsOptional, IsObject, ValidateIf, IsIn } from 'class-validator';
 import { Transform } from 'class-transformer';
-
-/**
- * DTO for getting social authentication URL
- *
- * Security:
- * - Provider name validated as string
- * - State parameter validated for length (CSRF protection)
- */
-export class GetSocialAuthUrlDTO {
-  /**
-   * Social provider name (e.g., 'google', 'apple', 'facebook')
-   *
-   * Validation:
-   * - Must be non-empty string
-   * - Max 50 characters
-   *
-   * Sanitization:
-   * - Trimmed and lowercased
-   */
-  @IsString({ message: 'Provider must be a string' })
-  @MaxLength(50, { message: 'Provider name must not exceed 50 characters' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim().toLowerCase();
-    }
-    return value;
-  })
-  provider!: string;
-
-  /**
-   * Optional CSRF state parameter
-   *
-   * Validation:
-   * - Max 500 characters (typical state token length)
-   * - Optional field
-   *
-   * Sanitization:
-   * - Trimmed
-   */
-  @IsOptional()
-  @IsString({ message: 'State must be a string' })
-  @MaxLength(500, { message: 'State must not exceed 500 characters' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim();
-    }
-    return value;
-  })
-  state?: string;
-}
-
-/**
- * Response DTO for getSocialAuthUrl
- */
-export class GetSocialAuthUrlResponseDTO {
-  /**
-   * OAuth authorization URL
-   */
-  url!: string;
-}
-
-/**
- * DTO for handling social authentication callback
- *
- * Security:
- * - Provider name validated
- * - Code validated for length
- * - State validated for CSRF protection
- */
-export class HandleSocialCallbackDTO {
-  /**
-   * Social provider name (e.g., 'google', 'apple', 'facebook')
-   *
-   * Validation:
-   * - Must be non-empty string
-   * - Max 50 characters
-   *
-   * Sanitization:
-   * - Trimmed and lowercased
-   */
-  @IsString({ message: 'Provider must be a string' })
-  @MaxLength(50, { message: 'Provider name must not exceed 50 characters' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim().toLowerCase();
-    }
-    return value;
-  })
-  provider!: string;
-
-  /**
-   * Authorization code from OAuth callback
-   *
-   * Validation:
-   * - Must be non-empty string
-   * - Max 1000 characters (OAuth codes can be long)
-   *
-   * Sanitization:
-   * - Trimmed
-   */
-  @IsString({ message: 'Code must be a string' })
-  @MaxLength(1000, { message: 'Authorization code must not exceed 1000 characters' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim();
-    }
-    return value;
-  })
-  code!: string;
-
-  /**
-   * State parameter from OAuth callback (for CSRF validation)
-   *
-   * Validation:
-   * - Must be non-empty string
-   * - Max 500 characters
-   *
-   * Sanitization:
-   * - Trimmed
-   */
-  @IsString({ message: 'State must be a string' })
-  @MaxLength(500, { message: 'State must not exceed 500 characters' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim();
-    }
-    return value;
-  })
-  state!: string;
-}
 
 /**
  * DTO for linking social account
@@ -140,23 +10,7 @@ export class HandleSocialCallbackDTO {
  * - Code and state validated for length
  */
 export class LinkSocialAccountDTO {
-  /**
-   * User identifier (UUID v4)
-   *
-   * Validation:
-   * - Must be valid UUID v4 format
-   *
-   * Sanitization:
-   * - Trimmed and lowercased
-   */
-  @IsUUID('4', { message: 'User ID must be a valid UUID v4 format' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim().toLowerCase();
-    }
-    return value;
-  })
-  userId!: string;
+  // No userId field - user obtained from context
 
   /**
    * Social provider name (e.g., 'google', 'apple', 'facebook')
@@ -241,23 +95,7 @@ export class LinkSocialAccountResponseDTO {
  * - User ID validated as UUID v4
  */
 export class GetLinkedAccountsDTO {
-  /**
-   * User identifier (UUID v4)
-   *
-   * Validation:
-   * - Must be valid UUID v4 format
-   *
-   * Sanitization:
-   * - Trimmed and lowercased
-   */
-  @IsUUID('4', { message: 'User ID must be a valid UUID v4 format' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim().toLowerCase();
-    }
-    return value;
-  })
-  userId!: string;
+  // No userId field - user obtained from context
 }
 
 /**
@@ -283,23 +121,7 @@ export class GetLinkedAccountsResponseDTO {
  * - Provider name validated
  */
 export class UnlinkSocialAccountDTO {
-  /**
-   * User identifier (UUID v4)
-   *
-   * Validation:
-   * - Must be valid UUID v4 format
-   *
-   * Sanitization:
-   * - Trimmed and lowercased
-   */
-  @IsUUID('4', { message: 'User ID must be a valid UUID v4 format' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim().toLowerCase();
-    }
-    return value;
-  })
-  userId!: string;
+  // No userId field - user obtained from context
 
   /**
    * Social provider name (e.g., 'google', 'apple', 'facebook')
@@ -336,7 +158,7 @@ export class UnlinkSocialAccountResponseDTO {
  * DTO for checking if user can set password
  *
  * Security:
- * - User ID validated as UUID v4
+ * - User sub validated as UUID v4
  */
 export class CanSetPasswordDTO {
   /**
@@ -348,14 +170,14 @@ export class CanSetPasswordDTO {
    * Sanitization:
    * - Trimmed and lowercased
    */
-  @IsUUID('4', { message: 'User ID must be a valid UUID v4 format' })
+  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       return value.trim().toLowerCase();
     }
     return value;
   })
-  userId!: string;
+  sub!: string;
 }
 
 /**
@@ -372,7 +194,7 @@ export class CanSetPasswordResponseDTO {
  * DTO for setting password for social-only user
  *
  * Security:
- * - User ID validated as UUID v4
+ * - User sub validated as UUID v4
  * - Password validated for strength (delegated to AuthService)
  */
 export class SetPasswordForSocialUserDTO {
@@ -385,14 +207,14 @@ export class SetPasswordForSocialUserDTO {
    * Sanitization:
    * - Trimmed and lowercased
    */
-  @IsUUID('4', { message: 'User ID must be a valid UUID v4 format' })
+  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
       return value.trim().toLowerCase();
     }
     return value;
   })
-  userId!: string;
+  sub!: string;
 
   /**
    * New password
@@ -419,4 +241,278 @@ export class SetPasswordForSocialUserResponseDTO {
    * Success message
    */
   message!: string;
+}
+
+/**
+ * DTO for handling OAuth callback
+ *
+ * Used when processing OAuth callback from social providers after user authorization.
+ *
+ * Security:
+ * - Code validated for length
+ * - State validated for CSRF protection
+ *
+ * @example
+ * ```typescript
+ * const dto: HandleCallbackDTO = {
+ *   code: 'authorization_code_from_provider',
+ *   state: 'csrf_state_token'
+ * };
+ * ```
+ */
+export class HandleCallbackDTO {
+  /**
+   * Authorization code from OAuth callback
+   *
+   * Validation:
+   * - Must be non-empty string
+   * - Max 2000 characters
+   *
+   * Sanitization:
+   * - Trimmed
+   */
+  @IsString({ message: 'Code must be a string' })
+  @MaxLength(2000, { message: 'Authorization code must not exceed 2000 characters' })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    return value;
+  })
+  code!: string;
+
+  /**
+   * State parameter from OAuth callback (for CSRF validation)
+   *
+   * Validation:
+   * - Must be non-empty string
+   * - Max 500 characters
+   *
+   * Sanitization:
+   * - Trimmed
+   */
+  @IsString({ message: 'State must be a string' })
+  @MaxLength(500, { message: 'State must not exceed 500 characters' })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    return value;
+  })
+  state!: string;
+
+  /**
+   * Optional profile data from OAuth callback
+   *
+   * Used by providers (e.g., Apple) that send user profile data directly in the callback.
+   * Apple only sends this on the first sign-in with name fields.
+   *
+   * Validation:
+   * - Optional field
+   *
+   * @example
+   * ```typescript
+   * // Apple callback with user data
+   * {
+   *   code: 'abc123',
+   *   state: 'xyz789',
+   *   profileData: {
+   *     name: { firstName: 'John', lastName: 'Doe' },
+   *     email: 'user@privaterelay.appleid.com'
+   *   }
+   * }
+   * ```
+   */
+  @IsOptional()
+  profileData?: Record<string, unknown>;
+}
+
+/**
+ * DTO for verifying social authentication token from native mobile apps
+ *
+ * Used when mobile apps (iOS, Android) use native SDKs (e.g., Google Sign-In SDK,
+ * Sign in with Apple, Facebook SDK) and need to verify tokens on the backend.
+ *
+ * Supports provider-aware validation:
+ * - **google**: requires `idToken`, `accessToken` optional
+ * - **apple**: requires `idToken`, `accessToken` optional, `profileData` optional
+ * - **facebook**:
+ *   - Classic login: requires `accessToken` (when `idToken` not provided)
+ *   - Limited Login (OIDC): requires `idToken` (JWT, when `accessToken` not provided)
+ *
+ * Security:
+ * - Provider allow-list enforced
+ * - Per-provider required fields validated
+ * - Token signature verification performed
+ * - Token must be fresh (not expired)
+ *
+ * @example
+ * ```typescript
+ * // Google Sign-In from iOS/Android
+ * const dto: VerifyTokenDTO = {
+ *   provider: 'google',
+ *   idToken: 'eyJhbGciOiJSUzI1NiIs...',
+ *   accessToken: 'ya29.a0AfH6SM...'
+ * };
+ *
+ * // Sign in with Apple from iOS
+ * const dto: VerifyTokenDTO = {
+ *   provider: 'apple',
+ *   idToken: 'eyJraWQiOiJlWGF1bm...',
+ *   profileData: {
+ *     name: { firstName: 'John', lastName: 'Doe' },
+ *     email: 'user@privaterelay.appleid.com'
+ *   }
+ * };
+ *
+ * // Facebook classic login
+ * const dto: VerifyTokenDTO = {
+ *   provider: 'facebook',
+ *   accessToken: 'EAABwzLixnjYBO...'
+ * };
+ *
+ * // Facebook Limited Login (iOS)
+ * const dto: VerifyTokenDTO = {
+ *   provider: 'facebook',
+ *   idToken: 'eyJhbGciOiJSUzI1NiIs...'
+ * };
+ * ```
+ */
+export class VerifyTokenDTO {
+  /**
+   * Social provider name
+   *
+   * Validation:
+   * - Must be one of: 'google', 'apple', 'facebook'
+   * - Max 50 characters
+   *
+   * Sanitization:
+   * - Trimmed and lowercased
+   *
+   * @example
+   * ```typescript
+   * { provider: 'google' }
+   * ```
+   */
+  @IsString({ message: 'provider must be a string' })
+  @MaxLength(50, { message: 'provider must not exceed 50 characters' })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') return value.trim().toLowerCase();
+    return value;
+  })
+  @IsIn(['google', 'apple', 'facebook'], { message: 'provider must be one of: google, apple, facebook' })
+  provider!: string;
+
+  /**
+   * ID token (JWT) from native SDK
+   *
+   * Required for:
+   * - google (always)
+   * - apple (always)
+   * - facebook Limited Login (when accessToken is not provided)
+   *
+   * Validation:
+   * - Required for google/apple
+   * - Required for facebook only when accessToken is NOT provided
+   * - Must be non-empty string
+   * - Max 10000 characters (JWT tokens can be large)
+   *
+   * Sanitization:
+   * - Trimmed
+   */
+  @ValidateIf((o: VerifyTokenDTO) => o.provider !== 'facebook' || !o.accessToken)
+  @IsString({ message: 'idToken must be a string' })
+  @MinLength(1, { message: 'idToken must not be empty' })
+  @MaxLength(10000, { message: 'idToken must not exceed 10000 characters' })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    return value;
+  })
+  idToken?: string;
+
+  /**
+   * Access token (opaque) from native SDK
+   *
+   * Required for:
+   * - facebook classic login (when idToken is not provided)
+   *
+   * Optional for:
+   * - google (provided alongside idToken)
+   *
+   * Validation:
+   * - Required for facebook only when idToken is NOT provided
+   * - Must be non-empty string if provided
+   * - Max 2000 characters
+   *
+   * Sanitization:
+   * - Trimmed
+   */
+  @ValidateIf((o: VerifyTokenDTO) => o.provider === 'facebook' && !o.idToken)
+  @IsString({ message: 'accessToken must be a string' })
+  @MinLength(1, { message: 'accessToken must not be empty' })
+  @MaxLength(2000, { message: 'accessToken must not exceed 2000 characters' })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    return value;
+  })
+  accessToken?: string;
+
+  /**
+   * Optional profile data from native SDK
+   *
+   * Some providers (e.g., Apple) only provide user profile data on first sign-in.
+   * Clients should capture and send this data for proper user creation.
+   *
+   * Validation:
+   * - Optional
+   * - Must be a valid object if provided
+   *
+   * @example
+   * ```typescript
+   * {
+   *   name: { firstName: 'John', lastName: 'Doe' },
+   *   email: 'user@privaterelay.appleid.com'
+   * }
+   * ```
+   */
+  @IsOptional()
+  @IsObject({ message: 'profileData must be an object' })
+  profileData?: Record<string, unknown>;
+}
+
+/**
+ * DTO for exchanging a social redirect exchange token
+ *
+ * Used in redirect-first social login flow. The backend redirects back to the frontend
+ * with an `exchangeToken` in the URL, and the frontend exchanges it for an AuthResponse.
+ *
+ * Security:
+ * - Exchange token validated for length
+ * - One-time use (consumed immediately)
+ * - Short TTL (default: 60 seconds)
+ */
+export class SocialExchangeDTO {
+  /**
+   * One-time exchange token from callback redirect URL
+   *
+   * Validation:
+   * - Must be non-empty string
+   * - Max 500 characters
+   *
+   * Sanitization:
+   * - Trimmed
+   */
+  @IsString({ message: 'exchangeToken must be a string' })
+  @MaxLength(500, { message: 'exchangeToken must not exceed 500 characters' })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    return value;
+  })
+  exchangeToken!: string;
 }

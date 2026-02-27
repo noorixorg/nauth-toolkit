@@ -71,7 +71,7 @@ export enum AuthChallenge {
  *     email: 'user@example.com',
  *     codeDeliveryDestination: 'u***@example.com'
  *   },
- *   userSub: 'a21b654c-2746-4168-acee-c175083a65cd'
+ *   sub: 'a21b654c-2746-4168-acee-c175083a65cd'
  * }
  * ```
  */
@@ -148,7 +148,7 @@ export class AuthChallengeResponseDTO {
     }
     return value;
   })
-  userSub!: string;
+  sub!: string;
 }
 
 /**

@@ -79,14 +79,21 @@ export class AuthFlowContextBuilder {
     const isDeviceTrusted = await this.checkDeviceTrust(user, deviceToken, config);
     const gracePeriodData = this.calculateGracePeriod(user, config);
     const blockData = await this.checkBlocked(user);
-    const mfaVerificationData = await this.checkMFAVerification(
-      user,
-      config,
-      authMethod,
-      deviceToken,
-      isDeviceTrusted,
-      skipMFAVerification,
-    );
+
+    // ============================================================================
+    // IMPORTANT: If the user is already blocked (persisted from a previous high-risk decision),
+    // do NOT run adaptive evaluation again. That evaluation can send notification emails and
+    // produce fresh risk scores, which becomes confusing when the state machine will block anyway.
+    // ============================================================================
+    const mfaVerificationData = blockData.blocked
+      ? { required: false, isBlocked: true }
+      : await this.checkMFAVerification(user, config, authMethod, deviceToken, isDeviceTrusted, skipMFAVerification);
+
+    // Merge block status from existing storage and adaptive MFA decision
+    const isBlocked = blockData.blocked || (mfaVerificationData.isBlocked ?? false);
+    const blockedUntil = blockData.until; // From existing block
+    const blockReason =
+      blockData.reason || (mfaVerificationData.isBlocked ? 'Sign in blocked due to suspicious activity' : undefined);
 
     const computed = {
       isEmailVerificationRequired,
@@ -98,9 +105,9 @@ export class AuthFlowContextBuilder {
       isDeviceTrusted,
       isGracePeriodActive: gracePeriodData.isActive,
       gracePeriodEndsAt: gracePeriodData.endsAt,
-      isBlocked: blockData.blocked,
-      blockedUntil: blockData.until,
-      blockReason: blockData.reason,
+      isBlocked,
+      blockedUntil,
+      blockReason,
       riskScore: mfaVerificationData.riskScore,
       riskLevel: mfaVerificationData.riskLevel,
     };
@@ -398,7 +405,7 @@ export class AuthFlowContextBuilder {
     _deviceToken?: string, // Reserved for future use
     isDeviceTrusted?: boolean,
     skipMFAVerification?: boolean,
-  ): Promise<{ required: boolean; riskScore?: number; riskLevel?: 'low' | 'medium' | 'high' }> {
+  ): Promise<{ required: boolean; riskScore?: number; riskLevel?: 'low' | 'medium' | 'high'; isBlocked?: boolean }> {
     // Skip if flag is set
     if (skipMFAVerification) {
       return { required: false };
@@ -470,6 +477,20 @@ export class AuthFlowContextBuilder {
       // Always evaluate adaptive MFA for complete risk assessment (trusted or untrusted)
       try {
         const decision = await this.adaptiveMFADecisionService.evaluateAdaptiveMFA(user, authMethod || 'password');
+
+        // Handle block_signin action - block user and store in storage
+        if (decision.action === 'block_signin') {
+          if (decision.payload) {
+            await this.adaptiveMFADecisionService.blockUserSignIn(user, decision.payload);
+          }
+          // Mark as blocked so state machine will transition to BLOCKED state
+          return {
+            required: false, // Not relevant - will be blocked
+            riskScore: decision.riskScore,
+            riskLevel: decision.riskLevel,
+            isBlocked: true,
+          };
+        }
 
         // For untrusted devices, always require MFA regardless of risk score
         // (new devices are inherently riskier and should verify)

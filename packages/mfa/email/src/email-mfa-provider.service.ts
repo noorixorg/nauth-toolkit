@@ -3,7 +3,6 @@ import { Repository } from 'typeorm';
 import {
   BaseMFADevice,
   BaseUser,
-  IUser,
   NAuthConfig,
   NAuthLogger,
   NAuthException,
@@ -12,9 +11,10 @@ import {
   MFAMethod,
   SendVerificationEmailDTO,
   VerifyEmailWithCodeDTO,
+  ClientInfoService,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
-import { BaseMFAProviderService } from '@nauth-toolkit/core/internal';
+import { BaseMFAProviderService, ChallengeService, AuthAuditService } from '@nauth-toolkit/core/internal';
 import { SetupEmailMFADTO, VerifyEmailMFASetupDTO } from './dto/mfa.dto';
 
 /**
@@ -28,7 +28,7 @@ import { SetupEmailMFADTO, VerifyEmailMFASetupDTO } from './dto/mfa.dto';
  * - Email code verification
  * - MFA device creation for Email
  *
- * Requires EmailVerificationService from core (available when email provider is configured).
+ * Requires EmailVerificationService from core.
  *
  * @example
  * ```typescript
@@ -48,9 +48,9 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
     logger: NAuthLogger,
     passwordService: unknown,
     private readonly emailVerificationService?: EmailVerificationService,
-    challengeService?: unknown, // ChallengeService (optional)
-    auditService?: unknown, // AuthAuditService (optional)
-    clientInfoService?: unknown, // ClientInfoService (optional)
+    challengeService?: ChallengeService,
+    auditService?: AuthAuditService,
+    clientInfoService?: ClientInfoService,
   ) {
     super(
       mfaDeviceRepository,
@@ -58,9 +58,9 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
       config,
       logger,
       passwordService,
-      challengeService as any,
-      auditService as any,
-      clientInfoService as any,
+      challengeService,
+      auditService,
+      clientInfoService,
     );
   }
 
@@ -85,10 +85,8 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
    * // If email not verified: { maskedEmail: 'u***r@example.com' } (Email code sent)
    * ```
    */
-  async setup(
-    user: IUser,
-    setupData?: unknown,
-  ): Promise<{ deviceId: number; autoCompleted: true } | { maskedEmail: string }> {
+  async setup(setupData?: unknown): Promise<{ deviceId: number; autoCompleted: true } | { maskedEmail: string }> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Setting up Email MFA for user: ${user.sub}`);
 
     // Check if Email is allowed
@@ -118,7 +116,6 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
       this.logger?.log?.(`Email already verified for user ${user.sub}, auto-completing Email MFA setup`);
       // Auto-create MFA device without code verification
       const deviceId = await this.verifySetup(
-        user,
         {
           email,
           code: '', // Code not needed when email is verified
@@ -161,9 +158,9 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
    * Enables MFA for user if this is their first device.
    *
    * **Race Condition Safety:**
-   * Device creation uses transaction with pessimistic locking to prevent duplicates.
-   * If device already exists (e.g., from concurrent request), returns existing device.
-   * Database unique constraint (userId, type) provides final safety net.
+   * Device creation uses a transaction with pessimistic locking.
+   *
+   * Note: Email MFA is treated as a singleton method in NAuth (one active Email device per user).
    *
    * @param user - User completing Email MFA setup
    * @param verificationData - Verification data (must be VerifyEmailMFASetupDTO)
@@ -179,7 +176,8 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
    * });
    * ```
    */
-  async verifySetup(user: IUser, verificationData: unknown, deviceName?: string): Promise<number> {
+  async verifySetup(verificationData: unknown, deviceName?: string): Promise<number> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying Email MFA setup for user: ${user.sub}`);
 
     const dto = verificationData as VerifyEmailMFASetupDTO;
@@ -242,17 +240,19 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
     }
 
     // ============================================================================
-    // Create MFA device (transaction-safe with duplicate prevention)
+    // Create MFA device (transaction-safe, singleton semantics)
     // ============================================================================
-    // createDevice() uses pessimistic locking to prevent race conditions
-    // If device already exists, returns existing device instead of creating duplicate
-    // Database unique constraint (userId, type) provides additional safety
-    const device = await this.createDevice(userId, {
-      name: deviceName || 'Email',
-      email, // Use resolved email (dto.email or user.email)
-      isActive: true,
-      isPrimary: !userMfaEnabled, // First device becomes primary
-    });
+    // We de-duplicate by method (userId + method) to preserve legacy behavior.
+    const device = await this.createDevice(
+      userId,
+      {
+        name: deviceName || 'Email',
+        email, // Use resolved email (dto.email or user.email)
+        isActive: true,
+        isPrimary: !userMfaEnabled, // First device becomes primary
+      },
+      { dedupeWhere: {} },
+    );
 
     // Enable MFA if not already enabled
     await this.enableMFAForUser(user);
@@ -278,7 +278,8 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
    * const isValid = await provider.verify(user, '123456');
    * ```
    */
-  async verify(user: IUser, code: unknown, deviceId?: number): Promise<boolean> {
+  async verify(code: unknown, deviceId?: number): Promise<boolean> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying Email code for user: ${user.sub}`);
 
     // Check if email verification service is available
@@ -337,7 +338,8 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
 
       // For unexpected errors, log and return false (generic failure)
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorCode = (error as any)?.code || 'UNKNOWN';
+      const errorCode =
+        (error && typeof error === 'object' && 'code' in error ? String(error.code) : undefined) || 'UNKNOWN';
       this.logger?.warn?.(
         `Email code verification failed for user: ${user.sub}, code: ${emailCode}, error: ${errorCode} - ${errorMessage}`,
       );
@@ -349,18 +351,20 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
    * Send Email code for MFA verification
    *
    * Called during login MFA challenge to send code to registered email.
+   * Uses EmailVerificationService for code generation and DB storage (same as setup/verify).
    *
-   * @param user - User requesting Email code
+   * @param challengeSessionId - Optional challenge session ID to link the code to the session
    * @returns Masked email address where code was sent
    * @throws {NAuthException} If no Email device registered or email verification service unavailable
    *
    * @example
    * ```typescript
-   * const maskedEmail = await provider.sendChallenge(user);
+   * const maskedEmail = await provider.sendChallenge(123);
    * // Returns: 'u***r@example.com'
    * ```
    */
-  async sendChallenge(user: IUser): Promise<string> {
+  async sendChallenge(challengeSessionId?: number): Promise<string> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Sending Email MFA code for user: ${user.sub}`);
 
     // Get user entity
@@ -392,13 +396,14 @@ export class EmailMFAProviderService extends BaseMFAProviderService {
       );
     }
 
-    // Send Email code for MFA verification
-    // Always send codes for MFA verification (even if email is already verified)
+    // Send MFA email code via EmailVerificationService
+    // This uses the mfaEmailCode template and stores code in DB verification tokens table
     // skipAlreadyVerifiedCheck=true because email is already verified but we need MFA code
     const sendDto = new SendVerificationEmailDTO();
     sendDto.sub = user.sub;
     sendDto.skipAlreadyVerifiedCheck = true;
-    await this.emailVerificationService.sendVerificationEmail(sendDto);
+    sendDto.challengeSessionId = challengeSessionId;
+    await this.emailVerificationService.sendMFAEmailCode(sendDto);
 
     this.logger?.log?.(`Email MFA code sent for user: ${user.sub}`);
 

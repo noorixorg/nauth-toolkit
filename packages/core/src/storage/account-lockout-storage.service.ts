@@ -15,11 +15,12 @@ export class AccountLockoutStorageService implements AccountLockoutStorage {
   /**
    * Record failed login attempt for an IP address
    * @param ipAddress - IP address that made the failed attempt
+   * @param ttlSeconds - Optional TTL (seconds) for the attempt counter window
    * @returns Number of failed attempts for this IP
    */
-  async recordFailedAttempt(ipAddress: string): Promise<number> {
+  async recordFailedAttempt(ipAddress: string, ttlSeconds?: number): Promise<number> {
     const key = this.getKey(ipAddress);
-    return await this.storageAdapter.incr(key);
+    return await this.storageAdapter.incr(key, ttlSeconds);
   }
 
   /**
@@ -49,7 +50,7 @@ export class AccountLockoutStorageService implements AccountLockoutStorage {
    * @param duration - Lock duration in seconds
    * @param reason - Reason for lockout
    */
-  async blockIpAdresss(ipAddress: string, duration: number, reason: string): Promise<void> {
+  async lockIpAddress(ipAddress: string, duration: number, reason: string): Promise<void> {
     const lockKey = this.getLockKey(ipAddress);
     const lockData = JSON.stringify({
       reason,
@@ -58,13 +59,23 @@ export class AccountLockoutStorageService implements AccountLockoutStorage {
     });
 
     await this.storageAdapter.set(lockKey, lockData, duration);
+
+    // ============================================================================
+    // IMPORTANT: Reset attempt counter on lock
+    // ============================================================================
+    // WHY:
+    // - Without this, a user can remain at/above maxAttempts and get re-locked immediately
+    //   once the lock TTL expires (especially when attempt counters are long-lived).
+    // - Lock duration is the penalty window; after it expires, users should get a fresh
+    //   attempt budget within the next attempt window.
+    await this.resetFailedAttempts(ipAddress);
   }
 
   /**
    * Unlock an IP address and reset failed attempts
    * @param ipAddress - IP address to unlock
    */
-  async unblockIPAdress(ipAddress: string): Promise<void> {
+  async unlockIpAddress(ipAddress: string): Promise<void> {
     const lockKey = this.getLockKey(ipAddress);
     await this.storageAdapter.del(lockKey);
     await this.resetFailedAttempts(ipAddress);

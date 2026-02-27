@@ -4,14 +4,18 @@ import { BaseMFADevice, BaseUser } from '../entities';
 import { IUser, IMFADevice } from '../interfaces/entities.interface';
 import { IMFAProviderService } from '../interfaces/mfa-provider.interface';
 import { NAuthException } from '../exceptions/nauth.exception';
+import { AuthErrorCode } from '../enums/error-codes.enum';
 import { MFAMethod, MFADeviceMethod } from '../enums/mfa-method.enum';
 import { ChallengeService } from './challenge.service';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
 import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
-import { AuthAuditService } from './auth-audit.service';
+import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { ClientInfoService } from './client-info.service';
+import { SetMFAExemptionDTO } from '../dto';
+import { ContextStorage } from '../utils/context-storage';
+import { SetupMFADTO } from '../dto/setup-mfa.dto';
 
 /**
  * MFA Service Unit Tests
@@ -42,7 +46,7 @@ describe('MFAService', () => {
 
   const mockUser: Partial<IUser> = {
     id: 1,
-    sub: 'user-uuid-123',
+    sub: 'a21b654c-2746-4168-acee-c175083a65cd',
     email: 'test@example.com',
     mfaEnabled: true,
     mfaMethods: ['totp'],
@@ -129,6 +133,218 @@ describe('MFAService', () => {
   });
 
   // ============================================================================
+  // setMFAExemption() Method
+  // ============================================================================
+
+  describe('setMFAExemption', () => {
+    it('should throw when user is not found', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      const dto = new SetMFAExemptionDTO();
+      dto.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      dto.exempt = true;
+      dto.reason = 'Admin override';
+      dto.grantedBy = 'admin@example.com';
+
+      await expect(service.setMFAExemption(dto)).rejects.toThrow(NAuthException);
+    });
+
+    it('should grant exemption by resolving user via UUID sub identifier', async () => {
+      const userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      const userEntity = {
+        id: 42,
+        sub: userSub,
+        mfaEnabled: false,
+        mfaExempt: false,
+      } as unknown as BaseUser;
+
+      mockUserRepository.findOne.mockImplementation(async (opts: unknown) => {
+        const typed = opts as { where?: Partial<BaseUser>; select?: string[] };
+        if (typed.where?.sub === userSub) {
+          return userEntity;
+        }
+        if (typed.where?.id === userEntity.id && Array.isArray(typed.select)) {
+          return {
+            mfaExempt: true,
+            mfaExemptReason: 'Admin override',
+            mfaExemptGrantedAt: new Date('2024-01-01T00:00:00.000Z'),
+          } as unknown as BaseUser;
+        }
+        return null;
+      });
+
+      mockUserRepository.update.mockResolvedValue({} as never);
+
+      const dto = new SetMFAExemptionDTO();
+      dto.sub = userSub;
+      dto.exempt = true;
+      dto.reason = 'Admin override';
+      dto.grantedBy = 'admin@example.com';
+
+      const result = await service.setMFAExemption(dto);
+
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: userSub } });
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        userEntity.id,
+        expect.objectContaining({ mfaExempt: true }),
+      );
+      expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: userEntity.id,
+          eventType: AuthAuditEventType.MFA_EXEMPTION_GRANTED,
+        }),
+      );
+      expect(result).toEqual({
+        mfaExempt: true,
+        mfaExemptReason: 'Admin override',
+        mfaExemptGrantedAt: new Date('2024-01-01T00:00:00.000Z'),
+      });
+    });
+
+    it('should include performedByName in audit metadata when admin user is in context', async () => {
+      const userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      const adminSub = 'admin-uuid-1234';
+      const adminUser: Partial<IUser> = {
+        id: 99,
+        sub: adminSub,
+        email: 'admin@example.com',
+        firstName: 'John',
+        lastName: 'Admin',
+        isActive: true,
+        isEmailVerified: true,
+        isPhoneVerified: false,
+        isLocked: false,
+        mustChangePassword: false,
+        mfaEnabled: false,
+        hasSocialAuth: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      };
+
+      const userEntity = {
+        id: 42,
+        sub: userSub,
+        mfaEnabled: false,
+        mfaExempt: false,
+      } as unknown as BaseUser;
+
+      // Set admin user in context
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', adminUser as IUser);
+
+        mockUserRepository.findOne.mockImplementation(async (opts: unknown) => {
+          const typed = opts as { where?: Partial<BaseUser>; select?: string[] };
+          if (typed.where?.sub === userSub) {
+            return userEntity;
+          }
+          if (typed.where?.id === userEntity.id && Array.isArray(typed.select)) {
+            return {
+              mfaExempt: true,
+              mfaExemptReason: 'Admin override',
+              mfaExemptGrantedAt: new Date('2024-01-01T00:00:00.000Z'),
+            } as unknown as BaseUser;
+          }
+          return null;
+        });
+
+        mockUserRepository.update.mockResolvedValue({} as never);
+
+        const dto = new SetMFAExemptionDTO();
+        dto.sub = userSub;
+        dto.exempt = true;
+        dto.reason = 'Admin override';
+        dto.grantedBy = adminSub;
+
+        await service.setMFAExemption(dto);
+
+        // Verify audit was called with performedByName in metadata
+        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userId: userEntity.id,
+            eventType: AuthAuditEventType.MFA_EXEMPTION_GRANTED,
+            performedBy: adminSub,
+            metadata: expect.objectContaining({
+              performedByName: 'John Admin',
+            }),
+          }),
+        );
+      });
+    });
+
+    it('should use email for performedByName when admin has no firstName/lastName', async () => {
+      const userSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+      const adminSub = 'admin-uuid-5678';
+      const adminUser: Partial<IUser> = {
+        id: 100,
+        sub: adminSub,
+        email: 'admin2@example.com',
+        firstName: null,
+        lastName: null,
+        isActive: true,
+        isEmailVerified: true,
+        isPhoneVerified: false,
+        isLocked: false,
+        mustChangePassword: false,
+        mfaEnabled: false,
+        hasSocialAuth: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      };
+
+      const userEntity = {
+        id: 43,
+        sub: userSub,
+        mfaEnabled: false,
+        mfaExempt: false,
+      } as unknown as BaseUser;
+
+      // Set admin user in context
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', adminUser as IUser);
+
+        mockUserRepository.findOne.mockImplementation(async (opts: unknown) => {
+          const typed = opts as { where?: Partial<BaseUser>; select?: string[] };
+          if (typed.where?.sub === userSub) {
+            return userEntity;
+          }
+          if (typed.where?.id === userEntity.id && Array.isArray(typed.select)) {
+            return {
+              mfaExempt: true,
+              mfaExemptReason: 'Admin override',
+              mfaExemptGrantedAt: new Date('2024-01-01T00:00:00.000Z'),
+            } as unknown as BaseUser;
+          }
+          return null;
+        });
+
+        mockUserRepository.update.mockResolvedValue({} as never);
+
+        const dto = new SetMFAExemptionDTO();
+        dto.sub = userSub;
+        dto.exempt = true;
+        dto.reason = 'Admin override';
+        dto.grantedBy = adminSub;
+
+        await service.setMFAExemption(dto);
+
+        // Verify audit was called with email as performedByName
+        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userId: userEntity.id,
+            eventType: AuthAuditEventType.MFA_EXEMPTION_GRANTED,
+            performedBy: adminSub,
+            metadata: expect.objectContaining({
+              performedByName: 'admin2@example.com',
+            }),
+          }),
+        );
+      });
+    });
+  });
+
+  // ============================================================================
   // Service Initialization
   // ============================================================================
 
@@ -144,7 +360,7 @@ describe('MFAService', () => {
     it('should register provider successfully', () => {
       service.registerProvider(mockProvider1);
 
-      expect(service.hasProvider('totp')).toBe(true);
+      expect(service.hasProvider({ methodName: 'totp' }).hasProvider).toBe(true);
     });
 
     it('should throw error when provider already registered', () => {
@@ -158,8 +374,8 @@ describe('MFAService', () => {
       service.registerProvider(mockProvider1);
       service.registerProvider(mockProvider2);
 
-      expect(service.hasProvider('totp')).toBe(true);
-      expect(service.hasProvider('sms')).toBe(true);
+      expect(service.hasProvider({ methodName: 'totp' }).hasProvider).toBe(true);
+      expect(service.hasProvider({ methodName: 'sms' }).hasProvider).toBe(true);
     });
   });
 
@@ -190,11 +406,11 @@ describe('MFAService', () => {
     it('should return true for registered provider', () => {
       service.registerProvider(mockProvider1);
 
-      expect(service.hasProvider('totp')).toBe(true);
+      expect(service.hasProvider({ methodName: 'totp' }).hasProvider).toBe(true);
     });
 
     it('should return false for unregistered provider', () => {
-      expect(service.hasProvider('totp')).toBe(false);
+      expect(service.hasProvider({ methodName: 'totp' }).hasProvider).toBe(false);
     });
   });
 
@@ -204,14 +420,14 @@ describe('MFAService', () => {
 
   describe('listProviders', () => {
     it('should return empty array when no providers registered', () => {
-      expect(service.listProviders()).toEqual([]);
+      expect(service.listProviders().providers).toEqual([]);
     });
 
     it('should return all registered provider names', () => {
       service.registerProvider(mockProvider1);
       service.registerProvider(mockProvider2);
 
-      const providers = service.listProviders();
+      const providers = service.listProviders().providers;
 
       expect(providers).toContain('totp');
       expect(providers).toContain('sms');
@@ -224,14 +440,18 @@ describe('MFAService', () => {
   // ============================================================================
 
   describe('getAvailableMethods', () => {
+    beforeEach(() => {
+      mockUserRepository.findOne = jest.fn().mockResolvedValue(mockUser);
+    });
+
     it('should return only allowed methods', async () => {
       service.registerProvider(mockProvider1);
       service.registerProvider(mockProvider2);
 
-      const methods = await service.getAvailableMethods(mockUser as IUser);
+      const methods = await service.getAvailableMethods({ sub: mockUser.sub! });
 
-      expect(methods).toContain('totp');
-      expect(methods).toContain('sms');
+      expect(methods.availableMethods).toContain('totp');
+      expect(methods.availableMethods).toContain('sms');
     });
 
     it('should filter out methods not allowed by provider', async () => {
@@ -242,15 +462,15 @@ describe('MFAService', () => {
 
       service.registerProvider(restrictedProvider);
 
-      const methods = await service.getAvailableMethods(mockUser as IUser);
+      const methods = await service.getAvailableMethods({ sub: mockUser.sub! });
 
-      expect(methods).not.toContain('totp');
+      expect(methods.availableMethods).not.toContain('totp');
     });
 
     it('should return empty array when no providers registered', async () => {
-      const methods = await service.getAvailableMethods(mockUser as IUser);
+      const methods = await service.getAvailableMethods({ sub: mockUser.sub! });
 
-      expect(methods).toEqual([]);
+      expect(methods).toEqual({ availableMethods: [] });
     });
   });
 
@@ -261,20 +481,21 @@ describe('MFAService', () => {
   describe('verifyCode', () => {
     beforeEach(() => {
       service.registerProvider(mockProvider1);
+      mockUserRepository.findOne = jest.fn().mockResolvedValue(mockUser);
     });
 
     it('should route verification to correct provider', async () => {
       mockProvider1.verify.mockResolvedValue(true);
 
-      const result = await service.verifyCode(mockUser as IUser, 'totp', '123456');
+      const result = await service.verifyCode({ sub: mockUser.sub!, methodName: 'totp', code: '123456' });
 
-      expect(result).toBe(true);
-      expect(mockProvider1.verify).toHaveBeenCalledWith(mockUser as IUser, '123456', undefined);
+      expect(result).toEqual({ valid: true });
+      expect(mockProvider1.verify).toHaveBeenCalledWith('123456', undefined);
     });
 
     it('should throw error when provider not registered', async () => {
       try {
-        await service.verifyCode(mockUser as IUser, 'sms', '123456');
+        await service.verifyCode({ sub: mockUser.sub!, methodName: 'sms', code: '123456' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -300,15 +521,19 @@ describe('MFAService', () => {
 
       serviceForBackupTest.registerProvider(providerWithBackup);
 
-      const result = await serviceForBackupTest.verifyCode(mockUser as IUser, MFAMethod.BACKUP, 'ABC12345');
+      const result = await serviceForBackupTest.verifyCode({
+        sub: mockUser.sub!,
+        methodName: MFAMethod.BACKUP,
+        code: 'ABC12345',
+      });
 
-      expect(result).toBe(true);
+      expect(result).toEqual({ valid: true });
       expect(providerWithBackup.verifyBackupCode).toHaveBeenCalledWith(mockUser as IUser, 'ABC12345');
     });
 
     it('should throw error when backup code verification not available', async () => {
       try {
-        await service.verifyCode(mockUser as IUser, MFAMethod.BACKUP, 'ABC12345');
+        await service.verifyCode({ sub: mockUser.sub!, methodName: MFAMethod.BACKUP, code: 'ABC12345' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -319,9 +544,9 @@ describe('MFAService', () => {
     it('should pass deviceId to provider', async () => {
       mockProvider1.verify.mockResolvedValue(true);
 
-      await service.verifyCode(mockUser as IUser, 'totp', '123456', 1);
+      await service.verifyCode({ sub: mockUser.sub!, methodName: 'totp', code: '123456', deviceId: 1 });
 
-      expect(mockProvider1.verify).toHaveBeenCalledWith(mockUser as IUser, '123456', 1);
+      expect(mockProvider1.verify).toHaveBeenCalledWith('123456', 1);
     });
   });
 
@@ -338,15 +563,23 @@ describe('MFAService', () => {
       const setupData = { secret: 'test-secret', qrCode: 'data:image/png;base64,...' };
       mockProvider1.setup.mockResolvedValue(setupData);
 
-      const result = await service.setup(mockUser as IUser, 'totp');
+      const result = await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser as IUser);
+        const dto = Object.assign(new SetupMFADTO(), { methodName: 'totp' });
+        return await service.setup(dto);
+      });
 
-      expect(result).toEqual(setupData);
-      expect(mockProvider1.setup).toHaveBeenCalledWith(mockUser as IUser, undefined);
+      expect(result).toEqual({ setupData });
+      expect(mockProvider1.setup).toHaveBeenCalledWith(undefined);
     });
 
     it('should throw error when provider not registered', async () => {
       try {
-        await service.setup(mockUser as IUser, 'sms');
+        await ContextStorage.run(async () => {
+          ContextStorage.set('CURRENT_USER', mockUser as IUser);
+          const dto = Object.assign(new SetupMFADTO(), { methodName: 'sms' });
+          return await service.setup(dto);
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -357,9 +590,13 @@ describe('MFAService', () => {
       const setupData = { secret: 'test-secret' };
       mockProvider1.setup.mockResolvedValue(setupData);
 
-      await service.setup(mockUser as IUser, 'totp', { phoneNumber: '+1234567890' });
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser as IUser);
+        const dto = Object.assign(new SetupMFADTO(), { methodName: 'totp', setupData: { phoneNumber: '+1234567890' } });
+        return await service.setup(dto);
+      });
 
-      expect(mockProvider1.setup).toHaveBeenCalledWith(mockUser as IUser, { phoneNumber: '+1234567890' });
+      expect(mockProvider1.setup).toHaveBeenCalledWith({ phoneNumber: '+1234567890' });
     });
   });
 
@@ -376,318 +613,114 @@ describe('MFAService', () => {
 
       mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
 
-      const result = await service.getUserDevices(1);
+      const result = await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser as IUser);
+        return await service.getUserDevices({});
+      });
 
-      expect(result).toEqual(devices as any);
+      expect(result.devices).toHaveLength(2);
+      expect(result.devices[0]).toMatchObject({
+        id: 1,
+        name: mockDevice.name,
+        type: mockDevice.type,
+        isActive: true,
+        isPreferred: true,
+      });
+      expect(result.devices[1]).toMatchObject({
+        id: 2,
+        isPreferred: false,
+      });
       expect(mockMfaDeviceRepository.find).toHaveBeenCalledWith({
-        where: { userId: 1 },
-        order: { isPrimary: 'DESC', createdAt: 'DESC' },
+        where: { userId: 1, isActive: true },
+        order: { createdAt: 'DESC' },
       });
     });
 
     it('should return empty array when no devices found', async () => {
       mockMfaDeviceRepository.find.mockResolvedValue([]);
 
-      const result = await service.getUserDevices(1);
+      const result = await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser as IUser);
+        return await service.getUserDevices({});
+      });
 
-      expect(result).toEqual([]);
+      expect(result).toEqual({ devices: [] });
     });
   });
 
   // ============================================================================
-  // removeDevices() Method
+  // removeDevice() Method
   // ============================================================================
 
-  describe('removeDevices', () => {
+  describe('removeDevice', () => {
     beforeEach(() => {
       service.registerProvider(mockProvider1);
     });
 
-    it('should remove devices of specified method type', async () => {
+    it('should remove a single device by deviceId and keep MFA enabled when devices remain', async () => {
       const userEntity = { ...mockUser, id: 1, preferredMfaMethod: 'totp' };
       const devices = [
-        { ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true },
-        { ...mockDevice, id: 2, type: 'sms' as MFADeviceMethod, isActive: true },
+        { ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true, isPrimary: true },
+        { ...mockDevice, id: 2, type: 'passkey' as MFADeviceMethod, isActive: true, isPrimary: false },
       ];
 
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
       mockMfaDeviceRepository.find
-        .mockResolvedValueOnce(devices as any) // getUserDevices call
-        .mockResolvedValueOnce([devices[1]] as any); // After deletion
+        .mockResolvedValueOnce(devices as any) // initial active devices
+        .mockResolvedValueOnce([devices[0]] as any); // remaining devices after deletion
       mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
-      mockUserRepository.save.mockResolvedValue(userEntity as any);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
+      mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      const result = await service.removeDevices('user-uuid-123', 'totp');
+      const result = await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', userEntity as IUser);
+        return await service.removeDevice({ deviceId: 2 } as any);
+      });
 
-      expect(result.deletedCount).toBe(1);
+      expect(result.removedDeviceId).toBe(2);
+      expect(result.removedMethod).toBe('passkey');
       expect(result.mfaDisabled).toBe(false);
-      expect(mockMfaDeviceRepository.delete).toHaveBeenCalledWith(1);
+      expect(mockMfaDeviceRepository.delete).toHaveBeenCalledWith(2);
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { id: 1 } as any,
+        expect.objectContaining({ preferredMfaMethod: 'totp' }) as any,
+      );
     });
 
-    it('should throw error when method type is invalid', async () => {
-      try {
-        await service.removeDevices('user-uuid-123', 'invalid');
-        fail('Should have thrown NAuthException');
-      } catch (error: any) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect(error.message).toContain('Invalid MFA method');
-      }
-    });
+    it('should disable MFA when the last device is removed', async () => {
+      const userEntity = { ...mockUser, id: 1, mfaEnabled: true, mfaMethods: ['totp'], preferredMfaMethod: 'totp' };
+      const devices = [{ ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true, isPrimary: true }];
 
-    it('should throw error when user not found', async () => {
-      mockUserRepository.findOne.mockResolvedValue(null);
-
-      try {
-        await service.removeDevices('non-existent-user', 'totp');
-        fail('Should have thrown NAuthException');
-      } catch (error: any) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect(error.message).toContain('User entity not found');
-      }
-    });
-
-    it('should throw error when no devices of method type found', async () => {
-      const userEntity = { ...mockUser, id: 1 };
-      const devices = [{ ...mockDevice, id: 1, type: 'sms' as MFADeviceMethod, isActive: true }];
-
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
-      mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
-
-      try {
-        await service.removeDevices('user-uuid-123', 'totp');
-        fail('Should have thrown NAuthException');
-      } catch (error: any) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect(error.message).toContain('No active totp MFA devices found');
-      }
-    });
-
-    it('should disable MFA when last device removed', async () => {
-      const userEntity = { ...mockUser, id: 1, mfaEnabled: true, mfaMethods: ['totp'] };
-      const devices = [{ ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true }];
-
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
-      mockMfaDeviceRepository.find
-        .mockResolvedValueOnce(devices as any) // getUserDevices call
-        .mockResolvedValueOnce([]); // After deletion - no devices remain
+      mockMfaDeviceRepository.find.mockResolvedValueOnce(devices as any).mockResolvedValueOnce([]);
       mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
-      mockUserRepository.save.mockResolvedValue(userEntity as any);
+      mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
       mockAuditService.recordEvent.mockResolvedValue({} as any);
 
-      const result = await service.removeDevices('user-uuid-123', 'totp');
+      const result = await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', userEntity as IUser);
+        return await service.removeDevice({ deviceId: 1 } as any);
+      });
 
       expect(result.mfaDisabled).toBe(true);
-      expect(userEntity.mfaEnabled).toBe(false);
-      expect(userEntity.mfaMethods).toEqual([]);
-      expect(userEntity.preferredMfaMethod).toBeNull();
-    });
-
-    it('should create MFA_SETUP_REQUIRED challenge when MFA disabled and enforcement is REQUIRED', async () => {
-      const userEntity = {
-        ...mockUser,
-        id: 1,
-        mfaEnabled: true,
-        mfaMethods: ['totp'],
-      };
-      const devices = [{ ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true }];
-      const configWithEnforcement: Partial<NAuthConfig> = {
-        mfa: {
-          enabled: true,
-          enforcement: 'REQUIRED',
-          allowedMethods: [MFAMethod.TOTP as any, MFAMethod.SMS as any],
-        },
-      };
-
-      const serviceWithEnforcement = new MFAService(
-        mockMfaDeviceRepository,
-        mockUserRepository,
-        mockChallengeService,
-        configWithEnforcement as NAuthConfig,
-        mockLogger,
-        mockAuditService,
-        mockClientInfoService,
-      );
-
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
-      mockMfaDeviceRepository.find.mockResolvedValueOnce(devices as any).mockResolvedValueOnce([]);
-      mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
-      mockUserRepository.save.mockResolvedValue(userEntity as any);
-      mockAuditService.recordEvent.mockResolvedValue({} as any);
-      mockChallengeService.createChallengeSession.mockResolvedValue({} as any);
-
-      await serviceWithEnforcement.removeDevices('user-uuid-123', 'totp');
-
-      expect(mockChallengeService.createChallengeSession).toHaveBeenCalledWith(
-        userEntity as IUser,
-        AuthChallenge.MFA_SETUP_REQUIRED,
-        (expect as any).objectContaining({
-          allowedMethods: ['totp', 'sms'],
-          requiresSetup: true,
-        }),
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { id: 1 } as any,
+        { mfaEnabled: false, mfaMethods: [], preferredMfaMethod: null } as any,
       );
     });
 
-    it('should update preferred method when removed method was preferred', async () => {
-      const userEntity = { ...mockUser, id: 1, preferredMfaMethod: 'totp' };
-      const devices = [
-        { ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true },
-        { ...mockDevice, id: 2, type: 'sms' as MFADeviceMethod, isActive: true },
-      ];
+    it('should throw NOT_FOUND when device does not exist for user', async () => {
+      mockMfaDeviceRepository.find.mockResolvedValueOnce([] as any);
 
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
-      mockMfaDeviceRepository.find.mockResolvedValueOnce(devices as any).mockResolvedValueOnce([devices[1]] as any);
-      mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
-      mockUserRepository.save.mockResolvedValue(userEntity as any);
-      mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
-      mockAuditService.recordEvent.mockResolvedValue({} as any);
-
-      await service.removeDevices('user-uuid-123', 'totp');
-
-      expect(userEntity.preferredMfaMethod).toBe('sms');
-      expect(mockMfaDeviceRepository.update).toHaveBeenCalledWith({ id: 2 } as any, { isPrimary: true } as any);
-    });
-
-    it('should record audit event when device removed', async () => {
-      const userEntity = { ...mockUser, id: 1 };
-      const devices = [{ ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true }];
-
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
-      mockMfaDeviceRepository.find.mockResolvedValueOnce(devices as any).mockResolvedValueOnce([]);
-      mockMfaDeviceRepository.delete.mockResolvedValue({ affected: 1 } as any);
-      mockUserRepository.save.mockResolvedValue(userEntity as any);
-      mockAuditService.recordEvent.mockResolvedValue({} as any);
-
-      await service.removeDevices('user-uuid-123', 'totp');
-
-      expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
-        (expect as any).objectContaining({
-          userId: 1,
-          eventType: AuthAuditEventType.MFA_DISABLED,
-          eventStatus: 'INFO',
-          reason: 'all_devices_removed',
-        }),
-      );
-    });
-  });
-
-  // ============================================================================
-  // setPreferredMethod() Method
-  // ============================================================================
-
-  describe('setPreferredMethod', () => {
-    beforeEach(() => {
-      service.registerProvider(mockProvider1);
-      service.registerProvider(mockProvider2);
-    });
-
-    it('should set preferred method successfully', async () => {
-      const userEntity = { ...mockUser, id: 1, preferredMfaMethod: 'totp' };
-      const devices = [
-        { ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true },
-        { ...mockDevice, id: 2, type: 'sms' as MFADeviceMethod, isActive: true },
-      ];
-
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
-      mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
-      mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
-      mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
-      mockAuditService.recordEvent.mockResolvedValue({} as any);
-
-      await service.setPreferredMethod('user-uuid-123', 'sms');
-
-      expect(mockUserRepository.update).toHaveBeenCalledWith({ id: 1 } as any, { preferredMfaMethod: 'sms' } as any);
-      expect(mockMfaDeviceRepository.update).toHaveBeenCalledWith({ id: 2 } as any, { isPrimary: true } as any);
-    });
-
-    it('should throw error when method type is invalid', async () => {
       try {
-        await service.setPreferredMethod('user-uuid-123', 'invalid');
+        await ContextStorage.run(async () => {
+          ContextStorage.set('CURRENT_USER', mockUser as IUser);
+          return await service.removeDevice({ deviceId: 999 } as any);
+        });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
-        expect(error.message).toContain('Invalid MFA method');
+        expect((error as NAuthException).code).toBe(AuthErrorCode.NOT_FOUND);
       }
-    });
-
-    it('should throw error when user not found', async () => {
-      mockUserRepository.findOne.mockResolvedValue(null);
-
-      try {
-        await service.setPreferredMethod('non-existent-user', 'totp');
-        fail('Should have thrown NAuthException');
-      } catch (error: any) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect(error.message).toContain('User not found');
-      }
-    });
-
-    it('should throw error when method not configured for user', async () => {
-      const userEntity = { ...mockUser, id: 1 };
-      const devices = [{ ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true }];
-
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
-      mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
-
-      try {
-        await service.setPreferredMethod('user-uuid-123', 'sms');
-        fail('Should have thrown NAuthException');
-      } catch (error: any) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect(error.message).toContain('is not configured for this user');
-      }
-    });
-
-    it('should update device primary flags correctly', async () => {
-      const userEntity = { ...mockUser, id: 1 };
-      const devices = [
-        { ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true },
-        { ...mockDevice, id: 2, type: 'sms' as MFADeviceMethod, isActive: true },
-        { ...mockDevice, id: 3, type: 'sms' as MFADeviceMethod, isActive: true },
-      ];
-
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
-      mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
-      mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
-      mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
-      mockAuditService.recordEvent.mockResolvedValue({} as any);
-
-      await service.setPreferredMethod('user-uuid-123', 'sms');
-
-      // Should set device 2 (first SMS device) as primary
-      expect(mockMfaDeviceRepository.update).toHaveBeenCalledWith({ id: 2 } as any, { isPrimary: true } as any);
-      // Should unset primary on other devices
-      expect(mockMfaDeviceRepository.update).toHaveBeenCalledWith({ id: 1 } as any, { isPrimary: false } as any);
-      expect(mockMfaDeviceRepository.update).toHaveBeenCalledWith({ id: 3 } as any, { isPrimary: false } as any);
-    });
-
-    it('should record audit event when preferred method updated', async () => {
-      const userEntity = { ...mockUser, id: 1, preferredMfaMethod: 'totp' };
-      const devices = [
-        { ...mockDevice, id: 1, type: 'totp' as MFADeviceMethod, isActive: true },
-        { ...mockDevice, id: 2, type: 'sms' as MFADeviceMethod, isActive: true },
-      ];
-
-      mockUserRepository.findOne.mockResolvedValue(userEntity as any);
-      mockMfaDeviceRepository.find.mockResolvedValue(devices as any);
-      mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
-      mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
-      mockAuditService.recordEvent.mockResolvedValue({} as any);
-
-      await service.setPreferredMethod('user-uuid-123', 'sms');
-
-      expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
-        (expect as any).objectContaining({
-          userId: 1,
-          eventType: AuthAuditEventType.MFA_PREFERRED_METHOD_UPDATED,
-          eventStatus: 'INFO',
-          metadata: (expect as any).objectContaining({
-            previousMethod: 'totp',
-            newMethod: 'sms',
-            deviceId: 2,
-          }),
-        }),
-      );
     });
   });
 });

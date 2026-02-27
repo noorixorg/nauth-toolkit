@@ -3,9 +3,7 @@ title: VerifyPhoneDTO
 description: Phone verification DTO with E.164 format validation and 6-digit code verification. Includes strict input sanitization.
 keywords: [verify, phone, dto, verification, code, e164, api]
 image: /img/api-social-card.png
-sidebar_position: 11
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -42,10 +40,11 @@ import { VerifyPhoneWithCodeDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property | Type     | Required | Description                                                      |
-| -------- | -------- | -------- | ---------------------------------------------------------------- |
-| `phone`  | `string` | Yes      | Phone number. E.164 format (e.g., +14155552671). Max 20 characters. Whitespace removed. |
-| `code`   | `string` | Yes      | Verification code. Exactly 6 digits. Numeric string. Trimmed.     |
+| Property             | Type     | Required | Description                                                      |
+| -------------------- | -------- | -------- | ---------------------------------------------------------------- |
+| `phone`              | `string` | Yes      | Phone number. E.164 format (e.g., +14155552671). Max 20 characters. Whitespace removed. |
+| `code`               | `string` | Yes      | Verification code. Exactly 6 digits. Numeric string. Trimmed.     |
+| `challengeSessionId` | `number` | No       | Challenge session ID to link this verification to. Ensures codes are only valid for the session they were created for. |
 
 ## Example
 

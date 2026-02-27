@@ -1,14 +1,11 @@
+import 'reflect-metadata';
 import { GoogleSocialAuthService } from './google-social-auth.service';
 import { GoogleOAuthClient } from './google-oauth.client';
 import { TokenVerifierService as GoogleTokenVerifierService } from './token-verifier.service';
 import {
   AuthService,
   SocialAuthService,
-  JwtService,
-  SessionService,
-  AuthChallengeHelperService,
   ClientInfoService,
-  AuthAuditService,
   NAuthConfig,
   NAuthLogger,
   OAuthUserProfile,
@@ -16,7 +13,16 @@ import {
   AuthErrorCode,
   ITokenVerifierService,
   PhoneVerificationService,
+  ISocialAuthStateStore,
+  BaseUser,
 } from '@nauth-toolkit/core';
+import {
+  JwtService,
+  SessionService,
+  AuthChallengeHelperService,
+  AuthAuditService,
+} from '@nauth-toolkit/core/internal';
+import { Repository } from 'typeorm';
 import { VerifiedGoogleTokenProfile } from './verified-token-profile.interface';
 
 // Mock GoogleOAuthClient
@@ -41,10 +47,11 @@ describe('GoogleSocialAuthService', () => {
   let mockChallengeHelper: jest.Mocked<AuthChallengeHelperService>;
   let mockClientInfoService: jest.Mocked<ClientInfoService>;
   let mockAuditService: jest.Mocked<AuthAuditService>;
-  let mockStateStore: Map<string, { timestamp: number; provider: string }>;
+  let mockStateStore: jest.Mocked<ISocialAuthStateStore>;
   let mockPhoneVerificationService: jest.Mocked<PhoneVerificationService>;
   let mockTokenVerifier: jest.Mocked<ITokenVerifierService>;
   let mockOAuthClient: jest.Mocked<GoogleOAuthClient>;
+  let mockUserRepository: jest.Mocked<Repository<BaseUser>>;
 
   beforeEach(() => {
     // Create mock logger
@@ -77,9 +84,19 @@ describe('GoogleSocialAuthService', () => {
     mockClientInfoService = {} as any;
     mockAuditService = {} as any;
     mockPhoneVerificationService = {} as any;
+    mockUserRepository = {
+      findOne: jest.fn(),
+      save: jest.fn(),
+      create: jest.fn(),
+    } as any;
 
     // Create mock state store
-    mockStateStore = new Map();
+    mockStateStore = {
+      createCsrfState: jest.fn().mockResolvedValue('generated-state'),
+      validateAndConsumeCsrfState: jest.fn().mockResolvedValue(undefined),
+      setRedirectContext: jest.fn().mockResolvedValue(undefined),
+      consumeRedirectContext: jest.fn().mockResolvedValue(null),
+    };
 
     // Create mock token verifier
     mockTokenVerifier = {
@@ -117,8 +134,11 @@ describe('GoogleSocialAuthService', () => {
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
 
@@ -130,30 +150,30 @@ describe('GoogleSocialAuthService', () => {
       expect(callArgs.redirectUri).toBe('https://example.com/auth/google/callback');
     });
 
-    it('should throw error when Google OAuth is not enabled', () => {
+    it('should initialize service when Google OAuth is not enabled (constructor does not throw)', () => {
       mockConfig.social!.google!.enabled = false;
 
-      try {
-        service = new GoogleSocialAuthService(
-          mockConfig,
-          mockLogger,
-          mockAuthService,
-          mockSocialAuthService,
-          mockJwtService,
-          mockSessionService,
-          mockChallengeHelper,
-          mockClientInfoService,
-          mockStateStore,
-          mockPhoneVerificationService,
-          mockAuditService,
-          mockTokenVerifier,
-        );
-        fail('Should have thrown NAuthException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.SOCIAL_CONFIG_MISSING);
-        expect((error as NAuthException).message).toContain('Google OAuth is not enabled or configured');
-      }
+      // Constructor should not throw - it just sets oauthClient to null
+      service = new GoogleSocialAuthService(
+        mockConfig,
+        mockLogger,
+        mockAuthService,
+        mockSocialAuthService,
+        mockJwtService,
+        mockSessionService,
+        mockChallengeHelper,
+        mockClientInfoService,
+        mockStateStore,
+        mockUserRepository,
+        mockPhoneVerificationService,
+        mockAuditService,
+        undefined, // trustedDeviceService
+        undefined, // hookRegistry
+        mockTokenVerifier,
+      );
+
+      expect(service).toBeDefined();
+      // Methods will throw when called, but constructor doesn't
     });
 
     it('should throw error when clientId is missing', () => {
@@ -170,8 +190,11 @@ describe('GoogleSocialAuthService', () => {
           mockChallengeHelper,
           mockClientInfoService,
           mockStateStore,
+          mockUserRepository,
           mockPhoneVerificationService,
           mockAuditService,
+          undefined, // trustedDeviceService
+          undefined, // hookRegistry
           mockTokenVerifier,
         );
         fail('Should have thrown NAuthException');
@@ -196,8 +219,11 @@ describe('GoogleSocialAuthService', () => {
           mockChallengeHelper,
           mockClientInfoService,
           mockStateStore,
+          mockUserRepository,
           mockPhoneVerificationService,
           mockAuditService,
+          undefined, // trustedDeviceService
+          undefined, // hookRegistry
           mockTokenVerifier,
         );
         fail('Should have thrown NAuthException');
@@ -221,8 +247,11 @@ describe('GoogleSocialAuthService', () => {
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
 
@@ -241,8 +270,11 @@ describe('GoogleSocialAuthService', () => {
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined, // trustedDeviceService
+        undefined, // hookRegistry
         undefined, // No token verifier provided
       );
 
@@ -267,8 +299,11 @@ describe('GoogleSocialAuthService', () => {
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
     });
@@ -282,7 +317,7 @@ describe('GoogleSocialAuthService', () => {
       const result = await service.getAuthUrl(state);
 
       expect(result).toBe(authUrl);
-      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith(state);
+      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith(state, undefined);
     });
 
     it('should generate state when not provided', async () => {
@@ -293,14 +328,69 @@ describe('GoogleSocialAuthService', () => {
       const result = await service.getAuthUrl();
 
       expect(result).toBe(authUrl);
-      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalled();
-      // Verify state was generated (should be a string)
-      const callArg = mockOAuthClient.getAuthorizationUrl.mock.calls[0]?.[0];
-      expect(callArg).toBeDefined();
-      if (callArg) {
-        expect(typeof callArg).toBe('string');
-        expect(callArg.length).toBeGreaterThan(0);
-      }
+      expect(mockStateStore.createCsrfState).toHaveBeenCalledWith('google');
+      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith('generated-state', undefined);
+    });
+
+    it('should merge config-level oauthParams with request params', async () => {
+      // Add config-level oauthParams
+      mockConfig.social!.google!.oauthParams = {
+        access_type: 'offline',
+        prompt: 'select_account',
+      };
+
+      // Recreate service with updated config
+      service = new GoogleSocialAuthService(
+        mockConfig,
+        mockLogger,
+        mockAuthService,
+        mockSocialAuthService,
+        mockJwtService,
+        mockSessionService,
+        mockChallengeHelper,
+        mockClientInfoService,
+        mockStateStore,
+        mockUserRepository,
+        mockPhoneVerificationService,
+        mockAuditService,
+        undefined,
+        undefined,
+        mockTokenVerifier,
+      );
+
+      const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?state=test&prompt=consent';
+      (mockOAuthClient.getAuthorizationUrl as jest.Mock).mockResolvedValue(authUrl);
+
+      // Request params should override config params
+      const requestParams = { prompt: 'consent' };
+      const result = await service.getAuthUrl('test-state', requestParams);
+
+      expect(result).toBe(authUrl);
+      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith('test-state', {
+        access_type: 'offline',
+        prompt: 'consent', // Request param overrides config
+      });
+    });
+
+    it('should pass only request oauthParams when config has none', async () => {
+      const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?state=test&prompt=consent';
+      (mockOAuthClient.getAuthorizationUrl as jest.Mock).mockResolvedValue(authUrl);
+
+      const requestParams = { prompt: 'consent', hd: 'example.com' };
+      const result = await service.getAuthUrl('test-state', requestParams);
+
+      expect(result).toBe(authUrl);
+      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith('test-state', requestParams);
+    });
+
+    it('should pass undefined when no oauthParams provided', async () => {
+      const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?state=test';
+      (mockOAuthClient.getAuthorizationUrl as jest.Mock).mockResolvedValue(authUrl);
+
+      const result = await service.getAuthUrl('test-state');
+
+      expect(result).toBe(authUrl);
+      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith('test-state', undefined);
     });
   });
 
@@ -320,8 +410,11 @@ describe('GoogleSocialAuthService', () => {
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
     });
@@ -371,8 +464,11 @@ describe('GoogleSocialAuthService', () => {
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
 
@@ -403,8 +499,11 @@ describe('GoogleSocialAuthService', () => {
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined, // trustedDeviceService
+        undefined, // hookRegistry
         mockTokenVerifier,
       );
     });
@@ -461,17 +560,16 @@ describe('GoogleSocialAuthService', () => {
       expect(result.picture).toBe('https://example.com/custom-photo.jpg');
     });
 
-    it('should throw error when provider config is missing', () => {
+    it('should initialize service when provider config is missing (constructor does not throw)', () => {
       // Create a new config without Google social config
       const configWithoutGoogle = {
         ...mockConfig,
         social: {},
       } as NAuthConfig;
 
-      // Service constructor should throw error when config is missing
-      try {
-        new GoogleSocialAuthService(
-          configWithoutGoogle,
+      // Constructor should not throw - it just sets oauthClient to null
+      service = new GoogleSocialAuthService(
+        configWithoutGoogle,
           mockLogger,
           mockAuthService,
           mockSocialAuthService,
@@ -480,16 +578,16 @@ describe('GoogleSocialAuthService', () => {
           mockChallengeHelper,
           mockClientInfoService,
           mockStateStore,
+          mockUserRepository,
           mockPhoneVerificationService,
           mockAuditService,
+          undefined, // trustedDeviceService
+          undefined, // hookRegistry
           mockTokenVerifier,
-        );
-        fail('Should have thrown NAuthException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.SOCIAL_CONFIG_MISSING);
-        expect((error as NAuthException).message).toContain('Google OAuth is not enabled or configured');
-      }
+      );
+
+      expect(service).toBeDefined();
+      // Methods will throw when called, but constructor doesn't
     });
 
     it('should throw error when token verifier is not available', async () => {
@@ -503,8 +601,11 @@ describe('GoogleSocialAuthService', () => {
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined, // trustedDeviceService
+        undefined, // hookRegistry
         undefined, // No token verifier
       );
 
@@ -565,6 +666,68 @@ describe('GoogleSocialAuthService', () => {
         expect((error as NAuthException).code).toBe(AuthErrorCode.SOCIAL_EMAIL_REQUIRED);
         expect((error as NAuthException).message).toContain('Email is required and must be verified by Google');
       }
+    });
+
+    it('should throw error when getAuthUrl called and OAuth is disabled', async () => {
+      const disabledConfig = {
+        ...mockConfig,
+        social: {
+          google: {
+            enabled: false,
+          },
+        },
+      } as NAuthConfig;
+
+      const disabledService = new GoogleSocialAuthService(
+        disabledConfig,
+        mockLogger,
+        mockAuthService,
+        mockSocialAuthService,
+        mockJwtService,
+        mockSessionService,
+        mockChallengeHelper,
+        mockClientInfoService,
+        mockStateStore,
+        mockUserRepository,
+        mockPhoneVerificationService,
+        mockAuditService,
+        undefined,
+        undefined,
+        mockTokenVerifier,
+      );
+
+      await expect(disabledService.getAuthUrl()).rejects.toThrow(NAuthException);
+    });
+
+    it('should handle getOAuthProfile when OAuth client is null', async () => {
+      const disabledConfig = {
+        ...mockConfig,
+        social: {
+          google: {
+            enabled: false,
+          },
+        },
+      } as NAuthConfig;
+
+      const disabledService = new GoogleSocialAuthService(
+        disabledConfig,
+        mockLogger,
+        mockAuthService,
+        mockSocialAuthService,
+        mockJwtService,
+        mockSessionService,
+        mockChallengeHelper,
+        mockClientInfoService,
+        mockStateStore,
+        mockUserRepository,
+        mockPhoneVerificationService,
+        mockAuditService,
+        undefined,
+        undefined,
+        mockTokenVerifier,
+      );
+
+      await expect((disabledService as any).getOAuthProfile('code', 'state')).rejects.toThrow(NAuthException);
     });
   });
 });

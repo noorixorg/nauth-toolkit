@@ -3,9 +3,7 @@ title: SetMFAExemptionDTO
 description: Request and response DTOs for granting or revoking MFA exemption. Admin-only operation with optional reason and grantedBy fields.
 keywords: [mfa, exemption, admin, dto, request, response, api]
 image: /img/api-social-card.png
-sidebar_position: 46
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -44,7 +42,7 @@ import { SetMFAExemptionDTO, SetMFAExemptionResponseDTO } from '@nauth-toolkit/c
 
 | Property    | Type            | Required | Description                                                      |
 | ----------- | --------------- | -------- | ---------------------------------------------------------------- |
-| `userSub`   | `string`        | Yes      | User sub. UUID v4 format. Trimmed and lowercased.               |
+| `sub`        | `string`       | Yes      | User sub (UUID v4). Trimmed and lowercased.                     |
 | `exempt`    | `boolean`       | Yes      | Grant exemption (true) or revoke exemption (false).              |
 | `reason`    | `string \| null` | No       | Reason for exemption status change. Max 500 characters. Trimmed. |
 | `grantedBy` | `string \| null` | No       | Identifier of admin performing action. Max 255 characters. Trimmed. |
@@ -61,7 +59,7 @@ import { SetMFAExemptionDTO, SetMFAExemptionResponseDTO } from '@nauth-toolkit/c
 
 ```json
 {
-  "userSub": "a21b654c-2746-4168-acee-c175083a65cd",
+  "sub": "a21b654c-2746-4168-acee-c175083a65cd",
   "exempt": true,
   "reason": "Business partner requires MFA bypass",
   "grantedBy": "admin@example.com"

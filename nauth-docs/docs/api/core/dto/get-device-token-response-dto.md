@@ -3,9 +3,7 @@ title: GetDeviceTokenResponseDTO
 description: Response DTO for device token. Returns device token from the current request context for trusted device feature.
 keywords: [device, token, trusted, response, dto, api]
 image: /img/api-social-card.png
-sidebar_position: 53
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -42,9 +40,9 @@ import { GetDeviceTokenResponseDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property     | Type       | Description                                                      |
-| ------------ | ---------- | ---------------------------------------------------------------- |
-| `deviceToken` | `string?`  | Device token for trusted device feature. Extracted from cookie (nauth_device_id) or header (X-Device-Token). Optional - undefined if not present. |
+| Property     | Type       | Required | Description                                                      |
+| ------------ | ---------- | -------- | ---------------------------------------------------------------- |
+| `deviceToken` | `string?`  | No       | Device token for trusted device feature. Extracted from cookie (`nauth_device_token`) or header (`X-Device-Token`). Undefined if not present. |
 
 ## Example
 

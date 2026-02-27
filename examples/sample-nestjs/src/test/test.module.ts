@@ -6,13 +6,10 @@ import { TestService } from './test.service';
 /**
  * Test Module
  *
- * Provides test-mode endpoints for E2E testing.
- * Only registered when NAUTH_TEST_MODE=true
+ * Provides endpoints for E2E testing and code fetching (verification codes, TOTP secret, reset).
+ * Always registered so code-fetching endpoints are available.
  *
- * Database-agnostic: Works with PostgreSQL and MySQL
- *
- * Note: Imports TypeOrmModule to make DataSource available for TestService.
- * STORAGE_ADAPTER is optional and provided by AuthModule if available.
+ * Database-agnostic: Works with PostgreSQL and MySQL.
  */
 @Module({
   imports: [

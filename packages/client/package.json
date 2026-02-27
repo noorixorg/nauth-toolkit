@@ -1,7 +1,7 @@
 {
   "name": "@nauth-toolkit/client",
-  "version": "0.1.0",
-  "description": "Framework-agnostic frontend SDK for nauth-toolkit",
+  "version": "0.2.0",
+  "description": "Frontend authentication SDK for nauth-toolkit — framework-agnostic TypeScript",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -10,26 +10,18 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
-    },
-    "./angular": {
-      "types": "./dist/angular/index.d.ts",
-      "import": "./dist/angular/index.mjs",
-      "require": "./dist/angular/index.cjs"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
     "clean": "rm -rf dist",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "test": "jest"
-  },
-  "peerDependencies": {
-    "@angular/common": ">=17.0.0",
-    "@angular/core": ">=17.0.0",
-    "rxjs": "^7.0.0 || ^8.0.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
@@ -48,9 +40,27 @@
   "engines": {
     "node": ">=22.0.0"
   },
-  "license": "MIT",
+  "license": "SEE LICENSE",
   "repository": {
     "type": "git",
-    "url": "https://github.com/noorix/nauth-toolkit"
-  }
+    "url": "https://github.com/noorixorg/nauth"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
+  },
+  "homepage": "https://nauth.dev",
+  "keywords": [
+    "nauth",
+    "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
+    "frontend",
+    "sdk",
+    "client",
+    "jwt",
+    "session"
+  ],
+  "sideEffects": false
 }

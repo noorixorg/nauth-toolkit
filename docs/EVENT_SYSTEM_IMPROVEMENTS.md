@@ -80,7 +80,7 @@ ngOnInit(): void {
   // Subscribe to all authentication events for logging
   this.subscriptions.add(
     this.auth.authEvents$.subscribe((event) => {
-      console.group(`🔐 Auth Event: ${event.type}`);
+      console.group(` Auth Event: ${event.type}`);
       console.log('Timestamp:', new Date(event.timestamp).toISOString());
       console.log('Data:', event.data);
       console.groupEnd();
@@ -90,14 +90,14 @@ ngOnInit(): void {
   // Subscribe to success events
   this.subscriptions.add(
     this.auth.authSuccess$.subscribe((event) => {
-      console.log('✅ Authentication successful', event.data);
+      console.log('- Authentication successful', event.data);
     }),
   );
 
   // Subscribe to error events
   this.subscriptions.add(
     this.auth.authError$.subscribe((event) => {
-      console.error('❌ Authentication error', event.data);
+      console.error('- Authentication error', event.data);
     }),
   );
 }
@@ -163,22 +163,22 @@ To test the event system:
 
 Example console output:
 ```
-🔐 Auth Event: auth:login
+ Auth Event: auth:login
   Timestamp: 2025-12-07T22:30:00.000Z
   Data: { identifier: 'user@example.com' }
 
-🔐 Auth Event: auth:success
+ Auth Event: auth:success
   Timestamp: 2025-12-07T22:30:01.234Z
   Data: { user: {...}, tokens: {...} }
-✅ Authentication successful {...}
+- Authentication successful {...}
 ```
 
 ## Build Status
 
-- ✅ Client package builds successfully
-- ✅ Angular sample app builds successfully
-- ✅ All TypeScript types validated
-- ✅ No linter errors
+- - Client package builds successfully
+- - Angular sample app builds successfully
+- - All TypeScript types validated
+- - No linter errors
 
 ## Related Documentation
 
@@ -204,6 +204,10 @@ client.on('auth:success', (event) => {
 ```
 
 No breaking changes - the API surface remains the same, but you now get full type safety.
+
+
+
+
 
 
 

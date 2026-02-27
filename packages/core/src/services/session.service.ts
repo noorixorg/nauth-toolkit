@@ -1,4 +1,4 @@
-import { ISession } from '../interfaces/entities.interface';
+import { ISession, IUser } from '../interfaces/entities.interface';
 import { Repository, LessThan, MoreThan, In } from 'typeorm';
 import { BaseSession } from '../entities';
 import { StorageAdapter } from '../interfaces/storage-adapter.interface';
@@ -7,6 +7,8 @@ import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { ClientInfoService } from './client-info.service';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { NAuthConfig } from '../interfaces/config.interface';
+import { NAuthException } from '../exceptions/nauth.exception';
+import { AuthErrorCode } from '../enums/error-codes.enum';
 
 /**
  * Session Service
@@ -117,7 +119,7 @@ export class SessionService {
    * @param data.deviceType - Optional device type (mobile, desktop, tablet). Falls back to parsed value from ClientInfoService if not provided.
    * @param data.expiresAt - Session expiration date
    * @remarks Client info (ipAddress, ipCountry, ipCity, userAgent, platform, browser) is automatically extracted from ClientInfoService context
-   * @param data.isRemembered - Whether session is from "remember me"
+   * @param data.isTrustedDevice - Whether device is trusted (may skip MFA)
    * @param data.authMethod - Authentication method: 'password', 'google', 'facebook', 'github', etc.
    * @returns Created session
    *
@@ -143,7 +145,7 @@ export class SessionService {
     deviceType?: string; // Optional - falls back to parsed value from ClientInfoService
     // Client info (ipAddress, ipCountry, ipCity, userAgent) automatically extracted from ClientInfoService
     expiresAt: Date;
-    isRemembered?: boolean;
+    isTrustedDevice?: boolean;
     authMethod?: string; // Authentication method: 'password', 'google', 'facebook', etc.
   }): Promise<ISession> {
     // ============================================================================
@@ -233,14 +235,14 @@ export class SessionService {
     if (!clientInfo.ipLatitude || !clientInfo.ipLongitude) {
       this.logger?.warn?.(
         `[SessionService] Creating session WITHOUT coordinates: ` +
-        `IP=${clientInfo.ipAddress}, country=${clientInfo.ipCountry}, city=${clientInfo.ipCity}, ` +
-        `lat=${clientInfo.ipLatitude}, lon=${clientInfo.ipLongitude}`,
+          `IP=${clientInfo.ipAddress}, country=${clientInfo.ipCountry}, city=${clientInfo.ipCity}, ` +
+          `lat=${clientInfo.ipLatitude}, lon=${clientInfo.ipLongitude}`,
       );
     } else {
       this.logger?.debug?.(
         `[SessionService] Creating session WITH coordinates: ` +
-        `IP=${clientInfo.ipAddress}, ${clientInfo.ipCity}, ${clientInfo.ipCountry} ` +
-        `(${clientInfo.ipLatitude}, ${clientInfo.ipLongitude})`,
+          `IP=${clientInfo.ipAddress}, ${clientInfo.ipCity}, ${clientInfo.ipCountry} ` +
+          `(${clientInfo.ipLatitude}, ${clientInfo.ipLongitude})`,
       );
     }
 
@@ -263,7 +265,7 @@ export class SessionService {
       browser,
       authMethod: data.authMethod || null,
       expiresAt: data.expiresAt,
-      isRemembered: data.isRemembered || false,
+      isTrustedDevice: data.isTrustedDevice || false,
       lastActivityAt: new Date(),
     });
 
@@ -284,7 +286,7 @@ export class SessionService {
           deviceId: savedSession.deviceId,
           deviceName: savedSession.deviceName,
           deviceType: savedSession.deviceType,
-          isRemembered: savedSession.isRemembered,
+          trustedDevice: savedSession.isTrustedDevice,
         },
       });
     } catch (auditError) {
@@ -316,11 +318,11 @@ export class SessionService {
    */
   async findByIdLight(
     sessionId: string | number,
-  ): Promise<Pick<ISession, 'id' | 'version' | 'isRevoked' | 'expiresAt' | 'userId'> | null> {
+  ): Promise<Pick<ISession, 'id' | 'version' | 'isRevoked' | 'expiresAt' | 'userId' | 'authMethod'> | null> {
     const id = typeof sessionId === 'string' ? parseInt(sessionId, 10) : sessionId;
     // Select minimal session fields to reduce DB payload
     const record = (await this.sessionRepository.findOne({
-      select: ['id', 'version', 'isRevoked', 'expiresAt', 'userId'],
+      select: ['id', 'version', 'isRevoked', 'expiresAt', 'userId', 'authMethod'],
       where: { id },
     })) as unknown as ISession | null;
 
@@ -332,8 +334,158 @@ export class SessionService {
       isRevoked: record.isRevoked,
       expiresAt: record.expiresAt,
       userId: record.userId,
-    } as unknown as Pick<ISession, 'id' | 'version' | 'isRevoked' | 'expiresAt' | 'userId'>;
+      authMethod: record.authMethod ?? null,
+    } as unknown as Pick<ISession, 'id' | 'version' | 'isRevoked' | 'expiresAt' | 'userId' | 'authMethod'>;
     return light;
+  }
+
+  /**
+   * Load session light + user auth context in a single DB query (hot-path)
+   *
+   * WHY:
+   * - Normal request authentication performs:
+   *   1) session validation query
+   *   2) user load query
+   *   3) optional session revalidation query (TOCTOU protection)
+   * - This method safely collapses (1) + (2) into a single query while keeping (3) available.
+   *
+   * Security:
+   * - Returns a sanitized user object (no passwordHash/totpSecret/backupCodes/passwordHistory)
+   * - Enforces user active status (throws ACCOUNT_INACTIVE)
+   *
+   * @param sessionId - Session ID (string or number)
+   * @returns Session light + safe user object, or null if session not found
+   * @throws {NAuthException} When user is missing/inactive (data integrity / security)
+   *
+   * @example
+   * ```typescript
+   * const ctx = await sessionService.findAuthContextBySessionId('123');
+   * if (ctx) {
+   *   console.log(ctx.session.id, ctx.user.sub);
+   * }
+   * ```
+   */
+  async findAuthContextBySessionId(sessionId: string | number): Promise<{
+    session: Pick<ISession, 'id' | 'version' | 'isRevoked' | 'expiresAt' | 'userId' | 'authMethod'>;
+    user: IUser;
+  } | null> {
+    const id = typeof sessionId === 'string' ? parseInt(sessionId, 10) : sessionId;
+
+    // ============================================================================
+    // Single-query session + user load
+    // ============================================================================
+    // NOTE:
+    // - Uses LEFT JOIN so we can detect data integrity issues (session exists but user missing)
+    //   and return a precise error, rather than silently treating it as "session not found".
+    const qb = this.sessionRepository
+      .createQueryBuilder('session')
+      .leftJoinAndSelect('session.user', 'user')
+      .where('session.id = :id', { id })
+      .select([
+        // Session light fields
+        'session.id',
+        'session.version',
+        'session.isRevoked',
+        'session.expiresAt',
+        'session.userId',
+        'session.authMethod',
+
+        // User auth-context fields (match UserService.getUserForAuthContext behavior)
+        'user.id',
+        'user.sub',
+        'user.username',
+        'user.firstName',
+        'user.lastName',
+        'user.email',
+        'user.phone',
+        'user.passwordHash', // used only to compute hasPasswordHash; removed before returning
+        'user.passwordChangedAt',
+        'user.mustChangePassword',
+        'user.isEmailVerified',
+        'user.isPhoneVerified',
+        'user.isActive',
+        'user.isLocked',
+        'user.lockReason',
+        'user.lockedAt',
+        'user.lockedUntil',
+        'user.failedLoginAttempts',
+        'user.lastFailedLoginAt',
+        'user.lastLoginAt',
+        'user.lastLoginIp',
+        'user.mfaEnabled',
+        'user.mfaMethods',
+        'user.mfaEnforcedAt',
+        // NOTE: Intentionally NOT selecting: user.totpSecret, user.backupCodes, user.passwordHistory
+        'user.preferredMfaMethod',
+        'user.mfaExempt',
+        'user.mfaExemptReason',
+        'user.mfaExemptGrantedAt',
+        'user.mfaExemptGrantedBy',
+        'user.hasSocialAuth',
+        'user.socialProviders',
+        'user.metadata',
+        'user.createdAt',
+        'user.updatedAt',
+        'user.deletedAt',
+      ]);
+
+    const record = (await qb.getOne()) as unknown as
+      | (Pick<ISession, 'id' | 'version' | 'isRevoked' | 'expiresAt' | 'userId' | 'authMethod'> & {
+          user?: (IUser & { passwordHash?: string | null }) | null;
+        })
+      | null;
+
+    if (!record) return null;
+
+    const user = record.user;
+    if (!user) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    if (!user.isActive) {
+      throw new NAuthException(AuthErrorCode.ACCOUNT_INACTIVE, 'Account is not active');
+    }
+
+    const safeUser = this.buildSafeUserForAuthContext(user);
+
+    return {
+      session: {
+        id: record.id,
+        version: record.version,
+        isRevoked: record.isRevoked,
+        expiresAt: record.expiresAt,
+        userId: record.userId,
+        authMethod: record.authMethod ?? null,
+      },
+      user: safeUser,
+    };
+  }
+
+  /**
+   * Build a safe user object for request auth context
+   *
+   * Removes secrets and computes `hasPasswordHash` while ensuring `passwordHash`
+   * never escapes the hot-path request context.
+   *
+   * @param user - User entity (may include passwordHash)
+   * @returns Sanitized user object
+   * @private
+   */
+  private buildSafeUserForAuthContext(user: IUser & { passwordHash?: string | null }): IUser {
+    const hasPasswordHash = user.hasPasswordHash !== undefined ? user.hasPasswordHash : Boolean(user.passwordHash);
+
+    const safeUser = {
+      ...user,
+      hasPasswordHash,
+    } as IUser;
+
+    // Remove sensitive fields defensively (even if not selected in the query)
+    delete (safeUser as unknown as { passwordHash?: string | null }).passwordHash;
+    delete (safeUser as unknown as { totpSecret?: string | null }).totpSecret;
+    delete (safeUser as unknown as { backupCodes?: string[] | null }).backupCodes;
+    delete (safeUser as unknown as { passwordHistory?: string[] | null }).passwordHistory;
+
+    return safeUser;
   }
 
   /**
@@ -397,7 +549,7 @@ export class SessionService {
       deviceType?: string; // Optional - falls back to parsed value from ClientInfoService
       // Client info (ipAddress, ipCountry, ipCity, userAgent) automatically extracted from ClientInfoService
       expiresAt: Date;
-      isRemembered?: boolean;
+      isTrustedDevice?: boolean;
       authMethod?: string;
     },
     generateHashes: (sessionId: number) => Promise<{ accessTokenHash: string; refreshTokenHash: string; extra?: T }>,
@@ -430,37 +582,37 @@ export class SessionService {
         deviceId,
         deviceName,
         deviceType,
-      // Client info automatically extracted from ClientInfoService (transparent access)
-      ipAddress: clientInfo.ipAddress || null,
-      ipCountry: clientInfo.ipCountry || null,
-      ipCity: clientInfo.ipCity || null,
-      ipLatitude: clientInfo.ipLatitude || null,
-      ipLongitude: clientInfo.ipLongitude || null,
-      userAgent: clientInfo.userAgent || null,
-      platform,
-      browser,
-      authMethod: data.authMethod || null,
-      expiresAt: data.expiresAt,
-      isRemembered: data.isRemembered || false,
-      lastActivityAt: new Date(),
-    });
+        // Client info automatically extracted from ClientInfoService (transparent access)
+        ipAddress: clientInfo.ipAddress || null,
+        ipCountry: clientInfo.ipCountry || null,
+        ipCity: clientInfo.ipCity || null,
+        ipLatitude: clientInfo.ipLatitude || null,
+        ipLongitude: clientInfo.ipLongitude || null,
+        userAgent: clientInfo.userAgent || null,
+        platform,
+        browser,
+        authMethod: data.authMethod || null,
+        expiresAt: data.expiresAt,
+        isTrustedDevice: data.isTrustedDevice || false,
+        lastActivityAt: new Date(),
+      });
 
-    // Debug: Log what we're about to save in atomic transaction
-    if (!clientInfo.ipLatitude || !clientInfo.ipLongitude) {
-      this.logger?.warn?.(
-        `[SessionService.createSessionAtomic] Creating session WITHOUT coordinates: ` +
-        `IP=${clientInfo.ipAddress}, country=${clientInfo.ipCountry}, city=${clientInfo.ipCity}, ` +
-        `lat=${clientInfo.ipLatitude}, lon=${clientInfo.ipLongitude}`,
-      );
-    } else {
-      this.logger?.debug?.(
-        `[SessionService.createSessionAtomic] Creating session WITH coordinates: ` +
-        `IP=${clientInfo.ipAddress}, ${clientInfo.ipCity}, ${clientInfo.ipCountry} ` +
-        `(${clientInfo.ipLatitude}, ${clientInfo.ipLongitude})`,
-      );
-    }
+      // Debug: Log what we're about to save in atomic transaction
+      if (!clientInfo.ipLatitude || !clientInfo.ipLongitude) {
+        this.logger?.warn?.(
+          `[SessionService.createSessionAtomic] Creating session WITHOUT coordinates: ` +
+            `IP=${clientInfo.ipAddress}, country=${clientInfo.ipCountry}, city=${clientInfo.ipCity}, ` +
+            `lat=${clientInfo.ipLatitude}, lon=${clientInfo.ipLongitude}`,
+        );
+      } else {
+        this.logger?.debug?.(
+          `[SessionService.createSessionAtomic] Creating session WITH coordinates: ` +
+            `IP=${clientInfo.ipAddress}, ${clientInfo.ipCity}, ${clientInfo.ipCountry} ` +
+            `(${clientInfo.ipLatitude}, ${clientInfo.ipLongitude})`,
+        );
+      }
 
-    const saved = await trx.save(sessionEntity);
+      const saved = await trx.save(sessionEntity);
       const savedId = saved.id as number;
 
       const { accessTokenHash, refreshTokenHash, extra } = await generateHashes(savedId);
@@ -499,7 +651,7 @@ export class SessionService {
           deviceId: result.session.deviceId,
           deviceName: result.session.deviceName,
           deviceType: result.session.deviceType,
-          isRemembered: result.session.isRemembered,
+          trustedDevice: result.session.isTrustedDevice,
         },
       });
     } catch (auditError) {
@@ -649,6 +801,90 @@ export class SessionService {
   }
 
   /**
+   * Revoke all sessions for a user with a specific deviceId
+   *
+   * Used to prevent duplicate sessions when a user logs in on the same device.
+   * Only revokes active (non-revoked, non-expired) sessions to avoid unnecessary updates.
+   *
+   * @param userId - Internal user ID (integer)
+   * @param deviceId - Device identifier to match
+   * @param reason - Optional reason for revocation
+   * @returns Number of sessions revoked
+   *
+   * @example
+   * ```typescript
+   * // Revoke existing sessions before creating new one for same device
+   * const revokedCount = await sessionService.revokeUserSessionsByDeviceId(
+   *   user.id,
+   *   deviceId,
+   *   'New login on same device'
+   * );
+   * ```
+   */
+  async revokeUserSessionsByDeviceId(userId: number, deviceId: string, reason?: string): Promise<number> {
+    const now = new Date();
+
+    // Find active sessions with this deviceId
+    const sessions = await this.sessionRepository.find({
+      where: {
+        userId,
+        deviceId,
+        isRevoked: false,
+        expiresAt: MoreThan(now),
+      },
+    });
+
+    if (sessions.length === 0) {
+      return 0;
+    }
+
+    const sessionIds = sessions.map((s) => s.id);
+
+    // Revoke all matching sessions
+    const result = await this.sessionRepository.update(
+      { id: In(sessionIds) },
+      {
+        isRevoked: true,
+        revokedAt: new Date(),
+        revokeReason: reason || 'New login on same device',
+      },
+    );
+
+    const revokedCount = result.affected || 0;
+
+    // ============================================================================
+    // Audit: Record session revocations (summary event for same-device revocation)
+    // ============================================================================
+    if (revokedCount > 0) {
+      try {
+        await this.auditService?.recordEvent({
+          userId,
+          eventType: AuthAuditEventType.SESSION_REVOKED,
+          eventStatus: 'INFO',
+          reason: reason || 'New login on same device',
+          description: `Revoked ${revokedCount} session(s) with deviceId ${deviceId} due to new login on same device`,
+          // Client info automatically included from context
+          metadata: {
+            deviceId,
+            revokedCount,
+            sessionIds,
+          },
+        });
+      } catch (auditError) {
+        // Non-blocking: Log but continue
+        const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to record SESSION_REVOKED audit event for deviceId revocation: ${errorMessage}`, {
+          error: auditError,
+          userId,
+          deviceId,
+        });
+      }
+    }
+
+    return revokedCount;
+  }
+
+  /**
    * Revoke all sessions in a token family (for reuse detection)
    */
   async revokeTokenFamily(tokenFamily: string, reason?: string): Promise<number> {
@@ -696,7 +932,7 @@ export class SessionService {
    * Stores the token hash in cache with expiration matching the refresh token TTL.
    * Used to detect token reuse attacks where stolen tokens are reused multiple times.
    *
-   * ⚠️ SECURITY CRITICAL: This prevents token replay attacks
+   * SECURITY CRITICAL: This prevents token replay attacks
    *
    * @param tokenHash - SHA-256 hash of the refresh token
    * @param ttlSeconds - Time to live in seconds (should match refresh token expiry)

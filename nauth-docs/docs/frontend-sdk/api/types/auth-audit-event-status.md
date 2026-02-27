@@ -1,7 +1,6 @@
 ---
 title: AuthAuditEventStatus
 description: Type representing audit event status values
-sidebar_position: 30
 keywords: [audit, status, event, security, api]
 image: /img/api-social-card.png
 ---

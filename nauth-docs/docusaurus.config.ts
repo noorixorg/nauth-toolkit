@@ -5,8 +5,8 @@ import type * as Preset from '@docusaurus/preset-classic';
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const config: Config = {
-  title: 'nauth-toolkit',
-  tagline: 'Platform-Agnostic Authentication Toolkit for Node.js',
+  title: 'NAuth Toolkit — Embedded Authentication for Node.js',
+  tagline: 'Embedded TypeScript authentication for NestJS, Express, and Fastify.',
   favicon: 'img/favicon.ico',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
@@ -21,8 +21,8 @@ const config: Config = {
   baseUrl: '/',
 
   customFields: {
-    defaultAuthor: 'Murtaza Nooruddin',
-    metaAuthor: 'Murtaza Nooruddin',
+    defaultAuthor: 'Admin',
+    metaAuthor: 'Admin',
   },
 
   // GitHub pages deployment config.
@@ -35,10 +35,10 @@ const config: Config = {
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
   // may want to replace "en" with "zh-Hans".
-  i18n: {
-    defaultLocale: 'en',
-    locales: ['en'],
-  },
+  // i18n: {
+  //   defaultLocale: 'en',
+  //   locales: ['en'],
+  // },
 
   markdown: {
     mermaid: true,
@@ -57,7 +57,24 @@ const config: Config = {
           createSitemapItems: async (params) => {
             const { defaultCreateSitemapItems, ...rest } = params;
             const items = await defaultCreateSitemapItems(rest);
-            return items.filter((item) => !item.url.includes('/page/'));
+            return items
+              .filter((item) => !item.url.includes('/page/'))
+              .map((item) => {
+                const url = item.url;
+                if (url.match(/\/(docs\/quick-start|docs\/guides|docs\/concepts|docs\/features)\//)) {
+                  return { ...item, priority: 0.8 };
+                }
+                if (url.match(/\/docs\/api\/(core\/(dto|entities|enums)|.*\/dto)\//)) {
+                  return { ...item, priority: 0.4 };
+                }
+                if (url.match(/\/docs\/(api|frontend-sdk)\//)) {
+                  return { ...item, priority: 0.6 };
+                }
+                if (url === 'https://nauth.dev/' || url.endsWith('/docs/intro')) {
+                  return { ...item, priority: 0.9 };
+                }
+                return item;
+              });
           },
         },
         docs: {
@@ -67,13 +84,157 @@ const config: Config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           showLastUpdateTime: true,
-          showLastUpdateAuthor: true,
+          showLastUpdateAuthor: false,
+        },
+
+        googleTagManager: {
+          containerId: 'GTM-MDBSGWPT',
         },
 
         theme: {
           customCss: './src/css/custom.css',
         },
       } satisfies Preset.Options,
+    ],
+  ],
+
+  plugins: [
+    [
+      'docusaurus-plugin-llms',
+      {
+        generateLLMsTxt: true,
+        generateLLMsFullTxt: true,
+        docsDir: 'docs',
+        title: 'nauth-toolkit',
+        description:
+          'Framework-agnostic authentication toolkit for Node.js. Supports NestJS, Express, and Fastify with MFA, social auth, and frontend SDKs.',
+        excludeImports: true,
+        removeDuplicateHeadings: true,
+        rootContent: [
+          'nauth-toolkit provides a framework-agnostic auth engine with adapters for NestJS, Express, and Fastify.',
+          '',
+          '## Section Files',
+          'For targeted context, load the specific file instead of llms-full.txt:',
+          '- /llms-guides.txt — Getting started, concepts, and how-to guides',
+          '- /llms-api-core.txt — Core services, DTOs, enums, interfaces, hooks',
+          '- /llms-api-adapters.txt — NestJS, Express, and Fastify framework adapters',
+          '- /llms-api-providers.txt — MFA, social, email, SMS, database, and storage providers',
+          '- /llms-frontend-sdk.txt — Client SDK for Angular, React, and mobile',
+        ].join('\n'),
+        includeOrder: [
+          'intro.*',
+          'quick-start/*',
+          'concepts/*',
+          'guides/**/*',
+          'api/overview*',
+          'api/core/services/*',
+          'api/core/dto/*',
+          'api/core/hooks/*',
+          'api/core/enums/*',
+          'api/core/interfaces/*',
+          'api/core/exceptions/*',
+          'api/core/utilities/*',
+          'api/core/entities/*',
+          'api/nestjs/**/*',
+          'api/express/**/*',
+          'api/fastify/**/*',
+          'api/mfa/*',
+          'api/social/*',
+          'api/email/*',
+          'api/sms/*',
+          'api/database/*',
+          'api/storage/*',
+          'api/recaptcha/**/*',
+          'frontend-sdk/overview*',
+          'frontend-sdk/guides/*',
+          'frontend-sdk/concepts/*',
+          'frontend-sdk/api/**/*',
+          'frontend-sdk/angular/*',
+          'frontend-sdk/react/*',
+          'frontend-sdk/mobile/*',
+        ],
+        customLLMFiles: [
+          {
+            filename: 'llms-guides.txt',
+            includePatterns: ['concepts/**/*', 'guides/**/*', 'quick-start/**/*', 'intro.*'],
+            fullContent: true,
+            title: 'nauth-toolkit — Guides & Concepts',
+            description:
+              'Getting started guides, architecture concepts, and how-to guides for authentication, MFA, social login, and more.',
+            orderPatterns: ['intro.*', 'quick-start/*', 'concepts/*', 'guides/*'],
+          },
+          {
+            filename: 'llms-api-core.txt',
+            includePatterns: ['api/core/**/*', 'api/overview*'],
+            fullContent: true,
+            title: 'nauth-toolkit — Core API Reference',
+            description:
+              'Core services (AuthService, MFAService, SocialAuthService), DTOs, enums, interfaces, hooks, and exceptions.',
+            orderPatterns: [
+              'api/overview*',
+              'api/core/services/*',
+              'api/core/dto/*',
+              'api/core/hooks/*',
+              'api/core/enums/*',
+              'api/core/interfaces/*',
+              'api/core/exceptions/*',
+              'api/core/utilities/*',
+              'api/core/entities/*',
+            ],
+          },
+          {
+            filename: 'llms-api-adapters.txt',
+            includePatterns: ['api/nestjs/**/*', 'api/express/**/*', 'api/fastify/**/*'],
+            fullContent: true,
+            title: 'nauth-toolkit — Framework Adapters',
+            description:
+              'NestJS modules, guards, decorators, and interceptors. Express middleware and helpers. Fastify hooks and helpers.',
+            orderPatterns: ['api/nestjs/**/*', 'api/express/**/*', 'api/fastify/**/*'],
+          },
+          {
+            filename: 'llms-api-providers.txt',
+            includePatterns: [
+              'api/mfa/**/*',
+              'api/social/**/*',
+              'api/email/**/*',
+              'api/sms/**/*',
+              'api/database/**/*',
+              'api/storage/**/*',
+              'api/recaptcha/**/*',
+            ],
+            fullContent: true,
+            title: 'nauth-toolkit — Provider Packages',
+            description:
+              'MFA (TOTP, SMS, Email, Passkey), social OAuth (Google, Apple, Facebook), email/SMS providers, database entities, and storage adapters.',
+            orderPatterns: [
+              'api/mfa/*',
+              'api/social/*',
+              'api/email/*',
+              'api/sms/*',
+              'api/database/*',
+              'api/storage/*',
+              'api/recaptcha/**/*',
+            ],
+          },
+          {
+            filename: 'llms-frontend-sdk.txt',
+            includePatterns: ['frontend-sdk/**/*'],
+            fullContent: true,
+            title: 'nauth-toolkit — Frontend SDK',
+            description:
+              'Client SDK: NAuthClient API, Angular service and guards, React hooks, Capacitor mobile setup, social auth, and MFA flows.',
+            orderPatterns: [
+              'frontend-sdk/overview*',
+              'frontend-sdk/guides/*',
+              'frontend-sdk/concepts/*',
+              'frontend-sdk/api/**/*',
+              'frontend-sdk/angular/*',
+              'frontend-sdk/react/*',
+              'frontend-sdk/mobile/*',
+            ],
+          },
+        ],
+      },
     ],
   ],
 
@@ -100,10 +261,31 @@ const config: Config = {
     ],
   ],
 
+  stylesheets: [
+    {
+      rel: 'preconnect',
+      href: 'https://fonts.googleapis.com',
+    },
+    {
+      rel: 'preconnect',
+      href: 'https://fonts.gstatic.com',
+      crossorigin: 'anonymous',
+    },
+    {
+      rel: 'preconnect',
+      href: 'https://kit.fontawesome.com',
+    },
+    {
+      href: 'https://fonts.googleapis.com/css2?family=Red+Hat+Text:ital,wght@0,300..700;1,300..700&display=swap',
+      type: 'text/css',
+    },
+  ],
+
   scripts: [
     {
       src: 'https://kit.fontawesome.com/d6545e9070.js',
       crossorigin: 'anonymous',
+      async: true,
     },
   ],
 
@@ -148,6 +330,11 @@ const config: Config = {
         },
 
         {
+          href: 'https://demo.nauth.dev',
+          label: 'Live Demo',
+          position: 'right',
+        },
+        {
           href: 'https://www.npmjs.com/package/@nauth-toolkit/core',
           label: 'npm',
           position: 'right',
@@ -157,7 +344,7 @@ const config: Config = {
     footer: {
       style: 'dark',
 
-      copyright: `Copyright © ${new Date().getFullYear()} nauth-toolkit by Murtaza Nooruddin. Early Access License - transitioning to open source.`,
+      copyright: `Copyright © ${new Date().getFullYear()} nauth-toolkit. Early Access License`,
     },
     prism: {
       theme: prismThemes.nightOwl,

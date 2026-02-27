@@ -3,16 +3,16 @@ import { Repository } from 'typeorm';
 import {
   BaseMFADevice,
   BaseUser,
-  IUser,
   IMFADevice,
   NAuthConfig,
   NAuthLogger,
   NAuthException,
   AuthErrorCode,
   MFAMethod,
+  ClientInfoService,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
-import { BaseMFAProviderService } from '@nauth-toolkit/core/internal';
+import { BaseMFAProviderService, ChallengeService, AuthAuditService } from '@nauth-toolkit/core/internal';
 import { PasskeyService } from './passkey.service';
 import { SetupPasskeyResponseDTO, VerifyPasskeySetupDTO, GetPasskeyChallengeResponseDTO } from './dto/mfa.dto';
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/types';
@@ -53,9 +53,9 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
     logger: NAuthLogger,
     passwordService: unknown,
     private readonly passkeyService: PasskeyService,
-    challengeService?: unknown, // ChallengeService (optional)
-    auditService?: unknown, // AuthAuditService (optional)
-    clientInfoService?: unknown, // ClientInfoService (optional)
+    challengeService?: ChallengeService,
+    auditService?: AuthAuditService,
+    clientInfoService?: ClientInfoService,
   ) {
     super(
       mfaDeviceRepository,
@@ -63,9 +63,9 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
       config,
       logger,
       passwordService,
-      challengeService as any,
-      auditService as any,
-      clientInfoService as any,
+      challengeService,
+      auditService,
+      clientInfoService,
     );
   }
 
@@ -86,7 +86,8 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
    * // Client calls navigator.credentials.create({ publicKey: options.options })
    * ```
    */
-  async setup(user: IUser, _setupData?: unknown): Promise<SetupPasskeyResponseDTO> {
+  async setup(_setupData?: unknown): Promise<SetupPasskeyResponseDTO> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Setting up passkey for user: ${user.sub}`);
 
     // Check if passkey is allowed
@@ -118,9 +119,9 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
    * Validates the WebAuthn credential and stores the device if valid.
    *
    * **Race Condition Safety:**
-   * Device creation uses transaction with pessimistic locking to prevent duplicates.
-   * If device already exists (e.g., from concurrent request), returns existing device.
-   * Database unique constraint (userId, type) provides final safety net.
+   * Device creation uses a transaction with pessimistic locking.
+   * Passkeys are de-duplicated by `(userId, type, credentialId)` to avoid registering the same
+   * credential multiple times (e.g., due to retries or concurrent requests).
    *
    * @param user - User completing Passkey setup
    * @param verificationData - Verification data (must be { credential: VerifyPasskeySetupDTO, expectedChallenge: string })
@@ -135,7 +136,8 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
    * }, 'iPhone 15 Pro');
    * ```
    */
-  async verifySetup(user: IUser, verificationData: unknown, deviceName?: string): Promise<number> {
+  async verifySetup(verificationData: unknown, deviceName?: string): Promise<number> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying passkey setup for user: ${user.sub}`);
 
     // Extract credential and challenge from verificationData
@@ -214,20 +216,23 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
     const userMfaEnabled = (userEntity.mfaEnabled as boolean) || false;
 
     // ============================================================================
-    // Create MFA device (transaction-safe with duplicate prevention)
+    // Create MFA device (transaction-safe, credentialId de-dup)
     // ============================================================================
-    // createDevice() uses pessimistic locking to prevent race conditions
-    // If device already exists, returns existing device instead of creating duplicate
-    // Database unique constraint (userId, type) provides additional safety
-    const device = await this.createDevice(userId, {
-      name: deviceName || dto.deviceName || 'Passkey Device',
-      credentialId: verified.credentialId,
-      publicKey: verified.publicKey,
-      counter: verified.counter,
-      transports: verified.transports,
-      isActive: true,
-      isPrimary: !userMfaEnabled, // First device becomes primary
-    });
+    // WARNING: For passkeys, de-duplication must be based on credentialId (not method-only),
+    // otherwise users would be limited to a single passkey per account.
+    const device = await this.createDevice(
+      userId,
+      {
+        name: deviceName || dto.deviceName || 'Passkey Device',
+        credentialId: verified.credentialId,
+        publicKey: verified.publicKey,
+        counter: verified.counter,
+        transports: verified.transports,
+        isActive: true,
+        isPrimary: !userMfaEnabled, // First device becomes primary
+      },
+      { dedupeWhere: { credentialId: verified.credentialId } },
+    );
 
     // Enable MFA if not already enabled
     await this.enableMFAForUser(user);
@@ -256,7 +261,8 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
    * });
    * ```
    */
-  async verify(user: IUser, code: unknown, deviceId?: number): Promise<boolean> {
+  async verify(code: unknown, deviceId?: number): Promise<boolean> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying passkey for user: ${user.sub}`);
 
     // Extract credential and challenge
@@ -326,17 +332,18 @@ export class PasskeyMFAProviderService extends BaseMFAProviderService {
    * Generates WebAuthn authentication options for login.
    * Client must pass these to navigator.credentials.get().
    *
-   * @param user - User requesting Passkey challenge
+   * @param _challengeSessionId - Optional challenge session ID (not used for passkey, but kept for interface consistency)
    * @returns WebAuthn authentication options
    * @throws {NAuthException} If no Passkey device registered
    *
    * @example
    * ```typescript
-   * const options = await provider.sendChallenge(user);
+   * const options = await provider.sendChallenge(123);
    * // Client calls navigator.credentials.get({ publicKey: options.options })
    * ```
    */
-  async sendChallenge(user: IUser): Promise<GetPasskeyChallengeResponseDTO> {
+  async sendChallenge(_challengeSessionId?: number): Promise<GetPasskeyChallengeResponseDTO> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Generating passkey challenge for user: ${user.sub}`);
 
     // Get user's passkey devices

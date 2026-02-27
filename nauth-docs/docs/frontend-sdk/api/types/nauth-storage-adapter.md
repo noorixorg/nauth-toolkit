@@ -1,7 +1,6 @@
 ---
 title: NAuthStorageAdapter
 description: Interface for custom storage adapters used by the client SDK
-sidebar_position: 220
 keywords: [storage, adapter, interface, api]
 image: /img/api-social-card.png
 ---
@@ -24,6 +23,7 @@ import { NAuthStorageAdapter } from '@nauth-toolkit/client';
 | `getItem`    | `(key: string) => Promise<string \| null>`      | Retrieve value by key |
 | `setItem`    | `(key: string, value: string) => Promise<void>` | Persist value         |
 | `removeItem` | `(key: string) => Promise<void>`                | Remove stored value   |
+| `clear`      | `() => Promise<void>`                          | Clear all stored values |
 
 ## Built-in Implementations
 
@@ -50,6 +50,10 @@ class CapacitorStorage implements NAuthStorageAdapter {
 
   async removeItem(key: string): Promise<void> {
     await Preferences.remove({ key });
+  }
+
+  async clear(): Promise<void> {
+    await Preferences.clear();
   }
 }
 

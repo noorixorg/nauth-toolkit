@@ -1,7 +1,6 @@
 ---
 title: NAuthClientError
 description: Client-side error class for SDK operations with structured error codes and metadata
-sidebar_position: 3
 keywords: [error, exception, handling, client, sdk, api]
 image: /img/api-social-card.png
 ---

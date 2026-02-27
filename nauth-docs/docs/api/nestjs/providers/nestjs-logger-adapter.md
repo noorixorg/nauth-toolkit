@@ -1,17 +1,15 @@
 ---
 title: NestJsLoggerAdapter
-description: NestJS logger adapter for NAuth logging
+description: NestJS logger adapter for NAuth logging with automatic PII redaction
 keywords: [nestjs, logger, adapter, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 # NestJsLoggerAdapter
 
 **Package:** `@nauth-toolkit/nestjs`
 **Type:** Logger Adapter
 
-Adapts NestJS Logger to NAuth's LoggerService interface.
+Wraps NestJS's built-in `Logger` to implement NAuth's `LoggerProvider` interface. Includes automatic PII redaction for emails, IPs, and tokens.
 
 ## Import
 
@@ -22,32 +20,38 @@ import { NestJsLoggerAdapter } from '@nauth-toolkit/nestjs';
 ## Usage
 
 ```typescript
-import { Logger } from '@nestjs/common';
 import { NestJsLoggerAdapter } from '@nauth-toolkit/nestjs';
 
-const nestLogger = new Logger('NAuth');
-const logger = new NestJsLoggerAdapter(nestLogger);
+const logger = new NestJsLoggerAdapter({ context: 'NAuth' });
 ```
 
 ## Constructor
 
 ```typescript
-new NestJsLoggerAdapter(logger: Logger)
+new NestJsLoggerAdapter(options?: {
+  context?: string;
+  enablePiiRedaction?: boolean;
+  piiRedactionOptions?: Record<string, unknown>;
+})
 ```
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `logger` | `Logger` | NestJS Logger instance |
+| `options` | `object` | Optional configuration |
+| `options.context` | `string` | Logger context label. Default: `'nauth-toolkit'` |
+| `options.enablePiiRedaction` | `boolean` | Redact PII from log output. Default: `true` |
+| `options.piiRedactionOptions` | `Record<string, unknown>` | Custom PII redaction options |
 
 ## Methods
 
 | Method | Description |
 |--------|-------------|
-| `log(message, context?)` | Info level log |
-| `error(message, trace?, context?)` | Error level log |
-| `warn(message, context?)` | Warning level log |
-| `debug(message, context?)` | Debug level log |
-| `verbose(message, context?)` | Verbose level log |
+| `log(message: string, metadata?: LogMetadata)` | Info level log |
+| `error(message: string, metadata?: LogMetadata)` | Error level log |
+| `warn(message: string, metadata?: LogMetadata)` | Warning level log |
+| `debug(message: string, metadata?: LogMetadata)` | Debug level log |
+| `setLogLevel(level: LogLevel)` | Set log level at runtime |
+| `isLevelEnabled(level: LogLevel)` | Check whether a log level is enabled |
 
 ## Auto-Configuration
 

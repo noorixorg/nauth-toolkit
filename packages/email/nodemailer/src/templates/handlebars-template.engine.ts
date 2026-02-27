@@ -7,7 +7,7 @@ import {
   AuthErrorCode,
 } from '@nauth-toolkit/core';
 import * as Handlebars from 'handlebars';
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { join, resolve } from 'path';
 
 /**
@@ -73,6 +73,38 @@ export interface HandlebarsTemplateEngineOptions {
   helpers?: Record<string, Handlebars.HelperDelegate>;
 
   /**
+   * Handlebars partials (in-memory)
+   *
+   * Keys are the partial names (used like `{{> footer }}`), values are the partial templates.
+   *
+   * @example
+   * ```typescript
+   * const engine = new HandlebarsTemplateEngine({
+   *   partials: {
+   *     footer: '<footer>&copy; {{currentYear}} {{companyName}}</footer>',
+   *   },
+   * });
+   * ```
+   */
+  partials?: Record<string, string>;
+
+  /**
+   * Directory containing `.hbs` partials
+   *
+   * Files are registered by filename (without extension).
+   * Example: `partials/footer.hbs` → `{{> footer }}`
+   *
+   * @example
+   * ```typescript
+   * const engine = new HandlebarsTemplateEngine({
+   *   baseDir: process.cwd(),
+   *   partialsDir: './email-templates/partials',
+   * });
+   * ```
+   */
+  partialsDir?: string;
+
+  /**
    * Handlebars compile options
    */
   compileOptions?: CompileOptions;
@@ -106,7 +138,7 @@ export interface HandlebarsTemplateEngineOptions {
  *   useDefaultTemplates: false
  * });
  *
- * await engine.registerTemplateFromFiles(TemplateType.WELCOME, {
+ * await engine.registerTemplateFromSources(TemplateType.WELCOME, {
  *   subject: { filePath: 'welcome.subject.hbs' },
  *   html: { filePath: 'welcome.html.hbs' },
  *   text: { filePath: 'welcome.text.hbs' }
@@ -161,6 +193,16 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
       });
     }
 
+    // Register partials (optional)
+    if (options.partials) {
+      Object.entries(options.partials).forEach(([name, content]) => {
+        this.handlebars.registerPartial(name, content);
+      });
+    }
+    if (options.partialsDir) {
+      this.registerPartialsFromDir(options.partialsDir);
+    }
+
     // Load default templates if enabled
     if (options.useDefaultTemplates !== false) {
       this.registerDefaultTemplates();
@@ -191,10 +233,23 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
       ...variables,
     };
 
-    // Render subject, HTML, and text
+    // Render subject first, then expose it to HTML/text templates.
+    // MJML-built templates use {{subject}} and {{previewText}} in the shared master layout.
     const subject = template.subject(allVariables);
-    const html = template.html(allVariables);
-    const text = template.text ? template.text(allVariables) : this.htmlToText(html);
+    const previewText =
+      typeof allVariables.previewText === 'string' && allVariables.previewText.trim().length > 0
+        ? allVariables.previewText
+        : subject;
+
+    const variablesWithMeta: TemplateVariables = {
+      ...allVariables,
+      subject,
+      previewText,
+    };
+
+    // Render HTML and text (text falls back to HTML->text conversion)
+    const html = template.html(variablesWithMeta);
+    const text = template.text ? template.text(variablesWithMeta) : this.htmlToText(html);
 
     return { subject, html, text };
   }
@@ -234,7 +289,11 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
     htmlFilePath: string,
     textFilePath?: string,
   ): Promise<void> {
-    const fullHtmlPath = resolve(this.baseDir, htmlFilePath);
+    // If path is already absolute, use it directly; otherwise resolve relative to baseDir
+    const fullHtmlPath =
+      htmlFilePath.startsWith('/') || /^[A-Z]:/.test(htmlFilePath) // Windows absolute path
+        ? htmlFilePath
+        : resolve(this.baseDir, htmlFilePath);
 
     try {
       const htmlContent = readFileSync(fullHtmlPath, 'utf-8');
@@ -242,7 +301,11 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
 
       let text: string | undefined;
       if (textFilePath) {
-        const fullTextPath = resolve(this.baseDir, textFilePath);
+        // If path is already absolute, use it directly; otherwise resolve relative to baseDir
+        const fullTextPath =
+          textFilePath.startsWith('/') || /^[A-Z]:/.test(textFilePath) // Windows absolute path
+            ? textFilePath
+            : resolve(this.baseDir, textFilePath);
         text = readFileSync(fullTextPath, 'utf-8');
       }
 
@@ -260,32 +323,21 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
   }
 
   /**
-   * Register a custom template from files (legacy method for backward compatibility)
-   *
-   * @param type - Template type identifier
-   * @param templateFiles - Template file paths
-   * @deprecated Use registerTemplateFromFile instead
-   */
-  async registerTemplateFromFiles(type: TemplateType | string, templateFiles: TemplateFiles): Promise<void> {
-    const subject = await this.loadTemplateSource(templateFiles.subject);
-    const html = await this.loadTemplateSource(templateFiles.html);
-    const text = templateFiles.text ? await this.loadTemplateSource(templateFiles.text) : undefined;
-
-    this.templates.set(type, {
-      subject: this.handlebars.compile(subject),
-      html: this.handlebars.compile(html),
-      text: text ? this.handlebars.compile(text) : undefined,
-    });
-  }
-
-  /**
    * Register a custom template from mixed sources (strings or files)
    *
    * @param type - Template type identifier
    * @param templateSources - Template sources (content or file paths)
    */
   async registerTemplateFromSources(type: TemplateType | string, templateSources: TemplateFiles): Promise<void> {
-    await this.registerTemplateFromFiles(type, templateSources);
+    const subject = await this.loadTemplateSource(templateSources.subject);
+    const html = await this.loadTemplateSource(templateSources.html);
+    const text = templateSources.text ? await this.loadTemplateSource(templateSources.text) : undefined;
+
+    this.templates.set(type, {
+      subject: this.handlebars.compile(subject),
+      html: this.handlebars.compile(html),
+      text: text ? this.handlebars.compile(text) : undefined,
+    });
   }
 
   /**
@@ -362,7 +414,11 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
     }
 
     if (source.filePath) {
-      const fullPath = resolve(this.baseDir, source.filePath);
+      // If path is already absolute, use it directly; otherwise resolve relative to baseDir
+      const fullPath =
+        source.filePath.startsWith('/') || source.filePath.match(/^[A-Z]:/) // Windows absolute path
+          ? source.filePath
+          : resolve(this.baseDir, source.filePath);
       try {
         return readFileSync(fullPath, 'utf-8');
       } catch (error) {
@@ -452,6 +508,25 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
   }
 
   /**
+   * Register all `.hbs` partials from a directory
+   *
+   * @param partialsDir - Directory path (relative to baseDir or absolute)
+   * @private
+   */
+  private registerPartialsFromDir(partialsDir: string): void {
+    const fullDir = resolve(this.baseDir, partialsDir);
+    const files = readdirSync(fullDir);
+
+    files.forEach((fileName) => {
+      if (!fileName.endsWith('.hbs')) return;
+      const partialName = fileName.replace(/\.hbs$/, '');
+      const fullPath = join(fullDir, fileName);
+      const content = readFileSync(fullPath, 'utf-8');
+      this.handlebars.registerPartial(partialName, content);
+    });
+  }
+
+  /**
    * Register default templates from built-in files
    *
    * Loads templates from the default templates directory.
@@ -464,12 +539,22 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
     const templateFileMapping: Record<string, string> = {
       [TemplateType.VERIFICATION]: 'verification',
       [TemplateType.PASSWORD_RESET]: 'password-reset',
+      [TemplateType.ADMIN_PASSWORD_RESET]: 'admin-password-reset',
       [TemplateType.WELCOME]: 'welcome',
       [TemplateType.ACCOUNT_LOCKOUT]: 'account-lockout',
       [TemplateType.NEW_DEVICE]: 'new-device',
       [TemplateType.PASSWORD_CHANGED]: 'password-changed',
       [TemplateType.EMAIL_CHANGED]: 'email-changed',
       [TemplateType.MFA_ENABLED]: 'mfa-enabled',
+      [TemplateType.MFA_DEVICE_REMOVED]: 'mfa-device-removed',
+      [TemplateType.MFA_METHOD_ADDED]: 'mfa-method-added',
+      [TemplateType.ADAPTIVE_MFA_RISK_ALERT]: 'adaptive-mfa-risk-alert',
+      [TemplateType.ACCOUNT_DISABLED]: 'account-disabled',
+      [TemplateType.ACCOUNT_ENABLED]: 'account-enabled',
+      [TemplateType.EMAIL_CHANGED_OLD]: 'email-changed-old',
+      [TemplateType.EMAIL_CHANGED_NEW]: 'email-changed-new',
+      [TemplateType.SESSIONS_REVOKED]: 'sessions-revoked',
+      [TemplateType.MFA_EMAIL_CODE]: 'mfa-email-code',
     };
 
     // Register all default templates

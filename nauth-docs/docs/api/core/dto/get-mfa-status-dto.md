@@ -1,52 +1,44 @@
 ---
-title: GetMFAStatusDTO
-description: Request and response DTOs for retrieving comprehensive MFA status including enabled status, configured methods, available methods, backup codes, and exemption information.
-keywords: [mfa, status, dto, request, response, enabled, methods, api]
+title: GetMFAStatusResponseDTO
+description: Response DTO for retrieving comprehensive MFA status including enabled status, configured methods, available methods, backup codes, and exemption information.
+keywords: [mfa, status, dto, response, enabled, methods, api]
 image: /img/api-social-card.png
-sidebar_position: 41
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# GetMFAStatusDTO
+# GetMFAStatusResponseDTO
 
 **Package:** `@nauth-toolkit/core`
-**Type:** DTO (Request/Response)
+**Type:** DTO (Response)
 
-Data transfer objects for getting comprehensive MFA status for a user.
+Response DTO for getting comprehensive MFA status for a user.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-import { GetMFAStatusDTO, GetMFAStatusResponseDTO } from '@nauth-toolkit/nestjs';
+import { GetMFAStatusResponseDTO } from '@nauth-toolkit/nestjs';
 ```
 
 </TabItem>
 <TabItem value="express" label="Express">
 
 ```typescript
-import { GetMFAStatusDTO, GetMFAStatusResponseDTO } from '@nauth-toolkit/core';
+import { GetMFAStatusResponseDTO } from '@nauth-toolkit/core';
 ```
 
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { GetMFAStatusDTO, GetMFAStatusResponseDTO } from '@nauth-toolkit/core';
+import { GetMFAStatusResponseDTO } from '@nauth-toolkit/core';
 ```
 
 </TabItem>
 </Tabs>
 
-## GetMFAStatusDTO (Request)
-
-| Property | Type     | Required | Description                                                      |
-| -------- | -------- | -------- | ---------------------------------------------------------------- |
-| `sub`    | `string` | Yes      | User sub. UUID v4 format. Trimmed and lowercased.               |
-
-## GetMFAStatusResponseDTO (Response)
+## Properties
 
 | Property            | Type                      | Description                           |
 | ------------------- | ------------------------- | ------------------------------------- |
@@ -64,14 +56,6 @@ import { GetMFAStatusDTO, GetMFAStatusResponseDTO } from '@nauth-toolkit/core';
 
 ```json
 {
-  "sub": "a21b654c-2746-4168-acee-c175083a65cd"
-}
-```
-
-**Response:**
-
-```json
-{
   "enabled": true,
   "required": true,
   "configuredMethods": ["totp", "sms"],
@@ -86,5 +70,10 @@ import { GetMFAStatusDTO, GetMFAStatusResponseDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [MFAService.getMFAStatus()](../services/mfa-service#getmfastatus)
+- [MFAService.getMfaStatus()](../services/mfa-service#getmfastatus) - User self-service method
+- [MFAService.adminGetMfaStatus()](../services/mfa-service#admingetmfastatus) - Admin operation
+
+## Related APIs
+
+- [AdminGetMFAStatusDTO](./admin-get-mfa-status-dto) - Admin request DTO (requires `sub`)
 

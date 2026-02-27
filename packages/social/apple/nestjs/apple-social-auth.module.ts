@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { AppleSocialAuthService } from '../src/apple-social-auth.service';
 // Public API imports
 import {
@@ -9,17 +9,22 @@ import {
   NAuthLogger,
   PhoneVerificationService,
   ITokenVerifierService,
+  ISocialAuthStateStore,
+  BaseSocialProviderSecret,
+  BaseUser,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import {
   JwtService,
   SessionService,
   AuthChallengeHelperService,
-  SocialProviderRegistry,
+  NAUTH_SOCIAL_PROVIDER_TOKEN,
   AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent()
   TrustedDeviceService,
+  HookRegistryService,
 } from '@nauth-toolkit/core/internal';
 import { TokenVerifierService as AppleTokenVerifierService } from '../src/token-verifier.service';
+import type { Repository } from 'typeorm';
 
 /**
  * Apple Social Authentication Module (NestJS Adapter)
@@ -77,12 +82,14 @@ import { TokenVerifierService as AppleTokenVerifierService } from '../src/token-
         sessionService: SessionService,
         challengeHelper: AuthChallengeHelperService,
         clientInfoService: ClientInfoService,
-        stateStore: Map<string, { timestamp: number; provider: string }>,
-        userRepository: any,
+        stateStore: ISocialAuthStateStore,
+        userRepository: Repository<BaseUser>,
         phoneVerificationService?: PhoneVerificationService,
         auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
         trustedDeviceService?: TrustedDeviceService, // Optional - only available when rememberDevices is enabled
+        hookRegistry?: HookRegistryService, // Required for lifecycle hooks
         tokenVerifier?: ITokenVerifierService,
+        socialProviderSecretRepository?: Repository<BaseSocialProviderSecret>,
       ) => {
         return new AppleSocialAuthService(
           config,
@@ -98,7 +105,9 @@ import { TokenVerifierService as AppleTokenVerifierService } from '../src/token-
           phoneVerificationService,
           auditService,
           trustedDeviceService,
+          hookRegistry,
           tokenVerifier,
+          socialProviderSecretRepository,
         );
       },
       inject: [
@@ -115,27 +124,19 @@ import { TokenVerifierService as AppleTokenVerifierService } from '../src/token-
         { token: PhoneVerificationService, optional: true },
         { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
         { token: TrustedDeviceService, optional: true }, // Optional - only available when rememberDevices is enabled
+        HookRegistryService, // Required for lifecycle hooks
         { token: 'APPLE_TOKEN_VERIFIER', optional: true },
+        // Required when Apple is enabled (used for DB-backed JWT client secret rotation)
+        'SocialProviderSecretRepository',
       ],
+    },
+
+    // Bind to shared discovery token (registration is performed by AuthModule at app bootstrap)
+    {
+      provide: NAUTH_SOCIAL_PROVIDER_TOKEN,
+      useExisting: AppleSocialAuthService,
     },
   ],
   exports: [AppleSocialAuthService],
 })
-export class AppleSocialAuthModule implements OnModuleInit {
-  constructor(
-    private readonly appleSocialAuthService: AppleSocialAuthService,
-    private readonly providerRegistry: SocialProviderRegistry,
-  ) {}
-
-  /**
-   * Auto-register Apple provider with the SocialProviderRegistry
-   * when the module is initialized (only if enabled in config).
-   */
-  onModuleInit(): void {
-    const config = this.appleSocialAuthService['config'] as NAuthConfig; // Access protected config
-    const providerConfig = config.social?.apple;
-    if (providerConfig?.enabled) {
-      this.providerRegistry.registerProvider(this.appleSocialAuthService);
-    }
-  }
-}
+export class AppleSocialAuthModule {}

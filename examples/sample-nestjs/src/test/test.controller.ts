@@ -15,17 +15,13 @@ import { Public, AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
 import { TestService } from './test.service';
 
 /**
- * Test Mode Controller
+ * Test Controller
  *
- * Provides endpoints for E2E testing:
- * - Reset database/Redis state (optional, not used by default)
- * - Retrieve test data (email codes, SMS codes, TOTP secrets)
- *
- * ⚠️ ONLY ENABLED when NAUTH_TEST_MODE=true
- * ⚠️ DO NOT USE in production
- *
- * Note: Configuration changes require manual edits to auth.config.ts and app restart.
- * The app auto-restarts on file changes when using yarn start:dev.
+ * Provides endpoints for E2E testing and code fetching:
+ * - Reset database/Redis state: POST /test/reset
+ * - Retrieve verification codes: GET /test/code/latest, GET /test/code/latest/authenticated
+ * - Retrieve TOTP secret: GET /test/totp/secret
+ * - Config apply, SMS latest, etc.
  */
 @Controller('test')
 export class TestController {
@@ -34,12 +30,7 @@ export class TestController {
   constructor(
     private readonly testService: TestService,
     @InjectDataSource() private readonly dataSource: DataSource,
-  ) {
-    // Verify test mode is enabled
-    if (process.env.NAUTH_TEST_MODE !== 'true') {
-      this.logger.warn('⚠️  Test mode endpoints are DISABLED. Set NAUTH_TEST_MODE=true to enable.');
-    }
-  }
+  ) {}
 
   /**
    * Reset test environment
@@ -55,10 +46,6 @@ export class TestController {
   @Post('reset')
   @HttpCode(HttpStatus.OK)
   async reset(@Query('light') light?: string): Promise<{ message: string; mode: string }> {
-    if (process.env.NAUTH_TEST_MODE !== 'true') {
-      throw new BadRequestException('Test mode is not enabled');
-    }
-
     const isLight = light === 'true' || light === '1';
     await this.testService.reset(isLight);
     return {
@@ -68,13 +55,16 @@ export class TestController {
   }
 
   /**
-   * Get latest verification code for a challenge session
+   * Get latest verification code for a challenge session or password reset
    *
    * GET /test/code/latest?sessionId=99f45d2b-3834-46d6-8a89-b90c349a9a94
+   * GET /test/code/latest?identifier=user@example.com&type=password_reset
    *
-   * Retrieves the latest verification code from nauth_verification_tokens
+   * For challenge sessions: Retrieves the latest verification code from nauth_verification_tokens
    * by finding the challenge session by sessionToken, then the token by challengeSessionId.
-   * This ensures we always get the correct code for the specific challenge session.
+   *
+   * For password reset: Retrieves the latest password reset code by finding the user by identifier
+   * (email, username, or phone), then the password reset token by userId.
    *
    * Returns null if code is not found (instead of empty string) to distinguish
    * between "no code" and "code exists but is empty".
@@ -82,13 +72,17 @@ export class TestController {
   @Public()
   @Get('code/latest')
   async getLatestCode(
-    @Query('sessionId') sessionId: string,
+    @Query('sessionId') sessionId?: string,
     @Query('method') method?: string,
+    @Query('identifier') identifier?: string,
+    @Query('type') type?: string,
   ): Promise<{ code: string | null }> {
-    if (process.env.NAUTH_TEST_MODE !== 'true') {
-      throw new BadRequestException('Test mode is not enabled');
+    // Handle password reset code request
+    if (type === 'password_reset' && identifier) {
+      return this.getPasswordResetCode(identifier);
     }
 
+    // Handle challenge session code request (existing logic)
     if (!sessionId || sessionId === 'undefined' || sessionId.trim() === '') {
       this.logger?.warn?.(`Invalid sessionId provided: ${JSON.stringify(sessionId)}`);
       throw new BadRequestException('Invalid sessionId provided');
@@ -121,6 +115,7 @@ export class TestController {
     // Step 1: Find challenge session by sessionToken
     const challengeSession = await challengeSessionRepo.findOne({
       where: { sessionToken: sessionId } as any,
+      order: { id: 'DESC' } as any,
     });
 
     if (!challengeSession) {
@@ -190,66 +185,25 @@ export class TestController {
       throw new BadRequestException(`Challenge type ${challengeName} does not use verification codes`);
     }
 
-    // Step 3: Find verification token by challengeSessionId and type
-    // First try with challengeSessionId (preferred method)
-    let tokens: any[] = [];
-    if (challengeSessionId) {
-      tokens = await verificationTokenRepo.find({
-        where: {
-          challengeSessionId,
-          type: tokenType,
-          usedAt: IsNull(), // Only unused tokens
-        } as any,
-        order: { createdAt: 'DESC' } as any,
-      });
-
-      this.logger?.debug?.(
-        `Found ${tokens.length} verification tokens for challengeSessionId: ${challengeSessionId}, type: ${tokenType}`,
-      );
+    // Step 3: Find most recent verification token by challengeSessionId and type
+    if (!challengeSessionId) {
+      throw new BadRequestException('Challenge session ID is required');
     }
 
-    // Step 4: Find token with actual code (code might be null for link-based verification)
-    let verificationToken = tokens.find((t) => t.code !== null && t.code !== '' && String(t.code).trim() !== '');
+    // Get most recent unused token with code, ordered by id DESC
+    const verificationToken = await verificationTokenRepo.findOne({
+      where: {
+        challengeSessionId,
+        type: tokenType,
+        usedAt: IsNull(),
+      } as any,
+      order: { id: 'DESC' } as any,
+    });
 
-    // If no token found with challengeSessionId, try finding by userId (fallback)
-    // This handles cases where challengeSessionId might not be set or tokens were created before linking
-    if (!verificationToken) {
-      this.logger?.warn?.(
-        `No verification token with code found for challengeSessionId: ${challengeSessionId}, type: ${tokenType}. Trying fallback by userId: ${challengeSessionUserId}`,
-      );
-
-      // Fallback: Find by userId and type (for backward compatibility and timing issues)
-      const fallbackTokens = await verificationTokenRepo.find({
-        where: {
-          userId: challengeSessionUserId,
-          type: tokenType,
-          usedAt: IsNull(),
-        } as any,
-        order: { createdAt: 'DESC' } as any,
-      });
-
-      this.logger?.debug?.(
-        `Found ${fallbackTokens.length} fallback tokens for userId: ${challengeSessionUserId}, type: ${tokenType}`,
-      );
-
-      verificationToken = fallbackTokens.find((t) => t.code !== null && t.code !== '' && String(t.code).trim() !== '');
-      if (verificationToken) {
-        this.logger?.debug?.(
-          `Found verification token via fallback: id=${verificationToken.id}, createdAt=${verificationToken.createdAt}, challengeSessionId=${verificationToken.challengeSessionId}, code=***`,
-        );
-        return { code: verificationToken.code };
-      }
-
-      this.logger?.warn?.(
-        `No verification token found even with fallback for userId: ${challengeSessionUserId}, type: ${tokenType}`,
-      );
-      // Return null to indicate code not found (not an error, just not available yet)
+    if (!verificationToken?.code) {
       return { code: null };
     }
 
-    this.logger?.debug?.(
-      `Found verification token: id=${verificationToken.id}, createdAt=${verificationToken.createdAt}, code=***`,
-    );
     return { code: verificationToken.code };
   }
 
@@ -273,10 +227,6 @@ export class TestController {
     @CurrentUser() user: IUser,
     @Query('method') method: string,
   ): Promise<{ code: string | null }> {
-    if (process.env.NAUTH_TEST_MODE !== 'true') {
-      throw new BadRequestException('Test mode is not enabled');
-    }
-
     if (!method || (method !== 'sms' && method !== 'email')) {
       throw new BadRequestException('Method must be "sms" or "email"');
     }
@@ -331,6 +281,91 @@ export class TestController {
   }
 
   /**
+   * Get password reset code for an identifier
+   *
+   * Helper method to retrieve password reset codes by user identifier.
+   *
+   * @param identifier - User identifier (email, username, or phone)
+   * @returns Password reset code or null if not found
+   */
+  private async getPasswordResetCode(identifier: string): Promise<{ code: string | null }> {
+    // Get repositories using table names (database-agnostic approach)
+    const userMetadata = this.dataSource.entityMetadatas.find((m) => m.tableName === 'nauth_users');
+    if (!userMetadata) {
+      throw new BadRequestException('User entity not found');
+    }
+    const userRepo = this.dataSource.getRepository(userMetadata.target);
+
+    const verificationTokenMetadata = this.dataSource.entityMetadatas.find(
+      (m) => m.tableName === 'nauth_verification_tokens',
+    );
+    if (!verificationTokenMetadata) {
+      throw new BadRequestException('VerificationToken entity not found');
+    }
+    const verificationTokenRepo = this.dataSource.getRepository(verificationTokenMetadata.target);
+
+    // Step 1: Find user by identifier (email, username, or phone)
+    const normalizedIdentifier = identifier.toLowerCase().trim();
+    let user: unknown = null;
+
+    // Try email first
+    user = await userRepo.findOne({ where: { email: normalizedIdentifier } as any });
+
+    // Try username if not found
+    if (!user) {
+      user = await userRepo.findOne({
+        where: { username: normalizedIdentifier } as any,
+      });
+    }
+
+    // Try phone if not found
+    if (!user) {
+      user = await userRepo.findOne({
+        where: { phone: identifier } as any, // Phone numbers may have + prefix, don't lowercase
+      });
+    }
+
+    if (!user) {
+      this.logger?.warn?.(`User not found for identifier: ${identifier}`);
+      return { code: null };
+    }
+
+    const userRow = user as { id?: unknown } | null;
+    const userId = userRow?.id;
+    if (userId === undefined || userId === null) {
+      this.logger?.warn?.(`User ID not found for identifier: ${identifier}`);
+      return { code: null };
+    }
+
+    // Step 2: Find latest unused password reset token
+    const tokens = await verificationTokenRepo.find({
+      where: {
+        userId,
+        type: 'password_reset',
+        usedAt: IsNull(),
+      } as any,
+      order: { createdAt: 'DESC' } as any,
+    });
+
+    this.logger?.debug?.(
+      `Found ${tokens.length} password reset tokens for userId: ${userId}, identifier: ${identifier}`,
+    );
+
+    // Step 3: Find token with actual code
+    const verificationToken = tokens.find((t) => t.code !== null && t.code !== '' && String(t.code).trim() !== '');
+
+    if (!verificationToken) {
+      this.logger?.warn?.(`No password reset token with code found for userId: ${userId}, identifier: ${identifier}`);
+      return { code: null };
+    }
+
+    this.logger?.debug?.(
+      `Found password reset token: id=${verificationToken.id}, createdAt=${verificationToken.createdAt}, code=***`,
+    );
+    return { code: verificationToken.code };
+  }
+
+  /**
    * Get TOTP secret for a user
    *
    * GET /test/totp/secret?userId=user-id
@@ -338,10 +373,6 @@ export class TestController {
   @Public()
   @Get('totp/secret')
   async getTotpSecret(@Query('userId') userId: string): Promise<{ secret: string }> {
-    if (process.env.NAUTH_TEST_MODE !== 'true') {
-      throw new BadRequestException('Test mode is not enabled');
-    }
-
     const secret = await this.testService.getTotpSecret(userId);
     return { secret };
   }

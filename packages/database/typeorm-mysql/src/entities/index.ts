@@ -9,6 +9,7 @@ export * from './auth-audit.entity';
 export * from './trusted-device.entity';
 export * from './rate-limit.entity';
 export * from './storage-lock.entity';
+export * from './social-provider-secret.entity';
 
 // Import all entities for the helper function
 import { User } from './user.entity';
@@ -22,6 +23,7 @@ import { AuthAudit } from './auth-audit.entity';
 import { TrustedDevice } from './trusted-device.entity';
 import { RateLimit } from './rate-limit.entity';
 import { StorageLock } from './storage-lock.entity';
+import { SocialProviderSecret } from './social-provider-secret.entity';
 
 /**
  * Get all nauth-toolkit entities for TypeORM configuration (MySQL)
@@ -46,13 +48,13 @@ import { StorageLock } from './storage-lock.entity';
  * Get all nauth-toolkit entities for TypeORM configuration (excluding storage entities)
  *
  * **Storage Entities:** Storage entities (RateLimit, StorageLock) are NOT included here.
- * Only include them if using DatabaseStorageAdapter. Use `getNAuthStorageEntities()` to add them.
+ * Only include them if using DatabaseStorageAdapter. Use `getNAuthTransientStorageEntities()` to add them.
  *
  * @returns Array of nauth-toolkit entity classes (excluding storage entities)
  *
  * @example
  * ```typescript
- * import { getNAuthEntities, getNAuthStorageEntities } from '@nauth-toolkit/database-typeorm-mysql';
+ * import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-mysql';
  *
  * // Using Memory or Redis adapter - no storage entities needed
  * TypeOrmModule.forRoot({
@@ -61,7 +63,7 @@ import { StorageLock } from './storage-lock.entity';
  *
  * // Using DatabaseStorageAdapter - include storage entities
  * TypeOrmModule.forRoot({
- *   entities: [...getNAuthEntities(), ...getNAuthStorageEntities()],
+ *   entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()],
  * });
  * ```
  */
@@ -76,6 +78,7 @@ export function getNAuthEntities(): Function[] {
     MFADevice,
     AuthAudit,
     TrustedDevice,
+    SocialProviderSecret,
   ];
 }
 
@@ -89,11 +92,11 @@ export function getNAuthEntities(): Function[] {
  *
  * @example
  * ```typescript
- * import { getNAuthEntities, getNAuthStorageEntities } from '@nauth-toolkit/database-typeorm-mysql';
+ * import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-mysql';
  * import { DatabaseStorageAdapter } from '@nauth-toolkit/storage-database';
  *
  * TypeOrmModule.forRoot({
- *   entities: [...getNAuthEntities(), ...getNAuthStorageEntities()],
+ *   entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()],
  * });
  *
  * AuthModule.forRoot({

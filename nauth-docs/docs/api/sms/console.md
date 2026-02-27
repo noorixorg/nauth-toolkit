@@ -3,9 +3,7 @@ title: Console
 description: Console SMS provider for development and testing
 keywords: [sms, console, development, testing, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -33,9 +31,7 @@ npm install @nauth-toolkit/sms-console
 import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
 
 AuthModule.forRoot({
-  sms: {
-    provider: new ConsoleSMSProvider(),
-  },
+  smsProvider: new ConsoleSMSProvider(),
 })
 ```
 
@@ -47,9 +43,7 @@ import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
 
 const nauth = await NAuth.create({
   config: {
-    sms: {
-      provider: new ConsoleSMSProvider(),
-    },
+    smsProvider: new ConsoleSMSProvider(),
   },
   // ...
 });
@@ -63,9 +57,7 @@ import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
 
 const nauth = await NAuth.create({
   config: {
-    sms: {
-      provider: new ConsoleSMSProvider(),
-    },
+    smsProvider: new ConsoleSMSProvider(),
   },
   adapter: new FastifyAdapter(),
   // ...
@@ -97,7 +89,32 @@ provider.setStorageCallback(async (phone, code) => {
 });
 ```
 
+## Templates
+
+Customize SMS message content with templates:
+
+```typescript
+AuthModule.forRoot({
+  smsProvider: new ConsoleSMSProvider(),
+  sms: {
+    templates: {
+      globalVariables: {
+        appName: 'My App',
+      },
+      customTemplates: {
+        verification: {
+          content: '{{appName}}: Your code is {{code}}. Expires in {{expiryMinutes}} min.',
+        },
+      },
+    },
+  },
+});
+```
+
+See [SMS Templates](/docs/guides/sms-templates) for complete documentation.
+
 ## Related
 
 - [SMS Overview](./overview)
+- [SMS Templates Configuration](./templates)
 - [AWS SNS](./aws-sns) - Production provider

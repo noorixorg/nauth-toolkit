@@ -8,8 +8,12 @@ import {
   input,
   output,
 } from '@angular/core';
-import { Router } from '@angular/router';
-import { AuthService, AuthResponse, NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client/angular';
+import { Router, ActivatedRoute } from '@angular/router';
+import {
+  AuthService,
+  AuthResponse,
+  NAUTH_CLIENT_CONFIG,
+} from '@nauth-toolkit/client-angular/standalone';
 import {
   AuthChallenge,
   MFASetupResponse,
@@ -146,6 +150,23 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
   error = signal<string | null>(null);
 
   /**
+   * Optional device name for the enrolled passkey.
+   *
+   * This improves UX when users register multiple passkeys.
+   */
+  deviceName = signal<string>('');
+
+  /**
+   * Handle device name input changes.
+   *
+   * @param event - Input event
+   */
+  onDeviceNameInput(event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    this.deviceName.set(target?.value ?? '');
+  }
+
+  /**
    * Destroy subject for cleanup
    */
   private readonly destroy$ = new Subject<void>();
@@ -208,6 +229,7 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
   });
 
   private readonly config = inject<NAuthClientConfig>(NAUTH_CLIENT_CONFIG);
+  private readonly route = inject(ActivatedRoute);
 
   /**
    * @param auth - Auth service for authentication
@@ -365,9 +387,10 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
     try {
       if (this.isAuthenticatedFlow()) {
         // Authenticated flow - use direct MFA setup endpoint
+        // Backend returns { setupData: { options: {...} } }
         const client = this.auth.getClient();
-        const setupData = (await client.setupMfaDevice('passkey')) as Record<string, unknown>;
-        this.setupData.set({ setupData });
+        const result = await client.setupMfaDevice('passkey');
+        this.setupData.set(result as GetSetupDataResponse);
         this.challengeData.set(null);
         // Create a synthetic challenge for internal component logic
         this.challenge.set({
@@ -386,7 +409,7 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
 
         if (challenge.challengeName === AuthChallenge.MFA_SETUP_REQUIRED) {
           // Load registration options for setup
-          const response = await this.auth.getSetupData(session, 'passkey').toPromise();
+          const response = await this.auth.getSetupData(session, 'passkey');
           if (!response) {
             throw new Error('Failed to get passkey setup data');
           }
@@ -394,7 +417,7 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
           this.challengeData.set(null);
         } else if (challenge.challengeName === AuthChallenge.MFA_REQUIRED) {
           // Load authentication options for verification
-          const response = await this.auth.getChallengeData(session, 'passkey').toPromise();
+          const response = await this.auth.getChallengeData(session, 'passkey');
           if (!response) {
             throw new Error('Failed to get passkey challenge data');
           }
@@ -417,9 +440,15 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
           throw new Error(`Invalid challenge type: ${challenge.challengeName}`);
         }
       }
+      // Mark session as loaded to prevent duplicate loads
+      const session = this.currentSession();
+      if (session) {
+        this.lastLoadedSession = session;
+      }
     } catch (err) {
       this.handleError(err);
     } finally {
+      this.isLoadingData = false;
       this.loading.set(false);
     }
   }
@@ -458,6 +487,7 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
 
     try {
       let credential: unknown;
+      const deviceName = this.deviceName().trim();
 
       if (isSetup) {
         // MFA_SETUP_REQUIRED: Create new passkey (registration)
@@ -492,6 +522,7 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
                 };
                 type: 'public-key';
               },
+              deviceName: deviceName.length > 0 ? deviceName : undefined,
             },
             expectedChallenge,
           });
@@ -526,12 +557,13 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
                   };
                   type: 'public-key';
                 },
+                deviceName: deviceName.length > 0 ? deviceName : undefined,
               },
               expectedChallenge,
             },
           };
 
-          const authResponse = await this.auth.respondToChallenge(setupResponse).toPromise();
+          const authResponse = await this.auth.respondToChallenge(setupResponse);
           if (!authResponse) {
             throw new Error('Failed to complete passkey setup');
           }
@@ -547,14 +579,16 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
           throw new Error('Invalid challenge session for passkey verification');
         }
 
+        // SDK auto-injects deviceId if one was selected via selectMFADevice()
         const verifyResponse: MFAPasskeyResponse = {
           type: AuthChallenge.MFA_REQUIRED,
           session,
           method: 'passkey',
           credential: credential as Record<string, unknown>,
+          // No manual deviceId needed - SDK handles it!
         };
 
-        const authResponse = await this.auth.respondToChallenge(verifyResponse).toPromise();
+        const authResponse = await this.auth.respondToChallenge(verifyResponse);
         if (!authResponse) {
           throw new Error('Failed to complete passkey verification');
         }
@@ -679,8 +713,6 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
 
   /**
    * Navigate to dashboard page
-   *
-   * @deprecated Use goBack() instead for consistency
    */
   navigateToDashboard(): void {
     this.router.navigate(['/dashboard']);
@@ -696,7 +728,7 @@ export class PasskeySetupComponent implements OnInit, OnDestroy {
   /**
    * Navigate back to method selection (for embedded mode during signup)
    *
-   * @deprecated Use goBack() instead for consistency
+   * Prefer `goBack()` for a single consistent back-navigation entry point.
    */
   navigateToMethodSelection(): void {
     // Emit cancellation event to parent mfa-setup component

@@ -12,6 +12,8 @@ import {
   ISocialAuthProviderService,
   ITokenVerifierService,
   BaseUser,
+  ISocialAuthStateStore,
+  BaseSocialProviderSecret,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import {
@@ -21,11 +23,20 @@ import {
   AuthChallengeHelperService,
   AuthAuditService, // Internal version with recordEvent()
   TrustedDeviceService,
+  HookRegistryService,
 } from '@nauth-toolkit/core/internal';
 import { Repository } from 'typeorm';
 import { AppleOAuthClient } from './apple-oauth.client';
 import { TokenVerifierService as AppleTokenVerifierService } from './token-verifier.service';
 import { VerifiedAppleTokenProfile } from './verified-token-profile.interface';
+
+/**
+ * jose module type (ESM-only dependency).
+ *
+ * IMPORTANT: `jose@6` is ESM-only. This package is compiled to CommonJS by default,
+ * so we load jose via dynamic import to avoid `ERR_REQUIRE_ESM` at runtime.
+ */
+type JoseModule = typeof import('jose');
 
 /**
  * Apple Social Authentication Service (Platform-Agnostic)
@@ -61,6 +72,8 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
   readonly providerName = 'apple';
   private readonly oauthClient: AppleOAuthClient | null;
   private readonly tokenVerifier: ITokenVerifierService | null;
+  private readonly socialProviderSecretRepository: Repository<BaseSocialProviderSecret> | null;
+  private joseModulePromise: Promise<JoseModule> | null = null;
 
   constructor(
     config: NAuthConfig,
@@ -72,7 +85,7 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
     challengeHelper: AuthChallengeHelperService,
     clientInfoService: ClientInfoService,
     // State store shared across all providers
-    stateStore: Map<string, { timestamp: number; provider: string }>,
+    stateStore: ISocialAuthStateStore,
     userRepository: Repository<BaseUser>,
     // Phone verification service (optional - only available when SMS provider is configured)
     phoneVerificationService?: PhoneVerificationService,
@@ -80,8 +93,12 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
     auditService?: AuthAuditService,
     // Trusted device service (optional - only available when rememberDevices is enabled)
     trustedDeviceService?: TrustedDeviceService,
+    // Hook registry for lifecycle hooks (required)
+    hookRegistry?: HookRegistryService,
     // Apple-specific token verifier (optional, fallback to TOKEN_VERIFIER)
     tokenVerifier?: ITokenVerifierService,
+    // Repository for storing Apple JWT client secrets (optional, for JWT rotation)
+    socialProviderSecretRepository?: Repository<BaseSocialProviderSecret> | null,
   ) {
     super(
       config,
@@ -97,7 +114,11 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
       phoneVerificationService,
       auditService,
       trustedDeviceService,
+      hookRegistry,
     );
+
+    // Store repository for JWT rotation
+    this.socialProviderSecretRepository = socialProviderSecretRepository || null;
 
     // Initialize Apple OAuth client
     const providerConfig = this.getProviderConfig();
@@ -107,18 +128,33 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
       return; // Exit constructor early if disabled
     }
 
-    if (!providerConfig.clientId) {
+    // ============================================================================
+    // Apple JWT Rotation Dependency Validation (web OAuth)
+    // ============================================================================
+    // WHY: Apple is an optional provider. We only require the DB repository when Apple is enabled.
+    // This makes misconfiguration fail fast on startup (module init), not during the callback.
+    // ============================================================================
+    if (!this.socialProviderSecretRepository) {
+      throw new NAuthException(
+        AuthErrorCode.SOCIAL_CONFIG_MISSING,
+        'Apple Sign-In is enabled but SocialProviderSecretRepository is not available. ' +
+          'Ensure your TypeORM DataSource includes the SocialProviderSecret entity (via getNAuthEntities()) ' +
+          'and that @nauth-toolkit/nestjs AuthModule is imported.',
+      );
+    }
+
+    const webClientId = Array.isArray(providerConfig.clientId) ? providerConfig.clientId[0] : providerConfig.clientId;
+    if (!webClientId) {
       // Schema validation should catch this, but handle gracefully
       this.oauthClient = null;
       this.tokenVerifier = null;
       return;
     }
 
-    // Note: Apple clientSecret is optional for native flow, but required for web OAuth
-    // It's a JWT that needs to be generated from Apple Developer credentials
+    // Initialize OAuth client without clientSecret (will be provided dynamically)
     this.oauthClient = new AppleOAuthClient({
-      clientId: providerConfig.clientId,
-      clientSecret: providerConfig.clientSecret || '',
+      clientId: webClientId,
+      clientSecret: '', // Will be provided dynamically per request
       redirectUri: providerConfig.callbackUrl || '',
       scopes: providerConfig.scopes || ['name', 'email'],
     });
@@ -134,30 +170,198 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
   }
 
   /**
+   * Lazy-load jose (ESM-only) in a CJS-compatible way.
+   * Uses eval to prevent TypeScript from converting import() to require()
+   *
+   * @returns Promise resolving to jose module
+   */
+  private async getJose(): Promise<JoseModule> {
+    if (!this.joseModulePromise) {
+      // Use eval to prevent TypeScript from converting import() to require()
+      // This is necessary because jose@6 is ESM-only and cannot be required()
+      this.joseModulePromise = (0, eval)("import('jose')") as Promise<JoseModule>;
+    }
+    return await this.joseModulePromise;
+  }
+
+  /**
+   * Generate Apple JWT client secret from configuration
+   *
+   * Creates a JWT signed with ES256 using the provided .p8 private key.
+   * The JWT is valid for 180 days (Apple's maximum).
+   *
+   * @param providerConfig - Apple provider configuration
+   * @returns Generated JWT client secret
+   * @throws {NAuthException} If required configuration is missing
+   */
+  private async generateAppleJWTClientSecret(providerConfig: {
+    teamId?: string;
+    keyId?: string;
+    privateKeyPem?: string;
+    clientId?: string | string[];
+  }): Promise<string> {
+    if (!providerConfig.teamId || !providerConfig.keyId || !providerConfig.privateKeyPem) {
+      throw new NAuthException(
+        AuthErrorCode.SOCIAL_CONFIG_MISSING,
+        'Apple configuration requires teamId, keyId, and privateKeyPem for web OAuth',
+      );
+    }
+
+    const clientId = Array.isArray(providerConfig.clientId) ? providerConfig.clientId[0] : providerConfig.clientId;
+    if (!clientId) {
+      throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Apple clientId is required');
+    }
+
+    const jose = await this.getJose();
+
+    // Normalize the private key format
+    // Handle both formats: with \n escape sequences or actual newlines, or single-line
+    let normalizedKey = providerConfig.privateKeyPem;
+    // Replace literal \n with actual newlines (for environment variables with escape sequences)
+    normalizedKey = normalizedKey.replace(/\\n/g, '\n');
+    // Ensure proper PEM format with newlines if missing
+    if (!normalizedKey.includes('\n')) {
+      // Single-line key: insert newlines after header and before footer
+      normalizedKey = normalizedKey.replace(
+        /-----BEGIN PRIVATE KEY-----(.+)-----END PRIVATE KEY-----/,
+        '-----BEGIN PRIVATE KEY-----\n$1\n-----END PRIVATE KEY-----',
+      );
+    }
+
+    // Parse the private key
+    // importPKCS8 returns a private key that can be used for signing
+    let privateKey: Awaited<ReturnType<typeof jose.importPKCS8>>;
+    try {
+      privateKey = await jose.importPKCS8(normalizedKey, 'ES256');
+    } catch (error) {
+      throw new NAuthException(
+        AuthErrorCode.SOCIAL_CONFIG_MISSING,
+        `Failed to parse Apple private key: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+
+    // Generate JWT with 180 days expiration (Apple's maximum)
+    const now = Math.floor(Date.now() / 1000);
+    const expiresIn = 180 * 24 * 60 * 60; // 180 days in seconds
+
+    const jwt = await new jose.SignJWT({
+      iss: providerConfig.teamId,
+      iat: now,
+      exp: now + expiresIn,
+      aud: 'https://appleid.apple.com',
+      sub: clientId,
+    })
+      .setProtectedHeader({
+        alg: 'ES256',
+        kid: providerConfig.keyId,
+      })
+      .sign(privateKey);
+
+    return jwt;
+  }
+
+  /**
+   * Get or refresh Apple JWT client secret from database
+   *
+   * Retrieves the stored JWT from the database. If it doesn't exist or has less than
+   * 30 days until expiration, generates a new JWT and stores it.
+   *
+   * @param providerConfig - Apple provider configuration
+   * @returns JWT client secret
+   * @throws {NAuthException} If JWT generation fails or repository is not available
+   */
+  private async getOrRefreshAppleJWTClientSecret(providerConfig: {
+    teamId?: string;
+    keyId?: string;
+    privateKeyPem?: string;
+    clientId?: string | string[];
+  }): Promise<string> {
+    if (!this.socialProviderSecretRepository) {
+      throw new NAuthException(
+        AuthErrorCode.SOCIAL_CONFIG_MISSING,
+        'SocialProviderSecretRepository is required for Apple JWT rotation. Ensure the entity is registered in your database adapter.',
+      );
+    }
+
+    const provider = 'apple';
+    const now = new Date();
+    const refreshThreshold = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
+
+    // Try to find existing secret
+    let secret = await this.socialProviderSecretRepository.findOne({
+      where: { provider },
+    });
+
+    // Check if we need to refresh (missing or expires within 30 days)
+    if (!secret || secret.expiresAt <= refreshThreshold) {
+      // Generate new JWT
+      const jwt = await this.generateAppleJWTClientSecret(providerConfig);
+      const expiresAt = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000); // 180 days from now
+
+      if (secret) {
+        // Update existing record
+        secret.clientSecretJwt = jwt;
+        secret.expiresAt = expiresAt;
+        await this.socialProviderSecretRepository.save(secret);
+      } else {
+        // Create new record
+        secret = this.socialProviderSecretRepository.create({
+          provider,
+          clientSecretJwt: jwt,
+          expiresAt,
+        });
+        await this.socialProviderSecretRepository.save(secret);
+      }
+
+      this.logger?.debug?.('Generated and stored new Apple JWT client secret');
+    }
+
+    return secret.clientSecretJwt;
+  }
+
+  /**
    * Generate OAuth authorization URL for Apple
    *
    * @param state - Optional state parameter for CSRF protection
+   * @param oauthParams - Optional OAuth parameters to append to URL (overrides config defaults)
    * @returns Authorization URL for redirecting user to Apple
    */
-  async getAuthUrl(state?: string): Promise<string> {
+  async getAuthUrl(state?: string, oauthParams?: Record<string, string>): Promise<string> {
     if (!this.oauthClient) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Apple OAuth is not enabled');
     }
-    const finalState = state || this.generateState();
-    return this.oauthClient.getAuthorizationUrl(finalState);
+    const finalState = state || (await this.generateState());
+
+    // Merge config-level oauthParams with per-request params (per-request takes precedence)
+    const providerConfig = this.getProviderConfig();
+    const mergedParams = {
+      ...providerConfig?.oauthParams,
+      ...oauthParams,
+    };
+
+    return this.oauthClient.getAuthorizationUrl(
+      finalState,
+      Object.keys(mergedParams).length > 0 ? mergedParams : undefined,
+    );
   }
 
   /**
    * Get OAuth user profile from callback
    *
    * Exchanges authorization code for access token and fetches user profile.
+   * Automatically refreshes Apple JWT client secret if needed.
    *
    * @param code - Authorization code from Apple OAuth callback
    * @param _state - State parameter (validated by base class)
+   * @param profileData - Optional profile data from Apple's form_post (first-time signin only)
    * @returns User profile from Apple
    * @protected
    */
-  protected async getOAuthProfile(code: string, _state: string): Promise<OAuthUserProfile> {
+  protected async getOAuthProfile(
+    code: string,
+    _state: string,
+    profileData?: Record<string, unknown>,
+  ): Promise<OAuthUserProfile> {
     if (!this.oauthClient) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Apple OAuth is not enabled');
     }
@@ -165,12 +369,78 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
     if (!providerConfig || !providerConfig.callbackUrl) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Apple OAuth callback URL is not configured');
     }
+    if (!this.tokenVerifier?.verifyAppleToken) {
+      throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Apple token verifier is not available');
+    }
 
-    // Exchange code for access token
-    const tokens = await this.oauthClient.exchangeCodeForToken(code, providerConfig.callbackUrl);
+    // Get or refresh JWT client secret
+    const clientSecret = await this.getOrRefreshAppleJWTClientSecret(providerConfig);
 
-    // Get user profile from Apple
-    return await this.oauthClient.getUserProfile(tokens.accessToken);
+    // Exchange code for tokens (includes id_token)
+    const tokens = await this.oauthClient.exchangeCodeForToken(code, providerConfig.callbackUrl, clientSecret);
+
+    // Apple does not reliably provide a UserInfo endpoint for web OAuth.
+    // The standard approach is to verify and read claims from the id_token.
+    // Pass ALL configured client IDs to support both web and native platforms
+    const clientIds = Array.isArray(providerConfig.clientId)
+      ? providerConfig.clientId
+      : [providerConfig.clientId || ''];
+    const verified = (await this.tokenVerifier.verifyAppleToken(
+      tokens.idToken,
+      clientIds,
+    )) as VerifiedAppleTokenProfile;
+
+    // CRITICAL: Require email from all social providers for signup
+    if (!verified.email || !verified.email_verified) {
+      throw new NAuthException(AuthErrorCode.SOCIAL_EMAIL_REQUIRED, 'Email is required and must be verified by Apple.');
+    }
+
+    // ============================================================================
+    // Parse name from profileData (Apple form_post callback)
+    // ============================================================================
+    // Apple only sends the `user` field once during the first sign-in via form_post.
+    // Format: {"name":{"firstName":"John","lastName":"Doe"},"email":"user@example.com"}
+    let firstName: string | null = null;
+    let lastName: string | null = null;
+
+    // Handle both parsed object and raw JSON string
+    let parsedProfileData = profileData;
+    if (typeof profileData === 'string') {
+      try {
+        parsedProfileData = JSON.parse(profileData);
+      } catch {
+        // Invalid JSON - continue without profile data
+        parsedProfileData = undefined;
+      }
+    }
+
+    if (parsedProfileData && typeof parsedProfileData === 'object') {
+      const name = (parsedProfileData as { name?: unknown }).name;
+      if (name && typeof name === 'object') {
+        const nameObj = name as { firstName?: unknown; lastName?: unknown };
+        if (typeof nameObj.firstName === 'string' && nameObj.firstName.trim()) {
+          firstName = nameObj.firstName.trim();
+        }
+        if (typeof nameObj.lastName === 'string' && nameObj.lastName.trim()) {
+          lastName = nameObj.lastName.trim();
+        }
+      }
+    }
+
+    return {
+      id: verified.sub,
+      email: verified.email,
+      firstName,
+      lastName,
+      picture: null,
+      verified: verified.email_verified,
+      raw: {
+        sub: verified.sub,
+        email: verified.email,
+        email_verified: verified.email_verified,
+        is_private_email: verified.is_private_email,
+      } as unknown as Record<string, unknown>,
+    };
   }
 
   /**
@@ -195,13 +465,18 @@ export class AppleSocialAuthService extends BaseSocialAuthProviderService implem
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Apple OAuth is not configured');
     }
 
-    const clientId = providerConfig.clientId || '';
+    // Pass ALL configured client IDs to support both web and native platforms
+    // Web: aud = Service ID (e.g., 'com.anyspaces')
+    // Native: aud = App Bundle ID (e.g., 'com.anyspaces.anyspaces')
+    const clientIds = Array.isArray(providerConfig.clientId)
+      ? providerConfig.clientId
+      : [providerConfig.clientId || ''];
     if (!this.tokenVerifier.verifyAppleToken) {
       throw new NAuthException(AuthErrorCode.SOCIAL_CONFIG_MISSING, 'Apple token verifier is not available');
     }
 
     // Verify ID token with Apple's JWKS public keys
-    const verified = (await this.tokenVerifier.verifyAppleToken(idToken, clientId)) as VerifiedAppleTokenProfile;
+    const verified = (await this.tokenVerifier.verifyAppleToken(idToken, clientIds)) as VerifiedAppleTokenProfile;
     this.logger?.debug?.(`Verified Apple token for: ${verified.email}`);
 
     // CRITICAL: Require email from all social providers for signup

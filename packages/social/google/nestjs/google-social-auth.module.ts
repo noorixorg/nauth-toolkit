@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { GoogleSocialAuthService } from '../src/google-social-auth.service';
 // Public API imports
 import {
@@ -9,15 +9,17 @@ import {
   NAuthLogger,
   PhoneVerificationService,
   ITokenVerifierService,
+  ISocialAuthStateStore,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import {
   JwtService,
   SessionService,
   AuthChallengeHelperService,
-  SocialProviderRegistry,
+  NAUTH_SOCIAL_PROVIDER_TOKEN,
   AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent()
   TrustedDeviceService,
+  HookRegistryService,
 } from '@nauth-toolkit/core/internal';
 import { TokenVerifierService as GoogleTokenVerifierService } from '../src/token-verifier.service';
 
@@ -78,11 +80,12 @@ import { TokenVerifierService as GoogleTokenVerifierService } from '../src/token
         sessionService: SessionService,
         challengeHelper: AuthChallengeHelperService,
         clientInfoService: ClientInfoService,
-        stateStore: Map<string, { timestamp: number; provider: string }>,
+        stateStore: ISocialAuthStateStore,
         userRepository: any,
         phoneVerificationService?: PhoneVerificationService,
         auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
         trustedDeviceService?: TrustedDeviceService, // Optional - only available when rememberDevices is enabled
+        hookRegistry?: HookRegistryService, // Required for lifecycle hooks
         tokenVerifier?: ITokenVerifierService,
       ): GoogleSocialAuthService => {
         // Service can be created even when disabled - it handles gracefully
@@ -101,6 +104,7 @@ import { TokenVerifierService as GoogleTokenVerifierService } from '../src/token
           phoneVerificationService,
           auditService,
           trustedDeviceService,
+          hookRegistry,
           tokenVerifier,
         );
       },
@@ -118,31 +122,17 @@ import { TokenVerifierService as GoogleTokenVerifierService } from '../src/token
         { token: PhoneVerificationService, optional: true },
         { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
         { token: TrustedDeviceService, optional: true }, // Optional - only available when rememberDevices is enabled
+        HookRegistryService, // Required for lifecycle hooks
         { token: 'GOOGLE_TOKEN_VERIFIER', optional: true },
       ],
+    },
+
+    // Bind to shared discovery token (registration is performed by AuthModule at app bootstrap)
+    {
+      provide: NAUTH_SOCIAL_PROVIDER_TOKEN,
+      useExisting: GoogleSocialAuthService,
     },
   ],
   exports: [GoogleSocialAuthService],
 })
-export class GoogleSocialAuthModule implements OnModuleInit {
-  constructor(
-    private readonly googleSocialAuthService: GoogleSocialAuthService,
-    private readonly providerRegistry: SocialProviderRegistry,
-  ) {}
-
-  /**
-   * Auto-register Google provider with the SocialProviderRegistry
-   * when the module is initialized.
-   * Only registers if the provider is enabled in config.
-   */
-  onModuleInit(): void {
-    // Check if provider is enabled by checking if oauthClient was initialized
-    // Service sets oauthClient to null when disabled
-    const config = this.googleSocialAuthService['config'] as NAuthConfig;
-    const providerConfig = config.social?.google;
-    if (providerConfig?.enabled) {
-      this.providerRegistry.registerProvider(this.googleSocialAuthService);
-    }
-    // If disabled, silently skip registration - module can exist but provider won't be available
-  }
-}
+export class GoogleSocialAuthModule {}

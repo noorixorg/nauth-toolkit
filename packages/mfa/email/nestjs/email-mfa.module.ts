@@ -1,11 +1,22 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { EmailMFAProviderService } from '../src/email-mfa-provider.service';
-// Public API imports
-import { MFAService, NAuthConfig, NAuthLogger, EmailVerificationService, ClientInfoService } from '@nauth-toolkit/core';
-// Internal API imports (for provider implementations)
-import { PasswordService, AuthAuditService as InternalAuthAuditService } from '@nauth-toolkit/core/internal';
 import { Repository } from 'typeorm';
-import { BaseMFADevice, BaseUser } from '@nauth-toolkit/core';
+// Public API imports
+import {
+  NAuthConfig,
+  NAuthLogger,
+  EmailVerificationService,
+  ClientInfoService,
+  BaseMFADevice,
+  BaseUser,
+} from '@nauth-toolkit/core';
+// Internal API imports (for provider implementations)
+import {
+  NAUTH_MFA_PROVIDER_TOKEN,
+  PasswordService,
+  ChallengeService,
+  AuthAuditService as InternalAuthAuditService,
+} from '@nauth-toolkit/core/internal';
 
 /**
  * Email MFA Module (NestJS Adapter)
@@ -39,9 +50,9 @@ import { BaseMFADevice, BaseUser } from '@nauth-toolkit/core';
         logger: NAuthLogger,
         passwordService: PasswordService,
         emailVerificationService: EmailVerificationService | undefined,
-        challengeService: any, // ChallengeService from core
-        auditService: any, // AuthAuditService from core
-        clientInfoService: any, // ClientInfoService from core
+        challengeService: ChallengeService | undefined,
+        auditService: InternalAuthAuditService | undefined,
+        clientInfoService: ClientInfoService | undefined,
       ) => {
         return new EmailMFAProviderService(
           mfaDeviceRepository,
@@ -67,22 +78,13 @@ import { BaseMFADevice, BaseUser } from '@nauth-toolkit/core';
         { token: ClientInfoService, optional: true },
       ],
     },
+
+    // Bind to shared discovery token (registration is performed by AuthModule at app bootstrap)
+    {
+      provide: NAUTH_MFA_PROVIDER_TOKEN,
+      useExisting: EmailMFAProviderService,
+    },
   ],
   exports: [EmailMFAProviderService],
 })
-export class EmailMFAModule implements OnModuleInit {
-  constructor(
-    private readonly emailMFAProvider: EmailMFAProviderService,
-    private readonly mfaService: MFAService,
-  ) {}
-
-  /**
-   * Auto-register Email provider with MFAService
-   */
-  onModuleInit(): void {
-    if (!this.mfaService) {
-      throw new Error('MFAService is not available. Ensure AuthModule.forRoot() is imported before EmailMFAModule.');
-    }
-    this.mfaService.registerProvider(this.emailMFAProvider);
-  }
-}
+export class EmailMFAModule {}

@@ -9,10 +9,106 @@ import {
   NAUTH_CLIENT_CONFIG,
   type NAuthClientConfig,
   authInterceptor,
-} from '@nauth-toolkit/client/angular';
+  AuthService,
+  AngularHttpAdapter,
+  provideRecaptcha,
+} from '@nauth-toolkit/client-angular/standalone';
 import { environment } from '../environments/environment';
 
 import { routes } from './app.routes';
+
+// ============================================================================
+// Token Delivery Mode Configuration
+// ============================================================================
+type TokenMode = 'cookies' | 'json';
+
+// Read from environment configuration (injected during Docker build)
+const TOKEN_MODE: TokenMode = environment.tokenMode;
+
+/**
+ * Smart config builder that automatically adjusts endpoints, CSRF, and redirects based on token delivery mode
+ *
+ * IMPORTANT: Backend can be in 'hybrid' mode to support both client types.
+ * Frontend must choose 'cookies' or 'json' and use the appropriate endpoints.
+ *
+ * - JSON mode (web): OAuth redirects with exchangeToken
+ *   - Flow: loginWithSocial() → backend redirects to provider → callback with exchangeToken →
+ *     frontend calls /social/exchange to get tokens in response body
+ *   - Use for: SPAs that store tokens in memory/localStorage
+ *
+ * - Cookie mode (web): OAuth redirects with automatic cookie setting
+ *   - Flow: loginWithSocial() → backend redirects to provider → callback sets cookies automatically
+ *   - Use for: Traditional web apps with server-side rendering
+ *
+ * Note: Native mobile apps use socialVerify endpoint (not shown here)
+ *
+ * @param mode - Token delivery mode
+ * @returns Configured NAuthClientConfig
+ */
+const buildNAuthConfig = (mode: TokenMode): NAuthClientConfig => {
+  const baseConfig = {
+    baseUrl: environment.apiBaseUrl,
+    authPathPrefix: '/auth',
+    tokenDelivery: mode,
+    debug: true,
+    recaptcha: {
+      enabled: environment.recaptchaEnabled && !!environment.recaptchaSiteKey,
+      version: 'enterprise' as const,
+      siteKey: environment.recaptchaSiteKey || '',
+      autoLoadScript: true,
+    },
+    redirects: {
+      loginSuccess: '/dashboard',
+      sessionExpired: '/login',
+      oauthError: '/login',
+      challengeBase: '/auth/challenge',
+    },
+    admin: {
+      pathPrefix: '/admin',
+    },
+  };
+
+  // Mode-specific configurations
+  if (mode === 'json') {
+    return {
+      ...baseConfig,
+      // JSON mode: Use /mobile endpoints (no cookies, pure JSON with Bearer tokens)
+      endpoints: {
+        profile: '/profile',
+        login: '/login/mobile',
+        refresh: '/refresh/mobile',
+        signup: '/signup/mobile',
+        logout: '/logout/mobile',
+        respondChallenge: '/respond-challenge/mobile',
+        // Social auth in JSON mode (web): OAuth redirects + manual exchange
+        // Uses /mobile endpoints to force JSON token delivery in hybrid backend
+        socialRedirectStart: '/social/:provider/redirect/mobile',
+        socialExchange: '/social/exchange',
+      },
+      // CSRF not needed in JSON mode (Bearer tokens are CSRF-safe)
+    } as NAuthClientConfig;
+  }
+
+  // Cookie mode
+  return {
+    ...baseConfig,
+    // Cookie mode: Use standard endpoints (cookie-based auth)
+    endpoints: {
+      profile: '/profile',
+      login: '/login',
+      refresh: '/refresh',
+      signup: '/signup',
+      logout: '/logout',
+      respondChallenge: '/respond-challenge',
+      // Social auth in cookie mode: OAuth redirects with automatic cookie setting
+      socialRedirectStart: '/social/:provider/redirect',
+    },
+    csrf: {
+      cookieName: 'nauth_csrf_token',
+      headerName: 'x-csrf-token',
+    },
+  } as NAuthClientConfig;
+};
 
 /**
  * Custom preset with blue color palette matching nauth-docs theme
@@ -56,7 +152,6 @@ const NauthPreset = definePreset(Aura, {
  *
  * Configures:
  * - PrimeNG theme (Aura)
- * - Router
  * - HTTP client with nauth authentication interceptor
  * - NAuth client configuration
  *
@@ -81,19 +176,11 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     {
       provide: NAUTH_CLIENT_CONFIG,
-      useValue: {
-        baseUrl: `${environment.apiBaseUrl}/auth`,
-        tokenDelivery: 'cookies',
-        debug: true,
-
-        redirects: {
-          success: '/dashboard',
-          sessionExpired: '/login',
-          oauthError: '/login',
-          challengeBase: '/auth/challenge',
-        },
-      } satisfies NAuthClientConfig,
+      useValue: buildNAuthConfig(TOKEN_MODE),
     },
+    AngularHttpAdapter,
+    AuthService,
+    provideRecaptcha(),
     provideHttpClient(withInterceptors([authInterceptor])),
   ],
 };

@@ -1,11 +1,9 @@
 ---
 title: Express Adapter
-description: Express adapter with middleware and route helpers
+description: 'Express adapter: NAuth.create() bootstrap, middleware pipeline (clientInfo, csrf, auth, tokenDelivery), and route helpers (requireAuth, public, optionalAuth, tokenDelivery, getCurrentUser)'
 keywords: [express, adapter, middleware, helpers, api]
 image: /img/api-social-card.png
-sidebar_position: 0
 ---
-
 # Express Adapter
 
 **Package:** `@nauth-toolkit/core`
@@ -102,18 +100,49 @@ Returns authenticated user from context.
 ### tokenDelivery()
 
 ```typescript
-tokenDelivery(mode: 'json' | 'cookies' | 'both'): RequestHandler
+tokenDelivery(mode: 'json' | 'cookies'): RequestHandler
 ```
 
 Overrides token delivery mode for route.
 
+### skipRecaptcha()
+
+```typescript
+skipRecaptcha(): RequestHandler
+```
+
+Bypasses reCAPTCHA validation for the route even when globally enabled. Useful for admin routes or internal endpoints.
+
+### requireRecaptcha()
+
+```typescript
+requireRecaptcha(): RequestHandler
+```
+
+Enforces reCAPTCHA validation for the route even when not globally enabled. Use for high-risk operations like password reset or account deletion.
+
+### getCurrentSession()
+
+```typescript
+getCurrentSession(): string | number | undefined
+```
+
+Returns the current session ID from AsyncLocalStorage context. Only available after `nauth.middleware.auth` has run.
+
+### getClientInfo()
+
+```typescript
+getClientInfo(): ClientInfo | undefined
+```
+
+Returns the client info object from AsyncLocalStorage context (IP address, user agent, device token, etc.). Only available after `nauth.middleware.clientInfo` has run.
+
 ## Types
 
 ```typescript
-import type { ExpressMiddlewareType, ExpressRouteHandlerType } from '@nauth-toolkit/core';
+import type { ExpressMiddlewareType } from '@nauth-toolkit/core';
 ```
 
-| Type                      | Description                      |
-| ------------------------- | -------------------------------- |
-| `ExpressMiddlewareType`   | Express middleware function type |
-| `ExpressRouteHandlerType` | Express route handler type       |
+| Type                    | Description                      |
+| ----------------------- | -------------------------------- |
+| `ExpressMiddlewareType` | Express middleware function type |

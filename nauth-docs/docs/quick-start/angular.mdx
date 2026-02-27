@@ -1,0 +1,413 @@
+---
+sidebar_position: 2
+title: Angular
+description: Connect an Angular frontend to nauth-toolkit using the Angular SDK
+keywords: [quick-start, angular, frontend, sdk, authentication]
+image: /img/api-social-card.png
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Quick Start: Angular Frontend
+
+Connect an Angular application to a nauth-toolkit backend using `@nauth-toolkit/client-angular`. The SDK provides a built-in HTTP interceptor for automatic token attachment and silent refresh, and a route guard for protected routes.
+
+:::note Sample Application
+A complete working example is available at [github.com/noorixorg/nauth/tree/main/angular](https://github.com/noorixorg/nauth/tree/main/angular) — Angular standalone + `@nauth-toolkit/client-angular` paired with the NestJS backend example.
+:::
+
+:::tip Live Demo
+See the Angular + NestJS stack in action at **[demo.nauth.dev](https://demo.nauth.dev)** — signup, login, MFA, social auth, and session management working end-to-end.
+:::
+
+:::info Backend Required
+This guide assumes you have a running nauth-toolkit backend. If you haven't set one up yet, complete the [NestJS](/docs/quick-start/nestjs) quick start first.
+:::
+
+## Prerequisites
+
+- Angular 15+ (standalone components) **or** Angular 13+ (NgModule)
+- A running nauth-toolkit backend at `http://localhost:3000`
+
+---
+
+## Installation
+
+```bash npm2yarn
+npm install @nauth-toolkit/client @nauth-toolkit/client-angular
+```
+
+---
+
+## Bootstrap
+
+The two Angular application styles configure nauth differently.
+
+<Tabs groupId="ng-style">
+<TabItem value="standalone" label="Standalone (v15+)" default>
+
+Register nauth providers in `app.config.ts`. `AngularHttpAdapter` wires the SDK to Angular's `HttpClient`, and `authInterceptor` automatically attaches access tokens and handles silent refresh on every outgoing request.
+
+```typescript title="src/main.ts"
+import { bootstrapApplication } from '@angular/platform-browser';
+import { appConfig } from './app/app.config';
+import { App } from './app/app';
+
+bootstrapApplication(App, appConfig).catch((err) => console.error(err));
+```
+
+```typescript title="src/app/app.config.ts"
+import { ApplicationConfig } from '@angular/core';
+import { provideRouter } from '@angular/router';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  NAUTH_CLIENT_CONFIG,
+  type NAuthClientConfig,
+  authInterceptor,
+  AuthService,
+  AngularHttpAdapter,
+} from '@nauth-toolkit/client-angular/standalone';
+import { routes } from './app.routes';
+
+const nauthConfig: NAuthClientConfig = {
+  baseUrl: 'http://localhost:3000',
+  authPathPrefix: '/auth',
+  tokenDelivery: 'cookies',
+  csrf: {
+    cookieName: 'nauth_csrf_token',
+    headerName: 'x-csrf-token',
+  },
+  redirects: {
+    loginSuccess: '/dashboard',
+    sessionExpired: '/login',
+    oauthError: '/login',
+    challengeBase: '/auth/challenge',
+  },
+};
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideRouter(routes),
+    { provide: NAUTH_CLIENT_CONFIG, useValue: nauthConfig },
+    AngularHttpAdapter,
+    AuthService,
+    provideHttpClient(withInterceptors([authInterceptor])),
+  ],
+};
+```
+
+:::note Token Delivery
+This guide uses `tokenDelivery: 'cookies'` with CSRF protection — the recommended setup for web apps. To use Bearer tokens instead, set `tokenDelivery: 'json'` and remove the `csrf` block (no CSRF config needed in JSON mode). See [Token Delivery](/docs/concepts/token-management) for details.
+:::
+
+</TabItem>
+<TabItem value="ngmodule" label="NgModule (traditional)">
+
+Import `NAuthModule.forRoot()` in your root `AppModule`. It registers the HTTP interceptor and all providers automatically.
+
+:::note baseUrl in NgModule
+In `NAuthModule.forRoot()`, `baseUrl` is the full auth base URL — include the `/auth` path prefix directly (e.g., `http://localhost:3000/auth`).
+:::
+
+```typescript title="src/main.ts"
+import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
+import { AppModule } from './app/app.module';
+
+platformBrowserDynamic().bootstrapModule(AppModule).catch((err) => console.error(err));
+```
+
+```typescript title="src/app/app.module.ts"
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { HttpClientModule } from '@angular/common/http';
+import { RouterModule } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { AppComponent } from './app.component';
+import { NAuthModule } from '@nauth-toolkit/client-angular';
+import { routes } from './app-routing.module';
+
+@NgModule({
+  declarations: [AppComponent],
+  imports: [
+    BrowserModule,
+    HttpClientModule,
+    FormsModule,
+    RouterModule.forRoot(routes),
+    NAuthModule.forRoot({
+      // Include /auth in the baseUrl — no authPathPrefix in NgModule mode
+      baseUrl: 'http://localhost:3000/auth',
+      tokenDelivery: 'cookies',
+      csrf: {
+        cookieName: 'nauth_csrf_token',
+        headerName: 'x-csrf-token',
+      },
+      redirects: {
+        loginSuccess: '/dashboard',
+        sessionExpired: '/login',
+        oauthError: '/login',
+        challengeBase: '/auth/challenge',
+      },
+    }),
+  ],
+  bootstrap: [AppComponent],
+})
+export class AppModule {}
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+## Routing
+
+<Tabs groupId="ng-style">
+<TabItem value="standalone" label="Standalone (v15+)" default>
+
+Use `authGuard()` to protect routes. Unauthenticated users are redirected to `/login` automatically.
+
+```typescript title="src/app/app.routes.ts"
+import { Routes } from '@angular/router';
+import { authGuard } from '@nauth-toolkit/client-angular/standalone';
+
+export const routes: Routes = [
+  { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
+  {
+    path: 'login',
+    loadComponent: () => import('./login/login.component').then((m) => m.LoginComponent),
+  },
+  {
+    path: 'signup',
+    loadComponent: () => import('./signup/signup.component').then((m) => m.SignupComponent),
+  },
+  {
+    path: 'dashboard',
+    loadComponent: () =>
+      import('./dashboard/dashboard.component').then((m) => m.DashboardComponent),
+    canActivate: [authGuard()],
+  },
+  { path: '**', redirectTo: '/login' },
+];
+```
+
+</TabItem>
+<TabItem value="ngmodule" label="NgModule (traditional)">
+
+Use [`AuthGuard`](/docs/frontend-sdk/angular/guards) as a class-based guard provided by the module.
+
+```typescript title="src/app/app-routing.module.ts"
+import { Routes } from '@angular/router';
+import { AuthGuard } from '@nauth-toolkit/client-angular';
+
+export const routes: Routes = [
+  { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
+  { path: 'login', component: LoginComponent },
+  { path: 'signup', component: SignupComponent },
+  { path: 'dashboard', component: DashboardComponent, canActivate: [AuthGuard] },
+  { path: '**', redirectTo: '/login' },
+];
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+## Components
+
+The [`AuthService`](/docs/frontend-sdk/angular/auth-service) API is identical in both application styles. The only difference is the import path:
+
+| Style | Import path |
+|---|---|
+| Standalone | `@nauth-toolkit/client-angular/standalone` |
+| NgModule | `@nauth-toolkit/client-angular` |
+
+The components below use the standalone import. Replace it with `@nauth-toolkit/client-angular` for NgModule apps, and remove `standalone: true` and the `imports` array from the `@Component` decorator.
+
+### Login Component
+
+`AuthService.login()` returns a promise. The SDK handles post-login navigation automatically via the `redirects` config — navigate to `/dashboard` on success, or to the challenge route if a multi-step flow is required.
+
+```typescript title="src/app/login/login.component.ts"
+import { Component, signal } from '@angular/core';
+import { Router } from '@angular/router';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { AuthService } from '@nauth-toolkit/client-angular/standalone';
+import { NAuthClientError } from '@nauth-toolkit/client';
+
+@Component({
+  selector: 'app-login',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule],
+  template: `
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <input formControlName="email" type="email" placeholder="Email" />
+      <input formControlName="password" type="password" placeholder="Password" />
+      <button type="submit" [disabled]="loading()">
+        {{ loading() ? 'Signing in…' : 'Sign In' }}
+      </button>
+      @if (error()) { <p>{{ error() }}</p> }
+    </form>
+    <a (click)="router.navigate(['/signup'])">Create account</a>
+  `,
+})
+export class LoginComponent {
+  form: FormGroup;
+  loading = signal(false);
+  error = signal<string | null>(null);
+
+  constructor(
+    private readonly fb: FormBuilder,
+    private readonly auth: AuthService,
+    readonly router: Router,
+  ) {
+    this.form = this.fb.group({
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required]],
+    });
+  }
+
+  async onSubmit(): Promise<void> {
+    if (this.form.invalid) return;
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      await this.auth.login(
+        this.form.value.email,
+        this.form.value.password,
+      );
+    } catch (err) {
+      this.error.set(err instanceof NAuthClientError ? err.message : 'Login failed');
+    } finally {
+      this.loading.set(false);
+    }
+  }
+}
+```
+
+### Signup Component
+
+`AuthService.signup()` works the same way. With `verificationMethod: 'none'` on the backend the response contains tokens directly; with email/phone verification it returns a challenge.
+
+```typescript title="src/app/signup/signup.component.ts"
+import { Component, signal } from '@angular/core';
+import { Router } from '@angular/router';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { AuthService } from '@nauth-toolkit/client-angular/standalone';
+import { NAuthClientError } from '@nauth-toolkit/client';
+
+@Component({
+  selector: 'app-signup',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule],
+  template: `
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <input formControlName="email" type="email" placeholder="Email" />
+      <input formControlName="password" type="password" placeholder="Password" />
+      <button type="submit" [disabled]="loading()">
+        {{ loading() ? 'Creating account…' : 'Create Account' }}
+      </button>
+      @if (error()) { <p>{{ error() }}</p> }
+    </form>
+    <a (click)="router.navigate(['/login'])">Already have an account?</a>
+  `,
+})
+export class SignupComponent {
+  form: FormGroup;
+  loading = signal(false);
+  error = signal<string | null>(null);
+
+  constructor(
+    private readonly fb: FormBuilder,
+    private readonly auth: AuthService,
+    readonly router: Router,
+  ) {
+    this.form = this.fb.group({
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required, Validators.minLength(8)]],
+    });
+  }
+
+  async onSubmit(): Promise<void> {
+    if (this.form.invalid) return;
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      await this.auth.signup({
+        email: this.form.value.email,
+        password: this.form.value.password,
+      });
+    } catch (err) {
+      this.error.set(err instanceof NAuthClientError ? err.message : 'Signup failed');
+    } finally {
+      this.loading.set(false);
+    }
+  }
+}
+```
+
+### Protected Dashboard
+
+The dashboard is protected by the route guard. Load the profile via `getClient().getProfile()` and call `logout()` to end the session.
+
+```typescript title="src/app/dashboard/dashboard.component.ts"
+import { Component, OnInit, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
+import { AuthService, AuthUser } from '@nauth-toolkit/client-angular/standalone';
+
+@Component({
+  selector: 'app-dashboard',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    @if (user()) {
+      <h2>Welcome, {{ user()?.email }}</h2>
+      <p>User ID: {{ user()?.sub }}</p>
+      <button (click)="logout()">Sign Out</button>
+    } @else {
+      <p>Loading…</p>
+    }
+  `,
+})
+export class DashboardComponent implements OnInit {
+  user = signal<AuthUser | null>(null);
+
+  constructor(
+    private readonly auth: AuthService,
+    private readonly router: Router,
+  ) {}
+
+  ngOnInit(): void {
+    this.auth.getProfile().then((user) => this.user.set(user));
+  }
+
+  async logout(): Promise<void> {
+    await this.auth.logout();
+    await this.router.navigate(['/login']);
+  }
+}
+```
+
+---
+
+## Verify the Full Stack
+
+Start both servers (`http://localhost:3000` for the backend, `http://localhost:4200` for Angular) and open the app in your browser:
+
+1. Navigate to `/signup` and create an account — you should be redirected to `/dashboard` and see your email.
+2. Click **Sign Out** — you should be redirected to `/login`.
+3. Navigate directly to `/dashboard` while logged out — the route guard should redirect you to `/login`.
+
+---
+
+## What's Next
+
+- [Angular Sample App](https://github.com/noorixorg/nauth/tree/main/angular) — Full working example paired with the NestJS backend
+- [Challenge System](/docs/concepts/challenge-system) — Handle verification, MFA, and password-change challenges after login/signup
+- [Configuration](/docs/concepts/configuration) — Full backend configuration reference
+- [Token Delivery](/docs/concepts/token-management) — Cookie vs. JSON token delivery explained
+- [Social Login](/docs/guides/social/how-social-login-works) — Add Google, Apple, and Facebook OAuth

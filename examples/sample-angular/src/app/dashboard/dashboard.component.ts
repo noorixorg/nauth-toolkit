@@ -1,7 +1,7 @@
 import { Component, inject, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { AuthService } from '@nauth-toolkit/client/angular';
+import { AuthService } from '@nauth-toolkit/client-angular/standalone';
 import { ButtonModule } from 'primeng/button';
 import { SplitButtonModule } from 'primeng/splitbutton';
 import { CardModule } from 'primeng/card';
@@ -10,6 +10,7 @@ import { ToastModule } from 'primeng/toast';
 import { ProfileComponent } from './profile/profile.component';
 import { AuditComponent } from './audit/audit.component';
 import { MfaComponent } from './mfa/mfa.component';
+import { AdminComponent } from './admin/admin.component';
 
 /**
  * Dashboard component
@@ -43,6 +44,7 @@ import { MfaComponent } from './mfa/mfa.component';
     ProfileComponent,
     AuditComponent,
     MfaComponent,
+    AdminComponent,
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css',
@@ -67,6 +69,11 @@ export class DashboardComponent {
    * Loading state for logout operations
    */
   isLoggingOut = signal<boolean>(false);
+
+  /**
+   * Last OAuth state (temporary for testing)
+   */
+  lastOauthState = signal<string | null>(null);
 
   /**
    * Logout menu items for split button
@@ -99,28 +106,25 @@ export class DashboardComponent {
    *
    * Logs out the user and navigates to login page.
    */
-  onLogout(): void {
+  async onLogout(): Promise<void> {
     if (this.isLoggingOut()) {
       return;
     }
 
     this.isLoggingOut.set(true);
-    this.auth.logout().subscribe({
-      next: () => {
-        this.router.navigate(['/login']);
-      },
-      error: (_err: unknown) => {
-        this.messageService.add({
-          severity: 'warn',
-          summary: 'Sign Out',
-          detail: 'Signed out locally. Session may have already expired.',
-        });
-        this.router.navigate(['/login']);
-      },
-      complete: () => {
-        this.isLoggingOut.set(false);
-      },
-    });
+    try {
+      await this.auth.logout();
+      await this.router.navigate(['/login']);
+    } catch (_err: unknown) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Sign Out',
+        detail: 'Signed out locally. Session may have already expired.',
+      });
+      await this.router.navigate(['/login']);
+    } finally {
+      this.isLoggingOut.set(false);
+    }
   }
 
   /**
@@ -128,28 +132,25 @@ export class DashboardComponent {
    *
    * Logs out and removes device trust token.
    */
-  onLogoutForgetDevice(): void {
+  async onLogoutForgetDevice(): Promise<void> {
     if (this.isLoggingOut()) {
       return;
     }
 
     this.isLoggingOut.set(true);
-    this.auth.logout(true).subscribe({
-      next: () => {
-        this.router.navigate(['/login']);
-      },
-      error: (_err: unknown) => {
-        this.messageService.add({
-          severity: 'warn',
-          summary: 'Sign Out',
-          detail: 'Signed out locally. Device trust may not have been revoked.',
-        });
-        this.router.navigate(['/login']);
-      },
-      complete: () => {
-        this.isLoggingOut.set(false);
-      },
-    });
+    try {
+      await this.auth.logout(true);
+      await this.router.navigate(['/login']);
+    } catch (_err: unknown) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Sign Out',
+        detail: 'Signed out locally. Device trust may not have been revoked.',
+      });
+      await this.router.navigate(['/login']);
+    } finally {
+      this.isLoggingOut.set(false);
+    }
   }
 
   /**
@@ -157,27 +158,58 @@ export class DashboardComponent {
    *
    * Revokes all sessions for the user.
    */
-  onLogoutAll(): void {
+  async onLogoutAll(): Promise<void> {
     if (this.isLoggingOut()) {
       return;
     }
 
     this.isLoggingOut.set(true);
-    this.auth.logoutAll().subscribe({
-      next: (_result) => {
-        this.router.navigate(['/login']);
-      },
-      error: (_err: unknown) => {
+    try {
+      await this.auth.logoutAll();
+      await this.router.navigate(['/login']);
+    } catch (_err: unknown) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Global Sign Out',
+        detail: 'Signed out locally. Some sessions may not have been revoked.',
+      });
+      await this.router.navigate(['/login']);
+    } finally {
+      this.isLoggingOut.set(false);
+    }
+  }
+
+  /**
+   * Get last OAuth state (temporary for testing).
+   *
+   * Retrieves and displays the appState from the most recent social login redirect.
+   */
+  async showLastOauthState(): Promise<void> {
+    try {
+      const state = await this.auth.getLastOauthState();
+      this.lastOauthState.set(state);
+
+      if (state) {
         this.messageService.add({
-          severity: 'warn',
-          summary: 'Global Sign Out',
-          detail: 'Signed out locally. Some sessions may not have been revoked.',
+          severity: 'info',
+          summary: 'Last OAuth State',
+          detail: `appState: ${state}`,
+          life: 5000,
         });
-        this.router.navigate(['/login']);
-      },
-      complete: () => {
-        this.isLoggingOut.set(false);
-      },
-    });
+      } else {
+        this.messageService.add({
+          severity: 'info',
+          summary: 'Last OAuth State',
+          detail: 'No OAuth state found (null)',
+          life: 3000,
+        });
+      }
+    } catch (err: unknown) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: err instanceof Error ? err.message : 'Failed to get OAuth state',
+      });
+    }
   }
 }

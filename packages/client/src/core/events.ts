@@ -15,6 +15,7 @@ export type AuthEventType =
   | 'auth:error'
   | 'auth:logout'
   | 'auth:refresh'
+  | 'auth:session_expired'
   | 'oauth:started'
   | 'oauth:callback'
   | 'oauth:completed'
@@ -33,6 +34,7 @@ export type AuthEvent =
   | AuthErrorEvent
   | AuthLogoutEvent
   | AuthRefreshEvent
+  | AuthSessionExpiredEvent
   | OAuthStartedEvent
   | OAuthCallbackEvent
   | OAuthCompletedEvent
@@ -107,6 +109,18 @@ export interface AuthRefreshEvent {
   data: {
     success: boolean;
   };
+  timestamp: number;
+}
+
+/**
+ * Session expired event (refresh token expired or invalid)
+ *
+ * Emitted when token refresh fails with 401, indicating the session
+ * has expired and the user needs to re-authenticate.
+ */
+export interface AuthSessionExpiredEvent {
+  type: 'auth:session_expired';
+  data: Record<string, never>;
   timestamp: number;
 }
 

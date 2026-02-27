@@ -1,19 +1,21 @@
 {
   "name": "@nauth-toolkit/email-nodemailer",
-  "version": "0.1.0",
-  "description": "Nodemailer email provider for nauth-toolkit",
+  "version": "0.2.0",
+  "description": "Nodemailer email provider for nauth-toolkit — SMTP, SES, Gmail",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist",
-    "src/templates/default/**/*.hbs"
+    "src/templates/default/**/*.hbs",
+    "LICENSE",
+    "README.md"
   ],
   "scripts": {
-    "build": "npm run build-templates && tsc -b && npm run copy-templates",
+    "build": "pnpm run build-templates && tsc -b && pnpm run copy-templates",
     "build-templates": "node src/templates/mjml/build-templates.js",
     "copy-templates": "cp -r src/templates/default dist/templates/",
     "clean": "rm -rf dist *.tsbuildinfo",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
@@ -21,16 +23,16 @@
   },
   "dependencies": {
     "handlebars": "^4.7.8",
-    "nodemailer": "^6.9.7"
+    "nodemailer": "^7.0.11"
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.0"
+    "@nauth-toolkit/core": "^0.2.0"
   },
   "devDependencies": {
     "@types/handlebars": "^4.1.0",
     "@types/mjml": "^4.7.4",
     "@types/node": "^22.0.0",
-    "@types/nodemailer": "^6.4.14",
+    "@types/nodemailer": "^7.0.4",
     "mjml": "^4.17.1",
     "typescript": "^5.5.0"
   },
@@ -39,14 +41,31 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "preview"
+    "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "keywords": [
-    "nestjs",
+    "nauth",
     "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
     "email",
     "nodemailer",
-    "smtp"
-  ]
+    "smtp",
+    "ses"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth"
+  },
+  "homepage": "https://nauth.dev",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": false
 }

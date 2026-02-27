@@ -3,9 +3,7 @@ title: ChallengeResponseData
 description: Discriminated union types for challenge responses. TypeScript interfaces for type-safe challenge handling with method-specific structures.
 keywords: [challenge, response, types, typescript, mfa, verification, api]
 image: /img/api-social-card.png
-sidebar_position: 32
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -47,8 +45,8 @@ Discriminated union of challenge response interfaces:
 - `VerifyEmailResponse` - Email verification with code
 - `CollectPhoneResponse` - Phone number collection (first step)
 - `VerifyPhoneResponse` - Phone verification with code (second step)
-- `VerifyMFACodeResponse` - MFA verification with code (SMS/TOTP/Backup)
-- `VerifyMFAPasskeyResponse` - MFA verification with passkey
+- `VerifyMFACodeResponse` - MFA verification with code (SMS/TOTP/Backup). Optional `deviceId?: number` field for methods with multiple devices.
+- `VerifyMFAPasskeyResponse` - MFA verification with passkey. Optional `deviceId?: number` field for multiple passkey devices.
 - `ForceChangePasswordResponse` - Forced password change
 - `MFASetupResponse` - MFA setup during challenge
 

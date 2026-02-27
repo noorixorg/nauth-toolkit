@@ -1,9 +1,9 @@
 ---
 title: Core Services
-description: Platform-agnostic services for authentication, MFA, social auth, and more
-sidebar_position: 0
+description: 'Service index: AuthService (login, signup, passwords, sessions), AdminAuthService, MFAService, SocialAuthService, AuthAuditService, EmailVerificationService, PhoneVerificationService, ClientInfoService, CsrfService, GeoLocationService, HookRegistryService'
+sidebar_position: 1
+sidebar_label: Overview
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -43,18 +43,19 @@ import { AuthService } from '@nauth-toolkit/core';
 | ----------------------------- | ---------------------------------------------------------------------- |
 | [AuthService](./auth-service) | Main authentication orchestration - signup, login, password management |
 
-## Verification Services
+## Audit & Logging
 
-| Service                                                  | Description                                           |
-| -------------------------------------------------------- | ----------------------------------------------------- |
-| [EmailVerificationService](./email-verification-service) | Email verification code generation and validation     |
-| [PhoneVerificationService](./phone-verification-service) | Phone/SMS verification code generation and validation |
+| Service                                  | Description                                                |
+| ---------------------------------------- | ---------------------------------------------------------- |
+| [AuthAuditService](./auth-audit-service) | Audit trail logging for authentication and security events |
 
-## Social Authentication
+## Client Information & Security
 
-| Service                                    | Description                                                            |
-| ------------------------------------------ | ---------------------------------------------------------------------- |
-| [SocialAuthService](./social-auth-service) | Complete API for OAuth authentication, account linking, and management |
+| Service                                    | Description                                         |
+| ------------------------------------------ | --------------------------------------------------- |
+| [ClientInfoService](./client-info-service) | Extract IP address, user-agent, and session context |
+| [CsrfService](./csrf-service) | CSRF token generation and validation |
+| [GeoLocationService](./geo-location-service) | IP geolocation using MaxMind GeoIP2 (optional, requires configuration) |
 
 ## Multi-Factor Authentication
 
@@ -62,17 +63,18 @@ import { AuthService } from '@nauth-toolkit/core';
 | --------------------------- | --------------------------------------- |
 | [MFAService](./mfa-service) | MFA provider registry and orchestration |
 
-## Client Information & Security
+## Social Authentication
 
-| Service                                    | Description                                         |
-| ------------------------------------------ | --------------------------------------------------- |
-| [ClientInfoService](./client-info-service) | Extract IP address, user-agent, and session context |
+| Service                                    | Description                                                            |
+| ------------------------------------------ | ---------------------------------------------------------------------- |
+| [SocialAuthService](./social-auth-service) | Complete API for OAuth authentication, account linking, and management |
 
-## Audit & Logging
+## Verification Services
 
-| Service                                  | Description                                                |
-| ---------------------------------------- | ---------------------------------------------------------- |
-| [AuthAuditService](./auth-audit-service) | Audit trail logging for authentication and security events |
+| Service                                                  | Description                                           |
+| -------------------------------------------------------- | ----------------------------------------------------- |
+| [EmailVerificationService](./email-verification-service) | Email verification code generation and validation     |
+| [PhoneVerificationService](./phone-verification-service) | Phone/SMS verification code generation and validation |
 
 ## Usage Pattern
 
@@ -121,7 +123,7 @@ const result = await nauth.authService.signup({
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { NAuth, FastifyAdapter, withNAuthContext } from '@nauth-toolkit/core';
+import { NAuth, FastifyAdapter } from '@nauth-toolkit/core';
 
 const nauth = await NAuth.create({
   config: authConfig,
@@ -129,11 +131,11 @@ const nauth = await NAuth.create({
   adapter: new FastifyAdapter(),
 });
 
-// Access services from nauth instance (wrap handlers with withNAuthContext)
+// Access services from nauth instance (wrap handlers with nauth.adapter.wrapRouteHandler)
 fastify.post(
   '/signup',
   { preHandler: nauth.helpers.public() },
-  withNAuthContext(async (req) => {
+  nauth.adapter.wrapRouteHandler(async (req) => {
     return nauth.authService.signup(req.body);
   }),
 );

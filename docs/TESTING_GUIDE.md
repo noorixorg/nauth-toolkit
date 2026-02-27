@@ -44,26 +44,26 @@ The comprehensive test suite in `auth-challenge-helper.service.spec.ts` covers a
 
 ### Signup Scenarios
 
-- ✅ MFA OPTIONAL: `none`, `email`, `phone`, `both` verification methods
-- ✅ MFA REQUIRED: Grace period 0 and 7 days with different verification methods
-- ✅ MFA ADAPTIVE: Grace period variations
+- - MFA OPTIONAL: `none`, `email`, `phone`, `both` verification methods
+- - MFA REQUIRED: Grace period 0 and 7 days with different verification methods
+- - MFA ADAPTIVE: Grace period variations
 
 ### Login Scenarios
 
-- ✅ MFA OPTIONAL: Device trust, `mustChangePassword`, `mfaExempt`
-- ✅ MFA REQUIRED: Grace period active/expired, device trust
-- ✅ MFA ADAPTIVE: Risk levels, device trust, blocked state, grace period with metadata
+- - MFA OPTIONAL: Device trust, `mustChangePassword`, `mfaExempt`
+- - MFA REQUIRED: Grace period active/expired, device trust
+- - MFA ADAPTIVE: Risk levels, device trust, blocked state, grace period with metadata
 
 ### Social Login Scenarios
 
-- ✅ `requireForSocialLogin = false`: All verification methods
-- ✅ `requireForSocialLogin = true`: MFA OPTIONAL/REQUIRED/ADAPTIVE combinations
+- - `requireForSocialLogin = false`: All verification methods
+- - `requireForSocialLogin = true`: MFA OPTIONAL/REQUIRED/ADAPTIVE combinations
 
 ### Special Cases
 
-- ✅ Phone collection during verification
-- ✅ Preferred MFA method selection
-- ✅ FORCE_CHANGE_PASSWORD priority
+- - Phone collection during verification
+- - Preferred MFA method selection
+- - FORCE_CHANGE_PASSWORD priority
 
 ## Test Structure
 

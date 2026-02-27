@@ -3,9 +3,7 @@ title: VerifyEmailDTO
 description: Email verification DTOs for verifying with code or token, and resending verification emails. Includes strict validation for security.
 keywords: [verify, email, dto, verification, code, token, api]
 image: /img/api-social-card.png
-sidebar_position: 10
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -44,10 +42,11 @@ import { VerifyEmailWithCodeDTO, VerifyEmailWithTokenDTO, ResendVerificationEmai
 
 Verify email with 6-digit code.
 
-| Property | Type     | Required | Description                                                      |
-| -------- | -------- | -------- | ---------------------------------------------------------------- |
-| `email`  | `string` | Yes      | Email address. Valid email format. Max 255 characters. Trimmed and lowercased. |
-| `code`   | `string` | Yes      | Verification code. Exactly 6 digits. Whitespace removed.         |
+| Property             | Type     | Required | Description                                                                      |
+| -------------------- | -------- | -------- | -------------------------------------------------------------------------------- |
+| `email`              | `string` | Yes      | Email address. Valid email format. Max 255 characters. Trimmed and lowercased.   |
+| `code`               | `string` | Yes      | Verification code. Max 6 numeric characters. Whitespace removed.                 |
+| `challengeSessionId` | `number` | No       | Links verification to a specific challenge session. Positive integer if provided. |
 
 ## VerifyEmailWithTokenDTO
 
@@ -59,11 +58,14 @@ Verify email with URL token.
 
 ## ResendVerificationEmailDTO
 
-Resend verification email.
+Resend verification email. At least one of `sub` or `email` must be provided.
 
-| Property | Type     | Required | Description                                                      |
-| -------- | -------- | -------- | ---------------------------------------------------------------- |
-| `email`  | `string` | Yes      | Email address. Valid email format. Max 255 characters. Trimmed and lowercased. |
+| Property             | Type     | Required | Description                                                                         |
+| -------------------- | -------- | -------- | ----------------------------------------------------------------------------------- |
+| `sub`                | `string` | No       | User identifier (UUID v4). Trimmed and lowercased. Required if `email` not provided. |
+| `email`              | `string` | No       | Email address. Valid email format. Max 255 chars. Required if `sub` not provided.    |
+| `baseUrl`            | `string` | No       | Base URL for building a verification link. Must be valid http/https URL. Max 2048 chars. |
+| `challengeSessionId` | `number` | No       | Links verification to a specific challenge session. Positive integer if provided.    |
 
 ## Example
 

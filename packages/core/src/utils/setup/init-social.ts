@@ -14,6 +14,7 @@ import {
   AuthAuditService,
   PhoneVerificationService,
   BaseUser,
+  ISocialAuthStateStore,
 } from '../../index';
 // Internal API imports (for framework adapter use only)
 import {
@@ -24,11 +25,29 @@ import {
   TrustedDeviceService,
 } from '../../internal';
 import { Repository } from 'typeorm';
+import { ISocialAuthProviderService } from '../../interfaces/social-auth-provider.interface';
+import { ITokenVerifierService } from '../../interfaces/token-verifier.interface';
+import { BaseSocialProviderSecret } from '../../entities';
 
 export interface NAuthSocialProviders {
-  googleAuth?: any;
-  appleAuth?: any;
-  facebookAuth?: any;
+  googleAuth?: ISocialAuthProviderService;
+  appleAuth?: ISocialAuthProviderService;
+  facebookAuth?: ISocialAuthProviderService;
+}
+
+/**
+ * Import an optional peer dependency at runtime without creating a compile-time
+ * dependency for TypeScript consumers of `@nauth-toolkit/core`.
+ *
+ * IMPORTANT: the module specifier is intentionally typed as `string` (not a literal)
+ * to prevent TypeScript from erroring when the peer dependency isn't installed.
+ */
+async function importOptional<TModule>(moduleName: string): Promise<TModule | null> {
+  try {
+    return (await import(moduleName)) as unknown as TModule;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -51,6 +70,7 @@ export interface NAuthSocialProviders {
  * @param phoneVerificationService - Phone verification service (optional)
  * @param auditService - Audit logging service (optional)
  * @param trustedDeviceService - Trusted device service (optional)
+ * @param socialProviderSecretRepository - Repository for social provider secrets (optional, for Apple JWT rotation)
  * @returns Object containing initialized social providers
  */
 export async function initSocialAuth(
@@ -63,11 +83,13 @@ export async function initSocialAuth(
   challengeHelper: AuthChallengeHelperService,
   clientInfoService: ClientInfoService,
   logger: NAuthLogger,
-  socialAuthStateStore: Map<string, { timestamp: number; provider: string }>,
+  socialAuthStateStore: ISocialAuthStateStore,
   userRepository: Repository<BaseUser>,
   phoneVerificationService?: PhoneVerificationService,
   auditService?: AuthAuditService,
   trustedDeviceService?: TrustedDeviceService,
+  socialProviderSecretRepository?: Repository<BaseSocialProviderSecret> | null,
+  hookRegistry?: import('../../services/hook-registry.service').HookRegistryService,
 ): Promise<NAuthSocialProviders> {
   const providers: NAuthSocialProviders = {};
 
@@ -76,13 +98,23 @@ export async function initSocialAuth(
   // ============================================================================
   if (config.social?.google?.enabled) {
     try {
-      // @ts-ignore - Optional peer dependency, may not be installed
-      const { GoogleSocialAuthService, TokenVerifierService } = await import('@nauth-toolkit/social-google');
+      type GoogleProviderModule = {
+        GoogleSocialAuthService: new (...args: unknown[]) => ISocialAuthProviderService;
+        TokenVerifierService: new (config: NAuthConfig) => ITokenVerifierService;
+      };
+
+      const googleModule = await importOptional<GoogleProviderModule>('@nauth-toolkit/social-google' as string);
+      if (!googleModule) {
+        logger?.warn?.(
+          'Google OAuth provider not available. Install @nauth-toolkit/social-google to enable Google authentication.',
+        );
+        return providers;
+      }
 
       // Create token verifier for native mobile token validation
-      const tokenVerifier = new TokenVerifierService(config);
+      const tokenVerifier = new googleModule.TokenVerifierService(config);
 
-      providers.googleAuth = new GoogleSocialAuthService(
+      const googleAuth = new googleModule.GoogleSocialAuthService(
         config,
         logger,
         authService,
@@ -97,12 +129,15 @@ export async function initSocialAuth(
         auditService,
         trustedDeviceService,
         tokenVerifier,
+        hookRegistry,
       );
 
+      providers.googleAuth = googleAuth;
+
       // Register with registry
-      providerRegistry.registerProvider(providers.googleAuth);
+      providerRegistry.registerProvider(googleAuth);
       logger?.debug?.('Google OAuth provider initialized');
-    } catch (error) {
+    } catch {
       logger?.warn?.(
         'Google OAuth provider not available. Install @nauth-toolkit/social-google to enable Google authentication.',
       );
@@ -114,13 +149,23 @@ export async function initSocialAuth(
   // ============================================================================
   if (config.social?.apple?.enabled) {
     try {
-      // @ts-ignore - Optional peer dependency, may not be installed
-      const { AppleSocialAuthService, TokenVerifierService } = await import('@nauth-toolkit/social-apple');
+      type AppleProviderModule = {
+        AppleSocialAuthService: new (...args: unknown[]) => ISocialAuthProviderService;
+        TokenVerifierService: new (config: NAuthConfig) => ITokenVerifierService;
+      };
+
+      const appleModule = await importOptional<AppleProviderModule>('@nauth-toolkit/social-apple' as string);
+      if (!appleModule) {
+        logger?.warn?.(
+          'Apple Sign-In provider not available. Install @nauth-toolkit/social-apple to enable Apple authentication.',
+        );
+        return providers;
+      }
 
       // Create token verifier for native mobile token validation
-      const tokenVerifier = new TokenVerifierService(config);
+      const tokenVerifier = new appleModule.TokenVerifierService(config);
 
-      providers.appleAuth = new AppleSocialAuthService(
+      const appleAuth = new appleModule.AppleSocialAuthService(
         config,
         logger,
         authService,
@@ -135,12 +180,16 @@ export async function initSocialAuth(
         auditService,
         trustedDeviceService,
         tokenVerifier,
+        socialProviderSecretRepository || undefined,
+        hookRegistry,
       );
 
+      providers.appleAuth = appleAuth;
+
       // Register with registry
-      providerRegistry.registerProvider(providers.appleAuth);
+      providerRegistry.registerProvider(appleAuth);
       logger?.debug?.('Apple Sign-In provider initialized');
-    } catch (error) {
+    } catch {
       logger?.warn?.(
         'Apple Sign-In provider not available. Install @nauth-toolkit/social-apple to enable Apple authentication.',
       );
@@ -152,13 +201,23 @@ export async function initSocialAuth(
   // ============================================================================
   if (config.social?.facebook?.enabled) {
     try {
-      // @ts-ignore - Optional peer dependency, may not be installed
-      const { FacebookSocialAuthService, TokenVerifierService } = await import('@nauth-toolkit/social-facebook');
+      type FacebookProviderModule = {
+        FacebookSocialAuthService: new (...args: unknown[]) => ISocialAuthProviderService;
+        TokenVerifierService: new (config: NAuthConfig) => ITokenVerifierService;
+      };
+
+      const facebookModule = await importOptional<FacebookProviderModule>('@nauth-toolkit/social-facebook' as string);
+      if (!facebookModule) {
+        logger?.warn?.(
+          'Facebook OAuth provider not available. Install @nauth-toolkit/social-facebook to enable Facebook authentication.',
+        );
+        return providers;
+      }
 
       // Create token verifier for native mobile token validation
-      const tokenVerifier = new TokenVerifierService(config);
+      const tokenVerifier = new facebookModule.TokenVerifierService(config);
 
-      providers.facebookAuth = new FacebookSocialAuthService(
+      const facebookAuth = new facebookModule.FacebookSocialAuthService(
         config,
         logger,
         authService,
@@ -173,12 +232,15 @@ export async function initSocialAuth(
         auditService,
         trustedDeviceService,
         tokenVerifier,
+        hookRegistry,
       );
 
+      providers.facebookAuth = facebookAuth;
+
       // Register with registry
-      providerRegistry.registerProvider(providers.facebookAuth);
+      providerRegistry.registerProvider(facebookAuth);
       logger?.debug?.('Facebook OAuth provider initialized');
-    } catch (error) {
+    } catch {
       logger?.warn?.(
         'Facebook OAuth provider not available. Install @nauth-toolkit/social-facebook to enable Facebook authentication.',
       );

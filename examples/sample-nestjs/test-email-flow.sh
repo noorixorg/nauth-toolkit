@@ -8,13 +8,13 @@ NC='\033[0m' # No Color
 
 echo ""
 echo "╔══════════════════════════════════════════════════════════╗"
-echo "║  📧 Testing Email Verification Flow                     ║"
+echo "║  Testing Email Verification Flow                     ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 echo ""
 
 # Check if server is running
 if ! curl -s http://localhost:3000/health > /dev/null 2>&1; then
-  echo -e "${YELLOW}⚠️  Server not running at http://localhost:3000${NC}"
+  echo -e "${YELLOW}WARNING: Server not running at http://localhost:3000${NC}"
   echo "   Start it with: yarn start"
   exit 1
 fi
@@ -36,11 +36,11 @@ echo "$SIGNUP_RESPONSE" | jq '.' 2>/dev/null || echo "$SIGNUP_RESPONSE"
 ACCESS_TOKEN=$(echo "$SIGNUP_RESPONSE" | jq -r '.accessToken' 2>/dev/null)
 
 if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
-  echo -e "${YELLOW}❌ Failed to get access token. Check response above.${NC}"
+  echo -e "${YELLOW}ERROR: Failed to get access token. Check response above.${NC}"
   exit 1
 fi
 
-echo -e "${GREEN}✅ Signup successful!${NC}"
+echo -e "${GREEN}Signup successful!${NC}"
 echo "Access Token: ${ACCESS_TOKEN:0:30}..."
 echo ""
 
@@ -53,7 +53,7 @@ VERIFY_RESPONSE=$(curl -s -X POST http://localhost:3000/auth/verify-email/send \
 echo "$VERIFY_RESPONSE" | jq '.' 2>/dev/null || echo "$VERIFY_RESPONSE"
 echo ""
 
-echo -e "${GREEN}✅ Verification email sent!${NC}"
+echo -e "${GREEN}Verification email sent!${NC}"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${BLUE}Step 3: Get verification code from test endpoint${NC}"
@@ -63,14 +63,14 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 VERIFICATION_CODE=$(curl -s "http://localhost:3000/test/email/latest?email=$RANDOM_EMAIL" | jq -r '.code' 2>/dev/null)
 
 if [ -z "$VERIFICATION_CODE" ] || [ "$VERIFICATION_CODE" = "null" ] || [ "$VERIFICATION_CODE" = "" ]; then
-  echo -e "${YELLOW}⚠️  No verification code found yet. Wait a moment and try:${NC}"
+  echo -e "${YELLOW}WARNING: No verification code found yet. Wait a moment and try:${NC}"
   echo ""
   echo "curl -s \"http://localhost:3000/test/email/latest?email=$RANDOM_EMAIL\" | jq -r '.code'"
   echo ""
   echo "Or check console logs if using ConsoleEmailProvider"
   VERIFICATION_CODE=""
 else
-  echo -e "${GREEN}✅ Verification code retrieved: $VERIFICATION_CODE${NC}"
+  echo -e "${GREEN}Verification code retrieved: $VERIFICATION_CODE${NC}"
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo -e "${BLUE}Step 4: Verify email with code${NC}"
@@ -84,9 +84,9 @@ else
   echo "$VERIFY_RESPONSE" | jq '.' 2>/dev/null || echo "$VERIFY_RESPONSE"
 
   if echo "$VERIFY_RESPONSE" | jq -e '.message' > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ Email verified successfully!${NC}"
+    echo -e "${GREEN}Email verified successfully!${NC}"
   else
-    echo -e "${YELLOW}⚠️  Verification may have failed. Check response above.${NC}"
+    echo -e "${YELLOW}WARNING: Verification may have failed. Check response above.${NC}"
   fi
 fi
 
@@ -110,6 +110,6 @@ echo ""
 
 # Save token to file for convenience
 echo "$ACCESS_TOKEN" > .last_access_token
-echo -e "${GREEN}💾 Access token saved to .last_access_token${NC}"
+echo -e "${GREEN}Access token saved to .last_access_token${NC}"
 echo ""
 

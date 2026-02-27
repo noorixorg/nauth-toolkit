@@ -7,7 +7,7 @@
  * @example
  * ```typescript
  * const result = await mfaService.setMFAExemption({
- *   userSub: 'user-uuid',
+ *   sub: 'a21b654c-2746-4168-acee-c175083a65cd', // User sub (UUID v4)
  *   exempt: true,
  *   reason: 'Business partner requires MFA bypass',
  *   grantedBy: 'admin@example.com'
@@ -15,11 +15,13 @@
  * ```
  */
 
-import { IsUUID, IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 /**
  * DTO for setting MFA exemption
+ *
+ * SECURITY: This DTO targets an arbitrary user; it must only be accepted by admin-protected APIs.
  */
 export class SetMFAExemptionDTO {
   /**
@@ -42,7 +44,7 @@ export class SetMFAExemptionDTO {
     }
     return value;
   })
-  userSub!: string;
+  sub!: string;
 
   /**
    * Whether to grant exemption (true) or revoke exemption (false)
@@ -71,7 +73,9 @@ export class SetMFAExemptionDTO {
   reason?: string | null;
 
   /**
-   * Optional identifier of the admin performing this action
+   * Optional identifier of the admin performing this action.
+   * Typically the admin's sub (UUID) when set from authenticated context.
+   * Used for mfaExemptGrantedBy on the user and for audit performedBy.
    *
    * Validation:
    * - Max 255 characters

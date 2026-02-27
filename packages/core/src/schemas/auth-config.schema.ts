@@ -46,6 +46,7 @@ const accessTokenConfigSchema = z.object({
 const refreshTokenConfigSchema = z.object({
   secret: z.string().min(32, 'Refresh token secret must be at least 32 characters (256 bits) for security'),
   expiresIn: z.union([z.string(), z.number()]),
+  /** @deprecated Always enabled. Kept for backward compatibility; ignored at runtime. */
   rotation: z.boolean().optional(),
   reuseDetection: z.boolean().optional(),
 });
@@ -109,12 +110,14 @@ export const signupConfigSchema = z.object({
   emailVerification: z
     .object({
       expiresIn: z.number().optional(),
+      maxAttempts: z.number().optional(),
       resendDelay: z.number().optional(),
       rateLimitMax: z.number().optional(),
       rateLimitWindow: z.number().optional(),
       maxAttemptsPerUser: z.number().optional(),
       maxAttemptsPerIP: z.number().optional(),
       attemptWindow: z.number().optional(),
+      baseUrl: z.string().url().max(2048).optional(),
     })
     .optional(),
   phoneVerification: z
@@ -128,6 +131,22 @@ export const signupConfigSchema = z.object({
       maxAttemptsPerUser: z.number().optional(),
       maxAttemptsPerIP: z.number().optional(),
       attemptWindow: z.number().optional(),
+      baseUrl: z
+        .string()
+        .max(2048)
+        .refine(
+          (val) => {
+            if (!val) return true; // Optional
+            try {
+              const url = new URL(val);
+              return ['http:', 'https:'].includes(url.protocol);
+            } catch {
+              return false;
+            }
+          },
+          { message: 'baseUrl must be a valid HTTP or HTTPS URL (localhost URLs are allowed)' },
+        )
+        .optional(),
     })
     .optional(),
 });
@@ -156,6 +175,15 @@ export const passwordConfigSchema = z.object({
   preventUserInfo: z.boolean().optional(),
   historyCount: z.number().optional(),
   expiryDays: z.number().optional(),
+  passwordReset: z
+    .object({
+      codeLength: z.number().optional(),
+      expiresIn: z.number().optional(),
+      rateLimitMax: z.number().optional(),
+      rateLimitWindow: z.number().optional(),
+      maxAttempts: z.number().optional(),
+    })
+    .optional(),
 });
 
 // ============================================================================
@@ -165,6 +193,7 @@ export const passwordConfigSchema = z.object({
 export const lockoutConfigSchema = z.object({
   enabled: z.boolean().optional(),
   maxAttempts: z.number().optional(),
+  attemptWindow: z.number().optional(),
   duration: z.number().optional(),
   resetOnSuccess: z.boolean().optional(),
 });
@@ -197,6 +226,7 @@ export const securityConfigSchema = z.object({
           sameSite: z.enum(['strict', 'lax', 'none']).optional(),
           domain: z.string().optional(),
           path: z.string().optional(),
+          priority: z.enum(['low', 'medium', 'high']).default('high'),
         })
         .optional(),
     })
@@ -208,20 +238,6 @@ export const securityConfigSchema = z.object({
 // ============================================================================
 
 // Note: Functions cannot be validated by Zod, so we use z.any() for hooks
-export const lifecycleHooksSchema = z.object({
-  beforeSignup: z.any().optional(),
-  afterSignup: z.any().optional(),
-  beforeLogin: z.any().optional(),
-  afterLogin: z.any().optional(),
-  afterLoginFailed: z.any().optional(),
-  beforePasswordChange: z.any().optional(),
-  afterPasswordChange: z.any().optional(),
-  beforeAccountLock: z.any().optional(),
-  afterAccountLock: z.any().optional(),
-  onAdaptiveMFATriggered: z.any().optional(),
-  onSignInBlocked: z.any().optional(),
-});
-
 // ============================================================================
 // Email Configuration Schema
 // ============================================================================
@@ -259,24 +275,81 @@ const customTemplateDefinitionSchema = z
  * - Global variables for branding
  * - Custom templates with required parameters
  */
-const templateConfigSchema = z.object({
-  engine: z.any().optional(), // TemplateEngine instance - runtime validation
-  globalVariables: z.record(z.union([z.string(), z.number(), z.boolean()])).optional(),
-  customTemplates: z.record(customTemplateDefinitionSchema).optional(),
-});
+const templateConfigSchema = z
+  .object({
+    engine: z.any().optional(), // TemplateEngine instance - runtime validation
+    customTemplates: z.record(z.string(), customTemplateDefinitionSchema).optional(),
+  })
+  .strict();
+
+/**
+ * Global variables schema for email templates
+ *
+ * Validates well-known branding keys while allowing arbitrary extra keys for custom templates.
+ */
+const emailGlobalVariablesSchema = z
+  .object({
+    appName: z.string().optional(),
+    companyName: z.string().optional(),
+    companyAddress: z.string().optional(),
+    brandColor: z.string().optional(),
+    logoUrl: z.string().optional(),
+    dashboardUrl: z.string().url().optional(),
+    supportEmail: z.string().email().optional(),
+    footerDisclaimer: z.string().optional(),
+  })
+  .catchall(z.unknown());
 
 /**
  * Email configuration schema
  */
-export const emailConfigSchema = z.object({
-  appName: z.string().optional(),
-  companyName: z.string().optional(),
-  logoUrl: z.string().optional(),
-  supportEmail: z.string().email().optional(),
-  dashboardUrl: z.string().url().optional(),
-  brandColor: z.string().optional(),
-  footerDisclaimer: z.string().optional(),
-  templates: templateConfigSchema.optional(),
+export const emailConfigSchema = z
+  .object({
+    globalVariables: emailGlobalVariablesSchema.optional(),
+    templates: templateConfigSchema.optional(),
+  })
+  .strict();
+
+// ============================================================================
+// SMS Template Configuration Schema
+// ============================================================================
+
+/**
+ * Custom SMS template definition schema
+ *
+ * Validates template definition structure:
+ * - Must have either contentPath OR content (not both)
+ */
+const customSMSTemplateDefinitionSchema = z
+  .object({
+    contentPath: z.string().optional(),
+    content: z.string().optional(),
+  })
+  .refine((data) => !!(data.contentPath || data.content), {
+    message: 'Must provide either "contentPath" or "content"',
+  })
+  .refine((data) => !(data.contentPath && data.content), {
+    message: 'Cannot provide both "contentPath" and "content". Use one or the other.',
+  });
+
+/**
+ * SMS template configuration schema
+ *
+ * Validates SMS template configuration:
+ * - Global variables for branding
+ * - Custom templates with required parameters
+ */
+const smsTemplateConfigSchema = z.object({
+  engine: z.any().optional(), // SMSTemplateEngine instance - runtime validation
+  globalVariables: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
+  customTemplates: z.record(z.string(), customSMSTemplateDefinitionSchema).optional(),
+});
+
+/**
+ * SMS configuration schema
+ */
+export const smsConfigSchema = z.object({
+  templates: smsTemplateConfigSchema.optional(),
 });
 
 // ============================================================================
@@ -302,10 +375,29 @@ export const socialProviderConfigSchema = z.object({
   allowSignup: z.boolean().optional(),
 });
 
+/**
+ * Apple-specific social provider configuration schema
+ *
+ * Apple requires teamId, keyId, and privateKeyPem instead of a static clientSecret.
+ * The toolkit will automatically generate and refresh the JWT client secret.
+ */
+export const appleSocialProviderConfigSchema = socialProviderConfigSchema.omit({ clientSecret: true }).extend({
+  teamId: z.string().optional(),
+  keyId: z.string().optional(),
+  privateKeyPem: z.string().optional(),
+});
+
+export const socialRedirectConfigSchema = z.object({
+  frontendBaseUrl: z.string().optional(),
+  allowAbsoluteReturnTo: z.boolean().optional(),
+  allowedReturnToOrigins: z.array(z.string()).optional(),
+});
+
 export const socialConfigSchema = z.object({
   google: socialProviderConfigSchema.optional(),
-  apple: socialProviderConfigSchema.optional(),
+  apple: appleSocialProviderConfigSchema.optional(),
   facebook: socialProviderConfigSchema.optional(),
+  redirect: socialRedirectConfigSchema.optional(),
 });
 
 // ============================================================================
@@ -342,7 +434,16 @@ export const riskLevelConfigSchema = z.object({
 
 export const adaptiveMFAConfigSchema = z.object({
   triggers: z
-    .array(z.enum(['new_device', 'new_ip', 'new_country', 'impossible_travel', 'suspicious_activity']))
+    .array(
+      z.enum([
+        'new_device',
+        'new_ip',
+        'new_country',
+        'impossible_travel',
+        'suspicious_activity',
+        'recent_password_reset',
+      ]),
+    )
     .optional(),
   riskThreshold: z.number().optional(), // Deprecated
   riskWeights: z.record(z.string(), z.number()).optional(),
@@ -358,6 +459,7 @@ export const adaptiveMFAConfigSchema = z.object({
       blockDuration: z.number().optional(),
       message: z.string().optional(),
       errorCode: z.string().optional(),
+      scope: z.enum(['user', 'device', 'ip']).optional(),
     })
     .optional(),
   maxTravelSpeed: z.number().optional(),
@@ -394,6 +496,7 @@ export const tokenDeliveryConfigSchema = z.object({
       sameSite: z.enum(['strict', 'lax', 'none']).optional(),
       path: z.string().optional(),
       domain: z.string().optional(),
+      priority: z.enum(['low', 'medium', 'high']).optional(),
     })
     .optional(),
   hybridPolicy: z
@@ -430,6 +533,39 @@ export const geoLocationConfigSchema = z.object({
 });
 
 // ============================================================================
+// Email Notifications Configuration Schema
+// ============================================================================
+
+/**
+ * Email notifications configuration schema
+ *
+ * Controls which optional notification emails are suppressed.
+ * Note: Code emails (verification/password reset) cannot be suppressed and are always sent when enabled.
+ */
+export const emailNotificationsConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    suppress: z
+      .object({
+        // Optional notifications (default: suppressed/disabled)
+        welcome: z.boolean().optional(),
+        passwordChanged: z.boolean().optional(),
+        mfaDeviceRemoved: z.boolean().optional(),
+        mfaFirstEnabled: z.boolean().optional(),
+        mfaMethodAdded: z.boolean().optional(),
+        adaptiveMfaRiskDetected: z.boolean().optional(),
+        accountDisabled: z.boolean().optional(),
+        accountEnabled: z.boolean().optional(),
+        emailChangedOld: z.boolean().optional(),
+        emailChangedNew: z.boolean().optional(),
+        accountLockout: z.boolean().optional(),
+        sessionsRevoked: z.boolean().optional(),
+      })
+      .optional(),
+  })
+  .optional();
+
+// ============================================================================
 // Root Configuration Schema with Cross-Dependency Validation
 // ============================================================================
 
@@ -453,16 +589,17 @@ export const authConfigSchema = z
     lockout: lockoutConfigSchema.optional(),
     session: sessionConfigSchema.optional(),
     security: securityConfigSchema.optional(),
-    hooks: lifecycleHooksSchema.optional(),
     auditLogs: z
       .object({
         enabled: z.boolean().optional(),
         fireAndForget: z.boolean().optional(),
       })
       .optional(),
+    emailNotifications: emailNotificationsConfigSchema,
     emailProvider: z.any().optional(), // Runtime instance - cannot validate type
     email: emailConfigSchema.optional(),
     smsProvider: z.any().optional(), // Runtime instance - cannot validate type
+    sms: smsConfigSchema.optional(),
     phone: phoneConfigSchema.optional(),
     storageAdapter: z.any().optional(), // Runtime instance - cannot validate type
     social: socialConfigSchema.optional(),
@@ -594,9 +731,11 @@ export const authConfigSchema = z
     // ============================================================================
     // 11. Social Provider Validation
     // ============================================================================
+    let anySocialEnabled = false;
     ['google', 'apple', 'facebook'].forEach((provider) => {
       const providerConfig = data.social?.[provider as 'google' | 'apple' | 'facebook'];
       if (providerConfig?.enabled) {
+        anySocialEnabled = true;
         if (!providerConfig.clientId) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -604,15 +743,56 @@ export const authConfigSchema = z
             path: ['social', provider, 'clientId'],
           });
         }
-        if (!providerConfig.clientSecret) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: `clientSecret is required when ${provider} provider is enabled`,
-            path: ['social', provider, 'clientSecret'],
-          });
+        // Apple requires teamId, keyId, and privateKeyPem instead of clientSecret
+        if (provider === 'apple') {
+          const appleConfig = providerConfig as { teamId?: string; keyId?: string; privateKeyPem?: string };
+          if (!appleConfig.teamId) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: 'teamId is required when Apple provider is enabled (for web OAuth)',
+              path: ['social', 'apple', 'teamId'],
+            });
+          }
+          if (!appleConfig.keyId) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: 'keyId is required when Apple provider is enabled (for web OAuth)',
+              path: ['social', 'apple', 'keyId'],
+            });
+          }
+          if (!appleConfig.privateKeyPem) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: 'privateKeyPem is required when Apple provider is enabled (for web OAuth)',
+              path: ['social', 'apple', 'privateKeyPem'],
+            });
+          }
+        } else {
+          // Google and Facebook require clientSecret
+          // Type assertion needed because TypeScript doesn't know which provider config type we have
+          const standardConfig = providerConfig as { clientSecret?: string };
+          if (!standardConfig.clientSecret) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `clientSecret is required when ${provider} provider is enabled`,
+              path: ['social', provider, 'clientSecret'],
+            });
+          }
         }
       }
     });
+
+    // Redirect-first social login requires frontendBaseUrl when any provider is enabled
+    if (anySocialEnabled) {
+      const frontendBaseUrl = data.social?.redirect?.frontendBaseUrl;
+      if (!frontendBaseUrl || typeof frontendBaseUrl !== 'string' || frontendBaseUrl.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'social.redirect.frontendBaseUrl is required when any social provider is enabled',
+          path: ['social', 'redirect', 'frontendBaseUrl'],
+        });
+      }
+    }
 
     // ============================================================================
     // 12. MaxMind GeoLocation Validation

@@ -1,6 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseVerificationToken } from '@nauth-toolkit/core';
 import { User } from './user.entity';
+import { ChallengeSession } from './challenge-session.entity';
 
 /**
  * TypeORM PostgreSQL Verification Token Entity
@@ -11,6 +12,7 @@ import { User } from './user.entity';
 @Entity('nauth_verification_tokens')
 @Index(['userId', 'type'])
 @Index(['token'])
+@Index(['expiresAt'])
 export class VerificationToken extends BaseVerificationToken {
   @PrimaryGeneratedColumn()
   declare id: number;
@@ -24,6 +26,10 @@ export class VerificationToken extends BaseVerificationToken {
 
   @Column({ type: 'int', nullable: true })
   declare challengeSessionId?: number | null;
+
+  @ManyToOne(() => ChallengeSession, { nullable: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'challengeSessionId' })
+  challengeSession?: ChallengeSession | null;
 
   @Column({ type: 'varchar', length: 20 })
   declare type: 'email' | 'phone' | 'password_reset';

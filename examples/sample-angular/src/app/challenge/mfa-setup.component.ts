@@ -5,7 +5,7 @@ import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { Subject, takeUntil } from 'rxjs';
 
-import { AuthService, AuthResponse } from '@nauth-toolkit/client/angular';
+import { AuthService, AuthResponse } from '@nauth-toolkit/client-angular/standalone';
 import {
   AuthChallenge,
   MFAMethod,
@@ -48,9 +48,11 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
   } | null>(null);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
-  private readonly mfaStatus = signal<{ methods: string[]; availableMethods: string[] } | null>(
-    null,
-  );
+  private readonly mfaStatus = signal<{
+    methods?: string[];
+    configuredMethods?: string[];
+    availableMethods: string[];
+  } | null>(null);
 
   protected readonly isAuthenticatedFlow = computed(() => {
     return !this.challenge() && this.auth.isAuthenticated();
@@ -60,10 +62,18 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
     if (this.isAuthenticatedFlow()) {
       const status = this.mfaStatus();
       if (!status) return [];
-      const configuredMethods = status.methods || [];
-      return (status.availableMethods || []).filter(
-        (m: string) => m !== 'backup' && !configuredMethods.includes(m),
-      );
+      const configuredMethods = Array.isArray(status.methods)
+        ? status.methods
+        : Array.isArray(status.configuredMethods)
+          ? status.configuredMethods
+          : [];
+
+      return (status.availableMethods || []).filter((m: string) => {
+        if (m === 'backup') return false;
+        // Allow multiple devices for these methods.
+        if (m === 'totp' || m === 'passkey') return true;
+        return !configuredMethods.includes(m);
+      });
     } else {
       const challenge = this.challenge();
       const params = challenge?.challengeParameters;
@@ -170,8 +180,9 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
 
       if (this.isAuthenticatedFlow()) {
         // Authenticated flow: use setupMfaDevice (no challenge session needed)
+        // Backend returns { setupData: { autoCompleted: true, deviceId: ... } } or { setupData: { maskedPhone: ... } }
         const setupResult = await this.auth.getClient().setupMfaDevice(method);
-        result = { setupData: setupResult as Record<string, unknown> };
+        result = setupResult as { setupData: Record<string, unknown> };
       } else {
         // Challenge flow: use getSetupData (requires challenge session)
         const challenge = this.challenge();
@@ -179,7 +190,7 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
           throw new Error('Invalid challenge session');
         }
 
-        const setupResult = await this.auth.getSetupData(challenge.session, method).toPromise();
+        const setupResult = await this.auth.getSetupData(challenge.session, method);
         if (!setupResult) {
           throw new Error('Failed to get setup data');
         }
@@ -301,7 +312,7 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
         },
       };
 
-      const authResponse = await this.auth.respondToChallenge(setupResponse).toPromise();
+      const authResponse = await this.auth.respondToChallenge(setupResponse);
       if (!authResponse) {
         throw new Error('Failed to complete MFA setup');
       }

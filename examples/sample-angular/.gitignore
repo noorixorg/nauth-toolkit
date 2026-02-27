@@ -41,3 +41,6 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Use examples/.env for Docker build; do not commit local .env
+.env

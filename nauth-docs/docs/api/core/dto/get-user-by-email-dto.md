@@ -3,9 +3,7 @@ title: GetUserByEmailDTO
 description: Request DTO for retrieving user by email address. Includes optional flag to require verified email.
 keywords: [get, user, email, dto, request, api]
 image: /img/api-social-card.png
-sidebar_position: 14
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -58,4 +56,4 @@ import { GetUserByEmailDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AuthService.getUserByEmail()](../services/auth-service#getuserbyemail)
+- [AuthService.getUserByEmail()](../services/admin-auth-service#getuserbyemail)

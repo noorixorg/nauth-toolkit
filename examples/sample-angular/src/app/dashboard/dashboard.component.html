@@ -7,15 +7,26 @@
         <img src="/img/nauth_square_logoonly.png" alt="nauth-toolkit" class="w-12 h-12" />
         <h1 class="text-2xl md:text-3xl font-bold text-primary-900">Dashboard</h1>
       </div>
-      <p-splitButton
-        [label]="isLoggingOut() ? 'Signing Out...' : 'Sign Out'"
-        [icon]="isLoggingOut() ? 'pi pi-spin pi-spinner' : 'pi pi-sign-out'"
-        severity="primary"
-        size="small"
-        [disabled]="isLoggingOut()"
-        (onClick)="onLogout()"
-        [model]="logoutMenuItems()"
-      />
+      <div class="flex items-center gap-2">
+        <!-- TEMPORARY: Button to show last OAuth state for testing -->
+        <p-button
+          label="Show Last OAuth State"
+          icon="pi pi-info-circle"
+          severity="secondary"
+          size="small"
+          (onClick)="showLastOauthState()"
+          [outlined]="true"
+        />
+        <p-splitButton
+          [label]="isLoggingOut() ? 'Signing Out...' : 'Sign Out'"
+          [icon]="isLoggingOut() ? 'pi pi-spin pi-spinner' : 'pi pi-sign-out'"
+          severity="primary"
+          size="small"
+          [disabled]="isLoggingOut()"
+          (onClick)="onLogout()"
+          [model]="logoutMenuItems()"
+        />
+      </div>
     </div>
 
     <!-- Dashboard Grid -->
@@ -28,6 +39,11 @@
       <!-- MFA Component -->
       <div>
         <app-mfa />
+      </div>
+
+      <!-- Admin Component -->
+      <div class="lg:col-span-2">
+        <app-admin />
       </div>
 
       <!-- Audit Trail Component -->

@@ -3,15 +3,15 @@ import { Repository } from 'typeorm';
 import {
   BaseMFADevice,
   BaseUser,
-  IUser,
   NAuthConfig,
   NAuthLogger,
   NAuthException,
   AuthErrorCode,
   MFAMethod,
+  ClientInfoService,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
-import { BaseMFAProviderService } from '@nauth-toolkit/core/internal';
+import { BaseMFAProviderService, ChallengeService, AuthAuditService } from '@nauth-toolkit/core/internal';
 import { TOTPService } from './totp.service';
 import { SetupTOTPResponseDTO, VerifyTOTPSetupDTO } from './dto/mfa.dto';
 
@@ -45,9 +45,9 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
     logger: NAuthLogger,
     passwordService: unknown,
     private readonly totpService: TOTPService,
-    challengeService?: unknown, // ChallengeService (optional)
-    auditService?: unknown, // AuthAuditService (optional)
-    clientInfoService?: unknown, // ClientInfoService (optional)
+    challengeService?: ChallengeService,
+    auditService?: AuthAuditService,
+    clientInfoService?: ClientInfoService,
   ) {
     super(
       mfaDeviceRepository,
@@ -55,9 +55,9 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
       config,
       logger,
       passwordService,
-      challengeService as any,
-      auditService as any,
-      clientInfoService as any,
+      challengeService,
+      auditService,
+      clientInfoService,
     );
   }
 
@@ -78,7 +78,8 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
    * // Client displays setup.qrCode and setup.manualEntryKey
    * ```
    */
-  async setup(user: IUser, _setupData?: unknown): Promise<SetupTOTPResponseDTO> {
+  async setup(_setupData?: unknown): Promise<SetupTOTPResponseDTO> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Setting up TOTP for user: ${user.sub}`);
 
     // Check if TOTP is allowed
@@ -101,9 +102,9 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
    * Enables MFA for user if this is their first device.
    *
    * **Race Condition Safety:**
-   * Device creation uses transaction with pessimistic locking to prevent duplicates.
-   * If device already exists (e.g., from concurrent request), returns existing device.
-   * Database unique constraint (userId, type) provides final safety net.
+   * Device creation uses a transaction with pessimistic locking.
+   *
+   * Note: NAuth supports multiple TOTP devices per user for redundancy (e.g., phone + password manager).
    *
    * @param user - User completing TOTP setup
    * @param verificationData - Verification data (must be VerifyTOTPSetupDTO)
@@ -120,7 +121,8 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
    * });
    * ```
    */
-  async verifySetup(user: IUser, verificationData: unknown, deviceName?: string): Promise<number> {
+  async verifySetup(verificationData: unknown, deviceName?: string): Promise<number> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying TOTP setup for user: ${user.sub}`);
 
     const dto = verificationData as VerifyTOTPSetupDTO;
@@ -131,7 +133,7 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
     }
 
     // Verify code
-    const result = this.totpService.verifyCodeWithDetails(dto.secret, dto.code);
+    const result = await this.totpService.verifyCodeWithDetails(dto.secret, dto.code);
     if (!result.valid) {
       throw new NAuthException(AuthErrorCode.VERIFICATION_CODE_INVALID, result.error || 'Invalid TOTP code');
     }
@@ -142,11 +144,9 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
     const userMfaEnabled = (userEntity.mfaEnabled as boolean) || false;
 
     // ============================================================================
-    // Create MFA device (transaction-safe with duplicate prevention)
+    // Create MFA device (transaction-safe, multi-device)
     // ============================================================================
-    // createDevice() uses pessimistic locking to prevent race conditions
-    // If device already exists, returns existing device instead of creating duplicate
-    // Database unique constraint (userId, type) provides additional safety
+    // We intentionally do NOT de-duplicate TOTP devices: users can register multiple authenticators.
     const device = await this.createDevice(userId, {
       name: deviceName || dto.deviceName || 'Authenticator App',
       secret: dto.secret, // TODO: Encrypt at rest in production
@@ -178,7 +178,8 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
    * const isValid = await provider.verify(user, '123456');
    * ```
    */
-  async verify(user: IUser, code: unknown, deviceId?: number): Promise<boolean> {
+  async verify(code: unknown, deviceId?: number): Promise<boolean> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying TOTP code for user: ${user.sub}`);
 
     const totpCode = code as string;
@@ -199,7 +200,7 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
     }
 
     // Verify code
-    const isValid = this.totpService.verifyCode(device.secret, totpCode);
+    const isValid = await this.totpService.verifyCode(device.secret, totpCode);
 
     if (isValid) {
       // Update device usage

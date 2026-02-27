@@ -3,9 +3,7 @@ title: SetMustChangePasswordResponseDTO
 description: Set must change password response DTO with success indicator. Simple boolean response for flag setting operations.
 keywords: [password, change, required, response, dto, success, api]
 image: /img/api-social-card.png
-sidebar_position: 28
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -56,4 +54,4 @@ import { SetMustChangePasswordResponseDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AuthService.setMustChangePassword()](../services/auth-service#setmustchangepassword)
+- [AuthService.setMustChangePassword()](../services/admin-auth-service#setmustchangepassword)

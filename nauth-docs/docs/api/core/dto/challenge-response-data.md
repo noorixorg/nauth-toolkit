@@ -1,9 +1,7 @@
 ---
 title: ChallengeResponseData
 description: Discriminated union type for challenge responses
-sidebar_position: 26
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -78,23 +76,25 @@ Used to verify phone with SMS code.
 
 Used for MFA verification with code (SMS/TOTP/Backup).
 
-| Property  | Type                          | Description                  |
-| --------- | ----------------------------- | ---------------------------- |
-| `session` | `string`                      | Challenge session token      |
-| `type`    | `'MFA_REQUIRED'`              | Challenge type discriminator |
-| `method`  | `'sms' \| 'totp' \| 'backup'` | MFA method type              |
-| `code`    | `string`                      | Verification code            |
+| Property   | Type                          | Description                                              |
+| ---------- | ----------------------------- | -------------------------------------------------------- |
+| `session`  | `string`                      | Challenge session token                                  |
+| `type`     | `'MFA_REQUIRED'`              | Challenge type discriminator                             |
+| `method`   | `'sms' \| 'totp' \| 'backup'` | MFA method type                                          |
+| `code`     | `string`                      | Verification code                                        |
+| `deviceId` | `number` (optional)           | Device ID for TOTP methods that support multiple devices |
 
 ### VerifyMFAPasskeyResponse
 
 Used for MFA verification with passkey (WebAuthn).
 
-| Property     | Type                      | Description                          |
-| ------------ | ------------------------- | ------------------------------------ |
-| `session`    | `string`                  | Challenge session token              |
-| `type`       | `'MFA_REQUIRED'`          | Challenge type discriminator         |
-| `method`     | `'passkey'`               | Passkey method                       |
-| `credential` | `Record<string, unknown>` | WebAuthn credential from browser API |
+| Property     | Type                      | Description                                                |
+| ------------ | ------------------------- | ---------------------------------------------------------- |
+| `session`    | `string`                  | Challenge session token                                    |
+| `type`       | `'MFA_REQUIRED'`          | Challenge type discriminator                               |
+| `method`     | `'passkey'`               | Passkey method                                             |
+| `credential` | `Record<string, unknown>` | WebAuthn credential from browser API                       |
+| `deviceId`   | `number` (optional)       | Device ID for passkey methods that support multiple devices |
 
 ### ForceChangePasswordResponse
 

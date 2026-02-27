@@ -33,9 +33,10 @@ export class BaseVerificationToken {
    * Token type
    * - 'email': Email verification
    * - 'phone': Phone verification
-   * - 'password_reset': Password reset
+   * - 'password_reset': Password reset (user-initiated)
+   * - 'admin_password_reset': Password reset (admin-initiated)
    */
-  type!: 'email' | 'phone' | 'password_reset';
+  type!: 'email' | 'phone' | 'password_reset' | 'admin_password_reset';
 
   /**
    * Verification token (hashed for security)

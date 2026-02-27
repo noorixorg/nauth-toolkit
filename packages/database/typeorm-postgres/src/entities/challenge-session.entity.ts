@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, Index } from 'typeorm';
 import { BaseChallengeSession } from '@nauth-toolkit/core';
 import { User } from './user.entity';
 
@@ -9,6 +9,10 @@ import { User } from './user.entity';
  * All field definitions and business logic are in the base class.
  */
 @Entity('nauth_challenge_sessions')
+@Index(['userId'])
+@Index(['expiresAt'])
+@Index(['challengeName'])
+@Index(['userId', 'isCompleted'])
 export class ChallengeSession extends BaseChallengeSession {
   @PrimaryGeneratedColumn()
   declare id: number;
@@ -20,10 +24,10 @@ export class ChallengeSession extends BaseChallengeSession {
   @Column()
   declare userId: number;
 
-  @Column({ length: 50 })
+  @Column({ type: 'varchar', length: 50 })
   declare challengeName: string;
 
-  @Column({ unique: true, length: 255 })
+  @Column({ type: 'varchar', unique: true, length: 255 })
   declare sessionToken: string;
 
   @Column({ type: 'timestamptz' })
@@ -42,17 +46,17 @@ export class ChallengeSession extends BaseChallengeSession {
   declare maxAttempts: number;
 
   @Column({ type: 'jsonb', nullable: true })
-  declare challengeParameters?: Record<string, unknown>;
+  declare challengeParameters: Record<string, unknown> | null;
 
   // Alias for challengeParameters (backwards compatibility)
   @Column({ type: 'jsonb', nullable: true })
   declare metadata?: Record<string, unknown>;
 
-  @Column({ length: 45, nullable: true })
-  declare ipAddress?: string;
+  @Column({ type: 'varchar', length: 45, nullable: true })
+  declare ipAddress: string | null;
 
   @Column({ type: 'text', nullable: true })
-  declare userAgent?: string;
+  declare userAgent: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   declare createdAt: Date;

@@ -7,13 +7,10 @@ import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { NAuthLogger } from '../utils/nauth-logger';
-import { ChangePasswordRequestDTO } from '../dto/change-password-request.dto';
+import { ChangePasswordDTO } from '../dto/change-password.dto';
+import { ContextStorage } from '../utils/context-storage';
 import { SocialProviderRegistry } from './social-provider-registry.service';
-import { AuthResponseDTO } from '../dto/auth-response.dto';
 import {
-  GetSocialAuthUrlDTO,
-  GetSocialAuthUrlResponseDTO,
-  HandleSocialCallbackDTO,
   LinkSocialAccountDTO,
   LinkSocialAccountResponseDTO,
   GetLinkedAccountsDTO,
@@ -25,16 +22,20 @@ import {
   SetPasswordForSocialUserDTO,
   SetPasswordForSocialUserResponseDTO,
 } from '../dto/social-auth.dto';
+import { ensureValidatedDto } from '../utils/dto-validator';
 
 /**
  * Social Auth Service
  *
- * Complete API for social authentication (OAuth) and account management.
+ * Service for managing social authentication accounts and their relationships.
  * This service provides:
- * - OAuth authentication flows (login/signup via social providers)
  * - Social account linking/unlinking
  * - Account management for social users
  * - Password management for social-only users
+ * - Querying linked accounts
+ *
+ * **Note:** For OAuth authentication flows (login/signup), use `SocialRedirectHandler`
+ * or the frontend SDK's `loginWithSocial()` method.
  *
  * **Optional Feature:** Only available when social auth provider modules are imported.
  *
@@ -50,16 +51,30 @@ import {
  * // Then inject and use
  * constructor(private socialAuthService: SocialAuthService) {}
  *
- * const { url } = await this.socialAuthService.getSocialAuthUrl({ provider: 'google' });
- * const result = await this.socialAuthService.handleSocialCallback({ provider: 'google', code, state });
+ * const result = await this.socialAuthService.linkSocialAccount({ userId, provider, code, state });
+ * const accounts = await this.socialAuthService.getLinkedAccounts({ userId });
  * ```
  */
 export class SocialAuthService {
+  /**
+   * Get current user from authenticated context
+   *
+   * @returns Current authenticated user
+   * @throws {NAuthException} If user not found in context
+   */
+  private getCurrentUserOrThrow(): IUser {
+    const currentUser = ContextStorage.get<IUser>('CURRENT_USER');
+    if (!currentUser) {
+      throw new NAuthException(AuthErrorCode.FORBIDDEN, 'Authentication required');
+    }
+    return currentUser;
+  }
+
   constructor(
     private readonly providerRegistry: SocialProviderRegistry,
     private readonly userRepository: Repository<BaseUser>,
     private readonly socialAccountRepository: Repository<BaseSocialAccount>,
-    private readonly authService: AuthService,
+    private readonly authService: AuthService | null, // Can be null to break circular dependency
     private readonly logger: NAuthLogger,
     private readonly auditService?: AuthAuditService, // Optional - audit trail service (enabled via config.auditLogs.enabled)
   ) {}
@@ -67,58 +82,6 @@ export class SocialAuthService {
   // ============================================================================
   // Social Authentication Methods
   // ============================================================================
-
-  /**
-   * Get social authentication URL
-   *
-   * Generates OAuth authorization URL for the specified provider.
-   * This is the first step in the OAuth flow - redirect user to this URL.
-   *
-   * @param dto - Request DTO containing provider and optional state
-   * @returns Response DTO with OAuth authorization URL
-   * @throws {NAuthException} SOCIAL_CONFIG_MISSING if provider not registered or configured
-   *
-   * @example
-   * ```typescript
-   * const dto = { provider: 'google', state: 'csrf-token-123' };
-   * const { url } = await socialAuthService.getSocialAuthUrl(dto);
-   * // Redirect user to url
-   * res.redirect(url);
-   * ```
-   */
-  async getSocialAuthUrl(dto: GetSocialAuthUrlDTO): Promise<GetSocialAuthUrlResponseDTO> {
-    const { provider, state } = dto;
-    const providerInstance = this.providerRegistry.getProvider(provider);
-    const url = await providerInstance.getAuthUrl(state);
-    return { url };
-  }
-
-  /**
-   * Handle social authentication callback
-   *
-   * Processes OAuth callback and authenticates user (login or signup).
-   * This is called after the user is redirected back from the OAuth provider.
-   *
-   * @param dto - Request DTO containing provider, code, and state
-   * @returns Auth response (tokens or challenge if MFA/verification required)
-   * @throws {NAuthException} Various auth errors (SOCIAL_AUTH_FAILED, etc.)
-   *
-   * @example
-   * ```typescript
-   * const dto = {
-   *   provider: 'google',
-   *   code: req.query.code,
-   *   state: req.query.state
-   * };
-   * const result = await socialAuthService.handleSocialCallback(dto);
-   * // Returns tokens or challenge
-   * ```
-   */
-  async handleSocialCallback(dto: HandleSocialCallbackDTO): Promise<AuthResponseDTO> {
-    const { provider, code, state } = dto;
-    const providerInstance = this.providerRegistry.getProvider(provider);
-    return await providerInstance.handleCallback(code, state);
-  }
 
   /**
    * Link social account to existing authenticated user
@@ -142,9 +105,12 @@ export class SocialAuthService {
    * ```
    */
   async linkSocialAccount(dto: LinkSocialAccountDTO): Promise<LinkSocialAccountResponseDTO> {
-    const { userId, provider, code, state } = dto;
+    dto = await ensureValidatedDto(LinkSocialAccountDTO, dto);
+    // Get user from authenticated context
+    const currentUser = this.getCurrentUserOrThrow();
+    const { provider, code, state } = dto;
     const providerInstance = this.providerRegistry.getProvider(provider);
-    const result = await providerInstance.linkAccount(userId, code, state);
+    const result = await providerInstance.linkAccount(currentUser.sub, code, state);
     return { ...result, provider };
   }
 
@@ -185,14 +151,12 @@ export class SocialAuthService {
    * ```
    */
   async getLinkedAccounts(dto: GetLinkedAccountsDTO): Promise<GetLinkedAccountsResponseDTO> {
-    const { userId } = dto;
-    const user = (await this.userRepository.findOne({ where: { sub: userId } })) as IUser | null;
-    if (!user) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
-    }
+    dto = await ensureValidatedDto(GetLinkedAccountsDTO, dto);
+    // Get user from authenticated context (already has id)
+    const currentUser = this.getCurrentUserOrThrow();
 
     const socialAccounts = (await this.socialAccountRepository.find({
-      where: { userId: user.id },
+      where: { userId: currentUser.id },
       order: { linkedAt: 'DESC' },
     })) as ISocialAccount[];
 
@@ -220,14 +184,13 @@ export class SocialAuthService {
    * ```
    */
   async unlinkSocialAccount(dto: UnlinkSocialAccountDTO): Promise<UnlinkSocialAccountResponseDTO> {
-    const { userId, provider } = dto;
-    const user = (await this.userRepository.findOne({ where: { sub: userId } })) as IUser | null;
-    if (!user) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
-    }
+    dto = await ensureValidatedDto(UnlinkSocialAccountDTO, dto);
+    // Get user from authenticated context (already has id)
+    const currentUser = this.getCurrentUserOrThrow();
+    const { provider } = dto;
 
     const socialAccount = (await this.socialAccountRepository.findOne({
-      where: { userId: user.id, provider },
+      where: { userId: currentUser.id, provider },
     })) as ISocialAccount | null;
 
     if (!socialAccount) {
@@ -241,14 +204,14 @@ export class SocialAuthService {
     await this.socialAccountRepository.remove(socialAccount);
 
     // Update user's social auth flags
-    await this.updateUserSocialFlags(user.id as number);
+    await this.updateUserSocialFlags(currentUser.id);
 
     // ============================================================================
     // Audit: Record social account unlink
     // ============================================================================
     try {
       await this.auditService?.recordEvent({
-        userId: user.id,
+        userId: currentUser.id,
         eventType: AuthAuditEventType.SOCIAL_ACCOUNT_UNLINKED,
         eventStatus: 'INFO',
         authMethod: provider,
@@ -263,7 +226,7 @@ export class SocialAuthService {
       const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
       this.logger?.error?.(`Failed to record SOCIAL_ACCOUNT_UNLINKED audit event: ${errorMessage}`, {
         error: auditError,
-        userId: user.id,
+        userId: currentUser.id,
         provider,
       });
     }
@@ -288,8 +251,9 @@ export class SocialAuthService {
    * ```
    */
   async canSetPassword(dto: CanSetPasswordDTO): Promise<CanSetPasswordResponseDTO> {
-    const { userId } = dto;
-    const user = (await this.userRepository.findOne({ where: { sub: userId } })) as IUser | null;
+    dto = await ensureValidatedDto(CanSetPasswordDTO, dto);
+    const { sub } = dto;
+    const user = (await this.userRepository.findOne({ where: { sub } })) as IUser | null;
     if (!user) {
       return { canSetPassword: false };
     }
@@ -313,8 +277,9 @@ export class SocialAuthService {
    * ```
    */
   async setPasswordForSocialUser(dto: SetPasswordForSocialUserDTO): Promise<SetPasswordForSocialUserResponseDTO> {
-    const { userId, password } = dto;
-    const user = await this.userRepository.findOne({ where: { sub: userId } });
+    dto = await ensureValidatedDto(SetPasswordForSocialUserDTO, dto);
+    const { sub, password } = dto;
+    const user = await this.userRepository.findOne({ where: { sub } });
     if (!user) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
@@ -327,10 +292,18 @@ export class SocialAuthService {
 
     // Use AuthService to set password (includes validation and hashing)
     // For social-only users, we bypass old password validation since they don't have one
-    // Note: This requires type casting as ChangePasswordRequestDTO requires oldPassword, but
-    // the auth service will handle the case where user has no passwordHash
-    const changePasswordDto = new ChangePasswordRequestDTO();
-    changePasswordDto.sub = userId; // userId is the sub (external UUID) in this context
+    if (!this.authService) {
+      throw new NAuthException(
+        AuthErrorCode.INTERNAL_ERROR,
+        'AuthService is not available. This is a configuration error.',
+      );
+    }
+    const currentUser = ContextStorage.get<IUser>('CURRENT_USER');
+    if (!currentUser || currentUser.sub !== sub) {
+      throw new NAuthException(AuthErrorCode.FORBIDDEN, 'Forbidden');
+    }
+
+    const changePasswordDto = new ChangePasswordDTO();
     changePasswordDto.oldPassword = ''; // Social-only users don't have a password
     changePasswordDto.newPassword = password;
     await this.authService.changePassword(changePasswordDto);
@@ -382,7 +355,7 @@ export class SocialAuthService {
     provider: string,
     providerId: string,
     providerEmail?: string | null,
-    metadata?: any,
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     const existingAccount = await this.findSocialAccountByUser(userId, provider);
 

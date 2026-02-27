@@ -83,7 +83,7 @@ describe('PasswordService', () => {
 
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
-        'Password must contain at least one special character (!@#$%^&*()_+=[{}|;:,.<>?-])',
+        'Password must contain at least one special character !@#$%^&*()_+=[{}|;:,.<>?-]',
       );
     });
 

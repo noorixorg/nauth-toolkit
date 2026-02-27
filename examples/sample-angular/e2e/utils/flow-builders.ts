@@ -72,11 +72,98 @@ export class FlowBuilder {
       await this.page.locator('#password input').fill(data.password);
       await this.page.locator('#confirmPassword input').fill(data.password);
 
+      // Wait for any Vite error overlay to disappear or dismiss it
+      const errorOverlay = this.page.locator('vite-error-overlay');
+      const overlayVisible = await errorOverlay.isVisible().catch(() => false);
+      if (overlayVisible) {
+        console.log(`[FlowBuilder] Vite error overlay detected, attempting to dismiss...`);
+        // Try to close the overlay by clicking the close button or pressing Escape
+        const closeButton = errorOverlay.locator(
+          'button[aria-label="close"], button:has-text("×"), button:has-text("Close")',
+        );
+        const hasCloseButton = await closeButton.count().catch(() => 0);
+        if (hasCloseButton > 0) {
+          await closeButton
+            .first()
+            .click({ timeout: 2000 })
+            .catch(() => {});
+        } else {
+          // Try pressing Escape key
+          await this.page.keyboard.press('Escape');
+        }
+        // Wait for overlay to disappear
+        await errorOverlay.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
+      }
+
       await this.page.locator('p-button[type="submit"] button').click();
 
       console.log(`[FlowBuilder] Signup form submitted`);
+
+      // Wait for navigation to verification page or dashboard
+      // Use a longer timeout to allow for backend processing
+      try {
+        await this.page.waitForURL(/\/auth\/challenge\/(verify-email|verify-phone)|dashboard/, {
+          timeout: 15000,
+        });
+        console.log(`[FlowBuilder] Navigation successful to: ${this.page.url()}`);
+      } catch (error) {
+        // Check if we're still on signup page and look for actual error messages
+        const currentUrl = this.page.url();
+        if (currentUrl.includes('/signup')) {
+          // Look for error messages (not info messages)
+          // Error messages typically have error classes or are in error containers
+          const errorSelectors = [
+            '.p-inline-message.p-inline-message-error',
+            '.p-message.p-message-error',
+            '[role="alert"].p-inline-message-error',
+            '.text-red-500',
+            '.error-message',
+          ];
+
+          let actualError = null;
+          for (const selector of errorSelectors) {
+            const errorElement = this.page.locator(selector).first();
+            const isVisible = await errorElement.isVisible().catch(() => false);
+            if (isVisible) {
+              actualError = await errorElement.textContent().catch(() => null);
+              if (actualError && !actualError.includes('Demo Application')) {
+                break;
+              }
+            }
+          }
+
+          if (actualError && !actualError.includes('Demo Application')) {
+            console.error(`[FlowBuilder] Error on signup page: ${actualError}`);
+            throw new Error(`Signup failed: ${actualError}`);
+          }
+
+          // If no actual error found, wait a bit more and check URL again
+          await this.page.waitForTimeout(2000);
+          const finalUrl = this.page.url();
+          if (!finalUrl.includes('/signup')) {
+            console.log(`[FlowBuilder] Navigation completed to: ${finalUrl}`);
+            return this;
+          }
+
+          // Still on signup page - this might be a timeout issue
+          console.error(
+            `[FlowBuilder] Still on signup page after submission. Current URL: ${finalUrl}`,
+          );
+          throw new Error('Signup form submission did not navigate to expected page');
+        }
+        // If we navigated successfully, don't throw
+        if (!currentUrl.includes('/signup')) {
+          return this;
+        }
+        throw error;
+      }
     } catch (error) {
       console.error(`[FlowBuilder] Signup failed:`, error);
+      // Log current URL and page content for debugging
+      const currentUrl = this.page.url();
+      console.error(`[FlowBuilder] Current URL after error: ${currentUrl}`);
+      const pageContent = await this.page.content().catch(() => 'Unable to get page content');
+      console.error(`[FlowBuilder] Page title: ${await this.page.title().catch(() => 'Unknown')}`);
       throw error;
     }
 
@@ -269,6 +356,10 @@ export class FlowBuilder {
    */
   async expectEmailVerification(): Promise<this> {
     console.log(`[FlowBuilder] Expecting email verification screen`);
+
+    // Log current URL for debugging
+    const currentUrl = this.page.url();
+    console.log(`[FlowBuilder] Current URL: ${currentUrl}`);
 
     await this.page.waitForURL(/\/auth\/challenge\/verify-email/, { timeout: 15000 });
     await this.page.waitForSelector('form', { timeout: 10000 });

@@ -8,7 +8,7 @@ import {
   AbstractControl,
   ValidationErrors,
 } from '@angular/forms';
-import { AuthService, AuthResponse } from '@nauth-toolkit/client/angular';
+import { AuthService, AuthResponse } from '@nauth-toolkit/client-angular/standalone';
 import {
   AuthChallenge,
   ForceChangePasswordResponse,
@@ -136,7 +136,7 @@ export class ChangePasswordComponent implements OnInit {
    * Submits new password to complete the challenge.
    * Redirects to dashboard on success or login on error.
    */
-  onSubmit(): void {
+  async onSubmit(): Promise<void> {
     if (this.changePasswordForm.invalid) {
       // Mark all fields as touched to show validation errors
       Object.keys(this.changePasswordForm.controls).forEach((key) => {
@@ -165,23 +165,21 @@ export class ChangePasswordComponent implements OnInit {
       newPassword,
     };
 
-    this.auth.respondToChallenge(challengeResponse).subscribe({
-      next: (response: AuthResponse) => {
-        this.loading.set(false);
-        // If response has another challenge, handle it
-        if (response.challengeName) {
-          const challengeRoute = `/auth/challenge/${response.challengeName.toLowerCase().replace(/_/g, '-')}`;
-          this.router.navigate([challengeRoute]);
-        } else {
-          // Password changed successfully, redirect to dashboard
-          this.router.navigate(['/dashboard']);
-        }
-      },
-      error: (err: unknown) => {
-        this.loading.set(false);
-        this.handleError(err);
-      },
-    });
+    try {
+      const response: AuthResponse = await this.auth.respondToChallenge(challengeResponse);
+      // If response has another challenge, handle it
+      if (response.challengeName) {
+        const challengeRoute = `/auth/challenge/${response.challengeName.toLowerCase().replace(/_/g, '-')}`;
+        await this.router.navigate([challengeRoute]);
+      } else {
+        // Password changed successfully, redirect to dashboard
+        await this.router.navigate(['/dashboard']);
+      }
+    } catch (err: unknown) {
+      this.handleError(err);
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   /**

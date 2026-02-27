@@ -3,9 +3,7 @@ title: Google Provider
 description: Google OAuth 2.0 social authentication provider
 keywords: [social, oauth, google, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -22,23 +20,60 @@ npm install @nauth-toolkit/social-google
 
 | Export | Type | Entry |
 |--------|------|-------|
-| `GoogleSocialAuthProvider` | Class | Default |
+| `GoogleSocialAuthService` | Class | Default |
+| `GoogleOAuthClient` | Class | Default |
+| `TokenVerifierService` | Class | Default |
+| `VerifiedGoogleTokenProfile` | Interface | Default |
 | `GoogleSocialAuthModule` | NestJS Module | `/nestjs` |
 
-## Constructor
+## Configuration
+
+Configure Google under `config.social.google` (in `@nauth-toolkit/core` config).
+
+| Key | Type | Required | Description |
+| --- | --- | --- | --- |
+| `enabled` | `boolean` | No | Enable Google OAuth |
+| `clientId` | `string \| string[]` | Yes (if enabled) | OAuth client ID (supports multi-platform IDs) |
+| `clientSecret` | `string` | Yes (if enabled) | OAuth client secret |
+| `callbackUrl` | `string` | Yes (if enabled) | Backend callback URL (`/auth/social/google/callback`) |
+| `scopes` | `string[]` | No | Default: `['openid', 'email', 'profile']` |
+| `autoLink` | `boolean` | No | Auto-link to existing users by verified email |
+| `allowSignup` | `boolean` | No | Allow creating new users on first login |
+| `oauthParams` | `Record<string, string>` | No | Additional OAuth parameters to include in authorization URL. These act as defaults and can be overridden on a per-request basis. |
+
+### OAuth Parameters
+
+The `oauthParams` option allows you to customize the OAuth authorization flow. These parameters are appended to Google's authorization URL and can be overridden on a per-request basis from the frontend.
+
+**Common Parameters:**
+- `prompt`: Control consent screen behavior
+  - `'select_account'` - Always show account chooser
+  - `'consent'` - Always show consent screen
+  - `'none'` - Silent authentication (fails if user interaction needed)
+  - Combined: `'select_account consent'`
+- `hd`: Restrict to Google Workspace domain (e.g., `'company.com'`)
+- `login_hint`: Pre-fill email address (e.g., `'user@company.com'`)
+- `include_granted_scopes`: `'true'` for incremental authorization
+
+**Example:**
 
 ```typescript
-new GoogleSocialAuthProvider(options: GoogleSocialAuthOptions)
+social: {
+  google: {
+    enabled: true,
+    clientId: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackUrl: 'https://api.myapp.com/auth/social/google/callback',
+    scopes: ['openid', 'email', 'profile'],
+    oauthParams: {
+      prompt: 'select_account',  // Always show account chooser
+      hd: 'company.com',          // Restrict to company domain
+    },
+  },
+}
 ```
 
-## Options
-
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `clientId` | `string` | Yes | Google OAuth client ID |
-| `clientSecret` | `string` | Yes | Google OAuth client secret |
-| `redirectUri` | `string` | Yes | OAuth callback URL |
-| `scopes` | `string[]` | No | OAuth scopes. Default: `['email', 'profile']` |
+See [Social Login Guide](/docs/guides/social/how-social-login-works) for usage examples.
 
 ## Usage
 
@@ -58,18 +93,8 @@ export class AppModule {}
 <TabItem value="express" label="Express">
 
 ```typescript
-import { GoogleSocialAuthProvider } from '@nauth-toolkit/social-google';
-
 const nauth = await NAuth.create({
-  config: {
-    socialProviders: [
-      new GoogleSocialAuthProvider({
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        redirectUri: 'https://myapp.com/auth/google/callback',
-      }),
-    ],
-  },
+  config,
   dataSource,
   adapter: new ExpressAdapter(),
 });
@@ -79,18 +104,8 @@ const nauth = await NAuth.create({
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { GoogleSocialAuthProvider } from '@nauth-toolkit/social-google';
-
 const nauth = await NAuth.create({
-  config: {
-    socialProviders: [
-      new GoogleSocialAuthProvider({
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        redirectUri: 'https://myapp.com/auth/google/callback',
-      }),
-    ],
-  },
+  config,
   dataSource,
   adapter: new FastifyAdapter(),
 });

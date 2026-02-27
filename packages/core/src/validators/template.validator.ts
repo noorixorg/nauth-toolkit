@@ -17,12 +17,22 @@ import { AuthErrorCode } from '../enums/error-codes.enum';
 export const TEMPLATE_REQUIRED_PARAMS: Record<TemplateType, string[]> = {
   [TemplateType.VERIFICATION]: ['code', 'link', 'expiryMinutes'],
   [TemplateType.PASSWORD_RESET]: ['link', 'expiryMinutes'],
+  [TemplateType.ADMIN_PASSWORD_RESET]: ['code', 'link', 'expiryMinutes'],
   [TemplateType.WELCOME]: [],
   [TemplateType.ACCOUNT_LOCKOUT]: ['reason', 'durationMinutes'],
   [TemplateType.NEW_DEVICE]: ['deviceName', 'timestamp'],
   [TemplateType.PASSWORD_CHANGED]: [],
   [TemplateType.EMAIL_CHANGED]: ['userEmail'],
   [TemplateType.MFA_ENABLED]: [],
+  [TemplateType.MFA_DEVICE_REMOVED]: [],
+  [TemplateType.MFA_METHOD_ADDED]: [],
+  [TemplateType.ADAPTIVE_MFA_RISK_ALERT]: ['riskLevel', 'riskFactors'],
+  [TemplateType.ACCOUNT_DISABLED]: ['reason'],
+  [TemplateType.ACCOUNT_ENABLED]: [],
+  [TemplateType.EMAIL_CHANGED_OLD]: [],
+  [TemplateType.EMAIL_CHANGED_NEW]: [],
+  [TemplateType.SESSIONS_REVOKED]: ['revokedCount'],
+  [TemplateType.MFA_EMAIL_CODE]: ['code', 'expiryMinutes'],
 };
 
 /**

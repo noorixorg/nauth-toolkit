@@ -1,53 +1,53 @@
 /**
  * DTO for getting user MFA devices
  *
- * Used to retrieve all MFA devices configured for a user.
+ * Used to retrieve all MFA devices configured for the current authenticated user.
+ * User sub is obtained from authenticated context automatically.
  *
  * @example
  * ```typescript
- * const devices = await mfaService.getUserDevices({
- *   sub: 'user-uuid'
- * });
+ * const devices = await mfaService.getUserDevices({});
  * ```
  */
 
-import { IsUUID } from 'class-validator';
-import { Transform } from 'class-transformer';
-import { IMFADevice } from '../interfaces/entities.interface';
+import { IsNotEmpty, IsString } from 'class-validator';
+import { MFADeviceResponseDTO } from './mfa-device-response.dto';
 
 /**
  * DTO for getting user MFA devices
+ *
+ * User self-service DTO - no sub field. Service gets user from authenticated context.
  */
 export class GetUserDevicesDTO {
+  // No fields - user obtained from context
+}
+
+/**
+ * Admin DTO for getting a specific user's MFA devices
+ *
+ * Admin operation - requires target user's sub identifier.
+ *
+ * @example
+ * ```typescript
+ * const devices = await mfaService.adminGetUserDevices({ sub: 'user-uuid' });
+ * ```
+ */
+export class AdminGetUserDevicesDTO {
   /**
-   * User's unique identifier (UUID v4)
-   *
-   * Validation:
-   * - Must be a valid UUID v4 format
-   * - Matches DB constraint: char(36) or uuid
-   *
-   * Sanitization:
-   * - Trimmed
-   * - Lowercased for consistency
-   *
-   * @example "a21b654c-2746-4168-acee-c175083a65cd"
+   * Target user's unique identifier (sub)
    */
-  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim().toLowerCase();
-    }
-    return value;
-  })
+  @IsNotEmpty({ message: 'User sub is required' })
+  @IsString({ message: 'User sub must be a string' })
   sub!: string;
 }
 
 /**
  * Response DTO for user MFA devices
+ *
  */
 export class GetUserDevicesResponseDTO {
   /**
-   * Array of user's MFA devices
+   * Array of user's MFA devices (outward-facing format)
    */
-  devices!: IMFADevice[];
+  devices!: MFADeviceResponseDTO[];
 }

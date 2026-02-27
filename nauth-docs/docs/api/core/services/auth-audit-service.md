@@ -1,11 +1,9 @@
 ---
 title: AuthAuditService
-description: Authentication audit logging and querying service
+description: Query authentication and security audit events for monitoring and investigation.
 keywords: [service, audit, logging, security, api]
 image: /img/api-social-card.png
-sidebar_position: 7
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -14,7 +12,7 @@ import TabItem from '@theme/TabItem';
 **Package:** `@nauth-toolkit/core`
 **Type:** Service
 
-Logs and queries authentication events for security monitoring.
+Query authentication and security audit events for monitoring and investigation.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
@@ -42,11 +40,8 @@ import { AuthAuditService } from '@nauth-toolkit/core';
 
 ## Overview
 
-Query authentication audit events for security monitoring. Event recording is handled internally by the framework.
-
-:::note
-Only query methods are available. Event recording is internal.
-:::
+Use this service to query the authentication audit trail (login attempts, MFA events, suspicious activity, and risk-assessment markers).
+Audit **event recording is internal**.
 
 ## Methods
 
@@ -62,6 +57,10 @@ async getEventsByType(dto: GetEventsByTypeDTO): Promise<GetEventsByTypeResponseD
 
 - `dto` - [`GetEventsByTypeDTO`](../dto/get-events-by-type-dto)
 
+**Errors**
+
+None.
+
 **Returns**
 
 - [`GetEventsByTypeResponseDTO`](../dto/get-events-by-type-response-dto) - Paginated audit events
@@ -76,6 +75,7 @@ const result = await this.auditService.getEventsByType({
   eventType: AuthAuditEventType.SUSPICIOUS_ACTIVITY,
   page: 1,
   limit: 100,
+  startDate: new Date('2026-01-01'),
 });
 ```
 
@@ -87,6 +87,7 @@ const result = await nauth.authAuditService.getEventsByType({
   eventType: AuthAuditEventType.SUSPICIOUS_ACTIVITY,
   page: 1,
   limit: 100,
+  startDate: new Date('2026-01-01'),
 });
 ```
 
@@ -98,6 +99,7 @@ const result = await nauth.authAuditService.getEventsByType({
   eventType: AuthAuditEventType.SUSPICIOUS_ACTIVITY,
   page: 1,
   limit: 100,
+  startDate: new Date('2026-01-01'),
 });
 ```
 
@@ -118,6 +120,14 @@ async getRiskAssessmentHistory(dto: GetRiskAssessmentHistoryDTO): Promise<GetRis
 
 - `dto` - [`GetRiskAssessmentHistoryDTO`](../dto/get-risk-assessment-history-dto)
 
+**Errors**
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with code:
+
+| Code        | When           | Details     |
+| ----------- | -------------- | ----------- |
+| `NOT_FOUND` | User not found | `undefined` |
+
 **Returns**
 
 - [`GetRiskAssessmentHistoryResponseDTO`](../dto/get-risk-assessment-history-response-dto) - Array of risk assessment audit events
@@ -129,7 +139,7 @@ async getRiskAssessmentHistory(dto: GetRiskAssessmentHistoryDTO): Promise<GetRis
 
 ```typescript
 const result = await this.auditService.getRiskAssessmentHistory({
-  userSub: 'user-uuid',
+  sub: 'user-uuid',
   limit: 50,
 });
 ```
@@ -139,7 +149,7 @@ const result = await this.auditService.getRiskAssessmentHistory({
 
 ```typescript
 const result = await nauth.authAuditService.getRiskAssessmentHistory({
-  userSub: 'user-uuid',
+  sub: 'user-uuid',
   limit: 50,
 });
 ```
@@ -149,7 +159,7 @@ const result = await nauth.authAuditService.getRiskAssessmentHistory({
 
 ```typescript
 const result = await nauth.authAuditService.getRiskAssessmentHistory({
-  userSub: 'user-uuid',
+  sub: 'user-uuid',
   limit: 50,
 });
 ```
@@ -171,6 +181,14 @@ async getSuspiciousActivity(dto: GetSuspiciousActivityDTO): Promise<GetSuspiciou
 
 - `dto` - [`GetSuspiciousActivityDTO`](../dto/get-suspicious-activity-dto)
 
+**Errors**
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with code:
+
+| Code        | When           | Details     |
+| ----------- | -------------- | ----------- |
+| `NOT_FOUND` | User not found | `undefined` |
+
 **Returns**
 
 - [`GetSuspiciousActivityResponseDTO`](../dto/get-suspicious-activity-response-dto) - Array of suspicious audit events
@@ -181,12 +199,8 @@ async getSuspiciousActivity(dto: GetSuspiciousActivityDTO): Promise<GetSuspiciou
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-// All suspicious activity
-const result = await this.auditService.getSuspiciousActivity({});
-
-// For specific user
 const result = await this.auditService.getSuspiciousActivity({
-  userSub: 'user-uuid',
+  sub: 'user-uuid',
   limit: 50,
 });
 ```
@@ -196,7 +210,7 @@ const result = await this.auditService.getSuspiciousActivity({
 
 ```typescript
 const result = await nauth.authAuditService.getSuspiciousActivity({
-  userSub: 'user-uuid',
+  sub: 'user-uuid',
   limit: 50,
 });
 ```
@@ -206,7 +220,7 @@ const result = await nauth.authAuditService.getSuspiciousActivity({
 
 ```typescript
 const result = await nauth.authAuditService.getSuspiciousActivity({
-  userSub: 'user-uuid',
+  sub: 'user-uuid',
   limit: 50,
 });
 ```
@@ -218,21 +232,23 @@ const result = await nauth.authAuditService.getSuspiciousActivity({
 
 ### getUserAuthHistory()
 
-Get paginated authentication history for a user.
+Get paginated authentication history for a user (admin operation).
 
 ```typescript
-async getUserAuthHistory(dto: GetUserAuthHistoryDTO): Promise<GetUserAuthHistoryResponseDTO>
+async getUserAuthHistory(dto: AdminGetUserAuthHistoryDTO): Promise<GetUserAuthHistoryResponseDTO>
 ```
 
 **Parameters**
 
-- `dto` - [`GetUserAuthHistoryDTO`](../dto/get-user-auth-history-dto)
+- `dto` - [`AdminGetUserAuthHistoryDTO`](../dto/admin-get-user-auth-history-dto) - Admin DTO with required `sub` field
 
 **Errors**
 
-| Code        | When           | Details               |
-| ----------- | -------------- | --------------------- |
-| `NOT_FOUND` | User not found | `{ userId?: string }` |
+Throws [`NAuthException`](../exceptions/nauth-exception) with code:
+
+| Code        | When           | Details     |
+| ----------- | -------------- | ----------- |
+| `NOT_FOUND` | User not found | `undefined` |
 
 **Returns**
 
@@ -250,7 +266,7 @@ export class MyService {
 
   async example() {
     const result = await this.auditService.getUserAuthHistory({
-      userSub: 'user-uuid',
+      sub: 'user-uuid', // Required: target user's sub
       page: 1,
       limit: 50,
       eventTypes: [AuthAuditEventType.LOGIN_SUCCESS],
@@ -270,7 +286,7 @@ export class MyService {
 ```typescript
 app.get('/user/history', async (req, res) => {
   const result = await nauth.authAuditService.getUserAuthHistory({
-    userSub: req.user.sub,
+    sub: req.user.sub,
     page: 1,
     limit: 50,
   });
@@ -282,15 +298,18 @@ app.get('/user/history', async (req, res) => {
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-fastify.get('/user/history', { preHandler: nauth.helpers.requireAuth() },
+fastify.get(
+  '/user/history',
+  { preHandler: nauth.helpers.requireAuth() },
   nauth.adapter.wrapRouteHandler(async () => {
     const user = nauth.helpers.getCurrentUser();
     return nauth.authAuditService.getUserAuthHistory({
-      userSub: user.sub,
+      sub: user.sub,
       page: 1,
       limit: 50,
     });
-  }));
+  }),
+);
 ```
 
 </TabItem>
@@ -298,12 +317,13 @@ fastify.get('/user/history', { preHandler: nauth.helpers.requireAuth() },
 
 ---
 
+## Related APIs
 
-## Related
-
-- [GetUserAuthHistoryDTO](../dto/get-user-auth-history-dto)
+- [AdminGetUserAuthHistoryDTO](../dto/admin-get-user-auth-history-dto) - Admin DTO for getUserAuthHistory
+- [GetUserAuthHistoryDTO](../dto/get-user-auth-history-dto) - User self-service DTO (used by AuthService)
 - [GetEventsByTypeDTO](../dto/get-events-by-type-dto)
 - [GetSuspiciousActivityDTO](../dto/get-suspicious-activity-dto)
 - [GetRiskAssessmentHistoryDTO](../dto/get-risk-assessment-history-dto)
 - [AuthAuditEventType](../enums/auth-audit-event-type) - Complete list of event types
 - [AuthAuditEventStatus](../enums/auth-audit-event-status) - Event status values
+- [NAuthException](../exceptions/nauth-exception) - Error type thrown by services

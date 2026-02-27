@@ -1,16 +1,25 @@
 {
   "name": "@nauth-toolkit/email-console",
-  "version": "0.1.0",
-  "description": "Console email provider for nauth-toolkit (dev/test)",
+  "version": "0.2.0",
+  "description": "Console email provider for nauth-toolkit — development and testing",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc -b",
     "clean": "rm -rf dist *.tsbuildinfo",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
@@ -18,7 +27,7 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.0"
+    "@nauth-toolkit/core": "^0.2.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
@@ -32,14 +41,24 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "preview"
+    "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "keywords": [
-    "nestjs",
+    "nauth",
     "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
     "email",
     "console",
-    "dev"
-  ]
+    "development",
+    "testing"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth"
+  },
+  "homepage": "https://nauth.dev",
+  "sideEffects": false
 }

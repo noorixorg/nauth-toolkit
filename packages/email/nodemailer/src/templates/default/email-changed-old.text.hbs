@@ -1,0 +1,20 @@
+Email Address Changed
+
+{{#if fullName}}Hi {{fullName}},{{/if}}
+{{#if firstName}}Hi {{firstName}},{{/if}}
+{{#if lastName}}Hi {{lastName}},{{/if}}
+{{#if userName}}Hi {{userName}},{{/if}}
+
+Your account email address has been changed.
+
+Old Email (this address): {{userEmail}}
+{{#if newEmail}}New Email: {{newEmail}}{{/if}}
+
+{{#if deactivatedMFADevices}}{{#gt deactivatedMFADevices 0}}Note: {{deactivatedMFADevices}} email-based MFA device(s) were deactivated due to this change.{{/gt}}{{/if}}
+
+What should I do?
+If you made this change, no action is required. This is just a security notification to let you know the email address for your account has been updated.
+
+Future notifications will be sent to the new email address.
+
+{{#if supportEmail}}If you didn't make this change, please contact support immediately at {{supportEmail}}. Your account may be compromised.{{/if}}

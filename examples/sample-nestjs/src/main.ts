@@ -1,93 +1,61 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ExpressAdapter } from '@nestjs/platform-express';
 import * as dotenv from 'dotenv';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import cookieParser from 'cookie-parser';
 
 // Load environment variables BEFORE importing AppModule
 dotenv.config();
 
 import { AppModule } from './app.module';
-import { NAuthHttpExceptionFilter } from '@nauth-toolkit/nestjs';
+import { NAuthHttpExceptionFilter, NAuthValidationPipe } from '@nauth-toolkit/nestjs';
 
 /**
- * Bootstrap the NestJS application with Fastify
+ * Bootstrap the NestJS application with Express (5.x)
  *
- * ✅ **PLATFORM-AGNOSTIC PROOF OF CONCEPT:**
- * This demonstrates that nauth-toolkit's core and NestJS adapter
- * work seamlessly with ANY NestJS HTTP adapter (Express, Fastify, etc.)
- *
- * The only changes required:
- * 1. Import FastifyAdapter and NestFastifyApplication
- * 2. Pass FastifyAdapter to NestFactory.create()
- * 3. Replace Express middleware with Fastify plugins
- *
- * NO CHANGES needed to auth services, guards, interceptors, or decorators!
- * Everything is platform-agnostic via NestJS's ArgumentsHost abstraction.
+ * Uses ExpressAdapter from @nestjs/platform-express to select the Express HTTP driver.
+ * Cookie-parser middleware is used for cookie-based token delivery.
  */
 async function bootstrap() {
-  // Create NestJS application with Fastify adapter
-  // Enable Fastify request logging
-  const fastifyAdapter = new FastifyAdapter({
-    logger: {
-      level: process.env.LOG_LEVEL || 'info',
-      // Fastify will log all incoming requests automatically
-      // Format: { level, time, msg, reqId, req: { method, url, ... }, res: { statusCode, ... } }
-    },
-  });
-
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, fastifyAdapter, {
+  const app = await NestFactory.create(AppModule, new ExpressAdapter(), {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
 
-  // app.set('trust proxy', true);
+  // Cookie middleware for cookie-based token delivery (e.g. nauth_refresh_token)
+  app.use(cookieParser());
 
-  // Register Fastify cookie plugin for cookie-based token delivery
-  // (replaces Express cookie-parser middleware)
-  await app.register(require('@fastify/cookie'));
-
-  // ============================================================================
-  // Fix DELETE endpoint body parsing
-  // ============================================================================
-  // Use Fastify's preParsing hook to handle DELETE requests with empty bodies
-  // This is the official Fastify way to handle this scenario
-  const fastifyInstance = app.getHttpAdapter().getInstance();
-  fastifyInstance.addHook('preParsing', (request, reply, payload, done) => {
-    // Remove Content-Type header for DELETE requests with empty bodies
-    // This prevents Fastify from expecting a JSON body when none is provided
-    if (
-      request.method === 'DELETE' &&
-      request.headers['content-type'] === 'application/json' &&
-      (!request.headers['content-length'] || request.headers['content-length'] === '0')
-    ) {
-      delete request.headers['content-type'];
-    }
-    done();
-  });
-
-  // Enable global validation pipe for DTO validation (CRITICAL for nauth-toolkit)
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
-
-  // Enable nauth-toolkit exception filter (PLATFORM-AGNOSTIC - works with Fastify!)
-  // Uses ArgumentsHost abstraction - not Express-specific
+  // Enable nauth-toolkit exception filter (platform-agnostic)
   app.useGlobalFilters(new NAuthHttpExceptionFilter());
+
+  // Enable global validation pipe for all DTOs
+  app.useGlobalPipes(new NAuthValidationPipe());
+
+  // Global prefix so routes match API_BASE_URL (e.g. https://demo.nauth.dev/api)
+  app.setGlobalPrefix('api');
+
+  const allowedOrigins: string[] = [
+    'http://localhost:4200',
+    'http://192.168.50.39:4200',
+    'capacitor://localhost',
+    'ionic://localhost',
+    'https://angular.dev1.noorix.com',
+  ];
+
+  if (process.env.ALLOWED_ORIGINS) {
+    const envOrigins = process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean);
+    for (const origin of envOrigins) {
+      if (!allowedOrigins.includes(origin)) {
+        allowedOrigins.push(origin);
+      }
+    }
+  }
+
   app.enableCors({
-    origin: [
-      'http://localhost:4200',
-      'http://192.168.50.39:4200',
-      'capacitor://localhost',
-      'ionic://localhost',
-      'https://angular.dev1.noorix.com',
-    ],
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id', 'x-csrf-token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id', 'x-csrf-token', 'x-device-token'],
   });
+
   const port = process.env.PORT || 3000;
 
   // Listen on all network interfaces so Android app can access it

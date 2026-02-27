@@ -1,41 +1,49 @@
 {
   "name": "nauth-toolkit",
   "version": "0.1.0",
-  "description": "Drop-in authentication toolkit for NestJS backends",
+  "description": "Embedded authentication library for Node.js — NestJS, Express, Fastify",
+  "homepage": "https://nauth.dev",
   "private": true,
-  "workspaces": [
-    "packages/core",
-    "packages/nestjs",
-    "packages/client",
-    "packages/database/*",
-    "packages/email/*",
-    "packages/sms/*",
-    "packages/social/*",
-    "packages/mfa/*",
-    "packages/storage/*",
-    "examples/*"
-  ],
-  "packageManager": "yarn@1.22.0",
+  "packageManager": "pnpm@10.30.2",
+  "pnpm": {
+    "overrides": {
+      "@nauth-toolkit/core": "workspace:*"
+    },
+    "onlyBuiltDependencies": [
+      "argon2",
+      "esbuild",
+      "@parcel/watcher",
+      "lmdb",
+      "msgpackr-extract"
+    ]
+  },
   "scripts": {
-    "preinstall": "node -e \"if(!process.env.npm_execpath||process.env.npm_execpath.includes('npm')){console.error('\\n❌ ERROR: This monorepo requires Yarn, not npm!\\nPlease use: yarn install\\n');process.exit(1)}\"",
-    "build": "yarn workspace @nauth-toolkit/core clean && yarn workspace @nauth-toolkit/core build",
-    "build:all": "yarn clean && yarn build:core && yarn build:deps && yarn build:nestjs && yarn build:client && yarn build:providers",
-    "build:core": "yarn workspace @nauth-toolkit/core build",
-    "build:nestjs": "yarn workspace @nauth-toolkit/nestjs build",
-    "build:client": "yarn workspace @nauth-toolkit/client build",
-    "build:deps": "yarn workspace @nauth-toolkit/database-typeorm-postgres build && yarn workspace @nauth-toolkit/database-typeorm-mysql build && yarn workspace @nauth-toolkit/email-console build && yarn workspace @nauth-toolkit/email-nodemailer build && yarn workspace @nauth-toolkit/sms-console build && yarn workspace @nauth-toolkit/sms-aws-sns build && yarn workspace @nauth-toolkit/storage-database build && yarn workspace @nauth-toolkit/storage-redis build",
-    "build:providers": "yarn workspace @nauth-toolkit/social-google build && yarn workspace @nauth-toolkit/social-apple build && yarn workspace @nauth-toolkit/social-facebook build && yarn workspace @nauth-toolkit/mfa-totp build && yarn workspace @nauth-toolkit/mfa-sms build && yarn workspace @nauth-toolkit/mfa-email build && yarn workspace @nauth-toolkit/mfa-passkey build",
-    "clean": "find packages -name 'dist' -type d -exec rm -rf {} + 2>/dev/null || true && find packages -name '*.tsbuildinfo' -type f -delete 2>/dev/null || true",
-    "test": "yarn workspace @nauth-toolkit/core test",
-    "test:all": "yarn workspaces run test",
-    "lint": "yarn workspaces run lint",
-    "lint:fix": "yarn workspaces run lint:fix && yarn format",
-    "format": "yarn workspaces run format",
-    "format:check": "yarn workspaces run format:check",
-    "fix": "yarn lint:fix",
+    "preinstall": "node -e \"if(!/pnpm/.test(process.env.npm_execpath||'')){console.error('\\nERROR: This monorepo requires pnpm, not npm or yarn!\\nPlease use: pnpm install\\n');process.exit(1)}\"",
+    "postinstall": "node -e \"const fs=require('fs');const path=require('path');const recaptchaDist=path.join(__dirname,'packages/recaptcha/dist');if(!fs.existsSync(recaptchaDist)||!fs.existsSync(path.join(recaptchaDist,'src','index.js'))){console.log('Building @nauth-toolkit/recaptcha...');require('child_process').execSync('pnpm --filter @nauth-toolkit/recaptcha build',{stdio:'inherit'});}const coreDist=path.join(__dirname,'packages/core/dist');if(!fs.existsSync(coreDist)||!fs.existsSync(path.join(coreDist,'index.js'))){console.log('Building @nauth-toolkit/core...');require('child_process').execSync('pnpm --filter @nauth-toolkit/core build',{stdio:'inherit'});}\"",
+    "build": "pnpm --filter @nauth-toolkit/core run clean && pnpm --filter @nauth-toolkit/core run build",
+    "build:all": "pnpm run clean && pnpm run build:recaptcha && pnpm run build:core && pnpm run build:deps && pnpm run build:nestjs && pnpm run build:client && pnpm run build:client-angular && pnpm run build:providers",
+    "build:recaptcha": "pnpm --filter @nauth-toolkit/recaptcha run build",
+    "build:core": "pnpm --filter @nauth-toolkit/core run build",
+    "build:nestjs": "pnpm --filter @nauth-toolkit/nestjs run build",
+    "build:client": "pnpm --filter @nauth-toolkit/client run build",
+    "build:client-angular": "pnpm --filter @nauth-toolkit/client-angular run build",
+    "build:deps": "pnpm --filter @nauth-toolkit/database-typeorm-postgres run build && pnpm --filter @nauth-toolkit/database-typeorm-mysql run build && pnpm --filter @nauth-toolkit/email-console run build && pnpm --filter @nauth-toolkit/email-nodemailer run build && pnpm --filter @nauth-toolkit/sms-console run build && pnpm --filter @nauth-toolkit/sms-aws-sns run build && pnpm --filter @nauth-toolkit/storage-database run build && pnpm --filter @nauth-toolkit/storage-redis run build",
+    "build:providers": "pnpm --filter @nauth-toolkit/social-google run build && pnpm --filter @nauth-toolkit/social-apple run build && pnpm --filter @nauth-toolkit/social-facebook run build && pnpm --filter @nauth-toolkit/mfa-totp run build && pnpm --filter @nauth-toolkit/mfa-sms run build && pnpm --filter @nauth-toolkit/mfa-email run build && pnpm --filter @nauth-toolkit/mfa-passkey run build",
+    "clean": "find packages -type d -name 'node_modules' -prune -o -type d -name 'dist' -exec rm -rf {} + 2>/dev/null || true && find packages -type d -name 'node_modules' -prune -o -type f -name '*.tsbuildinfo' -delete 2>/dev/null || true",
+    "test": "pnpm --filter @nauth-toolkit/core run test",
+    "test:all": "pnpm -r run test",
+    "lint": "pnpm -r run lint",
+    "lint:fix": "pnpm -r run lint:fix && pnpm run format",
+    "format": "pnpm -r run format",
+    "format:check": "pnpm -r run format:check",
+    "fix": "pnpm run lint:fix",
     "prepare": "husky",
+    "commitlint": "commitlint",
     "lint:commit": "commitlint --from=HEAD~1 --to=HEAD",
-    "kill": "kill -9 $(lsof -t -i :3000) "
+    "kill": "kill -9 $(lsof -t -i :3000) ",
+    "publish:packages": "node scripts/publish.js latest",
+    "publish:packages:dry-run": "node scripts/publish.js latest --dry-run",
+    "publish:packages:no-bump": "node scripts/publish.js latest --skip-version-bump"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.1.0",
@@ -55,22 +63,28 @@
     "typescript": "^5.5.0"
   },
   "engines": {
-    "node": ">=22.0.0",
-    "npm": "USE_YARN_INSTEAD",
-    "yarn": ">=1.22.0"
+    "node": ">=22.0.0"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "keywords": [
-    "nestjs",
+    "nauth",
     "authentication",
     "auth",
+    "nodejs",
+    "typescript",
     "jwt",
-    "passport",
     "oauth",
-    "mfa"
+    "mfa",
+    "nestjs",
+    "express",
+    "fastify"
   ],
   "publishConfig": {
     "access": "public",
-    "tag": "preview"
+    "tag": "latest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth"
   }
 }

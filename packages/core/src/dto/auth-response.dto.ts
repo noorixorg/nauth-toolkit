@@ -1,4 +1,62 @@
 import { AuthChallenge } from './auth-challenge.dto';
+import { IUser } from '../interfaces/entities.interface';
+
+/**
+ * User information in authentication responses
+ *
+ * Minimal user object returned in AuthResponseDTO.
+ * Contains only essential fields needed for client applications.
+ */
+export interface AuthResponseUser {
+  /**
+   * User's unique identifier (UUID v4)
+   * External identifier safe to expose in JWTs and APIs
+   */
+  sub: string;
+
+  /**
+   * User's email address
+   */
+  email: string;
+
+  /**
+   * User's first name (optional)
+   */
+  firstName?: string | null;
+
+  /**
+   * User's last name (optional)
+   */
+  lastName?: string | null;
+
+  /**
+   * User's phone number (optional)
+   * E.164 format
+   */
+  phone?: string;
+
+  /**
+   * Email verification status
+   */
+  isEmailVerified: boolean;
+
+  /**
+   * Phone verification status
+   */
+  isPhoneVerified?: boolean;
+
+  /**
+   * List of linked social providers
+   */
+  socialProviders?: string[];
+
+  /**
+   * Whether this user has a password set
+   * Used to determine if user can use password-based authentication
+   * or is a pure social signup (no password, only social auth)
+   */
+  hasPasswordHash?: boolean;
+}
 
 /**
  * Unified Authentication Response DTO
@@ -17,17 +75,6 @@ import { AuthChallenge } from './auth-challenge.dto';
  * are completed. This ensures proper verification and security enforcement.
  *
  * No validators needed - this is generated internally by the library.
- *
- * @example
- * ```typescript
- * // Successful auth with no challenges
- * const loginResult = await authService.login(dto);
- * // { accessToken: '...', refreshToken: '...', user: {...} }
- *
- * // Auth with pending challenge
- * const signupResult = await authService.signup(dto);
- * // { challengeName: 'VERIFY_EMAIL', session: '...', challengeParameters: {...} }
- * ```
  */
 export class AuthResponseDTO {
   /**
@@ -65,6 +112,21 @@ export class AuthResponseDTO {
    * NOTE: Only present when authentication is complete (no pending challenges)
    */
   refreshTokenExpiresAt?: number;
+
+  /**
+   * Authentication method used to create the current session (when authentication succeeds).
+   *
+   * Semantics:
+   * - `password`: email/username/phone + password login, or password-first flows
+   * - `<provider>`: social login provider that created the session (e.g., `google`, `apple`, `facebook`)
+   *
+   * Notes:
+   * - This is session-scoped state (not account capability). Account capabilities are expressed via:
+   *   - `user.hasPasswordHash`
+   *   - `user.socialProviders`
+   * - Only present when authentication is complete (no pending challenges).
+   */
+  authMethod?: string;
 
   /**
    * Whether the current device is already trusted
@@ -113,57 +175,7 @@ export class AuthResponseDTO {
    *
    * NOTE: Only present when authentication is complete (no pending challenges)
    */
-  user?: {
-    /**
-     * User's unique identifier (UUID v4)
-     * External identifier safe to expose in JWTs and APIs
-     */
-    sub: string;
-
-    /**
-     * User's email address
-     */
-    email: string;
-
-    /**
-     * User's first name (optional)
-     */
-    firstName?: string | null;
-
-    /**
-     * User's last name (optional)
-     */
-    lastName?: string | null;
-
-    /**
-     * User's phone number (optional)
-     * E.164 format
-     */
-    phone?: string;
-
-    /**
-     * Email verification status
-     */
-    isEmailVerified: boolean;
-
-    /**
-     * Phone verification status
-     */
-    isPhoneVerified?: boolean;
-
-    /**
-     * List of linked social providers
-     * @example ['google', 'apple']
-     */
-    socialProviders?: string[];
-
-    /**
-     * Whether this user has a password set
-     * Used to determine if user can use password-based authentication
-     * or is a pure social signup (no password, only social auth)
-     */
-    hasPasswordHash?: boolean;
-  };
+  user?: AuthResponseUser;
 
   // ============================================================================
   // Challenge System (Similar to AWS Cognito)
@@ -221,7 +233,7 @@ export class AuthResponseDTO {
    *
    * @example "a21b654c-2746-4168-acee-c175083a65cd"
    */
-  userSub?: string;
+  sub?: string;
 }
 
 /**
@@ -250,4 +262,27 @@ export interface TokenResponse {
    * Refresh token expiration (Unix timestamp in seconds)
    */
   refreshTokenExpiresAt: number;
+}
+
+/**
+ * Convert IUser entity to AuthResponseUser interface
+ *
+ * Extracts only the fields needed for authentication responses,
+ * excluding sensitive and internal fields.
+ *
+ * @param user - User entity from database (IUser interface)
+ * @returns AuthResponseUser object with sanitized user data
+ */
+export function toAuthResponseUser(user: IUser): AuthResponseUser {
+  return {
+    sub: user.sub,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    phone: user.phone ?? undefined,
+    isEmailVerified: user.isEmailVerified,
+    isPhoneVerified: user.isPhoneVerified ?? undefined,
+    socialProviders: user.socialProviders && user.socialProviders.length > 0 ? user.socialProviders : undefined,
+    hasPasswordHash: !!user.passwordHash,
+  };
 }

@@ -1,9 +1,8 @@
 ---
 title: "@CurrentUser()"
 description: Parameter decorator to extract authenticated user from request
-sidebar_position: 1
+image: /img/api-social-card.png
 ---
-
 # @CurrentUser()
 
 **Package:** `@nauth-toolkit/nestjs`
@@ -34,7 +33,8 @@ The `@CurrentUser()` decorator provides a clean, type-safe way to access the aut
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('profile')
 @UseGuards(AuthGuard)
@@ -57,7 +57,8 @@ Combine with other decorators:
 
 ```typescript
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('posts')
 @UseGuards(AuthGuard)
@@ -77,7 +78,8 @@ export class PostsController {
 
 ```typescript
 import { Controller, Post, Body, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('posts')
 @UseGuards(AuthGuard)
@@ -101,7 +103,8 @@ Access user in services:
 
 ```typescript
 import { Controller, Put, Body, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('settings')
 @UseGuards(AuthGuard)
@@ -144,6 +147,12 @@ interface IUser {
   lastLoginAt?: Date;             // Last login time
   passwordChangedAt?: Date;       // Last password change
 
+  // Authentication capabilities
+  hasPasswordHash?: boolean;      // Whether user has password set (for password-based auth)
+
+  // Session information
+  sessionAuthMethod?: string | null; // How the current session was authenticated ('password', 'google', 'apple', 'facebook', etc.)
+
   // MFA
   isMFAEnabled?: boolean;         // Has MFA devices
   mfaMethods?: string[];          // Enabled MFA methods
@@ -161,7 +170,8 @@ Check if user owns resource:
 
 ```typescript
 import { Controller, Get, Param, UseGuards, ForbiddenException } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('posts')
 @UseGuards(AuthGuard)
@@ -191,7 +201,8 @@ Log user actions:
 
 ```typescript
 import { Controller, Delete, Param, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('posts')
 @UseGuards(AuthGuard)
@@ -227,7 +238,8 @@ Pass user to services:
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('dashboard')
 @UseGuards(AuthGuard)
@@ -259,7 +271,8 @@ Make user optional for routes that work with or without auth:
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser, Public } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser, Public } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('posts')
 export class PostsController {
@@ -283,7 +296,8 @@ Use TypeScript for full type safety:
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('profile')
 @UseGuards(AuthGuard)
@@ -291,11 +305,11 @@ export class ProfileController {
   @Get()
   getProfile(@CurrentUser() user: IUser) {
     // TypeScript knows all user properties
-    const email: string = user.email;  // ✅ Type-safe
-    const sub: string = user.sub;      // ✅ Type-safe
+    const email: string = user.email;  // Type-safe
+    const sub: string = user.sub;      // Type-safe
 
     // TypeScript prevents errors
-    // const invalid = user.nonExistent;  // ❌ Compile error
+    // const invalid = user.nonExistent;  // Compile error
 
     return { user };
   }
@@ -308,7 +322,8 @@ Validate user properties:
 
 ```typescript
 import { Controller, Post, Body, UseGuards, BadRequestException } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('posts')
 @UseGuards(AuthGuard)
@@ -381,7 +396,7 @@ describe('ProfileController', () => {
 The decorator itself doesn't throw errors. If `req.user` is undefined, it returns `undefined`. Ensure `AuthGuard` is applied:
 
 ```typescript
-// ❌ BAD: No guard, user will be undefined
+// BAD: No guard, user will be undefined
 @Controller('profile')
 export class ProfileController {
   @Get()
@@ -391,7 +406,7 @@ export class ProfileController {
   }
 }
 
-// ✅ GOOD: Guard ensures user exists
+// GOOD: Guard ensures user exists
 @Controller('profile')
 @UseGuards(AuthGuard)
 export class ProfileController {

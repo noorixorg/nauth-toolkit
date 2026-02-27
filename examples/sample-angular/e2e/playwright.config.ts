@@ -9,7 +9,21 @@ import { defineConfig, devices } from '@playwright/test';
  * Slow Motion: Set SLOWMO environment variable (in milliseconds) to enable slow motion
  * Example: SLOWMO=1000 yarn e2e:headed
  */
-const slowMo = process.env.SLOWMO ? parseInt(process.env.SLOWMO, 10) : undefined;
+// Parse slowMo from environment variable (in milliseconds)
+// Must be a valid positive number
+// Read at runtime to ensure env var is available
+function getSlowMo(): number | undefined {
+  const slowMoEnv = process.env.SLOWMO;
+  if (!slowMoEnv) {
+    return undefined;
+  }
+  const parsed = parseInt(slowMoEnv, 10);
+  const result = !isNaN(parsed) && parsed > 0 ? parsed : undefined;
+  if (result) {
+    console.log(`[Playwright Config] Slow motion enabled: ${result}ms`);
+  }
+  return result;
+}
 
 export default defineConfig({
   testDir: './specs',
@@ -29,13 +43,6 @@ export default defineConfig({
     video: 'retain-on-failure',
     actionTimeout: 10_000,
     navigationTimeout: 30_000,
-    // Optional slow motion for visual debugging (in milliseconds)
-    // Set SLOWMO env var: SLOWMO=1000 yarn e2e:headed
-    ...(slowMo && {
-      launchOptions: {
-        slowMo,
-      },
-    }),
   },
   projects: [
     {
@@ -43,6 +50,17 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 2400, height: 1350 }, // Increased resolution by 25% from 1920x1080
+        // Optional slow motion for visual debugging (in milliseconds)
+        // Set SLOWMO env var: SLOWMO=1000 yarn e2e:headed
+        // Note: slowMo only works in headed mode, so we set headless: false when slowMo is enabled
+        ...(getSlowMo()
+          ? {
+              launchOptions: {
+                headless: false, // Required for slowMo to work
+                slowMo: getSlowMo()!,
+              },
+            }
+          : {}),
       },
     },
   ],

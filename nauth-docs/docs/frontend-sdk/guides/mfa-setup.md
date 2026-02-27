@@ -1,7 +1,6 @@
 ---
 title: MFA Setup
 description: Guide to implementing multi-factor authentication setup and verification
-sidebar_position: 4
 keywords: [mfa, totp, sms, email, passkey, webauthn, 2fa]
 image: /img/api-social-card.png
 ---
@@ -60,7 +59,7 @@ See [`AuthResponse`](../api/types/auth-response) for challenge structure and [`A
 
 ### Verifying MFA
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="vanilla" label="Vanilla JS/TS">
 
 ```typescript
@@ -106,7 +105,7 @@ async function verifyPasskey(): Promise<void> {
 ```typescript
 import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthService } from '@nauth-toolkit/client/angular';
+import { AuthService } from '@nauth-toolkit/client-angular';
 
 @Component({
   selector: 'app-mfa-verify',
@@ -311,18 +310,25 @@ npm install @simplewebauthn/browser
 import { startRegistration } from '@simplewebauthn/browser';
 
 // 1. Get passkey registration options from backend
-const options = await client.getSetupData(session, 'passkey');
+const { setupData } = await client.getSetupData(session, 'passkey');
+const optionsJSON = setupData.options;
 
 // 2. Prompt user to create passkey (Touch ID, Face ID, Windows Hello, etc.)
 try {
-  const credential = await startRegistration(options);
+  const credential = await startRegistration({ optionsJSON });
 
   // 3. Complete setup
   await client.respondToChallenge({
     session,
     type: 'MFA_SETUP_REQUIRED',
     method: 'passkey',
-    setupData: { credential },
+    setupData: {
+      credential: {
+        credential,
+        deviceName: 'My Passkey',
+      },
+      expectedChallenge: optionsJSON.challenge,
+    },
   });
 
   console.log('Passkey registered successfully');
@@ -343,11 +349,12 @@ Use browser's native API (no dependencies, but requires manual error handling):
 
 ```typescript
 // 1. Get registration options
-const options = await client.getSetupData(session, 'passkey');
+const { setupData } = await client.getSetupData(session, 'passkey');
+const optionsJSON = setupData.options;
 
 // 2. Create credential
 const credential = await navigator.credentials.create({
-  publicKey: options as PublicKeyCredentialCreationOptions,
+  publicKey: optionsJSON as unknown as PublicKeyCredentialCreationOptions,
 });
 
 // 3. Complete setup
@@ -355,7 +362,13 @@ await client.respondToChallenge({
   session,
   type: 'MFA_SETUP_REQUIRED',
   method: 'passkey',
-  setupData: { credential },
+  setupData: {
+    credential: {
+      credential: credential as unknown as Record<string, unknown>,
+      deviceName: 'My Passkey',
+    },
+    expectedChallenge: optionsJSON.challenge,
+  },
 });
 ```
 
@@ -368,8 +381,10 @@ await client.respondToChallenge({
 ```typescript
 const status = await client.getMfaStatus();
 // status: {
-//   mfaEnabled: true,
-//   availableMethods: ['totp', 'sms'],
+//   enabled: true,
+//   required: true,
+//   methods: ['totp', 'passkey'],
+//   availableMethods: ['totp', 'sms', 'email', 'passkey', 'backup'],
 //   preferredMethod: 'totp',
 //   hasBackupCodes: true,
 //   mfaExempt: false
@@ -389,24 +404,53 @@ const devices = await client.getMfaDevices(); // Returns MFADevice[]
 ### Add New MFA Device
 
 ```typescript
-// 1. Initiate setup
+// 1. Get setup data (QR code, secret, etc.)
 const setupData = await client.setupMfaDevice('totp');
 
-// 2. Verify and complete
-const result = await client.verifyMfaSetup('totp', { code: '123456' }, 'My Authenticator');
+// 2. Display QR code to user and wait for them to scan it
+// setupData.setupData.qrCode — QR code data URL
+// setupData.setupData.manualEntryKey — for manual entry fallback
+
+// 3. Verify and complete (secret comes from setupData response)
+const result = await client.verifyMfaSetup(
+  'totp',
+  {
+    secret: setupData.setupData.secret, // From setupMfaDevice() response
+    code: '123456', // User-entered code from authenticator app
+  },
+  'My Authenticator', // Optional device name (third parameter)
+);
 // result: { deviceId: 3 }
 ```
 
-### Remove MFA Device
+### Remove a Single MFA Device
 
 ```typescript
-await client.removeMfaDevice('totp');
+await client.removeMfaDeviceById(3);
 ```
 
-### Set Preferred Method
+### Remove Specific Device by ID
+
+For granular control, remove individual devices by their unique ID:
 
 ```typescript
-await client.setPreferredMfaMethod('sms');
+// Get user's devices
+const devices = await client.getMfaDevices();
+// [{ id: 48, name: "Google Authenticator", type: "totp", isPreferred: true },
+//  { id: 52, name: "Microsoft Authenticator", type: "totp", isPreferred: false }]
+
+// Remove specific device
+await client.removeMfaDeviceById(52);
+```
+
+### Set Preferred Device
+
+```typescript
+// Get user's devices
+const devices = await client.getMfaDevices();
+
+// Set preferred device by ID
+await client.setPreferredMfaDevice(devices[0].id);
 ```
 
 ### Generate Backup Codes
@@ -421,7 +465,7 @@ displayBackupCodes(codes);
 
 ## Complete MFA Setup UI
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="angular" label="Angular">
 
 ```typescript
@@ -657,7 +701,7 @@ if (window.PublicKeyCredential) {
 **Platform authenticators** (built-in): Touch ID, Face ID, Windows Hello
 **Cross-platform authenticators** (removable): USB security keys, NFC
 
-See [Backend Passkey Configuration](/docs/features/mfa#passkey-webauthn) for server setup.
+See [Backend Passkey Configuration](/docs/guides/mfa/passkey#step-2-configure) for server setup.
 
 ## Error Handling
 
@@ -683,7 +727,7 @@ See [Backend Passkey Configuration](/docs/features/mfa#passkey-webauthn) for ser
 The SDK validates TOTP setup requests before sending to the backend:
 
 ```typescript
-// ❌ This will throw NAuthClientError with VALIDATION_FAILED
+// This will throw NAuthClientError with VALIDATION_FAILED
 await client.respondToChallenge({
   session,
   type: 'MFA_SETUP_REQUIRED',
@@ -691,7 +735,7 @@ await client.respondToChallenge({
   setupData: { code: '123456' }, // Missing secret!
 });
 
-// ✅ Correct - includes both secret and code
+// Correct - includes both secret and code
 const setupData = await client.getSetupData(session, 'totp');
 await client.respondToChallenge({
   session,
@@ -805,7 +849,7 @@ Trusted devices allow users to skip MFA verification on devices they've previous
 
 ### Configuration
 
-Backend configuration (see [Backend MFA Configuration](/docs/features/mfa)):
+Backend configuration (see [Backend MFA Configuration](/docs/guides/mfa/how-mfa-works)):
 
 ```typescript
 mfa: {
@@ -825,7 +869,7 @@ mfa: {
 
 After successful MFA verification, allow user to trust the device:
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="vanilla" label="Vanilla JS">
 
 ```typescript
@@ -945,7 +989,7 @@ export class TrustDevicePromptComponent {
 
 Check if the current device is already trusted:
 
-<Tabs groupId="framework">
+<Tabs groupId="platform">
 <TabItem value="vanilla" label="Vanilla JS">
 
 ```typescript
@@ -1117,4 +1161,4 @@ All logout methods (`logout()` and `logoutAll()`) require the user to be authent
 - [Challenge Handling](./challenge-handling) - Challenge flows
 - [GetSetupDataResponse](../api/types/get-setup-data-response) - Setup data structure
 - [ChallengeResponse](../api/types/challenge-response) - Challenge response types
-- [Backend MFA Configuration](/docs/features/mfa) - Server setup
+- [Backend MFA Configuration](/docs/guides/mfa/how-mfa-works) - Server setup

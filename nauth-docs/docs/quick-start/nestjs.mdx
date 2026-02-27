@@ -1,0 +1,342 @@
+---
+sidebar_position: 1
+title: NestJS
+description: 'Set up nauth-toolkit with NestJS: install packages, configure AuthModule, add signup/login/logout/profile routes, handle challenges, and verify with curl'
+keywords: [quick-start, nestjs, setup, installation, authentication]
+image: /img/api-social-card.png
+---
+
+# Quick Start: NestJS
+
+Add authentication to a NestJS application using nauth-toolkit. By the end of this guide you'll have signup, login, logout, and a protected route working.
+
+:::note Sample Application
+A complete working example is available at [github.com/noorixorg/nauth/tree/main/nestjs](https://github.com/noorixorg/nauth/tree/main/nestjs) — NestJS + TypeORM + PostgreSQL with lifecycle hooks, custom email templates, Google OAuth, and TOTP MFA preconfigured.
+:::
+
+:::tip Live Demo
+Try the finished result at **[demo.nauth.dev](https://demo.nauth.dev)** — a working app built on nauth-toolkit showcasing signup, login, MFA, social auth, and session management.
+:::
+
+## Prerequisites
+
+- Node.js 22+ (older versions may work but are untested)
+- PostgreSQL or MySQL database running
+- A NestJS application (or `npx @nestjs/cli new my-app`)
+
+---
+
+## Installation
+
+This example uses PostgreSQL. For MySQL, replace `@nauth-toolkit/database-typeorm-postgres` with `@nauth-toolkit/database-typeorm-mysql` and `pg` with `mysql2`.
+
+```bash npm2yarn
+npm install @nauth-toolkit/core @nauth-toolkit/nestjs @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console cookie-parser dotenv
+```
+
+:::note Yarn 1.x Users
+Yarn 1.x doesn't auto-install peer dependencies. You'll need to also run:
+
+```bash
+yarn add typeorm @nestjs/common @nestjs/core @nestjs/typeorm reflect-metadata rxjs pg cookie-parser
+# For MySQL instead: yarn add mysql2 (and replace pg)
+```
+
+npm, pnpm, bun, and Yarn 2+ handle peer dependencies automatically.
+:::
+
+### Peer Dependencies
+
+These are installed automatically by npm, pnpm, bun, and Yarn 2+. Only Yarn 1.x users need to install them manually:
+
+**Required:**
+
+- `typeorm` (^0.3.0) — database adapter
+- `@nestjs/common` (^9.0.0 || ^10.0.0 || ^11.0.0) — NestJS adapter
+- `@nestjs/core` (^9.0.0 || ^10.0.0 || ^11.0.0) — NestJS adapter
+- `@nestjs/typeorm` (^9.0.0 || ^10.0.0 || ^11.0.0) — NestJS adapter
+- `reflect-metadata` (^0.1.13 || ^0.2.0) — NestJS adapter
+- `rxjs` (^7.0.0) — NestJS adapter
+
+**Database driver (choose one):**
+
+- `pg` (^8.0.0) — PostgreSQL
+- `mysql2` (^2.3.0 || ^3.0.0) — MySQL
+
+**Optional (for specific features):**
+
+- `qrcode` (^1.5.3) — MFA TOTP QR code generation
+- `@simplewebauthn/server` (^10.0.0) — MFA Passkey/WebAuthn
+- `redis` (^4.6.0 || ^5.0.0) — Redis storage adapter
+- `@maxmind/geoip2-node` (^4.0.0 || ^5.0.0 || ^6.0.0) — IP geolocation
+
+---
+
+## Configuration
+
+Create the auth configuration file:
+
+```typescript title="src/config/auth.config.ts"
+import { NAuthModuleConfig, createDatabaseStorageAdapter } from '@nauth-toolkit/nestjs';
+import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
+import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
+
+export const authConfig: NAuthModuleConfig = {
+  jwt: {
+    algorithm: 'HS256',
+    accessToken: {
+      secret: process.env.JWT_SECRET!,
+      expiresIn: '15m',
+    },
+    refreshToken: {
+      secret: process.env.JWT_REFRESH_SECRET as string,
+      expiresIn: '7d',
+      rotation: true,
+    },
+  },
+
+  password: {
+    minLength: 8,
+    requireUppercase: true,
+    requireNumbers: true,
+    requireSpecialChars: true,
+  },
+
+  // Uses your TypeORM database for transient storage (rate limits, locks, etc.)
+  // For multi-server production deployments, use createRedisStorageAdapter() instead
+  storageAdapter: createDatabaseStorageAdapter(),
+
+  // Console providers log to stdout — replace with real providers for production
+  emailProvider: new ConsoleEmailProvider(),
+  smsProvider: new ConsoleSMSProvider(),
+
+  signup: {
+    enabled: true,
+    // Set to 'email', 'phone', or 'both' to require verification via the Challenge System
+    verificationMethod: 'none',
+  },
+} satisfies NAuthModuleConfig;
+```
+
+---
+
+## Bootstrap
+
+```typescript title="src/main.ts"
+import { NestFactory } from '@nestjs/core';
+import { ExpressAdapter } from '@nestjs/platform-express';
+import { NAuthHttpExceptionFilter, NAuthValidationPipe } from '@nauth-toolkit/nestjs';
+import * as dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
+
+// Load environment variables BEFORE importing AppModule
+dotenv.config();
+
+import { AppModule } from './app.module';
+
+async function bootstrap(): Promise<void> {
+  const app = await NestFactory.create(AppModule, new ExpressAdapter());
+
+  // Required for cookie-based token delivery
+  app.use(cookieParser());
+
+  app.useGlobalFilters(new NAuthHttpExceptionFilter());
+  app.useGlobalPipes(new NAuthValidationPipe());
+
+  // Adjust origins for your frontend — required for credential-bearing cross-origin requests
+  app.enableCors({
+    origin: ['http://localhost:4200', 'http://localhost:5173'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id', 'x-csrf-token', 'x-device-token'],
+  });
+
+  await app.listen(3000);
+}
+bootstrap();
+```
+
+```typescript title="src/app.module.ts"
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from '@nauth-toolkit/nestjs';
+import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
+// For MySQL: import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-mysql';
+import { authConfig } from './config/auth.config';
+import { AuthController } from './auth/auth.controller';
+
+@Module({
+  imports: [
+    TypeOrmModule.forRoot({
+      type: 'postgres', // For MySQL: 'mysql'
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT || '5432'), // For MySQL: '3306'
+      username: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_DATABASE,
+      // Storage entities are required when using DatabaseStorageAdapter.
+      // If you use RedisStorageAdapter instead, you can omit getNAuthTransientStorageEntities().
+      entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()],
+      synchronize: false, // nauth runs its own migration on startup
+    }),
+    AuthModule.forRoot(authConfig),
+  ],
+  controllers: [AuthController],
+})
+export class AppModule {}
+```
+
+---
+
+## Auth Controller
+
+Apply [`AuthGuard`](/docs/api/nestjs/guards/auth-guard) at the class level so all routes are protected by default. Use [`@Public()`](/docs/api/nestjs/decorators/public) to opt out on routes that don't require authentication.
+
+```typescript title="src/auth/auth.controller.ts"
+import { Controller, Post, Get, Body, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import {
+  AuthService,
+  SignupDTO,
+  LoginDTO,
+  LogoutDTO,
+  LogoutResponseDTO,
+  UserResponseDTO,
+  AuthGuard,
+  CurrentUser,
+  Public,
+} from '@nauth-toolkit/nestjs';
+import type { AuthResponseDTO, IUser } from '@nauth-toolkit/nestjs';
+
+@UseGuards(AuthGuard)
+@Controller('auth')
+export class AuthController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @Post('signup')
+  @HttpCode(HttpStatus.CREATED)
+  async signup(@Body() dto: SignupDTO): Promise<AuthResponseDTO> {
+    return await this.authService.signup(dto);
+  }
+
+  @Public()
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  async login(@Body() dto: LoginDTO): Promise<AuthResponseDTO> {
+    return await this.authService.login(dto);
+  }
+
+  @Get('logout')
+  @HttpCode(HttpStatus.OK)
+  async logout(@Query() dto: LogoutDTO): Promise<LogoutResponseDTO> {
+    return await this.authService.logout(dto);
+  }
+
+  @Get('profile')
+  async getProfile(@CurrentUser() user: IUser): Promise<UserResponseDTO> {
+    return UserResponseDTO.fromEntity(user);
+  }
+}
+```
+
+---
+
+## Environment Variables
+
+Create a `.env` file in your project root:
+
+```bash title=".env"
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+DB_DATABASE=myapp
+
+JWT_SECRET=your-access-token-secret-min-32-chars
+JWT_REFRESH_SECRET=your-refresh-token-secret-min-32-chars
+```
+
+---
+
+## Verify the Backend
+
+Start your application and test the endpoints:
+
+```bash
+# Signup
+curl -X POST http://localhost:3000/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "MyPassword1!"}'
+
+# Login
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"identifier": "user@example.com", "password": "MyPassword1!"}'
+
+# Profile (use the accessToken from the login response)
+curl http://localhost:3000/auth/profile \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+You should receive an [`AuthResponseDTO`](/docs/api/core/dto/auth-response-dto) containing `accessToken`, `refreshToken`, and `user` from signup and login. The profile endpoint returns the authenticated user object.
+
+---
+
+## Adding Features
+
+### Social Login
+
+```bash npm2yarn
+npm install @nauth-toolkit/social-google
+```
+
+```typescript title="src/app.module.ts"
+import { GoogleSocialAuthModule } from '@nauth-toolkit/social-google/nestjs';
+
+@Module({
+  imports: [AuthModule.forRoot(authConfig), GoogleSocialAuthModule],
+})
+export class AppModule {}
+```
+
+Configure the provider in your auth config — see the [Social Login](/docs/guides/social/how-social-login-works) guide for complete setup.
+
+### MFA (TOTP)
+
+```bash npm2yarn
+npm install @nauth-toolkit/mfa-totp
+```
+
+```typescript title="src/app.module.ts"
+import { TOTPMFAModule } from '@nauth-toolkit/mfa-totp/nestjs';
+
+@Module({
+  imports: [AuthModule.forRoot(authConfig), TOTPMFAModule],
+})
+export class AppModule {}
+```
+
+Configure MFA settings in your auth config — see the [MFA](/docs/guides/mfa/how-mfa-works) guide for complete setup.
+
+:::tip Complete Route Examples
+This quick start covers the minimal setup. For complete route implementations including password reset, MFA verification, social login callbacks, and challenge handling, see the [Authentication Routes](/docs/guides/routes) guide.
+:::
+
+---
+
+## Frontend Quick Starts
+
+Now connect a frontend to this backend:
+
+- [Angular Frontend](/docs/quick-start/angular) — uses `@nauth-toolkit/client-angular` with built-in interceptors and guards
+- [React Frontend](/docs/quick-start/react) — uses `@nauth-toolkit/client` with a custom Auth context
+
+---
+
+## What's Next
+
+- [NestJS Sample App](https://github.com/noorixorg/nauth/tree/main/nestjs) — Full working example with hooks, email templates, Google OAuth, and TOTP MFA
+- [Configuration](/docs/concepts/configuration) — Full configuration reference with all available options
+- [Challenge System](/docs/concepts/challenge-system) — Understand multi-step authentication flows (MFA, verification)
+- [Authentication Routes](/docs/guides/routes) — Complete route implementations for all auth flows
+- [Token Delivery](/docs/concepts/token-management) — Switch between JSON (Bearer) and cookie-based token delivery

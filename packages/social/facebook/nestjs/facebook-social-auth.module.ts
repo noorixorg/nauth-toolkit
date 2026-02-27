@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { FacebookSocialAuthService } from '../src/facebook-social-auth.service';
 // Public API imports
 import {
@@ -9,17 +9,21 @@ import {
   NAuthLogger,
   PhoneVerificationService,
   ITokenVerifierService,
+  ISocialAuthStateStore,
+  BaseUser,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import {
   JwtService,
   SessionService,
   AuthChallengeHelperService,
-  SocialProviderRegistry,
+  NAUTH_SOCIAL_PROVIDER_TOKEN,
   AuthAuditService as InternalAuthAuditService, // Internal version with recordEvent()
   TrustedDeviceService,
+  HookRegistryService,
 } from '@nauth-toolkit/core/internal';
 import { TokenVerifierService as FacebookTokenVerifierService } from '../src/token-verifier.service';
+import { Repository } from 'typeorm';
 
 /**
  * Facebook Social Authentication Module (NestJS Adapter)
@@ -77,11 +81,12 @@ import { TokenVerifierService as FacebookTokenVerifierService } from '../src/tok
         sessionService: SessionService,
         challengeHelper: AuthChallengeHelperService,
         clientInfoService: ClientInfoService,
-        stateStore: Map<string, { timestamp: number; provider: string }>,
-        userRepository: any,
+        stateStore: ISocialAuthStateStore,
+        userRepository: Repository<BaseUser>,
         phoneVerificationService?: PhoneVerificationService,
         auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
         trustedDeviceService?: TrustedDeviceService, // Optional - only available when rememberDevices is enabled
+        hookRegistry?: HookRegistryService, // Required for lifecycle hooks
         tokenVerifier?: ITokenVerifierService,
       ) => {
         return new FacebookSocialAuthService(
@@ -98,6 +103,7 @@ import { TokenVerifierService as FacebookTokenVerifierService } from '../src/tok
           phoneVerificationService,
           auditService,
           trustedDeviceService,
+          hookRegistry,
           tokenVerifier,
         );
       },
@@ -115,27 +121,17 @@ import { TokenVerifierService as FacebookTokenVerifierService } from '../src/tok
         { token: PhoneVerificationService, optional: true },
         { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
         { token: TrustedDeviceService, optional: true }, // Optional - only available when rememberDevices is enabled
+        HookRegistryService, // Required for lifecycle hooks
         { token: 'FACEBOOK_TOKEN_VERIFIER', optional: true },
       ],
+    },
+
+    // Bind to shared discovery token (registration is performed by AuthModule at app bootstrap)
+    {
+      provide: NAUTH_SOCIAL_PROVIDER_TOKEN,
+      useExisting: FacebookSocialAuthService,
     },
   ],
   exports: [FacebookSocialAuthService],
 })
-export class FacebookSocialAuthModule implements OnModuleInit {
-  constructor(
-    private readonly facebookSocialAuthService: FacebookSocialAuthService,
-    private readonly providerRegistry: SocialProviderRegistry,
-  ) {}
-
-  /**
-   * Auto-register Facebook provider with the SocialProviderRegistry
-   * when the module is initialized (only if enabled in config).
-   */
-  onModuleInit(): void {
-    const config = this.facebookSocialAuthService['config'] as NAuthConfig; // Access protected config
-    const providerConfig = config.social?.facebook;
-    if (providerConfig?.enabled) {
-      this.providerRegistry.registerProvider(this.facebookSocialAuthService);
-    }
-  }
-}
+export class FacebookSocialAuthModule {}

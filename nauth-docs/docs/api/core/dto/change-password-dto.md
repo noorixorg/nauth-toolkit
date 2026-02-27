@@ -3,9 +3,7 @@ title: ChangePasswordDTO
 description: Password change DTO with current and new password validation. Requires current password verification for security.
 keywords: [password, change, dto, authentication, request, security, api]
 image: /img/api-social-card.png
-sidebar_position: 4
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -58,5 +56,4 @@ import { ChangePasswordDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [ChangePasswordRequestDTO](./change-password-request-dto) - Extends this DTO
 - [AuthService.changePassword()](../services/auth-service#changepassword)

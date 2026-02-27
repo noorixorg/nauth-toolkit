@@ -59,8 +59,8 @@ export interface NAuthRequest {
   /**
    * Underlying framework request object (escape hatch)
    *
-   * @deprecated Avoid using raw - add needed properties to NAuthRequest interface instead.
-   *             Only use for framework-specific edge cases.
+   * Avoid using raw - add needed properties to NAuthRequest interface instead.
+   * Only use for framework-specific edge cases.
    */
   readonly raw: unknown;
 
@@ -97,6 +97,12 @@ export interface NAuthRequestAttributes {
   /** Token delivery mode override */
   nauthTokenDelivery?: 'json' | 'cookies';
 
+  /** Token delivery mode override (alias for nauthTokenDelivery for better naming) */
+  nauthTokenDeliveryOverride?: 'json' | 'cookies';
+
+  /** Require reCAPTCHA validation for this route (set by @RequireRecaptcha()) */
+  nauthRequireRecaptcha?: boolean;
+
   /** Allow arbitrary string keys for extensibility */
   [key: string]: unknown;
 }
@@ -116,6 +122,11 @@ export interface NAuthCookieOptions {
   path?: string;
   maxAge?: number;
   expires?: Date;
+  /**
+   * Cookie priority (Chrome 119+). High priority reduces eviction when storage is full.
+   * @default 'high' for auth cookies
+   */
+  priority?: 'low' | 'medium' | 'high';
 }
 
 /**
@@ -127,7 +138,7 @@ export interface NAuthResponse {
   /**
    * Underlying framework response object (escape hatch)
    *
-   * @deprecated Avoid using raw - add needed methods to NAuthResponse interface instead.
+   * Avoid using raw - add needed methods to NAuthResponse interface instead.
    */
   readonly raw: unknown;
 

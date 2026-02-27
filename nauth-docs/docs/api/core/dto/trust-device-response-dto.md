@@ -3,9 +3,7 @@ title: TrustDeviceResponseDTO
 description: Trust device response DTO with device trust token. Returns UUID token for trusted device identification.
 keywords: [trust, device, response, dto, token, api]
 image: /img/api-social-card.png
-sidebar_position: 30
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

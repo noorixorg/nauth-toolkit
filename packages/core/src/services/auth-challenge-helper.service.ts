@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
 import { BaseMFADevice } from '../entities';
-import { AuthResponseDTO } from '../dto/auth-response.dto';
+import { AuthResponseDTO, toAuthResponseUser } from '../dto/auth-response.dto';
 import { AuthChallenge } from '../dto/auth-challenge.dto';
 import { SendVerificationEmailDTO } from '../dto/verify-email.dto';
 import { SendVerificationSMSDTO } from '../dto/verify-phone.dto';
@@ -10,6 +10,7 @@ import { JwtService } from './jwt.service';
 import { SessionService } from './session.service';
 import { EmailVerificationService } from './email-verification.service';
 import { PhoneVerificationService } from './phone-verification.service';
+import { TrustedDeviceService } from './trusted-device.service';
 import { ClientInfoService } from './client-info.service';
 import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
@@ -47,7 +48,8 @@ export class AuthChallengeHelperService {
     private readonly contextBuilder: AuthFlowContextBuilder,
     private readonly clientInfoService: ClientInfoService,
     private readonly emailVerificationService?: EmailVerificationService,
-    private readonly phoneVerificationService?: PhoneVerificationService, // Optional - only available when SMS provider is configured
+    private readonly phoneVerificationService?: PhoneVerificationService,
+    private readonly trustedDeviceService?: TrustedDeviceService,
   ) {}
 
   // ============================================================================
@@ -119,41 +121,43 @@ export class AuthChallengeHelperService {
     // This prevents sending both codes at once, avoiding user confusion.
     // Challenges are sequential: first VERIFY_EMAIL, then VERIFY_PHONE
     if (challengeName === AuthChallenge.VERIFY_EMAIL && this.emailVerificationService) {
-      this.logger?.log?.(`📧 Sending verification email to: ${user.email}`);
-      // Fire and forget - don't block challenge response
+      this.logger?.log?.(`Sending verification email to: ${user.email}`);
+      // Await email sending to ensure code is sent before returning challenge
+      // baseUrl will be read from config if not provided
       const emailDto = Object.assign(new SendVerificationEmailDTO(), {
         sub: user.sub,
-        baseUrl: undefined,
-        challengeSessionId: challengeSession.id, // Link verification token to this challenge session
+        challengeSessionId: challengeSession.id, // Link verification token to this challenge session (for database lookup)
+        challengeSessionToken: challengeSession.sessionToken, // Session token for verification link (UUID, not exposed in DB)
       });
-      this.emailVerificationService
-        .sendVerificationEmail(emailDto)
-        .then(() => {
-          this.logger?.log?.(`Verification email sent successfully to: ${user.email}`);
-        })
-        .catch((error: unknown) => {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          this.logger?.error?.(`Failed to send verification email to ${user.email}: ${errorMessage}`);
-        });
+      try {
+        await this.emailVerificationService.sendVerificationEmail(emailDto);
+        this.logger?.log?.(`Verification email sent successfully to: ${user.email}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger?.error?.(`Failed to send verification email to ${user.email}: ${errorMessage}`);
+        // Re-throw the error so user knows email wasn't sent
+        throw error;
+      }
     }
 
     // Skip auto-send if SMS was already sent (e.g., during phone collection)
     if (!skipAutoSend && challengeName === AuthChallenge.VERIFY_PHONE && this.phoneVerificationService && user.phone) {
       this.logger?.log?.(`Sending verification SMS to: ${user.phone}`);
-      // Fire and forget - don't block challenge response
+      // Await SMS sending to ensure code is sent before returning challenge
       const smsDto = Object.assign(new SendVerificationSMSDTO(), {
         sub: user.sub,
+        skipAlreadyVerifiedCheck: false, // Explicitly set to false for phone verification (not MFA)
         challengeSessionId: challengeSession.id, // Link verification token to this challenge session
       });
-      this.phoneVerificationService
-        .sendVerificationSMS(smsDto)
-        .then(() => {
-          this.logger?.log?.(`Verification SMS sent successfully to: ${user.phone}`);
-        })
-        .catch((error: unknown) => {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          this.logger?.error?.(`Failed to send verification SMS to ${user.phone}: ${errorMessage}`);
-        });
+      try {
+        await this.phoneVerificationService.sendVerificationSMS(smsDto);
+        this.logger?.log?.(`Verification SMS sent successfully to: ${user.phone}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger?.error?.(`Failed to send verification SMS to ${user.phone}: ${errorMessage}`);
+        // Re-throw the error so user knows SMS wasn't sent
+        throw error;
+      }
     }
 
     // ============================================================================
@@ -216,7 +220,7 @@ export class AuthChallengeHelperService {
       challengeName,
       session: challengeSession.sessionToken,
       challengeParameters,
-      userSub: user.sub,
+      sub: user.sub,
     };
 
     return response;
@@ -290,7 +294,7 @@ export class AuthChallengeHelperService {
         allowedMethods,
         instructions: 'Multi-factor authentication setup is required before you can login',
       },
-      userSub: user.sub,
+      sub: user.sub,
     } as AuthResponseDTO;
   }
 
@@ -382,8 +386,7 @@ export class AuthChallengeHelperService {
     let maskedPhone: string | undefined;
     const smsDevice = devices.find((d) => d.type === MFAMethod.SMS && d.phoneNumber);
     if (smsDevice?.phoneNumber) {
-      const digits = smsDevice.phoneNumber.replace(/\D/g, '');
-      maskedPhone = digits.length >= 4 ? `***-***-${digits.slice(-4)}` : smsDevice.phoneNumber;
+      maskedPhone = this.challengeService.maskPhone(smsDevice.phoneNumber);
     }
 
     // Get masked email if Email is available
@@ -391,14 +394,32 @@ export class AuthChallengeHelperService {
     const emailDevice = devices.find((d) => d.type === MFAMethod.EMAIL && d.email);
     const emailToMask = emailDevice?.email || user.email; // Fallback to user.email if device doesn't have it
     if (emailToMask) {
-      // Mask email: show first char and domain (e.g., u***r@example.com)
-      const [localPart, domain] = emailToMask.split('@');
-      if (localPart && domain) {
-        const firstChar = localPart[0];
-        const lastChar = localPart[localPart.length - 1];
-        maskedEmail = localPart.length > 2 ? `${firstChar}***${lastChar}@${domain}` : `${firstChar}***@${domain}`;
-      } else {
-        maskedEmail = emailToMask;
+      maskedEmail = this.challengeService.maskEmail(emailToMask);
+    }
+
+    // Build device information for methods that support multiple devices (TOTP and Passkey)
+    // This allows the frontend to display individual devices when multiple exist
+    const deviceInfo: Array<{ id: number; name: string; type: string }> = [];
+    const multiDeviceMethods = [MFAMethod.TOTP, MFAMethod.PASSKEY];
+    for (const device of devices) {
+      if (multiDeviceMethods.includes(device.type as MFAMethod)) {
+        deviceInfo.push({
+          id: device.id,
+          name: device.name || `${device.type} Device`,
+          type: device.type,
+        });
+      }
+    }
+
+    // Determine preferred device ID if the preferred method supports multiple devices
+    // Use isPrimary flag to find the preferred device (internal database field)
+    let preferredDeviceId: number | undefined;
+    if (multiDeviceMethods.includes(preferredMethod as MFAMethod)) {
+      const preferredMethodDevices = devices.filter((d) => d.type === preferredMethod);
+      if (preferredMethodDevices.length > 0) {
+        // Find device marked as primary, fallback to first device
+        const primaryDevice = preferredMethodDevices.find((d) => d.isPrimary);
+        preferredDeviceId = primaryDevice?.id || preferredMethodDevices[0].id;
       }
     }
 
@@ -408,9 +429,11 @@ export class AuthChallengeHelperService {
     const challengeSession = await this.challengeService.createChallengeSession(user, AuthChallenge.MFA_REQUIRED, {
       availableMethods,
       preferredMethod,
+      preferredDeviceId, // Include preferred device ID for multi-device methods
       maskedPhone,
       maskedEmail,
       method: preferredMethod, // Store method in metadata for resend endpoint
+      devices: deviceInfo.length > 0 ? deviceInfo : undefined, // Include device info for multi-device methods
     });
 
     this.logger?.log?.(`MFA challenge created for user: ${user.sub}`);
@@ -430,7 +453,7 @@ export class AuthChallengeHelperService {
       this.logger?.log?.(
         `Auto-sending MFA SMS code to user ${user.sub} (preferred=${smsIsPreferred}, only=${smsIsOnly})`,
       );
-      // Fire and forget - don't block challenge response
+      // Await SMS sending to ensure code is sent before returning challenge
       // Use PhoneVerificationService which handles SMS sending, rate limits, and token storage
       // skipAlreadyVerifiedCheck=true because phone is already verified but we need MFA code
       const smsDto = Object.assign(new SendVerificationSMSDTO(), {
@@ -438,15 +461,24 @@ export class AuthChallengeHelperService {
         skipAlreadyVerifiedCheck: true,
         challengeSessionId: challengeSession.id, // Link MFA SMS code to this challenge session
       });
-      this.phoneVerificationService
-        .sendVerificationSMS(smsDto)
-        .then(() => {
-          this.logger?.log?.(`MFA SMS code sent successfully to user ${user.sub}`);
-        })
-        .catch((error: unknown) => {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      try {
+        await this.phoneVerificationService.sendVerificationSMS(smsDto);
+        this.logger?.log?.(`MFA SMS code sent successfully to user ${user.sub}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorCode = (error as any)?.code;
+        // Rate limit and resend delay errors are expected - log as warning but still throw
+        if (errorCode === 'RATE_LIMIT_SMS' || errorCode === 'RATE_LIMIT_RESEND') {
+          this.logger?.warn?.(
+            `MFA SMS code sending rate limited for user ${user.sub}: ${errorMessage}. User can try again or use another method.`,
+          );
+        } else {
+          // Unexpected errors - log as error
           this.logger?.error?.(`Failed to send MFA SMS code to user ${user.sub}: ${errorMessage}`);
-        });
+        }
+        // Re-throw the error so user knows SMS wasn't sent
+        throw error;
+      }
     } else {
       this.logger?.debug?.(
         `Skipped auto-send MFA SMS for user ${user.sub}: ` +
@@ -474,24 +506,32 @@ export class AuthChallengeHelperService {
       this.logger?.log?.(
         `Auto-sending MFA Email code to user ${user.sub} (preferred=${emailIsPreferred}, only=${emailIsOnly})`,
       );
-      // Fire and forget - don't block challenge response
-      // Use EmailVerificationService which handles email sending, rate limits, and token storage
+      // Await email sending to ensure code is sent before returning challenge
+      // Use EmailVerificationService.sendMFAEmailCode which handles email sending, rate limits, and token storage
       // skipAlreadyVerifiedCheck=true because email is already verified but we need MFA code
       const emailDto = Object.assign(new SendVerificationEmailDTO(), {
         sub: user.sub,
-        baseUrl: undefined,
         skipAlreadyVerifiedCheck: true,
         challengeSessionId: challengeSession.id, // Link MFA email code to this challenge session
       });
-      this.emailVerificationService
-        .sendVerificationEmail(emailDto)
-        .then(() => {
-          this.logger?.log?.(`MFA Email code sent successfully to user ${user.sub}`);
-        })
-        .catch((error: unknown) => {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      try {
+        await this.emailVerificationService.sendMFAEmailCode(emailDto);
+        this.logger?.log?.(`MFA Email code sent successfully to user ${user.sub}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorCode = (error as any)?.code;
+        // Rate limit and resend delay errors are expected - log as warning but still throw
+        if (errorCode === 'RATE_LIMIT_EMAIL' || errorCode === 'RATE_LIMIT_RESEND') {
+          this.logger?.warn?.(
+            `MFA Email code sending rate limited for user ${user.sub}: ${errorMessage}. User can try again or use another method.`,
+          );
+        } else {
+          // Unexpected errors - log as error
           this.logger?.error?.(`Failed to send MFA Email code to user ${user.sub}: ${errorMessage}`);
-        });
+        }
+        // Re-throw the error so user knows email wasn't sent
+        throw error;
+      }
     } else {
       this.logger?.debug?.(
         `Skipped auto-send MFA Email for user ${user.sub}: ` +
@@ -516,6 +556,14 @@ export class AuthChallengeHelperService {
     if (maskedEmail || preferredMethod.toLowerCase() === 'email') {
       // Include maskedEmail if available, or if email is preferred (frontend will handle display)
       challengeParams.maskedEmail = maskedEmail || user.email || '';
+    }
+    // Include device information for methods that support multiple devices (TOTP, Passkey)
+    if (deviceInfo.length > 0) {
+      challengeParams.devices = deviceInfo;
+    }
+    // Include preferred device ID - frontend uses this to show which device to use
+    if (preferredDeviceId !== undefined) {
+      challengeParams.preferredDeviceId = preferredDeviceId;
     }
 
     return {
@@ -564,10 +612,15 @@ export class AuthChallengeHelperService {
       blockedUntil?: Date;
       reason?: string;
     },
+    sessionAuthMethod: string = 'password',
   ): Promise<AuthResponseDTO> {
     // Get client info from ClientInfoService (for deviceToken only - IP/userAgent come from context automatically)
     const clientInfo = this.clientInfoService.get();
-    const finalDeviceToken = clientInfo.deviceToken || deviceToken;
+    // Use the explicitly provided deviceToken (newly created trusted device) if available,
+    // otherwise fall back to clientInfo.deviceToken (existing device).
+    // WHY: When a new trusted device token is created (e.g., after MFA), we must use that
+    // new token instead of the old one from the cookie/header (which may belong to a different user).
+    const finalDeviceToken = deviceToken || clientInfo.deviceToken;
 
     // ============================================================================
     // SECURITY: Defense-in-depth validation before token issuance
@@ -594,6 +647,35 @@ export class AuthChallengeHelperService {
       finalDeviceId = crypto.randomUUID();
     }
 
+    // ============================================================================
+    // Revoke Existing Sessions with Same DeviceId (Prevent Duplicates)
+    // ============================================================================
+    // When a user logs in with a persistent deviceToken (trusted device),
+    // revoke any existing sessions from that same device to prevent token confusion.
+    // This is safe because deviceToken is system-issued, not client-provided.
+    //
+    // Skip if finalDeviceId was randomly generated (no persistent device).
+    if (finalDeviceToken) {
+      try {
+        const revokedCount = await this.sessionService.revokeUserSessionsByDeviceId(
+          user.id,
+          finalDeviceId,
+          'New login on same device',
+        );
+        if (revokedCount > 0) {
+          this.logger?.log?.(
+            `Revoked ${revokedCount} existing session(s) with deviceId ${finalDeviceId} for user ${user.sub}`,
+          );
+        }
+      } catch (error) {
+        // Non-blocking: Log but continue with session creation
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger?.warn?.(`Failed to revoke existing sessions for deviceId ${finalDeviceId}: ${errorMessage}`, {
+          error,
+        });
+      }
+    }
+
     // Create session
     // Client info (ipAddress, ipCountry, ipCity, userAgent) automatically extracted from ClientInfoService
     const session = await this.sessionService.createSession({
@@ -603,7 +685,10 @@ export class AuthChallengeHelperService {
       tokenFamily,
       deviceId: finalDeviceId,
       expiresAt: this.sessionService.getSessionExpirationDate(),
-      authMethod: 'password', // Default to password for challenge flows (signup, verification completion)
+      // WHY: Persist how the session was authenticated so the frontend can tell whether the user logged in
+      // via password or via a specific social provider (google/apple/facebook).
+      authMethod: sessionAuthMethod,
+      isTrustedDevice: isTrusted || false,
     });
 
     // Now regenerate tokens with the actual sessionId
@@ -631,6 +716,7 @@ export class AuthChallengeHelperService {
       refreshToken: tokens.refreshToken,
       accessTokenExpiresAt: accessTokenValidation.payload?.exp || 0,
       refreshTokenExpiresAt: refreshTokenValidation.payload?.exp || 0,
+      authMethod: sessionAuthMethod,
       trusted: isTrusted,
       // Expose deviceToken so that:
       // - In cookies mode, CookieTokenInterceptor can set the httpOnly nauth_device_token cookie
@@ -639,18 +725,8 @@ export class AuthChallengeHelperService {
       // - clientInfo.deviceToken (existing trusted device), OR
       // - deviceToken parameter passed from AuthService / state machine
       deviceToken: finalDeviceToken,
-      user: {
-        sub: user.sub,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        phone: user.phone ?? undefined,
-        isEmailVerified: user.isEmailVerified,
-        isPhoneVerified: user.isPhoneVerified ?? undefined,
-        socialProviders: user.socialProviders ?? undefined,
-        hasPasswordHash: !!user.passwordHash,
-      },
-      userSub: user.sub,
+      user: toAuthResponseUser(user),
+      sub: user.sub,
     };
 
     return response;
@@ -754,7 +830,10 @@ export class AuthChallengeHelperService {
   ): Promise<AuthResponseDTO> {
     // Get client info from ClientInfoService
     const clientInfo = this.clientInfoService.get();
-    const deviceToken = clientInfo.deviceToken || context.deviceToken;
+    // Prioritize context.deviceToken (newly created/validated) over clientInfo.deviceToken (from request header)
+    // WHY: When a new device token is created (e.g., after MFA for a different user), we must use the new token
+    // from context, not the old one from the client's request header (which may belong to a different user).
+    const deviceToken = context.deviceToken || clientInfo.deviceToken;
 
     const authMethod = context.authMethod || 'password';
 
@@ -784,12 +863,15 @@ export class AuthChallengeHelperService {
     if (state === AuthFlowState.GRACE_PERIOD_ACTIVE) {
       // Grace period active - return success with metadata
       const isTrusted = context.computed.isDeviceTrusted;
+      const sessionAuthMethod =
+        context.authMethod === 'social' ? context.authProvider || 'social' : context.authMethod || 'password';
       const response = await this.createSuccessResponse(
         context.user,
         deviceToken,
         isTrusted,
         context.authMethod === 'social',
         metadata,
+        sessionAuthMethod,
       );
       // Merge metadata
       if (metadata?.gracePeriodEndsAt) {
@@ -819,7 +901,49 @@ export class AuthChallengeHelperService {
     }
 
     // AUTHENTICATED state - return success
-    const isTrusted = context.computed.isDeviceTrusted;
-    return this.createSuccessResponse(context.user, deviceToken, isTrusted, context.authMethod === 'social', metadata);
+    let isTrusted = context.computed.isDeviceTrusted;
+    let finalDeviceToken = deviceToken;
+
+    // Auto-trust mode: create device token automatically if not already trusted
+    const rememberMode = context.config.mfa?.rememberDevices;
+    this.logger?.debug?.(
+      `[ChallengeHelper] AUTHENTICATED state: rememberMode=${rememberMode}, isTrusted=${isTrusted}, hasTrustedDeviceService=${!!this.trustedDeviceService}, deviceToken=${deviceToken ? 'present' : 'none'}`,
+    );
+
+    if (rememberMode === 'always' && !isTrusted && this.trustedDeviceService) {
+      try {
+        this.logger?.debug?.(`[ChallengeHelper] Attempting to create trusted device for user ${context.user.sub}...`);
+        finalDeviceToken = await this.trustedDeviceService.createTrustedDevice(
+          context.user.id,
+          clientInfo.deviceName,
+          clientInfo.deviceType,
+          clientInfo.ipAddress,
+          clientInfo.userAgent,
+          clientInfo.platform,
+          clientInfo.browser,
+        );
+        isTrusted = true;
+        this.logger?.debug?.(
+          `[ChallengeHelper] Auto-created trusted device token for user ${context.user.sub} (rememberDevices='always', no MFA), token=${finalDeviceToken}`,
+        );
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger?.warn?.(
+          `[ChallengeHelper] Failed to create trusted device token for user ${context.user.sub}: ${errorMessage}`,
+          { error },
+        );
+      }
+    }
+
+    const sessionAuthMethod =
+      context.authMethod === 'social' ? context.authProvider || 'social' : context.authMethod || 'password';
+    return this.createSuccessResponse(
+      context.user,
+      finalDeviceToken,
+      isTrusted,
+      context.authMethod === 'social',
+      metadata,
+      sessionAuthMethod,
+    );
   }
 }

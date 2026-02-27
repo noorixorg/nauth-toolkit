@@ -3,9 +3,9 @@ title: Email Providers
 description: Email providers for authentication notifications
 keywords: [email, providers, nodemailer, smtp, api]
 image: /img/api-social-card.png
-sidebar_position: 0
+sidebar_position: 1
+sidebar_label: Overview
 ---
-
 # Email Providers
 
 Email providers for sending verification codes, password resets, and notifications.
@@ -19,20 +19,9 @@ Email providers for sending verification codes, password resets, and notificatio
 
 ## Provider Interface
 
-All email providers implement `EmailProvider`:
+All email providers implement `EmailProvider` (core interface):
 
-```typescript
-interface EmailProvider {
-  sendVerificationEmail(to: string, code: string, link?: string): Promise<void>;
-  sendPasswordResetEmail(to: string, link: string): Promise<void>;
-  sendWelcomeEmail(to: string): Promise<void>;
-  sendAccountLockoutEmail(to: string, reason: string, duration: number): Promise<void>;
-  sendNewDeviceEmail(to: string, device: string, timestamp: Date): Promise<void>;
-  sendPasswordChangedEmail(to: string): Promise<void>;
-  sendEmailChangedEmail(to: string, newEmail: string): Promise<void>;
-  sendMfaEnabledEmail(to: string): Promise<void>;
-}
-```
+- See [`EmailProvider`](/docs/api/core/interfaces/email-provider) for the up-to-date method list and signatures.
 
 ## Related
 

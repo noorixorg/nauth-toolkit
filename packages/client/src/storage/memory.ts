@@ -17,4 +17,8 @@ export class InMemoryStorage implements NAuthStorageAdapter {
   async removeItem(key: string): Promise<void> {
     this.store.delete(key);
   }
+
+  async clear(): Promise<void> {
+    this.store.clear();
+  }
 }

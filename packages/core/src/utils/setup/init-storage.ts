@@ -4,8 +4,23 @@
  * Initializes storage adapter with repository injection and proper error handling.
  */
 
-import { Repository } from 'typeorm';
+import { Repository, type ObjectLiteral } from 'typeorm';
 import { StorageAdapter, LoggerService, NAuthConfig, NAuthException, AuthErrorCode } from '../../index';
+
+/**
+ * Import an optional peer dependency at runtime without creating a compile-time
+ * dependency for TypeScript consumers of `@nauth-toolkit/core`.
+ *
+ * IMPORTANT: the module specifier is intentionally typed as `string` (not a literal)
+ * to prevent TypeScript from erroring when the peer dependency isn't installed.
+ */
+async function importOptional<TModule>(moduleName: string): Promise<TModule | null> {
+  try {
+    return (await import(moduleName)) as unknown as TModule;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Initialize storage adapter
@@ -26,8 +41,8 @@ import { StorageAdapter, LoggerService, NAuthConfig, NAuthException, AuthErrorCo
  */
 export async function initStorage(
   config: NAuthConfig,
-  rateLimitRepo: Repository<any> | null,
-  storageLockRepo: Repository<any> | null,
+  rateLimitRepo: Repository<ObjectLiteral> | null,
+  storageLockRepo: Repository<ObjectLiteral> | null,
   logger: LoggerService,
 ): Promise<StorageAdapter> {
   // If storage adapter explicitly provided, use it
@@ -35,14 +50,23 @@ export async function initStorage(
     const adapter = config.storageAdapter;
 
     // Inject logger if adapter supports it
-    if (adapter && typeof (adapter as any).setLogger === 'function') {
-      (adapter as any).setLogger(logger);
+    {
+      const maybeLoggerAware = adapter as { setLogger?: (logger: LoggerService) => void };
+      if (typeof maybeLoggerAware.setLogger === 'function') {
+        maybeLoggerAware.setLogger(logger);
+      }
     }
 
     // Inject repositories into DatabaseStorageAdapter if it supports it
-    if (adapter && typeof (adapter as any).setRepositories === 'function') {
-      if (rateLimitRepo && storageLockRepo) {
-        (adapter as any).setRepositories(rateLimitRepo, storageLockRepo);
+    {
+      const maybeRepoAware = adapter as {
+        setRepositories?: (
+          rateLimitRepo: Repository<ObjectLiteral>,
+          storageLockRepo: Repository<ObjectLiteral>,
+        ) => void;
+      };
+      if (typeof maybeRepoAware.setRepositories === 'function' && rateLimitRepo && storageLockRepo) {
+        maybeRepoAware.setRepositories(rateLimitRepo, storageLockRepo);
       }
     }
 
@@ -53,11 +77,25 @@ export async function initStorage(
   // No storage adapter provided - try to use DatabaseStorageAdapter if repositories available
   if (rateLimitRepo && storageLockRepo) {
     try {
+      type DatabaseStorageAdapterModule = {
+        DatabaseStorageAdapter: new (...args: unknown[]) => StorageAdapter & {
+          setRepositories?: (
+            rateLimitRepo: Repository<ObjectLiteral>,
+            storageLockRepo: Repository<ObjectLiteral>,
+          ) => void;
+        };
+      };
+
       // Lazy import to avoid bundling if not used
-      // @ts-ignore - Dynamic import of optional peer dependency
-      const { DatabaseStorageAdapter } = await import('@nauth-toolkit/storage-database');
-      const adapter = new DatabaseStorageAdapter(null, null, logger as any);
-      adapter.setRepositories(rateLimitRepo as any, storageLockRepo as any);
+      const mod = await importOptional<DatabaseStorageAdapterModule>('@nauth-toolkit/storage-database' as string);
+      if (!mod) {
+        throw new Error('storage-database package not installed');
+      }
+
+      const adapter = new mod.DatabaseStorageAdapter(null, null, logger);
+      if (typeof adapter.setRepositories === 'function') {
+        adapter.setRepositories(rateLimitRepo, storageLockRepo);
+      }
       await adapter.initialize();
 
       logger?.warn?.(
@@ -70,7 +108,7 @@ export async function initStorage(
       // If DatabaseStorageAdapter import fails, fall through to error
       logger?.error?.(
         'Failed to create DatabaseStorageAdapter. Please explicitly configure storageAdapter in your config.',
-        { error },
+        { error: error as Error },
       );
     }
   }
@@ -88,7 +126,7 @@ export async function initStorage(
       '  import { createRedisStorageAdapter } from "@nauth-toolkit/express";\n' +
       '  storageAdapter: createRedisStorageAdapter(process.env.REDIS_URL)\n\n' +
       'Make sure to include storage entities in your DataSource configuration:\n' +
-      '  import { getNAuthStorageEntities } from "@nauth-toolkit/database-typeorm-postgres";\n' +
-      '  entities: [...getNAuthEntities(), ...getNAuthStorageEntities()]',
+      '  import { getNAuthTransientStorageEntities } from "@nauth-toolkit/database-typeorm-postgres";\n' +
+      '  entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()]',
   );
 }

@@ -33,9 +33,17 @@
 
       <!-- Password Field -->
       <div class="form-field">
-        <label for="password" class="form-label">
-          Password <span class="form-required">*</span>
-        </label>
+        <div class="flex items-center justify-between mb-2">
+          <label for="password" class="form-label">
+            Password <span class="form-required">*</span>
+          </label>
+          <a
+            (click)="navigateToForgotPassword()"
+            class="text-sm text-primary-600 hover:text-primary-700 font-medium"
+          >
+            Forgot Password?
+          </a>
+        </div>
         <p-password
           id="password"
           formControlName="password"
@@ -69,6 +77,19 @@
         icon="pi pi-sign-in"
       />
 
+      <!-- Success Message -->
+      @if (success(); as successMessage) {
+        <div class="error-message-container-compact">
+          <p-message
+            severity="success"
+            [text]="successMessage"
+            [closable]="true"
+            (onClose)="success.set(null)"
+            styleClass="w-full"
+          />
+        </div>
+      }
+
       <!-- Error Message -->
       @if (error(); as errorMessage) {
         <div class="error-message-container-compact">
@@ -99,26 +120,30 @@
           styleClass="w-full social-button"
           iconPos="left"
         />
-        <p-button
-          label="Continue with Apple"
-          icon="pi pi-apple"
-          severity="secondary"
-          [outlined]="true"
-          [disabled]="loading()"
-          (onClick)="onSocialLogin('apple')"
-          styleClass="w-full social-button"
-          iconPos="left"
-        />
-        <p-button
-          label="Continue with Facebook"
-          icon="pi pi-facebook"
-          severity="secondary"
-          [outlined]="true"
-          [disabled]="loading()"
-          (onClick)="onSocialLogin('facebook')"
-          styleClass="w-full social-button"
-          iconPos="left"
-        />
+        @if (showAppleLogin) {
+          <p-button
+            label="Continue with Apple"
+            icon="pi pi-apple"
+            severity="secondary"
+            [outlined]="true"
+            [disabled]="loading()"
+            (onClick)="onSocialLogin('apple')"
+            styleClass="w-full social-button"
+            iconPos="left"
+          />
+        }
+        @if (showFacebookLogin) {
+          <p-button
+            label="Continue with Facebook"
+            icon="pi pi-facebook"
+            severity="secondary"
+            [outlined]="true"
+            [disabled]="loading()"
+            (onClick)="onSocialLogin('facebook')"
+            styleClass="w-full social-button"
+            iconPos="left"
+          />
+        }
       </div>
 
       <!-- Signup Link -->

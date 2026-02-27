@@ -3,9 +3,7 @@ title: GetSessionIdResponseDTO
 description: Response DTO for session ID. Returns session ID from the current request context (extracted from JWT token after authentication).
 keywords: [session, id, jwt, response, dto, api]
 image: /img/api-social-card.png
-sidebar_position: 54
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -42,9 +40,9 @@ import { GetSessionIdResponseDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property   | Type       | Description                                                      |
-| ---------- | ---------- | ---------------------------------------------------------------- |
-| `sessionId` | `number?`  | Current session ID (if available from authenticated request). Extracted from JWT token payload after authentication. Optional - undefined if not available. |
+| Property   | Type       | Required | Description                                                      |
+| ---------- | ---------- | -------- | ---------------------------------------------------------------- |
+| `sessionId` | `number?`  | No       | Current session ID (if available from authenticated request). Extracted from JWT token payload after authentication. Undefined if not available. |
 
 ## Example
 

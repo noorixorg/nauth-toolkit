@@ -1,7 +1,7 @@
 {
   "name": "@nauth-toolkit/sms-console",
-  "version": "0.1.0",
-  "description": "Console SMS provider for nauth-toolkit (dev/test)",
+  "version": "0.2.0",
+  "description": "Console SMS provider for nauth-toolkit — development and testing",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -14,7 +14,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.0"
+    "@nauth-toolkit/core": "^0.2.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
@@ -28,14 +28,36 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "preview"
+    "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "keywords": [
-    "nestjs",
+    "nauth",
     "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
     "sms",
     "console",
-    "dev"
-  ]
+    "development",
+    "testing"
+  ],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth"
+  },
+  "homepage": "https://nauth.dev",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": false
 }

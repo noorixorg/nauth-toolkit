@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { HandlebarsTemplateEngine } from './handlebars-template.engine';
 import { TemplateType } from '@nauth-toolkit/core';
 
@@ -34,12 +35,14 @@ describe('HandlebarsTemplateEngine', () => {
       });
 
       const result1 = await engine.render('test', {
+        greetingName: 'John',
         firstName: 'John',
         userName: 'johndoe',
       });
       expect(result1.html).toContain('Hi John');
 
       const result2 = await engine.render('test', {
+        greetingName: 'johndoe',
         userName: 'johndoe',
       });
       expect(result2.html).toContain('Hi johndoe');
@@ -86,6 +89,27 @@ describe('HandlebarsTemplateEngine', () => {
       expect(result.html).toContain('<li>Item 3</li>');
     });
 
+    it('should support Handlebars partials', async () => {
+      const engineWithPartials = new HandlebarsTemplateEngine({
+        useDefaultTemplates: false,
+        partials: {
+          footer: '<footer>&copy; {{currentYear}} {{companyName}}</footer>',
+        },
+      });
+
+      engineWithPartials.registerTemplate('test', {
+        subject: 'Test',
+        html: '<main>Hello</main>{{> footer }}',
+      });
+
+      const result = await engineWithPartials.render('test', {
+        companyName: 'My Company Inc.',
+      });
+
+      expect(result.html).toContain('Hello');
+      expect(result.html).toContain(`&copy; ${new Date().getFullYear()} My Company Inc.`);
+    });
+
     it('should support custom helpers', async () => {
       const engineWithHelpers = new HandlebarsTemplateEngine({
         useDefaultTemplates: false,
@@ -123,6 +147,29 @@ describe('HandlebarsTemplateEngine', () => {
       expect(result.subject).toBe('Welcome Jane Doe');
       expect(result.html).toBe('<h1>Hello Jane Doe</h1>');
       expect(result.text).toBe('Hello Jane Doe');
+    });
+  });
+
+  describe('default templates (regression)', () => {
+    it('should render PASSWORD_RESET with code even when link is not provided', async () => {
+      const engineWithDefaults = new HandlebarsTemplateEngine({
+        useDefaultTemplates: true,
+      });
+
+      const result = await engineWithDefaults.render(TemplateType.PASSWORD_RESET, {
+        appName: 'Test App',
+        userName: 'testuser',
+        userEmail: 'test@example.com',
+        code: '123456',
+        expiryMinutes: 15,
+        // NOTE: link intentionally omitted; template must not break or render "undefined"
+      });
+
+      expect(result.subject).toContain('Password Reset');
+      expect(result.html).toContain('123456');
+      expect(result.text ?? '').toContain('123456');
+      expect(result.html.toLowerCase()).not.toContain('undefined');
+      expect((result.text ?? '').toLowerCase()).not.toContain('undefined');
     });
   });
 
@@ -243,6 +290,113 @@ describe('HandlebarsTemplateEngine', () => {
       // Should strip HTML tags
       expect(result.text).not.toContain('<h1>');
       expect(result.text).not.toContain('<p>');
+    });
+
+    it('should decode HTML entities in text conversion', async () => {
+      engine.registerTemplate('test', {
+        subject: 'Test',
+        html: '<p>Hello &amp; World &lt;test&gt;</p>',
+      });
+
+      const result = await engine.render('test', {});
+      expect(result.text).toContain('Hello & World <test>');
+    });
+
+    it('should normalize whitespace in text conversion', async () => {
+      engine.registerTemplate('test', {
+        subject: 'Test',
+        html: '<p>Hello   World\n\nTest</p>',
+      });
+
+      const result = await engine.render('test', {});
+      expect(result.text).toBe('Hello World Test');
+    });
+  });
+
+  describe('render with previewText', () => {
+    it('should use previewText when provided', async () => {
+      engine.registerTemplate('test', {
+        subject: 'Test Subject',
+        html: '<p>{{previewText}}</p>',
+      });
+
+      const result = await engine.render('test', { previewText: 'Custom preview' });
+      expect(result.html).toContain('Custom preview');
+    });
+
+    it('should fallback to subject when previewText is empty', async () => {
+      engine.registerTemplate('test', {
+        subject: 'Test Subject',
+        html: '<p>{{previewText}}</p>',
+      });
+
+      const result = await engine.render('test', { previewText: '' });
+      expect(result.html).toContain('Test Subject');
+    });
+  });
+
+  describe('built-in helpers edge cases', () => {
+    beforeEach(() => {
+      engine = new HandlebarsTemplateEngine({
+        useDefaultTemplates: false,
+      });
+    });
+
+    it('should support ne helper', async () => {
+      engine.registerTemplate('test', {
+        subject: 'Test',
+        html: '{{#if (ne status "active")}}Other{{else}}Active{{/if}}',
+      });
+
+      const result = await engine.render('test', { status: 'inactive' });
+      expect(result.html).toBe('Other');
+    });
+
+    it('should support gt helper', async () => {
+      engine.registerTemplate('test', {
+        subject: 'Test',
+        html: '{{#if (gt count 5)}}High{{else}}Low{{/if}}',
+      });
+
+      const result1 = await engine.render('test', { count: 10 });
+      expect(result1.html).toBe('High');
+
+      const result2 = await engine.render('test', { count: 3 });
+      expect(result2.html).toBe('Low');
+    });
+
+    it('should support lt helper', async () => {
+      engine.registerTemplate('test', {
+        subject: 'Test',
+        html: '{{#if (lt count 5)}}Low{{else}}High{{/if}}',
+      });
+
+      const result1 = await engine.render('test', { count: 3 });
+      expect(result1.html).toBe('Low');
+
+      const result2 = await engine.render('test', { count: 10 });
+      expect(result2.html).toBe('High');
+    });
+
+    it('should support formatDate helper', async () => {
+      engine.registerTemplate('test', {
+        subject: 'Test',
+        html: '{{formatDate date}}',
+      });
+
+      const date = new Date('2024-01-15');
+      const result = await engine.render('test', { date });
+      expect(result.html).toBeTruthy();
+    });
+
+    it('should handle formatDate with null', async () => {
+      engine.registerTemplate('test', {
+        subject: 'Test',
+        html: '{{formatDate date}}',
+      });
+
+      const result = await engine.render('test', { date: null });
+      expect(result.html).toBe('');
     });
   });
 });

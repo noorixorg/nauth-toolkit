@@ -3,9 +3,7 @@ title: auth Hook
 description: Fastify onRequest hook for JWT authentication
 keywords: [fastify, hook, auth, jwt, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 # auth Hook
 
 **Type:** `onRequestHookHandler`

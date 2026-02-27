@@ -1,7 +1,7 @@
 import { Component, signal, effect, OnInit, OnDestroy, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { AuthService, AuthResponse } from '@nauth-toolkit/client/angular';
+import { AuthService, AuthResponse } from '@nauth-toolkit/client-angular/standalone';
 import { AuthChallenge, getMFAMethod } from '@nauth-toolkit/client';
 import { Subscription, filter } from 'rxjs';
 import { SimulatedVerificationCodeService } from './services/simulated-verification-code.service';
@@ -59,34 +59,38 @@ export class App implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.auth.authEvents$
         .pipe(
-          filter((event) => event.type === 'auth:challenge'),
+          filter((event) => {
+            // Debug: log all events to see what's coming through
+            if (event.type === 'auth:challenge' || event.type === 'auth:success' || event.type === 'auth:login' || event.type === 'auth:signup') {
+              console.log('[App] Auth event received:', event.type, event.data);
+            }
+            return event.type === 'auth:challenge';
+          }),
           filter((event) => {
             const challenge = event.data as AuthResponse;
             const challengeName = challenge.challengeName;
+            console.log('[App] Challenge event filtered:', challengeName, challenge);
+
             if (!challengeName) return false;
 
-            // Only handle SMS and email challenges
+            // Skip all OTP-based challenges - the OTP component handles toasts for these
+            // to avoid duplicates. The OTP component has better context (session IDs, method detection, etc.)
             if (
               challengeName === AuthChallenge.VERIFY_PHONE ||
-              challengeName === AuthChallenge.VERIFY_EMAIL
+              challengeName === AuthChallenge.VERIFY_EMAIL ||
+              challengeName === AuthChallenge.MFA_REQUIRED ||
+              challengeName === AuthChallenge.MFA_SETUP_REQUIRED
             ) {
-              return true;
-            }
-            if (challengeName === AuthChallenge.MFA_REQUIRED) {
-              const method = getMFAMethod(challenge);
-              return method === 'sms' || method === 'email';
-            }
-            if (challengeName === AuthChallenge.MFA_SETUP_REQUIRED) {
-              // For MFA_SETUP_REQUIRED, method is not in challenge yet when getSetupData() is called
-              // The OTP component will handle it manually with the method from query params
-              // Skip app-level toast trigger to avoid duplicates - OTP component handles it
+              console.log('[App] OTP-based challenge detected - skipping app-level toast (OTP component handles it)');
               return false;
             }
+            console.log('[App] Challenge type not handled:', challengeName);
             return false;
           }),
         )
         .subscribe(async (event) => {
           const challenge = event.data as AuthResponse;
+          console.log('[App] Calling handleChallenge for:', challenge.challengeName, challenge.session);
           await this.verificationCodeService.handleChallenge(challenge);
         }),
     );

@@ -8,8 +8,9 @@ import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { MFAMethod } from '../enums/mfa-method.enum';
 import { ChallengeService } from './challenge.service';
-import { AuthAuditService } from './auth-audit.service';
+import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { ClientInfoService } from './client-info.service';
+import { ContextStorage } from '../utils/context-storage';
 
 /**
  * Test implementation of BaseMFAProviderService
@@ -17,15 +18,15 @@ import { ClientInfoService } from './client-info.service';
 class TestMFAProviderService extends BaseMFAProviderService {
   readonly methodName = 'test';
 
-  async setup(user: IUser, _setupData?: unknown): Promise<unknown> {
+  async setup(_setupData?: unknown): Promise<unknown> {
     return { test: 'setup' };
   }
 
-  async verifySetup(user: IUser, verificationData: unknown, deviceName?: string): Promise<number> {
+  async verifySetup(verificationData: unknown, deviceName?: string): Promise<number> {
     return 1;
   }
 
-  async verify(user: IUser, code: unknown, deviceId?: number): Promise<boolean> {
+  async verify(code: unknown, deviceId?: number): Promise<boolean> {
     return true;
   }
 }
@@ -82,6 +83,11 @@ describe('BaseMFAProviderService', () => {
 
     mockChallengeService = {
       deleteUserChallengeSessions: jest.fn(),
+      maskPhone: jest.fn((phone: string) => {
+        const digits = phone.replace(/\D/g, '');
+        if (digits.length < 4) return phone;
+        return `***-***-${digits.slice(-4)}`;
+      }),
     } as any;
 
     mockAuditService = {
@@ -132,7 +138,10 @@ describe('BaseMFAProviderService', () => {
 
   describe('generateBackupCodes', () => {
     it('should generate backup codes', async () => {
-      const codes = await service.generateBackupCodes(mockUser);
+      const codes = await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        return await service.generateBackupCodes();
+      });
 
       expect(codes.length).toBe(10);
       expect(codes[0]).toMatch(/^[A-Z0-9]+$/);
@@ -141,7 +150,10 @@ describe('BaseMFAProviderService', () => {
 
     it('should use custom code count from config', async () => {
       mockConfig.mfa!.backup = { codeCount: 5, codeLength: 8 };
-      const codes = await service.generateBackupCodes(mockUser);
+      const codes = await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        return await service.generateBackupCodes();
+      });
 
       expect(codes.length).toBe(5);
     });
@@ -159,7 +171,10 @@ describe('BaseMFAProviderService', () => {
       );
 
       try {
-        await serviceWithoutPassword.generateBackupCodes(mockUser);
+        await ContextStorage.run(async () => {
+          ContextStorage.set('CURRENT_USER', mockUser);
+          return await serviceWithoutPassword.generateBackupCodes();
+        });
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);

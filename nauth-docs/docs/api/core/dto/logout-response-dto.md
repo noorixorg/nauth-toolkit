@@ -3,9 +3,7 @@ title: LogoutResponseDTO
 description: Logout response DTO with success indicator. Simple boolean response for session logout operations.
 keywords: [logout, response, dto, success, api]
 image: /img/api-social-card.png
-sidebar_position: 25
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

@@ -1,9 +1,16 @@
 {
   "name": "@nauth-toolkit/nestjs",
-  "version": "0.1.0",
-  "description": "NestJS adapter for nauth-toolkit - Platform-specific integrations",
+  "version": "0.2.0",
+  "description": "NestJS module for nauth-toolkit — guards, decorators, interceptors",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -b",
     "test": "jest",
@@ -13,16 +20,21 @@
     "lint:fix": "eslint \"{src,test}/**/*.ts\" --fix"
   },
   "keywords": [
-    "nestjs",
+    "nauth",
     "authentication",
     "auth",
+    "nodejs",
+    "typescript",
+    "nestjs",
     "jwt",
     "oauth",
     "mfa",
-    "security"
+    "guards",
+    "decorators",
+    "module"
   ],
   "author": "nauth-toolkit",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "peerDependencies": {
     "@nestjs/common": "^9.0.0 || ^10.0.0 || ^11.0.0",
     "@nestjs/core": "^9.0.0 || ^10.0.0 || ^11.0.0",
@@ -32,7 +44,7 @@
     "typeorm": "^0.3.0"
   },
   "dependencies": {
-    "@nauth-toolkit/core": "0.1.0"
+    "@nauth-toolkit/core": "^0.2.0"
   },
   "devDependencies": {
     "@nestjs/common": "^11.1.8",
@@ -50,6 +62,20 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "preview"
-  }
+    "tag": "latest"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth"
+  },
+  "homepage": "https://nauth.dev"
 }

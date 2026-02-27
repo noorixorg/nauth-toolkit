@@ -333,6 +333,7 @@ class FastifyResponseWrapper implements NAuthResponse {
       path: options.path,
       maxAge: options.maxAge,
       expires: options.expires,
+      priority: options.priority,
     };
   }
 }
@@ -380,37 +381,7 @@ type FastifyOnSendHook = (request: FastifyRequest, reply: FastifyReply, payload:
 type FastifyRouteHandler = (request: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
 
 // ============================================================================
-// Convenience Export
+// NOTE
 // ============================================================================
-
-/**
- * Convenience function for wrapping Fastify route handlers
- *
- * @deprecated Use adapter.wrapRouteHandler() instead. This is kept for backward compatibility.
- *
- * @example
- * ```typescript
- * // Old way (deprecated):
- * fastify.get('/me', withNAuthContext(async (request, reply) => {...}));
- *
- * // New way (recommended):
- * const handler = nauth.adapter.wrapRouteHandler(async (req, res) => {...});
- * fastify.get('/me', handler);
- * ```
- */
-export function withNAuthContext<T>(
-  handler: (request: FastifyRequest, reply: FastifyReply) => Promise<T>,
-): (request: FastifyRequest, reply: FastifyReply) => Promise<T | void> {
-  return async (request: FastifyRequest, reply: FastifyReply): Promise<T | void> => {
-    const store = (request as FastifyRequestWithContext)[NAUTH_CONTEXT_STORE];
-
-    if (store) {
-      return ContextStorage.enterStore(store, async () => {
-        return handler(request, reply);
-      });
-    }
-
-    // No context - execute without
-    return handler(request, reply);
-  };
-}
+// For route handlers, use `nauth.adapter.wrapRouteHandler(...)` to ensure AsyncLocalStorage
+// context is available when calling `nauth.helpers.*` and context-dependent services.

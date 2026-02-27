@@ -26,17 +26,17 @@ export class BaseUser {
   /**
    * User's username (optional, unique if set)
    */
-  username?: string | null;
+  username!: string | null;
 
   /**
    * User's first name
    */
-  firstName?: string | null;
+  firstName!: string | null;
 
   /**
    * User's last name
    */
-  lastName?: string | null;
+  lastName!: string | null;
 
   /**
    * User's email address (required, unique)
@@ -46,25 +46,34 @@ export class BaseUser {
   /**
    * User's phone number in E.164 format (optional)
    */
-  phone?: string | null;
+  phone!: string | null;
 
   /**
    * Hashed password (Argon2)
    * NULL for social-only accounts
+   * SECURITY: This field should be excluded from select queries when returning user objects.
+   * Use hasPasswordHash boolean flag instead.
    */
-  passwordHash?: string | null;
+  passwordHash!: string | null;
+
+  /**
+   * Whether this user has a password set
+   * Computed field - derived from passwordHash at runtime via @AfterLoad hook
+   * Never expose passwordHash directly; use this boolean flag instead
+   */
+  hasPasswordHash?: boolean;
 
   /**
    * When password was last changed
    * Used for password expiry policies
    */
-  passwordChangedAt?: Date | null;
+  passwordChangedAt!: Date | null;
 
   /**
    * Password history (hashed)
    * Used to prevent password reuse
    */
-  passwordHistory?: string[] | null;
+  passwordHistory!: string[] | null;
 
   /**
    * Flag to force password change on next login
@@ -85,30 +94,46 @@ export class BaseUser {
 
   /**
    * Account active status
-   * Inactive accounts cannot login
+   *
+   * Admin-controlled flag for account lifecycle management.
+   * - false = Account deactivated (soft disable, manual toggle)
+   * - true = Account enabled (default for new signups)
+   *
+   * Use case: Administrative account management, account lifecycle control
    */
   isActive!: boolean;
 
   /**
    * Account lock status
-   * Locked accounts cannot login until unlocked
+   *
+   * Security lock mechanism for temporary or permanent restrictions.
+   * - false = Account unlocked (default)
+   * - true = Account locked (blocks login)
+   *
+   * Lock types:
+   * - Permanent: lockedUntil = null (admin disableUser, requires manual unlock)
+   * - Temporary: lockedUntil = future date (rate limiting, auto-unlocks when expired)
+   *
+   * Use case: Security restrictions, rate limiting, failed login attempts
+   *
+   * See also: lockReason, lockedAt, lockedUntil
    */
   isLocked!: boolean;
 
   /**
    * Reason for account lock
    */
-  lockReason?: string | null;
+  lockReason!: string | null;
 
   /**
    * When account was locked
    */
-  lockedAt?: Date | null;
+  lockedAt!: Date | null;
 
   /**
    * When account lock expires (NULL = permanent)
    */
-  lockedUntil?: Date | null;
+  lockedUntil!: Date | null;
 
   /**
    * Number of consecutive failed login attempts
@@ -118,17 +143,17 @@ export class BaseUser {
   /**
    * When last failed login occurred
    */
-  lastFailedLoginAt?: Date | null;
+  lastFailedLoginAt!: Date | null;
 
   /**
    * When user last successfully logged in
    */
-  lastLoginAt?: Date | null;
+  lastLoginAt!: Date | null;
 
   /**
    * IP address of last successful login
    */
-  lastLoginIp?: string | null;
+  lastLoginIp!: string | null;
 
   /**
    * MFA enabled status
@@ -139,7 +164,7 @@ export class BaseUser {
    * List of enabled MFA methods
    * Examples: ['totp', 'sms', 'passkey']
    */
-  mfaMethods?: string[] | null;
+  mfaMethods!: string[] | null;
 
   /**
    * When MFA was enforced for this user
@@ -148,7 +173,7 @@ export class BaseUser {
 
   /**
    * TOTP secret (encrypted)
-   * ⚠️ DEPRECATED: Use MFADevice entity instead
+   * DEPRECATED: Use MFADevice entity instead
    */
   totpSecret?: string | null;
 
@@ -156,13 +181,13 @@ export class BaseUser {
    * Backup recovery codes (hashed)
    * Single-use codes for account recovery
    */
-  backupCodes?: string[] | null;
+  backupCodes!: string[] | null;
 
   /**
    * User's preferred MFA method
    * Used to pre-select MFA method during authentication
    */
-  preferredMfaMethod?: string | null;
+  preferredMfaMethod!: string | null;
 
   /**
    * MFA exemption status
@@ -217,13 +242,13 @@ export class BaseUser {
    * Examples: ['google', 'apple', 'facebook']
    * Updated automatically when social accounts are linked/unlinked
    */
-  socialProviders?: string[] | null;
+  socialProviders!: string[] | null;
 
   /**
    * Additional user metadata (JSON)
    * For custom application-specific data
    */
-  metadata?: Record<string, unknown> | null;
+  metadata!: Record<string, unknown> | null;
 
   /**
    * Account creation timestamp
@@ -239,5 +264,5 @@ export class BaseUser {
    * Soft delete timestamp
    * NULL if account is not deleted
    */
-  deletedAt?: Date | null;
+  deletedAt!: Date | null;
 }

@@ -1,32 +1,50 @@
 {
   "name": "@nauth-toolkit/social-apple",
-  "version": "0.1.0",
-  "description": "Apple OAuth provider for nauth-toolkit",
+  "version": "0.2.0",
+  "description": "Apple Sign In provider for nauth-toolkit — web and native flows",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "openapi": [
+        "dist/src/openapi/index.d.ts"
+      ],
+      "nestjs": [
+        "dist/nestjs/index.d.ts"
+      ]
+    }
+  },
   "exports": {
     ".": {
       "import": "./dist/src/index.js",
       "require": "./dist/src/index.js",
-      "types": "./dist/src/index.d.ts"
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./openapi": {
+      "import": "./dist/src/openapi/index.js",
+      "require": "./dist/src/openapi/index.js",
+      "types": "./dist/src/openapi/index.d.ts",
+      "default": "./dist/src/openapi/index.js"
     },
     "./nestjs": {
       "import": "./dist/nestjs/index.js",
       "require": "./dist/nestjs/index.js",
-      "types": "./dist/nestjs/index.d.ts"
+      "types": "./dist/nestjs/index.d.ts",
+      "default": "./dist/nestjs/index.js"
     }
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && node dist/src/openapi/generate-openapi.js",
     "clean": "rm -rf dist *.tsbuildinfo",
-    "test": "jest",
+    "test": "jest --passWithNoTests",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.1.0",
+    "@nauth-toolkit/core": "^0.2.0",
     "jose": "^6.0.0",
     "@nestjs/common": "^9 || ^10 || ^11"
   },
@@ -37,6 +55,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "ts-json-schema-generator": "^2.4.0",
     "typescript": "^5.5.0",
     "jose": "^6.0.0"
   },
@@ -45,14 +64,29 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "preview"
+    "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "keywords": [
-    "nestjs",
+    "nauth",
     "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
     "apple",
     "oauth",
-    "social"
-  ]
+    "social-login",
+    "sign-in-with-apple"
+  ],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth"
+  },
+  "homepage": "https://nauth.dev",
+  "sideEffects": false
 }

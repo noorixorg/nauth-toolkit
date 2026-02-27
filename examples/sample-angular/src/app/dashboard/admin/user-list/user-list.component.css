@@ -1,0 +1,11 @@
+/* User list component styles */
+.admin-users-table {
+  width: 100%;
+}
+
+.hide-mobile {
+  @media (max-width: 768px) {
+    display: none;
+  }
+}
+

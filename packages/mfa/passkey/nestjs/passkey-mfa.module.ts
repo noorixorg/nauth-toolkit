@@ -1,10 +1,15 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { PasskeyMFAProviderService } from '../src/passkey-mfa-provider.service';
 import { PasskeyService } from '../src/passkey.service';
 // Public API imports
-import { MFAService, NAuthConfig, NAuthLogger, ClientInfoService, BaseMFADevice, BaseUser } from '@nauth-toolkit/core';
+import { NAuthConfig, NAuthLogger, ClientInfoService, BaseMFADevice, BaseUser } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
-import { PasswordService, AuthAuditService as InternalAuthAuditService } from '@nauth-toolkit/core/internal';
+import {
+  NAUTH_MFA_PROVIDER_TOKEN,
+  PasswordService,
+  ChallengeService,
+  AuthAuditService as InternalAuthAuditService,
+} from '@nauth-toolkit/core/internal';
 import { Repository } from 'typeorm';
 
 /**
@@ -46,9 +51,9 @@ import { Repository } from 'typeorm';
         logger: NAuthLogger,
         passwordService: PasswordService,
         passkeyService: PasskeyService,
-        challengeService: any, // ChallengeService from core
-        auditService: any, // AuthAuditService from core
-        clientInfoService: any, // ClientInfoService from core
+        challengeService: ChallengeService | undefined,
+        auditService: InternalAuthAuditService | undefined,
+        clientInfoService: ClientInfoService | undefined,
       ) => {
         return new PasskeyMFAProviderService(
           mfaDeviceRepository,
@@ -74,22 +79,13 @@ import { Repository } from 'typeorm';
         { token: ClientInfoService, optional: true },
       ],
     },
+
+    // Bind to shared discovery token (registration is performed by AuthModule at app bootstrap)
+    {
+      provide: NAUTH_MFA_PROVIDER_TOKEN,
+      useExisting: PasskeyMFAProviderService,
+    },
   ],
   exports: [PasskeyService, PasskeyMFAProviderService],
 })
-export class PasskeyMFAModule implements OnModuleInit {
-  constructor(
-    private readonly passkeyMFAProvider: PasskeyMFAProviderService,
-    private readonly mfaService: MFAService,
-  ) {}
-
-  /**
-   * Auto-register Passkey provider with MFAService
-   */
-  onModuleInit(): void {
-    if (!this.mfaService) {
-      throw new Error('MFAService is not available. Ensure AuthModule.forRoot() is imported before PasskeyMFAModule.');
-    }
-    this.mfaService.registerProvider(this.passkeyMFAProvider);
-  }
-}
+export class PasskeyMFAModule {}

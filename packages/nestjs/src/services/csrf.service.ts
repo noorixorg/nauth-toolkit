@@ -56,6 +56,7 @@ export class CsrfService {
     sameSite: 'strict' | 'lax' | 'none';
     domain?: string;
     path?: string;
+    priority: 'low' | 'medium' | 'high';
   } {
     const config = this.config.security?.csrf?.cookieOptions;
     return {
@@ -64,6 +65,7 @@ export class CsrfService {
       sameSite: config?.sameSite ?? 'strict',
       domain: config?.domain,
       path: config?.path ?? '/',
+      priority: (config?.priority as 'low' | 'medium' | 'high') ?? 'high',
     };
   }
 

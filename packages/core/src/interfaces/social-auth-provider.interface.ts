@@ -1,5 +1,5 @@
-import { AuthResponseDTO } from '../dto';
-import { OAuthUserProfile } from '../interfaces/oauth.interface';
+import { AuthResponseDTO, HandleCallbackDTO, VerifyTokenDTO } from '../dto';
+import { OAuthUserProfile } from './oauth.interface';
 
 /**
  * Social Auth Provider Service Interface
@@ -45,6 +45,7 @@ export interface ISocialAuthProviderService {
    * Generate OAuth authorization URL for this provider
    *
    * @param state - Optional state parameter for CSRF protection
+   * @param oauthParams - Optional OAuth parameters to append to URL (overrides config defaults)
    * @returns Authorization URL to redirect user to
    * @throws {BadRequestException} When provider is not properly configured
    *
@@ -53,8 +54,13 @@ export interface ISocialAuthProviderService {
    * const authUrl = await provider.getAuthUrl('random-state-123');
    * // Redirect user to authUrl
    * ```
+   *
+   * @example With OAuth params
+   * ```typescript
+   * const authUrl = await provider.getAuthUrl('state-123', { prompt: 'select_account' });
+   * ```
    */
-  getAuthUrl(state?: string): Promise<string>;
+  getAuthUrl(state?: string, oauthParams?: Record<string, string>): Promise<string>;
 
   /**
    * Handle OAuth callback and authenticate user
@@ -62,19 +68,18 @@ export interface ISocialAuthProviderService {
    * Exchanges authorization code for access token, fetches user profile,
    * and returns unified authentication response with JWT tokens.
    *
-   * @param code - Authorization code from OAuth callback
-   * @param state - State parameter from OAuth callback (for CSRF protection)
+   * @param dto - HandleCallbackDTO containing code and state
    * @returns Unified authentication response with tokens and user info
    * @throws {BadRequestException} When callback is invalid
    *
    * @example
    * ```typescript
-   * const result = await provider.handleCallback(code, state);
+   * const result = await provider.handleCallback({ code, state });
    * console.log(result.accessToken); // JWT access token
    * console.log(result.user.email); // User email
    * ```
    */
-  handleCallback(code: string, state: string): Promise<AuthResponseDTO>;
+  handleCallback(dto: HandleCallbackDTO): Promise<AuthResponseDTO>;
 
   /**
    * Verify social authentication token from native mobile apps
@@ -82,19 +87,21 @@ export interface ISocialAuthProviderService {
    * Handles authentication tokens from native mobile apps (iOS/Android)
    * that use native SDKs (Google Sign-In SDK, Apple Sign In, etc.)
    *
-   * @param idToken - ID token from native SDK
-   * @param accessToken - Optional access token from native SDK
-   * @param profileData - Optional profile data from native SDK (for name extraction)
+   * @param dto - VerifyTokenDTO containing idToken, accessToken, and profileData
    * @returns Unified authentication response with tokens and user info
    * @throws {BadRequestException} When token is invalid
    *
    * @example
    * ```typescript
-   * const result = await provider.verifyToken(idToken, accessToken, profileData);
+   * const result = await provider.verifyToken({
+   *   idToken,
+   *   accessToken,
+   *   profileData
+   * });
    * return result; // Same format as login/signup
    * ```
    */
-  verifyToken(idToken: string, accessToken?: string, profileData?: any): Promise<AuthResponseDTO>;
+  verifyToken(dto: VerifyTokenDTO): Promise<AuthResponseDTO>;
 
   /**
    * Link social account to existing user
@@ -122,10 +129,9 @@ export interface ISocialAuthProviderService {
    * Internal method used by handleCallback to extract user profile.
    * Exposed for advanced use cases.
    *
-   * @param code - Authorization code from OAuth callback
-   * @param state - State parameter from OAuth callback
+   * @param dto - HandleCallbackDTO containing code and state
    * @returns OAuth user profile
    * @private
    */
-  getUserProfileFromCallback(code: string, state: string): Promise<OAuthUserProfile>;
+  getUserProfileFromCallback(dto: HandleCallbackDTO): Promise<OAuthUserProfile>;
 }

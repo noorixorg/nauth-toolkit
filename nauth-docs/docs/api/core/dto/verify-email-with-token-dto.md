@@ -3,9 +3,7 @@ title: VerifyEmailWithTokenDTO
 description: Request DTO for verifying email addresses using URL tokens from verification links. Token must be 64-character hexadecimal string.
 keywords: [email, verification, dto, request, token, link, api]
 image: /img/api-social-card.png
-sidebar_position: 18
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

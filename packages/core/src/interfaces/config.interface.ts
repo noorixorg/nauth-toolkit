@@ -17,6 +17,8 @@
 
 import { MFADeviceMethod } from '../enums/mfa-method.enum';
 import { StorageAdapter } from './storage-adapter.interface';
+import { EmailProvider, SMSProvider } from './provider.interface';
+import type { RecaptchaProvider } from '@nauth-toolkit/recaptcha';
 
 export interface NAuthConfig {
   /**
@@ -65,11 +67,6 @@ export interface NAuthConfig {
    * Security configuration
    */
   security?: SecurityConfig;
-
-  /**
-   * Lifecycle hooks
-   */
-  hooks?: LifecycleHooks;
 
   /**
    * Audit logging configuration
@@ -135,9 +132,27 @@ export interface NAuthConfig {
    *     from: process.env.EMAIL_FROM, // e.g., "My App <noreply@example.com>"
    *   },
    * })
+   *
+   * // Nodemailer with AWS SES SDK (production - uses IAM roles automatically)
+   * import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
+   * import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
+   * emailProvider: new NodemailerEmailProvider({
+   *   transport: {
+   *     SES: {
+   *       sesClient: new SESv2Client({
+   *         region: process.env.AWS_REGION || 'us-east-1',
+   *         // Credentials automatically discovered from IAM role on EC2/ECS/containers
+   *       }),
+   *       SendEmailCommand,
+   *     },
+   *   },
+   *   defaults: {
+   *     from: process.env.EMAIL_FROM, // e.g., "My App <noreply@example.com>"
+   *   },
+   * })
    * ```
    */
-  emailProvider?: any; // EmailProvider type will be imported from provider.interface
+  emailProvider?: EmailProvider;
 
   /**
    * Email verification configuration
@@ -157,7 +172,56 @@ export interface NAuthConfig {
    * smsProvider: new TwilioSMSProvider({ accountSid: '...', authToken: '...', fromNumber: '...' })
    * ```
    */
-  smsProvider?: any; // SMSProvider type will be imported from provider.interface
+  smsProvider?: SMSProvider;
+
+  /**
+   * SMS template configuration
+   *
+   * Configure custom SMS templates and global variables for branding.
+   * Templates are validated at startup to ensure required parameters are present.
+   *
+   * Note: If `email.globalVariables` contains shared branding fields (e.g., `appName`, `companyName`, `supportEmail`),
+   * the framework adapters may copy those into `sms.templates.globalVariables` as defaults.
+   * `sms.templates.globalVariables` always takes precedence for SMS rendering.
+   *
+   * @example Basic configuration with top-level branding
+   * ```typescript
+   * sms: {
+   *   templates: {
+   *     globalVariables: {
+   *       appName: process.env.APP_NAME || 'My Application',
+   *       companyName: process.env.COMPANY_NAME || 'My Company Inc.',
+   *       supportPhone: process.env.SUPPORT_PHONE || '+1-800-123-4567',
+   *     },
+   *   },
+   * }
+   * ```
+   *
+   * @example Advanced configuration with custom templates
+   * ```typescript
+   * sms: {
+   *   templates: {
+   *     globalVariables: {
+   *       appName: 'My App',
+   *       companyName: 'My Company',
+   *     },
+   *     customTemplates: {
+   *       verification: {
+   *         content: '{{appName}}: Your verification code is {{code}}. Expires in {{expiryMinutes}} min.',
+   *         // Must include: {{code}}, {{expiryMinutes}}
+   *       },
+   *       mfa: {
+   *         contentPath: './sms-templates/mfa.txt.hbs',
+   *         // Must include: {{code}}, {{expiryMinutes}}
+   *       },
+   *     },
+   *   },
+   * }
+   * ```
+   */
+  sms?: {
+    templates?: import('./sms-template.interface').SMSTemplateConfig;
+  };
 
   /**
    * Phone verification configuration
@@ -224,8 +288,12 @@ export interface NAuthConfig {
    *   },
    *   apple: {
    *     enabled: true,
-   *     clientId: process.env.APPLE_CLIENT_ID, // Your env var name
-   *     clientSecret: process.env.APPLE_CLIENT_SECRET,
+   *     clientId: process.env.APPLE_CLIENT_ID, // Apple Services ID (e.g., 'com.myapp.services')
+   *     // IMPORTANT: Apple requires a JWT client secret, not a static string
+   *     // Easy way to generate: Use online tool at https://www.better-auth.com/docs/authentication/apple
+   *     // You'll need: Team ID, Key ID (kid), Client ID, and your .p8 private key file
+   *     // The JWT expires in 6 months - regenerate before expiration
+   *     clientSecret: process.env.APPLE_CLIENT_SECRET, // Pre-generated JWT (required for web OAuth, not needed for native iOS)
    *     callbackUrl: 'https://myapp.com/auth/apple/callback',
    *     autoLink: true,
    *     allowSignup: true
@@ -365,6 +433,133 @@ export interface NAuthConfig {
    * ```
    */
   geoLocation?: GeoLocationConfig;
+
+  /**
+   * Email notifications configuration
+   *
+   * Controls which lifecycle notification emails are sent by the system.
+   * All notifications default to DISABLED (opt-in) except verification/reset codes.
+   *
+   * Consumers can:
+   * - Enable/disable optional notification emails
+   * - Suppress built-in emails and implement custom hooks instead
+   * - Use hooks to send notifications via custom channels (SMS, push, etc.)
+   *
+   * @remarks
+   * **Global Kill Switch:**
+   * - `enabled: false` disables ALL email notifications (including codes)
+   * - Useful for development/testing environments
+   *
+   * **Suppression Controls:**
+   * - Optional notification types can be individually suppressed
+   * - Code emails (verification, password reset, admin password reset) cannot be suppressed
+   * - `suppress.passwordChanged: false` enables password changed emails
+   *
+   * **Hook Alternative:**
+   * - Consumers can suppress built-in emails and implement custom hooks
+   * - Hooks provide full control over notification content and delivery
+   *
+   * @default
+   * ```typescript
+   * {
+   *   enabled: true,  // Global emails enabled
+   *   suppress: {
+   *     // Optional notifications (all default: true = DISABLED)
+   *     welcome: true,
+   *     passwordChanged: true,
+   *     mfaDeviceRemoved: true,
+   *     adaptiveMfaRiskDetected: true,
+   *     accountDisabled: true,
+   *     accountEnabled: true,
+   *     emailChangedOld: true,
+   *     emailChangedNew: true,
+   *     accountLockout: true,
+   *     sessionsRevoked: true,
+   *     mfaFirstEnabled: true,
+   *     mfaMethodAdded: true
+   *   }
+   * }
+   * ```
+   *
+   * @example Enable all lifecycle notifications
+   * ```typescript
+   * emailNotifications: {
+   *   enabled: true,
+   *   suppress: {
+   *     welcome: false,                    // Enable welcome email
+   *     passwordChanged: false,            // Enable password changed alert
+   *     mfaDeviceRemoved: false,          // Enable MFA device removed alert
+   *     adaptiveMfaRiskDetected: false,   // Enable risk detection alerts
+   *     accountDisabled: false,            // Enable account disabled notification
+   *     accountEnabled: false,             // Enable account enabled notification
+   *     emailChangedOld: false,           // Enable email changed alert (old address)
+   *     emailChangedNew: false,           // Enable email changed confirmation (new address)
+   *     accountLockout: false,            // Enable account lockout notification
+   *     sessionsRevoked: false,           // Enable sessions revoked alert
+   *     mfaFirstEnabled: false            // Enable MFA first enabled confirmation
+   *   }
+   * }
+   * ```
+   *
+   * @example Disable all emails (development/testing)
+   * ```typescript
+   * emailNotifications: {
+   *   enabled: false  // Kill switch - no emails sent at all
+   * }
+   * ```
+   */
+  emailNotifications?: EmailNotificationsConfig;
+
+  /**
+   * Google reCAPTCHA configuration (optional)
+   *
+   * Protects authentication endpoints from bot attacks using Google reCAPTCHA.
+   * Supports v2 (checkbox), v3 (score-based), and Enterprise versions.
+   *
+   * When enabled, authentication requests must include a valid reCAPTCHA token.
+   * Token validation is automatically enforced based on `enforceFor` configuration.
+   *
+   * **Important:** Social authentication (OAuth) endpoints are NOT protected by reCAPTCHA.
+   * OAuth providers (Google, Apple, Facebook) handle their own bot protection.
+   *
+   * @example Web-only protection (recommended)
+   * ```typescript
+   * import { RecaptchaV3Provider } from '@nauth-toolkit/recaptcha';
+   *
+   * recaptcha: {
+   *   enabled: true,
+   *   provider: new RecaptchaV3Provider({
+   *     secretKey: process.env.RECAPTCHA_SECRET_KEY!,
+   *   }),
+   *   enforceFor: ['cookies'], // Web only, mobile (JSON) exempt
+   *   minimumScore: 0.5,
+   * }
+   * ```
+   *
+   * @example All platforms protected
+   * ```typescript
+   * recaptcha: {
+   *   enabled: true,
+   *   provider: new RecaptchaV3Provider({
+   *     secretKey: process.env.RECAPTCHA_SECRET_KEY!,
+   *   }),
+   *   enforceFor: ['cookies', 'json'], // Both web and mobile
+   *   minimumScore: 0.5,
+   * }
+   * ```
+   *
+   * @example Optional validation (no enforcement)
+   * ```typescript
+   * recaptcha: {
+   *   enabled: true,
+   *   provider: new RecaptchaV3Provider({
+   *     secretKey: process.env.RECAPTCHA_SECRET_KEY!,
+   *   }),
+   *   enforceFor: [], // Don't require token, but validate if provided
+   * }
+   * ```
+   */
+  recaptcha?: RecaptchaConfig;
 }
 
 /**
@@ -471,7 +666,9 @@ export interface RefreshTokenConfig {
   expiresIn: string | number;
 
   /**
-   * Enable token rotation (generate new refresh token on each use)
+   * @deprecated Token rotation is always enabled and cannot be disabled.
+   * A new refresh token is issued on every use regardless of this flag.
+   * This property will be removed in a future major version.
    */
   rotation?: boolean;
 
@@ -542,6 +739,13 @@ export interface SignupConfig {
     expiresIn?: number;
 
     /**
+     * Maximum attempts to verify a single code
+     * Prevents brute force attacks on verification codes
+     * @default 3
+     */
+    maxAttempts?: number;
+
+    /**
      * Delay between resend requests in seconds
      * Prevents users from requesting codes too frequently
      * @default 60
@@ -593,6 +797,23 @@ export interface SignupConfig {
      * @default 3600 (1 hour)
      */
     attemptWindow?: number;
+
+    /**
+     * Base URL for email verification links
+     *
+     * If provided, verification emails will include a clickable link with the verification code.
+     * The link format will be: `${baseUrl}?code=${code}`
+     *
+     * The consumer app is responsible for handling the route. Only the query parameter is appended.
+     *
+     * Supports both development (localhost) and production URLs:
+     * - `http://localhost:4200`
+     * - `https://myapp.com`
+     *
+     * @example "https://myapp.com"
+     * @example "http://localhost:4200"
+     */
+    baseUrl?: string;
   };
 
   /**
@@ -756,6 +977,74 @@ export interface PasswordConfig {
    * Password expiry in days (0 = disabled)
    */
   expiryDays?: number;
+
+  /**
+   * Password reset (account recovery) configuration
+   *
+   * Controls forgot-password verification code behavior (delivery is handled by the
+   * configured email/SMS providers).
+   *
+   * Note: Defaults are applied in service layer when not provided.
+   */
+  passwordReset?: {
+    /**
+     * Verification code length
+     * @default 6
+     */
+    codeLength?: number;
+
+    /**
+     * Code expiry in seconds
+     * @default 900 (15 minutes)
+     */
+    expiresIn?: number;
+
+    /**
+     * Maximum reset requests per time window
+     * @default 3
+     */
+    rateLimitMax?: number;
+
+    /**
+     * Rate limit time window in seconds
+     * @default 3600 (1 hour)
+     */
+    rateLimitWindow?: number;
+
+    /**
+     * Maximum code verification attempts per code
+     * @default 3
+     */
+    maxAttempts?: number;
+  };
+
+  /**
+   * Admin password reset configuration
+   *
+   * Controls admin-initiated password reset verification code behavior.
+   * Admin resets have longer expiry (default 1 hour vs 15 min) and no rate limiting.
+   *
+   * Note: Defaults are applied in service layer when not provided.
+   */
+  adminPasswordReset?: {
+    /**
+     * Verification code length
+     * @default 6
+     */
+    codeLength?: number;
+
+    /**
+     * Code expiry in seconds
+     * @default 3600 (1 hour - longer than user-initiated 15 min)
+     */
+    expiresIn?: number;
+
+    /**
+     * Maximum code verification attempts per code
+     * @default 3
+     */
+    maxAttempts?: number;
+  };
 }
 
 export interface LockoutConfig {
@@ -771,6 +1060,17 @@ export interface LockoutConfig {
    * Maximum failed login attempts per IP address
    */
   maxAttempts?: number;
+
+  /**
+   * Attempt window in seconds for counting failed login attempts.
+   *
+   * WHY:
+   * - Prevents failed-attempt counters from accumulating indefinitely.
+   * - Makes `maxAttempts` behave like "N attempts per window" (standard lockout semantics).
+   *
+   * @default 3600 (1 hour)
+   */
+  attemptWindow?: number;
 
   /**
    * IP lockout duration in seconds
@@ -855,6 +1155,31 @@ export interface SessionConfig {
 }
 
 export interface SecurityConfig {
+  /**
+   * Mask sensitive data in API responses
+   *
+   * When enabled (default), email addresses and phone numbers in challenge responses
+   * are masked for security (e.g., 'u***@example.com', '***-***-1234').
+   *
+   * Set to false to return full email/phone in challenge responses
+   *
+   * @default true
+   *
+   * @example
+   * ```typescript
+   * // Enable masking (default - recommended for production)
+   * security: {
+   *   maskSensitiveData: true
+   * }
+   *
+   * // Disable masking (development or internal apps)
+   * security: {
+   *   maskSensitiveData: false
+   * }
+   * ```
+   */
+  maskSensitiveData?: boolean;
+
   /**
    * CSRF Protection Configuration
    *
@@ -951,239 +1276,62 @@ export interface SecurityConfig {
        * @default '/'
        */
       path?: string;
+      /**
+       * Cookie priority (Chrome 119+). High reduces eviction when storage is full.
+       * @default 'high'
+       */
+      priority?: 'low' | 'medium' | 'high';
     };
   };
 }
 
-export interface LifecycleHooks {
-  /**
-   * After signup hook
-   */
-  afterSignup?: (user: any, metadata?: { requiresVerification?: boolean }) => Promise<void>;
-
-  afterLogin?: (user: any, session: any) => Promise<void>;
-
-  /**
-   * After login failed hook
-   */
-  afterLoginFailed?: (identifier: string, reason: string) => Promise<void>;
-
-  /**
-   * Before password change hook
-   */
-  beforePasswordChange?: (userId: string, oldPassword: string) => Promise<void | false>;
-
-  /**
-   * After password change hook
-   */
-  afterPasswordChange?: (userId: string) => Promise<void>;
-
-  /**
-   * Before account lock hook
-   */
-  beforeAccountLock?: (userId: string, reason: string) => Promise<void | false>;
-
-  /**
-   * After account lock hook
-   */
-  afterAccountLock?: (userId: string, reason: string) => Promise<void>;
-
-  /**
-   * Adaptive MFA risk detected hook
-   *
-   * Called when adaptive MFA evaluates a login attempt and detects risk.
-   * Allows consumer app to send custom notifications, log to external systems,
-   * trigger security workflows, etc.
-   *
-   * This hook is called BEFORE the action is enforced (allow/require_mfa/block).
-   * Return false to override the adaptive decision and allow sign-in.
-   *
-   * @param payload - Rich context about the risk event
-   * @returns void to continue with configured action, false to override and allow
-   *
-   * @example Email notification
-   * ```typescript
-   * onAdaptiveMFATriggered: async (payload) => {
-   *   if (payload.riskLevel === 'high') {
-   *     await emailService.send({
-   *       to: payload.user.email,
-   *       subject: 'Suspicious sign-in attempt detected',
-   *       template: 'security-alert',
-   *       data: {
-   *         location: `${payload.clientInfo.ipCity}, ${payload.clientInfo.ipCountry}`,
-   *         device: payload.clientInfo.deviceName,
-   *         time: new Date().toISOString(),
-   *         riskFactors: payload.riskFactors.join(', '),
-   *       }
-   *     });
-   *   }
-   * }
-   * ```
-   *
-   * @example Slack notification to security team
-   * ```typescript
-   * onAdaptiveMFATriggered: async (payload) => {
-   *   if (payload.action === 'block_signin') {
-   *     await slackService.postMessage({
-   *       channel: '#security-alerts',
-   *       text: `High-risk sign-in blocked for ${payload.user.email}`,
-   *       attachments: [{
-   *         fields: [
-   *           { title: 'Risk Score', value: payload.riskScore.toString() },
-   *           { title: 'Risk Factors', value: payload.riskFactors.join(', ') },
-   *           { title: 'Location', value: payload.clientInfo.ipCountry },
-   *         ]
-   *       }]
-   *     });
-   *   }
-   * }
-   * ```
-   *
-   * @example Custom workflow with admin review
-   * ```typescript
-   * onAdaptiveMFATriggered: async (payload) => {
-   *   if (payload.riskScore > 80) {
-   *     // Create security review ticket
-   *     await securityReviewService.createTicket({
-   *       userId: payload.user.sub,
-   *       riskScore: payload.riskScore,
-   *       riskFactors: payload.riskFactors,
-   *       requiresManualReview: true,
-   *     });
-   *
-   *     // Send push notification to admins
-   *     await adminNotificationService.alert({
-   *       type: 'high_risk_signin',
-   *       userId: payload.user.sub,
-   *     });
-   *   }
-   * }
-   * ```
-   */
-  onAdaptiveMFATriggered?: (payload: AdaptiveMFARiskEventPayload) => Promise<void | false>;
-
-  /**
-   * Sign-in blocked hook
-   *
-   * Called when a sign-in is blocked due to high risk.
-   * Allows consumer app to implement custom blocking workflows,
-   * manual review processes, or admin notifications.
-   *
-   * @param payload - Context about the blocked sign-in
-   *
-   * @example Create manual review case
-   * ```typescript
-   * onSignInBlocked: async (payload) => {
-   *   await adminDashboardService.createReviewCase({
-   *     userId: payload.user.sub,
-   *     reason: 'High-risk adaptive MFA',
-   *     riskScore: payload.riskScore,
-   *     requiresAction: true,
-   *   });
-   * }
-   * ```
-   */
-  onSignInBlocked?: (payload: SignInBlockedPayload) => Promise<void>;
-}
+/**
+ * Email Verification Configuration
+ */
 
 /**
  * Email Verification Configuration
  */
 export interface EmailConfig {
   /**
-   * Application name (used in email templates)
+   * Global variables available to all email templates
    *
-   * @example 'My Application'
+   * This is the ONLY place to configure template globals.
+   * (There is no `email.templates.globalVariables`.)
+   *
+   * These values are injected into the configured EmailProvider (if it supports `setGlobalVariables`)
+   * and merged with per-email variables at send time.
+   *
+   * @example
+   * ```typescript
+   * email: {
+   *   globalVariables: {
+   *     appName: 'My Application',
+   *     companyName: 'My Company Inc.',
+   *     supportEmail: 'support@example.com',
+   *     brandColor: '#4f46e5',
+   *     logoUrl: 'https://example.com/logo.png',
+   *     dashboardUrl: 'https://app.example.com/dashboard'
+   *   }
+   * }
+   * ```
    */
-  appName?: string;
-
-  /**
-   * Company name (used in email footer)
-   *
-   * @example 'My Company Inc.'
-   */
-  companyName?: string;
-
-  /**
-   * Logo URL for email templates
-   *
-   * @example 'https://example.com/logo.png'
-   */
-  logoUrl?: string;
-
-  /**
-   * Support email address (displayed in email footer)
-   *
-   * @example 'support@example.com'
-   */
-  supportEmail?: string;
-
-  /**
-   * Dashboard URL (used in welcome emails)
-   *
-   * @example 'https://app.example.com/dashboard'
-   */
-  dashboardUrl?: string;
-
-  /**
-   * Brand color (hex code, used in email templates)
-   *
-   * @example '#4f46e5'
-   */
-  brandColor?: string;
-
-  /**
-   * Custom footer disclaimer text
-   *
-   * If not provided, uses default professional disclaimer.
-   *
-   * @example 'This email is confidential. Unsubscribe at any time.'
-   */
-  footerDisclaimer?: string;
+  globalVariables?: import('../interfaces/template.interface').TemplateVariables;
 
   /**
    * Template configuration for email notifications
    *
-   * Configure custom email templates and global variables for branding.
+   * Configure custom email templates and engine.
    * Templates are validated at startup to ensure required parameters are present.
-   *
-   * Note: Top-level branding fields (appName, companyName, logoUrl, etc.) are automatically
-   * merged into templates.globalVariables. You can override them in globalVariables if needed.
-   *
-   * @example Basic configuration with top-level branding
-   * ```typescript
-   * email: {
-   *   appName: process.env.APP_NAME || 'My Application',
-   *   companyName: process.env.COMPANY_NAME || 'My Company Inc.',
-   *   supportEmail: process.env.SUPPORT_EMAIL || 'support@example.com',
-   *   brandColor: '#4f46e5',
-   *   logoUrl: 'https://example.com/logo.png'
-   * }
-   * ```
-   *
-   * @example Advanced configuration with global variables
-   * ```typescript
-   * email: {
-   *   appName: 'My App',
-   *   companyName: 'My Company',
-   *   templates: {
-   *     globalVariables: {
-   *       // These override top-level values if both are provided
-   *       appName: 'Custom App Name',
-   *       customVar: 'Custom value'
-   *     }
-   *   }
-   * }
-   * ```
    *
    * @example Custom templates with file paths
    * ```typescript
    * email: {
+   *   globalVariables: {
+   *     appName: 'My App',
+   *     supportEmail: 'support@myapp.com'
+   *   },
    *   templates: {
-   *     globalVariables: {
-   *       appName: 'My App',
-   *       supportEmail: 'support@myapp.com'
-   *     },
    *     customTemplates: {
    *       verification: {
    *         htmlPath: './email-templates/verification.html.hbs',
@@ -1203,7 +1351,6 @@ export interface EmailConfig {
    * ```typescript
    * email: {
    *   templates: {
-   *     globalVariables: { appName: 'My App' },
    *     customTemplates: {
    *       welcome: {
    *         subject: 'Welcome to {{appName}}!',
@@ -1242,12 +1389,59 @@ export interface SocialConfig {
   /**
    * Apple OAuth configuration
    */
-  apple?: SocialProviderConfig;
+  apple?: AppleSocialProviderConfig;
 
   /**
    * Facebook OAuth configuration
    */
   facebook?: SocialProviderConfig;
+
+  /**
+   * Redirect-first social login configuration (web)
+   *
+   * Used by framework adapters (e.g., NestJS) to perform backend-owned redirects:
+   * - Start: backend redirects to provider
+   * - Callback: backend sets cookies (or issues exchange token) and redirects to frontend
+   */
+  redirect?: SocialRedirectConfig;
+}
+
+/**
+ * Social redirect configuration
+ *
+ * Defines how the backend should redirect back to the frontend after completing OAuth.
+ *
+ * Security:
+ * - Prefer relative `returnTo` paths only
+ * - If allowing absolute `returnTo`, enforce an origin allowlist to prevent open redirects
+ */
+export interface SocialRedirectConfig {
+  /**
+   * Frontend base URL used to resolve relative return paths.
+   *
+   * @example
+   * ```typescript
+   * frontendBaseUrl: 'https://app.example.com'
+   * ```
+   */
+  frontendBaseUrl: string;
+
+  /**
+   * Whether absolute returnTo URLs are allowed.
+   *
+   * Default: false (relative-only).
+   */
+  allowAbsoluteReturnTo?: boolean;
+
+  /**
+   * Allowlist of origins permitted when allowAbsoluteReturnTo is true.
+   *
+   * @example
+   * ```typescript
+   * allowedReturnToOrigins: ['https://app.example.com', 'https://admin.example.com']
+   * ```
+   */
+  allowedReturnToOrigins?: string[];
 }
 
 /**
@@ -1280,7 +1474,10 @@ export interface SocialProviderConfig {
 
   /**
    * OAuth client secret from the provider
-   * Required if enabled
+   * Required if enabled (except for Apple, which uses AppleSocialProviderConfig)
+   *
+   * @example
+   * clientSecret: 'your-oauth-client-secret'
    */
   clientSecret?: string;
 
@@ -1317,6 +1514,132 @@ export interface SocialProviderConfig {
    * @default true
    */
   allowSignup?: boolean;
+
+  /**
+   * Additional OAuth parameters to include in authorization URL
+   *
+   * Provider-specific parameters that will be appended to the OAuth authorization URL.
+   * These act as defaults and can be overridden on a per-request basis.
+   *
+   * Common use cases:
+   * - Google: Force account chooser, restrict to domain, pre-fill email
+   * - Facebook: Rerequest declined permissions, customize display mode
+   * - Apple: Add nonce for ID token validation
+   *
+   * @example Google - Always show account chooser
+   * ```typescript
+   * oauthParams: {
+   *   prompt: 'select_account'
+   * }
+   * ```
+   *
+   * @example Google - Multiple params
+   * ```typescript
+   * oauthParams: {
+   *   prompt: 'select_account consent',
+   *   hd: 'company.com',
+   *   include_granted_scopes: 'true'
+   * }
+   * ```
+   *
+   * @example Facebook - Rerequest permissions
+   * ```typescript
+   * oauthParams: {
+   *   auth_type: 'rerequest',
+   *   display: 'popup'
+   * }
+   * ```
+   */
+  oauthParams?: Record<string, string>;
+}
+
+/**
+ * Apple-specific social provider configuration
+ *
+ * Apple Sign In requires a JWT client secret that must be generated
+ * from your Apple Developer credentials. This configuration allows you to provide
+ * the raw credentials, and the toolkit will automatically generate and refresh
+ * the JWT client secret as needed.
+ *
+ * **Multi-Platform Support:**
+ * Apple uses different client IDs for web vs native:
+ * - Web: Service ID (e.g., 'com.yourapp')
+ * - Native: App Bundle ID (e.g., 'com.yourapp.app')
+ *
+ * Configure BOTH IDs in `clientId` array to support cross-platform authentication.
+ * The toolkit will automatically verify tokens against all configured client IDs.
+ *
+ * **Web OAuth Requirements:**
+ * - Service ID (registered in Apple Developer Console)
+ * - Team ID, Key ID, and .p8 private key for JWT client secret
+ * - Callback URL matching your registered redirect URI
+ *
+ * **Native iOS Requirements:**
+ * - App Bundle ID (from your Xcode project)
+ * - No additional configuration needed (private key not required for native-only)
+ *
+ * @example Web only
+ * ```typescript
+ * apple: {
+ *   enabled: true,
+ *   clientId: 'com.myapp.services',  // Service ID
+ *   teamId: 'ABC123DEF4',
+ *   keyId: 'XYZ789ABC0',
+ *   privateKeyPem: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
+ *   callbackUrl: 'https://myapp.com/auth/apple/callback',
+ *   scopes: ['name', 'email']
+ * }
+ * ```
+ *
+ * @example Web + Native (cross-platform) - RECOMMENDED
+ * ```typescript
+ * apple: {
+ *   enabled: true,
+ *   clientId: [
+ *     'com.myapp.services',  // Service ID for web OAuth (first = used for redirect URL)
+ *     'com.myapp'            // App Bundle ID for native iOS/Android
+ *   ],
+ *   teamId: 'ABC123DEF4',
+ *   keyId: 'XYZ789ABC0',
+ *   privateKeyPem: '-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----',
+ *   callbackUrl: 'https://myapp.com/auth/apple/callback',
+ *   scopes: ['name', 'email']
+ * }
+ * ```
+ */
+export interface AppleSocialProviderConfig extends Omit<SocialProviderConfig, 'clientSecret'> {
+  /**
+   * Apple Developer Team ID
+   * Found in your Apple Developer account under Membership
+   * Required for web OAuth (not needed for native iOS apps)
+   *
+   * @example
+   * teamId: 'ABC123DEF4'
+   */
+  teamId?: string;
+
+  /**
+   * Apple Key ID (kid)
+   * The identifier for your .p8 private key in Apple Developer
+   * Required for web OAuth (not needed for native iOS apps)
+   *
+   * @example
+   * keyId: 'XYZ789ABC0'
+   */
+  keyId?: string;
+
+  /**
+   * Apple .p8 private key in PEM format
+   * The contents of your .p8 private key file downloaded from Apple Developer
+   * Required for web OAuth (not needed for native iOS apps)
+   *
+   * The toolkit will use this to generate and automatically refresh the JWT client secret.
+   * The JWT is stored in the database and refreshed when it has less than 30 days until expiration.
+   *
+   * @example
+   * privateKeyPem: '-----BEGIN PRIVATE KEY-----\nMIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQg...\n-----END PRIVATE KEY-----'
+   */
+  privateKeyPem?: string;
 }
 
 /**
@@ -1642,16 +1965,18 @@ export interface AdaptiveMFAConfig {
    * - 'new_country': Login from different country
    * - 'impossible_travel': Geographic distance/time anomaly
    * - 'suspicious_activity': Unusual behavior patterns
+   * - 'recent_password_reset': Password was reset/changed after last successful login
    *
    * @default ['new_device', 'new_ip', 'new_country']
    */
-  triggers?: Array<'new_device' | 'new_ip' | 'new_country' | 'impossible_travel' | 'suspicious_activity'>;
+  triggers?: Array<
+    'new_device' | 'new_ip' | 'new_country' | 'impossible_travel' | 'suspicious_activity' | 'recent_password_reset'
+  >;
 
   /**
    * Risk score threshold (0-100) to require MFA
    *
    * @default 50
-   * @deprecated Use riskLevels instead for more granular control
    */
   riskThreshold?: number;
 
@@ -1720,6 +2045,21 @@ export interface AdaptiveMFAConfig {
      * @default undefined (permanent until manual review)
      */
     blockDuration?: number;
+
+    /**
+     * Block scope for `block_signin` decisions.
+     *
+     * Controls what gets blocked when a high-risk sign-in is detected:
+     * - `user`: blocks the entire user (all devices/locations) until expiry/unblock
+     * - `device`: blocks only the current device (identified by `deviceToken`)
+     * - `ip`: blocks only the current IP address
+     *
+     * WARNING: `user` scope can be abused as a denial-of-service vector if attackers
+     * can repeatedly trigger high-risk decisions. Prefer `device` or `ip` in most apps.
+     *
+     * @default 'user'
+     */
+    scope?: 'user' | 'device' | 'ip';
 
     /**
      * Custom message to show user when blocked
@@ -1835,16 +2175,37 @@ export interface RiskLevelConfig {
  * }
  * ```
  */
+/**
+ * User information in adaptive MFA risk event payload
+ */
+export interface AdaptiveMFAUser {
+  /**
+   * User's unique identifier (UUID v4)
+   */
+  sub: string;
+
+  /**
+   * User's email address
+   */
+  email: string;
+
+  /**
+   * User's username (optional)
+   */
+  username?: string;
+
+  /**
+   * User's phone number (optional)
+   * E.164 format
+   */
+  phoneNumber?: string;
+}
+
 export interface AdaptiveMFARiskEventPayload {
   /**
    * User being authenticated
    */
-  user: {
-    sub: string;
-    email: string;
-    username?: string;
-    phoneNumber?: string;
-  };
+  user: AdaptiveMFAUser;
 
   /**
    * Risk assessment results
@@ -1985,6 +2346,11 @@ export interface TokenDeliveryConfig {
      * @example '.myapp.com'
      */
     domain?: string;
+    /**
+     * Cookie priority (Chrome 119+). High reduces eviction when storage is full.
+     * @default 'high'
+     */
+    priority?: 'low' | 'medium' | 'high';
   };
 
   /**
@@ -2020,6 +2386,170 @@ export interface ChallengeConfig {
    * ```
    */
   maxAttempts?: number;
+}
+
+/**
+ * Email Notifications Configuration
+ *
+ * Controls which lifecycle notification emails are sent by the system.
+ * Provides granular control over each notification type with global kill switch.
+ *
+ * **Design Principles:**
+ * - All optional notifications default to DISABLED (opt-in)
+ * - Code emails (verification, password reset) default to ENABLED
+ * - Consumers can suppress ANY email and implement custom hooks
+ * - Global `enabled` switch disables everything (for dev/test environments)
+ *
+ * **Hook Alternative:**
+ * Consumers can suppress built-in emails and implement custom hooks:
+ * - `IPasswordChangedHook` for password changed alerts
+ * - `IMFADeviceRemovedHook` for MFA device removal alerts
+ * - `IAdaptiveMFARiskDetectedHook` for risk detection alerts
+ * - `IAccountStatusChangedHook` for account enable/disable notifications
+ * - `IEmailChangedHook` for email change alerts (sends TWO emails)
+ * - `IAccountLockedHook` for account lockout notifications
+ * - `ISessionsRevokedHook` for session revocation alerts
+ * - `IMFAFirstEnabledHook` for MFA first enabled confirmation
+ */
+export interface EmailNotificationsConfig {
+  /**
+   * Global email notifications kill switch
+   *
+   * When false, ALL emails are disabled (including verification codes).
+   * Useful for development/testing environments.
+   *
+   * @default true
+   */
+  enabled?: boolean;
+
+  /**
+   * Granular email suppression controls
+   *
+   * Optional notification types can be individually suppressed.
+   * Suppressed emails will NOT be sent by built-in email provider.
+   *
+   * **Default Behavior:**
+   * - Optional notifications default to `true` (DISABLED, opt-in required)
+   * - Code emails (verification, password reset, admin password reset) cannot be suppressed
+   *
+   * **Hook Alternative:**
+   * Set notification to `true` (suppressed) and implement corresponding hook
+   * for full control over content and delivery channel.
+   */
+  suppress?: {
+    /**
+     * Welcome email after successful signup
+     *
+     * Sent via `IPostSignupHookProvider` when `requiresVerification = false`.
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    welcome?: boolean;
+
+    /**
+     * Password changed security alert
+     *
+     * Hook: `IPasswordChangedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    passwordChanged?: boolean;
+
+    /**
+     * MFA device removed security alert
+     *
+     * Hook: `IMFADeviceRemovedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    mfaDeviceRemoved?: boolean;
+
+    /**
+     * Adaptive MFA risk detection alert
+     *
+     * Hook: `IAdaptiveMFARiskDetectedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    adaptiveMfaRiskDetected?: boolean;
+
+    /**
+     * Account disabled notification
+     *
+     * Hook: `IAccountStatusChangedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    accountDisabled?: boolean;
+
+    /**
+     * Account enabled notification
+     *
+     * Hook: `IAccountStatusChangedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    accountEnabled?: boolean;
+
+    /**
+     * Email changed alert (sent to OLD email address)
+     *
+     * Security notification when email address is changed.
+     * Hook: `IEmailChangedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    emailChangedOld?: boolean;
+
+    /**
+     * Email changed confirmation (sent to NEW email address)
+     *
+     * Confirmation when email address is changed.
+     * Hook: `IEmailChangedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    emailChangedNew?: boolean;
+
+    /**
+     * Account lockout notification
+     *
+     * Hook: `IAccountLockedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    accountLockout?: boolean;
+
+    /**
+     * Sessions revoked security alert
+     *
+     * Hook: `ISessionsRevokedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    sessionsRevoked?: boolean;
+
+    /**
+     * MFA first enabled confirmation
+     *
+     * Hook: `IMFAFirstEnabledHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    mfaFirstEnabled?: boolean;
+
+    /**
+     * MFA method added notification
+     *
+     * Sent when a user adds an additional MFA method after MFA is already enabled
+     * (e.g., adding Passkey after already having TOTP).
+     *
+     * Hook: `IMFAMethodAddedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    mfaMethodAdded?: boolean;
+  };
 }
 
 /**
@@ -2132,4 +2662,145 @@ export interface GeoLocationConfig {
      */
     editions?: string[];
   };
+}
+
+/**
+ * Google reCAPTCHA configuration
+ *
+ * Configures bot protection for authentication endpoints using Google reCAPTCHA.
+ * Supports v2 (checkbox), v3 (score-based), and Enterprise versions.
+ *
+ * **Security Model:**
+ * - Token validation happens server-side only (never trust client)
+ * - Configurable enforcement per token delivery mode (cookies vs JSON)
+ * - Route-level overrides via decorators (@SkipRecaptcha, @RequireRecaptcha)
+ * - Automatic exemption for social OAuth endpoints
+ *
+ * **Token Delivery Modes:**
+ * - `cookies`: Web browsers (typically requires reCAPTCHA)
+ * - `json`: Mobile apps (typically exempt due to app store vetting)
+ *
+ * @example Typical web app configuration
+ * ```typescript
+ * import { RecaptchaV3Provider } from '@nauth-toolkit/recaptcha';
+ *
+ * recaptcha: {
+ *   enabled: true,
+ *   provider: new RecaptchaV3Provider({
+ *     secretKey: process.env.RECAPTCHA_SECRET_KEY!,
+ *   }),
+ *   enforceFor: ['cookies'], // Enforce for web, skip for mobile
+ *   minimumScore: 0.5,
+ * }
+ * ```
+ */
+export interface RecaptchaConfig {
+  /**
+   * Enable reCAPTCHA validation
+   *
+   * When enabled, authentication endpoints will validate reCAPTCHA tokens
+   * based on `enforceFor` configuration.
+   *
+   * @default false
+   */
+  enabled: boolean;
+
+  /**
+   * reCAPTCHA provider implementation
+   *
+   * Choose based on your requirements:
+   * - `RecaptchaV2Provider`: Checkbox-based (explicit user interaction)
+   * - `RecaptchaV3Provider`: Score-based invisible (recommended for most apps)
+   * - `RecaptchaEnterpriseProvider`: Advanced features for enterprise use
+   *
+   * @example v3 (recommended)
+   * ```typescript
+   * provider: new RecaptchaV3Provider({
+   *   secretKey: process.env.RECAPTCHA_SECRET_KEY!,
+   * })
+   * ```
+   *
+   * @example v2 (checkbox)
+   * ```typescript
+   * provider: new RecaptchaV2Provider({
+   *   secretKey: process.env.RECAPTCHA_V2_SECRET_KEY!,
+   * })
+   * ```
+   */
+  provider: RecaptchaProvider;
+
+  /**
+   * Minimum acceptable score for v3/Enterprise (0.0 - 1.0)
+   *
+   * Lower scores indicate likely bot activity:
+   * - 0.0: Very likely a bot
+   * - 0.5: Neutral (recommended threshold)
+   * - 1.0: Very likely a human
+   *
+   * Only applies to v3 and Enterprise versions.
+   * Ignored for v2 (checkbox-based has no score).
+   *
+   * Used as the default threshold when no per-action override is set
+   * in `actionScores`.
+   *
+   * **Security vs UX trade-off:**
+   * - Higher threshold (0.7+): More secure, may block legitimate users
+   * - Lower threshold (0.3-0.5): More permissive, may allow some bots
+   *
+   * @default 0.5
+   *
+   * @example Strict security
+   * ```typescript
+   * minimumScore: 0.7 // Block suspicious traffic aggressively
+   * ```
+   */
+  minimumScore?: number;
+
+  /**
+   * Per-action minimum score overrides for v3/Enterprise
+   *
+   * Allows different score thresholds for different reCAPTCHA actions.
+   * Falls back to `minimumScore` (or default 0.5) for actions not listed here.
+   *
+   * The action name must match the action used on the frontend when generating
+   * the reCAPTCHA token (e.g., `grecaptcha.execute(siteKey, { action: 'login' })`).
+   *
+   * Common actions: `login`, `signup`, `password_reset`, `change_email`
+   *
+   * @example Different thresholds per action
+   * ```typescript
+   * actionScores: {
+   *   login: 0.3,   // More permissive for login (returning users)
+   *   signup: 0.7,  // Stricter for signup (prevent bot registrations)
+   * }
+   * ```
+   */
+  actionScores?: Record<string, number>;
+
+  /**
+   * Startup validation behavior
+   *
+   * Controls what happens when reCAPTCHA provider configuration is validated
+   * during NAuth initialization:
+   *
+   * - `'warn'` (default): Log a warning if validation fails, but continue startup
+   * - `'error'`: Throw an error and halt startup if validation fails
+   * - `false`: Skip startup validation entirely
+   *
+   * Validation makes a lightweight probe request to Google's API using a dummy token.
+   * No real assessment is created. The probe verifies API keys, project access,
+   * and network connectivity.
+   *
+   * @default 'warn'
+   *
+   * @example Halt startup on misconfiguration (recommended for production)
+   * ```typescript
+   * recaptcha: {
+   *   enabled: true,
+   *   provider: new RecaptchaEnterpriseProvider({ ... }),
+   *   validateOnStartup: 'error',
+   * }
+   * ```
+   */
+  validateOnStartup?: 'warn' | 'error' | false;
 }

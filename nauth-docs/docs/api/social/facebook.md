@@ -3,9 +3,7 @@ title: Facebook Provider
 description: Facebook Login social authentication provider
 keywords: [social, oauth, facebook, api]
 image: /img/api-social-card.png
-sidebar_position: 3
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -22,23 +20,60 @@ npm install @nauth-toolkit/social-facebook
 
 | Export | Type | Entry |
 |--------|------|-------|
-| `FacebookSocialAuthProvider` | Class | Default |
+| `FacebookSocialAuthService` | Class | Default |
+| `FacebookOAuthClient` | Class | Default |
+| `TokenVerifierService` | Class | Default |
+| `VerifiedFacebookTokenProfile` | Interface | Default |
 | `FacebookSocialAuthModule` | NestJS Module | `/nestjs` |
 
-## Constructor
+## Configuration
+
+Configure Facebook under `config.social.facebook` (in `@nauth-toolkit/core` config).
+
+| Key | Type | Required | Description |
+| --- | --- | --- | --- |
+| `enabled` | `boolean` | No | Enable Facebook OAuth |
+| `clientId` | `string` | Yes (if enabled) | Facebook App ID |
+| `clientSecret` | `string` | Yes (if enabled) | Facebook App Secret |
+| `callbackUrl` | `string` | Yes (if enabled) | Backend callback URL (`/auth/social/facebook/callback`) |
+| `scopes` | `string[]` | No | Default: `['email', 'public_profile']` |
+| `autoLink` | `boolean` | No | Auto-link to existing users by verified email |
+| `allowSignup` | `boolean` | No | Allow creating new users on first login |
+| `oauthParams` | `Record<string, string>` | No | Additional OAuth parameters to include in authorization URL. These act as defaults and can be overridden on a per-request basis. |
+
+### OAuth Parameters
+
+The `oauthParams` option allows you to customize the Facebook OAuth authorization flow. These parameters are appended to Facebook's authorization URL and can be overridden on a per-request basis from the frontend.
+
+**Common Parameters:**
+- `auth_type`: Authentication type
+  - `'reauthenticate'` - Force user to re-authenticate
+  - `'rerequest'` - Re-request declined permissions
+- `display`: UI display mode
+  - `'page'` - Full-page redirect (default)
+  - `'popup'` - Popup window
+  - `'touch'` - Mobile-optimized UI
+- `auth_nonce`: For replay attack prevention
+
+**Example:**
 
 ```typescript
-new FacebookSocialAuthProvider(options: FacebookSocialAuthOptions)
+social: {
+  facebook: {
+    enabled: true,
+    clientId: process.env.FACEBOOK_APP_ID,
+    clientSecret: process.env.FACEBOOK_APP_SECRET,
+    callbackUrl: 'https://api.myapp.com/auth/social/facebook/callback',
+    scopes: ['email', 'public_profile'],
+    oauthParams: {
+      auth_type: 'rerequest',  // Always rerequest declined permissions
+      display: 'popup',         // Use popup window
+    },
+  },
+}
 ```
 
-## Options
-
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `clientId` | `string` | Yes | Facebook App ID |
-| `clientSecret` | `string` | Yes | Facebook App Secret |
-| `redirectUri` | `string` | Yes | OAuth callback URL |
-| `scopes` | `string[]` | No | OAuth scopes. Default: `['email', 'public_profile']` |
+See [Social Login Guide](/docs/guides/social/how-social-login-works) for usage examples.
 
 ## Usage
 
@@ -58,18 +93,8 @@ export class AppModule {}
 <TabItem value="express" label="Express">
 
 ```typescript
-import { FacebookSocialAuthProvider } from '@nauth-toolkit/social-facebook';
-
 const nauth = await NAuth.create({
-  config: {
-    socialProviders: [
-      new FacebookSocialAuthProvider({
-        clientId: process.env.FACEBOOK_APP_ID!,
-        clientSecret: process.env.FACEBOOK_APP_SECRET!,
-        redirectUri: 'https://myapp.com/auth/facebook/callback',
-      }),
-    ],
-  },
+  config,
   dataSource,
   adapter: new ExpressAdapter(),
 });
@@ -79,18 +104,8 @@ const nauth = await NAuth.create({
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { FacebookSocialAuthProvider } from '@nauth-toolkit/social-facebook';
-
 const nauth = await NAuth.create({
-  config: {
-    socialProviders: [
-      new FacebookSocialAuthProvider({
-        clientId: process.env.FACEBOOK_APP_ID!,
-        clientSecret: process.env.FACEBOOK_APP_SECRET!,
-        redirectUri: 'https://myapp.com/auth/facebook/callback',
-      }),
-    ],
-  },
+  config,
   dataSource,
   adapter: new FastifyAdapter(),
 });

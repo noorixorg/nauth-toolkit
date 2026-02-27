@@ -1,15 +1,13 @@
 ---
 title: "@Public()"
 description: Mark routes as public to bypass authentication
-sidebar_position: 2
 ---
-
 # @Public()
 
 **Package:** `@nauth-toolkit/nestjs`
-**Type:** Method Decorator
+**Type:** Method and Class Decorator
 
-Method decorator that marks a route as public, allowing it to bypass the `AuthGuard`.
+Decorator that marks a route or controller as public, allowing it to bypass the `AuthGuard`.
 
 :::tip Import from NestJS Package
 ```typescript
@@ -230,7 +228,8 @@ Support optional authentication (public but user-aware):
 
 ```typescript
 import { Controller, Get } from '@nestjs/common';
-import { Public, CurrentUser, IUser } from '@nauth-toolkit/nestjs';
+import { Public, CurrentUser } from '@nauth-toolkit/nestjs';
+import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('posts')
 export class PostsController {

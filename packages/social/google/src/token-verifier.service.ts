@@ -1,6 +1,14 @@
-import { createRemoteJWKSet, jwtVerify, JWTPayload } from 'jose';
+import type { JWTPayload } from 'jose';
 import { NAuthConfig, NAuthLogger, NAuthException, AuthErrorCode, ITokenVerifierService } from '@nauth-toolkit/core';
 import { VerifiedGoogleTokenProfile } from './verified-token-profile.interface';
+
+/**
+ * jose module type (ESM-only dependency).
+ *
+ * IMPORTANT: `jose@6` is ESM-only. This package is compiled to CommonJS by default,
+ * so we load jose via dynamic import to avoid `ERR_REQUIRE_ESM` at runtime.
+ */
+type JoseModule = typeof import('jose');
 
 /**
  * Token Verifier Service for Google OAuth (Platform-Agnostic)
@@ -21,13 +29,33 @@ import { VerifiedGoogleTokenProfile } from './verified-token-profile.interface';
  * ```
  */
 export class TokenVerifierService implements ITokenVerifierService {
-  private googleJWKS: ReturnType<typeof createRemoteJWKSet>;
+  private googleJWKS: ReturnType<JoseModule['createRemoteJWKSet']> | null = null;
   private readonly logger: NAuthLogger;
+  private readonly loadJose: () => Promise<JoseModule>;
+  private joseModulePromise: Promise<JoseModule> | null = null;
 
-  constructor(config: NAuthConfig) {
+  constructor(config: NAuthConfig, loadJose?: () => Promise<JoseModule>) {
     this.logger = config.logger as NAuthLogger;
+    // Use eval to prevent TypeScript from converting import() to require()
+    // This is necessary because jose@6 is ESM-only and cannot be required()
+    // TypeScript with module:"commonjs" converts import() to __importStar(require())
+    // Using eval preserves the dynamic import() at runtime
+    this.loadJose = loadJose ?? (() => (0, eval)("import('jose')") as Promise<JoseModule>);
+  }
+
+  private async getJose(): Promise<JoseModule> {
+    if (!this.joseModulePromise) {
+      this.joseModulePromise = this.loadJose();
+    }
+    return await this.joseModulePromise;
+  }
+
+  private async getGoogleJWKS(): Promise<ReturnType<JoseModule['createRemoteJWKSet']>> {
+    if (this.googleJWKS) return this.googleJWKS;
+    const jose = await this.getJose();
     // Initialize Google Remote JWKS (fetched and cached by jose)
-    this.googleJWKS = createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
+    this.googleJWKS = jose.createRemoteJWKSet(new URL('https://www.googleapis.com/oauth2/v3/certs'));
+    return this.googleJWKS;
   }
 
   /**
@@ -53,6 +81,9 @@ export class TokenVerifierService implements ITokenVerifierService {
    */
   async verifyGoogleToken(idToken: string, clientId: string | string[]): Promise<VerifiedGoogleTokenProfile> {
     try {
+      const jose = await this.getJose();
+      const googleJWKS = await this.getGoogleJWKS();
+
       // Support multiple client IDs (web, iOS, Android)
       const clientIds = Array.isArray(clientId) ? clientId : [clientId];
       this.logger?.debug?.(`[TokenVerifier] Verifying Google token with ${clientIds.length} accepted client ID(s)`);
@@ -62,7 +93,7 @@ export class TokenVerifierService implements ITokenVerifierService {
       let lastError: unknown;
       for (const aud of clientIds) {
         try {
-          verified = await jwtVerify(idToken, this.googleJWKS, {
+          verified = await jose.jwtVerify(idToken, googleJWKS, {
             issuer: 'https://accounts.google.com',
             audience: aud,
             clockTolerance: 300, // 5 minutes leeway

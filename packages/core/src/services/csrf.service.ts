@@ -7,11 +7,12 @@
 
 import * as crypto from 'crypto';
 import { NAuthConfig } from '../index';
+import { NAuthCookieOptions } from '../platform/interfaces';
 
 export class CsrfService {
   private readonly cookieName: string;
   private readonly headerName: string;
-  private readonly cookieOptions: any;
+  private readonly cookieOptions: NAuthCookieOptions;
 
   constructor(config: NAuthConfig) {
     this.cookieName = config.security?.csrf?.cookieName || 'nauth_csrf_token';
@@ -48,7 +49,7 @@ export class CsrfService {
     return this.headerName;
   }
 
-  getCookieOptions(): any {
+  getCookieOptions(): NAuthCookieOptions {
     return this.cookieOptions;
   }
 }

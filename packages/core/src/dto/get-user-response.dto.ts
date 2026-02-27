@@ -14,4 +14,4 @@
  */
 
 // Re-export UserResponseDto for consistency
-export { UserResponseDto as GetUserResponseDTO } from './user-response.dto';
+export { UserResponseDTO as GetUserResponseDTO } from './user-response.dto';

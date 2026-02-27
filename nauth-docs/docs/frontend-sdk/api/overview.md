@@ -1,7 +1,6 @@
 ---
 title: API Overview
 description: Complete API reference for the nauth-toolkit frontend SDK
-sidebar_position: 0
 keywords: [api, reference, sdk, client]
 image: /img/api-social-card.png
 ---
@@ -57,8 +56,7 @@ import {
 
   // Social types
   LinkedAccountsResponse, // See [LinkedAccountsResponse](./types/linked-accounts-response)
-  SocialAuthUrlRequest, // See [SocialAuthUrlRequest](./types/social-auth-url-request)
-  SocialCallbackRequest, // See [SocialCallbackRequest](./types/social-callback-request)
+  SocialLoginOptions, // See [SocialLoginOptions](./types/social-login-options)
   SocialVerifyRequest, // See [SocialVerifyRequest](./types/social-verify-request)
 
   // Config types
@@ -100,7 +98,7 @@ import {
   authGuard,
   AuthGuard,
   NAuthModule,
-} from '@nauth-toolkit/client/angular';
+} from '@nauth-toolkit/client-angular';
 ```
 
 | Export                                      | Type              | Description                               |
@@ -131,7 +129,7 @@ const client = new NAuthClient({
 ### Angular Standalone
 
 ```typescript
-import { NAUTH_CLIENT_CONFIG, authInterceptor, AuthService, authGuard } from '@nauth-toolkit/client/angular';
+import { NAUTH_CLIENT_CONFIG, authInterceptor, AuthService, authGuard } from '@nauth-toolkit/client-angular';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 
 export const appConfig = {
@@ -150,7 +148,7 @@ export const appConfig = {
 ### Angular NgModule
 
 ```typescript
-import { NAuthModule, AuthInterceptor, AuthGuard } from '@nauth-toolkit/client/angular';
+import { NAuthModule, AuthInterceptor, AuthGuard } from '@nauth-toolkit/client-angular';
 import { HTTP_INTERCEPTORS } from '@angular/common/http';
 
 @NgModule({

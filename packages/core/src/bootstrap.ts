@@ -49,9 +49,11 @@ import { initStorage } from './utils/setup/init-storage';
 import { initServices, NAuthServices } from './utils/setup/init-services';
 import { registerMFAProviders } from './utils/setup/register-mfa';
 import { initSocialAuth, NAuthSocialProviders } from './utils/setup/init-social';
+import { runNAuthMigrationsOnStartup } from './utils/setup/run-nauth-migrations';
 import { AuthFlowContextBuilder, AuthFlowStateMachineService } from './internal';
 import { ClientInfo } from './interfaces/client-info.interface';
 import { IUser } from './interfaces/entities.interface';
+import { SocialAuthStateStore } from './services/social-auth-state-store.service';
 
 // ============================================================================
 // Types
@@ -106,6 +108,10 @@ export interface NAuthInstance<TMiddleware = unknown, THelper = unknown>
     optionalAuth: () => THelper;
     /** Override token delivery mode */
     tokenDelivery: (mode: 'json' | 'cookies') => THelper;
+    /** Skip reCAPTCHA validation for this route */
+    skipRecaptcha: () => THelper;
+    /** Require reCAPTCHA validation for this route */
+    requireRecaptcha: () => THelper;
     /** Get current authenticated user */
     getCurrentUser: () => IUser | undefined;
     /** Get current session ID */
@@ -160,9 +166,15 @@ export class NAuth {
     logger.log(`Initializing NAuth with ${adapter.name}...`);
 
     // ========================================================================
+    // 0. Run database migrations (adapter-owned, auto-run, no consumer burden)
+    // ========================================================================
+    await runNAuthMigrationsOnStartup(config, dataSource, logger);
+
+    // ========================================================================
     // 1. Initialize Repositories & Storage
     // ========================================================================
     const repos = getRepositories(dataSource);
+
     const storage = await initStorage(config, repos.rateLimitRepository, repos.storageLockRepository, logger);
 
     // ========================================================================
@@ -193,7 +205,7 @@ export class NAuth {
     // ========================================================================
     // 4. Register MFA & Social Providers
     // ========================================================================
-    const socialAuthStateStore = new Map<string, { timestamp: number; provider: string }>();
+    const socialAuthStateStore = new SocialAuthStateStore(storage, logger);
 
     if (config.mfa?.enabled && services.mfaService) {
       await registerMFAProviders(
@@ -226,17 +238,64 @@ export class NAuth {
       services.phoneVerificationService,
       services.auditService,
       services.trustedDeviceService,
+      repos.socialProviderSecretRepository,
+      services.hookRegistry,
     );
+
+    // ========================================================================
+    // 4b. Validate reCAPTCHA Provider (if enabled)
+    // ========================================================================
+    if (config.recaptcha?.enabled && config.recaptcha.provider) {
+      const validateMode = config.recaptcha.validateOnStartup ?? 'warn';
+      // Cast to access optional validateConfig — runtime typeof check ensures safety.
+      const provider = config.recaptcha.provider as {
+        validateConfig?: () => Promise<{ valid: boolean; message: string; hint?: string; httpStatus?: number }>;
+      };
+
+      if (validateMode !== false && typeof provider.validateConfig === 'function') {
+        try {
+          const validationResult = await provider.validateConfig();
+
+          if (validationResult.valid) {
+            logger.log(`reCAPTCHA: ${validationResult.message}`);
+          } else {
+            const fullMessage = validationResult.hint
+              ? `${validationResult.message} ${validationResult.hint}`
+              : validationResult.message;
+
+            if (validateMode === 'error') {
+              throw new NAuthException(
+                AuthErrorCode.RECAPTCHA_PROVIDER_MISSING,
+                `reCAPTCHA startup validation failed: ${fullMessage}`,
+              );
+            } else {
+              logger.warn(`reCAPTCHA startup validation failed: ${fullMessage}`);
+            }
+          }
+        } catch (error: unknown) {
+          if (error instanceof NAuthException) {
+            throw error;
+          }
+          const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
+          logger.warn(`reCAPTCHA startup validation could not complete: ${errorMessage}`);
+        }
+      }
+    }
 
     // ========================================================================
     // 5. Create Handlers
     // ========================================================================
-    const clientInfoHandler = new ClientInfoHandler(services.clientInfoService, services.geoLocationService, logger);
+    const clientInfoHandler = new ClientInfoHandler(
+      services.clientInfoService,
+      config,
+      services.geoLocationService,
+      logger,
+    );
 
     const authHandler = new AuthHandler(
       services.jwtService,
       services.sessionService,
-      repos.userRepository,
+      services.authService,
       config,
       logger,
     );
@@ -337,6 +396,60 @@ export class NAuth {
             return next();
           },
         ),
+
+      /**
+       * Skip reCAPTCHA validation for this route
+       *
+       * Use when a specific route should bypass reCAPTCHA even if globally enabled.
+       * Useful for admin routes, mobile-only endpoints, or internal API calls.
+       *
+       * @example
+       * ```typescript
+       * // Express
+       * app.post('/api/auth/login/admin', nauth.helpers.skipRecaptcha(), (req, res) => {
+       *   // ... admin login logic
+       * });
+       *
+       * // Fastify
+       * fastify.post('/api/auth/login/admin', {
+       *   preHandler: [nauth.helpers.skipRecaptcha()]
+       * }, async (req, reply) => {
+       *   // ... admin login logic
+       * });
+       * ```
+       */
+      skipRecaptcha: () =>
+        adapter.registerMiddleware('skipRecaptcha', (req: NAuthRequest, _res: NAuthResponse, next: () => void) => {
+          req.attributes.nauthSkipRecaptcha = true;
+          return next();
+        }),
+
+      /**
+       * Require reCAPTCHA validation for this route
+       *
+       * Use when a specific route must enforce reCAPTCHA even if not globally enabled.
+       * Useful for high-risk operations like password reset or account deletion.
+       *
+       * @example
+       * ```typescript
+       * // Express
+       * app.post('/api/auth/password/reset', nauth.helpers.requireRecaptcha(), (req, res) => {
+       *   // ... password reset logic
+       * });
+       *
+       * // Fastify
+       * fastify.post('/api/auth/password/reset', {
+       *   preHandler: [nauth.helpers.requireRecaptcha()]
+       * }, async (req, reply) => {
+       *   // ... password reset logic
+       * });
+       * ```
+       */
+      requireRecaptcha: () =>
+        adapter.registerMiddleware('requireRecaptcha', (req: NAuthRequest, _res: NAuthResponse, next: () => void) => {
+          req.attributes.nauthRequireRecaptcha = true;
+          return next();
+        }),
 
       // Context helpers (read from ContextStorage)
       getCurrentUser: () => ContextStorage.get<IUser>('CURRENT_USER'),

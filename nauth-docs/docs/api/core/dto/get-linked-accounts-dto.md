@@ -1,11 +1,9 @@
 ---
 title: GetLinkedAccountsDTO
-description: Request DTO for getting linked social accounts. Includes user identifier (UUID v4).
+description: Request DTO for getting linked social accounts. User is resolved from authenticated JWT context — no body fields required.
 keywords: [social, auth, dto, request, accounts, api]
 image: /img/api-social-card.png
-sidebar_position: 32
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -14,7 +12,7 @@ import TabItem from '@theme/TabItem';
 **Package:** `@nauth-toolkit/core`
 **Type:** DTO (Request)
 
-Request DTO for getting linked social accounts.
+Request DTO for getting linked social accounts. This class has no body fields — the user is resolved from the authenticated JWT context.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
@@ -42,16 +40,12 @@ import { GetLinkedAccountsDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property | Type     | Required | Description                          |
-| -------- | -------- | -------- | ------------------------------------ |
-| `userId` | `string` | Yes      | User identifier (UUID v4). Trimmed and lowercased. |
+This DTO has no request body fields. The user's identity is resolved from the authenticated JWT token.
 
 ## Example
 
 ```json
-{
-  "userId": "a21b654c-2746-4168-acee-c175083a65cd"
-}
+{}
 ```
 
 ## Used By

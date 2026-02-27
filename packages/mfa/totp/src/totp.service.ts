@@ -1,7 +1,7 @@
-import { authenticator } from 'otplib';
 import * as QRCode from 'qrcode';
 import { NAuthConfig, TOTPConfig, NAuthLogger, NAuthException, AuthErrorCode } from '@nauth-toolkit/core';
 import { SetupTOTPResponseDTO } from './dto/mfa.dto';
+import { buildOtpAuthUri, generateBase32Secret, totpGenerate, totpVerify } from './totp.utils';
 
 /**
  * TOTP (Time-based One-Time Password) Service
@@ -38,32 +38,8 @@ export class TOTPService {
     private readonly config: NAuthConfig,
     private readonly logger: NAuthLogger,
   ) {
-    // Configure otplib with settings from config
-    this.configureAuthenticator();
-  }
-
-  // ============================================================================
-  // Configuration
-  // ============================================================================
-
-  /**
-   * Configure otplib authenticator with config settings
-   *
-   * Applies TOTP configuration from NAuthConfig or uses defaults.
-   * Called during service initialization.
-   *
-   * @private
-   */
-  private configureAuthenticator(): void {
+    // Log TOTP configuration
     const totpConfig = this.getTOTPConfig();
-
-    authenticator.options = {
-      step: totpConfig.stepSeconds,
-      window: totpConfig.window,
-      digits: totpConfig.digits,
-      algorithm: totpConfig.algorithm as any, // Type cast - otplib types don't match our config
-    };
-
     this.logger?.debug?.(
       `TOTP configured: step=${totpConfig.stepSeconds}s, window=${totpConfig.window}, digits=${totpConfig.digits}`,
     );
@@ -117,13 +93,22 @@ export class TOTPService {
     this.logger?.log?.(`Generating TOTP secret for: ${accountName}`);
 
     // Generate base32-encoded secret
-    const secret = authenticator.generateSecret();
+    const secret = generateBase32Secret();
 
     // Get issuer name
     const issuer = this.getIssuer();
 
-    // Generate otpauth URI for QR code
-    const otpauthUrl = authenticator.keyuri(accountName, issuer, secret);
+    const totpConfig = this.getTOTPConfig();
+    // Generate `otpauth://` URI for QR code.
+    // This avoids `otplib` (which can trigger CJS/ESM interop failures on Node 22 in CJS apps).
+    const otpauthUrl = buildOtpAuthUri({
+      label: accountName,
+      issuer,
+      secret,
+      algorithm: totpConfig.algorithm,
+      digits: totpConfig.digits as 6 | 8,
+      period: totpConfig.stepSeconds,
+    });
 
     // Generate QR code as data URL
     let qrCode: string;
@@ -177,7 +162,7 @@ export class TOTPService {
    * Validates a 6-digit TOTP code using time-based verification.
    * Checks current time step plus configured window (before/after).
    *
-   * ⚠️ SECURITY: Uses time window to account for clock drift and user delay.
+   * SECURITY: Uses time window to account for clock drift and user delay.
    * Default window of 1 checks 3 time steps (current, ±1).
    *
    * @param secret - Base32-encoded TOTP secret
@@ -187,27 +172,38 @@ export class TOTPService {
    * @example
    * ```typescript
    * // User enters code from Google Authenticator
-   * const isValid = totpService.verifyCode(user.totpSecret, '123456');
+   * const isValid = await totpService.verifyCode(user.totpSecret, '123456');
    * if (isValid) {
    *   // Grant access
    * }
    * ```
    */
-  verifyCode(secret: string, code: string): boolean {
+  async verifyCode(secret: string, code: string): Promise<boolean> {
     try {
       // Remove spaces and validate format
       const cleanCode = code.replace(/\s/g, '');
 
-      if (!/^\d{6}$/.test(cleanCode)) {
+      const totpConfig = this.getTOTPConfig();
+
+      // Validate against configured digits (default 6)
+      const digits = totpConfig.digits as 6 | 8;
+      const tokenRegex = new RegExp(`^\\d{${digits}}$`);
+      if (!tokenRegex.test(cleanCode)) {
         this.logger?.warn?.('Invalid TOTP code format');
         return false;
       }
 
-      // Verify code using otplib
-      const isValid = authenticator.verify({
-        token: cleanCode,
-        secret,
-      });
+      // Verify code using RFC 6238 implementation (no `otplib` dependency).
+      const isValid = totpVerify(
+        {
+          secret,
+          period: totpConfig.stepSeconds,
+          digits,
+          algorithm: totpConfig.algorithm,
+        },
+        cleanCode,
+        totpConfig.window,
+      );
 
       if (isValid) {
         this.logger?.debug?.('TOTP code verified successfully');
@@ -233,13 +229,13 @@ export class TOTPService {
    *
    * @example
    * ```typescript
-   * const result = totpService.verifyCodeWithDetails(secret, '123456');
+   * const result = await totpService.verifyCodeWithDetails(secret, '123456');
    * if (!result.valid) {
    *   throw new BadRequestException(result.error);
    * }
    * ```
    */
-  verifyCodeWithDetails(secret: string, code: string): { valid: boolean; error?: string } {
+  async verifyCodeWithDetails(secret: string, code: string): Promise<{ valid: boolean; error?: string }> {
     // Validate code format
     const cleanCode = code.replace(/\s/g, '');
 
@@ -247,8 +243,11 @@ export class TOTPService {
       return { valid: false, error: 'Code is required' };
     }
 
-    if (!/^\d{6}$/.test(cleanCode)) {
-      return { valid: false, error: 'Code must be 6 digits' };
+    const totpConfig = this.getTOTPConfig();
+    const digits = totpConfig.digits as 6 | 8;
+    const tokenRegex = new RegExp(`^\\d{${digits}}$`);
+    if (!tokenRegex.test(cleanCode)) {
+      return { valid: false, error: `Code must be ${digits} digits` };
     }
 
     // Verify secret format
@@ -257,7 +256,7 @@ export class TOTPService {
     }
 
     // Verify code
-    const isValid = this.verifyCode(secret, cleanCode);
+    const isValid = await this.verifyCode(secret, cleanCode);
 
     if (!isValid) {
       return { valid: false, error: 'Invalid or expired code' };
@@ -273,7 +272,7 @@ export class TOTPService {
   /**
    * Generate current TOTP code for secret
    *
-   * ⚠️ FOR TESTING ONLY - Do not use in production authentication flow.
+   * FOR TESTING ONLY - Do not use in production authentication flow.
    * This method generates the current valid code for a secret.
    *
    * @param secret - Base32-encoded TOTP secret
@@ -282,12 +281,18 @@ export class TOTPService {
    * @example
    * ```typescript
    * // Testing only
-   * const code = totpService.generateCode(secret);
+   * const code = await totpService.generateCode(secret);
    * // Returns: '123456'
    * ```
    */
-  generateCode(secret: string): string {
-    return authenticator.generate(secret);
+  async generateCode(secret: string): Promise<string> {
+    const totpConfig = this.getTOTPConfig();
+    return totpGenerate({
+      secret,
+      period: totpConfig.stepSeconds,
+      digits: totpConfig.digits as 6 | 8,
+      algorithm: totpConfig.algorithm,
+    });
   }
 
   /**

@@ -3,9 +3,7 @@ title: EmailVerificationService
 description: Email verification service for sending codes, verifying with code or token, and resending with rate limiting. Supports both code-based and link-based verification.
 keywords: [email, verification, service, code, token, api]
 image: /img/api-social-card.png
-sidebar_position: 5
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -173,6 +171,37 @@ fastify.post('/resend-verification-email', nauth.adapter.wrapRouteHandler(async 
 
 ---
 
+### sendMFAEmailCode()
+
+Send MFA email verification code. Used internally during MFA challenges.
+
+```typescript
+async sendMFAEmailCode(dto: SendVerificationEmailDTO): Promise<SendVerificationEmailResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`SendVerificationEmailDTO`](../dto/send-verification-email-dto) - Request DTO
+  - `sub` - `string` - User identifier (UUID v4)
+  - `challengeSessionId` - `number` (optional) - Challenge session ID to link the verification token to a specific session
+  - `skipAlreadyVerifiedCheck` - `boolean` (optional) - Skip already verified check
+
+**Returns**
+
+- [`SendVerificationEmailResponseDTO`](../dto/send-verification-email-response-dto) - Response with token ID
+  - `tokenId` - `number` - Verification token ID (internal)
+
+**Errors**
+
+| Code                | When                   | Details                                        |
+| ------------------- | ---------------------- | ---------------------------------------------- |
+| `ALREADY_VERIFIED`  | Email already verified | `{}`                                           |
+| `NOT_FOUND`         | User not found         | `{ userId: string }`                           |
+| `RATE_LIMIT_EMAIL`  | Too many requests      | `{ retryAfter: number, currentCount: number }` |
+| `RATE_LIMIT_RESEND` | Resend delay not met   | `{ retryAfter: number, resendDelay: number }`  |
+
+---
+
 ### sendVerificationEmail()
 
 Send verification email to user with code and optional link.
@@ -187,6 +216,8 @@ async sendVerificationEmail(dto: SendVerificationEmailDTO): Promise<SendVerifica
   - `sub` - `string` - User identifier (UUID v4)
   - `baseUrl` - `string` (optional) - Base URL for verification link
   - `skipAlreadyVerifiedCheck` - `boolean` (optional) - Skip already verified check (for MFA)
+  - `challengeSessionId` - `number` (optional) - Challenge session ID to link the verification token to a specific session
+  - `challengeSessionToken` - `string` (optional) - Challenge session token (UUID v4) to embed in the verification link for cross-browser verification
 
 **Returns**
 

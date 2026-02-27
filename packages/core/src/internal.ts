@@ -28,7 +28,7 @@
  *
  * @example
  * ```typescript
- * // ✅ Framework adapter usage
+ * // Framework adapter usage
  * import { ChallengeService, PasswordService } from '@nauth-toolkit/core/internal';
  *
  * // Inject internal services in adapter setup
@@ -110,6 +110,12 @@ export { JwtService } from './services/jwt.service';
 export { SessionService } from './services/session.service';
 
 /**
+ * Password reset (account recovery) service
+ * @internal
+ */
+export { PasswordResetService } from './services/password-reset.service';
+
+/**
  * Trusted device management service
  * @internal
  */
@@ -120,6 +126,22 @@ export { TrustedDeviceService } from './services/trusted-device.service';
  * @internal
  */
 export { GeoLocationService } from './services/geo-location.service';
+
+// ============================================================================
+// Lifecycle Hooks (Internal)
+// ============================================================================
+
+/**
+ * Hook registry service for lifecycle hook management
+ * @internal
+ */
+export { HookRegistryService } from './services/hook-registry.service';
+
+/**
+ * Built-in email notification hook provider
+ * @internal
+ */
+export { registerBuiltInEmailNotificationHooks } from './services/email-notifications.hook';
 
 // ============================================================================
 // Risk & Adaptive Security (Internal)
@@ -160,11 +182,45 @@ export { BaseMFAProviderService } from './services/mfa-base.service';
 export { BaseSocialAuthProviderService } from './services/social-auth-base.service';
 
 /**
+ * Storage-backed OAuth CSRF + redirect context store
+ * @internal
+ */
+export { SocialAuthStateStore } from './services/social-auth-state-store.service';
+
+/**
  * Social provider registry service
  * Internal registry for managing social auth provider instances
  * @internal
  */
 export { SocialProviderRegistry } from './services/social-provider-registry.service';
+
+// ============================================================================
+// Adapter Discovery Tokens (Internal)
+// ============================================================================
+
+/**
+ * Injection token used by framework adapters to discover **all** registered MFA provider services.
+ *
+ * @remarks
+ * Provider packages (e.g. `@nauth-toolkit/mfa-totp/nestjs`) should bind their provider service to this token
+ * (typically via `{ provide: NAUTH_MFA_PROVIDER_TOKEN, useExisting: MyProviderService }`).
+ *
+ * Framework adapters (e.g. `@nauth-toolkit/nestjs`) can then discover all providers via `ModuleRef.get(..., { each: true })`
+ * and register them into `MFAService` in an order-independent, deterministic way.
+ */
+export const NAUTH_MFA_PROVIDER_TOKEN = 'NAUTH_MFA_PROVIDER_TOKEN';
+
+/**
+ * Injection token used by framework adapters to discover **all** registered social auth provider services.
+ *
+ * @remarks
+ * Social provider packages (e.g. `@nauth-toolkit/social-google/nestjs`) should bind their provider service to this token
+ * (typically via `{ provide: NAUTH_SOCIAL_PROVIDER_TOKEN, useExisting: MySocialProviderService }`).
+ *
+ * Framework adapters (e.g. `@nauth-toolkit/nestjs`) can then discover all providers via `ModuleRef.get(..., { each: true })`
+ * and register them into the `SocialProviderRegistry` in an order-independent, deterministic way.
+ */
+export const NAUTH_SOCIAL_PROVIDER_TOKEN = 'NAUTH_SOCIAL_PROVIDER_TOKEN';
 
 // ============================================================================
 // Audit Service (Internal - with recordEvent)

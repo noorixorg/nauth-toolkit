@@ -128,7 +128,7 @@ export class ExpressAdapter implements NAuthAdapter {
             res.json = originalJson;
             return originalJson(modifiedBody);
           })
-          .catch((error) => {
+          .catch((_error) => {
             // On error, send original body (error handled gracefully)
             res.json = originalJson;
             return originalJson(body);
@@ -314,6 +314,7 @@ class ExpressResponseWrapper implements NAuthResponse {
       path: options.path,
       maxAge: options.maxAge,
       expires: options.expires,
+      priority: options.priority,
     };
   }
 }

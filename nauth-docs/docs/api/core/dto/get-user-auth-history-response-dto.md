@@ -1,11 +1,9 @@
 ---
 title: GetUserAuthHistoryResponseDTO
 description: Response DTO for paginated user authentication history
-sidebar_position: 100
 keywords: [dto, response, audit, history, pagination, api]
 image: /img/api-social-card.png
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -48,7 +46,7 @@ import { GetUserAuthHistoryResponseDTO } from '@nauth-toolkit/core';
 | `total`      | `number`        | Yes      | Total number of records matching query |
 | `page`       | `number`        | Yes      | Current page number                  |
 | `limit`      | `number`        | Yes      | Number of records per page           |
-| `totalPages` | `number`        | Yes      | Total number of pages                |
+| `totalPages` | `number`        | Yes      | Total number of pages (`Math.ceil(total / limit)`) |
 
 ## Example
 

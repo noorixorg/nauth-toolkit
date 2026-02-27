@@ -3,9 +3,7 @@ title: SetMustChangePasswordDTO
 description: Request DTO for requiring user to change password on next login. Includes UUID validation for security.
 keywords: [password, change, required, dto, request, uuid, api]
 image: /img/api-social-card.png
-sidebar_position: 17
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -42,18 +40,18 @@ import { SetMustChangePasswordDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property | Type     | Required | Description                                                      |
-| -------- | -------- | -------- | ---------------------------------------------------------------- |
-| `userId` | `string` | Yes      | User identifier. UUID v4 format. Trimmed and lowercased.          |
+| Property | Type     | Required | Description                                         |
+| -------- | -------- | -------- | --------------------------------------------------- |
+| `sub`    | `string` | Yes      | User sub (UUID v4). Trimmed and lowercased.         |
 
 ## Example
 
 ```json
 {
-  "userId": "a21b654c-2746-4168-acee-c175083a65cd"
+  "sub": "a21b654c-2746-4168-acee-c175083a65cd"
 }
 ```
 
 ## Used By
 
-- [AuthService.setMustChangePassword()](../services/auth-service#setmustchangepassword)
+- [AuthService.setMustChangePassword()](../services/admin-auth-service#setmustchangepassword)

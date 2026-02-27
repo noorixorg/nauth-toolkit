@@ -48,7 +48,9 @@ export interface TemplateVariables {
   footerDisclaimer?: string;
 
   // Allow any custom variables
-  [key: string]: string | number | boolean | undefined;
+  // NOTE: Handlebars templates can consume objects/arrays for helpers like #each.
+  // Using `unknown` avoids `any` while still allowing consumers to pass structured data.
+  [key: string]: unknown;
 }
 
 /**
@@ -83,12 +85,23 @@ export interface EmailTemplate {
 export enum TemplateType {
   VERIFICATION = 'verification',
   PASSWORD_RESET = 'passwordReset',
+  ADMIN_PASSWORD_RESET = 'adminPasswordReset',
   WELCOME = 'welcome',
   ACCOUNT_LOCKOUT = 'accountLockout',
   NEW_DEVICE = 'newDevice',
   PASSWORD_CHANGED = 'passwordChanged',
   EMAIL_CHANGED = 'emailChanged',
   MFA_ENABLED = 'mfaEnabled',
+  MFA_DEVICE_REMOVED = 'mfaDeviceRemoved',
+  MFA_METHOD_ADDED = 'mfaMethodAdded',
+  ADAPTIVE_MFA_RISK_ALERT = 'adaptiveMfaRiskAlert',
+  ACCOUNT_DISABLED = 'accountDisabled',
+  ACCOUNT_ENABLED = 'accountEnabled',
+  EMAIL_CHANGED_OLD = 'emailChangedOld',
+  EMAIL_CHANGED_NEW = 'emailChangedNew',
+  SESSIONS_REVOKED = 'sessionsRevoked',
+  /** Email MFA challenge code (separate from signup email verification) */
+  MFA_EMAIL_CODE = 'mfaEmailCode',
 }
 
 /**
@@ -200,26 +213,6 @@ export interface TemplateEngine {
    * ```
    */
   registerTemplate(type: TemplateType | string, template: EmailTemplate): void;
-
-  /**
-   * Register a custom template from files
-   *
-   * Allows loading templates from file system (.hbs, .html, .txt files).
-   * Consumer apps can provide paths to their own branded templates.
-   *
-   * @param type - Template type identifier
-   * @param templateFiles - Template file paths
-   *
-   * @example
-   * ```typescript
-   * engine.registerTemplateFromFiles(TemplateType.WELCOME, {
-   *   subject: { filePath: './templates/welcome.subject.hbs' },
-   *   html: { filePath: './templates/welcome.html.hbs' },
-   *   text: { filePath: './templates/welcome.text.hbs' }
-   * });
-   * ```
-   */
-  registerTemplateFromFiles?(type: TemplateType | string, templateFiles: TemplateFiles): Promise<void>;
 
   /**
    * Register a custom template from mixed sources (strings or files)
@@ -384,16 +377,16 @@ export interface CustomTemplateDefinition {
  * ```typescript
  * AuthModule.forRoot({
  *   email: {
+ *     // Global variables (available to all templates)
+ *     globalVariables: {
+ *       appName: 'My Application',
+ *       companyName: 'My Company Inc.',
+ *       supportEmail: 'support@example.com',
+ *       brandColor: '#4CAF50',
+ *       logoUrl: 'https://example.com/logo.png'
+ *     },
+ *     // Custom templates (override defaults)
  *     templates: {
- *       // Global variables (optional, available to all templates)
- *       globalVariables: {
- *         appName: 'My Application',
- *         companyName: 'My Company Inc.',
- *         supportEmail: 'support@example.com',
- *         brandColor: '#4CAF50',
- *         logoUrl: 'https://example.com/logo.png'
- *       },
- *       // Custom templates (override defaults)
  *       customTemplates: {
  *         verification: {
  *           htmlPath: './templates/verification.html.hbs',
@@ -410,7 +403,7 @@ export interface CustomTemplateDefinition {
  *           // No required params for welcome
  *         }
  *       }
- *     }
+ *     },
  *   }
  * })
  * ```
@@ -422,38 +415,6 @@ export interface TemplateConfig {
    * @default HandlebarsTemplateEngine with default templates
    */
   engine?: TemplateEngine;
-
-  /**
-   * Global variables available to all templates
-   *
-   * These are merged with template-specific variables at render time.
-   * Template-specific variables take precedence over globals.
-   *
-   * Common global variables:
-   * - appName: Your application name
-   * - companyName: Your company name
-   * - supportEmail: Support contact email
-   * - brandColor: Primary brand color (hex)
-   * - logoUrl: URL to your logo image
-   * - dashboardUrl: URL to user dashboard
-   * - footerDisclaimer: Custom footer disclaimer text (optional, has default)
-   *
-   * Optional user-specific variables (injected at runtime):
-   * - firstName, lastName, userName: User information
-   * - currentYear: Current year (injected automatically)
-   *
-   * @example
-   * ```typescript
-   * globalVariables: {
-   *   appName: process.env.APP_NAME || 'My App',
-   *   companyName: 'My Company Inc.',
-   *   supportEmail: 'support@example.com',
-   *   brandColor: '#4f46e5',
-   *   logoUrl: 'https://example.com/logo.png'
-   * }
-   * ```
-   */
-  globalVariables?: TemplateVariables;
 
   /**
    * Custom template definitions

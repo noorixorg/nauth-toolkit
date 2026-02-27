@@ -6,7 +6,7 @@
  *
  * @example
  * ```typescript
- * const result = await authService.logoutAll({ sub: 'user-uuid' });
+ * const result = await authService.logoutAll({ forgetDevices: true });
  * // Returns: { revokedCount: 5 }
  * ```
  */

@@ -1,6 +1,7 @@
 import {
   NAuthClientConfig,
   NAuthEndpoints,
+  NAuthAdminEndpoints,
   NAuthStorageAdapter,
   TokenDeliveryMode,
   HttpAdapter,
@@ -21,6 +22,11 @@ export type ResolvedNAuthClientConfig = Omit<
   deviceTrust: { headerName: string; storageKey: string };
   headers: Record<string, string>;
   timeout: number;
+  admin?: {
+    pathPrefix: string;
+    endpoints: NAuthAdminEndpoints;
+    headers: Record<string, string>;
+  };
 };
 
 /**
@@ -38,25 +44,49 @@ export const defaultEndpoints: NAuthEndpoints = {
   getChallengeData: '/challenge/challenge-data',
   profile: '/profile',
   changePassword: '/change-password',
-  requestPasswordChange: '/request-password-change',
+  forgotPassword: '/forgot-password',
+  confirmForgotPassword: '/forgot-password/confirm',
+  confirmAdminResetPassword: '/reset-password/confirm',
   mfaStatus: '/mfa/status',
   mfaDevices: '/mfa/devices',
   mfaSetupData: '/mfa/setup-data',
   mfaVerifySetup: '/mfa/verify-setup',
-  mfaRemove: '/mfa/method',
-  mfaPreferred: '/mfa/preferred-method',
+  mfaPreferred: '/mfa/devices/:deviceId/preferred',
   mfaBackupCodes: '/mfa/backup-codes/generate',
-  mfaExemption: '/mfa/exemption',
-  socialAuthUrl: '/social/auth-url',
-  socialCallback: '/social/callback',
   socialLinked: '/social/linked',
   socialLink: '/social/link',
   socialUnlink: '/social/unlink',
   socialVerify: '/social/:provider/verify',
+  socialRedirectStart: '/social/:provider/redirect',
+  socialExchange: '/social/exchange',
   trustDevice: '/trust-device',
   isTrustedDevice: '/is-trusted-device',
   auditHistory: '/audit/history',
   updateProfile: '/profile',
+};
+
+/**
+ * Default admin endpoint paths matching backend admin controller.
+ */
+export const defaultAdminEndpoints: NAuthAdminEndpoints = {
+  signup: '/signup',
+  signupSocial: '/signup-social',
+  getUsers: '/users',
+  getUser: '/users/:sub',
+  deleteUser: '/users/:sub',
+  disableUser: '/users/:sub/disable',
+  enableUser: '/users/:sub/enable',
+  forcePasswordChange: '/users/:sub/force-password-change',
+  setPassword: '/set-password',
+  resetPasswordInitiate: '/reset-password/initiate',
+  getUserSessions: '/users/:sub/sessions',
+  logoutAll: '/users/:sub/logout-all',
+  getMfaStatus: '/users/:sub/mfa/status',
+  getMfaDevices: '/users/:sub/mfa/devices',
+  removeMfaDeviceById: '/mfa/devices/:deviceId',
+  setPreferredMfaDevice: '/users/:sub/mfa/devices/:deviceId/preferred',
+  setMfaExemption: '/mfa/exemption',
+  getAuditHistory: '/audit/history',
 };
 
 /**
@@ -71,6 +101,24 @@ export const resolveConfig = (config: NAuthClientConfig, defaultAdapter: HttpAda
     ...defaultEndpoints,
     ...(config.endpoints ?? {}),
   };
+
+  // Resolve admin config if provided
+  let resolvedAdmin: ResolvedNAuthClientConfig['admin'];
+  if (config.admin) {
+    const resolvedAdminEndpoints: NAuthAdminEndpoints = {
+      ...defaultAdminEndpoints,
+      ...(config.admin.endpoints ?? {}),
+    };
+
+    resolvedAdmin = {
+      pathPrefix: config.admin.pathPrefix ?? '/admin',
+      endpoints: resolvedAdminEndpoints,
+      headers: {
+        ...config.headers,
+        ...(config.admin.headers ?? {}),
+      },
+    };
+  }
 
   return {
     ...config,
@@ -87,5 +135,6 @@ export const resolveConfig = (config: NAuthClientConfig, defaultAdapter: HttpAda
     endpoints: resolvedEndpoints,
     storage: config.storage as NAuthStorageAdapter,
     httpAdapter: config.httpAdapter ?? defaultAdapter,
+    admin: resolvedAdmin,
   };
 };

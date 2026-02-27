@@ -1,5 +1,8 @@
 /**
  * Full user profile returned from profile endpoints.
+ *
+ * Matches UserResponseDto structure from backend.
+ * Used for both user-level and admin-level responses.
  */
 export interface AuthUser {
   sub: string;
@@ -10,12 +13,28 @@ export interface AuthUser {
   phone?: string | null;
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
-  isActive?: boolean;
-  mfaEnabled?: boolean;
+  isActive: boolean;
+  /**
+   * Account lock status
+   * Locked accounts cannot login until unlocked
+   */
+  isLocked: boolean;
+  mfaEnabled: boolean;
+  /**
+   * MFA exemption status (admin-granted bypass of MFA at login)
+   */
+  mfaExempt?: boolean;
   socialProviders?: string[] | null;
   hasPasswordHash: boolean;
-  createdAt?: string | Date;
-  updatedAt?: string | Date;
+  /**
+   * Authentication method used to create the current session.
+   *
+   * This is session-scoped (how the user logged in this time), not an account capability.
+   * Use `hasPasswordHash` and `socialProviders` to determine what login methods the account supports.
+   */
+  sessionAuthMethod?: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }
 
 /**
@@ -32,6 +51,56 @@ export interface UpdateProfileRequest {
  * Change password request.
  */
 export interface ChangePasswordRequest {
-  currentPassword: string;
+  oldPassword: string;
   newPassword: string;
+}
+
+/**
+ * Forgot password request payload.
+ */
+export interface ForgotPasswordRequest {
+  identifier: string;
+}
+
+/**
+ * Forgot password response payload.
+ */
+export interface ForgotPasswordResponse {
+  success: boolean;
+  destination?: string;
+  deliveryMedium?: 'email' | 'sms';
+  expiresIn?: number;
+}
+
+/**
+ * Confirm forgot password request payload.
+ */
+export interface ConfirmForgotPasswordRequest {
+  identifier: string;
+  code: string;
+  newPassword: string;
+}
+
+/**
+ * Confirm forgot password response payload.
+ */
+export interface ConfirmForgotPasswordResponse {
+  success: boolean;
+  mustChangePassword: boolean;
+}
+
+/**
+ * Reset password with code request (generic for both admin-initiated and user-initiated resets).
+ */
+export interface ResetPasswordWithCodeRequest {
+  identifier: string;
+  code: string;
+  newPassword: string;
+}
+
+/**
+ * Reset password with code response.
+ */
+export interface ResetPasswordWithCodeResponse {
+  success: boolean;
 }

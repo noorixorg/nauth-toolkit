@@ -10,7 +10,7 @@ import { StorageAdapter } from '@nauth-toolkit/core';
  * - Database/Redis reset (optional, not used by default)
  * - Test data retrieval (TOTP secrets)
  *
- * ⚠️ ONLY ACTIVE when NAUTH_TEST_MODE=true
+ * ONLY ACTIVE when NAUTH_TEST_MODE=true
  *
  * Note: Configuration changes require manual edits to auth.config.ts.
  * The app auto-restarts on file changes when using yarn start:dev.
@@ -85,7 +85,7 @@ export class TestService {
             }
           }
         }
-        this.logger.log('✅ Database data cleared (light reset)');
+        this.logger.log('Database data cleared (light reset)');
         await queryRunner.release();
       } else {
         // Full reset: Drop and recreate tables
@@ -106,7 +106,7 @@ export class TestService {
         // This will recreate all entities registered in the DataSource
         this.logger.log('Recreating database schema...');
         await this.dataSource.synchronize(true); // true = drop before sync
-        this.logger.log('✅ Database schema recreated');
+        this.logger.log('Database schema recreated');
       }
 
       // Flush Redis if using storage adapter
@@ -119,20 +119,20 @@ export class TestService {
             for (const key of keys) {
               await this.storageAdapter.del(key);
             }
-            this.logger.log(`✅ Cleared ${keys.length} Redis keys with nauth: prefix`);
+            this.logger.log(`Cleared ${keys.length} Redis keys with nauth: prefix`);
           } else {
             this.logger.debug('No Redis keys found with nauth: prefix');
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          this.logger.warn(`⚠️  Failed to flush Redis keys: ${errorMessage}`);
+          this.logger.warn(`Failed to flush Redis keys: ${errorMessage}`);
           // Non-blocking: Continue even if Redis flush fails
         }
       } else {
         this.logger.debug('No storage adapter available - skipping Redis flush');
       }
 
-      this.logger.log('✅ Test environment reset complete');
+      this.logger.log('Test environment reset complete');
     } catch (error) {
       this.logger.error(`Failed to reset test environment: ${error}`);
       throw error;

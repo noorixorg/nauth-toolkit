@@ -12,13 +12,13 @@ The toolkit's responsibility is to **throw consistent, structured errors**. Cons
 
 `NAuthException` extends standard `Error` (not `HttpException`), making it usable in:
 
-- ✅ HTTP APIs (REST, NestJS)
-- ✅ WebSocket connections
-- ✅ GraphQL resolvers
-- ✅ gRPC services
-- ✅ Message queue workers
-- ✅ CLI tools
-- ✅ Standalone services
+- - HTTP APIs (REST, NestJS)
+- - WebSocket connections
+- - GraphQL resolvers
+- - gRPC services
+- - Message queue workers
+- - CLI tools
+- - Standalone services
 
 ### Separation of Concerns
 
@@ -44,7 +44,7 @@ The toolkit's responsibility is to **throw consistent, structured errors**. Cons
 
 ## Implementation
 
-### 1. Toolkit Side (Done ✅)
+### 1. Toolkit Side (Done -)
 
 The toolkit throws structured domain exceptions:
 
@@ -356,7 +356,7 @@ try {
 
 ## Toolkit Responsibilities
 
-### ✅ What nauth-toolkit provides:
+### - What nauth-toolkit provides:
 
 - `NAuthException` - Framework-agnostic exception class
 - `AuthErrorCode` - Enum with all error codes
@@ -364,14 +364,14 @@ try {
 - `getHttpStatusForErrorCode()` - Helper for HTTP status mapping
 - `NAuthHttpExceptionFilter` - **Optional** ready-to-use HTTP filter
 
-### 🚫 What nauth-toolkit does NOT do:
+###  What nauth-toolkit does NOT do:
 
 - Force specific HTTP status codes (you can override)
 - Require using the provided filter (it's optional)
 - Handle error logging (consumer's responsibility)
 - Interfere with your other exception filters
 
-### 🎯 What consumer apps handle:
+###  What consumer apps handle:
 
 - Create exception filter for their transport layer
 - Map error codes to status codes (or use helper)
@@ -385,23 +385,23 @@ try {
 
 ### For Any Transport Layer:
 
-- ✅ Works with HTTP, WebSocket, GraphQL, gRPC, etc.
-- ✅ Consumer controls response format
-- ✅ No framework coupling
+- - Works with HTTP, WebSocket, GraphQL, gRPC, etc.
+- - Consumer controls response format
+- - No framework coupling
 
 ### For Developers:
 
-- ✅ **Programmatic error handling** - Check error codes, not strings
-- ✅ **Structured metadata** - retryAfter, validation details
-- ✅ **Type-safe** - Error codes are enums
-- ✅ **Flexible** - Use helper or define own mapping
+- - **Programmatic error handling** - Check error codes, not strings
+- - **Structured metadata** - retryAfter, validation details
+- - **Type-safe** - Error codes are enums
+- - **Flexible** - Use helper or define own mapping
 
 ### For Production:
 
-- ✅ **Consistent errors** - Same structure everywhere
-- ✅ **Debuggable** - Timestamps, structured details
-- ✅ **Monitorable** - Error codes for dashboards
-- ✅ **Internationalization-ready** - Codes separate from messages
+- - **Consistent errors** - Same structure everywhere
+- - **Debuggable** - Timestamps, structured details
+- - **Monitorable** - Error codes for dashboards
+- - **Internationalization-ready** - Codes separate from messages
 
 ---
 
@@ -427,9 +427,9 @@ throw new NAuthException(AuthErrorCode.RATE_LIMIT_SMS, 'Too many SMS sent', { re
 
 **Benefits:**
 
-- ✅ Error code for programmatic handling
-- ✅ Metadata included
-- ✅ Frontend can show countdown timer
+- - Error code for programmatic handling
+- - Metadata included
+- - Frontend can show countdown timer
 
 ---
 
@@ -510,30 +510,30 @@ export class NAuthExceptionFilter implements ExceptionFilter {
 
 ## Implementation Status
 
-### Phase 1: Core Infrastructure ✅
+### Phase 1: Core Infrastructure -
 
-- ✅ Created `NAuthException` (framework-agnostic)
-- ✅ Created `AuthErrorCode` enum
-- ✅ Created `getHttpStatusForErrorCode()` helper
-- ✅ Exported from core package
+- - Created `NAuthException` (framework-agnostic)
+- - Created `AuthErrorCode` enum
+- - Created `getHttpStatusForErrorCode()` helper
+- - Exported from core package
 
-### Phase 2: Backend Migration ✅ (100% Complete)
+### Phase 2: Backend Migration - (100% Complete)
 
-- ✅ Phone verification service
-- ✅ Core auth service
-- ✅ Challenge service
-- ✅ Auth challenge helper service
-- ✅ Social account service
-- ✅ Email verification service
-- ✅ Social auth providers (base, google, apple, facebook)
-- ✅ Social token verifiers (google, apple, facebook)
-- ✅ MFA services (totp, sms, passkey)
-- ✅ Guards (auth.guard.ts)
+- - Phone verification service
+- - Core auth service
+- - Challenge service
+- - Auth challenge helper service
+- - Social account service
+- - Email verification service
+- - Social auth providers (base, google, apple, facebook)
+- - Social token verifiers (google, apple, facebook)
+- - MFA services (totp, sms, passkey)
+- - Guards (auth.guard.ts)
 
 **All NestJS exceptions migrated to `NAuthException` with structured error codes.**
 
-### Phase 3: Documentation ✅
+### Phase 3: Documentation -
 
-- ✅ Consumer exception filter examples
-- ✅ Multi-transport examples (HTTP, WS, GraphQL)
-- ✅ Custom mapping examples
+- - Consumer exception filter examples
+- - Multi-transport examples (HTTP, WS, GraphQL)
+- - Custom mapping examples

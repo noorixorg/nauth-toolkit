@@ -242,26 +242,30 @@
           styleClass="w-full social-button"
           iconPos="left"
         />
-        <p-button
-          label="Sign up with Apple"
-          icon="pi pi-apple"
-          severity="secondary"
-          [outlined]="true"
-          [disabled]="loading()"
-          (onClick)="onSocialSignup('apple')"
-          styleClass="w-full social-button"
-          iconPos="left"
-        />
-        <p-button
-          label="Sign up with Facebook"
-          icon="pi pi-facebook"
-          severity="secondary"
-          [outlined]="true"
-          [disabled]="loading()"
-          (onClick)="onSocialSignup('facebook')"
-          styleClass="w-full social-button"
-          iconPos="left"
-        />
+        @if (showAppleLogin) {
+          <p-button
+            label="Sign up with Apple"
+            icon="pi pi-apple"
+            severity="secondary"
+            [outlined]="true"
+            [disabled]="loading()"
+            (onClick)="onSocialSignup('apple')"
+            styleClass="w-full social-button"
+            iconPos="left"
+          />
+        }
+        @if (showFacebookLogin) {
+          <p-button
+            label="Sign up with Facebook"
+            icon="pi pi-facebook"
+            severity="secondary"
+            [outlined]="true"
+            [disabled]="loading()"
+            (onClick)="onSocialSignup('facebook')"
+            styleClass="w-full social-button"
+            iconPos="left"
+          />
+        }
       </div>
 
       <!-- Login Link -->

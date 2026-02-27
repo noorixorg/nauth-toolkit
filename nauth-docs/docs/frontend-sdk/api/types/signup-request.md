@@ -1,7 +1,6 @@
 ---
 title: SignupRequest
 description: User registration request with email, password, and optional profile fields
-sidebar_position: 230
 keywords: [signup, registration, request, dto, api]
 image: /img/api-social-card.png
 ---
@@ -19,13 +18,14 @@ import { SignupRequest } from '@nauth-toolkit/client';
 
 ## Properties
 
-| Property    | Type     | Required | Description                                             |
-| ----------- | -------- | -------- | ------------------------------------------------------- |
-| `email`     | `string` | Yes      | User email address. Must be valid email format.         |
-| `password`  | `string` | Yes      | User password. Must meet backend password requirements. |
-| `firstName` | `string` | No       | User first name                                         |
-| `lastName`  | `string` | No       | User last name                                          |
-| `phone`     | `string` | No       | Phone number in E.164 format (e.g., `+14155551234`)     |
+| Property    | Type                        | Required | Description                                             |
+| ----------- | --------------------------- | -------- | ------------------------------------------------------- |
+| `email`     | `string`                    | Yes      | User email address. Must be valid email format.         |
+| `password`  | `string`                    | Yes      | User password. Must meet backend password requirements. |
+| `firstName` | `string`                    | No       | User first name                                         |
+| `lastName`  | `string`                    | No       | User last name                                          |
+| `phone`     | `string`                    | No       | Phone number in E.164 format (e.g., `+14155551234`)     |
+| `metadata`  | `Record<string, unknown>`   | No       | Custom metadata object (saved to user record)           |
 
 ## Example
 
@@ -35,7 +35,12 @@ import { SignupRequest } from '@nauth-toolkit/client';
   "password": "SecurePass123!",
   "firstName": "John",
   "lastName": "Doe",
-  "phone": "+14155551234"
+  "phone": "+14155551234",
+  "metadata": {
+    "customField": "value",
+    "source": "web",
+    "referralCode": "ABC123"
+  }
 }
 ```
 

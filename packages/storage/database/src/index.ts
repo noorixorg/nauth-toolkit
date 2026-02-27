@@ -7,10 +7,10 @@
  * @example
  * ```typescript
  * import { DatabaseStorageAdapter } from '@nauth-toolkit/storage-database';
- * import { getNAuthEntities } from '@nauth-toolkit/database-typeorm-postgres';
+ * import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
  *
  * TypeOrmModule.forRoot({
- *   entities: getNAuthEntities(), // Includes RateLimit, StorageLock entities
+ *   entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()],
  * });
  *
  * AuthModule.forRoot({

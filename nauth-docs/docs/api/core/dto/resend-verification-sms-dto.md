@@ -3,9 +3,7 @@ title: ResendVerificationSMSDTO
 description: Request DTO for resending verification SMS. Supports identification by user sub (UUID) or phone number with E.164 format.
 keywords: [phone, verification, sms, dto, request, resend, api]
 image: /img/api-social-card.png
-sidebar_position: 25
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -48,7 +46,7 @@ import { ResendVerificationSMSDTO } from '@nauth-toolkit/core';
 | `phone`  | `string` | No       | User phone number (E.164 format). Required if sub not provided. Max 20 chars. Whitespace removed. |
 
 :::info
-Either `sub` or `phone` must be provided (not both).
+At least one of `sub` or `phone` must be provided.
 :::
 
 ## Example

@@ -1,11 +1,9 @@
 ---
 title: GetChallengeDataDTO
-description: Request DTO for MFA challenge data retrieval. Currently only supports passkey method for WebAuthn challenge options.
-keywords: [mfa, challenge, data, dto, request, passkey, webauthn, api]
+description: Request DTO for MFA challenge data retrieval. Supports passkey, SMS, and email methods.
+keywords: [mfa, challenge, data, dto, request, passkey, sms, email, api]
 image: /img/api-social-card.png
-sidebar_position: 21
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -14,7 +12,7 @@ import TabItem from '@theme/TabItem';
 **Package:** `@nauth-toolkit/core`
 **Type:** DTO (Request)
 
-Data transfer object for requesting MFA challenge data (currently only for passkey/WebAuthn).
+Data transfer object for requesting MFA challenge data. Supports `passkey`, `sms`, and `email` methods.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
@@ -45,7 +43,7 @@ import { GetChallengeDataDTO } from '@nauth-toolkit/core';
 | Property  | Type                 | Required | Description                                                      |
 | --------- | -------------------- | -------- | ---------------------------------------------------------------- |
 | `session` | `string`             | Yes      | Challenge session token. UUID v4 format. Trimmed and lowercased. |
-| `method`  | `MFAChallengeMethod` | Yes      | MFA method. Must be: passkey.                                   |
+| `method`  | `MFAChallengeMethod` | Yes      | MFA method. One of: `passkey`, `sms`, `email`.                  |
 
 ## Example
 

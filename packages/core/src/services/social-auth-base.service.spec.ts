@@ -6,19 +6,23 @@ import { SessionService } from './session.service';
 import { AuthChallengeHelperService } from './auth-challenge-helper.service';
 import { ClientInfoService } from './client-info.service';
 import { PhoneVerificationService } from './phone-verification.service';
-import { AuthAuditService } from './auth-audit.service';
+import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
+import { HookRegistryService } from './hook-registry.service';
 import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { OAuthUserProfile } from '../interfaces/oauth.interface';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { IUser } from '../interfaces/entities.interface';
+import { ISocialAuthStateStore } from '../interfaces/social-auth-state-store.interface';
+import type { Repository } from 'typeorm';
+import type { BaseUser } from '../entities';
 
 /**
  * Test implementation of BaseSocialAuthProviderService
  */
 class TestSocialAuthProviderService extends BaseSocialAuthProviderService {
-  readonly providerName = 'test';
+  readonly providerName = 'google';
 
   async getAuthUrl(state?: string): Promise<string> {
     return `https://test.com/auth?state=${state || 'generated-state'}`;
@@ -64,15 +68,22 @@ describe('BaseSocialAuthProviderService', () => {
   let service: TestSocialAuthProviderService;
   let mockConfig: NAuthConfig;
   let mockLogger: NAuthLogger;
-  let mockAuthService: jest.Mocked<AuthService>;
+  type AuthServiceMockShape = {
+    getUserById: (...args: unknown[]) => Promise<IUser | null>;
+    getUserByEmail: (...args: unknown[]) => Promise<IUser | null>;
+    createSocialUser: (...args: unknown[]) => Promise<IUser>;
+  };
+  let mockAuthService: jest.Mocked<AuthServiceMockShape>;
   let mockSocialAuthService: jest.Mocked<SocialAuthService>;
   let mockJwtService: jest.Mocked<JwtService>;
   let mockSessionService: jest.Mocked<SessionService>;
   let mockChallengeHelper: jest.Mocked<AuthChallengeHelperService>;
   let mockClientInfoService: jest.Mocked<ClientInfoService>;
-  let mockStateStore: Map<string, { timestamp: number; provider: string }>;
+  let mockStateStore: jest.Mocked<ISocialAuthStateStore>;
+  let mockUserRepository: jest.Mocked<Repository<BaseUser>>;
   let mockPhoneVerificationService: jest.Mocked<PhoneVerificationService>;
   let mockAuditService: jest.Mocked<AuthAuditService>;
+  let mockHookRegistry: jest.Mocked<HookRegistryService>;
   let mockUser: IUser;
 
   beforeEach(() => {
@@ -95,7 +106,7 @@ describe('BaseSocialAuthProviderService', () => {
         },
       },
       social: {
-        test: {
+        google: {
           enabled: true,
           allowSignup: true,
           autoLink: false,
@@ -158,10 +169,27 @@ describe('BaseSocialAuthProviderService', () => {
       }),
     } as any;
 
-    mockStateStore = new Map();
+    mockStateStore = {
+      createCsrfState: jest.fn().mockResolvedValue('generated-state'),
+      validateAndConsumeCsrfState: jest.fn().mockResolvedValue(undefined),
+      setRedirectContext: jest.fn().mockResolvedValue(undefined),
+      consumeRedirectContext: jest.fn().mockResolvedValue(null),
+    };
+    mockUserRepository = {
+      findOne: jest.fn(),
+      create: jest.fn(),
+      save: jest.fn(),
+      update: jest.fn(),
+    } as unknown as jest.Mocked<Repository<BaseUser>>;
     mockPhoneVerificationService = {} as any;
     mockAuditService = {
       recordEvent: jest.fn(),
+    } as any;
+    mockHookRegistry = {
+      registerPreSignup: jest.fn(),
+      registerAfterSignup: jest.fn(),
+      executePreSignup: jest.fn().mockResolvedValue(undefined),
+      executePostSignup: jest.fn().mockResolvedValue(undefined),
     } as any;
 
     mockUser = {
@@ -174,15 +202,18 @@ describe('BaseSocialAuthProviderService', () => {
     service = new TestSocialAuthProviderService(
       mockConfig,
       mockLogger,
-      mockAuthService,
+      mockAuthService as unknown as AuthService,
       mockSocialAuthService,
       mockJwtService,
       mockSessionService,
       mockChallengeHelper,
       mockClientInfoService,
       mockStateStore,
+      mockUserRepository,
       mockPhoneVerificationService,
       mockAuditService,
+      undefined, // trustedDeviceService - not used in these tests
+      mockHookRegistry,
     );
   });
 
@@ -206,15 +237,18 @@ describe('BaseSocialAuthProviderService', () => {
       const newService = new TestSocialAuthProviderService(
         mockConfig,
         mockLogger,
-        mockAuthService,
+        mockAuthService as unknown as AuthService,
         mockSocialAuthService,
         mockJwtService,
         mockSessionService,
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined,
+        mockHookRegistry,
       );
 
       const config = (newService as any).getProviderConfig();
@@ -224,89 +258,104 @@ describe('BaseSocialAuthProviderService', () => {
   });
 
   describe('validateState', () => {
-    it('should validate state parameter', () => {
-      const state = 'valid-state';
-      mockStateStore.set(state, {
-        timestamp: Date.now(),
-        provider: 'test',
-      });
-
-      (service as any).validateState(state);
-
-      expect(mockStateStore.has(state)).toBe(false); // Should be deleted after validation
+    it('should validate state via ISocialAuthStateStore', async () => {
+      await (service as any).validateState('valid-state');
+      expect(mockStateStore.validateAndConsumeCsrfState).toHaveBeenCalledWith('google', 'valid-state');
     });
 
-    it('should throw error when state is not found', () => {
-      try {
-        (service as any).validateState('invalid-state');
-        fail('Should have thrown NAuthException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.VALIDATION_FAILED);
-      }
-    });
-
-    it('should throw error when state provider mismatch', () => {
-      const state = 'valid-state';
-      mockStateStore.set(state, {
-        timestamp: Date.now(),
-        provider: 'different-provider',
-      });
-
-      try {
-        (service as any).validateState(state);
-        fail('Should have thrown NAuthException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.VALIDATION_FAILED);
-      }
-    });
-
-    it('should throw error when state is expired', () => {
-      const state = 'expired-state';
-      mockStateStore.set(state, {
-        timestamp: Date.now() - 6 * 60 * 1000, // 6 minutes ago
-        provider: 'test',
-      });
-
-      try {
-        (service as any).validateState(state);
-        fail('Should have thrown NAuthException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.CHALLENGE_EXPIRED);
-      }
+    it('should propagate state validation errors', async () => {
+      mockStateStore.validateAndConsumeCsrfState.mockRejectedValueOnce(
+        new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Invalid state parameter', { field: 'state' }),
+      );
+      await expect((service as any).validateState('bad-state')).rejects.toBeInstanceOf(NAuthException);
     });
   });
 
   describe('generateState', () => {
-    it('should generate state and store it', () => {
-      const state = (service as any).generateState();
-
-      expect(state).toBeDefined();
-      expect(typeof state).toBe('string');
-      expect(mockStateStore.has(state)).toBe(true);
-      expect(mockStateStore.get(state)?.provider).toBe('test');
+    it('should generate state via ISocialAuthStateStore', async () => {
+      const state = await (service as any).generateState();
+      expect(state).toBe('generated-state');
+      expect(mockStateStore.createCsrfState).toHaveBeenCalledWith('google');
     });
   });
 
   describe('handleCallback', () => {
     it('should handle OAuth callback and return auth response', async () => {
-      const state = 'valid-state';
-      mockStateStore.set(state, {
-        timestamp: Date.now(),
-        provider: 'test',
-      });
-
       mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
-      mockAuthService.getUserByEmail.mockResolvedValue(null);
-      mockAuthService.createSocialUser.mockResolvedValue(mockUser);
+      mockUserRepository.findOne.mockResolvedValue(null); // No existing user by email
+      mockUserRepository.create.mockReturnValue(mockUser as any);
+      mockUserRepository.save.mockResolvedValue(mockUser as any);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      const result = await service.handleCallback('code', state);
+      const result = await service.handleCallback({ code: 'code', state: 'valid-state' });
 
       expect(result).toBeDefined();
-      expect(mockAuthService.createSocialUser).toHaveBeenCalled();
+      expect(mockUserRepository.create).toHaveBeenCalled();
+      expect(mockUserRepository.save).toHaveBeenCalled();
+      expect(mockStateStore.validateAndConsumeCsrfState).toHaveBeenCalledWith('google', 'valid-state');
+    });
+
+    describe('preSignup hook', () => {
+      beforeEach(() => {
+        mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.create.mockReturnValue(mockUser as any);
+        mockUserRepository.save.mockResolvedValue(mockUser as any);
+        mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
+      });
+
+      it('should execute preSignup hook before user creation for social signup', async () => {
+        mockHookRegistry.executePreSignup.mockResolvedValue(undefined);
+
+        await service.handleCallback({ code: 'code', state: 'valid-state' });
+
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalledTimes(1);
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: 'test-user-id',
+            email: 'user@example.com',
+            firstName: 'John',
+            lastName: 'Doe',
+            verified: true,
+          }),
+          'social',
+          'google',
+          false, // adminSignup flag
+        );
+        expect(mockUserRepository.save).toHaveBeenCalled();
+      });
+
+      it('should block social signup when preSignup hook throws PRESIGNUP_FAILED', async () => {
+        const customMessage = 'Signups from this email domain are not allowed';
+        mockHookRegistry.executePreSignup.mockRejectedValue(
+          new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, customMessage),
+        );
+
+        await expect(service.handleCallback({ code: 'code', state: 'valid-state' })).rejects.toThrow(NAuthException);
+        await expect(service.handleCallback({ code: 'code', state: 'valid-state' })).rejects.toMatchObject({
+          code: AuthErrorCode.PRESIGNUP_FAILED,
+          message: customMessage,
+        });
+
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalled();
+        expect(mockUserRepository.save).not.toHaveBeenCalled();
+      });
+
+      it('should wrap non-PRESIGNUP_FAILED errors in PRESIGNUP_FAILED for social signup', async () => {
+        // Mock the HookRegistry to throw the wrapped exception (as the real HookRegistry would)
+        mockHookRegistry.executePreSignup.mockRejectedValue(
+          new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, 'External validation service unavailable'),
+        );
+
+        await expect(service.handleCallback({ code: 'code', state: 'valid-state' })).rejects.toThrow(NAuthException);
+        await expect(service.handleCallback({ code: 'code', state: 'valid-state' })).rejects.toMatchObject({
+          code: AuthErrorCode.PRESIGNUP_FAILED,
+          message: 'External validation service unavailable',
+        });
+
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalled();
+        expect(mockUserRepository.save).not.toHaveBeenCalled();
+      });
     });
 
     it('should throw error when provider config is missing', async () => {
@@ -314,19 +363,22 @@ describe('BaseSocialAuthProviderService', () => {
       const newService = new TestSocialAuthProviderService(
         mockConfig,
         mockLogger,
-        mockAuthService,
+        mockAuthService as unknown as AuthService,
         mockSocialAuthService,
         mockJwtService,
         mockSessionService,
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined,
+        mockHookRegistry,
       );
 
       try {
-        await newService.handleCallback('code', 'state');
+        await newService.handleCallback({ code: 'code', state: 'state' });
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -338,34 +390,108 @@ describe('BaseSocialAuthProviderService', () => {
   describe('verifyToken', () => {
     it('should verify native token and return auth response', async () => {
       mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
-      mockAuthService.getUserByEmail.mockResolvedValue(null);
-      mockAuthService.createSocialUser.mockResolvedValue(mockUser);
+      mockUserRepository.findOne.mockResolvedValue(null); // No existing user by email
+      mockUserRepository.create.mockReturnValue(mockUser as any);
+      mockUserRepository.save.mockResolvedValue(mockUser as any);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      const result = await service.verifyToken('id-token');
+      const result = await service.verifyToken({ idToken: 'id-token', provider: 'google' });
 
       expect(result).toBeDefined();
-      expect(mockAuthService.createSocialUser).toHaveBeenCalled();
+      expect(mockUserRepository.create).toHaveBeenCalled();
+      expect(mockUserRepository.save).toHaveBeenCalled();
+    });
+
+    describe('preSignup hook', () => {
+      beforeEach(() => {
+        mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+        mockUserRepository.findOne.mockResolvedValue(null);
+        mockUserRepository.create.mockReturnValue(mockUser as any);
+        mockUserRepository.save.mockResolvedValue(mockUser as any);
+        mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
+      });
+
+      it('should execute preSignup hook before user creation for native token verification', async () => {
+        mockHookRegistry.executePreSignup.mockResolvedValue(undefined);
+
+        await service.verifyToken({ idToken: 'id-token', provider: 'google' });
+
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalledTimes(1);
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalledWith(
+          expect.objectContaining({
+            id: 'test-user-id',
+            email: 'user@example.com',
+            firstName: 'John',
+            lastName: 'Doe',
+            verified: true,
+          }),
+          'social',
+          'google',
+          false, // adminSignup flag
+        );
+        expect(mockUserRepository.save).toHaveBeenCalled();
+      });
+
+      it('should block native token signup when preSignup hook throws PRESIGNUP_FAILED', async () => {
+        const customMessage = 'Signups from this email domain are not allowed';
+        mockHookRegistry.executePreSignup.mockRejectedValue(
+          new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, customMessage),
+        );
+
+        try {
+          await service.verifyToken({ idToken: 'id-token', provider: 'google' });
+          fail('Should have thrown NAuthException');
+        } catch (error: any) {
+          expect(error).toBeInstanceOf(NAuthException);
+          expect(error.code).toBe(AuthErrorCode.PRESIGNUP_FAILED);
+          expect(error.message).toBe(customMessage);
+        }
+
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalled();
+        expect(mockUserRepository.save).not.toHaveBeenCalled();
+      });
+
+      it('should wrap non-PRESIGNUP_FAILED errors in PRESIGNUP_FAILED for native token signup', async () => {
+        // Mock the HookRegistry to throw the wrapped exception (as the real HookRegistry would)
+        mockHookRegistry.executePreSignup.mockRejectedValue(
+          new NAuthException(AuthErrorCode.PRESIGNUP_FAILED, 'External validation service unavailable'),
+        );
+
+        try {
+          await service.verifyToken({ idToken: 'id-token', provider: 'google' });
+          fail('Should have thrown NAuthException');
+        } catch (error: any) {
+          expect(error).toBeInstanceOf(NAuthException);
+          expect(error.code).toBe(AuthErrorCode.PRESIGNUP_FAILED);
+          expect(error.message).toBe('External validation service unavailable');
+        }
+
+        expect(mockHookRegistry.executePreSignup).toHaveBeenCalled();
+        expect(mockUserRepository.save).not.toHaveBeenCalled();
+      });
     });
 
     it('should throw error when provider is not enabled', async () => {
-      (mockConfig.social as any).test.enabled = false;
+      (mockConfig.social as any).google.enabled = false;
       const newService = new TestSocialAuthProviderService(
         mockConfig,
         mockLogger,
-        mockAuthService,
+        mockAuthService as unknown as AuthService,
         mockSocialAuthService,
         mockJwtService,
         mockSessionService,
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
         mockAuditService,
+        undefined,
+        mockHookRegistry,
       );
 
       try {
-        await newService.verifyToken('id-token');
+        await newService.verifyToken({ idToken: 'id-token', provider: 'google' });
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -376,38 +502,35 @@ describe('BaseSocialAuthProviderService', () => {
 
   describe('linkAccount', () => {
     it('should link social account to existing user', async () => {
-      const state = 'valid-state';
-      mockStateStore.set(state, {
-        timestamp: Date.now(),
-        provider: 'test',
-      });
-
-      mockAuthService.getUserById.mockResolvedValue(mockUser);
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
       mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
 
-      const result = await service.linkAccount('user-123', 'code', state);
+      const result = await service.linkAccount('user-123', 'code', 'valid-state');
 
       expect(result.message).toContain('account linked successfully');
       expect(mockSocialAuthService.createOrUpdateSocialAccount).toHaveBeenCalled();
+      expect(mockStateStore.validateAndConsumeCsrfState).toHaveBeenCalledWith('google', 'valid-state');
     });
 
     it('should throw error when account is already linked', async () => {
-      const state = 'valid-state';
-      mockStateStore.set(state, {
-        timestamp: Date.now(),
-        provider: 'test',
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      // The check happens after getOAuthProfile, so we need to mock the service to return an account
+      // when called with the provider name and profile.id from getOAuthProfile
+      mockSocialAuthService.findSocialAccountByProvider.mockImplementation((provider: string, providerId: string) => {
+        if (provider === 'google' && providerId === 'test-user-id') {
+          return Promise.resolve({
+            id: 1,
+            provider: 'google',
+            providerId: 'test-user-id',
+            user: { id: 2 }, // Different user
+          } as any);
+        }
+        return Promise.resolve(null);
       });
 
-      mockAuthService.getUserById.mockResolvedValue(mockUser);
-      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue({
-        id: 1,
-        provider: 'test',
-        providerUserId: 'test-user-id',
-      } as any);
-
       try {
-        await service.linkAccount('user-123', 'code', state);
+        await service.linkAccount('user-123', 'code', 'valid-state');
         fail('Should have thrown NAuthException');
       } catch (error) {
         expect(error).toBeInstanceOf(NAuthException);

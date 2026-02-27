@@ -4,7 +4,7 @@
 </mj-text>
 
 <mj-text css-class="text-small alert-box alert-success" padding="16px 24px">
-  ✓ Two-factor authentication enabled
+  Two-factor authentication enabled
 </mj-text>
 
 <mj-text css-class="text-small" padding="24px 24px 16px 24px">

@@ -1,13 +1,10 @@
+import 'reflect-metadata';
 import { AppleSocialAuthService } from './apple-social-auth.service';
 import { AppleOAuthClient } from './apple-oauth.client';
 import {
   AuthService,
   SocialAuthService,
-  JwtService,
-  SessionService,
-  AuthChallengeHelperService,
   ClientInfoService,
-  AuthAuditService,
   NAuthConfig,
   NAuthLogger,
   OAuthUserProfile,
@@ -15,7 +12,12 @@ import {
   AuthErrorCode,
   ITokenVerifierService,
   PhoneVerificationService,
+  ISocialAuthStateStore,
+  BaseUser,
+  BaseSocialProviderSecret,
 } from '@nauth-toolkit/core';
+import { JwtService, SessionService, AuthChallengeHelperService } from '@nauth-toolkit/core/internal';
+import type { Repository } from 'typeorm';
 import { VerifiedAppleTokenProfile } from './verified-token-profile.interface';
 
 // Mock AppleOAuthClient
@@ -39,11 +41,12 @@ describe('AppleSocialAuthService', () => {
   let mockSessionService: jest.Mocked<SessionService>;
   let mockChallengeHelper: jest.Mocked<AuthChallengeHelperService>;
   let mockClientInfoService: jest.Mocked<ClientInfoService>;
-  let mockAuditService: jest.Mocked<AuthAuditService>;
-  let mockStateStore: Map<string, { timestamp: number; provider: string }>;
+  let mockStateStore: jest.Mocked<ISocialAuthStateStore>;
   let mockPhoneVerificationService: jest.Mocked<PhoneVerificationService>;
   let mockTokenVerifier: jest.Mocked<ITokenVerifierService>;
   let mockOAuthClient: jest.Mocked<AppleOAuthClient>;
+  let mockUserRepository: jest.Mocked<Repository<BaseUser>>;
+  let mockSocialProviderSecretRepository: jest.Mocked<Repository<BaseSocialProviderSecret>>;
 
   beforeEach(() => {
     mockLogger = {
@@ -51,7 +54,7 @@ describe('AppleSocialAuthService', () => {
       error: jest.fn(),
       warn: jest.fn(),
       debug: jest.fn(),
-    } as any;
+    } as unknown as NAuthLogger;
 
     mockConfig = {
       jwt: {
@@ -68,7 +71,10 @@ describe('AppleSocialAuthService', () => {
         apple: {
           enabled: true,
           clientId: 'apple-client-id',
-          clientSecret: 'apple-client-secret',
+          teamId: 'TEAMID123',
+          keyId: 'KEYID123',
+          // Not used in these tests because we pre-seed the DB secret, but required by config schema in real usage
+          privateKeyPem: '-----BEGIN PRIVATE KEY-----\nTEST\n-----END PRIVATE KEY-----',
           callbackUrl: 'https://example.com/auth/apple/callback',
           scopes: ['name', 'email'],
         },
@@ -81,9 +87,13 @@ describe('AppleSocialAuthService', () => {
     mockSessionService = {} as any;
     mockChallengeHelper = {} as any;
     mockClientInfoService = {} as any;
-    mockAuditService = {} as any;
     mockPhoneVerificationService = {} as any;
-    mockStateStore = new Map();
+    mockStateStore = {
+      createCsrfState: jest.fn().mockResolvedValue('generated-state'),
+      validateAndConsumeCsrfState: jest.fn().mockResolvedValue(undefined),
+      setRedirectContext: jest.fn().mockResolvedValue(undefined),
+      consumeRedirectContext: jest.fn().mockResolvedValue(null),
+    };
 
     mockTokenVerifier = {
       verifyAppleToken: jest.fn(),
@@ -96,6 +106,21 @@ describe('AppleSocialAuthService', () => {
     } as any;
 
     (AppleOAuthClient as jest.Mock).mockImplementation(() => mockOAuthClient);
+
+    mockUserRepository = {} as unknown as jest.Mocked<Repository<BaseUser>>;
+
+    mockSocialProviderSecretRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 1,
+        provider: 'apple',
+        clientSecretJwt: 'db-jwt',
+        expiresAt: new Date(Date.now() + 100 * 24 * 60 * 60 * 1000), // 100 days out
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as BaseSocialProviderSecret),
+      create: jest.fn(),
+      save: jest.fn(),
+    } as unknown as jest.Mocked<Repository<BaseSocialProviderSecret>>;
   });
 
   afterEach(() => {
@@ -114,45 +139,49 @@ describe('AppleSocialAuthService', () => {
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
-        mockAuditService,
+        undefined,
+        undefined,
+        undefined,
         mockTokenVerifier,
+        mockSocialProviderSecretRepository,
       );
 
       expect(service).toBeDefined();
       expect(service.providerName).toBe('apple');
     });
 
-    it('should throw error when Apple OAuth is not enabled', () => {
+    it('should construct when Apple OAuth is disabled (provider stays inactive)', () => {
       mockConfig.social!.apple!.enabled = false;
 
-      try {
-        service = new AppleSocialAuthService(
-          mockConfig,
-          mockLogger,
-          mockAuthService,
-          mockSocialAuthService,
-          mockJwtService,
-          mockSessionService,
-          mockChallengeHelper,
-          mockClientInfoService,
-          mockStateStore,
-          mockPhoneVerificationService,
-          mockAuditService,
-          mockTokenVerifier,
-        );
-        fail('Should have thrown NAuthException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.SOCIAL_CONFIG_MISSING);
-      }
+      service = new AppleSocialAuthService(
+        mockConfig,
+        mockLogger,
+        mockAuthService,
+        mockSocialAuthService,
+        mockJwtService,
+        mockSessionService,
+        mockChallengeHelper,
+        mockClientInfoService,
+        mockStateStore,
+        mockUserRepository,
+        mockPhoneVerificationService,
+        undefined,
+        undefined,
+        undefined,
+        mockTokenVerifier,
+        null,
+      );
+
+      expect(service).toBeDefined();
     });
 
-    it('should throw error when clientId is missing', () => {
-      mockConfig.social!.apple!.clientId = undefined as any;
-
-      try {
-        service = new AppleSocialAuthService(
+    it('should throw error when Apple is enabled but SocialProviderSecretRepository is missing', () => {
+      service = undefined as unknown as AppleSocialAuthService;
+      expect(() => {
+        // eslint-disable-next-line no-new
+        new AppleSocialAuthService(
           mockConfig,
           mockLogger,
           mockAuthService,
@@ -162,15 +191,15 @@ describe('AppleSocialAuthService', () => {
           mockChallengeHelper,
           mockClientInfoService,
           mockStateStore,
-          mockPhoneVerificationService,
-          mockAuditService,
-          mockTokenVerifier,
+          mockUserRepository,
+        mockPhoneVerificationService,
+        undefined,
+        undefined,
+        undefined,
+        mockTokenVerifier,
+        null,
         );
-        fail('Should have thrown NAuthException');
-      } catch (error) {
-        expect(error).toBeInstanceOf(NAuthException);
-        expect((error as NAuthException).code).toBe(AuthErrorCode.SOCIAL_CONFIG_MISSING);
-      }
+      }).toThrow(NAuthException);
     });
   });
 
@@ -186,9 +215,13 @@ describe('AppleSocialAuthService', () => {
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
-        mockAuditService,
+        undefined,
+        undefined,
+        undefined,
         mockTokenVerifier,
+        mockSocialProviderSecretRepository,
       );
     });
 
@@ -199,7 +232,7 @@ describe('AppleSocialAuthService', () => {
       const result = await service.getAuthUrl('state-123');
 
       expect(result).toBe(authUrl);
-      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith('state-123');
+      expect(mockOAuthClient.getAuthorizationUrl).toHaveBeenCalledWith('state-123', undefined);
     });
   });
 
@@ -215,30 +248,112 @@ describe('AppleSocialAuthService', () => {
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
-        mockAuditService,
+        undefined,
+        undefined,
+        undefined,
         mockTokenVerifier,
+        mockSocialProviderSecretRepository,
       );
     });
 
-    it('should exchange code for token and get user profile', async () => {
-      const tokens = { accessToken: 'access-token' };
-      const profile: OAuthUserProfile = {
-        id: 'apple-user-id',
+    it('should exchange code for token and build profile from verified id_token', async () => {
+      mockOAuthClient.exchangeCodeForToken.mockResolvedValue({ accessToken: 'at', idToken: 'it' });
+      (mockTokenVerifier.verifyAppleToken as jest.Mock).mockResolvedValue({
+        sub: 'apple-user-id',
         email: 'user@example.com',
-        firstName: 'John',
-        lastName: 'Doe',
-        picture: null,
-        verified: true,
-        raw: {},
+        email_verified: true,
+        is_private_email: false,
+      } satisfies VerifiedAppleTokenProfile);
+
+      const result = (await (service as unknown as { getOAuthProfile: (c: string, s: string) => Promise<OAuthUserProfile> })
+        .getOAuthProfile('code', 'state')) as OAuthUserProfile;
+
+      expect(result.id).toBe('apple-user-id');
+      expect(result.email).toBe('user@example.com');
+      expect(result.verified).toBe(true);
+      expect(result.firstName).toBeNull();
+      expect(result.lastName).toBeNull();
+      expect(mockOAuthClient.getUserProfile).not.toHaveBeenCalled();
+    });
+
+    it('should parse name from profileData when provided', async () => {
+      mockOAuthClient.exchangeCodeForToken.mockResolvedValue({ accessToken: 'at', idToken: 'it' });
+      (mockTokenVerifier.verifyAppleToken as jest.Mock).mockResolvedValue({
+        sub: 'apple-user-id',
+        email: 'user@example.com',
+        email_verified: true,
+        is_private_email: false,
+      } satisfies VerifiedAppleTokenProfile);
+
+      const profileData = {
+        name: {
+          firstName: 'Murtaza',
+          lastName: 'Nooruddin',
+        },
+        email: 'email@noorix.com',
       };
 
-      mockOAuthClient.exchangeCodeForToken.mockResolvedValue(tokens);
-      mockOAuthClient.getUserProfile.mockResolvedValue(profile);
+      const result = (await (
+        service as unknown as {
+          getOAuthProfile: (c: string, s: string, p?: Record<string, unknown>) => Promise<OAuthUserProfile>;
+        }
+      ).getOAuthProfile('code', 'state', profileData)) as OAuthUserProfile;
 
-      const result = await (service as any).getOAuthProfile('code', 'state');
+      expect(result.id).toBe('apple-user-id');
+      expect(result.email).toBe('user@example.com');
+      expect(result.firstName).toBe('Murtaza');
+      expect(result.lastName).toBe('Nooruddin');
+      expect(result.verified).toBe(true);
+    });
 
-      expect(result).toEqual(profile);
+    it('should handle profileData with only firstName', async () => {
+      mockOAuthClient.exchangeCodeForToken.mockResolvedValue({ accessToken: 'at', idToken: 'it' });
+      (mockTokenVerifier.verifyAppleToken as jest.Mock).mockResolvedValue({
+        sub: 'apple-user-id',
+        email: 'user@example.com',
+        email_verified: true,
+        is_private_email: false,
+      } satisfies VerifiedAppleTokenProfile);
+
+      const profileData = {
+        name: {
+          firstName: 'John',
+        },
+      };
+
+      const result = (await (
+        service as unknown as {
+          getOAuthProfile: (c: string, s: string, p?: Record<string, unknown>) => Promise<OAuthUserProfile>;
+        }
+      ).getOAuthProfile('code', 'state', profileData)) as OAuthUserProfile;
+
+      expect(result.firstName).toBe('John');
+      expect(result.lastName).toBeNull();
+    });
+
+    it('should handle invalid profileData gracefully', async () => {
+      mockOAuthClient.exchangeCodeForToken.mockResolvedValue({ accessToken: 'at', idToken: 'it' });
+      (mockTokenVerifier.verifyAppleToken as jest.Mock).mockResolvedValue({
+        sub: 'apple-user-id',
+        email: 'user@example.com',
+        email_verified: true,
+        is_private_email: false,
+      } satisfies VerifiedAppleTokenProfile);
+
+      const profileData = {
+        name: 'not-an-object',
+      };
+
+      const result = (await (
+        service as unknown as {
+          getOAuthProfile: (c: string, s: string, p?: Record<string, unknown>) => Promise<OAuthUserProfile>;
+        }
+      ).getOAuthProfile('code', 'state', profileData)) as OAuthUserProfile;
+
+      expect(result.firstName).toBeNull();
+      expect(result.lastName).toBeNull();
     });
   });
 
@@ -254,9 +369,13 @@ describe('AppleSocialAuthService', () => {
         mockChallengeHelper,
         mockClientInfoService,
         mockStateStore,
+        mockUserRepository,
         mockPhoneVerificationService,
-        mockAuditService,
+        undefined,
+        undefined,
+        undefined,
         mockTokenVerifier,
+        mockSocialProviderSecretRepository,
       );
     });
 
@@ -310,6 +429,57 @@ describe('AppleSocialAuthService', () => {
         expect(error).toBeInstanceOf(NAuthException);
         expect((error as NAuthException).code).toBe(AuthErrorCode.SOCIAL_EMAIL_REQUIRED);
       }
+    });
+
+    it('should throw error when email is missing', async () => {
+      const verifiedToken: VerifiedAppleTokenProfile = {
+        sub: 'apple-user-id',
+        email: null as any,
+        email_verified: true,
+        is_private_email: false,
+      };
+
+      (mockTokenVerifier.verifyAppleToken as jest.Mock).mockResolvedValue(verifiedToken);
+
+      try {
+        await (service as any).verifyNativeToken('id-token');
+        fail('Should have thrown NAuthException');
+      } catch (error) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect((error as NAuthException).code).toBe(AuthErrorCode.SOCIAL_EMAIL_REQUIRED);
+      }
+    });
+
+    it('should throw error when getAuthUrl called and OAuth is disabled', async () => {
+      const disabledConfig = {
+        ...mockConfig,
+        social: {
+          apple: {
+            enabled: false,
+          },
+        },
+      } as NAuthConfig;
+
+      const disabledService = new AppleSocialAuthService(
+        disabledConfig,
+        mockLogger,
+        mockAuthService,
+        mockSocialAuthService,
+        mockJwtService,
+        mockSessionService,
+        mockChallengeHelper,
+        mockClientInfoService,
+        mockStateStore,
+        mockUserRepository,
+        mockPhoneVerificationService,
+        undefined,
+        undefined,
+        undefined,
+        mockTokenVerifier,
+        mockSocialProviderSecretRepository,
+      );
+
+      await expect(disabledService.getAuthUrl()).rejects.toThrow(NAuthException);
     });
   });
 });

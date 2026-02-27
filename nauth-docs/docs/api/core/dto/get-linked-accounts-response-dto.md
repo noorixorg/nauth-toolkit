@@ -3,9 +3,7 @@ title: GetLinkedAccountsResponseDTO
 description: Response DTO for get linked accounts operation. Returns array of linked social accounts with provider details.
 keywords: [social, auth, dto, response, accounts, api]
 image: /img/api-social-card.png
-sidebar_position: 33
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

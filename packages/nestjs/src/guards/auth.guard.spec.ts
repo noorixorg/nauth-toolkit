@@ -3,14 +3,16 @@ import { Reflector } from '@nestjs/core';
 import { Repository } from 'typeorm';
 import { AuthGuard } from './auth.guard';
 import {
-  JwtService,
-  SessionService,
   NAuthConfig,
   NAuthException,
   AuthErrorCode,
   IUser,
   ISession,
+  AuthService,
+  ContextStorage,
 } from '@nauth-toolkit/core';
+import { JwtService, SessionService } from '@nauth-toolkit/core/internal';
+import { getNAuthContextStore } from './nauth-context.guard';
 
 // Minimal mock implementations
 const mockReflector = {
@@ -23,19 +25,25 @@ const mockJwtService = {
 } as unknown as JwtService;
 
 const mockSessionService = {
-  findById: jest
-    .fn()
-    .mockResolvedValue({ id: 1, version: 1, isRevoked: false, expiresAt: new Date(Date.now() + 60_000) }),
   findByIdLight: jest
     .fn()
     .mockResolvedValue({ id: 1, version: 1, isRevoked: false, expiresAt: new Date(Date.now() + 60_000) }),
+  findAuthContextBySessionId: jest.fn().mockResolvedValue({
+    session: { id: 1, version: 1, isRevoked: false, expiresAt: new Date(Date.now() + 60_000), authMethod: 'password' },
+    user: { id: 1, sub: 'sub-1', isActive: true },
+  }),
 } as unknown as SessionService;
 
 const mockUserRepository = {
   findOne: jest.fn().mockResolvedValue({ sub: 'sub-1', isActive: true }),
 } as any;
 
-function createGuard(config: Partial<NAuthConfig> = {}): AuthGuard {
+const mockAuthService = {
+  getUserById: jest.fn().mockResolvedValue({ sub: 'sub-1', isActive: true }),
+  getUserForAuthContext: jest.fn().mockResolvedValue({ sub: 'sub-1', isActive: true }),
+} as unknown as AuthService;
+
+async function createGuard(config: Partial<NAuthConfig> = {}): Promise<AuthGuard> {
   const baseConfig: NAuthConfig = {
     jwt: {
       accessToken: { expiresIn: '15m' },
@@ -44,7 +52,18 @@ function createGuard(config: Partial<NAuthConfig> = {}): AuthGuard {
     ...config,
   } as unknown as NAuthConfig;
 
-  return new AuthGuard(mockReflector, mockJwtService, mockSessionService, mockUserRepository, baseConfig);
+  const module: TestingModule = await Test.createTestingModule({
+    providers: [
+      AuthGuard,
+      { provide: Reflector, useValue: mockReflector },
+      { provide: JwtService, useValue: mockJwtService },
+      { provide: SessionService, useValue: mockSessionService },
+      { provide: AuthService, useValue: mockAuthService },
+      { provide: 'NAUTH_CONFIG', useValue: baseConfig },
+    ],
+  }).compile();
+
+  return module.get(AuthGuard);
 }
 
 function createHttpContext({
@@ -54,10 +73,18 @@ function createHttpContext({
   headers?: Record<string, string>;
   cookies?: Record<string, string>;
 }) {
+  // Create a context store and attach it to the request
+  const request: any = { headers, cookies };
+  const NAUTH_CONTEXT_STORE = Symbol.for('nauth.contextStore');
+
+  // Create a store and attach it to the request
+  const store = new Map<string, unknown>();
+  (request as Record<symbol, unknown>)[NAUTH_CONTEXT_STORE] = store;
+
   return {
     getType: () => 'http',
     switchToHttp: () => ({
-      getRequest: () => ({ headers, cookies }),
+      getRequest: () => request,
     }),
     getHandler: () => ({}),
     getClass: () => ({}),
@@ -70,7 +97,7 @@ describe('AuthGuard token source enforcement', () => {
   });
 
   it('rejects cookies in JSON mode', async () => {
-    const guard = createGuard({ tokenDelivery: { method: 'json' } });
+    const guard = await createGuard({ tokenDelivery: { method: 'json' } });
     const ctx = createHttpContext({ cookies: { nauth_access_token: 'abc' } });
     try {
       await guard.canActivate(ctx as any);
@@ -82,7 +109,7 @@ describe('AuthGuard token source enforcement', () => {
   });
 
   it('rejects bearer tokens in cookies mode', async () => {
-    const guard = createGuard({ tokenDelivery: { method: 'cookies' } });
+    const guard = await createGuard({ tokenDelivery: { method: 'cookies' } });
     const ctx = createHttpContext({ headers: { authorization: 'Bearer abc' } });
     try {
       await guard.canActivate(ctx as any);
@@ -94,7 +121,7 @@ describe('AuthGuard token source enforcement', () => {
   });
 
   it('accepts cookies in cookies mode', async () => {
-    const guard = createGuard({ tokenDelivery: { method: 'cookies' } });
+    const guard = await createGuard({ tokenDelivery: { method: 'cookies' } });
     const ctx = createHttpContext({ cookies: { nauth_access_token: 'abc' } });
     // jwtService.validateAccessToken is mocked to succeed
     const result = await guard.canActivate(ctx as any);
@@ -102,7 +129,7 @@ describe('AuthGuard token source enforcement', () => {
   });
 
   it('prefers cookies over bearer in hybrid mode', async () => {
-    const guard = createGuard({ tokenDelivery: { method: 'hybrid' } });
+    const guard = await createGuard({ tokenDelivery: { method: 'hybrid' } });
     const ctx = createHttpContext({
       headers: { authorization: 'Bearer headerToken' },
       cookies: { nauth_access_token: 'cookieToken' },
@@ -110,6 +137,71 @@ describe('AuthGuard token source enforcement', () => {
     const result = await guard.canActivate(ctx as any);
     expect(result).toBe(true);
     expect(mockJwtService.validateAccessToken).toHaveBeenCalledWith('cookieToken');
+  });
+
+  it('accepts bearer tokens in hybrid mode when only Authorization is present', async () => {
+    const guard = await createGuard({ tokenDelivery: { method: 'hybrid' } });
+    const ctx = createHttpContext({
+      headers: { authorization: 'Bearer headerToken' },
+      cookies: {},
+    });
+    const result = await guard.canActivate(ctx as any);
+    expect(result).toBe(true);
+    expect(mockJwtService.validateAccessToken).toHaveBeenCalledWith('headerToken');
+  });
+
+  it('accepts cookies in hybrid mode when only cookie is present', async () => {
+    const guard = await createGuard({ tokenDelivery: { method: 'hybrid' } });
+    const ctx = createHttpContext({
+      headers: {},
+      cookies: { nauth_access_token: 'cookieToken' },
+    });
+    const result = await guard.canActivate(ctx as any);
+    expect(result).toBe(true);
+    expect(mockJwtService.validateAccessToken).toHaveBeenCalledWith('cookieToken');
+  });
+
+  it('allows public routes to proceed even when token source is not allowed by delivery mode', async () => {
+    // Public route should never throw; it should just skip auth context attachment.
+    (mockReflector.getAllAndOverride as unknown as jest.Mock).mockReturnValue(true);
+
+    const guardJson = await createGuard({ tokenDelivery: { method: 'json' } });
+    const ctxCookiesInJson = createHttpContext({ cookies: { nauth_access_token: 'abc' } });
+    await expect(guardJson.canActivate(ctxCookiesInJson as any)).resolves.toBe(true);
+    expect(ctxCookiesInJson.switchToHttp().getRequest().user).toBeUndefined();
+
+    const guardCookies = await createGuard({ tokenDelivery: { method: 'cookies' } });
+    const ctxBearerInCookies = createHttpContext({ headers: { authorization: 'Bearer abc' } });
+    await expect(guardCookies.canActivate(ctxBearerInCookies as any)).resolves.toBe(true);
+    expect(ctxBearerInCookies.switchToHttp().getRequest().user).toBeUndefined();
+  });
+
+  it('attaches request.user on public routes when a valid token is provided', async () => {
+    (mockReflector.getAllAndOverride as unknown as jest.Mock).mockReturnValue(true);
+    const guard = await createGuard({ tokenDelivery: { method: 'json' } });
+    const ctx = createHttpContext({ headers: { authorization: 'Bearer valid' } });
+
+    await expect(guard.canActivate(ctx as any)).resolves.toBe(true);
+    const req = ctx.switchToHttp().getRequest();
+    expect(req.user).toBeDefined();
+    expect(req.token).toBeDefined();
+  });
+
+  it('does not throw and does not attach user on public routes when token is invalid/expired', async () => {
+    (mockReflector.getAllAndOverride as unknown as jest.Mock).mockReturnValue(true);
+    (mockJwtService.validateAccessToken as unknown as jest.Mock).mockResolvedValueOnce({
+      valid: false,
+      error: 'Token has expired',
+      errorType: 'expired',
+    });
+
+    const guard = await createGuard({ tokenDelivery: { method: 'json' } });
+    const ctx = createHttpContext({ headers: { authorization: 'Bearer expired' } });
+
+    await expect(guard.canActivate(ctx as any)).resolves.toBe(true);
+    const req = ctx.switchToHttp().getRequest();
+    expect(req.user).toBeUndefined();
+    expect(req.token).toBeUndefined();
   });
 });
 
@@ -149,7 +241,6 @@ describe('AuthGuard', () => {
     userAgent: 'Mozilla/5.0',
     platform: 'iOS',
     browser: 'Safari',
-    isRemembered: false,
     isTrustedDevice: false,
     expiresAt: new Date(Date.now() + 3600000),
     lastActivityAt: new Date(),
@@ -162,13 +253,25 @@ describe('AuthGuard', () => {
     createdAt: new Date(),
   };
 
+  // Create a request object with context store
+  const createMockRequest = (overrides: any = {}) => {
+    const request: any = {
+      headers: {},
+      cookies: {},
+      user: undefined,
+      token: undefined,
+      ...overrides,
+    };
+    // Attach context store to request
+    const NAUTH_CONTEXT_STORE = Symbol.for('nauth.contextStore');
+    const store = new Map<string, unknown>();
+    (request as Record<symbol, unknown>)[NAUTH_CONTEXT_STORE] = store;
+    return request;
+  };
+
   const mockExecutionContext = {
     switchToHttp: jest.fn().mockReturnValue({
-      getRequest: jest.fn().mockReturnValue({
-        headers: {},
-        user: undefined,
-        token: undefined,
-      }),
+      getRequest: jest.fn().mockReturnValue(createMockRequest()),
     }),
     getHandler: jest.fn(),
     getClass: jest.fn(),
@@ -183,8 +286,14 @@ describe('AuthGuard', () => {
 
     // Mock session service
     const mockSessionService = {
-      findById: jest.fn(),
-      findByIdLight: jest.fn(),
+      findAuthContextBySessionId: jest.fn(),
+      findByIdLight: jest.fn().mockResolvedValue({
+        id: 1,
+        version: 1,
+        isRevoked: false,
+        expiresAt: new Date(Date.now() + 60_000),
+        authMethod: 'password',
+      }),
     };
 
     // Mock user repository
@@ -218,8 +327,8 @@ describe('AuthGuard', () => {
           useValue: mockSessionService,
         },
         {
-          provide: 'UserRepository',
-          useValue: mockUserRepository,
+          provide: AuthService,
+          useValue: mockAuthService,
         },
         {
           provide: Reflector,
@@ -228,6 +337,10 @@ describe('AuthGuard', () => {
         {
           provide: 'NAUTH_CONFIG',
           useValue: mockConfig,
+        },
+        {
+          provide: 'UserRepository',
+          useValue: mockUserRepository,
         },
       ],
     }).compile();
@@ -241,7 +354,7 @@ describe('AuthGuard', () => {
   describe('canActivate', () => {
     beforeEach(() => {
       // Setup default mocks
-      jest.spyOn(guard['reflector'], 'getAllAndOverride').mockReturnValue(false);
+      jest.spyOn(guard['_reflector'], 'getAllAndOverride').mockReturnValue(false);
       jest.spyOn(jwtService, 'extractTokenFromHeader').mockReturnValue('valid-token');
       jest.spyOn(jwtService, 'validateAccessToken').mockResolvedValue({
         valid: true,
@@ -254,13 +367,15 @@ describe('AuthGuard', () => {
           exp: Math.floor(Date.now() / 1000) + 3600,
         },
       });
-      jest.spyOn(sessionService, 'findById').mockResolvedValue(mockSession);
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as unknown as Record<string, unknown>);
+      jest
+        .spyOn(sessionService, 'findAuthContextBySessionId')
+        .mockResolvedValue({ session: mockSession, user: mockUser } as any);
+      jest.spyOn(mockAuthService, 'getUserForAuthContext').mockResolvedValue(mockUser as any);
     });
 
     it('should return true for public routes', async () => {
       // Arrange
-      jest.spyOn(guard['reflector'], 'getAllAndOverride').mockReturnValue(true);
+      jest.spyOn(guard['_reflector'], 'getAllAndOverride').mockReturnValue(true);
 
       // Act
       const result = await guard.canActivate(mockExecutionContext);
@@ -283,10 +398,10 @@ describe('AuthGuard', () => {
         },
       });
       jest.spyOn(sessionService, 'findByIdLight').mockResolvedValue(mockSession);
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as unknown as Record<string, unknown>);
-      const request = {
+      jest.spyOn(mockAuthService, 'getUserForAuthContext').mockResolvedValue(mockUser as any);
+      const request = createMockRequest({
         headers: { authorization: 'Bearer valid-token' },
-      };
+      });
       mockExecutionContext.switchToHttp().getRequest.mockReturnValue(request);
 
       // Act
@@ -299,9 +414,9 @@ describe('AuthGuard', () => {
     it('should throw NAuthException when no token is provided', async () => {
       // Arrange
       jest.spyOn(jwtService, 'extractTokenFromHeader').mockReturnValue(null);
-      const request = {
+      const request = createMockRequest({
         headers: {},
-      };
+      });
       mockExecutionContext.switchToHttp().getRequest.mockReturnValue(request);
 
       // Act & Assert
@@ -337,9 +452,9 @@ describe('AuthGuard', () => {
 
     it('should throw NAuthException when session is not found', async () => {
       // Arrange
-      const request = {
+      const request = createMockRequest({
         headers: { authorization: 'Bearer valid-token' },
-      };
+      });
       mockExecutionContext.switchToHttp().getRequest.mockReturnValue(request);
       jest.spyOn(jwtService, 'validateAccessToken').mockResolvedValue({
         valid: true,
@@ -352,7 +467,7 @@ describe('AuthGuard', () => {
           exp: Math.floor(Date.now() / 1000) + 3600,
         },
       });
-      jest.spyOn(sessionService, 'findByIdLight').mockResolvedValue(null);
+      jest.spyOn(sessionService, 'findAuthContextBySessionId').mockResolvedValue(null);
 
       // Act & Assert
       try {
@@ -366,9 +481,9 @@ describe('AuthGuard', () => {
 
     it('should throw NAuthException when session is revoked', async () => {
       // Arrange
-      const request = {
+      const request = createMockRequest({
         headers: { authorization: 'Bearer valid-token' },
-      };
+      });
       mockExecutionContext.switchToHttp().getRequest.mockReturnValue(request);
       jest.spyOn(jwtService, 'validateAccessToken').mockResolvedValue({
         valid: true,
@@ -382,7 +497,10 @@ describe('AuthGuard', () => {
         },
       });
       const revokedSession = { ...mockSession, isRevoked: true };
-      jest.spyOn(sessionService, 'findByIdLight').mockResolvedValue(revokedSession);
+      jest.spyOn(sessionService, 'findAuthContextBySessionId').mockResolvedValue({
+        session: revokedSession,
+        user: mockUser,
+      } as any);
 
       // Act & Assert
       try {
@@ -396,9 +514,9 @@ describe('AuthGuard', () => {
 
     it('should throw NAuthException when session is expired', async () => {
       // Arrange
-      const request = {
+      const request = createMockRequest({
         headers: { authorization: 'Bearer valid-token' },
-      };
+      });
       mockExecutionContext.switchToHttp().getRequest.mockReturnValue(request);
       jest.spyOn(jwtService, 'validateAccessToken').mockResolvedValue({
         valid: true,
@@ -412,7 +530,10 @@ describe('AuthGuard', () => {
         },
       });
       const expiredSession = { ...mockSession, expiresAt: new Date(Date.now() - 3600000) }; // 1 hour ago
-      jest.spyOn(sessionService, 'findByIdLight').mockResolvedValue(expiredSession);
+      jest.spyOn(sessionService, 'findAuthContextBySessionId').mockResolvedValue({
+        session: expiredSession,
+        user: mockUser,
+      } as any);
 
       // Act & Assert
       try {
@@ -426,9 +547,9 @@ describe('AuthGuard', () => {
 
     it('should throw NAuthException when user is not found', async () => {
       // Arrange
-      const request = {
+      const request = createMockRequest({
         headers: { authorization: 'Bearer valid-token' },
-      };
+      });
       mockExecutionContext.switchToHttp().getRequest.mockReturnValue(request);
       jest.spyOn(jwtService, 'validateAccessToken').mockResolvedValue({
         valid: true,
@@ -441,8 +562,9 @@ describe('AuthGuard', () => {
           exp: Math.floor(Date.now() / 1000) + 3600,
         },
       });
-      jest.spyOn(sessionService, 'findByIdLight').mockResolvedValue(mockSession);
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(null);
+      jest
+        .spyOn(sessionService, 'findAuthContextBySessionId')
+        .mockRejectedValue(new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found'));
 
       // Act & Assert
       try {
@@ -456,9 +578,9 @@ describe('AuthGuard', () => {
 
     it('should throw NAuthException when user is inactive', async () => {
       // Arrange
-      const request = {
+      const request = createMockRequest({
         headers: { authorization: 'Bearer valid-token' },
-      };
+      });
       mockExecutionContext.switchToHttp().getRequest.mockReturnValue(request);
       jest.spyOn(jwtService, 'validateAccessToken').mockResolvedValue({
         valid: true,
@@ -471,9 +593,9 @@ describe('AuthGuard', () => {
           exp: Math.floor(Date.now() / 1000) + 3600,
         },
       });
-      jest.spyOn(sessionService, 'findByIdLight').mockResolvedValue(mockSession);
-      const inactiveUser = { ...mockUser, isActive: false };
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(inactiveUser);
+      jest
+        .spyOn(sessionService, 'findAuthContextBySessionId')
+        .mockRejectedValue(new NAuthException(AuthErrorCode.ACCOUNT_INACTIVE, 'Account is not active'));
 
       // Act & Assert
       try {
@@ -487,11 +609,11 @@ describe('AuthGuard', () => {
 
     it('should attach user and token to request on successful authentication', async () => {
       // Arrange
-      const request: any = {
+      const request = createMockRequest({
         headers: { authorization: 'Bearer valid-token' },
         user: undefined,
         token: undefined,
-      };
+      });
       mockExecutionContext.switchToHttp().getRequest.mockReturnValue(request);
       jest.spyOn(jwtService, 'validateAccessToken').mockResolvedValue({
         valid: true,
@@ -505,7 +627,7 @@ describe('AuthGuard', () => {
         },
       });
       jest.spyOn(sessionService, 'findByIdLight').mockResolvedValue(mockSession);
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as unknown as Record<string, unknown>);
+      jest.spyOn(mockAuthService, 'getUserForAuthContext').mockResolvedValue(mockUser as any);
 
       // Act
       await guard.canActivate(mockExecutionContext);
@@ -513,6 +635,7 @@ describe('AuthGuard', () => {
       // Assert
       expect(request.user).toBeDefined();
       expect(request.user.sub).toBe(mockUser.sub);
+      expect(request.user.sessionAuthMethod).toBe(mockSession.authMethod);
       expect(request.token).toBeDefined();
       expect(request.token.sub).toBe('user-123');
       expect(request.token.sessionId).toBe('1');
@@ -524,9 +647,9 @@ describe('AuthGuard', () => {
 
     it('should return true on successful authentication', async () => {
       // Arrange - ensure all mocks are set up
-      const request = {
+      const request = createMockRequest({
         headers: { authorization: 'Bearer valid-token' },
-      };
+      });
       mockExecutionContext.switchToHttp().getRequest.mockReturnValue(request);
       jest.spyOn(jwtService, 'validateAccessToken').mockResolvedValue({
         valid: true,
@@ -540,7 +663,7 @@ describe('AuthGuard', () => {
         },
       });
       jest.spyOn(sessionService, 'findByIdLight').mockResolvedValue(mockSession);
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as unknown as Record<string, unknown>);
+      jest.spyOn(mockAuthService, 'getUserForAuthContext').mockResolvedValue(mockUser as any);
 
       // Act
       const result = await guard.canActivate(mockExecutionContext);

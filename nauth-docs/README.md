@@ -1,6 +1,6 @@
 # nauth-toolkit Documentation
 
-This is the official documentation for **nauth-toolkit** - a platform-agnostic authentication toolkit for Node.js applications.
+This is the official documentation for **nauth-toolkit** - a framework-agnostic authentication toolkit for Node.js applications.
 
 ## Quick Start
 

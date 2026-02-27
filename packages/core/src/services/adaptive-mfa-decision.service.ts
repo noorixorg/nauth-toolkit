@@ -7,8 +7,9 @@ import { RiskDetectionService } from './risk-detection.service';
 import { RiskScoringService } from './risk-scoring.service';
 import { ClientInfoService } from './client-info.service';
 import { ClientInfo } from '../interfaces/client-info.interface';
-import { NAuthConfig, AdaptiveMFARiskEventPayload, SignInBlockedPayload } from '../interfaces/config.interface';
+import { NAuthConfig, AdaptiveMFARiskEventPayload, AdaptiveMFAUser } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
+import { HookRegistryService } from './hook-registry.service';
 
 /**
  * Adaptive MFA decision result
@@ -123,7 +124,42 @@ export class AdaptiveMFADecisionService {
     private readonly config: NAuthConfig,
     private readonly logger: NAuthLogger,
     private readonly auditService?: AuthAuditService, // Optional - audit trail service (enabled via config.auditLogs.enabled)
+    private readonly hookRegistry?: HookRegistryService, // Optional - lifecycle hooks
   ) {}
+
+  /**
+   * Resolve the configured block scope for adaptive MFA sign-in blocking.
+   *
+   * @returns Block scope (defaults to `user`)
+   * @private
+   */
+  private getBlockedSignInScope(): 'user' | 'device' | 'ip' {
+    return this.config.mfa?.adaptive?.blockedSignIn?.scope ?? 'user';
+  }
+
+  /**
+   * Build the storage key for a sign-in block.
+   *
+   * Keys are scoped to reduce the blast radius of blocking:
+   * - user: `adaptive_mfa_block:{userId}`
+   * - device: `adaptive_mfa_block:{userId}:device:{deviceToken}`
+   * - ip: `adaptive_mfa_block:{userId}:ip:{ipAddress}`
+   *
+   * @param userId - Internal user ID
+   * @param clientInfo - Current client context (used for device/ip scoped keys)
+   * @returns Storage key
+   * @private
+   */
+  private buildBlockKey(userId: number, clientInfo?: Pick<ClientInfo, 'ipAddress' | 'deviceToken'>): string {
+    const scope = this.getBlockedSignInScope();
+    if (scope === 'ip' && clientInfo?.ipAddress) {
+      return `adaptive_mfa_block:${userId}:ip:${clientInfo.ipAddress}`;
+    }
+    if (scope === 'device' && clientInfo?.deviceToken) {
+      return `adaptive_mfa_block:${userId}:device:${clientInfo.deviceToken}`;
+    }
+    return `adaptive_mfa_block:${userId}`;
+  }
 
   /**
    * Evaluate adaptive MFA requirement with risk-based actions
@@ -148,7 +184,7 @@ export class AdaptiveMFADecisionService {
     if (!user.email) {
       this.logger?.error?.(`User ${user.sub} missing email - cannot evaluate adaptive MFA`, {
         userId: user.id,
-        userSub: user.sub,
+        sub: user.sub,
       });
       throw new Error(`User email is required for adaptive MFA evaluation`);
     }
@@ -175,10 +211,10 @@ export class AdaptiveMFADecisionService {
     const payload: AdaptiveMFARiskEventPayload = {
       user: {
         sub: user.sub,
-        email: user.email, // Safe after validation above
+        email: user.email,
         username: user.username || undefined,
         phoneNumber: user.phone || undefined,
-      },
+      } satisfies AdaptiveMFAUser,
       riskScore,
       riskLevel: level,
       riskFactors,
@@ -198,20 +234,32 @@ export class AdaptiveMFADecisionService {
       timestamp: new Date(),
     };
 
-    // Call lifecycle hook if configured and user should be notified
-    let hookOverride = false;
-    if (notifyUser && this.config.hooks?.onAdaptiveMFATriggered) {
+    // ============================================================================
+    // Lifecycle Hook: Adaptive MFA Risk Detected
+    // ============================================================================
+    // Call hook if user should be notified
+    const hookOverride = false;
+    if (notifyUser && this.hookRegistry) {
       try {
-        const result = await this.config.hooks.onAdaptiveMFATriggered(payload);
-        // Hook can return false to override and allow sign-in
-        if (result === false) {
-          hookOverride = true;
-          this.logger?.warn?.(`Adaptive MFA action overridden by hook: user=${user.sub}`);
-        }
-      } catch (error) {
-        // Non-blocking: Log error but continue with original action
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        this.logger?.error?.(`Adaptive MFA hook failed: ${errorMessage}`, { error, userId: user.sub });
+        await this.hookRegistry.executeAdaptiveMFARiskDetected({
+          user,
+          riskScore,
+          riskLevel: level,
+          riskFactors,
+          action,
+          authMethod,
+          clientInfo,
+          timestamp: new Date(),
+        });
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute adaptiveMfaRiskDetected hooks: ${errorMessage}`, {
+          error: hookError,
+          userId: user.id,
+          riskScore,
+          riskLevel: level,
+        });
       }
     }
 
@@ -338,7 +386,8 @@ export class AdaptiveMFADecisionService {
     message?: string;
   }> {
     try {
-      const blockKey = `adaptive_mfa_block:${userId}`;
+      const clientInfo = this.clientInfoService.get();
+      const blockKey = this.buildBlockKey(userId, clientInfo);
       const blockData = await this.storageAdapter.get(blockKey);
 
       if (!blockData) {
@@ -346,7 +395,20 @@ export class AdaptiveMFADecisionService {
       }
 
       const parsed = JSON.parse(blockData);
-      const expiresAt = parsed.expiresAt ? new Date(parsed.expiresAt) : undefined;
+      let expiresAt = parsed.expiresAt ? new Date(parsed.expiresAt) : undefined;
+
+      // If a legacy/permanent block was stored without an explicit expiresAt,
+      // but the current config defines a blockDuration, derive an expiry from blockedAt.
+      // This prevents accidental permanent lockouts when configs evolve.
+      if (!expiresAt) {
+        const configuredBlockDuration = this.config.mfa?.adaptive?.blockedSignIn?.blockDuration;
+        if (configuredBlockDuration && parsed.blockedAt) {
+          const blockedAt = new Date(parsed.blockedAt);
+          if (!Number.isNaN(blockedAt.getTime())) {
+            expiresAt = new Date(blockedAt.getTime() + configuredBlockDuration * 60 * 1000);
+          }
+        }
+      }
 
       // Check if block has expired (if temporary)
       if (expiresAt && expiresAt < new Date()) {
@@ -393,10 +455,11 @@ export class AdaptiveMFADecisionService {
     const message = blockConfig?.message || 'Sign-in blocked due to suspicious activity. Please contact support.';
 
     // Store block in storage adapter
-    const blockKey = `adaptive_mfa_block:${user.id}`;
+    const clientInfo = this.clientInfoService.get();
+    const blockKey = this.buildBlockKey(user.id, clientInfo);
     const blockData = {
       userId: user.id,
-      userSub: user.sub,
+      sub: user.sub,
       message,
       riskScore: payload.riskScore,
       riskFactors: payload.riskFactors,
@@ -411,23 +474,7 @@ export class AdaptiveMFADecisionService {
       `User sign-in blocked: user=${user.sub}, score=${payload.riskScore}, duration=${blockDuration ? `${blockDuration}min` : 'permanent'}`,
     );
 
-    // Call sign-in blocked hook if configured
-    if (this.config.hooks?.onSignInBlocked) {
-      const blockedPayload: SignInBlockedPayload = {
-        ...payload,
-        blockDuration,
-        blockExpiresAt: blockDuration ? new Date(Date.now() + blockDuration * 60 * 1000) : undefined,
-        message,
-      };
-
-      try {
-        await this.config.hooks.onSignInBlocked(blockedPayload);
-      } catch (error) {
-        // Non-blocking
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        this.logger?.error?.(`Sign-in blocked hook failed: ${errorMessage}`, { error, userId: user.sub });
-      }
-    }
+    // TODO: Implement provider-based hook for onSignInBlocked
   }
 
   /**
@@ -445,8 +492,17 @@ export class AdaptiveMFADecisionService {
    */
   async clearUserBlock(userId: number): Promise<void> {
     try {
-      const blockKey = `adaptive_mfa_block:${userId}`;
-      await this.storageAdapter.del(blockKey);
+      // Always clear the user-scoped key for backwards compatibility.
+      await this.storageAdapter.del(`adaptive_mfa_block:${userId}`);
+
+      // Best-effort clear for scoped keys (depends on current runtime client context).
+      const clientInfo = this.clientInfoService.get();
+      if (clientInfo.ipAddress) {
+        await this.storageAdapter.del(`adaptive_mfa_block:${userId}:ip:${clientInfo.ipAddress}`);
+      }
+      if (clientInfo.deviceToken) {
+        await this.storageAdapter.del(`adaptive_mfa_block:${userId}:device:${clientInfo.deviceToken}`);
+      }
       this.logger?.log?.(`User block cleared: userId=${userId}`);
     } catch (error) {
       // Non-blocking: Log error but continue

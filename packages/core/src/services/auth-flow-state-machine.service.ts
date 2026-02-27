@@ -83,7 +83,7 @@ export class AuthFlowStateMachineService {
           }
         }
 
-        this.logger?.debug?.(`[StateMachine] ✓ Selected state: ${definition.state} for user ${context.user.sub}`);
+        this.logger?.debug?.(`[StateMachine] Selected state: ${definition.state} for user ${context.user.sub}`);
         return definition.state;
       }
     }

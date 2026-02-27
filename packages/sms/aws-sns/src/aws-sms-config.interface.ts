@@ -1,7 +1,16 @@
 /**
+ * AWS SMS API Mode
+ *
+ * Determines which AWS service to use for sending SMS messages:
+ * - `sns`: Legacy SNS Publish API (default, no configuration set support)
+ * - `end-user-messaging-sms`: AWS End User Messaging SMS API (supports configuration sets, delivery events)
+ */
+export type AWSSMSApiMode = 'sns' | 'end-user-messaging-sms';
+
+/**
  * AWS SNS SMS Configuration
  *
- * Minimal configuration for sending authentication SMS via AWS SNS.
+ * Minimal configuration for sending authentication SMS via AWS SNS or AWS End User Messaging.
  * All messages are sent as transactional (highest priority).
  *
  * AWS credentials are optional - SDK will auto-discover from:
@@ -13,10 +22,18 @@
  *
  * @example
  * ```typescript
- * // With IAM role (EC2, ECS, Lambda)
+ * // Legacy SNS API (default, backward compatible)
  * const config: AWSSMSConfig = {
  *   region: 'us-east-1',
  *   originationNumber: '+12345678901',
+ * };
+ *
+ * // New End User Messaging SMS API with configuration set
+ * const config: AWSSMSConfig = {
+ *   region: 'ap-southeast-2',
+ *   originationNumber: 'anyspaces',
+ *   apiMode: 'end-user-messaging-sms',
+ *   configurationSetName: 'default',
  * };
  *
  * // With explicit credentials (if needed)
@@ -58,22 +75,52 @@ export interface AWSSMSConfig {
    * - **US/Canada:** Phone number required (e.g., '+12345678901')
    * - **Other regions:** Alphanumeric sender ID supported (e.g., 'MyApp')
    *
+   * For `end-user-messaging-sms` mode:
+   * - Can be PhoneNumberId, PhoneNumberArn, SenderId, SenderIdArn, PoolId, or PoolArn
+   * - Alphanumeric sender IDs supported in regions that allow them
+   *
    * @example '+12345678901'
    * @example 'MyApp'
    */
   originationNumber: string;
 
   /**
-   * AWS SNS Configuration Set Name (Optional)
+   * AWS SMS API Mode (Optional)
    *
-   * Use configuration sets to control:
+   * Choose which AWS service to use for sending SMS:
+   * - `sns` (default): Legacy SNS Publish API
+   *   - Simple, backward compatible
+   *   - Configuration sets NOT supported (AWS rejects AWS.* attributes)
+   *   - Use for basic SMS sending without delivery tracking
+   *
+   * - `end-user-messaging-sms`: AWS End User Messaging SMS API
+   *   - Modern SMS/MMS messaging service
+   *   - Configuration sets fully supported
+   *   - Delivery events to SNS, CloudWatch, Kinesis
+   *   - Required for delivery tracking and event destinations
+   *
+   * @default 'sns'
+   * @example 'end-user-messaging-sms'
+   */
+  apiMode?: AWSSMSApiMode;
+
+  /**
+   * AWS Configuration Set Name (Optional)
+   *
+   * **IMPORTANT:** Only works with `apiMode: 'end-user-messaging-sms'`
+   *
+   * Configuration sets control:
    * - CloudWatch metrics and logging
-   * - Event destinations (Kinesis, SQS, SNS)
+   * - Event destinations (SNS topics for delivery/failure events)
    * - Delivery status tracking
    * - Spend limits and price controls
    *
-   * Configure these settings in AWS Console, not here.
+   * Configure event destinations in AWS Console:
+   * End User Messaging SMS → Configuration sets → [your-set] → Event destinations
    *
+   * With `apiMode: 'sns'` (default), this setting is ignored (SNS does not support it).
+   *
+   * @example 'default'
    * @example 'my-sms-config-set'
    */
   configurationSetName?: string;

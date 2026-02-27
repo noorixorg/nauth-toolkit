@@ -3,9 +3,7 @@ title: Redis Cluster
 description: Redis Cluster storage for high availability
 keywords: [storage, redis, cluster, production, adapter, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -50,9 +48,9 @@ import { createRedisClusterAdapter } from '@nauth-toolkit/nestjs';
 
 AuthModule.forRoot({
   storageAdapter: createRedisClusterAdapter([
-    'redis://node1:6379',
-    'redis://node2:6379',
-    'redis://node3:6379',
+    { url: 'redis://node1:6379' },
+    { url: 'redis://node2:6379' },
+    { url: 'redis://node3:6379' },
   ]),
 })
 ```

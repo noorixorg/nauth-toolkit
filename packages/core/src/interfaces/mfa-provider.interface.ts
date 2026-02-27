@@ -1,5 +1,3 @@
-import { IUser } from './entities.interface';
-
 /**
  * MFA Provider Service Interface
  *
@@ -16,11 +14,11 @@ import { IUser } from './entities.interface';
  * export class TOTPMFAProviderService extends BaseMFAProviderService implements IMFAProviderService {
  *   readonly methodName = 'totp';
  *
- *   async setup(user: IUser): Promise<unknown> {
+ *   async setup(): Promise<unknown> {
  *     // TOTP-specific setup logic
  *   }
  *
- *   async verify(user: IUser, code: string, deviceId?: number): Promise<boolean> {
+ *   async verify(code: string, deviceId?: number): Promise<boolean> {
  *     // TOTP verification logic
  *   }
  * }
@@ -59,7 +57,7 @@ export interface IMFAProviderService {
    * const options = await passkeyProvider.setup(user);
    * ```
    */
-  setup(user: IUser, setupData?: unknown): Promise<unknown>;
+  setup(setupData?: unknown): Promise<unknown>;
 
   /**
    * Verify and complete MFA setup
@@ -84,7 +82,7 @@ export interface IMFAProviderService {
    * const deviceId = await passkeyProvider.verifySetup(user, { credential: {...}, challenge: '...' });
    * ```
    */
-  verifySetup(user: IUser, verificationData: unknown, deviceName?: string): Promise<number>;
+  verifySetup(verificationData: unknown, deviceName?: string): Promise<number>;
 
   /**
    * Verify MFA code/credential during authentication
@@ -109,7 +107,7 @@ export interface IMFAProviderService {
    * const isValid = await passkeyProvider.verify(user, { credential: {...}, challenge: '...' });
    * ```
    */
-  verify(user: IUser, code: unknown, deviceId?: number): Promise<boolean>;
+  verify(code: unknown, deviceId?: number): Promise<boolean>;
 
   /**
    * Send verification code/challenge for authentication
@@ -117,20 +115,20 @@ export interface IMFAProviderService {
    * Used during login to send SMS code or generate passkey challenge.
    * Not applicable for TOTP (user generates code locally).
    *
-   * @param user - User requesting verification
+   * @param challengeSessionId - Optional challenge session ID to link the code to the session
    * @returns Provider-specific challenge data (e.g., masked phone for SMS, WebAuthn options for Passkey)
    * @throws {NAuthException} If no device registered or send fails
    *
    * @example
    * ```typescript
    * // SMS: returns masked phone number
-   * const maskedPhone = await smsProvider.sendChallenge(user); // '***-***-1234'
+   * const maskedPhone = await smsProvider.sendChallenge(123); // '***-***-1234'
    *
    * // Passkey: returns WebAuthn authentication options
-   * const options = await passkeyProvider.sendChallenge(user); // { challenge: '...', ... }
+   * const options = await passkeyProvider.sendChallenge(123); // { challenge: '...', ... }
    * ```
    */
-  sendChallenge?(user: IUser): Promise<unknown>; // Optional - only providers like SMS need it
+  sendChallenge?(challengeSessionId?: number): Promise<unknown>; // Optional - only providers like SMS need it
 
   /**
    * Generate backup codes for user
@@ -147,7 +145,7 @@ export interface IMFAProviderService {
    * // Returns: ['ABC12345', 'DEF67890', ...]
    * ```
    */
-  generateBackupCodes?(user: IUser): Promise<string[]>; // Optional - provided by BaseMFAProviderService
+  generateBackupCodes?(): Promise<string[]>; // Optional - provided by BaseMFAProviderService
 }
 
 // Helper type to check if a provider implements sendChallenge

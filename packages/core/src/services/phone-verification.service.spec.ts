@@ -6,10 +6,46 @@ import { SMSProvider } from '../interfaces/provider.interface';
 import { StorageAdapter } from '../interfaces/storage-adapter.interface';
 import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
-import { AuthAuditService } from './auth-audit.service';
+import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
 import { BaseVerificationToken, BaseUser } from '../entities';
 import { IUser, IVerificationToken } from '../interfaces/entities.interface';
 import { AuthErrorCode } from '../enums/error-codes.enum';
+import {
+  SendVerificationSMSDTO,
+  VerifyPhoneWithCodeDTO,
+  ResendVerificationSMSDTO,
+} from '../dto/verify-phone.dto';
+import { VerifyPhoneWithCodeBySubDTO } from '../dto/verify-phone-by-sub.dto';
+
+// ============================================================================
+// Test Constants
+// ============================================================================
+// Use valid UUID v4 values to satisfy DTO validation (service now enforces ensureValidatedDto()).
+const TEST_USER_SUB = 'a21b654c-2746-4168-acee-c175083a65cd';
+const TEST_OTHER_SUB = 'b21b654c-2746-4168-acee-c175083a65cd';
+
+// Helper to create DTOs from plain objects
+function createSendVerificationSMSDto(data: Partial<SendVerificationSMSDTO>): SendVerificationSMSDTO {
+  const sub =
+    data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
+  return Object.assign(new SendVerificationSMSDTO(), { ...data, sub });
+}
+
+function createVerifyPhoneWithCodeDto(data: Partial<VerifyPhoneWithCodeDTO>): VerifyPhoneWithCodeDTO {
+  return Object.assign(new VerifyPhoneWithCodeDTO(), data);
+}
+
+function createResendVerificationSMSDto(data: Partial<ResendVerificationSMSDTO>): ResendVerificationSMSDTO {
+  const sub =
+    data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
+  return Object.assign(new ResendVerificationSMSDTO(), { ...data, sub });
+}
+
+function createVerifyPhoneWithCodeBySubDto(data: Partial<VerifyPhoneWithCodeBySubDTO>): VerifyPhoneWithCodeBySubDTO {
+  const sub =
+    data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
+  return Object.assign(new VerifyPhoneWithCodeBySubDTO(), { ...data, sub });
+}
 
 /**
  * Phone Verification Service Unit Tests
@@ -34,11 +70,15 @@ describe('PhoneVerificationService', () => {
   let mockClientInfoService: jest.Mocked<ClientInfoService>;
   let mockLogger: jest.Mocked<NAuthLogger>;
   let mockAuditService: jest.Mocked<AuthAuditService>;
+  let mockHookRegistry: {
+    executeUserProfileUpdated: jest.Mock;
+    executeOnboardingCompleted: jest.Mock;
+  };
   let mockConfig: NAuthConfig;
 
   const mockUser: IUser = {
     id: 123,
-    sub: 'user-sub-123',
+    sub: TEST_USER_SUB,
     email: 'test@example.com',
     username: 'testuser',
     phone: '+1234567890',
@@ -141,6 +181,11 @@ describe('PhoneVerificationService', () => {
       recordEvent: jest.fn().mockResolvedValue(null),
     } as any;
 
+    mockHookRegistry = {
+      executeUserProfileUpdated: jest.fn().mockResolvedValue(undefined),
+      executeOnboardingCompleted: jest.fn().mockResolvedValue(undefined),
+    };
+
     mockConfig = {
       jwt: {
         accessToken: { secret: 'test-secret', expiresIn: '15m' },
@@ -167,6 +212,7 @@ describe('PhoneVerificationService', () => {
       mockConfig,
       mockClientInfoService,
       mockLogger,
+      mockHookRegistry as any, // hookRegistry (mock)
       mockAuditService,
     );
   });
@@ -196,14 +242,19 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      const result = await service.sendVerificationSMS('user-sub-123');
+      const result = await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
 
       expect(mockStorageAdapter.incr).toHaveBeenCalled();
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'user-sub-123' } as any });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: TEST_USER_SUB } as any });
       expect(mockVerificationTokenRepository.save).toHaveBeenCalled();
-      expect(mockSmsProvider.sendOTP).toHaveBeenCalledWith('+1234567890', (expect as any).any(String));
+      expect(mockSmsProvider.sendOTP).toHaveBeenCalledWith(
+        '+1234567890',
+        (expect as any).any(String),
+        (expect as any).any(String),
+        (expect as any).any(Object),
+      );
       expect(mockAuditService.recordEvent).toHaveBeenCalled();
-      expect(result).toBe(456);
+      expect(result).toEqual({ tokenId: 456 });
     });
 
     it('should throw NAuthException if user not found', async () => {
@@ -212,7 +263,7 @@ describe('PhoneVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.sendVerificationSMS('invalid-sub');
+        await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'invalid-sub' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -227,7 +278,7 @@ describe('PhoneVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(userWithoutPhone as any);
 
       try {
-        await service.sendVerificationSMS('user-sub-123');
+        await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -242,7 +293,7 @@ describe('PhoneVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(verifiedUser as any);
 
       try {
-        await service.sendVerificationSMS('user-sub-123', false); // Don't skip check
+        await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123', skipAlreadyVerifiedCheck: false }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -259,7 +310,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.sendVerificationSMS('user-sub-123', true); // Skip check
+      await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123', skipAlreadyVerifiedCheck: true }));
 
       expect(mockSmsProvider.sendOTP).toHaveBeenCalled();
     });
@@ -269,7 +320,7 @@ describe('PhoneVerificationService', () => {
       mockStorageAdapter.ttl.mockResolvedValue(3600);
 
       try {
-        await service.sendVerificationSMS('user-sub-123');
+        await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -289,7 +340,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(recentToken as any);
 
       try {
-        await service.sendVerificationSMS('user-sub-123');
+        await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -309,7 +360,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.sendVerificationSMS('user-sub-123');
+      await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
 
       expect(mockSmsProvider.sendOTP).toHaveBeenCalled();
     });
@@ -322,7 +373,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.sendVerificationSMS('user-sub-123');
+      await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
 
       expect(mockVerificationTokenRepository.update).toHaveBeenCalledWith(
         (expect as any).objectContaining({
@@ -344,9 +395,9 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.sendVerificationSMS('user-sub-123');
+      await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
 
-      expect(mockStorageAdapter.del).toHaveBeenCalledWith('phone-verification:user-sub-123');
+      expect(mockStorageAdapter.del).toHaveBeenCalledWith(`phone-verification:${TEST_USER_SUB}`);
     });
 
     it('should handle SMS provider errors', async () => {
@@ -359,7 +410,7 @@ describe('PhoneVerificationService', () => {
       mockSmsProvider.sendOTP.mockRejectedValue(new Error('SMS service error'));
 
       try {
-        await service.sendVerificationSMS('user-sub-123');
+        await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
         fail('Should have thrown error');
       } catch (error: any) {
         expect(error.message).toContain('SMS service error');
@@ -375,7 +426,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
       mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-      await service.sendVerificationSMS('user-sub-123');
+      await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
 
       expect(mockLogger.error).toHaveBeenCalled();
       expect(mockSmsProvider.sendOTP).toHaveBeenCalled(); // Should still send SMS
@@ -392,6 +443,7 @@ describe('PhoneVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        mockHookRegistry as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -399,7 +451,7 @@ describe('PhoneVerificationService', () => {
       mockStorageAdapter.ttl.mockResolvedValue(1800);
 
       try {
-        await service.sendVerificationSMS('user-sub-123');
+        await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.RATE_LIMIT_SMS);
@@ -416,6 +468,7 @@ describe('PhoneVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        mockHookRegistry as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -429,7 +482,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(recentToken as any);
 
       try {
-        await service.sendVerificationSMS('user-sub-123');
+        await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.RATE_LIMIT_RESEND);
@@ -444,10 +497,13 @@ describe('PhoneVerificationService', () => {
   describe('verifyPhoneWithCode', () => {
     it('should verify phone with valid code', async () => {
       mockVerificationTokenRepository.find.mockResolvedValue([mockVerificationToken] as any);
-      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      mockConfig.signup!.verificationMethod = 'phone';
+      mockUserRepository.findOne
+        .mockResolvedValueOnce(mockUser as any) // user lookup by token.userId during matching loop
+        .mockResolvedValueOnce({ ...mockUser, isPhoneVerified: true } as any); // refetch after update
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      const result = await service.verifyPhoneWithCode('+1234567890', '123456');
+      const result = await service.verifyPhoneWithCode(createVerifyPhoneWithCodeDto({ phone: '+1234567890', code: '123456' }));
 
       expect(result.message).toBe('Phone verified successfully. Please log in to continue.');
       expect(mockUserRepository.update).toHaveBeenCalledWith(123, {
@@ -455,17 +511,27 @@ describe('PhoneVerificationService', () => {
         isActive: true,
       });
       expect(mockAuditService.recordEvent).toHaveBeenCalled();
+      expect(mockHookRegistry.executeOnboardingCompleted).toHaveBeenCalledTimes(1);
+      expect(mockHookRegistry.executeOnboardingCompleted).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 123, isPhoneVerified: true }),
+        expect.objectContaining({
+          verificationMethod: 'phone',
+          source: 'phone_verification',
+          completedAt: expect.any(Date),
+        }),
+      );
     });
 
     it('should throw NAuthException for invalid code', async () => {
       mockVerificationTokenRepository.find.mockResolvedValue([]); // No matching tokens
 
       try {
-        await service.verifyPhoneWithCode('+1234567890', 'wrong-code');
+        await service.verifyPhoneWithCode(createVerifyPhoneWithCodeDto({ phone: '+1234567890', code: 'wrong-code' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
-        expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_INVALID);
+        // Invalid code format is caught at DTO validation level
+        expect(error.code).toBe(AuthErrorCode.VALIDATION_FAILED);
       }
     });
 
@@ -483,7 +549,7 @@ describe('PhoneVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(differentUser as any);
 
       try {
-        await service.verifyPhoneWithCode('+1234567890', '123456');
+        await service.verifyPhoneWithCode(createVerifyPhoneWithCodeDto({ phone: '+1234567890', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -501,7 +567,7 @@ describe('PhoneVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
 
       try {
-        await service.verifyPhoneWithCode('+1234567890', '123456');
+        await service.verifyPhoneWithCode(createVerifyPhoneWithCodeDto({ phone: '+1234567890', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -520,7 +586,7 @@ describe('PhoneVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
 
       try {
-        await service.verifyPhoneWithCode('+1234567890', '123456');
+        await service.verifyPhoneWithCode(createVerifyPhoneWithCodeDto({ phone: '+1234567890', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -539,7 +605,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.save.mockResolvedValue(tokenWithWrongCode as any);
 
       try {
-        await service.verifyPhoneWithCode('+1234567890', '123456');
+        await service.verifyPhoneWithCode(createVerifyPhoneWithCodeDto({ phone: '+1234567890', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_INVALID);
@@ -578,7 +644,7 @@ describe('PhoneVerificationService', () => {
         .mockResolvedValueOnce(mockUser as any) // First call for user 123
         .mockResolvedValueOnce(user2 as any); // Second call for user 456
 
-      const result = await service.verifyPhoneWithCode('+1234567890', '123456');
+      const result = await service.verifyPhoneWithCode(createVerifyPhoneWithCodeDto({ phone: '+1234567890', code: '123456' }));
 
       // Should match token1 (user 123) because phone matches
       expect(result.message).toBeDefined();
@@ -591,7 +657,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
       mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-      const result = await service.verifyPhoneWithCode('+1234567890', '123456');
+      const result = await service.verifyPhoneWithCode(createVerifyPhoneWithCodeDto({ phone: '+1234567890', code: '123456' }));
 
       expect(mockLogger.error).toHaveBeenCalled();
       expect(result.message).toBeDefined(); // Should still verify
@@ -606,7 +672,7 @@ describe('PhoneVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
 
       try {
-        await service.verifyPhoneWithCode('+1234567890', '123456');
+        await service.verifyPhoneWithCode(createVerifyPhoneWithCodeDto({ phone: '+1234567890', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_EXPIRED);
@@ -624,7 +690,7 @@ describe('PhoneVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
 
       try {
-        await service.verifyPhoneWithCode('+1234567890', '123456');
+        await service.verifyPhoneWithCode(createVerifyPhoneWithCodeDto({ phone: '+1234567890', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_EXPIRED);
@@ -640,7 +706,7 @@ describe('PhoneVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
 
       try {
-        await service.verifyPhoneWithCode('+1234567890', '123456');
+        await service.verifyPhoneWithCode(createVerifyPhoneWithCodeDto({ phone: '+1234567890', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_TOO_MANY_ATTEMPTS);
@@ -658,7 +724,7 @@ describe('PhoneVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
 
       try {
-        await service.verifyPhoneWithCode('+1234567890', '123456');
+        await service.verifyPhoneWithCode(createVerifyPhoneWithCodeDto({ phone: '+1234567890', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_TOO_MANY_ATTEMPTS);
@@ -676,10 +742,10 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      const result = await service.verifyPhoneWithCodeBySub('user-sub-123', '123456');
+      const result = await service.verifyPhoneWithCodeBySub(createVerifyPhoneWithCodeBySubDto({ sub: 'user-sub-123', code: '123456' }));
 
       expect(result.message).toBe('Phone verified successfully. Please log in to continue.');
-      expect(mockUserRepository.update).toHaveBeenCalledWith({ sub: 'user-sub-123' } as any, {
+      expect(mockUserRepository.update).toHaveBeenCalledWith({ sub: TEST_USER_SUB } as any, {
         isPhoneVerified: true,
         isActive: true,
       });
@@ -690,7 +756,7 @@ describe('PhoneVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.verifyPhoneWithCodeBySub('invalid-sub', '123456');
+        await service.verifyPhoneWithCodeBySub(createVerifyPhoneWithCodeBySubDto({ sub: 'invalid-sub', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -703,7 +769,7 @@ describe('PhoneVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(userWithoutPhone as any);
 
       try {
-        await service.verifyPhoneWithCodeBySub('user-sub-123', '123456');
+        await service.verifyPhoneWithCodeBySub(createVerifyPhoneWithCodeBySubDto({ sub: 'user-sub-123', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -716,11 +782,12 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.verifyPhoneWithCodeBySub('user-sub-123', 'wrong-code');
+        await service.verifyPhoneWithCodeBySub(createVerifyPhoneWithCodeBySubDto({ sub: 'user-sub-123', code: 'wrong-code' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
-        expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_INVALID);
+        // Invalid code format is caught at DTO validation level
+        expect(error.code).toBe(AuthErrorCode.VALIDATION_FAILED);
       }
     });
 
@@ -734,7 +801,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(expiredToken as any);
 
       try {
-        await service.verifyPhoneWithCodeBySub('user-sub-123', '123456');
+        await service.verifyPhoneWithCodeBySub(createVerifyPhoneWithCodeBySubDto({ sub: 'user-sub-123', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -753,7 +820,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(exhaustedToken as any);
 
       try {
-        await service.verifyPhoneWithCodeBySub('user-sub-123', '123456');
+        await service.verifyPhoneWithCodeBySub(createVerifyPhoneWithCodeBySubDto({ sub: 'user-sub-123', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -772,7 +839,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.save.mockResolvedValue(tokenWithWrongCode as any);
 
       try {
-        await service.verifyPhoneWithCodeBySub('user-sub-123', '123456');
+        await service.verifyPhoneWithCodeBySub(createVerifyPhoneWithCodeBySubDto({ sub: 'user-sub-123', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_INVALID);
@@ -796,7 +863,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
       mockAuditService.recordEvent.mockRejectedValue(new Error('Audit error'));
 
-      const result = await service.verifyPhoneWithCodeBySub('user-sub-123', '123456');
+      const result = await service.verifyPhoneWithCodeBySub(createVerifyPhoneWithCodeBySubDto({ sub: 'user-sub-123', code: '123456' }));
 
       expect(mockLogger.error).toHaveBeenCalled();
       expect(result.message).toBeDefined(); // Should still verify
@@ -811,7 +878,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(tokenWithMethod as any);
 
       try {
-        await service.verifyPhoneWithCodeBySub('user-sub-123', '123456');
+        await service.verifyPhoneWithCodeBySub(createVerifyPhoneWithCodeBySubDto({ sub: 'user-sub-123', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_EXPIRED);
@@ -829,7 +896,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(tokenWithoutMethod as any);
 
       try {
-        await service.verifyPhoneWithCodeBySub('user-sub-123', '123456');
+        await service.verifyPhoneWithCodeBySub(createVerifyPhoneWithCodeBySubDto({ sub: 'user-sub-123', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_CODE_EXPIRED);
@@ -845,7 +912,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(tokenWithMethod as any);
 
       try {
-        await service.verifyPhoneWithCodeBySub('user-sub-123', '123456');
+        await service.verifyPhoneWithCodeBySub(createVerifyPhoneWithCodeBySubDto({ sub: 'user-sub-123', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_TOO_MANY_ATTEMPTS);
@@ -863,7 +930,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(tokenWithoutMethod as any);
 
       try {
-        await service.verifyPhoneWithCodeBySub('user-sub-123', '123456');
+        await service.verifyPhoneWithCodeBySub(createVerifyPhoneWithCodeBySubDto({ sub: 'user-sub-123', code: '123456' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.VERIFICATION_TOO_MANY_ATTEMPTS);
@@ -884,11 +951,11 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      const result = await service.resendVerificationSMS('user-sub-123');
+      const result = await service.resendVerificationSMS(createResendVerificationSMSDto({ sub: 'user-sub-123' }));
 
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'user-sub-123' } as any });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: TEST_USER_SUB } as any });
       expect(mockSmsProvider.sendOTP).toHaveBeenCalled();
-      expect(result).toBe(456);
+      expect(result).toEqual({ tokenId: 456 });
     });
 
     it('should enforce resend delay', async () => {
@@ -900,7 +967,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.findOne.mockResolvedValue(recentToken as any);
 
       try {
-        await service.resendVerificationSMS('user-sub-123');
+        await service.resendVerificationSMS(createResendVerificationSMSDto({ sub: 'user-sub-123' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -920,7 +987,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.resendVerificationSMS('user-sub-123');
+      await service.resendVerificationSMS(createResendVerificationSMSDto({ sub: 'user-sub-123' }));
 
       expect(mockSmsProvider.sendOTP).toHaveBeenCalled();
     });
@@ -929,7 +996,7 @@ describe('PhoneVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.resendVerificationSMS('invalid-sub');
+        await service.resendVerificationSMS(createResendVerificationSMSDto({ sub: 'invalid-sub' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -945,7 +1012,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.resendVerificationSMS('user-sub-123');
+      await service.resendVerificationSMS(createResendVerificationSMSDto({ sub: 'user-sub-123' }));
 
       // Should call sendVerificationSMS with same parameters
       expect(mockSmsProvider.sendOTP).toHaveBeenCalled();
@@ -956,7 +1023,7 @@ describe('PhoneVerificationService', () => {
   // resendVerificationSMSForPhone
   // ============================================================================
 
-  describe('resendVerificationSMSForPhone', () => {
+  describe('resendVerificationSMS with phone', () => {
     it('should resend verification SMS by phone number', async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockVerificationTokenRepository.findOne.mockResolvedValue(null);
@@ -965,18 +1032,18 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      const result = await service.resendVerificationSMSForPhone('+1234567890');
+      const result = await service.resendVerificationSMS(createResendVerificationSMSDto({ phone: '+1234567890' }));
 
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { phone: '+1234567890' } as any });
       expect(mockSmsProvider.sendOTP).toHaveBeenCalled();
-      expect(result).toBe(456);
+      expect(result).toEqual({ tokenId: 456 });
     });
 
     it('should throw NAuthException if user not found by phone', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.resendVerificationSMSForPhone('+9999999999');
+        await service.resendVerificationSMS(createResendVerificationSMSDto({ phone: '+9999999999' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -989,27 +1056,12 @@ describe('PhoneVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(verifiedUser as any);
 
       try {
-        await service.resendVerificationSMSForPhone('+1234567890');
+        await service.resendVerificationSMS(createResendVerificationSMSDto({ phone: '+1234567890' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
         expect(error.code).toBe(AuthErrorCode.ALREADY_VERIFIED);
       }
-    });
-
-    it('should delegate to resendVerificationSMS with user sub', async () => {
-      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
-      mockVerificationTokenRepository.findOne.mockResolvedValue(null);
-      mockStorageAdapter.incr.mockResolvedValue(1);
-      mockStorageAdapter.ttl.mockResolvedValue(3600);
-      mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
-      mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
-
-      await service.resendVerificationSMSForPhone('+1234567890');
-
-      // Should find user by phone, then use their sub to resend
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { phone: '+1234567890' } as any });
-      expect(mockSmsProvider.sendOTP).toHaveBeenCalled();
     });
   });
 
@@ -1027,6 +1079,7 @@ describe('PhoneVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        mockHookRegistry as any, // hookRegistry (mock)
         undefined, // No audit service
       );
 
@@ -1037,7 +1090,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await serviceWithoutAudit.sendVerificationSMS('user-sub-123');
+      await serviceWithoutAudit.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
 
       // Should not throw error
       expect(mockSmsProvider.sendOTP).toHaveBeenCalled();
@@ -1057,7 +1110,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.sendVerificationSMS('user-sub-123');
+      await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
 
       // Should create new window
       expect(mockStorageAdapter.incr).toHaveBeenCalled();
@@ -1071,7 +1124,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.sendVerificationSMS('user-sub-123');
+      await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
 
       // Should create new window (when TTL is 0, window is expired, so TTL parameter is passed)
       expect(mockStorageAdapter.incr).toHaveBeenCalled();
@@ -1085,7 +1138,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.sendVerificationSMS('user-sub-123');
+      await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
 
       // Should create new window
       expect(mockStorageAdapter.incr).toHaveBeenCalled();
@@ -1101,6 +1154,7 @@ describe('PhoneVerificationService', () => {
         mockConfig,
         mockClientInfoService,
         mockLogger,
+        mockHookRegistry as any, // hookRegistry (mock)
         mockAuditService,
       );
 
@@ -1112,7 +1166,7 @@ describe('PhoneVerificationService', () => {
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
       // Should use defaults (rateLimitMax: 3, rateLimitWindow: 3600, resendDelay: 60, expiresIn: 300, maxAttempts: 3)
-      await service.sendVerificationSMS('user-sub-123');
+      await service.sendVerificationSMS(createSendVerificationSMSDto({ sub: 'user-sub-123' }));
 
       expect(mockSmsProvider.sendOTP).toHaveBeenCalled();
     });

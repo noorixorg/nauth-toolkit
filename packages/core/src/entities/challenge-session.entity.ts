@@ -90,7 +90,7 @@ export class BaseChallengeSession {
    * }
    * ```
    */
-  challengeParameters?: Record<string, unknown> | null;
+  challengeParameters!: Record<string, unknown> | null;
 
   /**
    * Additional metadata (alias for challengeParameters for backwards compatibility)
@@ -101,13 +101,13 @@ export class BaseChallengeSession {
    * IP address where the challenge session was created
    * For security auditing
    */
-  ipAddress?: string | null;
+  ipAddress!: string | null;
 
   /**
    * User agent where the challenge session was created
    * For security auditing
    */
-  userAgent?: string | null;
+  userAgent!: string | null;
 
   /**
    * Creation timestamp

@@ -19,6 +19,8 @@ export default [
       '**/*.tsbuildinfo',
       '**/capacitor.config.ts', // Capacitor config doesn't need strict linting
       'tests/**', // E2E tests excluded from linting
+      'packages/client-angular/standalone/**', // Secondary entrypoint wrapper (no source linting)
+      '**/*.spec.ts', // Spec files excluded from tsconfig
       'packages/email/console/src/templates/html-template.engine.spec.ts', // Test file excluded from tsconfig
       'packages/email/nodemailer/src/templates/html-template.engine.spec.ts', // Test file excluded from tsconfig
       'packages/social/google/src/token-verifier.service.spec.ts', // Test file excluded from tsconfig
@@ -79,7 +81,7 @@ export default [
       '@typescript-eslint/interface-name-prefix': 'off',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/no-explicit-any': 'warn', // ✅ PROJ_RULES: Warn instead of error (too many in interfaces)
+      '@typescript-eslint/no-explicit-any': 'warn', // PROJ_RULES: Warn instead of error (too many in interfaces)
       '@typescript-eslint/no-unused-vars': 'off', // Handled by unused-imports plugin
       '@typescript-eslint/no-empty-function': 'warn',
       '@typescript-eslint/ban-ts-comment': 'warn',
@@ -105,7 +107,7 @@ export default [
       // ============================================================================
       // General Best Practices
       // ============================================================================
-      'no-console': ['warn', { allow: ['warn', 'error'] }], // ✅ PROJ_RULES: No console.log
+      'no-console': ['warn', { allow: ['warn', 'error'] }], // PROJ_RULES: No console.log
       'no-debugger': 'error',
       'no-var': 'error',
       'prefer-const': 'error',

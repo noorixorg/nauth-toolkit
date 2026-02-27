@@ -1,7 +1,6 @@
 ---
 title: ChallengeResponse
 description: Discriminated union for authentication challenge responses
-sidebar_position: 100
 keywords: [challenge, response, verification, mfa, api]
 image: /img/api-social-card.png
 ---

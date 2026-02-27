@@ -1,7 +1,6 @@
 ---
 title: TokenDeliveryMode
 description: Type alias for token delivery modes (json or cookies)
-sidebar_position: 270
 keywords: [token, delivery, mode, type, api]
 image: /img/api-social-card.png
 ---
@@ -61,4 +60,4 @@ const client = new NAuthClient({
 ## Related Types
 
 - [`NAuthClientConfig`](../nauth-client-config) - Client configuration
-- [Token Management](../../token-management) - Complete token management guide
+- [Token Management](../../concepts/token-management) - Complete token management guide

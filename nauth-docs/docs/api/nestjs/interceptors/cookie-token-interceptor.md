@@ -3,9 +3,7 @@ title: CookieTokenInterceptor
 description: NestJS interceptor for cookie-based token delivery
 keywords: [nestjs, interceptor, cookies, token, api]
 image: /img/api-social-card.png
-sidebar_position: 2
 ---
-
 # CookieTokenInterceptor
 
 **Package:** `@nauth-toolkit/nestjs`
@@ -59,14 +57,16 @@ export class AuthController {}
 
 ## Cookie Options
 
-Configured via `config.cookies`:
+Configured via `config.tokenDelivery.cookieOptions`:
 
 | Option | Type | Description |
 |--------|------|-------------|
 | `secure` | `boolean` | HTTPS only |
-| `httpOnly` | `boolean` | No JS access |
-| `sameSite` | `string` | CSRF protection |
+| `httpOnly` | `boolean` | Always `true` --- hardcoded for security, cannot be disabled |
+| `sameSite` | `'strict' \| 'lax' \| 'none'` | CSRF protection |
 | `domain` | `string` | Cookie domain |
+| `path` | `string` | Cookie path (defaults to `'/'`) |
+| `maxAge` | `number` | Cookie max age in milliseconds |
 
 ## Related
 

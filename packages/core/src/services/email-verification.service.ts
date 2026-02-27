@@ -10,6 +10,7 @@ import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { NAuthLogger } from '../utils/nauth-logger';
+import { HookRegistryService } from './hook-registry.service';
 import {
   SendVerificationEmailDTO,
   SendVerificationEmailResponseDTO,
@@ -20,6 +21,7 @@ import {
   VerifyEmailResponseDTO,
 } from '../dto/verify-email.dto';
 import * as crypto from 'crypto';
+import { ensureValidatedDto } from '../utils/dto-validator';
 
 /**
  * Email Verification Service
@@ -41,6 +43,7 @@ export class EmailVerificationService {
     private readonly config: NAuthConfig,
     private readonly clientInfoService: ClientInfoService,
     private readonly logger: NAuthLogger,
+    private readonly hookRegistry: HookRegistryService,
     private readonly auditService?: AuthAuditService, // Optional - audit trail service (enabled via config.auditLogs.enabled)
   ) {}
 
@@ -52,7 +55,8 @@ export class EmailVerificationService {
    * @returns Response DTO with verification token ID
    */
   async sendVerificationEmail(dto: SendVerificationEmailDTO): Promise<SendVerificationEmailResponseDTO> {
-    const { sub, baseUrl, skipAlreadyVerifiedCheck = false, challengeSessionId } = dto;
+    dto = await ensureValidatedDto(SendVerificationEmailDTO, dto);
+    const { sub, baseUrl, skipAlreadyVerifiedCheck = false, challengeSessionId, challengeSessionToken } = dto;
     // Get rate limit configuration from config (moved to signup.emailVerification)
     const rateLimitMax = this.config.signup?.emailVerification?.rateLimitMax || 3;
     const rateLimitWindow = this.config.signup?.emailVerification?.rateLimitWindow || 3600; // 1 hour in seconds
@@ -85,7 +89,15 @@ export class EmailVerificationService {
     // Get actual TTL after setting expiry (for error message)
     const actualTtl = await this.storageAdapter.ttl(rateLimitKey);
 
+    this.logger?.debug?.(
+      `Email verification rate limit check: sub=${sub}, count=${currentCount}/${rateLimitMax}, ttl=${actualTtl}s, window=${rateLimitWindow}s`,
+    );
+
     if (currentCount > rateLimitMax) {
+      this.logger?.error?.(
+        `Email rate limit exceeded: sub=${sub}, count=${currentCount}, max=${rateLimitMax}, retryAfter=${actualTtl}s, window=${rateLimitWindow}s. ` +
+          `Config: rateLimitMax=${this.config.signup?.emailVerification?.rateLimitMax}, rateLimitWindow=${this.config.signup?.emailVerification?.rateLimitWindow}`,
+      );
       throw new NAuthException(
         AuthErrorCode.RATE_LIMIT_EMAIL,
         'Too many verification emails sent. Please try again later.',
@@ -169,12 +181,20 @@ export class EmailVerificationService {
 
     await this.verificationTokenRepo.save(verificationToken);
 
-    // Generate verification link only if baseUrl is provided
-    // Consumer apps can build their own verification links if needed
-    const verificationLink = baseUrl ? `${baseUrl}/verify-email?token=${token}` : undefined;
+    // Generate verification link if baseUrl is provided (from DTO or config)
+    // Use config baseUrl if DTO doesn't provide one
+    const effectiveBaseUrl = baseUrl || this.config.signup?.emailVerification?.baseUrl;
+    // Link includes both session token and code for cross-browser/device verification
+    // Session token allows verification in fresh browser window (no localStorage needed)
+    const verificationLink = effectiveBaseUrl
+      ? this.buildVerificationLink(effectiveBaseUrl, challengeSessionToken, code)
+      : undefined;
+
+    // Calculate expiry in minutes for template (same logic as MFA email)
+    const expiryMinutes = Math.ceil((this.config.signup?.emailVerification?.expiresIn || 3600) / 60);
 
     // Send email (link is optional - only sent if provided)
-    await this.emailProvider.sendVerificationEmail(user.email, code, verificationLink);
+    await this.emailProvider.sendVerificationEmail(user.email, code, verificationLink, expiryMinutes);
 
     // ============================================================================
     // Audit: Record email verification request
@@ -184,15 +204,200 @@ export class EmailVerificationService {
         userId: user.id,
         eventType: AuthAuditEventType.EMAIL_VERIFICATION_REQUESTED,
         eventStatus: 'INFO',
-        metadata: {
-          verificationTokenId: (verificationToken as unknown as IVerificationToken).id,
-        },
+        metadata: {},
         // Client info automatically included from context
       });
     } catch (auditError) {
       // Non-blocking: Log but continue
       const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
       this.logger?.error?.(`Failed to record EMAIL_VERIFICATION_REQUESTED audit event: ${errorMessage}`, {
+        error: auditError,
+        userId: user.id,
+      });
+    }
+
+    return { tokenId: (verificationToken as unknown as IVerificationToken).id };
+  }
+
+  /**
+   * Send MFA email code (for Email MFA challenge during login)
+   * Generates a new verification code and sends it via email using the mfaEmailCode template
+   *
+   * @param dto - Request DTO containing sub and skipAlreadyVerifiedCheck
+   * @returns Response DTO with verification token ID
+   */
+  async sendMFAEmailCode(dto: SendVerificationEmailDTO): Promise<SendVerificationEmailResponseDTO> {
+    dto = await ensureValidatedDto(SendVerificationEmailDTO, dto);
+    const { sub, skipAlreadyVerifiedCheck = false, challengeSessionId } = dto;
+
+    // Get rate limit configuration from config (moved to signup.emailVerification)
+    const rateLimitMax = this.config.signup?.emailVerification?.rateLimitMax || 3;
+    const rateLimitWindow = this.config.signup?.emailVerification?.rateLimitWindow || 3600; // 1 hour in seconds
+
+    // Check rate limit - use sub for rate limiting
+    const rateLimitKey = `email-verification:${sub}`;
+
+    // Check if key exists and has valid TTL (not expired)
+    const ttlBefore = await this.storageAdapter.ttl(rateLimitKey);
+    // Window is expired if: key doesn't exist (-1), expired (<0), or TTL is longer than configured window (config changed)
+    const isWindowExpired = ttlBefore === -1 || ttlBefore < 0 || ttlBefore > rateLimitWindow;
+
+    // If TTL is longer than configured window (config changed), delete the old key to reset it
+    // This ensures the new window uses the current rateLimitWindow instead of preserving old expiry
+    if (ttlBefore > rateLimitWindow) {
+      await this.storageAdapter.del(rateLimitKey);
+    }
+
+    // Increment counter (will reset to 1 if key expired or doesn't exist)
+    // Pass TTL so new records are created with correct expiry immediately
+    const currentCount = await this.storageAdapter.incr(rateLimitKey, isWindowExpired ? rateLimitWindow : undefined);
+
+    // If we created a new window, log it
+    if (isWindowExpired && currentCount === 1) {
+      this.logger?.debug?.(
+        `Rate limit window reset for MFA email code: sub=${sub}, window=${rateLimitWindow}s, max=${rateLimitMax}`,
+      );
+    }
+
+    // Get actual TTL after setting expiry (for error message)
+    const actualTtl = await this.storageAdapter.ttl(rateLimitKey);
+
+    this.logger?.debug?.(
+      `MFA email rate limit check: sub=${sub}, count=${currentCount}/${rateLimitMax}, ttl=${actualTtl}s, window=${rateLimitWindow}s`,
+    );
+
+    if (currentCount > rateLimitMax) {
+      this.logger?.error?.(
+        `MFA email rate limit exceeded: sub=${sub}, count=${currentCount}, max=${rateLimitMax}, retryAfter=${actualTtl}s, window=${rateLimitWindow}s. ` +
+          `Config: rateLimitMax=${this.config.signup?.emailVerification?.rateLimitMax}, rateLimitWindow=${this.config.signup?.emailVerification?.rateLimitWindow}`,
+      );
+      throw new NAuthException(
+        AuthErrorCode.RATE_LIMIT_EMAIL,
+        'Too many MFA email codes sent. Please try again later.',
+        {
+          retryAfter: actualTtl > 0 ? actualTtl : rateLimitWindow,
+          currentCount,
+          maxAttempts: rateLimitMax,
+        },
+      );
+    }
+
+    // Check if user already has a pending verification token
+    const user = (await this.userRepo.findOne({ where: { sub } })) as IUser | null;
+    if (!user) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    // Check resend delay to prevent abuse
+    const resendDelay = this.config.signup?.emailVerification?.resendDelay ?? 60; // 1 minute default
+    this.logger?.debug?.(
+      `Email resend delay check: sub=${sub}, resendDelay=${resendDelay}s, config=${this.config.signup?.emailVerification?.resendDelay}`,
+    );
+    const lastToken = (await this.verificationTokenRepo.findOne({
+      where: { userId: user.id, type: 'email' },
+      order: { createdAt: 'DESC' },
+    })) as IVerificationToken | null;
+
+    if (lastToken) {
+      const secondsSinceLastSend = (Date.now() - lastToken.createdAt.getTime()) / 1000;
+      this.logger?.debug?.(
+        `Email last token: tokenId=${lastToken.id}, createdAt=${lastToken.createdAt.toISOString()}, secondsSince=${secondsSinceLastSend.toFixed(1)}s`,
+      );
+      if (secondsSinceLastSend < resendDelay) {
+        const waitSeconds = Math.ceil(resendDelay - secondsSinceLastSend);
+
+        // If challengeSessionId is provided and token is still valid, link it to the new challenge session
+        // This allows the token to be found by the new session (e.g., during rapid re-logins)
+        if (challengeSessionId && lastToken.usedAt === null && lastToken.expiresAt > new Date()) {
+          this.logger?.log?.(
+            `Resend delay active but linking existing token ${lastToken.id} to new challenge session ${challengeSessionId}. No new email sent.`,
+          );
+          await this.verificationTokenRepo.update({ id: lastToken.id }, { challengeSessionId });
+          // Return success response with existing token ID (no new email sent)
+          return { tokenId: lastToken.id as number };
+        }
+
+        this.logger?.warn?.(
+          `Email resend rate limit: sub=${sub}, wait=${waitSeconds}s, delay=${resendDelay}s, secondsSince=${secondsSinceLastSend.toFixed(1)}s`,
+        );
+        throw new NAuthException(
+          AuthErrorCode.RATE_LIMIT_RESEND,
+          `Please wait ${waitSeconds} seconds before requesting another code`,
+          {
+            retryAfter: waitSeconds,
+            resendDelay,
+          },
+        );
+      }
+    }
+
+    // Only check "already verified" if not skipping (skip for MFA contexts where codes are needed even if email is verified)
+    if (!skipAlreadyVerifiedCheck && user.isEmailVerified) {
+      throw new NAuthException(AuthErrorCode.ALREADY_VERIFIED, 'Email already verified');
+    }
+
+    // Invalidate existing tokens - use internal id for database query
+    await this.verificationTokenRepo.update(
+      {
+        userId: user.id, // Use internal id for foreign key query
+        type: 'email',
+        usedAt: IsNull(), // Only invalidate unused tokens
+      },
+      {
+        usedAt: new Date(), // Mark as used to invalidate
+      },
+    );
+
+    // Generate verification code (6 digits)
+    const code = this.generateCode();
+
+    // Generate verification token (for link-based verification)
+    const token = this.generateToken();
+    const tokenHash = this.hashToken(token);
+
+    // Create verification token - use internal id for foreign key
+    // Get client info internally
+    const clientInfo = this.clientInfoService.get();
+    const ipAddress = clientInfo.ipAddress;
+    const userAgent = clientInfo.userAgent;
+
+    const verificationToken = this.verificationTokenRepo.create({
+      userId: user.id, // Use internal id for foreign key
+      challengeSessionId: challengeSessionId ?? null, // Link to challenge session if provided
+      type: 'email',
+      token: tokenHash,
+      code,
+      expiresAt: new Date(Date.now() + (this.config.signup?.emailVerification?.expiresIn || 3600) * 1000), // Default: 1 hour
+      attempts: 0,
+      ipAddress,
+      userAgent,
+    });
+
+    await this.verificationTokenRepo.save(verificationToken);
+
+    // Calculate expiry in minutes for template
+    const expiryMinutes = Math.ceil((this.config.signup?.emailVerification?.expiresIn || 3600) / 60);
+
+    // Send MFA email code (uses mfaEmailCode template, no link)
+    await this.emailProvider.sendMFAEmailCode(user.email, code, expiryMinutes);
+
+    // ============================================================================
+    // Audit: Record MFA email code request
+    // ============================================================================
+    try {
+      await this.auditService?.recordEvent({
+        userId: user.id,
+        eventType: AuthAuditEventType.EMAIL_VERIFICATION_REQUESTED,
+        eventStatus: 'INFO',
+        metadata: {
+          mfaContext: true,
+        },
+        // Client info automatically included from context
+      });
+    } catch (auditError) {
+      // Non-blocking: Log but continue
+      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to record MFA email code audit event: ${errorMessage}`, {
         error: auditError,
         userId: user.id,
       });
@@ -209,6 +414,7 @@ export class EmailVerificationService {
    * @returns Response DTO with success message
    */
   async verifyEmailWithCode(dto: VerifyEmailWithCodeDTO): Promise<VerifyEmailResponseDTO> {
+    dto = await ensureValidatedDto(VerifyEmailWithCodeDTO, dto);
     const { email, code, challengeSessionId } = dto;
     // ============================================================================
     // Security: Rate limit configuration
@@ -278,10 +484,11 @@ export class EmailVerificationService {
       throw new NAuthException(AuthErrorCode.VERIFICATION_CODE_EXPIRED, 'Verification code has expired');
     }
 
-    // Check max attempts (3 attempts)
+    // Check max attempts (configurable, default 3)
+    const maxAttempts = this.config.signup?.emailVerification?.maxAttempts ?? 3;
     const maxAttemptsExceeded = verificationToken.maxAttemptsExceeded
-      ? verificationToken.maxAttemptsExceeded(3)
-      : verificationToken.attempts >= 3;
+      ? verificationToken.maxAttemptsExceeded(maxAttempts)
+      : verificationToken.attempts >= maxAttempts;
     if (maxAttemptsExceeded) {
       // Token exceeded max attempts - increment IP rate limit
       await incrementIPRateLimit();
@@ -338,7 +545,6 @@ export class EmailVerificationService {
           description: 'Invalid verification code provided',
           // Client info automatically included from context
           metadata: {
-            verificationTokenId: (verificationToken as IVerificationToken).id,
             attempts: verificationToken.attempts,
           },
         });
@@ -359,16 +565,34 @@ export class EmailVerificationService {
     // Valid codes should always be allowed through
     // ============================================================================
 
+    const verificationMethod = this.config.signup?.verificationMethod ?? 'email';
+    const wasOnboardingCompleteBefore =
+      verificationMethod === 'none'
+        ? true
+        : verificationMethod === 'email'
+          ? !!user.isEmailVerified
+          : verificationMethod === 'phone'
+            ? !!user.isPhoneVerified
+            : verificationMethod === 'both'
+              ? !!user.isEmailVerified && !!user.isPhoneVerified
+              : !!user.isEmailVerified;
+
+    // Store initial verification status to detect changes
+    const wasEmailVerified = Boolean(user.isEmailVerified);
+
     // Mark token as used
     verificationToken.usedAt = new Date();
     await this.verificationTokenRepo.save(verificationToken);
 
     // Update user - use internal id for database update
-    await this.userRepo.update(user.id, {
-      isEmailVerified: true,
-      // Auto-activate if not already active
-      isActive: true,
-    });
+    // Only update if not already verified to avoid unnecessary DB write
+    if (!wasEmailVerified) {
+      await this.userRepo.update(user.id, {
+        isEmailVerified: true,
+        // Auto-activate if not already active
+        isActive: true,
+      });
+    }
 
     // ============================================================================
     // Audit: Record email verification success
@@ -379,10 +603,9 @@ export class EmailVerificationService {
         eventType: AuthAuditEventType.EMAIL_VERIFIED,
         eventStatus: 'SUCCESS',
         metadata: {
-          verificationTokenId: (verificationToken as IVerificationToken).id,
           verificationMethod: 'code',
-          // Client info automatically included from context
         },
+        // Client info automatically included from context
       });
     } catch (auditError) {
       // Non-blocking: Log but continue
@@ -391,6 +614,68 @@ export class EmailVerificationService {
         error: auditError,
         userId: user.id,
       });
+    }
+
+    // ============================================================================
+    // Hook: Execute user profile updated hooks
+    // ============================================================================
+    // Fire hook if verification status changed (false→true OR true→false)
+    // This ensures hook fires consistently on any status change
+    if (wasEmailVerified !== true) {
+      try {
+        // Refetch user to get complete updated state
+        const updatedUser = (await this.userRepo.findOne({ where: { id: user.id } })) as IUser | null;
+        if (updatedUser) {
+          // Get client info from ClientInfoService
+          const clientInfo = this.clientInfoService.get();
+
+          // Execute hooks (non-blocking) with actual old/new values
+          await this.hookRegistry.executeUserProfileUpdated({
+            user: updatedUser,
+            changedFields: [
+              {
+                fieldName: 'isEmailVerified',
+                oldValue: wasEmailVerified,
+                newValue: true,
+              },
+            ],
+            updateSource: 'email_verification',
+            clientInfo: {
+              ipAddress: clientInfo.ipAddress,
+              userAgent: clientInfo.userAgent,
+              ipCountry: clientInfo.ipCountry,
+              ipCity: clientInfo.ipCity,
+            },
+          });
+
+          const isOnboardingCompleteNow =
+            verificationMethod === 'none'
+              ? true
+              : verificationMethod === 'email'
+                ? !!updatedUser.isEmailVerified
+                : verificationMethod === 'phone'
+                  ? !!updatedUser.isPhoneVerified
+                  : verificationMethod === 'both'
+                    ? !!updatedUser.isEmailVerified && !!updatedUser.isPhoneVerified
+                    : !!updatedUser.isEmailVerified;
+
+          // Fire onboarding completed only on the transition to "complete" to avoid duplicate welcome emails.
+          if (!wasOnboardingCompleteBefore && isOnboardingCompleteNow) {
+            await this.hookRegistry.executeOnboardingCompleted(updatedUser, {
+              verificationMethod,
+              source: 'email_verification',
+              completedAt: new Date(),
+            });
+          }
+        }
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
+          error: hookError,
+          userId: user.id,
+        });
+      }
     }
 
     // TODO: maybe refactor to return user save user query in parent function
@@ -407,6 +692,7 @@ export class EmailVerificationService {
    * @returns Response DTO with success message
    */
   async verifyEmailWithToken(dto: VerifyEmailWithTokenDTO): Promise<VerifyEmailResponseDTO> {
+    dto = await ensureValidatedDto(VerifyEmailWithTokenDTO, dto);
     const { token } = dto;
     const tokenHash = this.hashToken(token);
 
@@ -440,12 +726,32 @@ export class EmailVerificationService {
       where: { id: verificationToken.userId },
     })) as IUser | null;
 
-    // Update user
-    await this.userRepo.update(verificationToken.userId, {
-      isEmailVerified: true,
-      // Auto-activate if not already active
-      isActive: true,
-    });
+    const verificationMethod = this.config.signup?.verificationMethod ?? 'email';
+    // If user is missing (edge case), we still mark token used and attempt the update,
+    // but we skip audit + hooks since we can't reliably build metadata without the user entity.
+    const wasOnboardingCompleteBefore = !user
+      ? false
+      : verificationMethod === 'none'
+        ? true
+        : verificationMethod === 'email'
+          ? !!user.isEmailVerified
+          : verificationMethod === 'phone'
+            ? !!user.isPhoneVerified
+            : verificationMethod === 'both'
+              ? !!user.isEmailVerified && !!user.isPhoneVerified
+              : !!user.isEmailVerified;
+
+    // Store initial verification status to detect changes
+    const wasEmailVerified = Boolean(user?.isEmailVerified);
+
+    // Update user - only update if not already verified to avoid unnecessary DB write
+    if (!wasEmailVerified) {
+      await this.userRepo.update(verificationToken.userId, {
+        isEmailVerified: true,
+        // Auto-activate if not already active
+        isActive: true,
+      });
+    }
 
     // ============================================================================
     // Audit: Record email verification success (token-based)
@@ -457,17 +763,78 @@ export class EmailVerificationService {
           eventType: AuthAuditEventType.EMAIL_VERIFIED,
           eventStatus: 'SUCCESS',
           metadata: {
-            verificationTokenId: (verificationToken as IVerificationToken).id,
             verificationMethod: 'token',
-            // Client info automatically included from context
           },
+          // Client info automatically included from context
         });
       } catch (auditError) {
         // Non-blocking: Log but continue
         const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
         this.logger?.error?.(`Failed to record EMAIL_VERIFIED audit event (token-based): ${errorMessage}`, {
           error: auditError,
-          userId: user?.id,
+          userId: user.id,
+        });
+      }
+    }
+
+    // ============================================================================
+    // Hook: Execute user profile updated hooks
+    // ============================================================================
+    // Fire hook if verification status changed (false→true OR true→false)
+    // This ensures hook fires consistently on any status change
+    if (user && wasEmailVerified !== true) {
+      try {
+        // Refetch user to get complete updated state
+        const updatedUser = (await this.userRepo.findOne({ where: { id: user.id } })) as IUser | null;
+        if (updatedUser) {
+          // Get client info from ClientInfoService
+          const clientInfo = this.clientInfoService.get();
+
+          // Execute hooks (non-blocking) with actual old/new values
+          await this.hookRegistry.executeUserProfileUpdated({
+            user: updatedUser,
+            changedFields: [
+              {
+                fieldName: 'isEmailVerified',
+                oldValue: wasEmailVerified,
+                newValue: true,
+              },
+            ],
+            updateSource: 'email_verification',
+            clientInfo: {
+              ipAddress: clientInfo.ipAddress,
+              userAgent: clientInfo.userAgent,
+              ipCountry: clientInfo.ipCountry,
+              ipCity: clientInfo.ipCity,
+            },
+          });
+
+          const isOnboardingCompleteNow =
+            verificationMethod === 'none'
+              ? true
+              : verificationMethod === 'email'
+                ? !!updatedUser.isEmailVerified
+                : verificationMethod === 'phone'
+                  ? !!updatedUser.isPhoneVerified
+                  : verificationMethod === 'both'
+                    ? !!updatedUser.isEmailVerified && !!updatedUser.isPhoneVerified
+                    : !!updatedUser.isEmailVerified;
+
+          // Fire onboarding completed only on the transition to "complete" to avoid duplicate welcome emails.
+          if (!wasOnboardingCompleteBefore && isOnboardingCompleteNow) {
+            await this.hookRegistry.executeOnboardingCompleted(updatedUser, {
+              verificationMethod,
+              source: 'email_verification',
+              completedAt: new Date(),
+            });
+          }
+        }
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
+          error: hookError,
+          userId: user.id,
         });
       }
     }
@@ -485,21 +852,23 @@ export class EmailVerificationService {
    * @returns Response DTO with verification token ID
    */
   async resendVerificationEmail(dto: ResendVerificationEmailDTO): Promise<ResendVerificationEmailResponseDTO> {
+    dto = await ensureValidatedDto(ResendVerificationEmailDTO, dto);
     // Validate that either sub or email is provided
     if (!dto.sub && !dto.email) {
       throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Either sub or email must be provided');
     }
 
     if (dto.sub) {
-      return this.resendVerificationEmailBySub(dto.sub, dto.baseUrl);
+      return this.resendVerificationEmailBySub(dto.sub, dto.baseUrl, dto.challengeSessionId);
     }
 
-    return this.resendVerificationEmailByEmail(dto.email!, dto.baseUrl);
+    return this.resendVerificationEmailByEmail(dto.email!, dto.baseUrl, dto.challengeSessionId);
   }
 
   private async resendVerificationEmailBySub(
     sub: string,
     baseUrl?: string,
+    challengeSessionId?: number,
   ): Promise<ResendVerificationEmailResponseDTO> {
     // Get user by sub to get internal id
     const user = await this.userRepo.findOne({ where: { sub } });
@@ -530,11 +899,13 @@ export class EmailVerificationService {
     }
 
     // Send new verification email - use sub (external identifier)
-    // Preserve challengeSessionId from the last token to ensure verification succeeds
+    // Use provided challengeSessionId if available, otherwise preserve from last token
+    // Use config baseUrl if not provided in parameters
+    const effectiveBaseUrl = baseUrl || this.config.signup?.emailVerification?.baseUrl;
     const dto = Object.assign(new SendVerificationEmailDTO(), {
       sub,
-      baseUrl,
-      challengeSessionId: lastToken?.challengeSessionId ?? undefined,
+      baseUrl: effectiveBaseUrl,
+      challengeSessionId: challengeSessionId ?? lastToken?.challengeSessionId ?? undefined,
     });
     return this.sendVerificationEmail(dto);
   }
@@ -542,13 +913,14 @@ export class EmailVerificationService {
   private async resendVerificationEmailByEmail(
     email: string,
     baseUrl?: string,
+    challengeSessionId?: number,
   ): Promise<ResendVerificationEmailResponseDTO> {
     const user = (await this.userRepo.findOne({ where: { email } })) as IUser | null;
     if (!user) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
 
-    return this.resendVerificationEmailBySub(user.sub, baseUrl);
+    return this.resendVerificationEmailBySub(user.sub, baseUrl, challengeSessionId);
   }
 
   /**
@@ -574,5 +946,44 @@ export class EmailVerificationService {
    */
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  /**
+   * Build verification link with session token and code
+   * Preserves existing query parameters and hash fragments
+   *
+   * @param baseUrl - Base URL provided by consumer app
+   * @param sessionToken - Challenge session token (UUID) to include in link
+   * @param code - Verification code to append
+   * @returns Full verification link with session and code query params
+   *
+   * @example
+   * ```typescript
+   * const link = this.buildVerificationLink('https://app.com/verify', 'uuid-session-token', '456789');
+   * // https://app.com/verify?session=uuid-session-token&code=456789
+   *
+   * const link2 = this.buildVerificationLink('https://app.com/verify?from=email#section', 'uuid-token', '456789');
+   * // https://app.com/verify?from=email&session=uuid-token&code=456789#section
+   * ```
+   */
+  private buildVerificationLink(baseUrl: string, sessionToken: string | null | undefined, code: string): string {
+    // ============================================================================
+    // Preserve hash fragments and avoid duplicating separators
+    // ============================================================================
+    // WHY: `#` should remain at the end and query separators must be correct.
+    const hashIndex = baseUrl.indexOf('#');
+    const base = hashIndex === -1 ? baseUrl : baseUrl.slice(0, hashIndex);
+    const hash = hashIndex === -1 ? '' : baseUrl.slice(hashIndex);
+    const hasQuery = base.includes('?');
+    const needsSeparator = !(base.endsWith('?') || base.endsWith('&'));
+    const separator = hasQuery ? (needsSeparator ? '&' : '') : '?';
+
+    // Build query parameters
+    // Session token enables verification in fresh browser (no localStorage needed)
+    const sessionParam = sessionToken ? `session=${encodeURIComponent(sessionToken)}` : '';
+    const codeParam = `code=${encodeURIComponent(code)}`;
+    const queryParams = sessionToken ? `${sessionParam}&${codeParam}` : codeParam;
+
+    return `${base}${separator}${queryParams}${hash}`;
   }
 }

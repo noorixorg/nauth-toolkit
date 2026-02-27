@@ -3,9 +3,7 @@ title: SetPasswordForSocialUserDTO
 description: Request DTO for setting password for social-only user. Includes user identifier and new password.
 keywords: [social, auth, dto, request, password, api]
 image: /img/api-social-card.png
-sidebar_position: 38
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -44,14 +42,14 @@ import { SetPasswordForSocialUserDTO } from '@nauth-toolkit/core';
 
 | Property   | Type     | Required | Description                                                                                    |
 | ---------- | -------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `userId`   | `string` | Yes      | User identifier (UUID v4). Trimmed and lowercased.                                           |
+| `sub`      | `string` | Yes      | User sub (UUID v4). Trimmed and lowercased.                                                  |
 | `password` | `string` | Yes      | New password. Min 1 char, max 128 chars (actual validation in AuthService). Not trimmed.    |
 
 ## Example
 
 ```json
 {
-  "userId": "a21b654c-2746-4168-acee-c175083a65cd",
+  "sub": "a21b654c-2746-4168-acee-c175083a65cd",
   "password": "newpassword123"
 }
 ```

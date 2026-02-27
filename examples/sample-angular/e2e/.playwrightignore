@@ -3,5 +3,11 @@
 ../node_modules/**
 ../dist/**
 ../out-tsc/**
+# Explicitly ignore all spec files to prevent module resolution issues
+**/*.spec.ts
+../src/**/*.spec.ts
+
+
+
 
 

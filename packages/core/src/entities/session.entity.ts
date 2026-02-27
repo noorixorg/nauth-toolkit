@@ -19,7 +19,7 @@ export class BaseSession {
    * Automatically incremented on each update by the ORM
    * Used to detect race conditions and concurrent modifications
    *
-   * ⚠️ SECURITY CRITICAL: Prevents TOCTOU vulnerabilities
+   * SECURITY CRITICAL: Prevents TOCTOU vulnerabilities
    */
   version!: number;
 
@@ -126,12 +126,6 @@ export class BaseSession {
    * null for legacy sessions
    */
   authMethod?: string | null;
-
-  /**
-   * "Remember me" flag
-   * Longer expiration for remembered sessions
-   */
-  isRemembered!: boolean;
 
   /**
    * Trusted device flag

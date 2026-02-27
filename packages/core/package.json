@@ -1,7 +1,7 @@
 {
   "name": "@nauth-toolkit/core",
-  "version": "0.1.0",
-  "description": "Core authentication toolkit for NestJS",
+  "version": "0.2.0",
+  "description": "Embedded authentication engine for Node.js — NestJS, Express, Fastify",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -9,6 +9,11 @@
       "types": "./dist/index.d.ts",
       "require": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./openapi": {
+      "types": "./dist/openapi/index.d.ts",
+      "require": "./dist/openapi/index.js",
+      "default": "./dist/openapi/index.js"
     },
     "./internal": {
       "types": "./dist/internal.d.ts",
@@ -18,13 +23,16 @@
   },
   "typesVersions": {
     "*": {
+      "openapi": [
+        "dist/openapi/index.d.ts"
+      ],
       "internal": [
         "dist/internal.d.ts"
       ]
     }
   },
   "scripts": {
-    "build": "yarn clean && tsc -b",
+    "build": "pnpm run clean && tsc -b && node dist/openapi/generate-openapi.js",
     "clean": "rm -rf dist *.tsbuildinfo",
     "test": "jest",
     "lint": "eslint src --ext .ts",
@@ -41,10 +49,14 @@
   },
   "peerDependencies": {
     "@maxmind/geoip2-node": "^4.0.0 || ^5.0.0 || ^6.0.0",
+    "@nauth-toolkit/recaptcha": "^0.2.0",
     "typeorm": "^0.3.0"
   },
   "peerDependenciesMeta": {
     "@maxmind/geoip2-node": {
+      "optional": true
+    },
+    "@nauth-toolkit/recaptcha": {
       "optional": true
     }
   },
@@ -53,6 +65,7 @@
     "jest": "^29.7.0",
     "reflect-metadata": "^0.2.2",
     "ts-jest": "^29.2.0",
+    "ts-json-schema-generator": "^2.4.0",
     "typeorm": "^0.3.27",
     "typescript": "^5.5.0"
   },
@@ -61,13 +74,48 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "preview"
+    "tag": "latest"
   },
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE",
   "keywords": [
-    "nestjs",
+    "nauth",
     "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
     "jwt",
-    "typeorm"
-  ]
+    "oauth",
+    "mfa",
+    "2fa",
+    "totp",
+    "passkey",
+    "webauthn",
+    "social-login",
+    "session-management",
+    "express",
+    "fastify",
+    "nestjs",
+    "email-verification",
+    "phone-verification",
+    "magic-link",
+    "password-reset",
+    "refresh-token",
+    "adaptive-security",
+    "rate-limiting",
+    "account-lockout",
+    "audit-log",
+    "recaptcha",
+    "security"
+  ],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth"
+  },
+  "homepage": "https://nauth.dev"
 }

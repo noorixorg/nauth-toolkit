@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthService, NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client/angular';
+import { AuthService, NAUTH_CLIENT_CONFIG } from '@nauth-toolkit/client-angular/standalone';
 import { AuthChallenge, AuthResponse, MFAMethod, NAuthClientConfig } from '@nauth-toolkit/client';
 
 /**
@@ -22,14 +22,12 @@ import { AuthChallenge, AuthResponse, MFAMethod, NAuthClientConfig } from '@naut
  * @example
  * ```typescript
  * // After login
- * this.auth.login(email, password).subscribe(response => {
- *   this.orchestrator.handleAuthResponse(response);
- * });
+ * const response = await this.auth.login(email, password);
+ * await this.orchestrator.handleAuthResponse(response);
  *
  * // After challenge completion
- * this.auth.respondToChallenge(challengeResponse).subscribe(response => {
- *   this.orchestrator.handleAuthResponse(response);
- * });
+ * const response = await this.auth.respondToChallenge(challengeResponse);
+ * await this.orchestrator.handleAuthResponse(response);
  * ```
  */
 @Injectable({
@@ -89,19 +87,16 @@ export class ChallengeOrchestratorService {
    * @example
    * ```typescript
    * // Login
-   * this.auth.login(email, password).subscribe(response => {
-   *   this.orchestrator.handleAuthResponse(response);
-   * });
+   * const response = await this.auth.login(email, password);
+   * await this.orchestrator.handleAuthResponse(response);
    *
    * // Signup
-   * this.auth.signup(data).subscribe(response => {
-   *   this.orchestrator.handleAuthResponse(response);
-   * });
+   * const response = await this.auth.signup(data);
+   * await this.orchestrator.handleAuthResponse(response);
    *
    * // After challenge
-   * this.auth.respondToChallenge(challengeResponse).subscribe(response => {
-   *   this.orchestrator.handleAuthResponse(response);
-   * });
+   * const response = await this.auth.respondToChallenge(challengeResponse);
+   * await this.orchestrator.handleAuthResponse(response);
    * ```
    */
   async handleAuthResponse(response: AuthResponse): Promise<void> {

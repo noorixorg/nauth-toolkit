@@ -1,48 +1,15 @@
 ---
 title: Enums
-description: Enumeration types for authentication states and codes
+description: 'Enums: AuthErrorCode (error handling), AuthAuditEventType/Status (audit logging), MFAMethod (provider identifiers), RiskFactor (adaptive MFA), SMSTemplateType (SMS templates)'
 keywords: [enums, types, mfa, errors, api]
 image: /img/api-social-card.png
-sidebar_position: 0
+sidebar_position: 1
+sidebar_label: Overview
 ---
-
 # Enums
 
 **Package:** `@nauth-toolkit/core`
 **Type:** Enumerations
-
-## AuthErrorCode
-
-Error codes for `NAuthException`.
-
-```typescript
-import { AuthErrorCode } from '@nauth-toolkit/core';
-```
-
-| Code | Description |
-|------|-------------|
-| `INVALID_CREDENTIALS` | Wrong email/password |
-| `USER_NOT_FOUND` | User doesn't exist |
-| `USER_ALREADY_EXISTS` | Email already registered |
-| `EMAIL_NOT_VERIFIED` | Email verification required |
-| `ACCOUNT_LOCKED` | Too many failed attempts |
-| `TOKEN_EXPIRED` | JWT or refresh token expired |
-| `TOKEN_INVALID` | Invalid token |
-| `MFA_REQUIRED` | MFA verification needed |
-| `CSRF_INVALID` | CSRF token validation failed |
-| `VALIDATION_ERROR` | Input validation failed |
-
-## AuthAuditEventType
-
-Complete enumeration of authentication audit event types (50+ events).
-
-```typescript
-import { AuthAuditEventType } from '@nauth-toolkit/core';
-```
-
-**Categories:** Login, Session, Password, MFA, Adaptive MFA, Verification, Account Management, Profile Updates, Social Auth, Challenge Flow, Security.
-
-See [AuthAuditEventType](./auth-audit-event-type) for complete list.
 
 ## AuthAuditEventStatus
 
@@ -61,54 +28,41 @@ import { AuthAuditEventStatus } from '@nauth-toolkit/core';
 
 See [AuthAuditEventStatus](./auth-audit-event-status) for details.
 
+## AuthAuditEventType
+
+Complete enumeration of authentication audit event types (50+ events).
+
+```typescript
+import { AuthAuditEventType } from '@nauth-toolkit/core';
+```
+
+**Categories:** Login, Session, Password, MFA, Adaptive MFA, Verification, Account Management, Profile Updates, Social Auth, Challenge Flow, Security.
+
+See [AuthAuditEventType](./auth-audit-event-type) for complete list.
+
+## AuthErrorCode
+
+Error codes for `NAuthException`.
+
+See [AuthErrorCode](./auth-error-code) for the complete list.
+
 ## MFAMethod
 
 MFA method identifiers.
 
-```typescript
-import { MFAMethod } from '@nauth-toolkit/core';
-```
+See [MFAMethod](./mfa-method) for values and related types.
 
-| Value | Description |
-|-------|-------------|
-| `TOTP` | Time-based one-time password (authenticator apps) |
-| `SMS` | SMS verification code |
-| `EMAIL` | Email verification code |
-| `PASSKEY` | WebAuthn/FIDO2 passkey |
-| `BACKUP` | Backup recovery code |
+## RiskFactor
 
-## MFADeviceMethod
+Risk factor identifiers used in risk scoring and audit logging.
 
-Type union of device methods (excludes BACKUP).
+See [RiskFactor](./risk-factor) for values.
 
-```typescript
-import { MFADeviceMethod } from '@nauth-toolkit/core';
+## SMSTemplateType
 
-// Only device setup methods
-type MFADeviceMethod = MFAMethod.TOTP | MFAMethod.SMS | MFAMethod.EMAIL | MFAMethod.PASSKEY;
-```
+SMS template type identifiers used by the SMS template engine.
 
-## MFAVerificationMethod
-
-Type union of all verification methods (includes BACKUP).
-
-```typescript
-import { MFAVerificationMethod } from '@nauth-toolkit/core';
-
-// All verification methods
-type MFAVerificationMethod = MFADeviceMethod | MFAMethod.BACKUP;
-```
-
-## MFADeviceMethods
-
-Constant array of device methods.
-
-```typescript
-import { MFADeviceMethods } from '@nauth-toolkit/core';
-
-// ['totp', 'sms', 'email', 'passkey']
-const methods: readonly MFADeviceMethod[] = MFADeviceMethods;
-```
+See [SMSTemplateType](./sms-template-type) for values.
 
 ## Related
 

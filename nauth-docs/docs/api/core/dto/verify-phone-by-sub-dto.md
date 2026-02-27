@@ -3,9 +3,7 @@ title: VerifyPhoneBySubDTO
 description: Phone verification DTO using user sub and 6-digit code. Used when allowing duplicate phone numbers across users.
 keywords: [verify, phone, sub, dto, verification, code, uuid, api]
 image: /img/api-social-card.png
-sidebar_position: 12
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -42,10 +40,11 @@ import { VerifyPhoneWithCodeBySubDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property | Type     | Required | Description                                                      |
-| -------- | -------- | -------- | ---------------------------------------------------------------- |
-| `sub`    | `string` | Yes      | User identifier. UUID v4 format. Trimmed and lowercased.          |
-| `code`   | `string` | Yes      | Verification code. Exactly 6 digits. Numeric string.             |
+| Property             | Type     | Required | Description                                                      |
+| -------------------- | -------- | -------- | ---------------------------------------------------------------- |
+| `sub`                | `string` | Yes      | User identifier. UUID v4 format. Trimmed and lowercased.          |
+| `code`               | `string` | Yes      | Verification code. Exactly 6 digits. Numeric string.             |
+| `challengeSessionId` | `number` | No       | Challenge session ID to link this verification to. Ensures codes are only valid for the session they were created for. |
 
 ## Example
 

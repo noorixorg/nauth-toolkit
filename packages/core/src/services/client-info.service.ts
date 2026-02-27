@@ -147,23 +147,6 @@ export class ClientInfoService {
   }
 
   /**
-   * Get device ID from the current request context (deprecated)
-   *
-   * @deprecated Use getDeviceToken() instead. deviceId was removed from ClientInfo for security.
-   * @returns Always undefined (deviceId not available from clientInfo - use session.deviceId if needed)
-   *
-   * @example
-   * ```typescript
-   * const deviceId = this.clientInfoService.getDeviceId();
-   * // Always returns undefined
-   * ```
-   */
-  getDeviceId(): string | undefined {
-    // deviceId removed from ClientInfo interface - use session.deviceId if needed
-    return undefined;
-  }
-
-  /**
    * Get session ID from the current request context
    *
    * Convenience method to get just the session ID (extracted from JWT token after authentication).
@@ -268,6 +251,13 @@ export class ClientInfoService {
       } else {
         platform = 'Windows';
       }
+    } else if (/iphone|ipad|ipod/i.test(ua)) {
+      const match = ua.match(/os (\d+)[._](\d+)/);
+      if (match) {
+        platform = `iOS ${match[1]}.${match[2]}`;
+      } else {
+        platform = 'iOS';
+      }
     } else if (/macintosh|mac os x/i.test(ua)) {
       const match = ua.match(/mac os x (\d+)[._](\d+)/);
       if (match) {
@@ -284,13 +274,6 @@ export class ClientInfoService {
         }
       } else {
         platform = 'macOS';
-      }
-    } else if (/iphone|ipad|ipod/i.test(ua)) {
-      const match = ua.match(/os (\d+)[._](\d+)/);
-      if (match) {
-        platform = `iOS ${match[1]}.${match[2]}`;
-      } else {
-        platform = 'iOS';
       }
     } else if (/android/i.test(ua)) {
       const match = ua.match(/android (\d+)[._](\d+)/);

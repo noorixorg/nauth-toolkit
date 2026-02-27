@@ -1,7 +1,6 @@
 ---
 title: LinkedAccountsResponse
 description: Response containing user's linked social authentication accounts
-sidebar_position: 140
 keywords: [social, linked, accounts, response, api]
 image: /img/api-social-card.png
 ---
@@ -41,5 +40,4 @@ import { LinkedAccountsResponse } from '@nauth-toolkit/client';
 
 ## Related Types
 
-- [`SocialCallbackRequest`](./social-callback-request) - OAuth callback request
-- [`SocialAuthUrlRequest`](./social-auth-url-request) - OAuth URL request
+- [`SocialLoginOptions`](./social-login-options) - Web redirect-first options

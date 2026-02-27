@@ -1,7 +1,6 @@
 ---
 title: AuthAuditEvent
 description: Individual authentication or security audit event record
-sidebar_position: 20
 keywords: [audit, event, security, logging, authentication, api]
 image: /img/api-social-card.png
 ---
@@ -73,36 +72,65 @@ function displayAuditEvent(event: AuthAuditEvent) {
   }
 
   if (event.adaptiveMfaTriggered) {
-    console.log('⚠️ Adaptive MFA was triggered for this event');
+    console.log('Adaptive MFA was triggered for this event');
   }
 }
 ```
 
-**Angular Template:**
+**Angular (20+) Example:**
 
 ```typescript
-<!-- audit-log.component.html -->
-<div *ngFor="let event of auditEvents" class="audit-event">
-  <div class="event-header">
-    <span class="event-type">{{ event.eventType }}</span>
-    <span [class]="'event-status-' + event.eventStatus">
-      {{ event.eventStatus }}
-    </span>
-  </div>
+// audit-log.component.ts
+import { Component, computed, input } from '@angular/core';
+import { AuthAuditEvent } from './auth-audit-event';
 
-  <div class="event-details">
-    <p>{{ event.createdAt | date:'medium' }}</p>
-    <p *ngIf="event.ipAddress">
-      📍 {{ event.ipCity }}, {{ event.ipCountry }} ({{ event.ipAddress }})
-    </p>
-    <p *ngIf="event.deviceType">
-      📱 {{ event.browser }} on {{ event.platform }}
-    </p>
-    <p *ngIf="event.riskFactor" class="risk-indicator">
-      ⚠️ Risk Score: {{ event.riskFactor }}/100
-    </p>
-  </div>
-</div>
+@Component({
+  selector: 'app-audit-log',
+  templateUrl: './audit-log.component.html',
+})
+export class AuditLogComponent {
+  // New input API (Angular 16+) - works great with signals-based templates.
+  readonly auditEvents = input.required<AuthAuditEvent[]>();
+
+  // Signals-friendly derived state
+  readonly hasEvents = computed(() => (this.auditEvents()?.length ?? 0) > 0);
+}
+```
+
+```html
+<!-- audit-log.component.html -->
+@if (!hasEvents()) {
+  <p>No audit events.</p>
+} @else {
+  @for (event of auditEvents(); track event.id) {
+    <div class="audit-event">
+      <div class="event-header">
+        <span class="event-type">{{ event.eventType }}</span>
+        <span [class]="'event-status-' + event.eventStatus">
+          {{ event.eventStatus }}
+        </span>
+      </div>
+
+      <div class="event-details">
+        <p>{{ event.createdAt | date:'medium' }}</p>
+
+        @if (event.ipAddress) {
+          <p>
+            Location: {{ event.ipCity }}, {{ event.ipCountry }} ({{ event.ipAddress }})
+          </p>
+        }
+
+        @if (event.deviceType) {
+          <p>Device: {{ event.browser }} on {{ event.platform }}</p>
+        }
+
+        @if (event.riskFactor) {
+          <p class="risk-indicator">Risk Score: {{ event.riskFactor }}/100</p>
+        }
+      </div>
+    </div>
+  }
+}
 ```
 
 ## Related Types

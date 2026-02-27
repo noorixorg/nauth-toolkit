@@ -1,45 +1,17 @@
 # @nauth-toolkit/nestjs
 
-NestJS adapter for nauth-toolkit. This package provides NestJS-specific integrations including modules, guards, interceptors, and decorators for the platform-agnostic `@nauth-toolkit/core`.
+NestJS module for [nauth-toolkit](https://nauth.dev) — the embedded authentication library for Node.js.
 
-## Installation
+Provides a `DynamicModule` with `forRoot()` / `forRootAsync()` that wires the nauth-toolkit core into NestJS dependency injection. Adds guards, decorators, and interceptors so authentication integrates with NestJS conventions.
 
-```bash
-yarn add @nauth-toolkit/nestjs
-```
+## What's included
 
-## Usage
+- **AuthModule** — `forRoot()` and `forRootAsync()` registration with full config support
+- **Guards** — `AuthGuard` (JWT validation), `CsrfGuard` (CSRF token enforcement)
+- **Decorators** — `@CurrentUser()`, `@Public()`, `@ClientInfo()`, `@TokenDelivery()`, `@RequireRecaptcha()`
+- **Interceptors** — context management and cookie-based token delivery
+- **Auto-registration** — MFA and social providers are discovered and registered at bootstrap
 
-This package re-exports everything from `@nauth-toolkit/core` plus NestJS-specific features.
+Requires `@nauth-toolkit/core` and a database adapter (e.g. `@nauth-toolkit/database-typeorm-postgres`). Add storage, email, SMS, MFA, and social providers as needed.
 
-```typescript
-import { AuthModule } from '@nauth-toolkit/nestjs';
-
-@Module({
-  imports: [
-    AuthModule.forRootAsync({
-      useFactory: async () => ({
-        // Your configuration
-      }),
-    }),
-  ],
-})
-export class AppModule {}
-```
-
-## Features
-
-- **AuthModule**: NestJS dynamic module for easy integration
-- **Guards**: `AuthGuard` for route protection
-- **Interceptors**: `ClientInfoInterceptor`, `CookieTokenInterceptor`
-- **Decorators**: `@CurrentUser()`, `@Public()`, `@ClientInfo()`
-- **Filters**: `NAuthHttpExceptionFilter` for error handling
-
-## Documentation
-
-See the [main documentation](../../docs/ARCHITECTURE.md) for full details.
-
-## License
-
-MIT
-
+**Docs:** [nauth.dev](https://nauth.dev) · **Examples:** [github.com/noorixorg/nauth](https://github.com/noorixorg/nauth) · **Live demo:** [demo.nauth.dev](https://demo.nauth.dev)

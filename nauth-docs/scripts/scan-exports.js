@@ -56,7 +56,7 @@ function scanIndexFile(packagePath) {
 }
 
 // Scan all packages
-console.log('📦 Scanning packages...\n');
+console.log('Scanning packages...\n');
 
 const packages = {
   core: scanIndexFile(path.join(packagesDir, 'core')),
@@ -66,7 +66,7 @@ const packages = {
 
 // Print inventory
 Object.entries(packages).forEach(([pkg, exports]) => {
-  console.log(`\n📦 ${pkg.toUpperCase()}`);
+  console.log(`\n${pkg.toUpperCase()}`);
   console.log(`━━━━━━━━━━━━━━━━━━━━`);
   console.log(`Services: ${exports.services.length}`);
   exports.services.slice(0, 5).forEach(s => console.log(`  - ${s}`));
@@ -99,6 +99,6 @@ Object.entries(packages).forEach(([pkg, exports]) => {
 // Save inventory to JSON
 const outputPath = path.join(__dirname, 'api-inventory.json');
 fs.writeFileSync(outputPath, JSON.stringify(packages, null, 2));
-console.log(`\n✅ Inventory saved to ${outputPath}`);
+console.log(`\nInventory saved to ${outputPath}`);
 
 

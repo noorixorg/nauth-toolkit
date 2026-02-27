@@ -3,9 +3,7 @@ title: tokenDelivery()
 description: Override token delivery mode for route
 keywords: [fastify, helper, token, delivery, api]
 image: /img/api-social-card.png
-sidebar_position: 5
 ---
-
 # tokenDelivery()
 
 **Type:** `preHandlerHookHandler`
@@ -23,7 +21,7 @@ tokenDelivery(mode: TokenDeliveryMode): preHandlerHookHandler
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `mode` | `'json' \| 'cookies' \| 'both'` | Delivery mode |
+| `mode` | `'json' \| 'cookies'` | Delivery mode |
 
 ## Modes
 
@@ -31,7 +29,6 @@ tokenDelivery(mode: TokenDeliveryMode): preHandlerHookHandler
 |------|-------------|
 | `json` | Tokens in response body only |
 | `cookies` | Tokens in HTTP-only cookies only |
-| `both` | Tokens in both body and cookies |
 
 ## Usage
 

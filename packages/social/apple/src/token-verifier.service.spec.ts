@@ -1,17 +1,12 @@
+import 'reflect-metadata';
 import { TokenVerifierService } from './token-verifier.service';
 import { NAuthConfig, NAuthLogger, NAuthException, AuthErrorCode } from '@nauth-toolkit/core';
-import { jwtVerify, createRemoteJWKSet } from 'jose';
-
-// Mock jose
-jest.mock('jose', () => ({
-  jwtVerify: jest.fn(),
-  createRemoteJWKSet: jest.fn(),
-}));
 
 describe('TokenVerifierService (Apple)', () => {
   let service: TokenVerifierService;
   let mockConfig: NAuthConfig;
   let mockLogger: NAuthLogger;
+  let jwtVerifyMock: jest.Mock;
 
   beforeEach(() => {
     mockLogger = {
@@ -19,7 +14,7 @@ describe('TokenVerifierService (Apple)', () => {
       error: jest.fn(),
       warn: jest.fn(),
       debug: jest.fn(),
-    } as any;
+    } as unknown as NAuthLogger;
 
     mockConfig = {
       jwt: {
@@ -29,9 +24,15 @@ describe('TokenVerifierService (Apple)', () => {
       logger: mockLogger,
     } as NAuthConfig;
 
-    (createRemoteJWKSet as jest.Mock).mockReturnValue(jest.fn());
+    jwtVerifyMock = jest.fn();
+    const createRemoteJWKSetMock = jest.fn().mockReturnValue(jest.fn());
 
-    service = new TokenVerifierService(mockConfig);
+    service = new TokenVerifierService(mockConfig, async () => {
+      return {
+        jwtVerify: jwtVerifyMock,
+        createRemoteJWKSet: createRemoteJWKSetMock,
+      } as unknown as typeof import('jose');
+    });
   });
 
   afterEach(() => {
@@ -47,7 +48,7 @@ describe('TokenVerifierService (Apple)', () => {
         is_private_email: false,
       };
 
-      (jwtVerify as jest.Mock).mockResolvedValue({ payload });
+      jwtVerifyMock.mockResolvedValue({ payload });
 
       const result = await service.verifyAppleToken('id-token', 'client-id');
 
@@ -57,12 +58,12 @@ describe('TokenVerifierService (Apple)', () => {
         email_verified: true,
         is_private_email: false,
       });
-      expect(jwtVerify).toHaveBeenCalledWith(
+      expect(jwtVerifyMock).toHaveBeenCalledWith(
         'id-token',
         (expect as any).any(Function),
         (expect as any).objectContaining({
           issuer: 'https://appleid.apple.com',
-          audience: 'client-id',
+          audience: ['client-id'], // Now expects array (supports multiple client IDs)
         }),
       );
     });
@@ -75,7 +76,7 @@ describe('TokenVerifierService (Apple)', () => {
         is_private_email: false,
       };
 
-      (jwtVerify as jest.Mock).mockResolvedValue({ payload });
+      jwtVerifyMock.mockResolvedValue({ payload });
 
       const result = await service.verifyAppleToken('id-token', 'client-id');
 
@@ -83,7 +84,7 @@ describe('TokenVerifierService (Apple)', () => {
     });
 
     it('should throw error when token verification fails', async () => {
-      (jwtVerify as jest.Mock).mockRejectedValue(new Error('Invalid token'));
+      jwtVerifyMock.mockRejectedValue(new Error('Invalid token'));
 
       try {
         await service.verifyAppleToken('invalid-token', 'client-id');

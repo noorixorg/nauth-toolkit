@@ -9,10 +9,11 @@ import { NAuthException } from '../exceptions/nauth.exception';
 import { ClientInfoService } from './client-info.service';
 import { ClientInfo } from '../interfaces/client-info.interface';
 import { RiskFactor } from '../enums/risk-factor.enum';
-import { GetUserAuthHistoryDTO } from '../dto/get-user-auth-history.dto';
+import { AdminGetUserAuthHistoryDTO } from '../dto/admin-get-user-auth-history.dto';
 import { GetEventsByTypeDTO } from '../dto/get-events-by-type.dto';
 import { GetSuspiciousActivityDTO } from '../dto/get-suspicious-activity.dto';
 import { GetRiskAssessmentHistoryDTO } from '../dto/get-risk-assessment-history.dto';
+import { ContextStorage } from '../utils/context-storage';
 
 /**
  * Auth Audit Service Unit Tests
@@ -32,7 +33,7 @@ describe('AuthAuditService', () => {
 
   const mockUser: Partial<IUser> = {
     id: 1,
-    sub: 'user-uuid-123',
+    sub: 'a21b654c-2746-4168-acee-c175083a65cd',
     email: 'test@example.com',
   };
 
@@ -122,44 +123,64 @@ describe('AuthAuditService', () => {
       expect(mockAuditRepository.save).toHaveBeenCalled();
     });
 
-    it('should resolve userSub to userId when userId not provided', async () => {
+    it('should resolve sub to userId when userId not provided', async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockAuditRepository.create.mockReturnValue(mockAuditRecord as any);
       mockAuditRepository.save.mockResolvedValue(mockAuditRecord as any);
       mockClientInfoService.get.mockReturnValue({} as ClientInfo);
 
       const result = await service.recordEvent({
-        userSub: 'user-uuid-123',
+        sub: 'a21b654c-2746-4168-acee-c175083a65cd',
         eventType: AuthAuditEventType.LOGIN_SUCCESS,
         eventStatus: 'SUCCESS',
       });
 
       expect(result).toBeDefined();
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'user-uuid-123' } });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
+        where: { sub: 'a21b654c-2746-4168-acee-c175083a65cd' },
+      });
       expect(mockAuditRepository.create).toHaveBeenCalledWith((expect as any).objectContaining({ userId: 1 }));
     });
 
-    it('should return null when userSub provided but user not found', async () => {
+    it('should return null when sub provided but user not found', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       const result = await service.recordEvent({
-        userSub: 'non-existent-user',
+        sub: 'b21b654c-2746-4168-acee-c175083a65cd',
         eventType: AuthAuditEventType.LOGIN_SUCCESS,
         eventStatus: 'SUCCESS',
       });
 
       expect(result).toBeNull();
-      expect(mockLogger.warn).toHaveBeenCalledWith('Cannot record audit event - user not found: non-existent-user');
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Cannot record audit event - user not found: b21b654c-2746-4168-acee-c175083a65cd',
+      );
     });
 
-    it('should return null when neither userId nor userSub provided', async () => {
+    it('should not query database when sub is not a UUID', async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+
+      const result = await service.recordEvent({
+        sub: 'example@email.com',
+        eventType: AuthAuditEventType.LOGIN_SUCCESS,
+        eventStatus: 'SUCCESS',
+      });
+
+      expect(result).toBeNull();
+      expect(mockUserRepository.findOne).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalledWith('Cannot record audit event - invalid sub format (expected UUID)', {
+        sub: 'example@email.com',
+      });
+    });
+
+    it('should return null when neither userId nor sub provided', async () => {
       const result = await service.recordEvent({
         eventType: AuthAuditEventType.LOGIN_SUCCESS,
         eventStatus: 'SUCCESS',
       } as any);
 
       expect(result).toBeNull();
-      expect(mockLogger.warn).toHaveBeenCalledWith('Cannot record audit event - userId or userSub required');
+      expect(mockLogger.warn).toHaveBeenCalledWith('Cannot record audit event - userId or sub required');
     });
 
     it('should auto-extract client info from ClientInfoService when available', async () => {
@@ -203,7 +224,7 @@ describe('AuthAuditService', () => {
       );
     });
 
-    it('should allow explicit fields to override auto-extracted client info', async () => {
+    it('should use auto-extracted client info (explicit overrides are not supported)', async () => {
       const clientInfo: ClientInfo = {
         ipAddress: '5.6.7.8',
         userAgent: 'test-agent',
@@ -218,14 +239,12 @@ describe('AuthAuditService', () => {
         userId: 1,
         eventType: AuthAuditEventType.LOGIN_SUCCESS,
         eventStatus: 'SUCCESS',
-        ipAddress: '1.2.3.4', // Override
-        ipCountry: 'CA', // Override
       });
 
       expect(mockAuditRepository.create).toHaveBeenCalledWith(
         (expect as any).objectContaining({
-          ipAddress: '1.2.3.4', // Explicit value used
-          ipCountry: 'CA', // Explicit value used
+          ipAddress: '5.6.7.8',
+          ipCountry: 'US',
         }),
       );
     });
@@ -261,15 +280,6 @@ describe('AuthAuditService', () => {
         riskFactor: 75,
         riskFactors: [RiskFactor.NEW_DEVICE, RiskFactor.NEW_IP],
         adaptiveMfaTriggered: true,
-        ipAddress: '1.2.3.4',
-        ipCountry: 'US',
-        ipCity: 'New York',
-        userAgent: 'test-agent',
-        platform: 'iOS',
-        browser: 'Safari',
-        deviceId: 'device-123',
-        deviceName: 'iPhone',
-        deviceType: 'mobile',
         sessionId: 789,
         challengeSessionId: 456,
         authMethod: 'password',
@@ -287,15 +297,6 @@ describe('AuthAuditService', () => {
           riskFactor: 75,
           riskFactors: [RiskFactor.NEW_DEVICE, RiskFactor.NEW_IP],
           adaptiveMfaTriggered: true,
-          ipAddress: '1.2.3.4',
-          ipCountry: 'US',
-          ipCity: 'New York',
-          userAgent: 'test-agent',
-          platform: 'iOS',
-          browser: 'Safari',
-          deviceId: 'device-123',
-          deviceName: 'iPhone',
-          deviceType: 'mobile',
           sessionId: 789,
           challengeSessionId: 456,
           authMethod: 'password',
@@ -347,6 +348,165 @@ describe('AuthAuditService', () => {
       expect(result).toBeDefined();
       expect(mockAuditRepository.create).toHaveBeenCalled();
     });
+
+    it('should enrich metadata with performedByName when performer is in context', async () => {
+      const performerUser: Partial<IUser> = {
+        id: 999,
+        sub: 'performer-sub-123',
+        email: 'performer@example.com',
+        firstName: 'Jane',
+        lastName: 'Performer',
+        isActive: true,
+        isEmailVerified: true,
+        isPhoneVerified: false,
+        isLocked: false,
+        mustChangePassword: false,
+        mfaEnabled: false,
+        hasSocialAuth: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      };
+
+      mockAuditRepository.create.mockReturnValue(mockAuditRecord as any);
+      mockAuditRepository.save.mockResolvedValue(mockAuditRecord as any);
+      mockClientInfoService.get.mockReturnValue({} as ClientInfo);
+
+      // Set performer in context
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', performerUser as IUser);
+
+        await service.recordEvent({
+          userId: 1,
+          eventType: AuthAuditEventType.ADMIN_PASSWORD_RESET_INITIATED,
+          eventStatus: 'INFO',
+          performedBy: 'performer-sub-123',
+          metadata: { originalKey: 'originalValue' },
+        });
+
+        // Verify metadata was enriched with performedByName
+        expect(mockAuditRepository.create).toHaveBeenCalledWith(
+          (expect as any).objectContaining({
+            userId: 1,
+            performedBy: 'performer-sub-123',
+            metadata: {
+              originalKey: 'originalValue',
+              performedByName: 'Jane Performer',
+            },
+          }),
+        );
+      });
+    });
+
+    it('should use email as performedByName when performer has no firstName/lastName', async () => {
+      const performerUser: Partial<IUser> = {
+        id: 998,
+        sub: 'performer-sub-456',
+        email: 'admin-no-name@example.com',
+        firstName: null,
+        lastName: null,
+        isActive: true,
+        isEmailVerified: true,
+        isPhoneVerified: false,
+        isLocked: false,
+        mustChangePassword: false,
+        mfaEnabled: false,
+        hasSocialAuth: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      };
+
+      mockAuditRepository.create.mockReturnValue(mockAuditRecord as any);
+      mockAuditRepository.save.mockResolvedValue(mockAuditRecord as any);
+      mockClientInfoService.get.mockReturnValue({} as ClientInfo);
+
+      // Set performer in context
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', performerUser as IUser);
+
+        await service.recordEvent({
+          userId: 1,
+          eventType: AuthAuditEventType.ADMIN_PASSWORD_RESET_INITIATED,
+          eventStatus: 'INFO',
+          performedBy: 'performer-sub-456',
+        });
+
+        // Verify metadata was enriched with email as performedByName
+        expect(mockAuditRepository.create).toHaveBeenCalledWith(
+          (expect as any).objectContaining({
+            userId: 1,
+            performedBy: 'performer-sub-456',
+            metadata: {
+              performedByName: 'admin-no-name@example.com',
+            },
+          }),
+        );
+      });
+    });
+
+    it('should not enrich metadata when performedBy matches the event userId', async () => {
+      const user: Partial<IUser> = {
+        id: 1,
+        sub: 'user-sub-789',
+        email: 'user@example.com',
+        firstName: 'Self',
+        lastName: 'User',
+        isActive: true,
+        isEmailVerified: true,
+        isPhoneVerified: false,
+        isLocked: false,
+        mustChangePassword: false,
+        mfaEnabled: false,
+        hasSocialAuth: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        deletedAt: null,
+      };
+
+      mockAuditRepository.create.mockReturnValue(mockAuditRecord as any);
+      mockAuditRepository.save.mockResolvedValue(mockAuditRecord as any);
+      mockClientInfoService.get.mockReturnValue({} as ClientInfo);
+
+      // Set user in context
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', user as IUser);
+
+        await service.recordEvent({
+          userId: 1,
+          eventType: AuthAuditEventType.LOGIN_SUCCESS,
+          eventStatus: 'SUCCESS',
+          performedBy: '1', // Same as userId (converted to string)
+        });
+
+        // Verify metadata was NOT enriched (user performed action on themselves)
+        const createCall = mockAuditRepository.create.mock.calls[0][0];
+        expect(createCall.metadata).toBeNull();
+      });
+    });
+
+    it('should handle context lookup errors gracefully when enriching performedByName', async () => {
+      mockAuditRepository.create.mockReturnValue(mockAuditRecord as any);
+      mockAuditRepository.save.mockResolvedValue(mockAuditRecord as any);
+      mockClientInfoService.get.mockReturnValue({} as ClientInfo);
+
+      // No user in context - should not crash
+      await service.recordEvent({
+        userId: 1,
+        eventType: AuthAuditEventType.ADMIN_PASSWORD_RESET_INITIATED,
+        eventStatus: 'INFO',
+        performedBy: 'admin-sub-999',
+      });
+
+      // Verify event was recorded without performedByName
+      expect(mockAuditRepository.create).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          userId: 1,
+          performedBy: 'admin-sub-999',
+        }),
+      );
+      expect(mockAuditRepository.save).toHaveBeenCalled();
+    });
   });
 
   // ============================================================================
@@ -358,8 +518,8 @@ describe('AuthAuditService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockAuditRecord as any], 1]);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'user-uuid-123';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       const result = await service.getUserAuthHistory(request);
 
       expect(result.data).toEqual([mockAuditRecord as any]);
@@ -367,15 +527,15 @@ describe('AuthAuditService', () => {
       expect(result.page).toBe(1);
       expect(result.limit).toBe(50);
       expect(result.totalPages).toBe(1);
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'user-uuid-123' } });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'a21b654c-2746-4168-acee-c175083a65cd' } });
       expect(mockQueryBuilder.where).toHaveBeenCalledWith('audit.userId = :userId', { userId: 1 });
     });
 
     it('should throw error when user not found', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'non-existent-user';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'b21b654c-2746-4168-acee-c175083a65cd';
       try {
         await service.getUserAuthHistory(request);
         fail('Should have thrown NAuthException');
@@ -389,8 +549,8 @@ describe('AuthAuditService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockAuditRecord as any], 100]);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'user-uuid-123';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       request.page = 2;
       request.limit = 25;
       const result = await service.getUserAuthHistory(request);
@@ -409,8 +569,8 @@ describe('AuthAuditService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockAuditRecord as any], 1]);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'user-uuid-123';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       request.startDate = startDate;
       request.endDate = endDate;
       await service.getUserAuthHistory(request);
@@ -423,8 +583,8 @@ describe('AuthAuditService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockAuditRecord as any], 1]);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'user-uuid-123';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       request.eventTypes = [AuthAuditEventType.LOGIN_SUCCESS, AuthAuditEventType.LOGIN_FAILED];
       await service.getUserAuthHistory(request);
 
@@ -437,8 +597,8 @@ describe('AuthAuditService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockAuditRecord as any], 1]);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'user-uuid-123';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       request.eventStatus = ['SUCCESS', 'FAILURE'] as AuthAuditEventStatus[];
       await service.getUserAuthHistory(request);
 
@@ -451,8 +611,8 @@ describe('AuthAuditService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockAuditRecord as any], 1]);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'user-uuid-123';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       await service.getUserAuthHistory(request);
 
       // orderBy is called with 2 args but mock signature shows 1, so check it was called
@@ -463,8 +623,8 @@ describe('AuthAuditService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockQueryBuilder.getManyAndCount.mockResolvedValue([[mockAuditRecord as any], 100]);
 
-      const request = new GetUserAuthHistoryDTO();
-      request.userSub = 'user-uuid-123';
+      const request = new AdminGetUserAuthHistoryDTO();
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       request.limit = 30;
       const result = await service.getUserAuthHistory(request);
 
@@ -565,11 +725,13 @@ describe('AuthAuditService', () => {
       mockQueryBuilder.getMany.mockResolvedValue([mockAuditRecord as any]);
 
       const request = new GetSuspiciousActivityDTO();
-      request.userSub = 'user-uuid-123';
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       const result = await service.getSuspiciousActivity(request);
 
       expect(result.data).toEqual([mockAuditRecord as any]);
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'user-uuid-123' } });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
+        where: { sub: 'a21b654c-2746-4168-acee-c175083a65cd' },
+      });
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('audit.userId = :userId', { userId: 1 });
     });
 
@@ -578,7 +740,7 @@ describe('AuthAuditService', () => {
 
       try {
         const request = new GetSuspiciousActivityDTO();
-        request.userSub = 'non-existent-user';
+        request.sub = 'b21b654c-2746-4168-acee-c175083a65cd';
         await service.getSuspiciousActivity(request);
         fail('Should have thrown NAuthException');
       } catch (error: any) {
@@ -618,11 +780,11 @@ describe('AuthAuditService', () => {
       mockQueryBuilder.getMany.mockResolvedValue([mockAuditRecord as any]);
 
       const request = new GetRiskAssessmentHistoryDTO();
-      request.userSub = 'user-uuid-123';
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       const result = await service.getRiskAssessmentHistory(request);
 
       expect(result.data).toEqual([mockAuditRecord as any]);
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'user-uuid-123' } });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'a21b654c-2746-4168-acee-c175083a65cd' } });
       expect(mockQueryBuilder.where).toHaveBeenCalledWith('audit.userId = :userId', { userId: 1 });
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('audit.eventType IN (:...eventTypes)', {
         eventTypes: [
@@ -639,7 +801,7 @@ describe('AuthAuditService', () => {
 
       try {
         const request = new GetRiskAssessmentHistoryDTO();
-        request.userSub = 'non-existent-user';
+        request.sub = 'b21b654c-2746-4168-acee-c175083a65cd';
         await service.getRiskAssessmentHistory(request);
         fail('Should have thrown NAuthException');
       } catch (error: any) {
@@ -653,7 +815,7 @@ describe('AuthAuditService', () => {
       mockQueryBuilder.getMany.mockResolvedValue([mockAuditRecord as any]);
 
       const request = new GetRiskAssessmentHistoryDTO();
-      request.userSub = 'user-uuid-123';
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       request.limit = 50;
       await service.getRiskAssessmentHistory(request);
 
@@ -665,7 +827,7 @@ describe('AuthAuditService', () => {
       mockQueryBuilder.getMany.mockResolvedValue([mockAuditRecord as any]);
 
       const request = new GetRiskAssessmentHistoryDTO();
-      request.userSub = 'user-uuid-123';
+      request.sub = 'a21b654c-2746-4168-acee-c175083a65cd';
       await service.getRiskAssessmentHistory(request);
 
       // orderBy is called with 2 args but mock signature shows 1, so check it was called

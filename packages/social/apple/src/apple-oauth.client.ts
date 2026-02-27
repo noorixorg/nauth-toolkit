@@ -36,6 +36,7 @@ export class AppleOAuthClient implements OAuthClient {
    *
    * @param code - Authorization code from Apple OAuth callback
    * @param redirectUri - Redirect URI used in OAuth flow
+   * @param clientSecret - Optional client secret (overrides config.clientSecret)
    * @returns Access token and optional refresh token
    * @throws {Error} When token exchange fails
    *
@@ -48,14 +49,16 @@ export class AppleOAuthClient implements OAuthClient {
   async exchangeCodeForToken(
     code: string,
     redirectUri: string,
+    clientSecret?: string,
   ): Promise<{
     accessToken: string;
+    idToken: string;
     refreshToken?: string;
     expiresIn?: number;
   }> {
     const params = new URLSearchParams({
       client_id: this.config.clientId,
-      client_secret: this.config.clientSecret,
+      client_secret: clientSecret || this.config.clientSecret,
       code,
       grant_type: 'authorization_code',
       redirect_uri: redirectUri,
@@ -71,19 +74,39 @@ export class AppleOAuthClient implements OAuthClient {
       });
 
       if (!response.ok) {
-        const errorData = (await response.json()) as any;
+        const errorData = (await response.json()) as unknown;
+        const e = errorData as { error_description?: unknown; error?: unknown };
         throw new NAuthException(
           AuthErrorCode.SOCIAL_TOKEN_INVALID,
-          `Token exchange failed: ${errorData.error_description || errorData.error}`,
+          `Token exchange failed: ${String(e.error_description ?? e.error ?? 'Unknown error')}`,
         );
       }
 
-      const data = (await response.json()) as any;
+      const data = (await response.json()) as unknown;
+      const d = data as {
+        access_token?: unknown;
+        id_token?: unknown;
+        refresh_token?: unknown;
+        expires_in?: unknown;
+      };
+      const accessToken = typeof d.access_token === 'string' ? d.access_token : null;
+      const idToken = typeof d.id_token === 'string' ? d.id_token : null;
+      const refreshToken = typeof d.refresh_token === 'string' ? d.refresh_token : undefined;
+      const expiresIn = typeof d.expires_in === 'number' ? d.expires_in : undefined;
+
+      if (!accessToken || !idToken) {
+        // SECURITY: We cannot proceed without an id_token (used for verified identity claims).
+        throw new NAuthException(
+          AuthErrorCode.SOCIAL_TOKEN_INVALID,
+          'Apple token exchange returned an invalid response (missing access_token or id_token).',
+        );
+      }
 
       return {
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        expiresIn: data.expires_in,
+        accessToken,
+        idToken,
+        refreshToken,
+        expiresIn,
       };
     } catch (error) {
       if (error instanceof Error) {
@@ -125,21 +148,27 @@ export class AppleOAuthClient implements OAuthClient {
         );
       }
 
-      const data = (await response.json()) as any;
+      const data = (await response.json()) as unknown;
+      const d = data as {
+        sub?: unknown;
+        email?: unknown;
+        email_verified?: unknown;
+        name?: { firstName?: unknown; lastName?: unknown } | null;
+      };
 
       // Map Apple's response to our standardized format
       // Apple provides name in a nested object format
-      const firstName = data.name?.firstName || null;
-      const lastName = data.name?.lastName || null;
+      const firstName = typeof d.name?.firstName === 'string' ? d.name.firstName : null;
+      const lastName = typeof d.name?.lastName === 'string' ? d.name.lastName : null;
 
       return {
-        id: data.sub, // Apple uses 'sub' as the user identifier
-        email: data.email || null,
+        id: typeof d.sub === 'string' ? d.sub : '',
+        email: typeof d.email === 'string' ? d.email : null,
         firstName,
         lastName,
         picture: null, // Apple doesn't provide profile pictures
-        verified: data.email_verified || false,
-        raw: data,
+        verified: d.email_verified === true || d.email_verified === 'true',
+        raw: data as Record<string, unknown>,
       };
     } catch (error) {
       if (error instanceof Error) {
@@ -153,6 +182,7 @@ export class AppleOAuthClient implements OAuthClient {
    * Generate Apple OAuth authorization URL
    *
    * @param state - Optional state parameter for CSRF protection
+   * @param oauthParams - Optional OAuth parameters to append to URL
    * @returns Authorization URL for redirecting user to Apple
    *
    * @example
@@ -160,8 +190,13 @@ export class AppleOAuthClient implements OAuthClient {
    * const authUrl = client.getAuthorizationUrl('random-state');
    * // Redirect user to authUrl
    * ```
+   *
+   * @example With OAuth params
+   * ```typescript
+   * const authUrl = client.getAuthorizationUrl('state', { nonce: 'random-nonce' });
+   * ```
    */
-  getAuthorizationUrl(state?: string): string {
+  getAuthorizationUrl(state?: string, oauthParams?: Record<string, string>): string {
     const params = new URLSearchParams({
       client_id: this.config.clientId,
       redirect_uri: this.config.redirectUri,
@@ -172,6 +207,13 @@ export class AppleOAuthClient implements OAuthClient {
 
     if (state) {
       params.append('state', state);
+    }
+
+    // Apply additional OAuth params (from config or per-request)
+    if (oauthParams) {
+      Object.entries(oauthParams).forEach(([key, value]) => {
+        params.append(key, value);
+      });
     }
 
     return `https://appleid.apple.com/auth/authorize?${params.toString()}`;

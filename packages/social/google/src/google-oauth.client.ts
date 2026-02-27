@@ -1,6 +1,36 @@
 import { OAuthClient, OAuthConfig, OAuthUserProfile, NAuthException, AuthErrorCode } from '@nauth-toolkit/core';
 
 /**
+ * Google token exchange response
+ */
+interface GoogleTokenResponse {
+  access_token: string;
+  refresh_token?: string;
+  expires_in?: number;
+  token_type?: string;
+}
+
+/**
+ * Google error response
+ */
+interface GoogleErrorResponse {
+  error?: string;
+  error_description?: string;
+}
+
+/**
+ * Google user profile response
+ */
+interface GoogleUserProfileResponse {
+  id: string;
+  email?: string;
+  verified_email?: boolean;
+  given_name?: string;
+  family_name?: string;
+  picture?: string;
+}
+
+/**
  * Google OAuth Client Implementation (Platform-Agnostic)
  *
  * Handles OAuth flow with Google's OpenID Connect API
@@ -71,14 +101,14 @@ export class GoogleOAuthClient implements OAuthClient {
       });
 
       if (!response.ok) {
-        const errorData = (await response.json()) as any;
+        const errorData = (await response.json()) as GoogleErrorResponse;
         throw new NAuthException(
           AuthErrorCode.SOCIAL_TOKEN_INVALID,
           `Token exchange failed: ${errorData.error_description || errorData.error}`,
         );
       }
 
-      const data = (await response.json()) as any;
+      const data = (await response.json()) as GoogleTokenResponse;
 
       return {
         accessToken: data.access_token,
@@ -125,7 +155,7 @@ export class GoogleOAuthClient implements OAuthClient {
         );
       }
 
-      const data = (await response.json()) as any;
+      const data = (await response.json()) as GoogleUserProfileResponse;
 
       // Map Google's response to our standardized format
       return {
@@ -135,7 +165,7 @@ export class GoogleOAuthClient implements OAuthClient {
         lastName: data.family_name || null,
         picture: data.picture || null,
         verified: data.verified_email || false,
-        raw: data,
+        raw: data as unknown as Record<string, unknown>,
       };
     } catch (error) {
       if (error instanceof Error) {
@@ -149,6 +179,7 @@ export class GoogleOAuthClient implements OAuthClient {
    * Generate Google OAuth authorization URL
    *
    * @param state - Optional state parameter for CSRF protection
+   * @param oauthParams - Optional OAuth parameters to append to URL
    * @returns Authorization URL for redirecting user to Google
    *
    * @example
@@ -156,20 +187,30 @@ export class GoogleOAuthClient implements OAuthClient {
    * const authUrl = client.getAuthorizationUrl('random-state');
    * // Redirect user to authUrl
    * ```
+   *
+   * @example With OAuth params
+   * ```typescript
+   * const authUrl = client.getAuthorizationUrl('state', { prompt: 'select_account' });
+   * ```
    */
-  getAuthorizationUrl(state?: string): string {
+  getAuthorizationUrl(state?: string, oauthParams?: Record<string, string>): string {
     const params = new URLSearchParams({
       client_id: this.config.clientId,
       redirect_uri: this.config.redirectUri,
       scope: this.config.scopes?.join(' ') || 'openid email profile',
       response_type: 'code',
       access_type: 'offline',
-      // Don't specify prompt - let Google decide when to show consent screen
-      // Google will show it on first login and skip it for returning users
     });
 
     if (state) {
       params.append('state', state);
+    }
+
+    // Apply additional OAuth params (from config or per-request)
+    if (oauthParams) {
+      Object.entries(oauthParams).forEach(([key, value]) => {
+        params.append(key, value);
+      });
     }
 
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;

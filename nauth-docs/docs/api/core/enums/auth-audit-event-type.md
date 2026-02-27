@@ -3,9 +3,7 @@ title: AuthAuditEventType
 description: Complete enumeration of authentication audit event types
 keywords: [enum, audit, events, security, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -55,6 +53,7 @@ import { AuthAuditEventType } from '@nauth-toolkit/core';
 | ----------------- | ---------------------------------------------------------- |
 | `SESSION_CREATED` | New session created (after successful authentication)      |
 | `SESSION_REVOKED` | Session revoked (logout, security violation, admin action) |
+| `GLOBAL_SIGNOUT`  | All sessions revoked (global sign-out)                     |
 
 ## Password Events
 
@@ -64,7 +63,10 @@ import { AuthAuditEventType } from '@nauth-toolkit/core';
 | `PASSWORD_RESET_REQUESTED`        | Password reset requested (email/SMS sent)                  |
 | `PASSWORD_RESET_COMPLETED`        | Password reset completed successfully                      |
 | `PASSWORD_FORCE_CHANGE_SET`       | Force password change requirement set (by admin or policy) |
-| `PASSWORD_FORCE_CHANGE_COMPLETED` | Force password change completed                            |
+| `PASSWORD_FORCE_CHANGE_COMPLETED`   | Force password change completed                            |
+| `ADMIN_PASSWORD_RESET_INITIATED`    | Admin-initiated password reset started                     |
+| `ADMIN_PASSWORD_RESET_COMPLETED`    | Admin-initiated password reset completed                   |
+| `ADMIN_PASSWORD_RESET_FAILED`       | Admin-initiated password reset failed                      |
 
 ## Multi-Factor Authentication (MFA) Events
 
@@ -113,16 +115,20 @@ import { AuthAuditEventType } from '@nauth-toolkit/core';
 | `ACCOUNT_DEACTIVATED` | User account deactivated                            |
 | `ACCOUNT_LOCKED`      | User account locked (security measure)              |
 | `ACCOUNT_UNLOCKED`    | User account unlocked (admin action or auto-unlock) |
+| `ACCOUNT_DISABLED`    | User account disabled by admin (permanent lock)      |
+| `ACCOUNT_ENABLED`     | User account enabled by admin (unlock)              |
 | `ACCOUNT_DELETED`     | User account deleted                                |
 
 ## Profile Update Events
 
-| Value              | Description                           |
-| ------------------ | ------------------------------------- |
-| `PROFILE_UPDATED`  | User profile updated (general update) |
-| `EMAIL_CHANGED`    | User email address changed            |
-| `PHONE_CHANGED`    | User phone number changed             |
-| `USERNAME_CHANGED` | User username changed                 |
+| Value                                | Description                                                |
+| ------------------------------------ | ---------------------------------------------------------- |
+| `PROFILE_UPDATED`                    | User profile updated (general update)                      |
+| `EMAIL_CHANGED`                      | User email address changed                                 |
+| `PHONE_CHANGED`                      | User phone number changed                                  |
+| `USERNAME_CHANGED`                   | User username changed                                      |
+| `EMAIL_VERIFICATION_STATUS_UPDATED`  | Email verification status manually updated (admin action)  |
+| `PHONE_VERIFICATION_STATUS_UPDATED`  | Phone verification status manually updated (admin action)  |
 
 ## Social Authentication Events
 

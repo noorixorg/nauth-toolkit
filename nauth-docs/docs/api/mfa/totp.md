@@ -3,9 +3,7 @@ title: TOTP Provider
 description: Time-based One-Time Password MFA provider
 keywords: [mfa, totp, authenticator, google-authenticator, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -23,16 +21,25 @@ npm install @nauth-toolkit/mfa-totp
 | Export | Type | Entry |
 |--------|------|-------|
 | `TOTPMFAProviderService` | Service | Default |
+| `TOTPService` | Service | Default |
 | `TOTPMFAModule` | NestJS Module | `/nestjs` |
 
 ## Configuration
+
+### `mfa.totp` options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `window` | `number` | `1` | Validation window (codes before/after) |
 | `stepSeconds` | `number` | `30` | Code rotation interval |
 | `digits` | `number` | `6` | Code length |
-| `algorithm` | `string` | `'sha1'` | Hash algorithm |
+| `algorithm` | `'sha1' \| 'sha256' \| 'sha512'` | `'sha1'` | Hash algorithm |
+
+### `mfa` top-level options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `issuer` | `string` | `'nauth-toolkit'` | Issuer name displayed in authenticator apps (e.g. Google Authenticator, Authy) |
 
 ## Usage
 

@@ -19,8 +19,10 @@
     "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
     "paths": {
-      "@nauth-toolkit/core": ["../../packages/core/dist"],
-      "@nauth-toolkit/core/*": ["../../packages/core/dist/*"]
+      "@nauth-toolkit/core": ["../../packages/core/dist/index"],
+      "@nauth-toolkit/core/*": ["../../packages/core/dist/*"],
+      "@nauth-toolkit/nestjs": ["../../packages/nestjs/dist/index"],
+      "@nauth-toolkit/nestjs/*": ["../../packages/nestjs/dist/*"]
     }
   },
   "include": ["src/**/*"],

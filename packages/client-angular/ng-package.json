@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/ng-packagr/ng-package.schema.json",
+  "dest": "./dist",
+  "lib": {
+    "entryFile": "src/public-api.ts",
+    "flatModuleFile": "nauth-toolkit-client-angular"
+  },
+  "allowedNonPeerDependencies": [
+    "@nauth-toolkit/client"
+  ]
+}
+

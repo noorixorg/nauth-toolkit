@@ -1,7 +1,9 @@
 ---
 title: Challenge System
-description: Understanding the challenge-based authentication flow
+description: 'How the challenge-based authentication flow works in nauth-toolkit'
 sidebar_position: 1
+keywords: [challenge, verification, mfa, email, phone, authentication, flow, multi-step]
+image: /img/api-social-card.png
 ---
 
 # Auth Challenge System
@@ -52,12 +54,13 @@ You don't need separate endpoints for every verification type. The toolkit provi
 
 ### Backend Implementation
 
-<Tabs>
+<Tabs groupId="platform">
   <TabItem value="nestjs" label="NestJS" default>
 
 ```typescript
 import { Controller, Post, Body } from '@nestjs/common';
 import { AuthService, Public } from '@nauth-toolkit/nestjs';
+import { AuthErrorCode, NAuthException } from '@nauth-toolkit/core';
 
 @Controller('auth')
 export class AuthController {
@@ -95,44 +98,36 @@ export class AuthController {
 ```
 
   </TabItem>
-  <TabItem value="express" label="Express">
+  <TabItem value="express" label="Express / Fastify">
 
 ```typescript
-import { Router } from 'express';
-import { NAuthExpress } from '@nauth-toolkit/express';
+// authService is available from NAuth.create() result
+router.post('/login', async (req, res) => {
+  const result = await authService.login(req.body);
 
-export function createAuthRoutes(nauth: NAuthExpress) {
-  const router = Router();
-
-  router.post('/login', async (req, res) => {
-    const result = await nauth.authService.login(req.body);
-
-    // Check if challenge is required
-    if (result.challengeName) {
-      return res.status(200).json({
-        challengeName: result.challengeName,
-        session: result.session,
-        challengeParameters: result.challengeParameters,
-      });
-    }
-
-    // Return tokens if no challenge
-    res.status(200).json(result);
-  });
-
-  router.post('/challenge', async (req, res) => {
-    // Single endpoint for ALL challenge types
-    const result = await nauth.authService.respondToChallenge({
-      session: req.body.session,
-      type: req.body.challengeType,
-      code: req.body.code,
+  // Check if challenge is required
+  if (result.challengeName) {
+    return res.status(200).json({
+      challengeName: result.challengeName,
+      session: result.session,
+      challengeParameters: result.challengeParameters,
     });
+  }
 
-    res.status(200).json(result);
+  // Return tokens if no challenge
+  res.status(200).json(result);
+});
+
+router.post('/challenge', async (req, res) => {
+  // Single endpoint for ALL challenge types
+  const result = await authService.respondToChallenge({
+    session: req.body.session,
+    type: req.body.challengeType,
+    code: req.body.code,
   });
 
-  return router;
-}
+  res.status(200).json(result);
+});
 ```
 
   </TabItem>
@@ -156,9 +151,6 @@ async function handleAuthResponse(response) {
       case 'MFA_REQUIRED':
         showMfaInputScreen(response.session);
         break;
-      case 'VERIFY_EMAIL_AND_PHONE':
-        showEmailVerificationScreen(response.session);
-        break;
     }
     return;
   }
@@ -167,7 +159,7 @@ async function handleAuthResponse(response) {
   if (response.accessToken) {
     // Tokens are automatically stored in cookies if using cookie mode
     // Otherwise, store them in localStorage/sessionStorage
-    window.location.href = '/dashboard';
+    // Use your router/navigation here
   }
 }
 
@@ -262,11 +254,46 @@ Issued during login if the user has 2FA enabled.
 }
 ```
 
-### 4. `VERIFY_EMAIL_AND_PHONE`
+### 4. `MFA_SETUP_REQUIRED`
 
-Issued when both email and phone verification are required simultaneously.
+Issued during login when **MFA enforcement is enabled** and the user is required to set up MFA before being allowed to sign in.
 
-**User Action**: Verify email first, then phone verification challenge will be issued.
+**When you’ll see it:**
+
+- `mfa.enabled = true`
+- `mfa.enforcement = 'REQUIRED'` (and the grace period has expired or is disabled)
+
+**User Action**: Take the user through MFA setup (e.g., TOTP QR code, SMS enrollment, passkey registration).
+
+**Next Step**: Complete MFA setup, then call the challenge completion endpoint to finish the login.
+
+Related:
+
+- [Configuration → MFA](/docs/concepts/configuration#multi-factor-authentication)
+- [MFAService API](/docs/api/core/services/mfa-service)
+
+### 5. `FORCE_CHANGE_PASSWORD`
+
+Issued during login when an admin has flagged the user's password for mandatory change.
+
+**User Action**: Enter a new password.
+
+**Example Response**:
+
+```json
+{
+  "challengeName": "FORCE_CHANGE_PASSWORD",
+  "session": "challenge-session-uuid",
+  "challengeParameters": {}
+}
+```
+
+### 6. Email + Phone verification (chained challenges)
+
+If your configuration requires both verifications (`signup.verificationMethod = 'both'`), challenges are returned **sequentially**:
+
+1. `VERIFY_EMAIL`
+2. then `VERIFY_PHONE`
 
 ## Progressive Challenge Flow
 
@@ -274,7 +301,7 @@ Challenges can be chained. Here's an example of a multi-step flow:
 
 ```
 1. User signs up with email and phone
-2. Response: { challengeName: 'VERIFY_EMAIL_AND_PHONE', session: '...' }
+2. Response: { challengeName: 'VERIFY_EMAIL', session: '...' }
 3. User verifies email
 4. Response: { challengeName: 'VERIFY_PHONE', session: '...' }
 5. User verifies phone
@@ -290,7 +317,7 @@ Challenges can be chained. Here's an example of a multi-step flow:
 
 ## Error Handling
 
-<Tabs>
+<Tabs groupId="platform">
   <TabItem value="nestjs" label="NestJS" default>
 
 ```typescript
@@ -306,10 +333,10 @@ async respondToChallenge(@Body() dto: RespondToChallengeDTO) {
   } catch (error) {
     if (error instanceof NAuthException) {
       // Handle specific error codes
-      if (error.code === 'VERIFICATION_CODE_INVALID') {
+      if (error.code === AuthErrorCode.VERIFICATION_CODE_INVALID) {
         throw new BadRequestException('Invalid verification code');
       }
-      if (error.code === 'VERIFICATION_CODE_EXPIRED') {
+      if (error.code === AuthErrorCode.VERIFICATION_CODE_EXPIRED) {
         throw new BadRequestException('Code expired. Please request a new one');
       }
     }
@@ -319,12 +346,12 @@ async respondToChallenge(@Body() dto: RespondToChallengeDTO) {
 ```
 
   </TabItem>
-  <TabItem value="express" label="Express">
+  <TabItem value="express" label="Express / Fastify">
 
 ```typescript
 router.post('/challenge', async (req, res) => {
   try {
-    const result = await nauth.authService.respondToChallenge({
+    const result = await authService.respondToChallenge({
       session: req.body.session,
       type: req.body.challengeType,
       code: req.body.code,
@@ -332,11 +359,10 @@ router.post('/challenge', async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     if (error instanceof NAuthException) {
-      // Handle specific error codes
-      if (error.code === 'VERIFICATION_CODE_INVALID') {
+      if (error.code === AuthErrorCode.VERIFICATION_CODE_INVALID) {
         return res.status(400).json({ error: 'Invalid verification code' });
       }
-      if (error.code === 'VERIFICATION_CODE_EXPIRED') {
+      if (error.code === AuthErrorCode.VERIFICATION_CODE_EXPIRED) {
         return res.status(400).json({ error: 'Code expired. Please request a new one' });
       }
     }
@@ -355,3 +381,10 @@ router.post('/challenge', async (req, res) => {
 3.  **User Experience**: Handles complex flows like "Social Login → Phone Verification → MFA" seamlessly with a consistent API.
 4.  **Unified Interface**: Single `respondToChallenge` method handles all challenge types, reducing code duplication.
 5.  **Progressive Disclosure**: Users only see verification steps that are actually required for their specific situation.
+
+## What's Next
+
+- **[Basic Auth Guide](/docs/guides/basic-auth)** --- Implement login and signup with challenge handling
+- **[MFA Guide](/docs/guides/mfa/how-mfa-works)** --- Multi-factor authentication setup and challenge flows
+- **[Error Handling](/docs/concepts/error-handling)** --- How to handle challenge errors
+- **[Configuration](/docs/concepts/configuration)** --- Configure verification methods and MFA enforcement

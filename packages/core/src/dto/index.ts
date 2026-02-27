@@ -1,16 +1,25 @@
 // Core Auth DTOs
 export * from './signup.dto';
+export * from './admin-signup.dto';
+export * from './admin-signup-social.dto';
+export * from './delete-user.dto';
+export * from './get-users.dto';
+export * from './disable-user.dto';
+export * from './enable-user.dto';
 export * from './login.dto';
 export * from './change-password.dto';
-export * from './change-password-request.dto';
 export * from './change-password-response.dto';
 export * from './user-response.dto';
 export * from './user-update.dto';
-export * from './update-user-attributes-request.dto';
+export * from './update-user-attributes.dto';
+export * from './admin-update-user-attributes.dto';
+export * from './update-verified-status-request.dto';
 export * from './verify-email.dto';
 export * from './verify-phone.dto';
 export * from './verify-phone-by-sub.dto';
 export * from './reset-password.dto';
+export * from './forgot-password.dto';
+export * from './confirm-forgot-password.dto';
 export * from './refresh-token.dto';
 export * from './auth-response.dto';
 export * from './auth-challenge.dto';
@@ -22,12 +31,16 @@ export * from './get-challenge-data.dto';
 export * from './get-challenge-data-response.dto';
 export * from './get-available-methods.dto';
 export * from './get-mfa-status.dto';
+export * from './admin-get-mfa-status.dto';
 export * from './get-user-devices.dto';
+export * from './mfa-device-response.dto';
 export * from './has-provider.dto';
 export * from './list-providers-response.dto';
-export * from './remove-devices.dto';
+export * from './remove-device.dto';
+export * from './admin-remove-device.dto';
 export * from './set-mfa-exemption.dto';
-export * from './set-preferred-method.dto';
+export * from './set-preferred-device.dto';
+export * from './admin-set-preferred-device.dto';
 export * from './setup-mfa.dto';
 export * from './verify-mfa-code.dto';
 export * from './get-client-info.dto';
@@ -44,13 +57,28 @@ export * from './logout.dto';
 export * from './logout-response.dto';
 export * from './logout-all.dto';
 export * from './logout-all-response.dto';
+export * from './admin-logout-all.dto';
+export * from './get-user-sessions.dto';
+export * from './get-user-sessions-response.dto';
+export * from './logout-session.dto';
+export * from './logout-session-response.dto';
+export * from './verify-mfa-setup-response.dto';
+export * from './admin-revoke-session.dto';
 export * from './set-must-change-password.dto';
 export * from './set-must-change-password-response.dto';
+export * from './admin-set-password.dto';
+export * from './admin-reset-password.dto';
 // Note: trust-device.dto.ts removed - trustDevice() no longer takes parameters
 export * from './trust-device-response.dto';
 export * from './is-trusted-device-response.dto';
+export * from './validate-access-token.dto';
+export * from './validate-access-token-response.dto';
+export * from './get-user-auth-history.dto';
+export * from './admin-get-user-auth-history.dto';
+export * from './admin-get-user-auth-history.dto';
 
 export * from './social-auth.dto';
+export * from './social-redirect.dto';
 
 // Note: Social and MFA DTOs moved to their respective packages
 // - social-login.dto → @nauth-toolkit/social-*

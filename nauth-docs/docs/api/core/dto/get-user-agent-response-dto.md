@@ -3,9 +3,7 @@ title: GetUserAgentResponseDTO
 description: Response DTO for user agent. Returns just the user agent string from the current request context.
 keywords: [user-agent, client, response, dto, api]
 image: /img/api-social-card.png
-sidebar_position: 52
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -42,9 +40,9 @@ import { GetUserAgentResponseDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property    | Type     | Description                                                      |
-| ----------- | -------- | ---------------------------------------------------------------- |
-| `userAgent` | `string` | User agent string from the request. Returns 'unknown' if called outside request context. |
+| Property    | Type     | Required | Description                                                      |
+| ----------- | -------- | -------- | ---------------------------------------------------------------- |
+| `userAgent` | `string` | Yes      | User agent string from the request. Returns 'unknown' if called outside request context. |
 
 ## Example
 

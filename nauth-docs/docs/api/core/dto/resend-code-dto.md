@@ -3,9 +3,7 @@ title: ResendCodeDTO
 description: Resend verification code DTO with UUID v4 session token validation. Used for email, SMS, and MFA code resending.
 keywords: [resend, code, verification, dto, challenge, session, uuid, api]
 image: /img/api-social-card.png
-sidebar_position: 6
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

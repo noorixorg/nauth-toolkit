@@ -2,6 +2,7 @@ import { resolveConfig, ResolvedNAuthClientConfig } from './config';
 import { TokenManager } from './refresh';
 import { BrowserStorage } from '../storage/browser';
 import { InMemoryStorage } from '../storage/memory';
+import type { NAuthStorageAdapter } from '../storage/interface';
 import { EventEmitter, AuthEventType, AuthEventListener } from './events';
 import { NAuthClientError } from './errors';
 import { NAuthErrorCode } from '../types/error.types';
@@ -17,23 +18,50 @@ import {
   ResendCodeRequest,
   SignupRequest,
   TokenResponse,
+  MFACodeResponse,
+  MFAPasskeyResponse,
 } from '../types/auth.types';
 import { NAuthClientConfig } from '../types/config.types';
-import { GetChallengeDataResponse, GetSetupDataResponse, MFAStatus } from '../types/mfa.types';
 import {
-  LinkedAccountsResponse,
-  SocialAuthUrlRequest,
-  SocialCallbackRequest,
-  SocialVerifyRequest,
-  SocialProvider,
-} from '../types/social.types';
-import { ChangePasswordRequest, AuthUser, UpdateProfileRequest } from '../types/user.types';
+  GetChallengeDataResponse,
+  GetSetupDataResponse,
+  GetMFADevicesResponse,
+  MFAStatus,
+  RemoveMFADeviceResponse,
+} from '../types/mfa.types';
 import { AuditHistoryResponse } from '../types/audit.types';
+import { LinkedAccountsResponse, SocialLoginOptions, SocialVerifyRequest, SocialProvider } from '../types/social.types';
+import {
+  AuthUser,
+  ChangePasswordRequest,
+  ConfirmForgotPasswordRequest,
+  ConfirmForgotPasswordResponse,
+  ForgotPasswordRequest,
+  ForgotPasswordResponse,
+  ResetPasswordWithCodeRequest,
+  ResetPasswordWithCodeResponse,
+  UpdateProfileRequest,
+} from '../types/user.types';
+import { ChallengeRouter } from './challenge-router';
+import { AdminOperations } from './admin-operations';
 
 const USER_KEY = 'nauth_user';
 const CHALLENGE_KEY = 'nauth_challenge_session';
+const OAUTH_STATE_KEY = 'nauth_oauth_state';
 const hasWindow = (): boolean =>
   typeof globalThis !== 'undefined' && typeof (globalThis as { window?: unknown }).window !== 'undefined';
+
+/**
+ * Get sessionStorage-based storage for ephemeral OAuth state.
+ * Falls back to main storage if sessionStorage is unavailable.
+ */
+const getOauthStorage = (mainStorage: NAuthStorageAdapter): NAuthStorageAdapter => {
+  if (hasWindow() && typeof window.sessionStorage !== 'undefined') {
+    return new BrowserStorage(window.sessionStorage);
+  }
+  // Fallback to main storage (memory storage in SSR, localStorage in browser without sessionStorage)
+  return mainStorage;
+};
 
 /**
  * Choose default storage implementation.
@@ -52,7 +80,43 @@ export class NAuthClient {
   private readonly config: ResolvedNAuthClientConfig;
   private readonly tokenManager: TokenManager;
   private readonly eventEmitter: EventEmitter;
+  private readonly challengeRouter: ChallengeRouter;
+  private readonly oauthStorage: NAuthStorageAdapter;
   private currentUser: AuthUser | null = null;
+
+  /**
+   * Internally tracked MFA device ID
+   * When user selects a specific device (e.g., "Microsoft Authenticator" vs "Google Authenticator"),
+   * SDK stores it here and auto-injects into respondToChallenge()
+   */
+  private selectedDeviceId?: number;
+
+  /**
+   * Admin operations (available if admin config provided).
+   *
+   * Provides admin-level user management methods:
+   * - User CRUD operations
+   * - Password management
+   * - Session management
+   * - MFA management
+   * - Audit history
+   *
+   * @example
+   * ```typescript
+   * const client = new NAuthClient({
+   *   baseUrl: 'https://api.example.com/auth',
+   *   tokenDelivery: 'cookies',
+   *   admin: {
+   *     pathPrefix: '/admin',
+   *   },
+   * });
+   *
+   * // Use admin operations
+   * const users = await client.admin.getUsers({ page: 1 });
+   * await client.admin.deleteUser('user-uuid');
+   * ```
+   */
+  public readonly admin?: AdminOperations;
 
   /**
    * Create a new client instance.
@@ -65,6 +129,14 @@ export class NAuthClient {
     this.config = resolveConfig({ ...userConfig, storage }, defaultAdapter);
     this.tokenManager = new TokenManager(storage);
     this.eventEmitter = new EventEmitter();
+    this.oauthStorage = getOauthStorage(storage);
+    this.challengeRouter = new ChallengeRouter(this.config, this.oauthStorage);
+
+    // Initialize admin operations if configured
+    if (this.config.admin) {
+      this.admin = new AdminOperations(this.config);
+    }
+
     if (hasWindow()) {
       window.addEventListener('storage', this.handleStorageEvent);
     }
@@ -81,13 +153,28 @@ export class NAuthClient {
 
   /**
    * Login with identifier and password.
+   *
+   * @param identifier - Username or email
+   * @param password - User password
+   * @param recaptchaToken - Optional reCAPTCHA token for bot protection
+   *
+   * @example Basic login
+   * ```typescript
+   * const response = await client.login('user@example.com', 'password123');
+   * ```
+   *
+   * @example With reCAPTCHA
+   * ```typescript
+   * const token = await grecaptcha.execute(siteKey, { action: 'login' });
+   * const response = await client.login('user@example.com', 'password123', token);
+   * ```
    */
-  async login(identifier: string, password: string): Promise<AuthResponse> {
+  async login(identifier: string, password: string, recaptchaToken?: string): Promise<AuthResponse> {
     const loginEvent = { type: 'auth:login' as const, data: { identifier }, timestamp: Date.now() };
     this.eventEmitter.emit(loginEvent);
 
     try {
-      const body: LoginRequest = { identifier, password };
+      const body: LoginRequest = { identifier, password, recaptchaToken };
       const response = await this.post<AuthResponse>(this.config.endpoints.login, body);
       await this.handleAuthResponse(response);
 
@@ -99,6 +186,9 @@ export class NAuthClient {
         const successEvent = { type: 'auth:success' as const, data: response, timestamp: Date.now() };
         this.eventEmitter.emit(successEvent);
       }
+
+      // Auto-handle navigation
+      await this.challengeRouter.handleAuthResponse(response, { source: 'login' });
 
       return response;
     } catch (error) {
@@ -129,6 +219,9 @@ export class NAuthClient {
         this.eventEmitter.emit({ type: 'auth:success', data: response, timestamp: Date.now() });
       }
 
+      // Auto-handle navigation
+      await this.challengeRouter.handleAuthResponse(response, { source: 'signup' });
+
       return response;
     } catch (error) {
       const authError =
@@ -142,6 +235,18 @@ export class NAuthClient {
 
   /**
    * Refresh tokens manually.
+   *
+   * @throws {NAuthClientError} When refresh fails (e.g., session expired)
+   *
+   * @example
+   * ```typescript
+   * try {
+   *   await client.refreshTokens();
+   * } catch (error) {
+   *   // Session expired - user is already logged out automatically
+   *   router.navigate(['/login']);
+   * }
+   * ```
    */
   async refreshTokens(): Promise<TokenResponse> {
     const tokenDelivery = this.getTokenDeliveryMode();
@@ -152,20 +257,70 @@ export class NAuthClient {
       await this.tokenManager.assertHasRefreshToken();
     }
 
-    const body =
-      tokenDelivery === 'json'
-        ? { refreshToken: (await this.tokenManager.getTokens()).refreshToken }
-        : { refreshToken: '' };
+    // In cookies mode, the refresh token is in the httpOnly cookie -- no need to send it in the body.
+    // Sending an empty string is misleading and can confuse backend validation.
+    const body = tokenDelivery === 'json' ? { refreshToken: (await this.tokenManager.getTokens()).refreshToken } : {};
     const refreshFn = async () => {
       // In cookies mode, refresh token is sent via httpOnly cookie (no access token needed, auth=false)
       // In JSON mode, refresh token is in body (no access token needed, auth=false)
       // Refresh endpoint is PUBLIC - it doesn't need an access token
       return this.post<TokenResponse>(this.config.endpoints.refresh, body, false);
     };
-    const tokens = await this.tokenManager.refreshOnce(refreshFn);
-    this.config.onTokenRefresh?.();
-    this.eventEmitter.emit({ type: 'auth:refresh', data: { success: true }, timestamp: Date.now() });
-    return tokens;
+
+    try {
+      // Cookies mode MUST NEVER persist tokens to storage, even if a misconfigured backend
+      // accidentally returns tokens in the response body (security footgun).
+      const tokens = await this.tokenManager.refreshOnce(refreshFn, { persist: tokenDelivery === 'json' });
+      this.config.onTokenRefresh?.();
+      this.eventEmitter.emit({ type: 'auth:refresh', data: { success: true }, timestamp: Date.now() });
+      return tokens;
+    } catch (error) {
+      // Handle session expiration (401 error)
+      // Clear local auth state to prevent isAuthenticated() from returning true with stale data
+      if (error instanceof NAuthClientError && error.statusCode === 401) {
+        await this.clearLocalAuthState();
+        this.config.onSessionExpired?.();
+        this.eventEmitter.emit({ type: 'auth:session_expired', data: {}, timestamp: Date.now() });
+      }
+      throw error;
+    }
+  }
+
+  // ============================================================================
+  // Local state management (no network)
+  // ============================================================================
+
+  /**
+   * Clear all local auth state without making any network requests.
+   *
+   * WHY:
+   * - When refresh fails with 401 (session expired), clients should immediately drop any cached
+   *   auth state (user + tokens) to prevent "sticky auth" across hard reloads.
+   * - In cookie delivery modes, httpOnly cookies can only be cleared by the backend; this method
+   *   only clears client-side state (e.g., cached user + persisted tokens in JSON mode).
+   *
+   * IMPORTANT: Also clears any pending challenge sessions to prevent ghost states where the UI
+   * shows a challenge screen but the backend session is invalid.
+   *
+   * @param options - Optional behavior flags
+   * @returns Promise that resolves when local state is cleared
+   *
+   * @example
+   * ```typescript
+   * // Called by framework adapters/interceptors when refresh fails with 401
+   * await client.clearLocalAuthState();
+   * ```
+   */
+  async clearLocalAuthState(options?: { forgetDevice?: boolean }): Promise<void> {
+    await this.clearAuthState(options?.forgetDevice ?? false);
+    // ============================================================================
+    // IMPORTANT: Clear challenge session to prevent ghost states
+    // ============================================================================
+    // WHY: If a user's session expires while they have a pending challenge (MFA, email verification, etc.),
+    // the challenge session token becomes invalid. We must clear it to prevent the UI from showing
+    // challenge screens that will fail. This fixes the "ghost session" issue where users get stuck
+    // in challenge flows with stale auth data.
+    await this.clearChallenge();
   }
 
   /**
@@ -186,6 +341,8 @@ export class NAuthClient {
       // Always clear local state even if request fails
       // Pass forgetDevice flag to clear device token in JSON mode
       await this.clearAuthState(forgetDevice);
+      // Also clear any pending challenge sessions
+      await this.clearChallenge();
       this.eventEmitter.emit({
         type: 'auth:logout',
         data: { forgetDevice: !!forgetDevice, global: false },
@@ -215,6 +372,8 @@ export class NAuthClient {
       );
       // Clear device token in JSON mode if forgetDevices is true
       await this.clearAuthState(forgetDevices);
+      // Also clear any pending challenge sessions
+      await this.clearChallenge();
       this.eventEmitter.emit({
         type: 'auth:logout',
         data: { forgetDevice: !!forgetDevices, global: true },
@@ -224,6 +383,8 @@ export class NAuthClient {
     } catch (error) {
       // If request fails, still clear local state
       await this.clearAuthState(forgetDevices);
+      // Also clear any pending challenge sessions
+      await this.clearChallenge();
       this.eventEmitter.emit({
         type: 'auth:logout',
         data: { forgetDevice: !!forgetDevices, global: true },
@@ -244,6 +405,19 @@ export class NAuthClient {
    * @throws {NAuthClientError} If validation fails
    */
   async respondToChallenge(response: ChallengeResponse): Promise<AuthResponse> {
+    // Auto-inject deviceId if SDK has one stored and this is MFA verification
+    // This allows SDK to handle device selection internally - consumers don't need to pass deviceId
+    if (
+      this.selectedDeviceId !== undefined &&
+      response.type === AuthChallenge.MFA_REQUIRED &&
+      (response.method === 'totp' || response.method === 'passkey')
+    ) {
+      // TypeScript knows response is MFACodeResponse or MFAPasskeyResponse at this point
+      // Both have deviceId?: number property, so we can safely assign it
+      const mfaResponse = response as MFACodeResponse | MFAPasskeyResponse;
+      mfaResponse.deviceId = this.selectedDeviceId;
+    }
+
     // Validate TOTP setup requires both secret and code
     if (response.type === AuthChallenge.MFA_SETUP_REQUIRED && response.method === 'totp') {
       const setupData = response.setupData;
@@ -279,6 +453,11 @@ export class NAuthClient {
       const result = await this.post<AuthResponse>(this.config.endpoints.respondChallenge, response);
       await this.handleAuthResponse(result);
 
+      // Clear selected device on successful authentication (no more challenges)
+      if (result.user && !result.challengeName) {
+        this.selectedDeviceId = undefined;
+      }
+
       // Emit success or challenge event
       if (result.challengeName) {
         const challengeEvent = { type: 'auth:challenge' as const, data: result, timestamp: Date.now() };
@@ -287,6 +466,9 @@ export class NAuthClient {
         const successEvent = { type: 'auth:success' as const, data: result, timestamp: Date.now() };
         this.eventEmitter.emit(successEvent);
       }
+
+      // Auto-handle navigation
+      await this.challengeRouter.handleAuthResponse(result, { source: 'challenge' });
 
       return result;
     } catch (error) {
@@ -301,6 +483,68 @@ export class NAuthClient {
       this.eventEmitter.emit(errorEvent);
       throw authError;
     }
+  }
+
+  /**
+   * Select an MFA device for verification
+   *
+   * Call this when user selects a specific device from the MFA selector UI.
+   * SDK stores the deviceId internally and auto-injects it when respondToChallenge() is called.
+   *
+   * @param deviceId - ID of the device user selected
+   *
+   * @example
+   * ```typescript
+   * // User clicks "Microsoft Authenticator" button
+   * client.selectMFADevice(48);
+   *
+   * // Later, when submitting OTP code:
+   * await client.respondToChallenge({
+   *   type: 'MFA_REQUIRED',
+   *   session: 'abc123',
+   *   method: 'totp',
+   *   code: '123456',
+   *   // SDK auto-injects deviceId=48 here!
+   * });
+   * ```
+   */
+  selectMFADevice(deviceId: number): void {
+    this.selectedDeviceId = deviceId;
+  }
+
+  /**
+   * Get available MFA devices from challenge response
+   *
+   * Returns array of devices for methods that support multiple devices (TOTP, Passkey).
+   * Use this to render device selection UI only.
+   *
+   * @param challenge - Challenge response from login/signup
+   * @returns Array of MFA devices with id, name, and type
+   *
+   * @example
+   * ```typescript
+   * const devices = client.getMFADevices(challengeResponse);
+   * // Returns: [
+   * //   { id: 48, name: "Microsoft Authenticator", type: "totp" },
+   * //   { id: 3, name: "Google Authenticator", type: "totp" }
+   * // ]
+   * ```
+   */
+  getMFADevices(challenge: AuthResponse): Array<{ id: number; name: string; type: string }> {
+    const devices = challenge.challengeParameters?.['devices'];
+    if (Array.isArray(devices)) {
+      return devices as Array<{ id: number; name: string; type: string }>;
+    }
+    return [];
+  }
+
+  /**
+   * Clear any selected MFA device
+   *
+   * Useful if user navigates back to device selector or cancels MFA flow.
+   */
+  clearSelectedDevice(): void {
+    this.selectedDeviceId = undefined;
   }
 
   /**
@@ -368,19 +612,96 @@ export class NAuthClient {
    * Change user password.
    */
   async changePassword(oldPassword: string, newPassword: string): Promise<void> {
-    const payload: ChangePasswordRequest = { currentPassword: oldPassword, newPassword };
+    const payload: ChangePasswordRequest = { oldPassword, newPassword };
     await this.post(this.config.endpoints.changePassword, payload, true);
   }
 
   /**
-   * Request password change (must change on next login).
+   * Request a password reset code (forgot password).
    */
-  async requestPasswordChange(): Promise<void> {
-    await this.post(this.config.endpoints.requestPasswordChange, {}, true);
+  async forgotPassword(identifier: string): Promise<ForgotPasswordResponse> {
+    const payload: ForgotPasswordRequest = { identifier };
+    return this.post<ForgotPasswordResponse>(this.config.endpoints.forgotPassword, payload);
   }
 
   /**
-   * Get MFA status.
+   * Confirm a password reset code and set a new password.
+   */
+  async confirmForgotPassword(
+    identifier: string,
+    code: string,
+    newPassword: string,
+  ): Promise<ConfirmForgotPasswordResponse> {
+    const payload: ConfirmForgotPasswordRequest = { identifier, code, newPassword };
+    const result = await this.post<ConfirmForgotPasswordResponse>(this.config.endpoints.confirmForgotPassword, payload);
+    // ============================================================================
+    // IMPORTANT: Password reset revokes all sessions
+    // ============================================================================
+    // WHY: The backend invalidates all sessions as a security measure. Clearing local auth state avoids
+    // stale UI (e.g., still showing social-only/no-password state from cached user) and prevents the
+    // client from attempting further authenticated calls with invalid tokens/cookies.
+    await this.clearAuthState(false);
+    return result;
+  }
+
+  /**
+   * Reset password with verification code (works for both admin-initiated and user-initiated resets).
+   *
+   * NOTE:
+   * - Links (when provided by the backend email provider) include the same verification code as a query param
+   *   (e.g., `...?code=123456`) so consumer apps stay code-only and consistent.
+   *
+   * WHY: Generic method that works for both admin-initiated (adminResetPassword) and
+   * user-initiated (forgotPassword) password resets. Uses same backend endpoint.
+   *
+   * @param identifier - User identifier (email, username, phone)
+   * @param code - Verification code from email/SMS (6-10 digits)
+   * @param newPassword - New password
+   * @returns Success response
+   * @throws {NAuthClientError} When reset fails
+   *
+   * @example
+   * ```typescript
+   * await client.resetPasswordWithCode('user@example.com', '123456', 'NewPass123!');
+   * ```
+   */
+  async resetPasswordWithCode(
+    identifier: string,
+    code: string,
+    newPassword: string,
+  ): Promise<ResetPasswordWithCodeResponse> {
+    const payload: ResetPasswordWithCodeRequest = {
+      identifier,
+      code,
+      newPassword,
+    };
+
+    const result = await this.post<ResetPasswordWithCodeResponse>(
+      this.config.endpoints.confirmAdminResetPassword,
+      payload,
+    );
+
+    // ============================================================================
+    // IMPORTANT: Password reset revokes all sessions
+    // ============================================================================
+    // WHY: The backend invalidates all sessions as a security measure. Clearing local auth state avoids
+    // stale UI (e.g., still showing social-only/no-password state from cached user) and prevents the
+    // client from attempting further authenticated calls with invalid tokens/cookies.
+    await this.clearAuthState(false);
+
+    return result;
+  }
+
+  /**
+   * Get MFA status for current user.
+   *
+   * @returns Promise of MFA status
+   *
+   * @example
+   * ```typescript
+   * const status = await this.client.getMfaStatus();
+   * console.log('MFA enabled:', status.enabled);
+   * ```
    */
   async getMfaStatus(): Promise<MFAStatus> {
     return this.get<MFAStatus>(this.config.endpoints.mfaStatus, true);
@@ -388,20 +709,104 @@ export class NAuthClient {
 
   /**
    * Get MFA devices.
+   *
+   * @returns Promise of MFA devices response
+   *
+   * @example
+   * ```typescript
+   * const result = await client.getMfaDevices();
+   * console.log('Devices:', result.devices);
+   * ```
    */
-  async getMfaDevices(): Promise<unknown[]> {
-    return this.get<unknown[]>(this.config.endpoints.mfaDevices, true);
+  async getMfaDevices(): Promise<GetMFADevicesResponse> {
+    return this.get<GetMFADevicesResponse>(this.config.endpoints.mfaDevices, true);
   }
 
   /**
    * Setup MFA device (authenticated user).
+   *
+   * Returns method-specific setup information:
+   * - TOTP: { secret, qrCode, manualEntryKey }
+   * - SMS: { maskedPhone } or { deviceId, autoCompleted: true }
+   * - Email: { maskedEmail } or { deviceId, autoCompleted: true }
+   * - Passkey: WebAuthn registration options
+   *
+   * @param method - MFA method to set up
+   * @returns Promise of setup data response
+   *
+   * @example
+   * ```typescript
+   * const result = await client.setupMfaDevice('totp');
+   * console.log('QR Code:', result.setupData.qrCode);
+   * ```
    */
-  async setupMfaDevice(method: string): Promise<unknown> {
-    return this.post<unknown>(this.config.endpoints.mfaSetupData, { method }, true);
+  async setupMfaDevice(method: string): Promise<GetSetupDataResponse> {
+    // Backend expects `methodName` (SetupMFADTO). We keep the public SDK method name `method`
+    // for ergonomics, but serialize as `methodName` to match the API contract.
+    return this.post<GetSetupDataResponse>(this.config.endpoints.mfaSetupData, { methodName: method }, true);
   }
 
   /**
    * Verify MFA setup (authenticated user).
+   *
+   * Completes MFA device setup by verifying the setup data. The structure of `setupData` varies by method:
+   *
+   * **TOTP:**
+   * - Requires both `secret` (from `getSetupData()` response) and `code` (from authenticator app)
+   * - Example: `{ secret: 'JBSWY3DPEHPK3PXP', code: '123456' }`
+   *
+   * **SMS:**
+   * - Requires `phoneNumber` and `code` (verification code sent to phone)
+   * - Example: `{ phoneNumber: '+1234567890', code: '123456' }`
+   *
+   * **Email:**
+   * - Requires `code` (verification code sent to email)
+   * - Example: `{ code: '123456' }`
+   *
+   * **Passkey:**
+   * - Requires `credential` (WebAuthn credential from registration) and `expectedChallenge`
+   * - Example: `{ credential: {...}, expectedChallenge: '...' }`
+   *
+   * @param method - MFA method ('totp', 'sms', 'email', 'passkey')
+   * @param setupData - Method-specific setup verification data
+   * @param deviceName - Optional device name (can also be included in setupData for some methods)
+   * @returns Promise with device ID of the created MFA device
+   *
+   * @example TOTP Setup
+   * ```typescript
+   * // Step 1: Get setup data
+   * const setupData = await client.setupMfaDevice('totp');
+   * // Returns: { setupData: { secret: 'JBSWY3DPEHPK3PXP', qrCode: '...', ... } }
+   *
+   * // Step 2: User scans QR code and enters code from authenticator app
+   * const code = '123456'; // From authenticator app
+   *
+   * // Step 3: Verify setup (requires both secret and code)
+   * const result = await client.verifyMfaSetup('totp', {
+   *   secret: setupData.setupData.secret,
+   *   code: code,
+   * }, 'Google Authenticator');
+   * // Returns: { deviceId: 123 }
+   * ```
+   *
+   * @example SMS Setup
+   * ```typescript
+   * const result = await client.verifyMfaSetup('sms', {
+   *   phoneNumber: '+1234567890', // Phone number receiving the code
+   *   code: '123456', // Code sent to phone
+   * }, 'My iPhone');
+   * ```
+   *
+   * @example Passkey Setup
+   * ```typescript
+   * const credential = await navigator.credentials.create({
+   *   publicKey: setupData.setupData.options
+   * });
+   * const result = await client.verifyMfaSetup('passkey', {
+   *   credential: credential,
+   *   expectedChallenge: setupData.setupData.challenge,
+   * }, 'MacBook Pro');
+   * ```
    */
   async verifyMfaSetup(
     method: string,
@@ -410,27 +815,53 @@ export class NAuthClient {
   ): Promise<{ deviceId: number }> {
     return this.post<{ deviceId: number }>(
       this.config.endpoints.mfaVerifySetup,
-      { method, setupData, deviceName },
+      // Backend expects `methodName` (SetupMFADTO). `deviceName` is optional and may be ignored
+      // by consumer controllers depending on their DTO/validation strategy.
+      { methodName: method, setupData, deviceName },
       true,
     );
   }
 
   /**
-   * Remove MFA method.
+   * Remove ALL MFA devices for a specific method type.
+   *
+   * WARNING: This removes ALL devices of the specified method.
+   * For example, if you have 3 TOTP devices, this will remove all 3.
+   *
+   * **Prefer `removeMfaDeviceById()`** to remove individual devices.
+   *
+   * @param method - MFA method type ('totp', 'sms', 'email', 'passkey')
+   * @returns Success message
+   *
+   * @example
+   * ```typescript
+   * // Removes ALL TOTP devices (all authenticator apps)
+   * await client.removeMfaDevice('totp');
+   * ```
    */
-  async removeMfaDevice(method: string): Promise<{ message: string }> {
-    const path = `${this.config.endpoints.mfaRemove}/${method}`;
-    return this.delete<{ message: string }>(path, true);
+
+  /**
+   * Remove a single MFA device by device ID.
+   *
+   * @param deviceId - MFA device ID
+   * @returns Removal response
+   */
+  async removeMfaDeviceById(deviceId: number): Promise<RemoveMFADeviceResponse> {
+    const path = `${this.config.endpoints.mfaDevices}/${deviceId}`;
+    return this.delete<RemoveMFADeviceResponse>(path, true);
   }
 
   /**
-   * Set preferred MFA method.
+   * Set a specific MFA device as preferred.
    *
-   * @param method - Device method to set as preferred ('totp', 'sms', 'email', or 'passkey'). Cannot be 'backup'.
+   * This marks the device as preferred and updates the user's preferred MFA method.
+   *
+   * @param deviceId - MFA device ID
    * @returns Success message
    */
-  async setPreferredMfaMethod(method: 'totp' | 'sms' | 'email' | 'passkey'): Promise<{ message: string }> {
-    return this.post<{ message: string }>(this.config.endpoints.mfaPreferred, { method }, true);
+  async setPreferredMfaDevice(deviceId: number): Promise<{ message: string }> {
+    const path = `${this.config.endpoints.mfaDevices}/${deviceId}/preferred`;
+    return this.post<{ message: string }>(path, {}, true);
   }
 
   /**
@@ -442,15 +873,10 @@ export class NAuthClient {
   }
 
   /**
-   * Set MFA exemption (admin/test scenarios).
+   * ============================================================================
+   * Event System
+   * ============================================================================
    */
-  async setMfaExemption(exempt: boolean, reason?: string): Promise<void> {
-    await this.post(this.config.endpoints.mfaExemption, { exempt, reason }, true);
-  }
-
-  // ============================================================================
-  // Event System
-  // ============================================================================
 
   /**
    * Subscribe to authentication events.
@@ -497,155 +923,84 @@ export class NAuthClient {
   // ============================================================================
 
   /**
-   * Start social OAuth flow with automatic state management.
+   * Start redirect-first social OAuth flow (web).
    *
-   * Generates a secure state token, stores OAuth context, and redirects to the OAuth provider.
-   * After OAuth callback, use `handleOAuthCallback()` to complete authentication.
+   * This performs a browser navigation to:
+   * `GET {baseUrl}/social/:provider/redirect?returnTo=...&appState=...`
+   *
+   * The backend:
+   * - generates and stores CSRF state (cluster-safe)
+   * - redirects the user to the provider
+   * - completes OAuth on callback and sets cookies (or issues an exchange token)
+   * - redirects back to `returnTo` with `appState` (and `exchangeToken` for json/hybrid)
    *
    * @param provider - OAuth provider ('google', 'apple', 'facebook')
-   * @param options - Optional configuration
+   * @param options - Optional redirect options
    *
    * @example
    * ```typescript
-   * // Simple usage
-   * await client.loginWithSocial('google');
-   *
-   * // With custom redirect URI
-   * await client.loginWithSocial('apple', {
-   *   redirectUri: 'https://example.com/auth/callback'
-   * });
+   * await client.loginWithSocial('google', { returnTo: '/auth/callback', appState: '12345' });
    * ```
    */
-  async loginWithSocial(provider: SocialProvider, _options?: { redirectUri?: string }): Promise<void> {
+  async loginWithSocial(provider: SocialProvider, options?: SocialLoginOptions): Promise<void> {
     // Emit event
     this.eventEmitter.emit({ type: 'oauth:started', data: { provider }, timestamp: Date.now() });
 
-    // Get OAuth URL from backend (backend will generate and store state)
-    // Don't send state - backend handles it
-    const { url } = await this.getSocialAuthUrl({ provider });
-
-    // Redirect to OAuth provider (via backend)
     if (hasWindow()) {
-      window.location.href = url;
+      const startPath = this.config.endpoints.socialRedirectStart.replace(':provider', provider);
+      // Use buildUrl to ensure authPathPrefix is applied
+      const fullUrl = this.buildUrl(startPath);
+      const startUrl = new URL(fullUrl);
+
+      const redirects = this.config.redirects;
+      // Default returnTo to configured post-login success route (best-effort).
+      // Consumers are expected to pass an explicit callback route (e.g. '/auth/callback').
+      const returnTo = options?.returnTo ?? redirects?.loginSuccess ?? redirects?.success ?? '/';
+
+      startUrl.searchParams.set('returnTo', returnTo);
+      // Only include action when deviating from the default ('login').
+      if (options?.action === 'link') {
+        startUrl.searchParams.set('action', 'link');
+      }
+      if (typeof options?.appState === 'string' && options.appState.trim() !== '') {
+        startUrl.searchParams.set('appState', options.appState);
+      }
+
+      // Serialize oauthParams as JSON string
+      if (options?.oauthParams && Object.keys(options.oauthParams).length > 0) {
+        startUrl.searchParams.set('oauthParams', JSON.stringify(options.oauthParams));
+      }
+
+      window.location.href = startUrl.toString();
     }
   }
 
   /**
-   * Auto-detect and handle OAuth callback.
+   * Exchange an `exchangeToken` (from redirect callback URL) into an AuthResponse.
    *
-   * Call this on app initialization or in callback route.
-   * Returns null if not an OAuth callback (no provider/code params).
+   * Used for `tokenDelivery: 'json'` or hybrid flows where the backend redirects back
+   * with `exchangeToken` instead of setting cookies.
    *
-   * The SDK validates the state token, completes authentication via backend,
-   * and emits appropriate events.
-   *
-   * @param urlOrParams - Optional URL string or URLSearchParams (auto-detects from window.location if not provided)
-   * @returns AuthResponse if OAuth callback detected, null otherwise
-   *
-   * @example
-   * ```typescript
-   * // Auto-detect on app init
-   * const response = await client.handleOAuthCallback();
-   * if (response) {
-   *   if (response.challengeName) {
-   *     router.navigate(['/challenge', response.challengeName]);
-   *   } else {
-   *     router.navigate(['/']); // Navigate to your app's home route
-   *   }
-   * }
-   *
-   * // In callback route
-   * const response = await client.handleOAuthCallback(window.location.search);
-   * ```
+   * @param exchangeToken - One-time exchange token from the callback URL
+   * @returns AuthResponse
    */
-  async handleOAuthCallback(urlOrParams?: string | URLSearchParams): Promise<AuthResponse | null> {
-    // Parse URL params
-    let params: URLSearchParams;
-    if (urlOrParams instanceof URLSearchParams) {
-      params = urlOrParams;
-    } else if (typeof urlOrParams === 'string') {
-      params = new URLSearchParams(urlOrParams);
-    } else if (hasWindow()) {
-      params = new URLSearchParams(window.location.search);
-    } else {
-      return null;
+  async exchangeSocialRedirect(exchangeToken: string): Promise<AuthResponse> {
+    const token = exchangeToken?.trim();
+    if (!token) {
+      throw new NAuthClientError(NAuthErrorCode.CHALLENGE_INVALID, 'Missing exchangeToken');
     }
-
-    // Check if this is an OAuth callback
-    const provider = params.get('provider') as SocialProvider | null;
-    const code = params.get('code');
-    const state = params.get('state');
-    const error = params.get('error');
-
-    if (!provider || (!code && !error)) {
-      return null; // Not an OAuth callback
-    }
-
-    this.eventEmitter.emit({ type: 'oauth:callback', data: { provider }, timestamp: Date.now() });
-
-    try {
-      // Handle OAuth error
-      if (error) {
-        const authError = new NAuthClientError(
-          NAuthErrorCode.SOCIAL_TOKEN_INVALID,
-          params.get('error_description') || error,
-          { details: { error, provider } },
-        );
-        this.eventEmitter.emit({ type: 'oauth:error', data: authError, timestamp: Date.now() });
-        throw authError;
-      }
-
-      if (!state) {
-        throw new NAuthClientError(NAuthErrorCode.CHALLENGE_INVALID, 'Missing OAuth state parameter');
-      }
-
-      // Complete OAuth flow via backend
-      // Backend validates state - don't validate on frontend
-      const response = await this.handleSocialCallback({
-        provider,
-        code: code!,
-        state,
-      });
-
-      // Emit appropriate event
-      if (response.challengeName) {
-        this.eventEmitter.emit({ type: 'auth:challenge', data: response, timestamp: Date.now() });
-      } else {
-        this.eventEmitter.emit({ type: 'auth:success', data: response, timestamp: Date.now() });
-      }
-
-      this.eventEmitter.emit({ type: 'oauth:completed', data: response, timestamp: Date.now() });
-
-      return response;
-    } catch (error) {
-      const authError =
-        error instanceof NAuthClientError
-          ? error
-          : new NAuthClientError(
-              NAuthErrorCode.SOCIAL_TOKEN_INVALID,
-              (error as Error).message || 'OAuth callback failed',
-            );
-
-      this.eventEmitter.emit({ type: 'oauth:error', data: authError, timestamp: Date.now() });
-      throw authError;
-    }
-  }
-
-  /**
-   * Get social auth URL (low-level API).
-   *
-   * For most cases, use `loginWithSocial()` which handles state management automatically.
-   */
-  async getSocialAuthUrl(request: SocialAuthUrlRequest): Promise<{ url: string }> {
-    return this.post(this.config.endpoints.socialAuthUrl, request);
-  }
-
-  /**
-   * Handle social callback.
-   */
-  async handleSocialCallback(request: SocialCallbackRequest): Promise<AuthResponse> {
-    const result = await this.post<AuthResponse>(this.config.endpoints.socialCallback, request);
+    const result = await this.post<AuthResponse>(this.config.endpoints.socialExchange, { exchangeToken: token });
     await this.handleAuthResponse(result);
+
+    // Read appState from sessionStorage WITHOUT clearing (consumer may want to retrieve it later via getLastOauthState())
+    const appState = await this.oauthStorage.getItem(OAUTH_STATE_KEY);
+
+    // Auto-handle navigation with appState in context
+    await this.challengeRouter.handleAuthResponse(result, {
+      source: 'social',
+      appState: appState ?? undefined,
+    });
+
     return result;
   }
 
@@ -708,7 +1063,12 @@ export class NAuthClient {
    */
   async trustDevice(): Promise<{ deviceToken: string }> {
     const result = await this.post<{ deviceToken: string }>(this.config.endpoints.trustDevice, {}, true);
-    await this.setDeviceToken(result.deviceToken);
+
+    // Only store device token in JSON mode (cookies mode uses httpOnly cookie)
+    if (this.config.tokenDelivery === 'json' && result.deviceToken) {
+      await this.setDeviceToken(result.deviceToken);
+    }
+
     return result;
   }
 
@@ -738,28 +1098,38 @@ export class NAuthClient {
   }
 
   /**
-   * Get paginated audit history for the current user.
+   * Get authentication audit history for current user.
    *
-   * Returns authentication and security events with full audit details including:
-   * - Event type (login, logout, MFA, etc.)
-   * - Event status (success, failure, suspicious)
-   * - Device information, location, risk factors
-   *
-   * @param params - Query parameters for filtering and pagination
-   * @returns Paginated audit history response
+   * @param params - Optional query parameters (page, limit, eventType, etc.)
+   * @returns Paginated audit history
    *
    * @example
    * ```typescript
    * const history = await client.getAuditHistory({
    *   page: 1,
    *   limit: 20,
-   *   eventType: 'LOGIN_SUCCESS'
+   *   eventTypes: ['LOGIN_SUCCESS'],
+   *   eventStatus: ['FAILURE'],
    * });
    * ```
    */
-  async getAuditHistory(params?: Record<string, string | number | boolean>): Promise<AuditHistoryResponse> {
-    const entries: [string, string][] = Object.entries(params ?? {}).map(([k, v]) => [k, String(v)]);
-    const query = entries.length > 0 ? `?${new URLSearchParams(entries).toString()}` : '';
+  async getAuditHistory(
+    params?: Record<string, string | number | boolean | Array<string | number | boolean>>,
+  ): Promise<AuditHistoryResponse> {
+    const searchParams = new URLSearchParams();
+
+    for (const [key, rawValue] of Object.entries(params ?? {})) {
+      if (Array.isArray(rawValue)) {
+        for (const item of rawValue) {
+          searchParams.append(key, String(item));
+        }
+        continue;
+      }
+
+      searchParams.append(key, String(rawValue));
+    }
+
+    const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
     const path = `${this.config.endpoints.auditHistory}${query}`;
     return this.get<AuditHistoryResponse>(path, true);
   }
@@ -861,7 +1231,11 @@ export class NAuthClient {
 
     // Always store user info (needed for both modes)
     if (response.user) {
-      await this.setUser(response.user as AuthUser);
+      const user = response.user as AuthUser;
+      // WHY: Consumers often need to know if the current session was created via password
+      // or via a specific social provider (google/apple/facebook).
+      user.sessionAuthMethod = response.authMethod ?? null;
+      await this.setUser(user);
     }
 
     await this.clearChallenge();
@@ -900,9 +1274,30 @@ export class NAuthClient {
     await this.tokenManager.clearTokens();
     await this.config.storage.removeItem(USER_KEY);
 
-    // Clear device token in JSON mode (cookies mode uses httpOnly cookie cleared by backend)
-    if (forgetDevice && this.config.tokenDelivery === 'json') {
-      await this.config.storage.removeItem(this.config.deviceTrust.storageKey);
+    // Clear device token when forgetDevice is true
+    if (forgetDevice) {
+      // ============================================================================
+      // Defensive cleanup: Always attempt to remove device token from localStorage
+      // ============================================================================
+      // WHY: In JSON mode, device token should be in localStorage and must be cleared.
+      // In cookies mode, device token shouldn't be in localStorage, but we attempt cleanup
+      // anyway as a defensive measure in case of bugs or mode switches.
+      try {
+        await this.config.storage.removeItem(this.config.deviceTrust.storageKey);
+      } catch {
+        // Non-fatal: storage can fail in restricted environments (private mode, SSR, etc.)
+      }
+    }
+
+    // ============================================================================
+    // Clear OAuth state to prevent stale appState from being reused
+    // ============================================================================
+    // WHY: If user logs out or session expires during/after OAuth flow, the stored appState
+    // should be cleared to prevent it from being incorrectly applied to a future login.
+    try {
+      await this.oauthStorage.removeItem(OAUTH_STATE_KEY);
+    } catch {
+      // Non-fatal: OAuth state is in sessionStorage which might fail in restricted environments
     }
 
     this.config.onAuthStateChange?.(null);
@@ -924,21 +1319,40 @@ export class NAuthClient {
 
   /**
    * Build request URL by combining baseUrl with path.
+   * Automatically prepends authPathPrefix if configured and not already in path.
    * @private
    */
   private buildUrl(path: string): string {
-    return `${this.config.baseUrl}${path}`;
+    // Prepend authPathPrefix if configured and path doesn't already start with it
+    // Ensure path starts with '/' for proper prefix concatenation
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const effectivePath =
+      this.config.authPathPrefix && !normalizedPath.startsWith(this.config.authPathPrefix)
+        ? `${this.config.authPathPrefix}${normalizedPath}`
+        : normalizedPath;
+    return `${this.config.baseUrl}${effectivePath}`;
   }
 
   /**
    * Build request headers for authentication.
+   *
+   * @param auth - Whether to include authentication headers
+   * @param method - HTTP method (GET, POST, PUT, DELETE, PATCH)
+   * @returns Headers object with auth, CSRF, and device trust headers
    * @private
    */
-  private async buildHeaders(auth: boolean): Promise<Record<string, string>> {
+  private async buildHeaders(
+    auth: boolean,
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' = 'GET',
+  ): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...this.config.headers,
     };
+
+    // Set Content-Type for mutating requests
+    if (method !== 'GET') {
+      headers['Content-Type'] = 'application/json';
+    }
 
     // Add access token in JSON mode
     if (auth && this.config.tokenDelivery === 'json') {
@@ -948,8 +1362,40 @@ export class NAuthClient {
       }
     }
 
-    // Add CSRF token for mutating requests in cookies mode
-    if (this.config.tokenDelivery === 'cookies' && hasWindow()) {
+    // ============================================================================
+    // Trusted Device Header (JSON mode)
+    // ============================================================================
+    // In cookies mode the device token is sent automatically via httpOnly cookie.
+    // In JSON mode the backend expects the device token via a header (default: X-Device-Token).
+    //
+    // This is required for:
+    // - Checking trust status (`isTrustedDevice`)
+    // - Skipping MFA on future logins when a device is trusted
+    //
+    // We intentionally send it on all requests in JSON mode so the backend can
+    // consistently associate requests with a trusted device when present.
+    if (this.config.tokenDelivery === 'json') {
+      try {
+        const deviceToken = await this.config.storage.getItem(this.config.deviceTrust.storageKey);
+        if (deviceToken) {
+          headers[this.config.deviceTrust.headerName] = deviceToken;
+        }
+      } catch {
+        // Non-fatal: storage can fail in restricted environments (private mode, SSR, etc.).
+      }
+    }
+
+    // ============================================================================
+    // CSRF Token (Cookies mode, mutating requests only)
+    // ============================================================================
+    // CSRF protection is required for mutating HTTP methods (POST, PUT, PATCH, DELETE)
+    // to prevent cross-site request forgery attacks when using cookie-based auth.
+    const mutatingMethods: readonly ('POST' | 'PUT' | 'PATCH' | 'DELETE')[] = ['POST', 'PUT', 'PATCH', 'DELETE'];
+    if (
+      this.config.tokenDelivery === 'cookies' &&
+      hasWindow() &&
+      (mutatingMethods as readonly string[]).includes(method)
+    ) {
       const csrfToken = this.getCsrfToken();
       if (csrfToken) {
         headers[this.config.csrf.headerName] = csrfToken;
@@ -975,7 +1421,7 @@ export class NAuthClient {
    */
   private async get<T>(path: string, auth = false): Promise<T> {
     const url = this.buildUrl(path);
-    const headers = await this.buildHeaders(auth);
+    const headers = await this.buildHeaders(auth, 'GET');
     const credentials = this.config.tokenDelivery === 'cookies' ? 'include' : 'omit';
 
     const response = await this.config.httpAdapter.request<T>({
@@ -993,7 +1439,7 @@ export class NAuthClient {
    */
   private async post<T>(path: string, body: unknown, auth = false): Promise<T> {
     const url = this.buildUrl(path);
-    const headers = await this.buildHeaders(auth);
+    const headers = await this.buildHeaders(auth, 'POST');
     const credentials = this.config.tokenDelivery === 'cookies' ? 'include' : 'omit';
 
     const response = await this.config.httpAdapter.request<T>({
@@ -1012,7 +1458,7 @@ export class NAuthClient {
    */
   private async put<T>(path: string, body: unknown, auth = false): Promise<T> {
     const url = this.buildUrl(path);
-    const headers = await this.buildHeaders(auth);
+    const headers = await this.buildHeaders(auth, 'PUT');
     const credentials = this.config.tokenDelivery === 'cookies' ? 'include' : 'omit';
 
     const response = await this.config.httpAdapter.request<T>({
@@ -1031,7 +1477,7 @@ export class NAuthClient {
    */
   private async delete<T>(path: string, auth = false): Promise<T> {
     const url = this.buildUrl(path);
-    const headers = await this.buildHeaders(auth);
+    const headers = await this.buildHeaders(auth, 'DELETE');
     const credentials = this.config.tokenDelivery === 'cookies' ? 'include' : 'omit';
 
     const response = await this.config.httpAdapter.request<T>({
@@ -1061,4 +1507,73 @@ export class NAuthClient {
         });
     }
   };
+
+  /**
+   * Get challenge router for manual navigation control.
+   * Useful for guards that need to handle errors or build custom URLs.
+   *
+   * @returns ChallengeRouter instance
+   *
+   * @example
+   * ```typescript
+   * const router = client.getChallengeRouter();
+   * await router.navigateToError('oauth');
+   * ```
+   */
+  getChallengeRouter(): ChallengeRouter {
+    return this.challengeRouter;
+  }
+
+  /**
+   * Store OAuth appState from social redirect callback.
+   *
+   * This is called automatically by the social redirect callback guard
+   * when appState is present in the callback URL. The stored state can
+   * be retrieved using getLastOauthState().
+   *
+   * Stores in sessionStorage (ephemeral) for better security.
+   *
+   * @param appState - OAuth appState value from callback URL
+   *
+   * @example
+   * ```typescript
+   * await client.storeOauthState('invite-code-123');
+   * ```
+   */
+  async storeOauthState(appState: string): Promise<void> {
+    if (appState && appState.trim() !== '') {
+      await this.oauthStorage.setItem(OAUTH_STATE_KEY, appState);
+    }
+  }
+
+  /**
+   * Get the last OAuth appState from social redirect callback.
+   *
+   * Returns the appState that was stored during the most recent social
+   * login redirect callback. This is useful for restoring UI state,
+   * applying invite codes, or tracking referral information.
+   *
+   * The state is automatically cleared after retrieval to prevent reuse.
+   * Stored in sessionStorage (ephemeral) for better security.
+   *
+   * @returns The stored appState, or null if none exists
+   *
+   * @example
+   * ```typescript
+   * const appState = await client.getLastOauthState();
+   * if (appState) {
+   *   // Apply invite code or restore UI state
+   *   console.log('OAuth state:', appState);
+   * }
+   * ```
+   */
+  async getLastOauthState(): Promise<string | null> {
+    const stored = await this.oauthStorage.getItem(OAUTH_STATE_KEY);
+    if (stored) {
+      // Clear after retrieval to prevent reuse
+      await this.oauthStorage.removeItem(OAUTH_STATE_KEY);
+      return stored;
+    }
+    return null;
+  }
 }

@@ -1,7 +1,6 @@
 ---
 title: Authentication Events
 description: Subscribe to authentication lifecycle events for reactive UI updates, analytics, and custom logic
-sidebar_position: 4
 keywords: [events, observables, reactive, lifecycle, analytics]
 image: /img/api-social-card.png
 ---
@@ -30,6 +29,7 @@ Events are emitted for:
 | `auth:error` | Authentication failed | [`NAuthClientError`](../api/nauth-client-error) |
 | `auth:logout` | User logged out | `{ forgetDevice: boolean, global: boolean }` |
 | `auth:refresh` | Token refresh attempted | `{ success: boolean }` |
+| `auth:session_expired` | Refresh token expired or invalid | `{}` |
 | `oauth:started` | Social login initiated | `{ provider: string }` |
 | `oauth:callback` | OAuth callback detected | `{ provider: string }` |
 | `oauth:completed` | OAuth flow completed | [`AuthResponse`](../api/types/auth-response) |
@@ -48,6 +48,7 @@ type AuthEvent =
   | AuthErrorEvent
   | AuthLogoutEvent
   | AuthRefreshEvent
+  | AuthSessionExpiredEvent
   | OAuthStartedEvent
   | OAuthCallbackEvent
   | OAuthCompletedEvent
@@ -84,7 +85,7 @@ The Angular `AuthService` exposes events as RxJS Observables, making it easy to 
 ### Available Observables
 
 ```typescript
-import { AuthService } from '@nauth-toolkit/client/angular';
+import { AuthService } from '@nauth-toolkit/client-angular';
 
 // All authentication events
 authEvents$: Observable<AuthEvent>
@@ -98,7 +99,7 @@ authError$: Observable<AuthEvent>       // Only error events
 
 ```typescript
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { AuthService } from '@nauth-toolkit/client/angular';
+import { AuthService } from '@nauth-toolkit/client-angular';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -412,6 +413,7 @@ Events are emitted synchronously during the authentication flow:
 
 5. **Token Refresh**:
    - `auth:refresh` → Token refresh attempted (data includes `success` flag)
+   - `auth:session_expired` → Emitted when refresh fails with 401 (refresh token expired); user must re-authenticate
 
 ## Best Practices
 
@@ -469,7 +471,7 @@ this.auth.authEvents$
 ## Related Documentation
 
 - [AuthService (Angular)](../angular/auth-service#observables) - Angular-specific event observables
-- [NAuthClient](../api/nauth-client#event-methods) - Core client event methods
-- [Social Auth Guide](./social-auth#event-driven-architecture) - OAuth event examples
+- [NAuthClient](../api/nauth-client#on) - Core client event methods
+- [Social Auth Guide](./social-auth) - Redirect-first social flow
 - [Challenge Handling](./challenge-handling) - Challenge flow navigation
 

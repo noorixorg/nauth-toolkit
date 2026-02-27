@@ -1211,7 +1211,7 @@ sequenceDiagram
    - `verify(user, code, deviceId?)`: Verify during login
    - `sendChallenge(user)`: (Optional) Send verification code (SMS, Passkey)
 
-6a. **Auto-Send SMS/Email for MFA** ✅ **NEW**: When `MFA_REQUIRED` challenge is created, SMS or Email codes are **automatically sent** if:
+6a. **Auto-Send SMS/Email for MFA** - **NEW**: When `MFA_REQUIRED` challenge is created, SMS or Email codes are **automatically sent** if:
    - SMS/Email is the user's **preferred MFA method**, OR
    - SMS/Email is the **ONLY MFA method** the user has set up
    - SMS uses `PhoneVerificationService.sendVerificationSMS()` with full rate limiting (3 per hour)

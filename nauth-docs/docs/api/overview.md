@@ -1,11 +1,9 @@
 ---
 title: API Reference
-description: Complete API reference for nauth-toolkit with framework-specific examples
+description: 'API reference covering core services (AuthService, MFAService, SocialAuthService), 90+ DTOs, enums, interfaces, NestJS/Express/Fastify adapters, and provider packages for MFA, social auth, email, SMS, database, and storage'
 keywords: [api, reference, documentation, nestjs, express, fastify, authentication]
 image: /img/api-social-card.png
-sidebar_position: 0
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -53,9 +51,8 @@ import { AuthService, AuthModule, AuthGuard } from '@nauth-toolkit/nestjs';
 
 ### MFA Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/mfa-totp
-yarn add @nauth-toolkit/mfa-sms
 ```
 
 ```typescript
@@ -73,9 +70,8 @@ import { SMSMFAModule } from '@nauth-toolkit/mfa-sms/nestjs';
 
 ### Social Auth Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/social-google
-yarn add @nauth-toolkit/social-apple
 ```
 
 ```typescript
@@ -93,9 +89,8 @@ import { AppleSocialAuthModule } from '@nauth-toolkit/social-apple/nestjs';
 
 ### Email & SMS Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/email-nodemailer
-yarn add @nauth-toolkit/sms-aws-sns
 ```
 
 Configure in `AuthModule.forRoot()`:
@@ -175,9 +170,8 @@ app.post('/auth/signup', nauth.helpers.public(), async (req, res, next) => {
 
 ### MFA Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/mfa-totp
-yarn add @nauth-toolkit/mfa-sms
 ```
 
 MFA providers auto-register when configured:
@@ -197,9 +191,8 @@ const nauth = await NAuth.create({
 
 ### Social Auth Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/social-google
-yarn add @nauth-toolkit/social-apple
 ```
 
 Social providers auto-register when configured:
@@ -222,9 +215,8 @@ const nauth = await NAuth.create({
 
 ### Email & SMS Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/email-nodemailer
-yarn add @nauth-toolkit/sms-aws-sns
 ```
 
 Configure in `NAuth.create()`:
@@ -246,7 +238,7 @@ const nauth = await NAuth.create({
 ## Getting Started
 
 ```typescript
-import { NAuth, FastifyAdapter, withNAuthContext, AuthService } from '@nauth-toolkit/core';
+import { NAuth, FastifyAdapter, AuthService } from '@nauth-toolkit/core';
 ```
 
 ## Documentation Structure
@@ -256,7 +248,7 @@ import { NAuth, FastifyAdapter, withNAuthContext, AuthService } from '@nauth-too
 - **Bootstrap** - `NAuth.create()` with `FastifyAdapter`
 - **Hooks** - `nauth.middleware.clientInfo`, `auth`, `csrf`, `tokenDelivery`
 - **Helpers** - `nauth.helpers.requireAuth()`, `public()`, `getCurrentUser()`
-- **Context** - `withNAuthContext()` wrapper for route handlers
+- **Context** - `nauth.adapter.wrapRouteHandler()` for route handlers
 
 ### Core Services
 
@@ -280,7 +272,7 @@ import { NAuth, FastifyAdapter, withNAuthContext, AuthService } from '@nauth-too
 ## Bootstrap Example
 
 ```typescript
-import { NAuth, FastifyAdapter, withNAuthContext } from '@nauth-toolkit/core';
+import { NAuth, FastifyAdapter } from '@nauth-toolkit/core';
 
 const nauth = await NAuth.create({
   config: authConfig,
@@ -294,11 +286,11 @@ fastify.addHook('onRequest', nauth.middleware.csrf as any);
 fastify.addHook('onRequest', nauth.middleware.auth as any);
 fastify.addHook('onSend', nauth.middleware.tokenDelivery as any);
 
-// Routes - wrap handlers with withNAuthContext
+// Routes - wrap handlers with nauth.adapter.wrapRouteHandler
 fastify.post(
   '/auth/signup',
   { preHandler: nauth.helpers.public() as any },
-  withNAuthContext(async (req) => {
+  nauth.adapter.wrapRouteHandler(async (req) => {
     return nauth.authService.signup(req.body as any);
   }),
 );
@@ -306,16 +298,15 @@ fastify.post(
 
 :::note Fastify Context
 Fastify hooks run independently, so AsyncLocalStorage context must be restored in route handlers.
-Use `withNAuthContext()` wrapper to access `nauth.helpers.getCurrentUser()` and context-dependent services.
+Use `nauth.adapter.wrapRouteHandler()` to access `nauth.helpers.getCurrentUser()` and context-dependent services.
 :::
 
 ## Feature Packages
 
 ### MFA Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/mfa-totp
-yarn add @nauth-toolkit/mfa-sms
 ```
 
 MFA providers auto-register when configured:
@@ -335,9 +326,8 @@ const nauth = await NAuth.create({
 
 ### Social Auth Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/social-google
-yarn add @nauth-toolkit/social-apple
 ```
 
 Social providers auto-register when configured:
@@ -360,9 +350,8 @@ const nauth = await NAuth.create({
 
 ### Email & SMS Providers
 
-```npm
+```bash npm2yarn
 npm install @nauth-toolkit/email-nodemailer
-yarn add @nauth-toolkit/sms-aws-sns
 ```
 
 Configure in `NAuth.create()`:
@@ -424,9 +413,9 @@ See [Configuration](/docs/concepts/configuration) for config options.
 
 **Getting Started:**
 
-- [Quick Start Guide](/docs/quick-start)
+- [Quick Start Guide](/docs/quick-start/nestjs)
 - [Configuration Reference](/docs/concepts/configuration)
-- [Architecture Overview](/docs/concepts/architecture)
+- [How It Works](/docs/concepts/how-it-works)
 
 **Need Help?**
 

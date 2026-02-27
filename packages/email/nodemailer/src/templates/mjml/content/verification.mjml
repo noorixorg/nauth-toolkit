@@ -1,5 +1,5 @@
-<!-- Verification Email Content -->
-<mj-text> You were sent this email because you requested a verification code to access your account. </mj-text>
+<!-- Verification Email Content (signup; for MFA code use mfa-email-code template) -->
+<mj-text> Thank you for signing up! Please verify your email address to activate your account. </mj-text>
 
 <mj-raw>
   {{#if code}}

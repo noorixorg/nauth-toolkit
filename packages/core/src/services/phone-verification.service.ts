@@ -10,6 +10,7 @@ import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { NAuthLogger } from '../utils/nauth-logger';
+import { HookRegistryService } from './hook-registry.service';
 import {
   SendVerificationSMSDTO,
   SendVerificationSMSResponseDTO,
@@ -20,6 +21,7 @@ import {
 } from '../dto/verify-phone.dto';
 import { VerifyPhoneWithCodeBySubDTO } from '../dto/verify-phone-by-sub.dto';
 import * as crypto from 'crypto';
+import { ensureValidatedDto } from '../utils/dto-validator';
 
 /**
  * Phone Verification Service (Core)
@@ -51,6 +53,7 @@ export class PhoneVerificationService {
     private readonly config: NAuthConfig,
     private readonly clientInfoService: ClientInfoService,
     private readonly logger: NAuthLogger,
+    private readonly hookRegistry: HookRegistryService,
     private readonly auditService?: AuthAuditService, // Optional - audit trail service (enabled via config.auditLogs.enabled)
   ) {}
 
@@ -63,6 +66,7 @@ export class PhoneVerificationService {
    * @throws {NAuthException} RATE_LIMIT_SMS | NOT_FOUND | PHONE_REQUIRED | ALREADY_VERIFIED | RATE_LIMIT_RESEND
    */
   async sendVerificationSMS(dto: SendVerificationSMSDTO): Promise<SendVerificationSMSResponseDTO> {
+    dto = await ensureValidatedDto(SendVerificationSMSDTO, dto);
     const { sub, skipAlreadyVerifiedCheck = true, challengeSessionId } = dto;
     const rateLimitKey = `phone-verification:${sub}`;
 
@@ -96,12 +100,13 @@ export class PhoneVerificationService {
     const actualTtl = await this.storageAdapter.ttl(rateLimitKey);
 
     this.logger?.debug?.(
-      `Phone verification rate limit check: sub=${sub}, count=${currentCount}/${rateLimitMax}, ttl=${actualTtl}s`,
+      `Phone verification rate limit check: sub=${sub}, count=${currentCount}/${rateLimitMax}, ttl=${actualTtl}s, window=${rateLimitWindow}s`,
     );
 
     if (currentCount > rateLimitMax) {
-      this.logger?.warn?.(
-        `SMS rate limit exceeded: sub=${sub}, count=${currentCount}, max=${rateLimitMax}, retryAfter=${actualTtl}s`,
+      this.logger?.error?.(
+        `SMS rate limit exceeded: sub=${sub}, count=${currentCount}, max=${rateLimitMax}, retryAfter=${actualTtl}s, window=${rateLimitWindow}s. ` +
+          `Config: rateLimitMax=${this.config.signup?.phoneVerification?.rateLimitMax}, rateLimitWindow=${this.config.signup?.phoneVerification?.rateLimitWindow}`,
       );
       throw new NAuthException(
         AuthErrorCode.RATE_LIMIT_SMS,
@@ -129,14 +134,35 @@ export class PhoneVerificationService {
 
     // Enforce resend delay to prevent abuse
     const resendDelay = this.config.signup?.phoneVerification?.resendDelay ?? 60;
+    this.logger?.debug?.(
+      `Phone resend delay check: sub=${sub}, resendDelay=${resendDelay}s, config=${this.config.signup?.phoneVerification?.resendDelay}`,
+    );
     const lastToken = (await this.verificationTokenRepo.findOne({
       where: { userId: user.id, type: 'phone' },
       order: { createdAt: 'DESC' },
     })) as IVerificationToken | null;
     if (lastToken) {
       const secondsSinceLastSend = (Date.now() - lastToken.createdAt.getTime()) / 1000;
+      this.logger?.debug?.(
+        `Phone last token: tokenId=${lastToken.id}, createdAt=${lastToken.createdAt.toISOString()}, secondsSince=${secondsSinceLastSend.toFixed(1)}s`,
+      );
       if (secondsSinceLastSend < resendDelay) {
         const waitSeconds = Math.ceil(resendDelay - secondsSinceLastSend);
+
+        // If challengeSessionId is provided and token is still valid, link it to the new challenge session
+        // This allows the token to be found by the new session (e.g., during rapid re-logins)
+        if (challengeSessionId && lastToken.usedAt === null && lastToken.expiresAt > new Date()) {
+          this.logger?.log?.(
+            `Resend delay active but linking existing token ${lastToken.id} to new challenge session ${challengeSessionId}. No new SMS sent.`,
+          );
+          await this.verificationTokenRepo.update({ id: lastToken.id }, { challengeSessionId });
+          // Return success response with existing token ID (no new SMS sent)
+          return { tokenId: lastToken.id as number };
+        }
+
+        this.logger?.warn?.(
+          `SMS resend rate limit: sub=${sub}, wait=${waitSeconds}s, delay=${resendDelay}s, secondsSince=${secondsSinceLastSend.toFixed(1)}s`,
+        );
         throw new NAuthException(
           AuthErrorCode.RATE_LIMIT_RESEND,
           `Please wait ${waitSeconds} seconds before requesting another code`,
@@ -181,7 +207,32 @@ export class PhoneVerificationService {
       `SMS token created: sub=${sub}, tokenId=${saved.id}, code=${code}, codeType=${typeof code}, userId=${user.id}, usedAt=${saved.usedAt || 'null'}`,
     );
 
-    await this.smsProvider.sendOTP(user.phone, code);
+    // Calculate expiry minutes for template variables
+    const expiresInSeconds = this.config.signup?.phoneVerification?.expiresIn || 300;
+    const expiryMinutes = Math.ceil(expiresInSeconds / 60);
+
+    // Determine template type: 'mfa' if called from MFA context, otherwise 'verification'
+    // MFA context is detected by skipAlreadyVerifiedCheck being explicitly true AND phone already verified
+    // (MFA always sends codes even if phone is verified, while verification only sends if not verified)
+    // Default to 'verification' for phone verification flows
+    const templateType = dto.skipAlreadyVerifiedCheck && user.isPhoneVerified ? 'mfa' : 'verification';
+
+    // Get appName from email globals or SMS templates global variables
+    const smsConfig = this.config.sms as { templates?: { globalVariables?: Record<string, unknown> } } | undefined;
+    const appName =
+      (this.config.email?.globalVariables?.appName as string | undefined) ||
+      (smsConfig?.templates?.globalVariables?.appName as string | undefined);
+
+    // Send SMS with template support
+    await this.smsProvider.sendOTP(user.phone, code, templateType, {
+      expiryMinutes,
+      appName,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      userName: user.username,
+      userEmail: user.email,
+      phone: user.phone,
+    });
     this.logger?.log?.(
       `SMS verification code sent: sub=${sub}, tokenId=${saved.id}, phone=${this.maskPhone(user.phone)}`,
     );
@@ -195,10 +246,9 @@ export class PhoneVerificationService {
         eventType: AuthAuditEventType.PHONE_VERIFICATION_REQUESTED,
         eventStatus: 'INFO',
         metadata: {
-          // Client info automatically included from context
-          verificationTokenId: saved.id,
           phone: this.maskPhone(user.phone),
         },
+        // Client info automatically included from context
       });
     } catch (auditError) {
       // Non-blocking: Log but continue
@@ -221,6 +271,7 @@ export class PhoneVerificationService {
    * @throws {NAuthException} VERIFICATION_CODE_INVALID | VERIFICATION_CODE_EXPIRED | VERIFICATION_TOO_MANY_ATTEMPTS
    */
   async verifyPhoneWithCode(dto: VerifyPhoneWithCodeDTO): Promise<VerifyPhoneResponseDTO> {
+    dto = await ensureValidatedDto(VerifyPhoneWithCodeDTO, dto);
     const { phone, code, challengeSessionId } = dto;
     // Find all unused tokens matching the code and type
     // If challengeSessionId is provided, ensure token belongs to specific session
@@ -251,6 +302,21 @@ export class PhoneVerificationService {
     }
 
     const { token, user } = matched;
+
+    const verificationMethod = this.config.signup?.verificationMethod ?? 'email';
+    const wasOnboardingCompleteBefore =
+      verificationMethod === 'none'
+        ? true
+        : verificationMethod === 'email'
+          ? !!user.isEmailVerified
+          : verificationMethod === 'phone'
+            ? !!user.isPhoneVerified
+            : verificationMethod === 'both'
+              ? !!user.isEmailVerified && !!user.isPhoneVerified
+              : !!user.isEmailVerified;
+
+    // Store initial verification status to detect changes
+    const wasPhoneVerified = Boolean(user.isPhoneVerified);
 
     // Get verification attempt rate limit configuration from config
     const maxAttemptsPerUser = this.config.signup?.phoneVerification?.maxAttemptsPerUser ?? 10;
@@ -334,7 +400,6 @@ export class PhoneVerificationService {
           // Client info automatically included from context
           description: 'Invalid verification code provided',
           metadata: {
-            verificationTokenId: token.id,
             attempts: token.attempts,
             phone: this.maskPhone(phone),
           },
@@ -357,11 +422,13 @@ export class PhoneVerificationService {
     token.usedAt = new Date();
     await this.verificationTokenRepo.save(token);
 
-    // Update user flags
-    await this.userRepo.update(user.id, {
-      isPhoneVerified: true,
-      isActive: true,
-    });
+    // Update user flags - only update if not already verified to avoid unnecessary DB write
+    if (!wasPhoneVerified) {
+      await this.userRepo.update(user.id, {
+        isPhoneVerified: true,
+        isActive: true,
+      });
+    }
 
     this.logger?.log?.(`Phone verification successful: userId=${user.id}, phone=${this.maskPhone(phone)}`);
 
@@ -376,11 +443,10 @@ export class PhoneVerificationService {
         eventType: AuthAuditEventType.PHONE_VERIFIED,
         eventStatus: 'SUCCESS',
         metadata: {
-          // Client info automatically included from context
-          verificationTokenId: token.id,
           verificationMethod: 'code',
           phone: this.maskPhone(phone),
         },
+        // Client info automatically included from context
       });
     } catch (auditError) {
       // Non-blocking: Log but continue
@@ -389,6 +455,68 @@ export class PhoneVerificationService {
         error: auditError,
         userId: user.id,
       });
+    }
+
+    // ============================================================================
+    // Hook: Execute user profile updated hooks
+    // ============================================================================
+    // Fire hook if verification status changed (false→true OR true→false)
+    // This ensures hook fires consistently on any status change
+    if (wasPhoneVerified !== true) {
+      try {
+        // Refetch user to get complete updated state
+        const updatedUser = (await this.userRepo.findOne({ where: { id: user.id } })) as IUser | null;
+        if (updatedUser) {
+          // Get client info from ClientInfoService
+          const clientInfo = this.clientInfoService.get();
+
+          // Execute hooks (non-blocking) with actual old/new values
+          await this.hookRegistry.executeUserProfileUpdated({
+            user: updatedUser,
+            changedFields: [
+              {
+                fieldName: 'isPhoneVerified',
+                oldValue: wasPhoneVerified,
+                newValue: true,
+              },
+            ],
+            updateSource: 'phone_verification',
+            clientInfo: {
+              ipAddress: clientInfo.ipAddress,
+              userAgent: clientInfo.userAgent,
+              ipCountry: clientInfo.ipCountry,
+              ipCity: clientInfo.ipCity,
+            },
+          });
+
+          const isOnboardingCompleteNow =
+            verificationMethod === 'none'
+              ? true
+              : verificationMethod === 'email'
+                ? !!updatedUser.isEmailVerified
+                : verificationMethod === 'phone'
+                  ? !!updatedUser.isPhoneVerified
+                  : verificationMethod === 'both'
+                    ? !!updatedUser.isEmailVerified && !!updatedUser.isPhoneVerified
+                    : !!updatedUser.isEmailVerified;
+
+          // Fire onboarding completed only on the transition to "complete" to avoid duplicate welcome emails.
+          if (!wasOnboardingCompleteBefore && isOnboardingCompleteNow) {
+            await this.hookRegistry.executeOnboardingCompleted(updatedUser, {
+              verificationMethod,
+              source: 'phone_verification',
+              completedAt: new Date(),
+            });
+          }
+        }
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
+          error: hookError,
+          userId: user.id,
+        });
+      }
     }
 
     return { message: 'Phone verified successfully. Please log in to continue.' };
@@ -401,6 +529,7 @@ export class PhoneVerificationService {
    * @returns Response DTO with success message
    */
   async verifyPhoneWithCodeBySub(dto: VerifyPhoneWithCodeBySubDTO): Promise<VerifyPhoneResponseDTO> {
+    dto = await ensureValidatedDto(VerifyPhoneWithCodeBySubDTO, dto);
     const { sub, code, challengeSessionId } = dto;
     // Load user to get current phone verification status
     // This ensures we have the latest state from the database
@@ -408,6 +537,18 @@ export class PhoneVerificationService {
     if (!user) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
+
+    const verificationMethod = this.config.signup?.verificationMethod ?? 'email';
+    const wasOnboardingCompleteBefore =
+      verificationMethod === 'none'
+        ? true
+        : verificationMethod === 'email'
+          ? !!user.isEmailVerified
+          : verificationMethod === 'phone'
+            ? !!user.isPhoneVerified
+            : verificationMethod === 'both'
+              ? !!user.isEmailVerified && !!user.isPhoneVerified
+              : !!user.isEmailVerified;
     if (!user.phone) {
       throw new NAuthException(AuthErrorCode.PHONE_REQUIRED, 'No phone number associated with this account');
     }
@@ -555,7 +696,6 @@ export class PhoneVerificationService {
           // Client info automatically included from context
           description: 'Invalid verification code provided',
           metadata: {
-            verificationTokenId: verificationToken.id,
             attempts: verificationToken.attempts,
             phone: this.maskPhone(user.phone || ''),
           },
@@ -587,7 +727,8 @@ export class PhoneVerificationService {
     // This prevents updating updatedAt timestamp when phone is already verified
     // We use the verification status from when user was loaded at the start
     // ============================================================================
-    if (!wasPhoneVerified) {
+    const phoneWasJustVerified = !wasPhoneVerified;
+    if (phoneWasJustVerified) {
       // Use update() with explicit WHERE clause to ensure the change is persisted
       // This bypasses entity tracking issues and ensures the update is committed
       await this.userRepo.update(
@@ -614,11 +755,10 @@ export class PhoneVerificationService {
         eventType: AuthAuditEventType.PHONE_VERIFIED,
         eventStatus: 'SUCCESS',
         metadata: {
-          // Client info automatically included from context
-          verificationTokenId: verificationToken.id,
           verificationMethod: 'code',
           phone: this.maskPhone(user.phone || ''),
         },
+        // Client info automatically included from context
       });
     } catch (auditError) {
       // Non-blocking: Log but continue
@@ -627,6 +767,67 @@ export class PhoneVerificationService {
         error: auditError,
         userId: user.id,
       });
+    }
+
+    // ============================================================================
+    // Hook: Execute user profile updated hooks
+    // ============================================================================
+    // Always fire hook when verification occurs (phone was just verified)
+    // This ensures hook fires consistently whenever phone verification succeeds
+    if (phoneWasJustVerified) {
+      try {
+        // Refetch user to get complete updated state
+        const updatedUser = (await this.userRepo.findOne({ where: { id: user.id } })) as IUser | null;
+        if (updatedUser) {
+          // Get client info from ClientInfoService
+          const clientInfo = this.clientInfoService.get();
+
+          // Execute hooks (non-blocking) with actual old/new values
+          await this.hookRegistry.executeUserProfileUpdated({
+            user: updatedUser,
+            changedFields: [
+              {
+                fieldName: 'isPhoneVerified',
+                oldValue: wasPhoneVerified,
+                newValue: true,
+              },
+            ],
+            updateSource: 'phone_verification',
+            clientInfo: {
+              ipAddress: clientInfo.ipAddress,
+              userAgent: clientInfo.userAgent,
+              ipCountry: clientInfo.ipCountry,
+              ipCity: clientInfo.ipCity,
+            },
+          });
+
+          const isOnboardingCompleteNow =
+            verificationMethod === 'none'
+              ? true
+              : verificationMethod === 'email'
+                ? !!updatedUser.isEmailVerified
+                : verificationMethod === 'phone'
+                  ? !!updatedUser.isPhoneVerified
+                  : verificationMethod === 'both'
+                    ? !!updatedUser.isEmailVerified && !!updatedUser.isPhoneVerified
+                    : !!updatedUser.isEmailVerified;
+
+          if (!wasOnboardingCompleteBefore && isOnboardingCompleteNow) {
+            await this.hookRegistry.executeOnboardingCompleted(updatedUser, {
+              verificationMethod,
+              source: 'phone_verification',
+              completedAt: new Date(),
+            });
+          }
+        }
+      } catch (hookError) {
+        // Non-blocking: Log but continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
+          error: hookError,
+          userId: user.id,
+        });
+      }
     }
 
     return { message: 'Phone verified successfully. Please log in to continue.' };
@@ -640,6 +841,7 @@ export class PhoneVerificationService {
    * @returns Response DTO with verification token ID
    */
   async resendVerificationSMS(dto: ResendVerificationSMSDTO): Promise<ResendVerificationSMSResponseDTO> {
+    dto = await ensureValidatedDto(ResendVerificationSMSDTO, dto);
     // Validate that either sub or phone is provided
     if (!dto.sub && !dto.phone) {
       throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Either sub or phone must be provided');
@@ -742,9 +944,16 @@ export class PhoneVerificationService {
 
   /**
    * Mask phone number for logging (preserves last 4 digits)
+   * Respects config.security.maskSensitiveData setting.
    * @private
    */
   private maskPhone(phone: string): string {
+    // Check config - default to true (mask by default)
+    const shouldMask = this.config?.security?.maskSensitiveData !== false;
+    if (!shouldMask) {
+      return phone;
+    }
+
     if (!phone || phone.length < 4) return '***';
     return `***${phone.slice(-4)}`;
   }

@@ -21,12 +21,22 @@ export interface AuthResponse {
   refreshToken?: string;
   accessTokenExpiresAt?: number;
   refreshTokenExpiresAt?: number;
+  /**
+   * Authentication method used to create the current session.
+   *
+   * Examples:
+   * - `password`
+   * - `google`
+   * - `apple`
+   * - `facebook`
+   */
+  authMethod?: string;
   trusted?: boolean;
   deviceToken?: string;
   challengeName?: AuthChallenge;
   session?: string;
   challengeParameters?: Record<string, unknown>;
-  userSub?: string;
+  sub?: string;
 }
 
 /**
@@ -63,6 +73,14 @@ export interface SignupRequest {
   firstName?: string;
   lastName?: string;
   phone?: string;
+  metadata?: Record<string, unknown>;
+  /**
+   * Optional reCAPTCHA token for bot protection.
+   * - v2: Token from visible checkbox challenge
+   * - v3: Token from invisible/automatic challenge
+   * - If required by server but not provided, request will fail with RECAPTCHA_REQUIRED error
+   */
+  recaptchaToken?: string;
 }
 
 /**
@@ -71,13 +89,19 @@ export interface SignupRequest {
 export interface LoginRequest {
   identifier: string;
   password: string;
+  /**
+   * Optional reCAPTCHA token for bot protection.
+   * - v2: Token from visible checkbox challenge
+   * - v3: Token from invisible/automatic challenge
+   * - If required by server but not provided, request will fail with RECAPTCHA_REQUIRED error
+   */
+  recaptchaToken?: string;
 }
 
 /**
  * Logout request payload.
  */
 export interface LogoutRequest {
-  sub?: string;
   forgetMe?: boolean;
 }
 
@@ -90,7 +114,6 @@ export interface LogoutAllRequest {
    * Default: false (devices remain trusted)
    */
   forgetDevices?: boolean;
-  sub?: string;
 }
 
 /**
@@ -154,12 +177,14 @@ export interface MFACodeResponse extends BaseChallengeResponse {
   type: AuthChallenge.MFA_REQUIRED;
   method: MFAMethod;
   code: string;
+  deviceId?: number;
 }
 
 export interface MFAPasskeyResponse extends BaseChallengeResponse {
   type: AuthChallenge.MFA_REQUIRED;
   method: 'passkey';
   credential: Record<string, unknown>;
+  deviceId?: number;
 }
 
 export interface MFASetupResponse extends BaseChallengeResponse {

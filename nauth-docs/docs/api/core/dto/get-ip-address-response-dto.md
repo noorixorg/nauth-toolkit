@@ -3,9 +3,7 @@ title: GetIpAddressResponseDTO
 description: Response DTO for IP address. Returns just the client IP address from the current request context.
 keywords: [ip, address, client, response, dto, api]
 image: /img/api-social-card.png
-sidebar_position: 51
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -42,9 +40,9 @@ import { GetIpAddressResponseDTO } from '@nauth-toolkit/core';
 
 ## Properties
 
-| Property    | Type     | Description                                                      |
-| ----------- | -------- | ---------------------------------------------------------------- |
-| `ipAddress` | `string` | Client IP address. Extracted from X-Forwarded-For, CF-Connecting-IP, etc. Returns 'unknown' if called outside request context. |
+| Property    | Type     | Required | Description                                                      |
+| ----------- | -------- | -------- | ---------------------------------------------------------------- |
+| `ipAddress` | `string` | Yes      | Client IP address. Extracted from X-Forwarded-For, CF-Connecting-IP, etc. Returns 'unknown' if called outside request context. |
 
 ## Example
 

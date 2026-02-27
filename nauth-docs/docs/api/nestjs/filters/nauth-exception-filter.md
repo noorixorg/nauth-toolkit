@@ -3,9 +3,7 @@ title: NAuthHttpExceptionFilter
 description: NestJS exception filter for NAuthException handling
 keywords: [nestjs, filter, exception, error, api]
 image: /img/api-social-card.png
-sidebar_position: 1
 ---
-
 # NAuthHttpExceptionFilter
 
 **Package:** `@nauth-toolkit/nestjs`
@@ -54,25 +52,38 @@ export class AuthController {}
 
 ```json
 {
-  "error": "INVALID_CREDENTIALS",
-  "message": "Invalid email or password",
-  "statusCode": 401,
-  "details": {}
+  "statusCode": 429,
+  "code": "RATE_LIMIT_SMS",
+  "message": "Too many verification SMS sent",
+  "details": {
+    "retryAfter": 3600,
+    "currentCount": 4
+  },
+  "timestamp": "2025-10-31T12:00:00.000Z",
+  "path": "/auth/verify-phone"
 }
 ```
 
 ## Status Code Mapping
 
-| Error Code            | HTTP Status |
-| --------------------- | ----------- |
-| `INVALID_CREDENTIALS` | 401         |
-| `UNAUTHORIZED`        | 401         |
-| `TOKEN_EXPIRED`       | 401         |
-| `USER_NOT_FOUND`      | 404         |
-| `USER_ALREADY_EXISTS` | 409         |
-| `VALIDATION_ERROR`    | 400         |
-| `MFA_REQUIRED`        | 403         |
-| `CSRF_INVALID`        | 403         |
+Status codes are determined by `getHttpStatusForErrorCode()`:
+
+| Error Code Pattern | HTTP Status | Examples |
+| --- | --- | --- |
+| `RATE_LIMIT_*` | 429 | `RATE_LIMIT_SMS`, `RATE_LIMIT_LOGIN` |
+| `AUTH_*` (most) | 401 | `INVALID_CREDENTIALS`, `TOKEN_INVALID`, `TOKEN_EXPIRED` |
+| `AUTH_ACCOUNT_INACTIVE`, `AUTH_ACCOUNT_LOCKED` | 403 | Account access blocked |
+| `SIGNUP_EMAIL_EXISTS`, `SIGNUP_USERNAME_EXISTS`, `SIGNUP_PHONE_EXISTS` | 409 | Duplicate registration |
+| `SIGNUP_DISABLED` | 403 | Signup not allowed |
+| `VALIDATION_*`, `INVALID_*` | 400 | `VALIDATION_FAILED`, `INVALID_PHONE` |
+| `RESOURCE_NOT_FOUND` | 404 | Resource not found |
+| `FORBIDDEN` | 403 | Permission denied |
+| `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE` | 500 | Server errors |
+| All others | 400 | Default |
+
+:::note
+The table above uses the enum **values** (not the enum key names). For example, `INVALID_CREDENTIALS` is the enum key for the value `AUTH_INVALID_CREDENTIALS`, which matches the `AUTH_*` → 401 rule.
+:::
 
 ## Related
 

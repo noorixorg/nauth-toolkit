@@ -26,4 +26,8 @@ export class BrowserStorage implements NAuthStorageAdapter {
   async removeItem(key: string): Promise<void> {
     this.storage.removeItem(key);
   }
+
+  async clear(): Promise<void> {
+    this.storage.clear();
+  }
 }

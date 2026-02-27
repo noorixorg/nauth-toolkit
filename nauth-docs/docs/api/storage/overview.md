@@ -3,9 +3,9 @@ title: Session Storage
 description: Storage adapters for transient authentication state
 keywords: [storage, session, redis, database, memory, api]
 image: /img/api-social-card.png
-sidebar_position: 0
+sidebar_position: 1
+sidebar_label: Overview
 ---
-
 # Session Storage
 
 Storage adapters for transient authentication state (rate limits, locks, token tracking).
@@ -14,10 +14,13 @@ Storage adapters for transient authentication state (rate limits, locks, token t
 
 | Adapter | Package | Use Case |
 |---------|---------|----------|
-| [Redis](./redis) | `@nauth-toolkit/storage-redis` | Production (single instance) |
+| [Redis](./redis) | `@nauth-toolkit/storage-redis` | Production (recommended, multi-server) |
 | [Redis Cluster](./redis-cluster) | `@nauth-toolkit/storage-redis` | Production (high availability) |
-| [Database](./database) | `@nauth-toolkit/storage-database` | Production (TypeORM) |
-| [Memory](./memory) | `@nauth-toolkit/core` | Development only |
+| [Database](./database) | `@nauth-toolkit/storage-database` | Production (single-server, low-traffic) |
+
+:::important
+**Storage adapter is REQUIRED.** You must configure either `DatabaseStorageAdapter` or `RedisStorageAdapter`. If you don't provide one explicitly, `DatabaseStorageAdapter` will be auto-created if storage entities are available in your TypeORM configuration.
+:::
 
 ## Purpose
 
@@ -38,8 +41,8 @@ This is NOT user data storage. User accounts and sessions are stored in your dat
 interface StorageAdapter {
   get(key: string): Promise<string | null>;
   set(key: string, value: string, ttlSeconds?: number): Promise<void>;
-  delete(key: string): Promise<void>;
-  increment(key: string, ttlSeconds?: number): Promise<number>;
+  del(key: string): Promise<void>;
+  incr(key: string, ttlSeconds?: number): Promise<number>;
   // Hash operations for complex state
   hget(key: string, field: string): Promise<string | null>;
   hset(key: string, field: string, value: string): Promise<void>;

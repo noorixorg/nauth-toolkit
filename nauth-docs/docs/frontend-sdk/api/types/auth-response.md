@@ -1,7 +1,6 @@
 ---
 title: AuthResponse
 description: Unified authentication response containing user tokens or challenge data
-sidebar_position: 60
 keywords: [response, authentication, challenge, tokens, api]
 image: /img/api-social-card.png
 ---
@@ -26,12 +25,13 @@ import { AuthResponse } from '@nauth-toolkit/client';
 | `refreshToken`          | `string`                                 | Refresh token (JSON mode only)                                            |
 | `accessTokenExpiresAt`  | `number`                                 | Access token expiry timestamp (milliseconds since epoch)                  |
 | `refreshTokenExpiresAt` | `number`                                 | Refresh token expiry timestamp (milliseconds since epoch)                 |
+| `authMethod`            | `string`                                 | Authentication method used to create the current session (`password`, `google`, `apple`, `facebook`) |
 | `trusted`               | `boolean`                                | Whether device is trusted                                                 |
 | `deviceToken`           | `string`                                 | Device trust token                                                        |
 | `challengeName`         | [`AuthChallenge`](./auth-challenge)      | Challenge type (if auth incomplete)                                       |
 | `session`               | `string`                                 | Challenge session token (required for challenge responses)                |
 | `challengeParameters`   | `Record<string, unknown>`                | Challenge-specific data (e.g., masked email/phone, available MFA methods) |
-| `userSub`               | `string`                                 | User subject identifier                                                   |
+| `sub`                   | `string`                                 | User subject identifier                                                   |
 
 ## Example
 
@@ -54,6 +54,7 @@ import { AuthResponse } from '@nauth-toolkit/client';
   "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "accessTokenExpiresAt": 1704067200000,
   "refreshTokenExpiresAt": 1704153600000,
+  "authMethod": "password",
   "trusted": true,
   "deviceToken": "device_token_abc123"
 }
@@ -71,7 +72,7 @@ import { AuthResponse } from '@nauth-toolkit/client';
     "email": "user@example.com",
     "codeDeliveryDestination": "u***r@example.com"
   },
-  "userSub": "user_123"
+  "sub": "user_123"
 }
 ```
 
@@ -86,7 +87,7 @@ import { AuthResponse } from '@nauth-toolkit/client';
     "codeDeliveryDestination": "***-***-1234",
     "requiresPhoneCollection": "false"
   },
-  "userSub": "user_123"
+  "sub": "user_123"
 }
 ```
 
@@ -100,7 +101,7 @@ When phone collection is required (user has no phone number):
     "requiresPhoneCollection": "true",
     "instructions": "You must add a phone number and verify it to continue"
   },
-  "userSub": "user_123"
+  "sub": "user_123"
 }
 ```
 
@@ -116,7 +117,7 @@ When phone collection is required (user has no phone number):
     "maskedEmail": "m***2@example.com",
     "availableMethods": ["sms", "email", "totp", "backup"]
   },
-  "userSub": "user_123"
+  "sub": "user_123"
 }
 ```
 
@@ -135,5 +136,6 @@ When phone collection is required (user has no phone number):
 - [NAuthClient.login()](../nauth-client#login) - Returns [`AuthResponse`](./auth-response)
 - [NAuthClient.signup()](../nauth-client#signup) - Returns [`AuthResponse`](./auth-response)
 - [NAuthClient.respondToChallenge()](../nauth-client#respondtochallenge) - Returns [`AuthResponse`](./auth-response)
-- [NAuthClient.handleSocialCallback()](../nauth-client#handlesocialcallback) - Returns [`AuthResponse`](./auth-response)
+- [NAuthClient.exchangeSocialRedirect()](../nauth-client#exchangesocialredirect) - Returns [`AuthResponse`](./auth-response)
+- [NAuthClient.verifyNativeSocial()](../nauth-client#verifynativesocial) - Returns [`AuthResponse`](./auth-response)
 - [Angular AuthService](../../angular/auth-service) - Observable wrapper

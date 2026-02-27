@@ -3,7 +3,6 @@ import { Repository } from 'typeorm';
 import {
   BaseMFADevice,
   BaseUser,
-  IUser,
   NAuthConfig,
   NAuthLogger,
   NAuthException,
@@ -12,9 +11,10 @@ import {
   MFAMethod,
   SendVerificationSMSDTO,
   VerifyPhoneWithCodeBySubDTO,
+  ClientInfoService,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
-import { BaseMFAProviderService } from '@nauth-toolkit/core/internal';
+import { BaseMFAProviderService, ChallengeService, AuthAuditService } from '@nauth-toolkit/core/internal';
 import { SetupSMSMFADTO, VerifySMSMFASetupDTO } from './dto/mfa.dto';
 
 /**
@@ -49,9 +49,9 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
     logger: NAuthLogger,
     passwordService: unknown,
     private readonly phoneVerificationService?: PhoneVerificationService,
-    challengeService?: unknown, // ChallengeService (optional)
-    auditService?: unknown, // AuthAuditService (optional)
-    clientInfoService?: unknown, // ClientInfoService (optional)
+    challengeService?: ChallengeService,
+    auditService?: AuthAuditService,
+    clientInfoService?: ClientInfoService,
   ) {
     super(
       mfaDeviceRepository,
@@ -59,9 +59,9 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
       config,
       logger,
       passwordService,
-      challengeService as any,
-      auditService as any,
-      clientInfoService as any,
+      challengeService,
+      auditService,
+      clientInfoService,
     );
   }
 
@@ -86,10 +86,8 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
    * // If phone not verified: { maskedPhone: '***-***-7890' } (SMS code sent)
    * ```
    */
-  async setup(
-    user: IUser,
-    setupData?: unknown,
-  ): Promise<{ deviceId: number; autoCompleted: true } | { maskedPhone: string }> {
+  async setup(setupData?: unknown): Promise<{ deviceId: number; autoCompleted: true } | { maskedPhone: string }> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Setting up SMS MFA for user: ${user.sub}`);
 
     // Check if SMS is allowed
@@ -119,7 +117,6 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
       this.logger?.log?.(`Phone already verified for user ${user.sub}, auto-completing SMS MFA setup`);
       // Auto-create MFA device without code verification
       const deviceId = await this.verifySetup(
-        user,
         {
           phoneNumber,
           code: '', // Code not needed when phone is verified
@@ -169,9 +166,9 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
    * Enables MFA for user if this is their first device.
    *
    * **Race Condition Safety:**
-   * Device creation uses transaction with pessimistic locking to prevent duplicates.
-   * If device already exists (e.g., from concurrent request), returns existing device.
-   * Database unique constraint (userId, type) provides final safety net.
+   * Device creation uses a transaction with pessimistic locking.
+   *
+   * Note: SMS MFA is treated as a singleton method in NAuth (one active SMS device per user).
    *
    * @param user - User completing SMS MFA setup
    * @param verificationData - Verification data (must be VerifySMSMFASetupDTO)
@@ -187,7 +184,8 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
    * });
    * ```
    */
-  async verifySetup(user: IUser, verificationData: unknown, deviceName?: string): Promise<number> {
+  async verifySetup(verificationData: unknown, deviceName?: string): Promise<number> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying SMS MFA setup for user: ${user.sub}`);
 
     const dto = verificationData as VerifySMSMFASetupDTO;
@@ -239,17 +237,19 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
     }
 
     // ============================================================================
-    // Create MFA device (transaction-safe with duplicate prevention)
+    // Create MFA device (transaction-safe, singleton semantics)
     // ============================================================================
-    // createDevice() uses pessimistic locking to prevent race conditions
-    // If device already exists, returns existing device instead of creating duplicate
-    // Database unique constraint (userId, type) provides additional safety
-    const device = await this.createDevice(userId, {
-      name: deviceName || 'SMS Phone',
-      phoneNumber: dto.phoneNumber,
-      isActive: true,
-      isPrimary: !userMfaEnabled, // First device becomes primary
-    });
+    // We de-duplicate by method (userId + method) to preserve legacy behavior.
+    const device = await this.createDevice(
+      userId,
+      {
+        name: deviceName || 'SMS Phone',
+        phoneNumber: dto.phoneNumber,
+        isActive: true,
+        isPrimary: !userMfaEnabled, // First device becomes primary
+      },
+      { dedupeWhere: {} },
+    );
 
     // Enable MFA if not already enabled
     await this.enableMFAForUser(user);
@@ -275,7 +275,8 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
    * const isValid = await provider.verify(user, '123456');
    * ```
    */
-  async verify(user: IUser, code: unknown, deviceId?: number): Promise<boolean> {
+  async verify(code: unknown, deviceId?: number): Promise<boolean> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying SMS code for user: ${user.sub}`);
 
     // Check if phone verification service is available
@@ -334,7 +335,8 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
 
       // For unexpected errors, log and return false (generic failure)
       const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorCode = (error as any)?.code || 'UNKNOWN';
+      const errorCode =
+        (error && typeof error === 'object' && 'code' in error ? String(error.code) : undefined) || 'UNKNOWN';
       this.logger?.warn?.(
         `SMS code verification failed for user: ${user.sub}, code: ${smsCode}, error: ${errorCode} - ${errorMessage}`,
       );
@@ -347,17 +349,18 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
    *
    * Called during login MFA challenge to send code to registered phone.
    *
-   * @param user - User requesting SMS code
+   * @param challengeSessionId - Optional challenge session ID to link the code to the session
    * @returns Masked phone number where code was sent
    * @throws {NAuthException} If no SMS device registered or phone verification service unavailable
    *
    * @example
    * ```typescript
-   * const maskedPhone = await provider.sendChallenge(user);
+   * const maskedPhone = await provider.sendChallenge(123);
    * // Returns: '***-***-1234'
    * ```
    */
-  async sendChallenge(user: IUser): Promise<string> {
+  async sendChallenge(challengeSessionId?: number): Promise<string> {
+    const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Sending SMS MFA code for user: ${user.sub}`);
 
     // Get user entity
@@ -394,6 +397,7 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
     const sendDto = new SendVerificationSMSDTO();
     sendDto.sub = user.sub;
     sendDto.skipAlreadyVerifiedCheck = true;
+    sendDto.challengeSessionId = challengeSessionId;
     await this.phoneVerificationService.sendVerificationSMS(sendDto);
 
     this.logger?.log?.(`SMS MFA code sent for user: ${user.sub}`);

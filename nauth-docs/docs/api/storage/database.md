@@ -3,9 +3,7 @@ title: Database
 description: Database storage adapter using TypeORM
 keywords: [storage, database, typeorm, production, adapter, api]
 image: /img/api-social-card.png
-sidebar_position: 3
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

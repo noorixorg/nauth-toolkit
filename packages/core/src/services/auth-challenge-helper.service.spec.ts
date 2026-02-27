@@ -99,6 +99,7 @@ describe('AuthChallengeHelperService', () => {
       createSession: jest.fn(),
       updateTokens: jest.fn(),
       revokeAllUserSessions: jest.fn(),
+      getSessionExpirationDate: jest.fn(() => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
     } as any;
 
     mockEmailVerificationService = {
@@ -246,7 +247,7 @@ describe('AuthChallengeHelperService', () => {
         createdAt: new Date(),
       };
       mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
-      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue(1);
+      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 1 } as any);
 
       const result = await service.createChallengeResponse(mockUser as IUser, AuthChallenge.VERIFY_EMAIL, mockConfig);
 
@@ -254,8 +255,14 @@ describe('AuthChallengeHelperService', () => {
       expect(result.session).toBe('session-token-123');
       expect(result.challengeParameters?.email).toBe('test@example.com');
       expect(result.challengeParameters?.codeDeliveryDestination).toBeDefined();
-      expect(result.userSub).toBe('user-uuid-123');
-      expect(mockEmailVerificationService.sendVerificationEmail).toHaveBeenCalledWith('user-uuid-123', undefined);
+      expect(result.sub).toBe('user-uuid-123');
+      expect(mockEmailVerificationService.sendVerificationEmail).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          sub: 'user-uuid-123',
+          baseUrl: undefined,
+          challengeSessionId: 1,
+        }),
+      );
     });
 
     it('should create challenge response for VERIFY_PHONE and send SMS', async () => {
@@ -273,14 +280,20 @@ describe('AuthChallengeHelperService', () => {
         createdAt: new Date(),
       };
       mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
-      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue(123456);
+      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue({ tokenId: 123456 } as any);
 
       const result = await service.createChallengeResponse(mockUser as IUser, AuthChallenge.VERIFY_PHONE, mockConfig);
 
       expect(result.challengeName).toBe(AuthChallenge.VERIFY_PHONE);
       expect(result.challengeParameters?.phone).toBe('+1234567890');
       expect(result.challengeParameters?.codeDeliveryDestination).toBeDefined();
-      expect(mockPhoneVerificationService.sendVerificationSMS).toHaveBeenCalledWith('user-uuid-123');
+      expect(mockPhoneVerificationService.sendVerificationSMS).toHaveBeenCalledWith(
+        (expect as any).objectContaining({
+          sub: 'user-uuid-123',
+          skipAlreadyVerifiedCheck: false,
+          challengeSessionId: 1,
+        }),
+      );
     });
 
     it('should handle VERIFY_PHONE when phone is not provided', async () => {
@@ -369,32 +382,26 @@ describe('AuthChallengeHelperService', () => {
       expect(result.challengeParameters?.allowedMethods).toEqual([...MFADeviceMethods]);
     });
 
-    it('should handle email verification service errors gracefully', async () => {
+    it('should throw error when email verification service fails', async () => {
       const mockChallengeSession = createMockChallengeSession('session-token-123', AuthChallenge.VERIFY_EMAIL);
       mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
       mockEmailVerificationService.sendVerificationEmail.mockRejectedValue(new Error('Email service error'));
 
-      // Should not throw - fire and forget
-      const result = await service.createChallengeResponse(mockUser as IUser, AuthChallenge.VERIFY_EMAIL, mockConfig);
-
-      expect(result).toBeDefined();
-      // Wait for promise to resolve
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      expect(mockLogger.error).toHaveBeenCalled();
+      // Should throw - no longer fire and forget
+      await expect(
+        service.createChallengeResponse(mockUser as IUser, AuthChallenge.VERIFY_EMAIL, mockConfig),
+      ).rejects.toThrow('Email service error');
     });
 
-    it('should handle phone verification service errors gracefully', async () => {
+    it('should throw error when phone verification service fails', async () => {
       const mockChallengeSession = createMockChallengeSession('session-token-456', AuthChallenge.VERIFY_PHONE);
       mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
       mockPhoneVerificationService.sendVerificationSMS.mockRejectedValue(new Error('SMS service error'));
 
-      // Should not throw - fire and forget
-      const result = await service.createChallengeResponse(mockUser as IUser, AuthChallenge.VERIFY_PHONE, mockConfig);
-
-      expect(result).toBeDefined();
-      // Wait for promise to resolve
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      expect(mockLogger.error).toHaveBeenCalled();
+      // Should throw - no longer fire and forget
+      await expect(
+        service.createChallengeResponse(mockUser as IUser, AuthChallenge.VERIFY_PHONE, mockConfig),
+      ).rejects.toThrow('SMS service error');
     });
   });
 
@@ -434,7 +441,7 @@ describe('AuthChallengeHelperService', () => {
       expect(result.session).toBe('session-token-setup');
       expect(result.challengeParameters?.allowedMethods).toEqual([MFAMethod.TOTP]);
       expect(result.challengeParameters?.instructions).toBeDefined();
-      expect(result.userSub).toBe('user-uuid-123');
+      expect(result.sub).toBe('user-uuid-123');
     });
 
     it('should use default allowedMethods when not specified', async () => {
@@ -482,7 +489,7 @@ describe('AuthChallengeHelperService', () => {
       expect(result.session).toBe('session-token-setup');
       expect(result.challengeParameters?.allowedMethods).toEqual([MFAMethod.TOTP]);
       expect(result.challengeParameters?.instructions).toBeDefined();
-      expect(result.userSub).toBe('user-uuid-123');
+      expect(result.sub).toBe('user-uuid-123');
     });
 
     it('should use default allowedMethods when not specified', async () => {
@@ -570,9 +577,11 @@ describe('AuthChallengeHelperService', () => {
         ...mockUser,
         mfaEnabled: true,
         preferredMfaMethod: MFAMethod.SMS,
+        phone: '+1234567890',
       } as IUser;
       const mockChallengeSession = createMockChallengeSession('session-token-mfa', AuthChallenge.MFA_REQUIRED);
       mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
+      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue({ tokenId: 123 } as any);
 
       const result = await service.createMFAChallengeResponse(user);
 
@@ -604,9 +613,10 @@ describe('AuthChallengeHelperService', () => {
         } as IMFADevice,
       ];
       mockMFADeviceRepository.find.mockResolvedValue(mockDevices);
-      const user = { ...mockUser, mfaEnabled: true } as IUser;
+      const user = { ...mockUser, mfaEnabled: true, phone: '+1234567890' } as IUser;
       const mockChallengeSession = createMockChallengeSession('session-token-mfa', AuthChallenge.MFA_REQUIRED);
       mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
+      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue({ tokenId: 123 } as any);
 
       const result = await service.createMFAChallengeResponse(user);
 
@@ -860,8 +870,8 @@ describe('AuthChallengeHelperService', () => {
         userAgent: 'test-agent',
         deviceToken: undefined,
       } as any);
-      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue(1);
-      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue(123456);
+      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 1 } as any);
+      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue({ tokenId: 123456 } as any);
     });
 
     it('should return challenge when verification pending', async () => {
@@ -1364,8 +1374,8 @@ describe('AuthChallengeHelperService', () => {
         deviceToken: undefined,
       } as any);
       // Setup default mocks for services
-      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue(1);
-      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue(123456);
+      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 1 } as any);
+      mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue({ tokenId: 123456 } as any);
     });
 
     // ============================================================================

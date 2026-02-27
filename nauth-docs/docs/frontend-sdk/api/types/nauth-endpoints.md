@@ -3,7 +3,6 @@ title: NAuthEndpoints
 description: Endpoint paths configuration for the client SDK
 keywords: [endpoints, configuration, api, paths]
 image: /img/api-social-card.png
-sidebar_position: 10
 ---
 
 # NAuthEndpoints
@@ -35,6 +34,9 @@ interface NAuthEndpoints {
   updateProfile: string;
   changePassword: string;
   requestPasswordChange: string;
+  forgotPassword: string;
+  confirmForgotPassword: string;
+  confirmAdminResetPassword: string;
 
   // MFA Management
   mfaStatus: string;
@@ -44,11 +46,10 @@ interface NAuthEndpoints {
   mfaRemove: string;
   mfaPreferred: string;
   mfaBackupCodes: string;
-  mfaExemption: string;
 
   // Social Authentication
-  socialAuthUrl: string;
-  socialCallback: string;
+  socialRedirectStart: string;
+  socialExchange: string;
   socialLinked: string;
   socialLink: string;
   socialUnlink: string;
@@ -77,8 +78,12 @@ interface NAuthEndpoints {
   getSetupData: '/challenge/setup-data',
   getChallengeData: '/challenge/challenge-data',
   profile: '/profile',
+  updateProfile: '/profile',
   changePassword: '/change-password',
   requestPasswordChange: '/request-password-change',
+  forgotPassword: '/forgot-password',
+  confirmForgotPassword: '/forgot-password/confirm',
+  confirmAdminResetPassword: '/reset-password/confirm',
   mfaStatus: '/mfa/status',
   mfaDevices: '/mfa/devices',
   mfaSetupData: '/mfa/setup-data',
@@ -86,17 +91,15 @@ interface NAuthEndpoints {
   mfaRemove: '/mfa/method',
   mfaPreferred: '/mfa/preferred-method',
   mfaBackupCodes: '/mfa/backup-codes/generate',
-  mfaExemption: '/mfa/exemption',
-  socialAuthUrl: '/social/auth-url',
-  socialCallback: '/social/callback',
   socialLinked: '/social/linked',
   socialLink: '/social/link',
   socialUnlink: '/social/unlink',
   socialVerify: '/social/:provider/verify',
+  socialRedirectStart: '/social/:provider/redirect',
+  socialExchange: '/social/exchange',
   trustDevice: '/trust-device',
   isTrustedDevice: '/is-trusted-device',
   auditHistory: '/audit/history',
-  updateProfile: '/profile',
 }
 ```
 

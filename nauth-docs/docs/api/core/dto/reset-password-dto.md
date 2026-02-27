@@ -3,9 +3,7 @@ title: ResetPasswordDTO
 description: Password reset DTOs for requesting and performing password reset. Includes identifier validation and token-based reset flow.
 keywords: [reset, password, dto, authentication, request, token, api]
 image: /img/api-social-card.png
-sidebar_position: 7
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

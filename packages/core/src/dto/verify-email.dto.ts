@@ -154,6 +154,7 @@ export class SendVerificationEmailDTO {
    *
    * Validation:
    * - Must be valid URL format (http:// or https://)
+   * - Supports localhost URLs (e.g., http://localhost:4200)
    * - Max 2048 characters (typical URL length limit)
    * - Optional field
    *
@@ -162,7 +163,7 @@ export class SendVerificationEmailDTO {
    */
   @IsOptional()
   @IsUrl(
-    { require_protocol: true, protocols: ['http', 'https'] },
+    { require_protocol: true, protocols: ['http', 'https'], require_tld: false },
     { message: 'Base URL must be a valid URL with http:// or https://' },
   )
   @MaxLength(2048, { message: 'Base URL must not exceed 2048 characters' })
@@ -199,6 +200,25 @@ export class SendVerificationEmailDTO {
   @IsInt({ message: 'challengeSessionId must be an integer' })
   @Min(1, { message: 'challengeSessionId must be a positive integer' })
   challengeSessionId?: number;
+
+  /**
+   * Challenge session token (UUID) to include in verification link
+   * Optional - used for cross-browser/device verification via email links
+   * Allows users to verify from any browser without localStorage state
+   *
+   * Validation:
+   * - Must be valid UUID v4 format
+   * - Optional (only needed when generating verification links)
+   */
+  @IsOptional()
+  @IsUUID('4', { message: 'challengeSessionToken must be a valid UUID v4 format' })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.trim().toLowerCase();
+    }
+    return value;
+  })
+  challengeSessionToken?: string;
 }
 
 /**
@@ -279,7 +299,7 @@ export class ResendVerificationEmailDTO {
    */
   @IsOptional()
   @IsUrl(
-    { require_protocol: true, protocols: ['http', 'https'] },
+    { require_protocol: true, protocols: ['http', 'https'], require_tld: false },
     { message: 'Base URL must be a valid URL with http:// or https://' },
   )
   @MaxLength(2048, { message: 'Base URL must not exceed 2048 characters' })
@@ -290,6 +310,20 @@ export class ResendVerificationEmailDTO {
     return value;
   })
   baseUrl?: string;
+
+  /**
+   * Challenge session ID (internal use)
+   * Optional - used internally to link verification to specific challenge session.
+   * Provides security by ensuring codes are only valid for the session they were created for.
+   *
+   * Validation:
+   * - Must be a positive integer if provided
+   * - Optional (for backward compatibility and direct verification flows)
+   */
+  @IsOptional()
+  @IsInt({ message: 'Challenge session ID must be an integer' })
+  @Min(1, { message: 'Challenge session ID must be a positive integer' })
+  challengeSessionId?: number;
 }
 
 /**

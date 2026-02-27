@@ -2,47 +2,27 @@
  * DTO for setting up MFA device
  *
  * Used to initiate MFA device setup using the appropriate provider.
+ * User sub is obtained from authenticated context automatically.
  *
  * @example
  * ```typescript
  * const setup = await mfaService.setup({
- *   sub: 'user-uuid',
  *   methodName: 'totp',
  *   setupData: {}
  * });
  * ```
  */
 
-import { IsEnum, IsString, IsUUID, IsOptional, IsObject, MaxLength } from 'class-validator';
+import { IsEnum, IsString, IsOptional, IsObject, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { MFAMethod } from '../enums/mfa-method.enum';
 
 /**
  * DTO for setting up MFA device
+ *
+ * User self-service DTO - no sub field. Service gets user from authenticated context.
  */
 export class SetupMFADTO {
-  /**
-   * User's unique identifier (UUID v4)
-   *
-   * Validation:
-   * - Must be a valid UUID v4 format
-   * - Matches DB constraint: char(36) or uuid
-   *
-   * Sanitization:
-   * - Trimmed
-   * - Lowercased for consistency
-   *
-   * @example "a21b654c-2746-4168-acee-c175083a65cd"
-   */
-  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim().toLowerCase();
-    }
-    return value;
-  })
-  sub!: string;
-
   /**
    * MFA method name
    *

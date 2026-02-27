@@ -1,0 +1,20 @@
+MFA Device Removed
+
+{{#if fullName}}Hi {{fullName}},{{/if}}
+{{#if firstName}}Hi {{firstName}},{{/if}}
+{{#if lastName}}Hi {{lastName}},{{/if}}
+{{#if userName}}Hi {{userName}},{{/if}}
+
+An MFA device has been removed from your account.
+
+Device Type: {{deviceType}}
+{{#if deviceName}}Device Name: {{deviceName}}{{/if}}
+Removed By: {{removedBy}}
+{{#if reason}}Reason: {{reason}}{{/if}}
+Remaining Devices: {{remainingDeviceCount}}
+
+{{#if remainingDeviceCount}}{{#eq remainingDeviceCount 0}}WARNING: You have no MFA devices remaining. Your account may be less secure.{{/eq}}{{/if}}
+
+If you made this change, no further action is required.
+
+{{#if supportEmail}}If you didn't remove this device, please contact support immediately at {{supportEmail}}.{{/if}}

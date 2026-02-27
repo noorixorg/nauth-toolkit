@@ -21,15 +21,196 @@
 import { StorageAdapter } from '@nauth-toolkit/core';
 
 /**
+ * Import an optional dependency at runtime without creating a compile-time dependency.
+ *
+ * IMPORTANT: moduleName is intentionally typed as `string` to avoid TypeScript errors
+ * when the optional package isn't installed.
+ */
+async function importOptional<TModule>(moduleName: string): Promise<TModule | null> {
+  try {
+    return (await import(moduleName)) as unknown as TModule;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Lazy storage adapter wrapper.
+ *
+ * Avoids `require()` while keeping the factory API synchronous for config objects.
+ * The real adapter is imported and constructed on the first `initialize()` call.
+ */
+class LazyStorageAdapter implements StorageAdapter {
+  private inner: StorageAdapter | null = null;
+  private initPromise: Promise<void> | null = null;
+  private logger: unknown = null;
+  private repos: { rateLimitRepo: unknown; storageLockRepo: unknown } | null = null;
+
+  constructor(private readonly factory: () => Promise<StorageAdapter>) {}
+
+  // Optional hook used by AuthModule
+  setLogger(logger: unknown): void {
+    this.logger = logger;
+    const maybe = this.inner as unknown as { setLogger?: (l: unknown) => void };
+    if (this.inner && typeof maybe.setLogger === 'function') {
+      maybe.setLogger(logger);
+    }
+  }
+
+  // Optional hook used by AuthModule
+  setRepositories(rateLimitRepo: unknown, storageLockRepo: unknown): void {
+    this.repos = { rateLimitRepo, storageLockRepo };
+    const maybe = this.inner as unknown as { setRepositories?: (r: unknown, s: unknown) => void };
+    if (this.inner && typeof maybe.setRepositories === 'function') {
+      maybe.setRepositories(rateLimitRepo, storageLockRepo);
+    }
+  }
+
+  async initialize(): Promise<void> {
+    await this.ensureInitialized();
+  }
+
+  async isHealthy(): Promise<boolean> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).isHealthy();
+  }
+
+  async get(key: string): Promise<string | null> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).get(key);
+  }
+  async set(
+    key: string,
+    value: string,
+    ttlSeconds?: number,
+    options?: { nx?: boolean },
+  ): Promise<string | null | void> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).set(key, value, ttlSeconds, options);
+  }
+  async del(key: string): Promise<void> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).del(key);
+  }
+  async exists(key: string): Promise<boolean> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).exists(key);
+  }
+  async incr(key: string, ttlSeconds?: number): Promise<number> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).incr(key, ttlSeconds);
+  }
+  async decr(key: string): Promise<number> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).decr(key);
+  }
+  async expire(key: string, ttl: number): Promise<void> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).expire(key, ttl);
+  }
+  async ttl(key: string): Promise<number> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).ttl(key);
+  }
+  async hget(key: string, field: string): Promise<string | null> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).hget(key, field);
+  }
+  async hset(key: string, field: string, value: string): Promise<void> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).hset(key, field, value);
+  }
+  async hgetall(key: string): Promise<Record<string, string>> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).hgetall(key);
+  }
+  async hdel(key: string, ...fields: string[]): Promise<number> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).hdel(key, ...fields);
+  }
+  async lpush(key: string, value: string): Promise<void> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).lpush(key, value);
+  }
+  async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).lrange(key, start, stop);
+  }
+  async llen(key: string): Promise<number> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).llen(key);
+  }
+  async keys(pattern: string): Promise<string[]> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).keys(pattern);
+  }
+  async scan(cursor: number, pattern: string, count: number): Promise<[number, string[]]> {
+    await this.ensureInitialized();
+    return await (this.inner as StorageAdapter).scan(cursor, pattern, count);
+  }
+  async cleanup(): Promise<void> {
+    if (!this.inner) return;
+    return await this.inner.cleanup();
+  }
+  async disconnect(): Promise<void> {
+    if (!this.inner) return;
+    return await this.inner.disconnect();
+  }
+
+  private async ensureInitialized(): Promise<void> {
+    if (this.inner) return;
+    if (!this.initPromise) {
+      this.initPromise = (async () => {
+        this.inner = await this.factory();
+        const maybeLoggerAware = this.inner as unknown as { setLogger?: (l: unknown) => void };
+        if (this.logger && typeof maybeLoggerAware.setLogger === 'function') {
+          maybeLoggerAware.setLogger(this.logger);
+        }
+        const maybeRepoAware = this.inner as unknown as { setRepositories?: (r: unknown, s: unknown) => void };
+        if (this.repos && typeof maybeRepoAware.setRepositories === 'function') {
+          maybeRepoAware.setRepositories(this.repos.rateLimitRepo, this.repos.storageLockRepo);
+        }
+        await this.inner.initialize();
+      })();
+    }
+    await this.initPromise;
+  }
+}
+
+/**
+ * Check whether an unknown error is a Node "MODULE_NOT_FOUND" for a specific module.
+ *
+ * We intentionally match by both error code and the module name inside the message to avoid
+ * incorrectly catching nested missing modules.
+ *
+ * @param error - Unknown caught error
+ * @param moduleName - The module name we expect to be missing (e.g. '@nauth-toolkit/storage-database')
+ * @returns True if this error represents "moduleName is not installed"
+ */
+function _isModuleNotFoundFor(error: unknown, moduleName: string): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const errno = error as NodeJS.ErrnoException;
+  if (errno.code !== 'MODULE_NOT_FOUND') {
+    return false;
+  }
+
+  // Node error messages usually contain: "Cannot find module '<name>'"
+  return typeof error.message === 'string' && error.message.includes(`'${moduleName}'`);
+}
+
+/**
  * Create a database storage adapter
  *
  * Uses the existing TypeORM connection. Make sure storage entities are included
  * in your TypeORM.forRoot() configuration:
  *
  * ```typescript
- * import { getNAuthStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
+ * import { getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
  * TypeOrmModule.forRoot({
- *   entities: [...getNAuthEntities(), ...getNAuthStorageEntities()],
+ *   entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()],
  * });
  * ```
  *
@@ -46,9 +227,24 @@ import { StorageAdapter } from '@nauth-toolkit/core';
  * ```
  */
 export function createDatabaseStorageAdapter(): StorageAdapter {
-  // Lazy import to avoid bundling if not used
-  const { DatabaseStorageAdapter } = require('@nauth-toolkit/storage-database');
-  return new DatabaseStorageAdapter(null, null, null);
+  return new LazyStorageAdapter(async () => {
+    type Ctor = new (rateLimitRepo: unknown, storageLockRepo: unknown, logger: unknown) => StorageAdapter;
+    type Mod = { DatabaseStorageAdapter: Ctor };
+    const mod = await importOptional<Mod>('@nauth-toolkit/storage-database' as string);
+    if (!mod) {
+      throw new Error(
+        [
+          'Missing dependency: @nauth-toolkit/storage-database',
+          '',
+          'You called createDatabaseStorageAdapter(), but the database storage adapter package is not installed.',
+          '',
+          'Install it:',
+          '  yarn add @nauth-toolkit/storage-database',
+        ].join('\n'),
+      );
+    }
+    return new mod.DatabaseStorageAdapter(null, null, null);
+  });
 }
 
 /**
@@ -85,16 +281,40 @@ export function createDatabaseStorageAdapter(): StorageAdapter {
  * ```
  */
 export function createRedisStorageAdapter(url: string = 'redis://localhost:6379'): StorageAdapter {
-  // Lazy import to avoid bundling if not used
-  const { RedisStorageAdapter } = require('@nauth-toolkit/storage-redis');
-  const { createClient } = require('redis');
+  return new LazyStorageAdapter(async () => {
+    type RedisAdapterMod = { RedisStorageAdapter: new (client: unknown) => StorageAdapter };
+    const adapterMod = await importOptional<RedisAdapterMod>('@nauth-toolkit/storage-redis' as string);
+    if (!adapterMod) {
+      throw new Error(
+        [
+          'Missing dependency: @nauth-toolkit/storage-redis',
+          '',
+          'You called createRedisStorageAdapter(), but the Redis storage adapter package is not installed.',
+          '',
+          'Install it:',
+          '  yarn add @nauth-toolkit/storage-redis redis',
+        ].join('\n'),
+      );
+    }
 
-  const redisClient = createClient({ url });
+    type RedisClientMod = { createClient: (options: { url: string }) => unknown };
+    const redisMod = await importOptional<RedisClientMod>('redis' as string);
+    if (!redisMod) {
+      throw new Error(
+        [
+          'Missing dependency: redis',
+          '',
+          'You called createRedisStorageAdapter(), but the "redis" client package is not installed.',
+          '',
+          'Install it:',
+          '  yarn add redis',
+        ].join('\n'),
+      );
+    }
 
-  // Don't connect here - let adapter.initialize() handle connection
-  // This ensures proper error handling and allows initialize() to wait for connection
-
-  return new RedisStorageAdapter(redisClient);
+    const client = redisMod.createClient({ url });
+    return new adapterMod.RedisStorageAdapter(client);
+  });
 }
 
 /**
@@ -128,16 +348,38 @@ export function createRedisStorageAdapter(url: string = 'redis://localhost:6379'
  * ```
  */
 export function createRedisClusterAdapter(nodes: Array<{ url: string }>): StorageAdapter {
-  // Lazy import to avoid bundling if not used
-  const { RedisStorageAdapter } = require('@nauth-toolkit/storage-redis');
-  const { createCluster } = require('redis');
+  return new LazyStorageAdapter(async () => {
+    type RedisAdapterMod = { RedisStorageAdapter: new (client: unknown) => StorageAdapter };
+    const adapterMod = await importOptional<RedisAdapterMod>('@nauth-toolkit/storage-redis' as string);
+    if (!adapterMod) {
+      throw new Error(
+        [
+          'Missing dependency: @nauth-toolkit/storage-redis',
+          '',
+          'You called createRedisClusterAdapter(), but the Redis storage adapter package is not installed.',
+          '',
+          'Install it:',
+          '  yarn add @nauth-toolkit/storage-redis redis',
+        ].join('\n'),
+      );
+    }
 
-  const clusterClient = createCluster({
-    rootNodes: nodes,
+    type RedisClientMod = { createCluster: (options: { rootNodes: Array<{ url: string }> }) => unknown };
+    const redisMod = await importOptional<RedisClientMod>('redis' as string);
+    if (!redisMod) {
+      throw new Error(
+        [
+          'Missing dependency: redis',
+          '',
+          'You called createRedisClusterAdapter(), but the "redis" client package is not installed.',
+          '',
+          'Install it:',
+          '  yarn add redis',
+        ].join('\n'),
+      );
+    }
+
+    const client = redisMod.createCluster({ rootNodes: nodes });
+    return new adapterMod.RedisStorageAdapter(client);
   });
-
-  // Don't connect here - let adapter.initialize() handle connection
-  // This ensures proper error handling and allows initialize() to wait for connection
-
-  return new RedisStorageAdapter(clusterClient);
 }

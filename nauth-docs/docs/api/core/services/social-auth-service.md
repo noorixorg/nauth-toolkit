@@ -1,11 +1,9 @@
 ---
 title: SocialAuthService
-description: Social authentication service for OAuth flows, account linking, and management. Supports Google, Apple, Facebook, and other providers.
-keywords: [social, auth, oauth, service, google, apple, facebook, api]
+description: Social account management service for linking/unlinking accounts and password management for social-only users.
+keywords: [social, auth, account, management, linking, service, api]
 image: /img/api-social-card.png
-sidebar_position: 7
 ---
-
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -14,7 +12,7 @@ import TabItem from '@theme/TabItem';
 **Package:** `@nauth-toolkit/core`
 **Type:** Service
 
-Social authentication service that handles OAuth flows, account linking, and management for social providers.
+Service for managing social authentication accounts and their relationships. Provides account linking/unlinking, password management for social-only users, and account queries.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
@@ -44,7 +42,11 @@ import { SocialAuthService } from '@nauth-toolkit/core';
 
 ## Overview
 
-Handles OAuth authentication flows, social account linking/unlinking, and password management for social-only users.
+Service for managing social authentication accounts and their relationships. This service provides account linking/unlinking, password management for social-only users, and querying linked accounts.
+
+:::tip OAuth Login Flows
+For OAuth authentication (login/signup), use `SocialRedirectHandler` or the frontend SDK's `loginWithSocial()` method. See the [Social Login Guide](/docs/guides/social/how-social-login-works) for details.
+:::
 
 :::tip Optional Feature
 Only available when social auth provider modules are imported (e.g., `GoogleSocialAuthModule`, `AppleSocialAuthModule`).
@@ -136,9 +138,9 @@ async getLinkedAccounts(dto: GetLinkedAccountsDTO): Promise<GetLinkedAccountsRes
 
 **Errors**
 
-| Code       | When            | Details |
-| ---------- | --------------- | ------- |
-| `NOT_FOUND` | User not found  | `{ userId?: string }` |
+| Code        | When           | Details               |
+| ----------- | -------------- | --------------------- |
+| `NOT_FOUND` | User not found | `{ userId?: string }` |
 
 **Example**
 
@@ -184,159 +186,8 @@ fastify.get(
     const dto: GetLinkedAccountsDTO = { userId: user!.sub };
     const accounts = await nauth.socialAuthService.getLinkedAccounts(dto);
     return accounts.accounts;
-  })
+  }),
 );
-```
-
-</TabItem>
-</Tabs>
-
----
-
-### getSocialAuthUrl()
-
-Get OAuth authorization URL for the specified provider. Redirect user to this URL to start OAuth flow.
-
-```typescript
-async getSocialAuthUrl(dto: GetSocialAuthUrlDTO): Promise<GetSocialAuthUrlResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`GetSocialAuthUrlDTO`](../dto/get-social-auth-url-dto)
-
-**Returns**
-
-- [`GetSocialAuthUrlResponseDTO`](../dto/get-social-auth-url-response-dto)
-
-**Errors**
-
-| Code                  | When                    | Details |
-| --------------------- | ----------------------- | ------- |
-| `SOCIAL_CONFIG_MISSING` | Provider not registered | `{}`    |
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-import { GetSocialAuthUrlDTO } from '@nauth-toolkit/nestjs';
-
-@Injectable()
-export class MyService {
-  constructor(private socialAuthService: SocialAuthService) {}
-
-  async getUrl() {
-    const dto: GetSocialAuthUrlDTO = {
-      provider: 'google',
-      state: 'csrf-token-123',
-    };
-    const { url } = await this.socialAuthService.getSocialAuthUrl(dto);
-    return url;
-  }
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-import { GetSocialAuthUrlDTO } from '@nauth-toolkit/core';
-
-app.get('/auth/google', async (req, res) => {
-  const dto: GetSocialAuthUrlDTO = {
-    provider: 'google',
-    state: req.query.state as string,
-  };
-  const { url } = await nauth.socialAuthService.getSocialAuthUrl(dto);
-  res.redirect(url);
-});
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-import { GetSocialAuthUrlDTO } from '@nauth-toolkit/core';
-
-fastify.get('/auth/google', nauth.adapter.wrapRouteHandler(async (req, reply) => {
-  const dto: GetSocialAuthUrlDTO = {
-    provider: 'google',
-    state: req.query.state as string,
-  };
-  const { url } = await nauth.socialAuthService.getSocialAuthUrl(dto);
-  return reply.redirect(url);
-}));
-```
-
-</TabItem>
-</Tabs>
-
----
-
-### handleSocialCallback()
-
-Handle OAuth callback and authenticate user (login or signup). Called after user is redirected from OAuth provider.
-
-```typescript
-async handleSocialCallback(dto: HandleSocialCallbackDTO): Promise<AuthResponseDTO>
-```
-
-**Parameters**
-
-- `dto` - [`HandleSocialCallbackDTO`](../dto/handle-social-callback-dto)
-
-**Returns**
-
-- [`AuthResponseDTO`](../dto/auth-response-dto)
-
-**Errors**
-
-| Code                  | When                    | Details |
-| --------------------- | ----------------------- | ------- |
-| `SOCIAL_TOKEN_INVALID` | OAuth callback failed   | `{}`    |
-| `SOCIAL_CONFIG_MISSING` | Provider not configured | `{}`    |
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-import { HandleSocialCallbackDTO } from '@nauth-toolkit/nestjs';
-
-@Post('social/callback')
-async callback(@Body() body: HandleSocialCallbackDTO) {
-  const dto = Object.assign(new HandleSocialCallbackDTO(), body);
-  return await this.socialAuthService.handleSocialCallback(dto);
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-import { HandleSocialCallbackDTO } from '@nauth-toolkit/core';
-
-app.post('/auth/social/callback', async (req, res) => {
-  const dto = Object.assign(new HandleSocialCallbackDTO(), req.body);
-  const result = await nauth.socialAuthService.handleSocialCallback(dto);
-  res.json(result);
-});
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-import { HandleSocialCallbackDTO } from '@nauth-toolkit/core';
-
-fastify.post('/auth/social/callback', nauth.adapter.wrapRouteHandler(async (req, reply) => {
-  const dto = Object.assign(new HandleSocialCallbackDTO(), req.body);
-  const result = await nauth.socialAuthService.handleSocialCallback(dto);
-  return result;
-}));
 ```
 
 </TabItem>
@@ -362,12 +213,12 @@ async linkSocialAccount(dto: LinkSocialAccountDTO): Promise<LinkSocialAccountRes
 
 **Errors**
 
-| Code                  | When                           | Details |
-| --------------------- | ------------------------------ | ------- |
-| `SOCIAL_ACCOUNT_LINKED` | Account already linked         | `{}`    |
-| `NOT_FOUND`            | User not found                 | `{ userId?: string }` |
-| `SOCIAL_CONFIG_MISSING` | Provider not configured        | `{}`    |
-| `SOCIAL_TOKEN_INVALID` | OAuth callback failed          | `{}`    |
+| Code                    | When                    | Details               |
+| ----------------------- | ----------------------- | --------------------- |
+| `SOCIAL_ACCOUNT_LINKED` | Account already linked  | `{}`                  |
+| `NOT_FOUND`             | User not found          | `{ userId?: string }` |
+| `SOCIAL_CONFIG_MISSING` | Provider not configured | `{}`                  |
+| `SOCIAL_TOKEN_INVALID`  | OAuth callback failed   | `{}`                  |
 
 **Example**
 
@@ -421,7 +272,7 @@ fastify.post(
     };
     const result = await nauth.socialAuthService.linkSocialAccount(dto);
     return result;
-  })
+  }),
 );
 ```
 
@@ -495,11 +346,11 @@ async setPasswordForSocialUser(dto: SetPasswordForSocialUserDTO): Promise<SetPas
 
 **Errors**
 
-| Code              | When                    | Details              |
-| ----------------- | ----------------------- | -------------------- |
-| `NOT_FOUND`        | User not found          | `{ userId?: string }` |
+| Code                | When                      | Details                 |
+| ------------------- | ------------------------- | ----------------------- |
+| `NOT_FOUND`         | User not found            | `{ userId?: string }`   |
 | `VALIDATION_FAILED` | User already has password | `{ field: 'password' }` |
-| `WEAK_PASSWORD`     | Password policy violation | `{ errors: string[] }` |
+| `WEAK_PASSWORD`     | Password policy violation | `{ errors: string[] }`  |
 
 **Example**
 
@@ -563,10 +414,10 @@ async unlinkSocialAccount(dto: UnlinkSocialAccountDTO): Promise<UnlinkSocialAcco
 
 **Errors**
 
-| Code                          | When                    | Details |
-| ----------------------------- | ----------------------- | ------- |
-| `NOT_FOUND`                    | User not found          | `{ userId?: string }` |
-| `SOCIAL_ACCOUNT_NOT_FOUND`     | Account not linked      | `{}`    |
+| Code                       | When               | Details               |
+| -------------------------- | ------------------ | --------------------- |
+| `NOT_FOUND`                | User not found     | `{ userId?: string }` |
+| `SOCIAL_ACCOUNT_NOT_FOUND` | Account not linked | `{}`                  |
 
 **Example**
 
@@ -621,7 +472,7 @@ fastify.post(
     };
     await nauth.socialAuthService.unlinkSocialAccount(dto);
     return { success: true };
-  })
+  }),
 );
 ```
 
@@ -639,7 +490,7 @@ All methods throw [`NAuthException`](../exceptions/nauth-exception) on failure. 
 
 ```typescript
 try {
-  await this.socialAuthService.getSocialAuthUrl(dto);
+  await this.socialAuthService.linkSocialAccount(dto);
 } catch (error) {
   if (error instanceof NAuthException) {
     console.log(error.code);
@@ -652,7 +503,7 @@ try {
 
 ```typescript
 try {
-  await nauth.socialAuthService.getSocialAuthUrl(dto);
+  await nauth.socialAuthService.linkSocialAccount(dto);
 } catch (error) {
   if (error instanceof NAuthException) {
     res.status(error.statusCode).json(error.toJSON());
@@ -665,7 +516,7 @@ try {
 
 ```typescript
 try {
-  await nauth.socialAuthService.getSocialAuthUrl(dto);
+  await nauth.socialAuthService.linkSocialAccount(dto);
 } catch (error) {
   if (error instanceof NAuthException) {
     reply.status(error.statusCode).send(error.toJSON());
@@ -680,7 +531,20 @@ See [Error Handling Guide](/docs/concepts/error-handling).
 
 ---
 
+## Redirect-first OAuth (SocialRedirectHandler)
+
+For backend-first OAuth flows (redirect to provider, then callback), use `SocialRedirectHandler` (injected alongside this service). The handler is framework-neutral: it reads delivery and deviceToken from ContextStorage and applies cookies via `HTTP_RESPONSE` in cookies mode. Consumer controllers pass only provider and DTOs.
+
+- `start(provider, dto)` - Returns `Promise<StartSocialRedirectResponseDTO>`. Use with NestJS `@Redirect()`.
+- `callback(provider, dto)` - Returns `Promise<SocialRedirectCallbackResponseDTO>`. Cookies are applied to the response from ContextStorage when delivery is cookies.
+- `exchange(exchangeToken)` - Returns `Promise<AuthResponseDTO>` for JSON/hybrid or challenge flows.
+
+See the [Social Login Guide](/docs/guides/social/how-social-login-works) for full implementation and DTOs (`StartSocialRedirectQueryDTO`, `SocialCallbackQueryDTO`, `SocialCallbackFormDTO`, `StartSocialRedirectResponseDTO`, `SocialRedirectCallbackResponseDTO`).
+
+---
+
 ## Related APIs
 
 - [AuthService](./auth-service) - Core authentication service
 - [NAuthException](../exceptions/nauth-exception) - Error handling
+- [Social Login Guide](/docs/guides/social/how-social-login-works) - Implementation guide

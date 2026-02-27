@@ -62,6 +62,7 @@ const inventory = {
   nestjs: {
     guards: [
       { name: 'AuthGuard', desc: 'JWT route protection' },
+      { name: 'NAuthContextGuard', desc: 'Initialize AsyncLocalStorage context' },
       { name: 'CsrfGuard', desc: 'CSRF validation' },
     ],
     decorators: [
@@ -71,7 +72,7 @@ const inventory = {
       { name: '@TokenDelivery()', desc: 'Override delivery mode' },
     ],
     interceptors: [
-      { name: 'ClientInfoInterceptor', desc: 'Auto-extract client info' },
+      { name: 'NAuthContextInterceptor', desc: 'Restore AsyncLocalStorage context' },
       { name: 'CookieTokenInterceptor', desc: 'Cookie-based delivery' },
     ],
   },
@@ -294,10 +295,10 @@ TODO: Add related APIs
 // Generate skeletons
 const docsDir = path.join(__dirname, '../docs/api');
 
-console.log('🔧 Generating skeleton documentation pages...\n');
+console.log('Generating skeleton documentation pages...\n');
 
 // Core Services
-console.log('📦 Core Services...');
+console.log('Core Services...');
 const servicesDir = path.join(docsDir, 'core/services');
 fs.mkdirSync(servicesDir, { recursive: true });
 
@@ -309,17 +310,17 @@ inventory.core.services.forEach((service, idx) => {
   if (fs.existsSync(filepath)) {
     const existing = fs.readFileSync(filepath, 'utf-8');
     if (existing.includes('## Methods') && !existing.includes('TODO: Add methods')) {
-      console.log(`  ⏭️  Skipping ${filename} (already has content)`);
+      console.log(`  Skipping ${filename} (already has content)`);
       return;
     }
   }
 
   fs.writeFileSync(filepath, createServiceSkeleton(service, idx + 1));
-  console.log(`  ✅ ${filename}`);
+  console.log(`  ${filename}`);
 });
 
 // Core DTOs
-console.log('\n📦 Core DTOs...');
+console.log('\nCore DTOs...');
 const dtosDir = path.join(docsDir, 'core/dto');
 fs.mkdirSync(dtosDir, { recursive: true });
 
@@ -330,17 +331,17 @@ inventory.core.dtos.forEach((dto, idx) => {
   if (fs.existsSync(filepath)) {
     const existing = fs.readFileSync(filepath, 'utf-8');
     if (existing.includes('## Properties') && !existing.includes('TODO: Add properties')) {
-      console.log(`  ⏭️  Skipping ${filename} (already has content)`);
+      console.log(`  Skipping ${filename} (already has content)`);
       return;
     }
   }
 
   fs.writeFileSync(filepath, createDTOSkeleton(dto, idx + 1));
-  console.log(`  ✅ ${filename}`);
+  console.log(`  ${filename}`);
 });
 
 // NestJS Guards
-console.log('\n📦 NestJS Guards...');
+console.log('\nNestJS Guards...');
 const guardsDir = path.join(docsDir, 'nestjs/guards');
 fs.mkdirSync(guardsDir, { recursive: true });
 
@@ -349,16 +350,16 @@ inventory.nestjs.guards.forEach((guard, idx) => {
   const filepath = path.join(guardsDir, filename);
 
   if (fs.existsSync(filepath) && !fs.readFileSync(filepath, 'utf-8').includes('TODO:')) {
-    console.log(`  ⏭️  Skipping ${filename} (already has content)`);
+    console.log(`  Skipping ${filename} (already has content)`);
     return;
   }
 
   fs.writeFileSync(filepath, createGuardSkeleton(guard, idx + 1));
-  console.log(`  ✅ ${filename}`);
+  console.log(`  ${filename}`);
 });
 
 // NestJS Decorators
-console.log('\n📦 NestJS Decorators...');
+console.log('\nNestJS Decorators...');
 const decoratorsDir = path.join(docsDir, 'nestjs/decorators');
 fs.mkdirSync(decoratorsDir, { recursive: true });
 
@@ -367,16 +368,16 @@ inventory.nestjs.decorators.forEach((decorator, idx) => {
   const filepath = path.join(decoratorsDir, filename);
 
   if (fs.existsSync(filepath) && !fs.readFileSync(filepath, 'utf-8').includes('TODO:')) {
-    console.log(`  ⏭️  Skipping ${filename} (already has content)`);
+    console.log(`  Skipping ${filename} (already has content)`);
     return;
   }
 
   fs.writeFileSync(filepath, createDecoratorSkeleton(decorator, idx + 1));
-  console.log(`  ✅ ${filename}`);
+  console.log(`  ${filename}`);
 });
 
 // Express Middleware
-console.log('\n📦 Express Middleware...');
+console.log('\nExpress Middleware...');
 const middlewareDir = path.join(docsDir, 'express/middleware');
 fs.mkdirSync(middlewareDir, { recursive: true });
 
@@ -385,16 +386,16 @@ inventory.express.middleware.forEach((middleware, idx) => {
   const filepath = path.join(middlewareDir, filename);
 
   if (fs.existsSync(filepath) && !fs.readFileSync(filepath, 'utf-8').includes('TODO:')) {
-    console.log(`  ⏭️  Skipping ${filename} (already has content)`);
+    console.log(`  Skipping ${filename} (already has content)`);
     return;
   }
 
   fs.writeFileSync(filepath, createMiddlewareSkeleton(middleware, idx + 1));
-  console.log(`  ✅ ${filename}`);
+  console.log(`  ${filename}`);
 });
 
 // Express Helpers
-console.log('\n📦 Express Helpers...');
+console.log('\nExpress Helpers...');
 const helpersDir = path.join(docsDir, 'express/helpers');
 fs.mkdirSync(helpersDir, { recursive: true });
 
@@ -403,19 +404,17 @@ inventory.express.helpers.forEach((helper, idx) => {
   const filepath = path.join(helpersDir, filename);
 
   if (fs.existsSync(filepath) && !fs.readFileSync(filepath, 'utf-8').includes('TODO:')) {
-    console.log(`  ⏭️  Skipping ${filename} (already has content)`);
+    console.log(`  Skipping ${filename} (already has content)`);
     return;
   }
 
   fs.writeFileSync(filepath, createMiddlewareSkeleton(helper, idx + 1));
-  console.log(`  ✅ ${filename}`);
+  console.log(`  ${filename}`);
 });
 
-console.log('\n✅ Skeleton generation complete!');
-console.log('\n📝 Next steps:');
+console.log('\nSkeleton generation complete!');
+console.log('\nNext steps:');
 console.log('  1. Review generated skeletons');
 console.log('  2. Fill in method signatures and descriptions');
 console.log('  3. Add cross-reference links');
 console.log('  4. Add usage examples');
-
-

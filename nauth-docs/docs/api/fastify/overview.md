@@ -1,11 +1,9 @@
 ---
 title: Fastify Adapter
-description: Fastify adapter with hooks and route helpers
+description: 'Fastify adapter: NAuth.create() bootstrap, onRequest/onSend hooks (clientInfo, csrf, auth, tokenDelivery), route helpers (requireAuth, public, optionalAuth, tokenDelivery), and wrapRouteHandler for AsyncLocalStorage context'
 keywords: [fastify, adapter, hooks, helpers, api]
 image: /img/api-social-card.png
-sidebar_position: 0
 ---
-
 # Fastify Adapter
 
 **Package:** `@nauth-toolkit/core`
@@ -105,10 +103,42 @@ Returns authenticated user from context.
 ### tokenDelivery()
 
 ```typescript
-tokenDelivery(mode: 'json' | 'cookies' | 'both'): preHandlerHookHandler
+tokenDelivery(mode: 'json' | 'cookies'): preHandlerHookHandler
 ```
 
 Overrides token delivery mode for route.
+
+### skipRecaptcha()
+
+```typescript
+skipRecaptcha(): preHandlerHookHandler
+```
+
+Bypasses reCAPTCHA validation for the route even when globally enabled. Useful for admin routes or internal endpoints.
+
+### requireRecaptcha()
+
+```typescript
+requireRecaptcha(): preHandlerHookHandler
+```
+
+Enforces reCAPTCHA validation for the route even when not globally enabled. Use for high-risk operations like password reset or account deletion.
+
+### getCurrentSession()
+
+```typescript
+getCurrentSession(): string | number | undefined
+```
+
+Returns the current session ID from AsyncLocalStorage context. Only available after `nauth.middleware.auth` has run.
+
+### getClientInfo()
+
+```typescript
+getClientInfo(): ClientInfo | undefined
+```
+
+Returns the client info object from AsyncLocalStorage context (IP address, user agent, device token, etc.). Only available after `nauth.middleware.clientInfo` has run.
 
 ## Route Handler Wrapper
 
@@ -133,14 +163,4 @@ fastify.post('/signup', {
 });
 ```
 
-## Types
-
-```typescript
-import type { FastifyHookType, FastifyRouteHandlerType } from '@nauth-toolkit/core';
-```
-
-| Type | Description |
-|------|-------------|
-| `FastifyHookType` | Fastify hook function type |
-| `FastifyRouteHandlerType` | Fastify route handler type |
 
