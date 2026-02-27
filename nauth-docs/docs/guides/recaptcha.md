@@ -14,7 +14,7 @@ Protect login and signup endpoints from bots using Google reCAPTCHA. nauth-toolk
 
 ## Overview
 
-- **Backend**: Optional `@nauth-toolkit/recaptcha` package. Configure provider and `minimumScore` for v3/Enterprise. Use `@RequireRecaptcha()` decorator on endpoints that need protection.
+- **Backend**: Optional `@nauth-toolkit/recaptcha` package. Configure provider, `minimumScore`, and optional `actionScores` for v3/Enterprise. Use `@RequireRecaptcha()` decorator on endpoints that need protection.
 - **Frontend**: Client sends `recaptchaToken` in login/signup requests. Angular SDK can auto-generate tokens for v3/Enterprise via `RecaptchaService` and `provideRecaptcha()`.
 
 ## Backend Setup
@@ -45,6 +45,10 @@ import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
           siteKey: process.env.RECAPTCHA_SITE_KEY!,
         }),
         minimumScore: 0.5,
+        actionScores: {       // Optional: per-action overrides
+          login: 0.3,         // More permissive for returning users
+          signup: 0.7,        // Stricter for new registrations
+        },
       },
     }),
   ],
@@ -93,6 +97,10 @@ recaptcha: {
     siteKey: process.env.RECAPTCHA_SITE_KEY!,
   }),
   minimumScore: 0.5,
+  actionScores: {       // Optional: per-action overrides
+    login: 0.3,
+    signup: 0.7,
+  },
 },
 ```
 
@@ -117,6 +125,10 @@ recaptcha: {
     siteKey: process.env.RECAPTCHA_SITE_KEY!,
   }),
   minimumScore: 0.5,
+  actionScores: {       // Optional: per-action overrides
+    login: 0.3,
+    signup: 0.7,
+  },
 },
 ```
 
@@ -124,6 +136,30 @@ recaptcha: {
 </Tabs>
 
 See [RecaptchaConfig](/docs/api/core/interfaces/recaptcha-config) for all options. For v2 or v3, use [RecaptchaV2Provider](/docs/api/recaptcha/providers/recaptcha-v2-provider) or [RecaptchaV3Provider](/docs/api/recaptcha/providers/recaptcha-v3-provider).
+
+### Startup Validation
+
+By default, nauth validates your reCAPTCHA credentials at startup by sending a probe request to Google's API. This catches misconfigured API keys, wrong project IDs, or disabled APIs before a real user hits the endpoint.
+
+```typescript
+recaptcha: {
+  enabled: true,
+  provider: new RecaptchaEnterpriseProvider({ /* ... */ }),
+  validateOnStartup: 'warn',   // Default: log warning if credentials are invalid
+  // validateOnStartup: 'error',  // Halt startup on invalid credentials
+  // validateOnStartup: false,    // Skip validation entirely
+},
+```
+
+| Mode | Behavior |
+|------|----------|
+| `'warn'` (default) | Logs a warning with actionable hint, continues startup |
+| `'error'` | Throws `NAuthException` and halts startup |
+| `false` | Skips validation entirely |
+
+:::tip
+Use `'error'` in production to fail fast on misconfigured credentials. Use `'warn'` during development when iterating on reCAPTCHA setup.
+:::
 
 ## Frontend Setup
 
@@ -136,8 +172,8 @@ import { provideRecaptcha } from '@nauth-toolkit/client-angular/standalone';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    { provide: NAUTH_CLIENT_CONFIG, useValue: { baseUrl: '...', tokenDelivery: 'cookies', recaptcha: { enabled: true, version: 'enterprise', siteKey: '...', action: 'login' } } },
-    provideRecaptcha({ enabled: true, version: 'enterprise', siteKey: '...', action: 'login' }),
+    { provide: NAUTH_CLIENT_CONFIG, useValue: { baseUrl: '...', tokenDelivery: 'cookies', recaptcha: { enabled: true, version: 'enterprise', siteKey: '...' } } },
+    provideRecaptcha({ enabled: true, version: 'enterprise', siteKey: '...' }),
     // ...
   ],
 };
@@ -161,7 +197,8 @@ export const appConfig: ApplicationConfig = {
 
 - Keep API keys and secret keys server-side only. Only the site key is public.
 - Use `@RequireRecaptcha()` decorator on public endpoints vulnerable to bot attacks (login, signup, password reset).
-- Set `minimumScore` based on your risk tolerance (0.5 is a common default).
+- Set `minimumScore` based on your risk tolerance (0.5 is a common default). Use `actionScores` for per-action thresholds.
+- Score checks only apply when the provider returns a score (v3/Enterprise score-based keys). Enterprise checkbox keys skip score validation automatically.
 
 ## Related
 

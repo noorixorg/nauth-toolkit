@@ -2740,6 +2740,9 @@ export interface RecaptchaConfig {
    * Only applies to v3 and Enterprise versions.
    * Ignored for v2 (checkbox-based has no score).
    *
+   * Used as the default threshold when no per-action override is set
+   * in `actionScores`.
+   *
    * **Security vs UX trade-off:**
    * - Higher threshold (0.7+): More secure, may block legitimate users
    * - Lower threshold (0.3-0.5): More permissive, may allow some bots
@@ -2752,4 +2755,52 @@ export interface RecaptchaConfig {
    * ```
    */
   minimumScore?: number;
+
+  /**
+   * Per-action minimum score overrides for v3/Enterprise
+   *
+   * Allows different score thresholds for different reCAPTCHA actions.
+   * Falls back to `minimumScore` (or default 0.5) for actions not listed here.
+   *
+   * The action name must match the action used on the frontend when generating
+   * the reCAPTCHA token (e.g., `grecaptcha.execute(siteKey, { action: 'login' })`).
+   *
+   * Common actions: `login`, `signup`, `password_reset`, `change_email`
+   *
+   * @example Different thresholds per action
+   * ```typescript
+   * actionScores: {
+   *   login: 0.3,   // More permissive for login (returning users)
+   *   signup: 0.7,  // Stricter for signup (prevent bot registrations)
+   * }
+   * ```
+   */
+  actionScores?: Record<string, number>;
+
+  /**
+   * Startup validation behavior
+   *
+   * Controls what happens when reCAPTCHA provider configuration is validated
+   * during NAuth initialization:
+   *
+   * - `'warn'` (default): Log a warning if validation fails, but continue startup
+   * - `'error'`: Throw an error and halt startup if validation fails
+   * - `false`: Skip startup validation entirely
+   *
+   * Validation makes a lightweight probe request to Google's API using a dummy token.
+   * No real assessment is created. The probe verifies API keys, project access,
+   * and network connectivity.
+   *
+   * @default 'warn'
+   *
+   * @example Halt startup on misconfiguration (recommended for production)
+   * ```typescript
+   * recaptcha: {
+   *   enabled: true,
+   *   provider: new RecaptchaEnterpriseProvider({ ... }),
+   *   validateOnStartup: 'error',
+   * }
+   * ```
+   */
+  validateOnStartup?: 'warn' | 'error' | false;
 }

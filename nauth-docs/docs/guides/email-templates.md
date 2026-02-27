@@ -76,25 +76,24 @@ HTML email templates use YAML frontmatter for the subject line:
 ---
 subject: Verify your email - {{appName}}
 ---
+
 <!DOCTYPE html>
 <html>
-<body>
-  {{#if firstName}}
+  <body>
+    {{#if firstName}}
     <p>Hi {{firstName}},</p>
-  {{else}}
-    {{#if userName}}<p>Hi {{userName}},</p>{{/if}}
-  {{/if}}
+    {{else}} {{#if userName}}
+    <p>Hi {{userName}},</p>
+    {{/if}} {{/if}}
 
-  <p>Your verification code: <strong>{{code}}</strong></p>
+    <p>Your verification code: <strong>{{code}}</strong></p>
 
-  {{#if link}}
+    {{#if link}}
     <p><a href="{{link}}">Verify Email Address</a></p>
-  {{/if}}
-
-  {{#if expiryMinutes}}
+    {{/if}} {{#if expiryMinutes}}
     <p>This code expires in {{expiryMinutes}} minutes.</p>
-  {{/if}}
-</body>
+    {{/if}}
+  </body>
 </html>
 ```
 
@@ -137,12 +136,12 @@ You can also define templates inline or use a mix of file-based HTML with inline
 
 ### Validation rules
 
-| Rule | Details |
-|---|---|
-| Must provide `htmlPath` **or** `html` | Cannot provide both |
-| Can optionally provide `textPath` **or** `text` | Cannot provide both |
-| `subject` is optional | Extracted from HTML frontmatter if not provided |
-| Template must reference all required variables | Validated at startup; app fails to start if missing |
+| Rule                                            | Details                                             |
+| ----------------------------------------------- | --------------------------------------------------- |
+| Must provide `htmlPath` **or** `html`           | Cannot provide both                                 |
+| Can optionally provide `textPath` **or** `text` | Cannot provide both                                 |
+| `subject` is optional                           | Extracted from HTML frontmatter if not provided     |
+| Template must reference all required variables  | Validated at startup; app fails to start if missing |
 
 :::note
 **Text templates are optional.** If you don't provide a `text` template, the engine generates one by stripping HTML tags from the rendered HTML. Providing both improves deliverability and accessibility.
@@ -232,7 +231,7 @@ Write your partial:
 <hr />
 <p>&copy; {{currentYear}} {{companyName}}. All rights reserved.</p>
 {{#if supportEmail}}
-  <p>Need help? <a href="mailto:{{supportEmail}}">Contact support</a></p>
+  <p>Need help? <a href='mailto:{{supportEmail}}'>Contact support</a></p>
 {{/if}}
 ```
 
@@ -288,8 +287,7 @@ import { HandlebarsTemplateEngine } from '@nauth-toolkit/email-nodemailer';
 const templateEngine = new HandlebarsTemplateEngine({
   helpers: {
     uppercase: (str: string) => str.toUpperCase(),
-    truncate: (str: string, length: number) =>
-      str.length > length ? str.substring(0, length) + '...' : str,
+    truncate: (str: string, length: number) => (str.length > length ? str.substring(0, length) + '...' : str),
   },
 });
 ```

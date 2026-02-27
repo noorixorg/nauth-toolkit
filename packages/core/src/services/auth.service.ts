@@ -223,7 +223,7 @@ export class AuthService {
     // ============================================================================
     // Validate reCAPTCHA token if enabled (fail fast before expensive operations)
     // ============================================================================
-    await this.helpers.validateRecaptchaIfNeeded(dto.recaptchaToken, clientInfo.ipAddress);
+    await this.helpers.validateRecaptchaIfNeeded(dto.recaptchaToken, clientInfo.ipAddress, 'signup');
 
     // Check if signup is enabled
     if (this.config.signup?.enabled === false) {
@@ -488,7 +488,7 @@ export class AuthService {
     // ============================================================================
     // Validate reCAPTCHA token if enabled (fail fast before expensive operations)
     // ============================================================================
-    await this.helpers.validateRecaptchaIfNeeded(dto.recaptchaToken, clientInfo.ipAddress);
+    await this.helpers.validateRecaptchaIfNeeded(dto.recaptchaToken, clientInfo.ipAddress, 'login');
 
     // Check IP-based account lockout
     if (this.config.lockout?.enabled) {

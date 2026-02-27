@@ -32,6 +32,44 @@ export interface RecaptchaProvider {
    * ```
    */
   verify(token: string, remoteIp?: string, action?: string): Promise<RecaptchaVerificationResult>;
+
+  /**
+   * Validate provider configuration at startup
+   *
+   * Makes a lightweight probe request to Google's API to verify that
+   * credentials are correct and the API is reachable. Uses a known-bad
+   * token so no real assessment is created.
+   *
+   * This method is optional. If not implemented, startup validation
+   * is skipped for this provider.
+   *
+   * @returns Validation result with actionable error messages
+   */
+  validateConfig?(): Promise<RecaptchaValidationResult>;
+}
+
+/**
+ * Result of startup configuration validation
+ *
+ * Returned by `validateConfig()` to indicate whether the provider's
+ * credentials and API connectivity are correctly configured.
+ */
+export interface RecaptchaValidationResult {
+  /** Whether the configuration is valid and the API is reachable */
+  valid: boolean;
+
+  /** Human-readable message describing the validation outcome */
+  message: string;
+
+  /**
+   * Actionable hint for fixing the issue (only present when valid is false)
+   *
+   * @example 'Enable the reCAPTCHA Enterprise API at https://console.cloud.google.com/apis/library/recaptchaenterprise.googleapis.com'
+   */
+  hint?: string;
+
+  /** HTTP status code from the probe request (useful for debugging in logs) */
+  httpStatus?: number;
 }
 
 /**

@@ -76,6 +76,20 @@ async verify(token: string, remoteIp?: string, action?: string): Promise<Recaptc
 
 - `RecaptchaVerificationResult` - Verification result with score and risk analysis
 
+### validateConfig()
+
+Validate provider credentials at startup by sending a probe request to Google's API.
+
+```typescript
+async validateConfig(): Promise<RecaptchaValidationResult>
+```
+
+**Returns**
+
+- `RecaptchaValidationResult` - `{ valid, message, hint?, httpStatus? }`
+
+Called automatically during `NAuth.create()` when [`validateOnStartup`](../../core/interfaces/recaptcha-config) is `'warn'` (default) or `'error'`. Detects invalid API keys, wrong project IDs, disabled APIs, and bad site keys with actionable error messages.
+
 ## Example
 
 <Tabs groupId="platform">
@@ -95,7 +109,11 @@ import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
           apiKey: process.env.RECAPTCHA_API_KEY!,
           siteKey: process.env.RECAPTCHA_SITE_KEY!,
         }),
-        minimumScore: 0.7, // Stricter for enterprise
+        minimumScore: 0.7,
+        actionScores: {
+          login: 0.3,   // More permissive for returning users
+          signup: 0.7,  // Stricter for new registrations
+        },
       },
     }),
   ],
@@ -121,6 +139,10 @@ const nauth = await NAuth.create({
         siteKey: process.env.RECAPTCHA_SITE_KEY!,
       }),
       minimumScore: 0.7,
+      actionScores: {
+        login: 0.3,
+        signup: 0.7,
+      },
     },
   },
   dataSource,
@@ -146,6 +168,10 @@ const nauth = await NAuth.create({
         siteKey: process.env.RECAPTCHA_SITE_KEY!,
       }),
       minimumScore: 0.7,
+      actionScores: {
+        login: 0.3,
+        signup: 0.7,
+      },
     },
   },
   dataSource,

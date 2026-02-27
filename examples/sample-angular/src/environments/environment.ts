@@ -8,13 +8,13 @@ import type { Environment } from './environment.interface';
  */
 export const environment: Environment = {
   production: false,
-  apiBaseUrl: 'https://api.angular.dev1.noorix.com',
-  /** reCAPTCHA site key (optional). v3: google.com/recaptcha/admin; Enterprise: Cloud Console key. */
-  recaptchaSiteKey: '6LdyF_QrAAAAAPDfa6WBRZmNUFpibwMHuqxMV2NW',
-  /** 'v3' or 'enterprise'. Must match backend. Default 'enterprise' when using Enterprise keys. */
+  apiBaseUrl: 'https://api.angular.dev1.noorix.com/api',
+  /** reCAPTCHA Enterprise site key from Google Cloud Console. */
+  recaptchaSiteKey: '6Lee8HgsAAAAADZde5RWVooDqechhjxw2PXGtZo_',
+  /** 'v3' or 'enterprise'. Must match backend. */
   recaptchaVersion: 'enterprise',
-  tokenMode: 'json',
-  recaptchaEnabled: false,
+  tokenMode: 'cookies',
+  recaptchaEnabled: true,
   showAppleLogin: true,
   showFacebookLogin: true,
 };

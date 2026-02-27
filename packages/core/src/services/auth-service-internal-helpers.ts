@@ -1373,6 +1373,7 @@ export class AuthServiceInternalHelpers {
    *
    * @param token - reCAPTCHA token from client (optional)
    * @param clientIp - Client IP address for validation (optional)
+   * @param action - Action name for verification and per-action score lookup (e.g., 'login', 'signup')
    *
    * @throws {NAuthException} RECAPTCHA_REQUIRED - Token required but not provided
    * @throws {NAuthException} RECAPTCHA_PROVIDER_MISSING - Provider not configured
@@ -1387,10 +1388,10 @@ export class AuthServiceInternalHelpers {
    * async login(@Body() dto: LoginDTO) { ... }
    *
    * // In AuthService.login():
-   * await this.helpers.validateRecaptchaIfNeeded(dto.recaptchaToken, clientInfo.ipAddress);
+   * await this.helpers.validateRecaptchaIfNeeded(dto.recaptchaToken, clientInfo.ipAddress, 'login');
    * ```
    */
-  async validateRecaptchaIfNeeded(token: string | undefined, clientIp?: string): Promise<void> {
+  async validateRecaptchaIfNeeded(token: string | undefined, clientIp?: string, action?: string): Promise<void> {
     const recaptchaConfig = this.config.recaptcha;
 
     // Skip if reCAPTCHA not enabled
@@ -1412,7 +1413,7 @@ export class AuthServiceInternalHelpers {
       throw new NAuthException(AuthErrorCode.RECAPTCHA_REQUIRED, 'reCAPTCHA token is required');
     }
 
-    await this.verifyRecaptchaToken(token, clientIp);
+    await this.verifyRecaptchaToken(token, clientIp, action);
   }
 
   /**
@@ -1420,12 +1421,13 @@ export class AuthServiceInternalHelpers {
    *
    * @param token - reCAPTCHA token from client
    * @param clientIp - Client IP address (optional but recommended)
+   * @param action - Action name for Enterprise expectedAction validation and per-action score lookup
    *
    * @throws {NAuthException} RECAPTCHA_PROVIDER_MISSING - Provider not configured
    * @throws {NAuthException} RECAPTCHA_VALIDATION_FAILED - Token validation failed
    * @throws {NAuthException} RECAPTCHA_SCORE_TOO_LOW - Score below minimum (v3/Enterprise)
    */
-  private async verifyRecaptchaToken(token: string, clientIp?: string): Promise<void> {
+  private async verifyRecaptchaToken(token: string, clientIp?: string, action?: string): Promise<void> {
     const recaptchaConfig = this.config.recaptcha;
 
     if (!recaptchaConfig?.provider) {
@@ -1433,8 +1435,8 @@ export class AuthServiceInternalHelpers {
     }
 
     try {
-      // Call provider to verify token with Google
-      const result = await recaptchaConfig.provider.verify(token, clientIp);
+      // Call provider to verify token with Google (pass action for Enterprise expectedAction validation)
+      const result = await recaptchaConfig.provider.verify(token, clientIp, action);
 
       // Check if verification succeeded
       if (!result.success) {
@@ -1446,9 +1448,14 @@ export class AuthServiceInternalHelpers {
 
       // Check score for v3/Enterprise (score is only present for v3/Enterprise)
       if (result.score !== undefined) {
-        const minimumScore = recaptchaConfig.minimumScore ?? 0.5;
+        // Resolve the effective action name (prefer explicit action, fall back to result action from Google)
+        const effectiveAction = action || result.action;
 
-        this.logger?.debug?.(`reCAPTCHA score: ${result.score} (minimum: ${minimumScore})`);
+        // Look up per-action score override, fall back to global minimumScore, then default 0.5
+        const actionScore = effectiveAction ? recaptchaConfig.actionScores?.[effectiveAction] : undefined;
+        const minimumScore = actionScore ?? recaptchaConfig.minimumScore ?? 0.5;
+
+        this.logger?.debug?.(`reCAPTCHA score: ${result.score} (minimum: ${minimumScore}, action: ${effectiveAction || 'unknown'})`);
 
         if (result.score < minimumScore) {
           this.logger?.warn?.(
@@ -1462,7 +1469,7 @@ export class AuthServiceInternalHelpers {
       }
 
       this.logger?.debug?.(
-        `reCAPTCHA validation successful${result.score ? ` (score: ${result.score})` : ''} for action: ${result.action || 'unknown'}`,
+        `reCAPTCHA validation successful${result.score ? ` (score: ${result.score})` : ''} for action: ${action || result.action || 'unknown'}`,
       );
     } catch (error: unknown) {
       // If it's already a NAuthException, re-throw it

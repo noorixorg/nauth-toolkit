@@ -68,21 +68,16 @@ export class AuthController {
 <TabItem value="express" label="Express">
 
 ```typescript
-import { Router } from 'express';
-import { NAuthInstance, ExpressMiddlewareType, RequestHandler } from '@nauth-toolkit/core';
-import { SignupDTO } from '@nauth-toolkit/core';
+import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
+import { NAuthInstance, ExpressMiddlewareType } from '@nauth-toolkit/core';
 
 export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, RequestHandler>): Router {
   const router = Router();
 
-  router.post('/signup', nauth.helpers.public(), async (req, res, next) => {
+  router.post('/signup', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const dto = Object.assign(new SignupDTO(), req.body);
-      const result = await nauth.authService.signup(dto);
-      res.status(201).json(result);
-    } catch (error) {
-      next(error);
-    }
+      res.status(201).json(await nauth.authService.signup(req.body));
+    } catch (err) { next(err); }
   });
 
   return router;
@@ -95,16 +90,14 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
 ```typescript
 import { FastifyInstance } from 'fastify';
 import { NAuthInstance } from '@nauth-toolkit/core';
-import { SignupDTO } from '@nauth-toolkit/core';
 
-export async function createAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<any, any>): Promise<void> {
+export async function registerAuthRoutes(fastify: FastifyInstance, nauth: NAuthInstance<any, any>): Promise<void> {
   fastify.post(
     '/signup',
-    { preHandler: nauth.helpers.public() as any },
-    nauth.adapter.wrapRouteHandler(async (req) => {
-      const dto = Object.assign(new SignupDTO(), req.body);
-      return nauth.authService.signup(dto);
-    }),
+    { preHandler: [nauth.helpers.public()] },
+    nauth.adapter.wrapRouteHandler(async (req, res) => {
+      res.status(201).json(await nauth.authService.signup(req.body as any));
+    }) as any
   );
 }
 ```
@@ -155,14 +148,10 @@ export class AuthController {
 <TabItem value="express" label="Express">
 
 ```typescript
-router.post('/login', nauth.helpers.public(), async (req, res, next) => {
+router.post('/login', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const dto = Object.assign(new LoginDTO(), req.body);
-    const result = await nauth.authService.login(dto);
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
+    res.json(await nauth.authService.login(req.body));
+  } catch (err) { next(err); }
 });
 ```
 
@@ -172,11 +161,10 @@ router.post('/login', nauth.helpers.public(), async (req, res, next) => {
 ```typescript
 fastify.post(
   '/login',
-  { preHandler: nauth.helpers.public() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    const dto = Object.assign(new LoginDTO(), req.body);
-    return nauth.authService.login(dto);
-  }),
+  { preHandler: [nauth.helpers.public()] },
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    res.json(await nauth.authService.login(req.body as any));
+  }) as any
 );
 ```
 
@@ -224,14 +212,10 @@ export class AuthController {
 <TabItem value="express" label="Express">
 
 ```typescript
-router.post('/respond-challenge', nauth.helpers.public(), async (req, res, next) => {
+router.post('/respond-challenge', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const dto = Object.assign(new RespondChallengeDTO(), req.body);
-    const result = await nauth.authService.respondToChallenge(dto);
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
+    res.json(await nauth.authService.respondToChallenge(req.body));
+  } catch (err) { next(err); }
 });
 ```
 
@@ -241,11 +225,10 @@ router.post('/respond-challenge', nauth.helpers.public(), async (req, res, next)
 ```typescript
 fastify.post(
   '/respond-challenge',
-  { preHandler: nauth.helpers.public() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    const dto = Object.assign(new RespondChallengeDTO(), req.body);
-    return nauth.authService.respondToChallenge(dto);
-  }),
+  { preHandler: [nauth.helpers.public()] },
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    res.json(await nauth.authService.respondToChallenge(req.body as any));
+  }) as any
 );
 ```
 
@@ -316,7 +299,7 @@ Issues a new access token using a valid refresh token.
 ```typescript
 import { Controller, Post, Body, HttpCode, HttpStatus, Req } from '@nestjs/common';
 import { AuthService, RefreshTokenDTO, TokenResponse, Public } from '@nauth-toolkit/nestjs';
-import type { FastifyRequest } from 'fastify';
+import type { Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -325,20 +308,12 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(
-    @Body() body: { refreshToken?: string },
-    @Req() req: FastifyRequest & { cookies?: Record<string, string> },
-  ): Promise<TokenResponse> {
-    const token =
-      body?.refreshToken && body.refreshToken.trim() !== '' ? body.refreshToken : req?.cookies?.['nauth_refresh_token'];
-
-    if (!token) {
-      throw new BadRequestException('Refresh token is required');
+  async refresh(@Body() dto: RefreshTokenDTO | undefined, @Req() req: Request): Promise<TokenResponse> {
+    const dtoToUse: RefreshTokenDTO = dto ?? ({} as RefreshTokenDTO);
+    if (!dtoToUse.refreshToken) {
+      dtoToUse.refreshToken = req?.cookies?.['nauth_refresh_token'];
     }
-
-    const dto = new RefreshTokenDTO();
-    dto.refreshToken = token;
-    return await this.authService.refreshToken(dto);
+    return await this.authService.refreshToken(dtoToUse);
   }
 }
 ```
@@ -347,20 +322,11 @@ export class AuthController {
 <TabItem value="express" label="Express">
 
 ```typescript
-router.post('/refresh', nauth.helpers.public(), async (req, res, next) => {
+router.post('/refresh', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const token = req.body?.refreshToken || req.cookies?.['nauth_refresh_token'];
-    if (!token) {
-      return res.status(400).json({ error: 'Refresh token is required' });
-    }
-
-    const dto = new RefreshTokenDTO();
-    dto.refreshToken = token;
-    const result = await nauth.authService.refreshToken(dto);
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
+    const token = req.body?.refreshToken?.trim() || req.cookies?.['nauth_refresh_token'];
+    res.json(await nauth.authService.refreshToken({ refreshToken: token }));
+  } catch (err) { next(err); }
 });
 ```
 
@@ -370,17 +336,11 @@ router.post('/refresh', nauth.helpers.public(), async (req, res, next) => {
 ```typescript
 fastify.post(
   '/refresh',
-  { preHandler: nauth.helpers.public() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    const token = (req.body as any)?.refreshToken || req.cookies?.['nauth_refresh_token'];
-    if (!token) {
-      throw new BadRequestException('Refresh token is required');
-    }
-
-    const dto = new RefreshTokenDTO();
-    dto.refreshToken = token;
-    return nauth.authService.refreshToken(dto);
-  }),
+  { preHandler: [nauth.helpers.public()] },
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    const token = (req.body as { refreshToken?: string })?.refreshToken?.trim() || req.cookies?.['nauth_refresh_token'];
+    res.json(await nauth.authService.refreshToken({ refreshToken: token }));
+  }) as any
 );
 ```
 
@@ -401,15 +361,14 @@ See [Token Delivery](/docs/concepts/token-management) for token rotation details
 
 ### Logout
 
-Revokes the current session and clears authentication cookies.
+Revokes the current session and clears authentication cookies. User identity is automatically resolved from the JWT context.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
 import { Controller, Get, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
-import { AuthService, LogoutDTO, AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
-import type { IUser } from '@nauth-toolkit/nestjs';
+import { AuthService, LogoutDTO, LogoutResponseDTO, AuthGuard } from '@nauth-toolkit/nestjs';
 
 @Controller('auth')
 export class AuthController {
@@ -418,15 +377,8 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @Get('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@CurrentUser() user: IUser, @Query('forgetMe') forgetMe?: string): Promise<{ message: string }> {
-    const dto = new LogoutDTO();
-    dto.sub = user.sub;
-    if (forgetMe === 'true' || forgetMe === '1') {
-      dto.forgetMe = true;
-    }
-
-    await this.authService.logout(dto);
-    return { message: 'Logged out successfully' };
+  async logout(@Query() dto: LogoutDTO): Promise<LogoutResponseDTO> {
+    return await this.authService.logout(dto);
   }
 }
 ```
@@ -435,24 +387,10 @@ export class AuthController {
 <TabItem value="express" label="Express">
 
 ```typescript
-router.get('/logout', nauth.helpers.requireAuth({ csrf: false }), async (req, res, next) => {
+router.get('/logout', nauth.helpers.requireAuth({ csrf: false }), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const user = nauth.helpers.getCurrentUser();
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const dto = new LogoutDTO();
-    dto.sub = user.sub;
-    if (req.query.forgetMe === 'true') {
-      dto.forgetMe = true;
-    }
-
-    await nauth.authService.logout(dto);
-    res.json({ message: 'Logged out successfully' });
-  } catch (error) {
-    next(error);
-  }
+    res.json(await nauth.authService.logout(req.query));
+  } catch (err) { next(err); }
 });
 ```
 
@@ -462,22 +400,10 @@ router.get('/logout', nauth.helpers.requireAuth({ csrf: false }), async (req, re
 ```typescript
 fastify.get(
   '/logout',
-  { preHandler: nauth.helpers.requireAuth({ csrf: false }) as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    const user = nauth.helpers.getCurrentUser();
-    if (!user) {
-      throw new UnauthorizedException('Unauthorized');
-    }
-
-    const dto = new LogoutDTO();
-    dto.sub = user.sub;
-    if ((req.query as any)?.forgetMe === 'true') {
-      dto.forgetMe = true;
-    }
-
-    await nauth.authService.logout(dto);
-    return { message: 'Logged out successfully' };
-  }),
+  { preHandler: [nauth.helpers.requireAuth({ csrf: false })] },
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    res.json(await nauth.authService.logout(req.query as any));
+  }) as any
 );
 ```
 
@@ -490,11 +416,11 @@ fastify.get(
 
 - `forgetMe` (optional) - If `true`, untrusts the device
 
-**Response:**
+**Response:** [`LogoutResponseDTO`](/docs/api/core/dto/logout-dto)
 
 ```json
 {
-  "message": "Logged out successfully"
+  "success": true
 }
 ```
 
@@ -509,7 +435,7 @@ Allows authenticated users to change their password.
 
 ```typescript
 import { Controller, Post, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
-import { AuthService, ChangePasswordDTO, AuthGuard } from '@nauth-toolkit/nestjs';
+import { AuthService, ChangePasswordDTO, ChangePasswordResponseDTO, AuthGuard } from '@nauth-toolkit/nestjs';
 
 @Controller('auth')
 export class AuthController {
@@ -518,13 +444,8 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @Post('change-password')
   @HttpCode(HttpStatus.OK)
-  async changePassword(@Body() body: { oldPassword: string; newPassword: string }): Promise<{ message: string }> {
-    const dto = new ChangePasswordDTO();
-    dto.oldPassword = body.oldPassword;
-    dto.newPassword = body.newPassword;
-
-    await this.authService.changePassword(dto);
-    return { message: 'Password changed successfully' };
+  async changePassword(@Body() dto: ChangePasswordDTO): Promise<ChangePasswordResponseDTO> {
+    return await this.authService.changePassword(dto);
   }
 }
 ```
@@ -533,22 +454,10 @@ export class AuthController {
 <TabItem value="express" label="Express">
 
 ```typescript
-router.post('/change-password', nauth.helpers.requireAuth(), async (req, res, next) => {
+router.post('/change-password', nauth.helpers.requireAuth(), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const user = nauth.helpers.getCurrentUser();
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    const dto = new ChangePasswordDTO();
-    dto.oldPassword = req.body.oldPassword;
-    dto.newPassword = req.body.newPassword;
-
-    await nauth.authService.changePassword(dto);
-    res.json({ message: 'Password changed successfully' });
-  } catch (error) {
-    next(error);
-  }
+    res.json(await nauth.authService.changePassword(req.body));
+  } catch (err) { next(err); }
 });
 ```
 
@@ -558,20 +467,10 @@ router.post('/change-password', nauth.helpers.requireAuth(), async (req, res, ne
 ```typescript
 fastify.post(
   '/change-password',
-  { preHandler: nauth.helpers.requireAuth() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    const user = nauth.helpers.getCurrentUser();
-    if (!user) {
-      throw new UnauthorizedException('Unauthorized');
-    }
-
-    const dto = new ChangePasswordDTO();
-    dto.oldPassword = (req.body as any).oldPassword;
-    dto.newPassword = (req.body as any).newPassword;
-
-    await nauth.authService.changePassword(dto);
-    return { message: 'Password changed successfully' };
-  }),
+  { preHandler: [nauth.helpers.requireAuth()] },
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    res.json(await nauth.authService.changePassword(req.body as any));
+  }) as any
 );
 ```
 
@@ -587,9 +486,17 @@ fastify.post(
 }
 ```
 
+**Response:** [`ChangePasswordResponseDTO`](/docs/api/core/dto/change-password-dto)
+
+```json
+{
+  "success": true
+}
+```
+
 ### Forgot Password
 
-Request a password reset code via email or SMS.
+Request a password reset code via email or SMS. The `baseUrl` field is used by the toolkit to construct the reset link in the email.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
@@ -606,6 +513,7 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   async forgotPassword(@Body() dto: ForgotPasswordDTO): Promise<ForgotPasswordResponseDTO> {
+    dto.baseUrl = `${process.env.FRONTEND_BASE_URL || 'http://localhost:4200'}/auth/reset-password`;
     return await this.authService.forgotPassword(dto);
   }
 }
@@ -615,14 +523,10 @@ export class AuthController {
 <TabItem value="express" label="Express">
 
 ```typescript
-router.post('/forgot-password', nauth.helpers.public(), async (req, res, next) => {
+router.post('/forgot-password', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const dto = Object.assign(new ForgotPasswordDTO(), req.body);
-    const result = await nauth.authService.forgotPassword(dto);
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
+    res.json(await nauth.authService.forgotPassword({ ...req.body, baseUrl: 'https://localhost:4200' }));
+  } catch (err) { next(err); }
 });
 ```
 
@@ -632,11 +536,10 @@ router.post('/forgot-password', nauth.helpers.public(), async (req, res, next) =
 ```typescript
 fastify.post(
   '/forgot-password',
-  { preHandler: nauth.helpers.public() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    const dto = Object.assign(new ForgotPasswordDTO(), req.body);
-    return nauth.authService.forgotPassword(dto);
-  }),
+  { preHandler: [nauth.helpers.public()] },
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    res.json(await nauth.authService.forgotPassword({ ...(req.body as object), baseUrl: 'https://localhost:4200' } as any));
+  }) as any
 );
 ```
 
@@ -681,14 +584,10 @@ export class AuthController {
 <TabItem value="express" label="Express">
 
 ```typescript
-router.post('/forgot-password/confirm', nauth.helpers.public(), async (req, res, next) => {
+router.post('/forgot-password/confirm', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const dto = Object.assign(new ConfirmForgotPasswordDTO(), req.body);
-    const result = await nauth.authService.confirmForgotPassword(dto);
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
+    res.json(await nauth.authService.confirmForgotPassword(req.body));
+  } catch (err) { next(err); }
 });
 ```
 
@@ -698,11 +597,10 @@ router.post('/forgot-password/confirm', nauth.helpers.public(), async (req, res,
 ```typescript
 fastify.post(
   '/forgot-password/confirm',
-  { preHandler: nauth.helpers.public() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    const dto = Object.assign(new ConfirmForgotPasswordDTO(), req.body);
-    return nauth.authService.confirmForgotPassword(dto);
-  }),
+  { preHandler: [nauth.helpers.public()] },
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    res.json(await nauth.authService.confirmForgotPassword(req.body as any));
+  }) as any
 );
 ```
 
@@ -729,17 +627,23 @@ Get MFA setup data during `MFA_SETUP_REQUIRED` challenge.
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Inject, BadRequestException } from '@nestjs/common';
 import { MFAService, GetSetupDataDTO, GetSetupDataResponseDTO, Public } from '@nauth-toolkit/nestjs';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly mfaService: MFAService) {}
+  constructor(
+    @Inject(MFAService)
+    private readonly mfaService?: MFAService,
+  ) {}
 
   @Public()
   @Post('challenge/setup-data')
   @HttpCode(HttpStatus.OK)
   async getSetupData(@Body() dto: GetSetupDataDTO): Promise<GetSetupDataResponseDTO> {
+    if (!this.mfaService) {
+      throw new BadRequestException('MFA service is not available');
+    }
     return await this.mfaService.getSetupData(dto);
   }
 }
@@ -749,18 +653,10 @@ export class AuthController {
 <TabItem value="express" label="Express">
 
 ```typescript
-router.post('/challenge/setup-data', nauth.helpers.public(), async (req, res, next) => {
+router.post('/challenge/setup-data', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    if (!nauth.mfaService) {
-      return res.status(400).json({ error: 'MFA service is not available' });
-    }
-
-    const dto = Object.assign(new GetSetupDataDTO(), req.body);
-    const result = await nauth.mfaService.getSetupData(dto);
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
+    res.json(await nauth.mfaService!.getSetupData(req.body));
+  } catch (err) { next(err); }
 });
 ```
 
@@ -770,15 +666,10 @@ router.post('/challenge/setup-data', nauth.helpers.public(), async (req, res, ne
 ```typescript
 fastify.post(
   '/challenge/setup-data',
-  { preHandler: nauth.helpers.public() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    if (!nauth.mfaService) {
-      throw new BadRequestException('MFA service is not available');
-    }
-
-    const dto = Object.assign(new GetSetupDataDTO(), req.body);
-    return nauth.mfaService.getSetupData(dto);
-  }),
+  { preHandler: [nauth.helpers.public()] },
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    res.json(await nauth.mfaService!.getSetupData(req.body as any));
+  }) as any
 );
 ```
 
@@ -807,7 +698,7 @@ Resend verification code for the current challenge.
 
 ```typescript
 import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { AuthService, ResendCodeDTO, Public } from '@nauth-toolkit/nestjs';
+import { AuthService, ResendCodeDTO, ResendCodeResponseDTO, Public } from '@nauth-toolkit/nestjs';
 
 @Controller('auth')
 export class AuthController {
@@ -816,7 +707,7 @@ export class AuthController {
   @Public()
   @Post('challenge/resend')
   @HttpCode(HttpStatus.OK)
-  async resendCode(@Body() dto: ResendCodeDTO): Promise<{ destination: string }> {
+  async resendCode(@Body() dto: ResendCodeDTO): Promise<ResendCodeResponseDTO> {
     return await this.authService.resendCode(dto);
   }
 }
@@ -826,14 +717,10 @@ export class AuthController {
 <TabItem value="express" label="Express">
 
 ```typescript
-router.post('/challenge/resend', nauth.helpers.public(), async (req, res, next) => {
+router.post('/challenge/resend', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const dto = Object.assign(new ResendCodeDTO(), req.body);
-    const result = await nauth.authService.resendCode(dto);
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
+    res.json(await nauth.authService.resendCode(req.body));
+  } catch (err) { next(err); }
 });
 ```
 
@@ -843,11 +730,10 @@ router.post('/challenge/resend', nauth.helpers.public(), async (req, res, next) 
 ```typescript
 fastify.post(
   '/challenge/resend',
-  { preHandler: nauth.helpers.public() as any },
-  nauth.adapter.wrapRouteHandler(async (req) => {
-    const dto = Object.assign(new ResendCodeDTO(), req.body);
-    return nauth.authService.resendCode(dto);
-  }),
+  { preHandler: [nauth.helpers.public()] },
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    res.json(await nauth.authService.resendCode(req.body as any));
+  }) as any
 );
 ```
 
@@ -862,7 +748,7 @@ fastify.post(
 }
 ```
 
-**Response:**
+**Response:** [`ResendCodeResponseDTO`](/docs/api/core/dto/resend-code-dto)
 
 ```json
 {
@@ -881,8 +767,7 @@ Get MFA configuration status for the current user.
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { MFAService, AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
-import type { IUser } from '@nauth-toolkit/nestjs';
+import { MFAService, AuthGuard } from '@nauth-toolkit/nestjs';
 
 @Controller('auth')
 export class AuthController {
@@ -900,17 +785,10 @@ export class AuthController {
 <TabItem value="express" label="Express">
 
 ```typescript
-router.get('/mfa/status', nauth.helpers.requireAuth(), async (req, res, next) => {
+router.get('/mfa/status', nauth.helpers.requireAuth(), async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    if (!nauth.mfaService) {
-      return res.status(400).json({ error: 'MFA service is not available' });
-    }
-
-    const status = await nauth.mfaService.getMfaStatus();
-    res.json(status);
-  } catch (error) {
-    next(error);
-  }
+    res.json(await nauth.mfaService!.getMfaStatus());
+  } catch (err) { next(err); }
 });
 ```
 
@@ -920,14 +798,10 @@ router.get('/mfa/status', nauth.helpers.requireAuth(), async (req, res, next) =>
 ```typescript
 fastify.get(
   '/mfa/status',
-  { preHandler: nauth.helpers.requireAuth() as any },
-  nauth.adapter.wrapRouteHandler(async () => {
-    if (!nauth.mfaService) {
-      throw new BadRequestException('MFA service is not available');
-    }
-
-    return nauth.mfaService.getMfaStatus();
-  }),
+  { preHandler: [nauth.helpers.requireAuth()] },
+  nauth.adapter.wrapRouteHandler(async (_req, res) => {
+    res.json(await nauth.mfaService!.getMfaStatus());
+  }) as any
 );
 ```
 
@@ -961,16 +835,22 @@ Redirect-first social login. The backend owns the OAuth callback, sets cookies (
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-import { StartSocialRedirectQueryDTO, StartSocialRedirectResponseDTO } from '@nauth-toolkit/nestjs';
+import { Controller, Get, Param, Query, Redirect } from '@nestjs/common';
+import { Public, SocialRedirectHandler, StartSocialRedirectQueryDTO, StartSocialRedirectResponseDTO } from '@nauth-toolkit/nestjs';
 
-@Public()
-@Redirect()
-@Get('social/:provider/redirect')
-async start(
-  @Param('provider') provider: string,
-  @Query() dto: StartSocialRedirectQueryDTO,
-): Promise<StartSocialRedirectResponseDTO> {
-  return await this.socialRedirect.start(provider, dto);
+@Controller('auth/social')
+export class SocialRedirectController {
+  constructor(private readonly socialRedirect: SocialRedirectHandler) {}
+
+  @Public()
+  @Redirect()
+  @Get(':provider/redirect')
+  async start(
+    @Param('provider') provider: string,
+    @Query() dto: StartSocialRedirectQueryDTO,
+  ): Promise<StartSocialRedirectResponseDTO> {
+    return await this.socialRedirect.start(provider, dto);
+  }
 }
 ```
 
@@ -978,18 +858,12 @@ async start(
 <TabItem value="express" label="Express">
 
 ```typescript
-router.get('/social/:provider/redirect', async (req, res, next) => {
+// socialRedirect is an instance of SocialRedirectHandler, passed to your route factory
+router.get('/:provider/redirect', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const provider = req.params.provider;
-    const dto = {
-      returnTo: typeof req.query.returnTo === 'string' ? req.query.returnTo : undefined,
-      appState: typeof req.query.appState === 'string' ? req.query.appState : undefined,
-    };
-    const out = await socialRedirect.start(provider, dto);
-    res.redirect(302, out.url);
-  } catch (e) {
-    next(e);
-  }
+    const { url } = await socialRedirect.start(req.params.provider, req.query);
+    res.redirect(url);
+  } catch (err) { next(err); }
 });
 ```
 
@@ -997,16 +871,16 @@ router.get('/social/:provider/redirect', async (req, res, next) => {
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-fastify.get('/social/:provider/redirect', async (req, reply) => {
-  const q = req.query as Record<string, unknown>;
-  const provider = (req.params as { provider: string }).provider;
-  const dto = {
-    returnTo: typeof q.returnTo === 'string' ? q.returnTo : undefined,
-    appState: typeof q.appState === 'string' ? q.appState : undefined,
-  };
-  const out = await socialRedirect.start(provider, dto);
-  return reply.redirect(302, out.url);
-});
+// socialRedirect is an instance of SocialRedirectHandler, passed to your route factory
+fastify.get(
+  '/social/:provider/redirect',
+  { preHandler: [nauth.helpers.public()] },
+  nauth.adapter.wrapRouteHandler(async (req, res) => {
+    const params = req.params as { provider: string };
+    const { url } = await socialRedirect.start(params.provider, req.query);
+    (res.raw as any).redirect(url, 302);
+  }) as any
+);
 ```
 
 </TabItem>
@@ -1029,8 +903,8 @@ Backend responds with:
 The handler reads delivery and deviceToken from ContextStorage and applies cookies via `HTTP_RESPONSE`. The controller only passes provider and DTO.
 
 ```typescript
-import { Controller, Get, Param, Query, Redirect } from '@nestjs/common';
-import { Public, SocialRedirectHandler, SocialCallbackQueryDTO, SocialRedirectCallbackResponseDTO } from '@nauth-toolkit/nestjs';
+import { Controller, Get, Post, Param, Query, Body, Redirect } from '@nestjs/common';
+import { Public, SocialRedirectHandler, SocialCallbackQueryDTO, SocialCallbackFormDTO, SocialRedirectCallbackResponseDTO } from '@nauth-toolkit/nestjs';
 
 @Controller('auth/social')
 export class SocialRedirectController {
@@ -1042,6 +916,16 @@ export class SocialRedirectController {
   async callbackGet(
     @Param('provider') provider: string,
     @Query() dto: SocialCallbackQueryDTO,
+  ): Promise<SocialRedirectCallbackResponseDTO> {
+    return await this.socialRedirect.callback(provider, dto);
+  }
+
+  @Public()
+  @Redirect()
+  @Post(':provider/callback')
+  async callbackPost(
+    @Param('provider') provider: string,
+    @Body() dto: SocialCallbackFormDTO,
   ): Promise<SocialRedirectCallbackResponseDTO> {
     return await this.socialRedirect.callback(provider, dto);
   }
@@ -1062,22 +946,22 @@ Response: [`AuthResponseDTO`](/docs/api/core/dto/auth-response-dto)
 
 ### Get Current User
 
-Get the authenticated user's profile.
+Get the authenticated user's profile. Use `UserResponseDTO.fromEntity()` to sanitize the response and exclude sensitive fields like password hashes.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser } from '@nauth-toolkit/nestjs';
+import { AuthGuard, CurrentUser, UserResponseDTO } from '@nauth-toolkit/nestjs';
 import type { IUser } from '@nauth-toolkit/nestjs';
 
 @Controller('auth')
 export class AuthController {
   @UseGuards(AuthGuard)
   @Get('profile')
-  async getProfile(@CurrentUser() user: IUser): Promise<IUser> {
-    return user;
+  async getProfile(@CurrentUser() user: IUser): Promise<UserResponseDTO> {
+    return UserResponseDTO.fromEntity(user);
   }
 }
 ```
@@ -1086,9 +970,13 @@ export class AuthController {
 <TabItem value="express" label="Express">
 
 ```typescript
-router.get('/profile', nauth.helpers.requireAuth(), (req, res) => {
-  const user = nauth.helpers.getCurrentUser();
-  res.json(user);
+import { IUser, UserResponseDTO } from '@nauth-toolkit/core';
+
+router.get('/profile', nauth.helpers.requireAuth(), (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = nauth.helpers.getCurrentUser() as IUser;
+    res.json(UserResponseDTO.fromEntity(user));
+  } catch (err) { next(err); }
 });
 ```
 
@@ -1096,17 +984,22 @@ router.get('/profile', nauth.helpers.requireAuth(), (req, res) => {
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
+import { IUser, UserResponseDTO } from '@nauth-toolkit/core';
+
 fastify.get(
   '/profile',
-  { preHandler: nauth.helpers.requireAuth() as any },
-  nauth.adapter.wrapRouteHandler(async () => nauth.helpers.getCurrentUser()),
+  { preHandler: [nauth.helpers.requireAuth()] },
+  nauth.adapter.wrapRouteHandler(async (_req, res) => {
+    const user = nauth.helpers.getCurrentUser() as IUser;
+    res.json(UserResponseDTO.fromEntity(user));
+  }) as any
 );
 ```
 
 </TabItem>
 </Tabs>
 
-**Response:** [`IUser`](/docs/api/core/interfaces/user) - User profile object
+**Response:** [`UserResponseDTO`](/docs/api/core/dto/user-response-dto) - Sanitized user profile
 
 ## Error Handling
 

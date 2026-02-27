@@ -400,7 +400,7 @@ fastify.post(
 ```
 
 :::warning Rate limiting
-Resend is rate-limited by `signup.emailVerification.resendDelay` (default: 60 seconds) and `rateLimitMax` (default: 3 per window). If the user hits the limit, a `429 Too Many Requests` error is returned. See [Rate Limiting](/docs/concepts/rate-limiting) for details.
+Resend is rate-limited by `signup.emailVerification.resendDelay` (default: 60 seconds) and `rateLimitMax` (default: 3 per window). If the user hits the limit, a `429 Too Many Requests` error is returned. See [Rate Limiting](/docs/guides/rate-limiting) for details.
 :::
 
 ## Login

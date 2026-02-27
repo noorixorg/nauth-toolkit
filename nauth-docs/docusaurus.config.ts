@@ -57,7 +57,24 @@ const config: Config = {
           createSitemapItems: async (params) => {
             const { defaultCreateSitemapItems, ...rest } = params;
             const items = await defaultCreateSitemapItems(rest);
-            return items.filter((item) => !item.url.includes('/page/'));
+            return items
+              .filter((item) => !item.url.includes('/page/'))
+              .map((item) => {
+                const url = item.url;
+                if (url.match(/\/(docs\/quick-start|docs\/guides|docs\/concepts|docs\/features)\//)) {
+                  return { ...item, priority: 0.8 };
+                }
+                if (url.match(/\/docs\/api\/(core\/(dto|entities|enums)|.*\/dto)\//)) {
+                  return { ...item, priority: 0.4 };
+                }
+                if (url.match(/\/docs\/(api|frontend-sdk)\//)) {
+                  return { ...item, priority: 0.6 };
+                }
+                if (url === 'https://nauth.dev/' || url.endsWith('/docs/intro')) {
+                  return { ...item, priority: 0.9 };
+                }
+                return item;
+              });
           },
         },
         docs: {
@@ -66,7 +83,7 @@ const config: Config = {
           routeBasePath: 'docs', // Base URL for docs
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
-          showLastUpdateTime: false,
+          showLastUpdateTime: true,
           showLastUpdateAuthor: false,
         },
 

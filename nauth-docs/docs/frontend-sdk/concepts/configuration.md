@@ -145,13 +145,13 @@ When your backend enforces reCAPTCHA (e.g., for login/signup), configure the cli
     enabled: true,
     version: 'enterprise',        // 'v2' | 'v3' | 'enterprise' - must match backend
     siteKey: '6Le...your-site-key',
-    action: 'login',              // Optional: action name for v3/Enterprise
+    action: 'submit',             // Optional: fallback action. Angular SDK auto-passes 'login'/'signup' per-endpoint.
     autoLoadScript: true,         // Optional: preload script at startup (default: true for v3/Enterprise)
   },
 }
 ```
 
-- **Angular**: Use `provideRecaptcha({ enabled, version, siteKey, action })` from `@nauth-toolkit/client-angular` in addition to `recaptcha` in `NAUTH_CLIENT_CONFIG`. The SDK auto-generates and attaches tokens for v3/Enterprise.
+- **Angular**: Use `provideRecaptcha({ enabled, version, siteKey })` from `@nauth-toolkit/client-angular` in addition to `recaptcha` in `NAUTH_CLIENT_CONFIG`. The SDK auto-generates and attaches tokens for v3/Enterprise, using `'login'` and `'signup'` as the action for their respective API calls.
 - **Vanilla/React/Vue**: Load the reCAPTCHA script, call `grecaptcha.execute()` (or `grecaptcha.enterprise.execute()` for Enterprise) before login/signup, and pass the token to `client.login()` / `client.signup()`.
 
 See [reCAPTCHA Guide](/docs/guides/recaptcha) and [NAuthClientConfig](../api/nauth-client-config#properties) for full options.

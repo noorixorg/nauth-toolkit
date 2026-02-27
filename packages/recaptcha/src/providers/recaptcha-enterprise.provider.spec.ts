@@ -154,4 +154,124 @@ describe('RecaptchaEnterpriseProvider', () => {
       expect(result.score).toBeUndefined();
     });
   });
+
+  describe('validateConfig', () => {
+    it('should return valid when API responds with HTTP 200', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          tokenProperties: { valid: false, invalidReason: 'INVALID' },
+          riskAnalysis: {},
+        }),
+      });
+
+      const result = await provider.validateConfig();
+
+      expect(result.valid).toBe(true);
+      expect(result.message).toContain('configuration is valid');
+      expect(result.httpStatus).toBe(200);
+    });
+
+    it('should return invalid with hint for HTTP 400 (bad site key)', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        text: async () => 'INVALID_ARGUMENT',
+      });
+
+      const result = await provider.validateConfig();
+
+      expect(result.valid).toBe(false);
+      expect(result.message).toContain('HTTP 400');
+      expect(result.message).toContain(mockConfig.siteKey);
+      expect(result.hint).toContain('console.cloud.google.com/security/recaptcha');
+      expect(result.httpStatus).toBe(400);
+    });
+
+    it('should return invalid with hint for HTTP 403 (API key or API not enabled)', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        text: async () => 'Forbidden',
+      });
+
+      const result = await provider.validateConfig();
+
+      expect(result.valid).toBe(false);
+      expect(result.message).toContain('HTTP 403');
+      expect(result.hint).toContain('recaptchaenterprise.googleapis.com');
+      expect(result.httpStatus).toBe(403);
+    });
+
+    it('should return invalid with hint for HTTP 404 (wrong project ID)', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        text: async () => 'Not Found',
+      });
+
+      const result = await provider.validateConfig();
+
+      expect(result.valid).toBe(false);
+      expect(result.message).toContain('HTTP 404');
+      expect(result.message).toContain(mockConfig.projectId);
+      expect(result.httpStatus).toBe(404);
+    });
+
+    it('should handle unexpected HTTP status codes', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        text: async () => 'Internal Server Error',
+      });
+
+      const result = await provider.validateConfig();
+
+      expect(result.valid).toBe(false);
+      expect(result.message).toContain('HTTP 500');
+      expect(result.httpStatus).toBe(500);
+    });
+
+    it('should handle network timeout', async () => {
+      const abortError = new Error('The operation was aborted');
+      abortError.name = 'AbortError';
+      (global.fetch as jest.Mock).mockRejectedValueOnce(abortError);
+
+      const result = await provider.validateConfig();
+
+      expect(result.valid).toBe(false);
+      expect(result.message).toContain('timeout');
+      expect(result.hint).toContain('network connectivity');
+    });
+
+    it('should handle network errors', async () => {
+      (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('ECONNREFUSED'));
+
+      const result = await provider.validateConfig();
+
+      expect(result.valid).toBe(false);
+      expect(result.message).toContain('Network error');
+      expect(result.message).toContain('ECONNREFUSED');
+      expect(result.hint).toContain('network connectivity');
+    });
+
+    it('should send probe token to correct endpoint', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ tokenProperties: { valid: false }, riskAnalysis: {} }),
+      });
+
+      await provider.validateConfig();
+
+      const callArgs = (global.fetch as jest.Mock).mock.calls[0];
+      expect(callArgs[0]).toContain(`projects/${mockConfig.projectId}/assessments`);
+      expect(callArgs[0]).toContain(`key=${mockConfig.apiKey}`);
+
+      const requestBody = JSON.parse(callArgs[1].body);
+      expect(requestBody.event.token).toBe('NAUTH_STARTUP_VALIDATION_PROBE');
+      expect(requestBody.event.siteKey).toBe(mockConfig.siteKey);
+    });
+  });
 });

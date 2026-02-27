@@ -130,12 +130,12 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
           score: 0.9,
         } as RecaptchaVerificationResult);
 
-        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4');
+        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4', 'login');
 
         expect(mockLogger.debug).toHaveBeenCalledWith(
           'reCAPTCHA validation required (explicit @RequireRecaptcha() decorator)',
         );
-        expect(mockRecaptchaProvider.verify).toHaveBeenCalledWith('test-token', '1.2.3.4');
+        expect(mockRecaptchaProvider.verify).toHaveBeenCalledWith('test-token', '1.2.3.4', 'login');
       });
     });
 
@@ -245,8 +245,8 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
           action: 'login',
         } as RecaptchaVerificationResult);
 
-        await expect(helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4')).rejects.toThrow(NAuthException);
-        await expect(helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4')).rejects.toMatchObject({
+        await expect(helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4', 'login')).rejects.toThrow(NAuthException);
+        await expect(helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4', 'login')).rejects.toMatchObject({
           code: AuthErrorCode.RECAPTCHA_SCORE_TOO_LOW,
           message: 'Suspicious activity detected',
         });
@@ -276,9 +276,9 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
           action: 'login',
         } as RecaptchaVerificationResult);
 
-        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4');
+        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4', 'login');
 
-        expect(mockLogger.debug).toHaveBeenCalledWith('reCAPTCHA score: 0.8 (minimum: 0.5)');
+        expect(mockLogger.debug).toHaveBeenCalledWith('reCAPTCHA score: 0.8 (minimum: 0.5, action: login)');
         expect(mockLogger.debug).toHaveBeenCalledWith(
           'reCAPTCHA validation successful (score: 0.8) for action: login',
         );
@@ -303,9 +303,103 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
           action: 'login',
         } as RecaptchaVerificationResult);
 
-        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4');
+        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4', 'login');
 
-        expect(mockLogger.debug).toHaveBeenCalledWith('reCAPTCHA score: 0.6 (minimum: 0.5)');
+        expect(mockLogger.debug).toHaveBeenCalledWith('reCAPTCHA score: 0.6 (minimum: 0.5, action: login)');
+      });
+    });
+
+    it('should use per-action score from actionScores when configured', async () => {
+      await ContextStorage.run(async () => {
+        const mockRequest: Partial<NAuthRequest> = {
+          attributes: { nauthRequireRecaptcha: true },
+        };
+        ContextStorage.set('REQUEST', mockRequest as NAuthRequest);
+
+        mockConfig.recaptcha = {
+          enabled: true,
+          provider: mockRecaptchaProvider,
+          minimumScore: 0.5,
+          actionScores: {
+            login: 0.3,
+            signup: 0.7,
+          },
+        };
+
+        // Score 0.4 is above login threshold (0.3) — should pass
+        mockRecaptchaProvider.verify.mockResolvedValue({
+          success: true,
+          score: 0.4,
+          action: 'login',
+        } as RecaptchaVerificationResult);
+
+        await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4', 'login');
+
+        expect(mockRecaptchaProvider.verify).toHaveBeenCalledWith('test-token', '1.2.3.4', 'login');
+        expect(mockLogger.debug).toHaveBeenCalledWith('reCAPTCHA score: 0.4 (minimum: 0.3, action: login)');
+      });
+    });
+
+    it('should reject when score is below per-action threshold', async () => {
+      await ContextStorage.run(async () => {
+        const mockRequest: Partial<NAuthRequest> = {
+          attributes: { nauthRequireRecaptcha: true },
+        };
+        ContextStorage.set('REQUEST', mockRequest as NAuthRequest);
+
+        mockConfig.recaptcha = {
+          enabled: true,
+          provider: mockRecaptchaProvider,
+          minimumScore: 0.3,
+          actionScores: {
+            login: 0.3,
+            signup: 0.7,
+          },
+        };
+
+        // Score 0.5 is below signup threshold (0.7) — should fail even though global is 0.3
+        mockRecaptchaProvider.verify.mockResolvedValue({
+          success: true,
+          score: 0.5,
+          action: 'signup',
+        } as RecaptchaVerificationResult);
+
+        await expect(helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4', 'signup')).rejects.toMatchObject({
+          code: AuthErrorCode.RECAPTCHA_SCORE_TOO_LOW,
+        });
+
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          'reCAPTCHA score too low: 0.5 < 0.7. Likely bot activity detected.',
+        );
+      });
+    });
+
+    it('should fall back to global minimumScore for actions not in actionScores', async () => {
+      await ContextStorage.run(async () => {
+        const mockRequest: Partial<NAuthRequest> = {
+          attributes: { nauthRequireRecaptcha: true },
+        };
+        ContextStorage.set('REQUEST', mockRequest as NAuthRequest);
+
+        mockConfig.recaptcha = {
+          enabled: true,
+          provider: mockRecaptchaProvider,
+          minimumScore: 0.5,
+          actionScores: {
+            login: 0.3,
+          },
+        };
+
+        // 'password_reset' is not in actionScores, should use global 0.5
+        mockRecaptchaProvider.verify.mockResolvedValue({
+          success: true,
+          score: 0.4,
+          action: 'password_reset',
+        } as RecaptchaVerificationResult);
+
+        await expect(helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4', 'password_reset')).rejects.toMatchObject({
+          code: AuthErrorCode.RECAPTCHA_SCORE_TOO_LOW,
+        });
       });
     });
   });

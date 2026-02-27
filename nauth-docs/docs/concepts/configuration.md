@@ -1025,6 +1025,11 @@ recaptcha: {
     secretKey: process.env.RECAPTCHA_SECRET_KEY,
   }),
   minimumScore: 0.5,  // v3/Enterprise only. 0.0 = bot, 1.0 = human
+  actionScores: {     // Optional: per-action overrides
+    login: 0.3,       // More permissive for returning users
+    signup: 0.7,      // Stricter for new registrations
+  },
+  validateOnStartup: 'warn',  // 'warn' | 'error' | false
 },
 ```
 
@@ -1034,7 +1039,9 @@ recaptcha: {
 | -------------- | ---------------------------------------------------------------------------------------------- | ------- |
 | `enabled`      | Enable reCAPTCHA validation on auth endpoints.                                                 | false   |
 | `provider`     | Provider instance. Choose [`RecaptchaV2Provider`](/docs/api/recaptcha/providers/recaptcha-v2-provider), [`RecaptchaV3Provider`](/docs/api/recaptcha/providers/recaptcha-v3-provider), or [`RecaptchaEnterpriseProvider`](/docs/api/recaptcha/providers/recaptcha-enterprise-provider). | —  |
-| `minimumScore` | Minimum acceptable score (0.0–1.0). Only applies to v3 and Enterprise. 0.5 is a neutral starting point. | 0.5 |
+| `minimumScore` | Default minimum score (0.0–1.0). Used when no per-action override exists in `actionScores`. v3/Enterprise only. | 0.5 |
+| `actionScores` | Per-action score overrides (`Record<string, number>`). Keys: `login`, `signup`, `password_reset`, etc. Falls back to `minimumScore`. | — |
+| `validateOnStartup` | Validate credentials at startup. `'warn'`: log warning on failure. `'error'`: halt startup. `false`: skip. | `'warn'` |
 
 **Choosing a provider:**
 

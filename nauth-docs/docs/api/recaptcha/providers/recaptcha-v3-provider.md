@@ -73,6 +73,20 @@ async verify(token: string, remoteIp?: string, action?: string): Promise<Recaptc
 
 - `RecaptchaVerificationResult` - Verification result with success status and score (0.0-1.0)
 
+### validateConfig()
+
+Validate provider credentials at startup by sending a probe request to Google's API.
+
+```typescript
+async validateConfig(): Promise<RecaptchaValidationResult>
+```
+
+**Returns**
+
+- `RecaptchaValidationResult` - `{ valid, message, hint?, httpStatus? }`
+
+Called automatically during `NAuth.create()` when [`validateOnStartup`](../../core/interfaces/recaptcha-config) is `'warn'` (default) or `'error'`. Detects invalid secret keys before a real user hits the endpoint.
+
 ## Example
 
 <Tabs groupId="platform">
@@ -164,6 +178,8 @@ Configure `minimumScore` in [RecaptchaConfig](../../core/interfaces/recaptcha-co
 - **0.3**: Permissive, fewer false positives
 - **0.5**: Balanced (recommended)
 - **0.7**: Strict, may block legitimate users
+
+Use `actionScores` for per-action thresholds (e.g., stricter for signup, more permissive for login). See [RecaptchaConfig](../../core/interfaces/recaptcha-config) for details.
 
 ## When to Use
 

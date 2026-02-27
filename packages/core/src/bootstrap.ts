@@ -243,6 +243,46 @@ export class NAuth {
     );
 
     // ========================================================================
+    // 4b. Validate reCAPTCHA Provider (if enabled)
+    // ========================================================================
+    if (config.recaptcha?.enabled && config.recaptcha.provider) {
+      const validateMode = config.recaptcha.validateOnStartup ?? 'warn';
+      // Cast to access optional validateConfig — runtime typeof check ensures safety.
+      const provider = config.recaptcha.provider as {
+        validateConfig?: () => Promise<{ valid: boolean; message: string; hint?: string; httpStatus?: number }>;
+      };
+
+      if (validateMode !== false && typeof provider.validateConfig === 'function') {
+        try {
+          const validationResult = await provider.validateConfig();
+
+          if (validationResult.valid) {
+            logger.log(`reCAPTCHA: ${validationResult.message}`);
+          } else {
+            const fullMessage = validationResult.hint
+              ? `${validationResult.message} ${validationResult.hint}`
+              : validationResult.message;
+
+            if (validateMode === 'error') {
+              throw new NAuthException(
+                AuthErrorCode.RECAPTCHA_PROVIDER_MISSING,
+                `reCAPTCHA startup validation failed: ${fullMessage}`,
+              );
+            } else {
+              logger.warn(`reCAPTCHA startup validation failed: ${fullMessage}`);
+            }
+          }
+        } catch (error: unknown) {
+          if (error instanceof NAuthException) {
+            throw error;
+          }
+          const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
+          logger.warn(`reCAPTCHA startup validation could not complete: ${errorMessage}`);
+        }
+      }
+    }
+
+    // ========================================================================
     // 5. Create Handlers
     // ========================================================================
     const clientInfoHandler = new ClientInfoHandler(

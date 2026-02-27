@@ -40,7 +40,7 @@ Block IP addresses after too many failed login attempts:
 | `resetOnSuccess` | `boolean` | `true` | Reset counter on successful login |
 
 :::info Why IP-based?
-Lockout tracks IP addresses, not user accounts. This prevents attackers from locking out legitimate users by guessing their email. See [Rate Limiting & Throttling](/docs/concepts/rate-limiting#ip-based-lockout) for the full explanation.
+Lockout tracks IP addresses, not user accounts. This prevents attackers from locking out legitimate users by guessing their email.
 :::
 
 ## Step 2: Configure Verification Code Limits
@@ -80,7 +80,7 @@ Control how often users can request and attempt email/SMS verification codes:
 | `attemptWindow` | `number` | `3600` | Window (seconds) for attempt limits |
 
 :::tip Resend delay vs rate limit
-`resendDelay` is a fixed cooldown between consecutive requests. `rateLimitMax` + `rateLimitWindow` is the total cap over a time period. Both work together --- see [Resend Delay vs Rate Limit Window](/docs/concepts/rate-limiting#resend-delay-vs-rate-limit-window).
+`resendDelay` is a fixed cooldown between consecutive requests. `rateLimitMax` + `rateLimitWindow` is the total cap over a time period. Both work together.
 :::
 
 ## Step 3: Configure Password Reset Limits
@@ -185,7 +185,6 @@ try {
 
 ## What's Next
 
-- **[Rate Limiting & Throttling](/docs/concepts/rate-limiting)** --- How rate limiting works under the hood (window calculations, distributed locks, storage considerations)
 - **[Storage](/docs/concepts/storage)** --- Redis vs database storage setup
 - **[Error Handling](/docs/concepts/error-handling)** --- Exception handling patterns
 - **[Configuration](/docs/concepts/configuration)** --- Full configuration reference

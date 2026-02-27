@@ -1,7 +1,7 @@
 ---
 title: RecaptchaConfig
-description: Configuration interface for Google reCAPTCHA v2/v3/Enterprise bot protection
-keywords: [recaptcha, config, interface, bot-protection, security]
+description: RecaptchaConfig interface with enabled, provider, minimumScore, actionScores, and validateOnStartup for v2/v3/Enterprise bot protection
+keywords: [recaptcha, config, interface, bot-protection, security, actionScores, minimumScore, validateOnStartup]
 image: /img/api-social-card.png
 ---
 
@@ -43,9 +43,11 @@ import { NAuthConfig } from '@nauth-toolkit/core';
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
+| `actionScores` | `Record<string, number>` | No | Per-action minimum score overrides. Falls back to `minimumScore` for unlisted actions. Keys are action names (`login`, `signup`, `password_reset`). |
 | `enabled` | `boolean` | Yes | Enable reCAPTCHA validation. When true, routes marked with `@RequireRecaptcha()` will enforce validation. |
-| `minimumScore` | `number` | No | Minimum acceptable score for v3/Enterprise (0.0-1.0). Higher is stricter. Default: `0.5`. Only applies to v3/Enterprise. |
+| `minimumScore` | `number` | No | Default minimum score for v3/Enterprise (0.0-1.0). Used when no per-action override exists in `actionScores`. Default: `0.5`. |
 | `provider` | `RecaptchaProvider` | Yes | Provider implementation: `RecaptchaV2Provider`, `RecaptchaV3Provider`, or `RecaptchaEnterpriseProvider`. |
+| `validateOnStartup` | `'warn' \| 'error' \| false` | No | Validate credentials at startup by probing Google's API. `'warn'` (default): log warning on failure. `'error'`: throw and halt startup. `false`: skip validation. |
 
 ## Examples
 
@@ -152,7 +154,11 @@ import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
           apiKey: process.env.RECAPTCHA_API_KEY!,
           siteKey: process.env.RECAPTCHA_SITE_KEY!,
         }),
-        minimumScore: 0.7, // Stricter for enterprise
+        minimumScore: 0.7,
+        actionScores: {
+          login: 0.3,   // More permissive for returning users
+          signup: 0.7,  // Stricter for new registrations
+        },
       },
     }),
   ],
@@ -177,6 +183,10 @@ const nauth = await NAuth.create({
         siteKey: process.env.RECAPTCHA_SITE_KEY!,
       }),
       minimumScore: 0.7,
+      actionScores: {
+        login: 0.3,
+        signup: 0.7,
+      },
     },
   },
   dataSource,
@@ -202,6 +212,10 @@ const nauth = await NAuth.create({
         siteKey: process.env.RECAPTCHA_SITE_KEY!,
       }),
       minimumScore: 0.7,
+      actionScores: {
+        login: 0.3,
+        signup: 0.7,
+      },
     },
   },
   dataSource,

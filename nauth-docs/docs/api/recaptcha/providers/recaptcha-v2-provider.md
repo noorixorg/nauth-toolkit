@@ -72,6 +72,20 @@ async verify(token: string, remoteIp?: string): Promise<RecaptchaVerificationRes
 
 - `RecaptchaVerificationResult` - Verification result with success status
 
+### validateConfig()
+
+Validate provider credentials at startup by sending a probe request to Google's API.
+
+```typescript
+async validateConfig(): Promise<RecaptchaValidationResult>
+```
+
+**Returns**
+
+- `RecaptchaValidationResult` - `{ valid, message, hint?, httpStatus? }`
+
+Called automatically during `NAuth.create()` when [`validateOnStartup`](../../core/interfaces/recaptcha-config) is `'warn'` (default) or `'error'`. Detects invalid secret keys before a real user hits the endpoint.
+
 ## Example
 
 <Tabs groupId="platform">

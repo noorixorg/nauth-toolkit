@@ -1,4 +1,4 @@
-import { RecaptchaProvider, RecaptchaVerificationResult } from '../recaptcha-provider.interface';
+import { RecaptchaProvider, RecaptchaValidationResult, RecaptchaVerificationResult } from '../recaptcha-provider.interface';
 
 /**
  * Configuration for reCAPTCHA v3 provider
@@ -60,6 +60,79 @@ export class RecaptchaV3Provider implements RecaptchaProvider {
     this.secretKey = config.secretKey;
     this.verifyUrl = config.verifyUrl || 'https://www.google.com/recaptcha/api/siteverify';
     this.timeout = config.timeout || 10000;
+  }
+
+  /**
+   * Validate reCAPTCHA v3 configuration by sending a probe verification
+   *
+   * Sends a dummy token to siteverify. If the secret key is valid,
+   * Google returns success: false with error-codes: ["invalid-input-response"].
+   * If the secret key itself is wrong, error-codes contains "invalid-input-secret".
+   *
+   * @returns Validation result with actionable guidance
+   */
+  async validateConfig(): Promise<RecaptchaValidationResult> {
+    const params = new URLSearchParams({
+      secret: this.secretKey,
+      response: 'NAUTH_STARTUP_VALIDATION_PROBE',
+    });
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+      const response = await fetch(this.verifyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString(),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return {
+          valid: false,
+          message: `reCAPTCHA v3: API returned HTTP ${response.status}.`,
+          hint: 'Check network connectivity and verify the verifyUrl is correct.',
+          httpStatus: response.status,
+        };
+      }
+
+      const data = await response.json();
+      const errorCodes: string[] = data['error-codes'] || [];
+
+      if (errorCodes.includes('invalid-input-secret')) {
+        return {
+          valid: false,
+          message: 'reCAPTCHA v3: The secret key is invalid.',
+          hint: 'Verify your secretKey at https://www.google.com/recaptcha/admin. Ensure you are using the server-side secret, not the site key.',
+          httpStatus: response.status,
+        };
+      }
+
+      // "invalid-input-response" for the dummy token means the secret key works
+      return {
+        valid: true,
+        message: 'reCAPTCHA v3 configuration is valid. Secret key is accepted by Google.',
+        httpStatus: response.status,
+      };
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return {
+          valid: false,
+          message: `reCAPTCHA v3: Connection timeout after ${this.timeout}ms.`,
+          hint: 'Check network connectivity.',
+        };
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        valid: false,
+        message: `reCAPTCHA v3: Network error — ${errorMessage}`,
+        hint: 'Check network connectivity.',
+      };
+    }
   }
 
   /**

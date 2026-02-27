@@ -207,7 +207,7 @@ import { appConfig } from './app/app.config';
 bootstrapApplication(AppComponent, appConfig);
 ```
 
-Storage configuration for Angular is covered in the [Angular Integration Guide](../angular/overview). The `NAUTH_CLIENT_CONFIG` provider accepts a `storage` property for custom adapters when using JSON token delivery mode.
+Storage configuration for Angular is covered in the [Angular Integration Guide](../angular/standalone-setup). The `NAUTH_CLIENT_CONFIG` provider accepts a `storage` property for custom adapters when using JSON token delivery mode.
 
 </TabItem>
 <TabItem value="react" label="React">

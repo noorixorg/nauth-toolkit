@@ -85,7 +85,7 @@ importers:
         version: dist@file:packages/client/dist
       '@nauth-toolkit/client-angular':
         specifier: file:../../packages/client-angular/dist
-        version: dist@file:packages/client-angular/dist
+        version: file:packages/client-angular/dist(@angular/common@21.0.5(@angular/core@21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2))(dist@file:packages/client/dist)(rxjs@7.8.2)
       '@primeuix/themes':
         specifier: ^2.0.2
         version: 2.0.2
@@ -351,8 +351,8 @@ importers:
         specifier: ^4.0.0 || ^5.0.0 || ^6.0.0
         version: 6.3.4
       '@nauth-toolkit/recaptcha':
-        specifier: workspace:^
-        version: link:../recaptcha
+        specifier: ^0.2.0
+        version: 0.2.0(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))
       argon2:
         specifier: ^0.40.0
         version: 0.40.3
@@ -2902,6 +2902,15 @@ packages:
   '@napi-rs/wasm-runtime@1.1.0':
     resolution: {integrity: sha512-Fq6DJW+Bb5jaWE69/qOE0D1TUN9+6uWhCeZpdnSBk14pjLcCWR7Q8n49PTSPHazM37JqrsdpEthXy2xn6jWWiA==}
 
+  '@nauth-toolkit/client-angular@file:packages/client-angular/dist':
+    resolution: {directory: packages/client-angular/dist, type: directory}
+    engines: {node: '>=22.0.0'}
+    peerDependencies:
+      '@angular/common': '>=17.0.0'
+      '@angular/core': '>=17.0.0'
+      '@nauth-toolkit/client': ^0.2.0
+      rxjs: ^7.0.0 || ^8.0.0
+
   '@nauth-toolkit/database-typeorm-postgres@0.1.133':
     resolution: {integrity: sha512-b1x290oH90sP7z5yT71yCRAjVf4hYgYoyWuVNbxbaMF0gT7m9cOhiQ0q3CkzAArNsegDbhX86WCuHQ3UKRNXTA==}
     engines: {node: '>=22.0.0'}
@@ -2955,6 +2964,16 @@ packages:
 
   '@nauth-toolkit/recaptcha@0.1.133':
     resolution: {integrity: sha512-DcOsQJdeFQAeLJlPbOR/bf5HPtJQSJOBmarx/pmhDwy/tsIjAr07F+i9/uO9c4XlQDmigEGCQvyxNF4qeN9B6Q==}
+    engines: {node: '>=22.0.0'}
+    peerDependencies:
+      '@nauth-toolkit/core': workspace:*
+      '@nestjs/common': ^9 || ^10 || ^11
+    peerDependenciesMeta:
+      '@nestjs/common':
+        optional: true
+
+  '@nauth-toolkit/recaptcha@0.2.0':
+    resolution: {integrity: sha512-QYqsP8Vg8ozhRsmCElX9TmyDbXk6AdHRWXQaINqrIQG6JhlvQ8U+51UP81xJ1t5o5xK6n06s9AFDr3vwNM51yw==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@nauth-toolkit/core': workspace:*
@@ -5022,9 +5041,6 @@ packages:
 
   dijkstrajs@1.0.3:
     resolution: {integrity: sha512-qiSlmBq9+BCdCA/L46dw8Uy93mloxsPSbwnm5yrKn2vMPiy8KyAskTF6zuV/j5BMsmOGZDPs7KjU+mjb670kfA==}
-
-  dist@file:packages/client-angular/dist:
-    resolution: {directory: packages/client-angular/dist, type: directory}
 
   dist@file:packages/client/dist:
     resolution: {directory: packages/client/dist, type: directory}
@@ -11429,6 +11445,14 @@ snapshots:
       '@tybys/wasm-util': 0.10.1
     optional: true
 
+  '@nauth-toolkit/client-angular@file:packages/client-angular/dist(@angular/common@21.0.5(@angular/core@21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2))(dist@file:packages/client/dist)(rxjs@7.8.2)':
+    dependencies:
+      '@angular/common': 21.0.5(@angular/core@21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2))(rxjs@7.8.2)
+      '@angular/core': 21.0.5(@angular/compiler@21.0.5)(rxjs@7.8.2)
+      '@nauth-toolkit/client': dist@file:packages/client/dist
+      rxjs: 7.8.2
+      tslib: 2.8.1
+
   '@nauth-toolkit/database-typeorm-postgres@0.1.133(pg@8.16.3)(typeorm@0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0))':
     dependencies:
       pg: 8.16.3
@@ -11459,6 +11483,10 @@ snapshots:
       typeorm: 0.3.28(mysql2@3.15.3)(pg@8.16.3)(redis@5.10.0)
 
   '@nauth-toolkit/recaptcha@0.1.133(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))':
+    optionalDependencies:
+      '@nestjs/common': 11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+
+  '@nauth-toolkit/recaptcha@0.2.0(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))':
     optionalDependencies:
       '@nestjs/common': 11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
 
@@ -13750,8 +13778,6 @@ snapshots:
   diff-sequences@29.6.3: {}
 
   dijkstrajs@1.0.3: {}
-
-  dist@file:packages/client-angular/dist: {}
 
   dist@file:packages/client/dist: {}
 

@@ -19,7 +19,7 @@ COPY . .
 # Build arguments for environment configuration (from docker-compose frontend build args)
 # ARG name -> environment.prod.ts property (must match Environment interface)
 # API_BASE_URL -> apiBaseUrl
-# RECAPTCHA_SITE_KEY -> recaptchaSiteKey (compose passes RECAPTCHA_ENTERPRISE_SITE_KEY)
+# RECAPTCHA_SITE_KEY -> recaptchaSiteKey
 # RECAPTCHA_VERSION -> recaptchaVersion
 # RECAPTCHA_ENABLED -> recaptchaEnabled
 # TOKEN_MODE -> tokenMode

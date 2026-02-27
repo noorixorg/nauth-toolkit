@@ -1,4 +1,4 @@
-import { RecaptchaProvider, RecaptchaVerificationResult } from '../recaptcha-provider.interface';
+import { RecaptchaProvider, RecaptchaValidationResult, RecaptchaVerificationResult } from '../recaptcha-provider.interface';
 
 /**
  * Configuration for reCAPTCHA Enterprise provider
@@ -96,6 +96,93 @@ export class RecaptchaEnterpriseProvider implements RecaptchaProvider {
     this.siteKey = config.siteKey;
     this.apiEndpoint = config.apiEndpoint || 'https://recaptchaenterprise.googleapis.com/v1';
     this.timeout = config.timeout || 10000;
+  }
+
+  /**
+   * Validate Enterprise reCAPTCHA configuration by sending a probe assessment
+   *
+   * Sends a dummy token to the assessments API. If credentials are valid,
+   * Google returns HTTP 200 with tokenProperties.valid === false (expected).
+   * Any other HTTP status indicates a configuration problem.
+   *
+   * @returns Validation result with actionable guidance
+   */
+  async validateConfig(): Promise<RecaptchaValidationResult> {
+    const assessmentUrl = `${this.apiEndpoint}/projects/${this.projectId}/assessments?key=${this.apiKey}`;
+
+    const requestBody = {
+      event: {
+        token: 'NAUTH_STARTUP_VALIDATION_PROBE',
+        siteKey: this.siteKey,
+      },
+    };
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+      const response = await fetch(assessmentUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        return {
+          valid: true,
+          message: 'reCAPTCHA Enterprise configuration is valid. API key, project, and site key are all working.',
+          httpStatus: response.status,
+        };
+      }
+
+      switch (response.status) {
+        case 400:
+          return {
+            valid: false,
+            message: `reCAPTCHA Enterprise: Invalid request (HTTP 400). The site key "${this.siteKey}" may be incorrect or not yet activated.`,
+            hint: 'Verify your siteKey in the reCAPTCHA Enterprise console at https://console.cloud.google.com/security/recaptcha. Newly created keys may take a few minutes to propagate.',
+            httpStatus: 400,
+          };
+        case 403:
+          return {
+            valid: false,
+            message: 'reCAPTCHA Enterprise: Access denied (HTTP 403). The API key may be invalid or the reCAPTCHA Enterprise API is not enabled.',
+            hint: 'Check: (1) API key is correct, (2) reCAPTCHA Enterprise API is enabled at https://console.cloud.google.com/apis/library/recaptchaenterprise.googleapis.com, (3) API key restrictions allow this service.',
+            httpStatus: 403,
+          };
+        case 404:
+          return {
+            valid: false,
+            message: `reCAPTCHA Enterprise: Project not found (HTTP 404). The project ID "${this.projectId}" may be incorrect.`,
+            hint: 'Verify your projectId matches a Google Cloud project with reCAPTCHA Enterprise enabled.',
+            httpStatus: 404,
+          };
+        default:
+          return {
+            valid: false,
+            message: `reCAPTCHA Enterprise: Unexpected response (HTTP ${response.status}).`,
+            httpStatus: response.status,
+          };
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return {
+          valid: false,
+          message: `reCAPTCHA Enterprise: Connection timeout after ${this.timeout}ms.`,
+          hint: 'Check network connectivity and verify the apiEndpoint is correct.',
+        };
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        valid: false,
+        message: `reCAPTCHA Enterprise: Network error — ${errorMessage}`,
+        hint: 'Check network connectivity. If using a custom apiEndpoint, verify the URL is correct.',
+      };
+    }
   }
 
   /**

@@ -29,10 +29,24 @@ pnpm --filter @nauth-toolkit/core run build   # Build specific package
 ### Test
 ```bash
 pnpm test                                     # Run core package tests
-pnpm --filter @nauth-toolkit/core run test    # Same as above
+pnpm test:all                                 # Run tests across all packages
+pnpm --filter @nauth-toolkit/core run test    # Same as `pnpm test`
 pnpm --filter @nauth-toolkit/nestjs run test  # Test NestJS package
 pnpm --filter @nauth-toolkit/core run test -- --testPathPattern="auth.service"  # Run single test file
 pnpm --filter @nauth-toolkit/core run test -- --coverage  # With coverage report
+```
+
+### Maintenance
+```bash
+pnpm clean                                    # Remove all dist/ and .tsbuildinfo from packages
+pnpm kill                                     # Kill process on port 3000 (useful after orphaned nest start)
+```
+
+### Publishing
+```bash
+node scripts/publish.js latest                # Publish all packages to npm
+node scripts/publish.js latest --dry-run      # Dry-run publish (no actual publish)
+node scripts/publish.js latest --skip-version-bump  # Publish without bumping versions
 ```
 
 ### Lint & Format
@@ -52,7 +66,7 @@ npx playwright test                           # Run Playwright E2E tests
 ## Critical Rules
 
 - **pnpm only** — never use npm or yarn. The repo enforces this via a preinstall hook.
-- **Never run `pnpm start` or `nest start`** — causes port conflicts.
+- **Never start dev servers** — no `pnpm start`, `nest start`, `ng serve`, `docusaurus start`, or any server-starting command. The developer runs servers manually; starting them here causes port conflicts.
 - **No `console.log()`** — use the project logger module. `console.warn`/`console.error` are allowed.
 - **No `any` types** — use `unknown` if needed. TypeScript strict mode is fully enabled.
 - **Explicit return types** on all functions.
@@ -75,6 +89,7 @@ pnpm workspaces with ~20 packages. No Lerna/Nx/Turborepo — plain pnpm with man
 
 ### Provider Packages (optional, pluggable)
 - **Database**: `packages/database/typeorm-postgres`, `packages/database/typeorm-mysql`
+- **Persistence**: `packages/persistence/typeorm` — TypeORM persistence layer
 - **Email**: `packages/email/console`, `packages/email/nodemailer`
 - **SMS**: `packages/sms/console`, `packages/sms/aws-sns`
 - **Social OAuth**: `packages/social/google`, `packages/social/apple`, `packages/social/facebook`
@@ -93,14 +108,19 @@ pnpm workspaces with ~20 packages. No Lerna/Nx/Turborepo — plain pnpm with man
 - `./openapi` — OpenAPI schema generation
 
 **Key directories**:
-- `services/` — Business logic (71 files). Main entry is `auth.service.ts` (132KB). Other key services: `mfa.service.ts`, `social-auth.service.ts`, `challenge.service.ts`, `auth-flow-state-machine.service.ts`
+- `services/` — Business logic (71 files). Main entry is `auth.service.ts` (~133KB). Other key services: `mfa.service.ts`, `social-auth.service.ts`, `challenge.service.ts`, `auth-flow-state-machine.service.ts`
 - `handlers/` — Platform-agnostic middleware: `auth.handler.ts` (JWT validation), `client-info.handler.ts`, `csrf.handler.ts`, `token-delivery.handler.ts`
 - `adapters/` — Framework adapters implementing `NAuthAdapter` interface: `express.adapter.ts`, `fastify.adapter.ts`
 - `platform/interfaces.ts` — Core abstractions: `NAuthRequest`, `NAuthResponse`, `NAuthAdapter`, `NAuthMiddlewareHandler`
-- `dto/` — 88 request/response models with class-validator decorators
-- `entities/` — 15 TypeORM-agnostic base entity classes (consumers extend these)
+- `dto/` — 86 request/response models with class-validator decorators
+- `entities/` — 13 TypeORM-agnostic base entity classes (consumers extend these)
+- `enums/` — Auth audit event types, error codes, MFA methods, risk factors
+- `exceptions/` — `NAuthException` custom exception class
 - `interfaces/` — Provider contracts: `StorageAdapter`, `EmailProvider`, `SMSProvider`, `MFAProvider`, `SocialAuthProvider`
 - `schemas/` — Zod schemas for runtime config validation
+- `storage/` — Internal storage services (account lockout, rate limiting, in-memory adapter)
+- `templates/` — SMS template engine
+- `validators/` — Template validator
 - `utils/context-storage.ts` — AsyncLocalStorage for request context
 - `utils/setup/` — Initialization helpers (init-services, init-storage, init-social, register-mfa)
 
@@ -131,15 +151,24 @@ HTTP Request → Framework (Express/Fastify/NestJS)
 
 ## Config System
 
-- `interfaces/config.interface.ts` (74KB) — Comprehensive `NAuthConfig` type
+- `interfaces/config.interface.ts` (~75KB) — Comprehensive `NAuthConfig` type
 - `schemas/auth-config.schema.ts` — Zod schema for runtime validation
-- Config drives everything: auth modes, MFA policies, session settings, token delivery, rate limiting, password policies
+- Config drives everything: auth modes, MFA policies, session settings, token delivery, rate limiting, password policies, reCAPTCHA (`minimumScore`, `actionScores` for per-action thresholds)
+
+## Root-Level Directories
+
+| Directory | Purpose |
+|-----------|---------|
+| `examples/` | Sample apps (`sample-nestjs` on :3000, `sample-angular` on :4200) with Docker + Caddy setup |
+| `tests/e2e/` | Playwright E2E tests (config: `playwright.config.ts`) |
+| `docs/` | Internal architecture/design documents (20+ files, not published) |
+| `scripts/` | Build tooling: `publish.js` (npm publish), `setup-package-files.js` |
 
 ## Documentation Site
 
 Docusaurus 3.x site in `nauth-docs/`. Published at https://nauth.dev.
 
-**Style authority:** `nauth-docs/DOCUMENTATION_RULES.md` — read it before writing or editing any doc page. Audit progress tracked in `nauth-docs/DOCUMENTATION_MASTER_PLAN.md`.
+**Style authority:** `nauth-docs/DOCUMENTATION_RULES.md` — read it before writing or editing any doc page.
 
 ### Commands (run from `nauth-docs/`)
 ```bash
@@ -158,8 +187,16 @@ pnpm typecheck    # TypeScript check
 | `docs/api/` | API reference — services, DTOs, entities, adapters |
 | `docs/frontend-sdk/` | Client SDK guides and API reference |
 
-### Code → Docs Mapping
-When you change code in these packages, update the corresponding docs:
+### Code → Docs Sync (MANDATORY)
+
+**After any code change that alters a public API** (method signature, DTO field, config option, error code, enum value, class rename, or behavioral change), you MUST:
+
+1. **Read `nauth-docs/DOCUMENTATION_RULES.md`** — it governs all doc page structure and formatting.
+2. **Search broadly** — the affected API may appear in multiple doc locations (API reference, guides, quick-starts, concepts, frontend SDK). Run a grep across `nauth-docs/docs/` for the changed symbol (method name, DTO name, config key, error code, etc.) to find every reference.
+3. **Update every occurrence** — don't stop at the primary mapping below. Guides contain code samples, concepts reference config keys, quick-starts show method calls. All must stay in sync.
+4. **Verify accuracy** — every updated code sample must compile against the current source. If you can't verify it, delete it rather than leaving stale code.
+
+**Primary mapping** (start here, then grep for additional references):
 - `packages/core/src/services/` → `docs/api/core/` service pages
 - `packages/core/src/dto/` → `docs/api/core/` DTO pages
 - `packages/core/src/entities/` → `docs/api/core/` entity pages
@@ -172,6 +209,12 @@ When you change code in these packages, update the corresponding docs:
 - `packages/sms/*/` → `docs/api/sms/`
 - `packages/storage/*/` → `docs/api/storage/`
 - `packages/database/*/` → `docs/api/database/`
+
+**Common cross-cutting locations** (grep these when in doubt):
+- `docs/guides/` — implementation walkthroughs with full code samples
+- `docs/quick-start/` — setup guides with method calls and config snippets
+- `docs/concepts/` — architecture pages referencing config keys and service behavior
+- `docs/frontend-sdk/` — client SDK examples calling backend APIs
 
 ### Documentation Principles
 1. **Accuracy-first** — verify every code sample against source before documenting; delete over disclaiming
