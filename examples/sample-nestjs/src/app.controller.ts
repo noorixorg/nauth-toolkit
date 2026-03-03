@@ -1,6 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
-import { TestService } from './test.service';
 
 /**
  * Main application controller
@@ -8,10 +7,7 @@ import { TestService } from './test.service';
  */
 @Controller()
 export class AppController {
-  constructor(
-    private readonly appService: AppService,
-    private readonly testService: TestService,
-  ) {}
+  constructor(private readonly appService: AppService) {}
 
   /**
    * Health check endpoint
@@ -48,13 +44,4 @@ export class AppController {
     return this.appService.getInfo();
   }
 
-  /**
-   * Test nauth-toolkit integration
-   * Tests password hashing from local package
-   * @returns Test results
-   */
-  @Get('test-nauth')
-  async testNauth() {
-    return this.testService.testPasswordHashing();
-  }
 }

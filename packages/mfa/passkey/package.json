@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/mfa-passkey",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Passkey and WebAuthn MFA provider for nauth-toolkit — FIDO2, biometric",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -44,7 +44,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.2.1",
+    "@nauth-toolkit/core": "^0.2.2",
     "@simplewebauthn/server": "^13.2.2"
   },
   "devDependencies": {

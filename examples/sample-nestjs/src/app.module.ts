@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { TestService } from './test.service';
 import { CustomAuthModule } from './auth/auth.module';
 // Import helper function to get entities (prevents direct entity access)
 import { getNAuthEntities } from '@nauth-toolkit/database-typeorm-postgres';
@@ -43,6 +42,6 @@ const imports = [
 @Module({
   imports,
   controllers: [AppController],
-  providers: [AppService, TestService],
+  providers: [AppService],
 })
 export class AppModule {}

@@ -33,7 +33,7 @@ The `clientInfo` middleware automatically extracts client metadata from incoming
 - Initializes async local storage context
 
 :::warning
-**MUST BE FIRST** - This middleware must be mounted before all other NAuth middleware as it initializes the context.
+**MUST BE FIRST** - This middleware must be mounted before all other nauth-toolkit middleware as it initializes the context.
 :::
 
 ## Usage
@@ -87,7 +87,7 @@ app.get('/api/info', async (req, res) => {
 
 The middleware reads the client IP from Express's `req.ip`. Express only populates `req.ip` from forwarding headers (`X-Forwarded-For`, etc.) when `trust proxy` is configured on the Express app. Without it, `req.ip` will be the IP of the last network hop (e.g. your load balancer), not the real client.
 
-Configure trust proxy on your Express application before mounting NAuth middleware:
+Configure trust proxy on your Express application before mounting nauth-toolkit middleware:
 
 ```typescript
 import express from 'express';

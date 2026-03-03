@@ -40,10 +40,7 @@
     "prepare": "husky",
     "commitlint": "commitlint",
     "lint:commit": "commitlint --from=HEAD~1 --to=HEAD",
-    "kill": "kill -9 $(lsof -t -i :3000) ",
-    "publish:packages": "node scripts/publish.js latest",
-    "publish:packages:dry-run": "node scripts/publish.js latest --dry-run",
-    "publish:packages:no-bump": "node scripts/publish.js latest --skip-version-bump"
+    "kill": "kill -9 $(lsof -t -i :3000) "
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.5.2",

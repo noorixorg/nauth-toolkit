@@ -4,6 +4,7 @@ description: 'API reference covering core services (AuthService, MFAService, Soc
 keywords: [api, reference, documentation, nestjs, express, fastify, authentication]
 image: /img/api-social-card.png
 ---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -420,4 +421,4 @@ See [Configuration](/docs/concepts/configuration) for config options.
 **Need Help?**
 
 - npm package: https://www.npmjs.com/package/@nauth-toolkit/core
-- Source: Public repository coming soon; contact Noorix/NAuth for access
+- Source: Public repository coming soon;

@@ -287,7 +287,7 @@ export default function Home() {
   return (
     <div className="homepage">
       <Head>
-        <title>NAuth Toolkit — Embedded Authentication for Node.js</title>
+        <title>nauth toolkit — Embedded Authentication for Node.js</title>
         <meta
           name="description"
           content="Embedded TypeScript auth library for NestJS, Express, and Fastify. JWT, MFA, social login, passkeys — runs in your server, your database. Free to use."

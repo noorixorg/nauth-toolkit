@@ -69,7 +69,7 @@ Before diving into routes, understand the pattern every auth endpoint follows. I
 sequenceDiagram
     participant Frontend
     participant Backend
-    participant NAuth
+    participant NAuth as nauth-toolkit
 
     Frontend->>Backend: POST /auth/signup
     Backend->>NAuth: authService.signup(dto)

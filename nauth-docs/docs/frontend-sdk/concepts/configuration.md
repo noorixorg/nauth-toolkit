@@ -358,7 +358,7 @@ Override default endpoint paths:
 ### All Available Endpoints
 
 :::warning Backend Implementation Required
-To override or customize API endpoint paths, your **backend must implement these endpoints according to the NAuth specification**.
+To override or customize API endpoint paths, your **backend must implement these endpoints according to the nauth-toolkit specification**.
 Otherwise, authentication flows will fail.
 **all endpoint paths listed below should be present and correctly handle the expected request/response formats**.
 

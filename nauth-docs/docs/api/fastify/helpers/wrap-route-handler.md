@@ -1,6 +1,6 @@
 ---
 title: wrapRouteHandler()
-description: Wrap Fastify route handlers to restore AsyncLocalStorage context and use NAuth request/response interfaces
+description: Wrap Fastify route handlers to restore AsyncLocalStorage context and use nauth-toolkit request/response interfaces
 keywords: [fastify, helper, route handler, context, async local storage, api]
 image: /img/api-social-card.png
 ---

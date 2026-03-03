@@ -54,6 +54,7 @@ import { AuthFlowContextBuilder, AuthFlowStateMachineService } from './internal'
 import { ClientInfo } from './interfaces/client-info.interface';
 import { IUser } from './interfaces/entities.interface';
 import { SocialAuthStateStore } from './services/social-auth-state-store.service';
+import { SocialRedirectHandler } from './services/social-redirect.handler';
 
 // ============================================================================
 // Types
@@ -131,6 +132,9 @@ export interface NAuthInstance<TMiddleware = unknown, THelper = unknown>
 
   /** CSRF service (if enabled) */
   csrfService?: CsrfService;
+
+  /** Social OAuth redirect handler — start, callback, and exchange flows */
+  socialRedirect?: SocialRedirectHandler;
 }
 
 // ============================================================================
@@ -241,6 +245,13 @@ export class NAuth {
       repos.socialProviderSecretRepository,
       services.hookRegistry,
     );
+
+    // Build SocialRedirectHandler when any social provider is enabled
+    const hasSocial =
+      config.social?.google?.enabled || config.social?.apple?.enabled || config.social?.facebook?.enabled;
+    const socialRedirectHandler = hasSocial
+      ? new SocialRedirectHandler(config, services.socialProviderRegistry, socialAuthStateStore, storage, logger)
+      : undefined;
 
     // ========================================================================
     // 4b. Validate reCAPTCHA Provider (if enabled)
@@ -476,6 +487,7 @@ export class NAuth {
       logger,
       socialAuthService: services.socialAuthService,
       csrfService,
+      socialRedirect: socialRedirectHandler,
     };
   }
 }

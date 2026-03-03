@@ -1,6 +1,6 @@
 ---
 title: wrapRouteHandler()
-description: Wrap Express route handlers with NAuth request/response interfaces, error handling, and auto-response serialization
+description: Wrap Express route handlers with nauth-toolkit request/response interfaces, error handling, and auto-response serialization
 keywords: [express, helper, route handler, error handling, api]
 image: /img/api-social-card.png
 ---

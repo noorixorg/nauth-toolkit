@@ -858,7 +858,7 @@ export class SocialRedirectController {
 <TabItem value="express" label="Express">
 
 ```typescript
-// socialRedirect is an instance of SocialRedirectHandler, passed to your route factory
+// socialRedirect = nauth.socialRedirect! (from NAuth.create())
 router.get('/:provider/redirect', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { url } = await socialRedirect.start(req.params.provider, req.query);
@@ -871,7 +871,7 @@ router.get('/:provider/redirect', nauth.helpers.public(), async (req: Request, r
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-// socialRedirect is an instance of SocialRedirectHandler, passed to your route factory
+// socialRedirect = nauth.socialRedirect! (from NAuth.create())
 fastify.get(
   '/social/:provider/redirect',
   { preHandler: [nauth.helpers.public()] },

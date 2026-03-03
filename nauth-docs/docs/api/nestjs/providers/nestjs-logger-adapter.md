@@ -1,6 +1,6 @@
 ---
 title: NestJsLoggerAdapter
-description: NestJS logger adapter for NAuth logging with automatic PII redaction
+description: NestJS logger adapter for nauth-toolkit logging with automatic PII redaction
 keywords: [nestjs, logger, adapter, api]
 image: /img/api-social-card.png
 ---
@@ -9,7 +9,7 @@ image: /img/api-social-card.png
 **Package:** `@nauth-toolkit/nestjs`
 **Type:** Logger Adapter
 
-Wraps NestJS's built-in `Logger` to implement NAuth's `LoggerProvider` interface. Includes automatic PII redaction for emails, IPs, and tokens.
+Wraps NestJS's built-in `Logger` to implement nauth-toolkit's `LoggerProvider` interface. Includes automatic PII redaction for emails, IPs, and tokens.
 
 ## Import
 

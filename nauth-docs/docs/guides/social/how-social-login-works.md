@@ -116,7 +116,7 @@ Parameters can be set as defaults in config (`oauthParams`) or per-request from 
 
 ## Shared Routes
 
-All providers use the same route structure. The `SocialRedirectHandler` (from `@nauth-toolkit/core`) handles the logic — your routes just delegate to it.
+All providers use the same route structure. The `SocialRedirectHandler` handles the logic — your routes just delegate to it. In Express/Fastify, access it via `nauth.socialRedirect` (returned by `NAuth.create()`). In NestJS, inject it via the constructor.
 
 | Endpoint | Method | Auth | Purpose |
 | --- | --- | --- | --- |
@@ -197,7 +197,7 @@ export class SocialRedirectController {
 import { Router, Request, Response, NextFunction } from 'express';
 import { SocialRedirectHandler } from '@nauth-toolkit/core';
 
-// Mount at /auth/social: app.use('/auth/social', createSocialRoutes(nauth, socialRedirect))
+// Mount: app.use('/auth/social', createSocialRoutes(nauth, nauth.socialRedirect!))
 export function createSocialRoutes(nauth, socialRedirect: SocialRedirectHandler): Router {
   const router = Router();
 

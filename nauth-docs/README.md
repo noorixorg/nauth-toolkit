@@ -280,13 +280,13 @@ CMD ["yarn", "serve", "--host", "0.0.0.0"]
 
 ## License & Use
 
-This documentation and accompanying packages are provided only for private evaluation and testing. They may not be copied, modified, distributed, or sublicensed without express written permission. Contact Noorix/NAuth for commercial terms.
+This documentation and accompanying packages are provided only for private evaluation and testing. They may not be copied, modified, distributed, or sublicensed without express written permission.
 
 ## Links
 
 - **npm Package**: https://www.npmjs.com/package/@nauth-toolkit/core
-- **Live Documentation**: https://nauth-toolkit.dev (coming soon)
-- **Source**: Public repository coming soon; contact Noorix/NAuth for access
+- **Live Documentation**: https://nauth.dev
+- **Source**: Public repository coming soon.
 
 ---
 
