@@ -5,6 +5,18 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.3] - 2026-03-09
+
+### Changed
+
+- **Lazy reCAPTCHA script loading by default** — `RecaptchaService` no longer preloads the Google reCAPTCHA script at startup. The script is loaded on first `execute()` call, avoiding unnecessary network requests on pages that don't need reCAPTCHA. Set `autoLoadScript: true` to restore eager preloading
+- **Removed `APP_INITIALIZER` for reCAPTCHA** — the NgModule no longer force-instantiates `RecaptchaService` at app bootstrap; it initializes naturally when injected
+
+### Fixed
+
+- **reCAPTCHA first-login failure** — `injectScript()` now waits for `grecaptcha.ready()` / `grecaptcha.enterprise.ready()` instead of just `script.onload`, fixing a race condition where the first `execute()` call failed because the library hadn't finished initializing
+- **Docusaurus trailing slash** — set `trailingSlash: false` to prevent duplicate URLs
+
 ## [0.2.2] - 2026-03-03
 
 ### Added

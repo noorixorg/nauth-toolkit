@@ -1,4 +1,4 @@
-import { inject, EnvironmentProviders, makeEnvironmentProviders, APP_INITIALIZER } from '@angular/core';
+import { EnvironmentProviders, makeEnvironmentProviders, inject } from '@angular/core';
 import { RecaptchaService, RECAPTCHA_CONFIG, RecaptchaServiceConfig } from './recaptcha.service';
 import { NAUTH_CLIENT_CONFIG } from '../ngmodule/tokens';
 
@@ -55,19 +55,5 @@ export function provideRecaptcha(config?: RecaptchaServiceConfig): EnvironmentPr
       },
     },
     RecaptchaService,
-    {
-      provide: APP_INITIALIZER,
-      useFactory: () => {
-        return () => {
-          const c = inject(RECAPTCHA_CONFIG);
-          if (c?.enabled && (c.version === 'v3' || c.version === 'enterprise')) {
-            inject(RecaptchaService)
-              .loadScript()
-              .catch(() => {});
-          }
-        };
-      },
-      multi: true,
-    },
   ]);
 }

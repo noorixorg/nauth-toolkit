@@ -1,4 +1,4 @@
-import { NgModule, ModuleWithProviders, inject, Optional, APP_INITIALIZER } from '@angular/core';
+import { NgModule, ModuleWithProviders, inject, Optional } from '@angular/core';
 import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { NAUTH_CLIENT_CONFIG, NAuthAngularConfig } from './tokens';
@@ -83,16 +83,6 @@ export class NAuthModule {
           useValue: config.recaptcha,
         },
         RecaptchaService,
-        {
-          provide: APP_INITIALIZER,
-          useFactory: () => {
-            // Force RecaptchaService instantiation at app startup so script preloads
-            inject(RecaptchaService);
-            // No-op - constructor already handles preload
-            return () => {};
-          },
-          multi: true,
-        },
       );
     }
 

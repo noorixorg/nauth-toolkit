@@ -55,7 +55,7 @@ const buildNAuthConfig = (mode: TokenMode): NAuthClientConfig => {
       enabled: environment.recaptchaEnabled && !!environment.recaptchaSiteKey,
       version: 'enterprise' as const,
       siteKey: environment.recaptchaSiteKey || '',
-      autoLoadScript: true,
+      autoLoadScript: false,
     },
     redirects: {
       loginSuccess: '/dashboard',

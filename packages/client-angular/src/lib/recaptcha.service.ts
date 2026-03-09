@@ -82,9 +82,11 @@ export class RecaptchaService {
   ) {
     this.platform = this.detectPlatform();
 
-    // Auto-preload script for v3/Enterprise so it's ready before first login/signup
-    // No-op when disabled, shouldSkip, or v2 (v2 renders on-demand)
-    if (this.config?.enabled && (this.config.version === 'v3' || this.config.version === 'enterprise')) {
+    // Auto-preload script only when autoLoadScript is explicitly true.
+    // Defaults to false so reCAPTCHA is loaded lazily on first execute() call,
+    // avoiding unnecessary script load on pages that don't need it (e.g. listing pages).
+    if (this.config?.enabled && this.config?.autoLoadScript === true &&
+        (this.config.version === 'v3' || this.config.version === 'enterprise')) {
       if (!this.shouldSkip()) {
         this.loadScript().catch(() => {
           // Silently fail - execute() will handle errors when called
@@ -237,8 +239,29 @@ export class RecaptchaService {
         script.src = url;
       }
 
-      script.onload = () => resolve();
       script.onerror = () => reject(new Error('[RecaptchaService] Failed to load reCAPTCHA script'));
+
+      // For v3/Enterprise, script.onload fires before grecaptcha is ready.
+      // Use grecaptcha.ready() to wait for full initialization.
+      if (this.config!.version === 'v3' || this.config!.version === 'enterprise') {
+        script.onload = () => {
+          const win = window as {
+            grecaptcha?: { ready?: (cb: () => void) => void; enterprise?: { ready?: (cb: () => void) => void } };
+          };
+          const readyFn =
+            this.config!.version === 'enterprise' ? win.grecaptcha?.enterprise?.ready : win.grecaptcha?.ready;
+
+          if (readyFn) {
+            const ctx = this.config!.version === 'enterprise' ? win.grecaptcha!.enterprise : win.grecaptcha;
+            readyFn.call(ctx, () => resolve());
+          } else {
+            // Fallback if ready() isn't available yet
+            resolve();
+          }
+        };
+      } else {
+        script.onload = () => resolve();
+      }
 
       document.head.appendChild(script);
     });
