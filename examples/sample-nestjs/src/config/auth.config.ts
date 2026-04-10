@@ -1,6 +1,6 @@
 import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
 import { MFAMethod, NAuthModuleConfig, createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
-import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
+import { TwilioSMSProvider } from '@nauth-toolkit/sms-twilio';
 
 // import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
 // import { AWSSMSProvider, AWSSMSConfig } from '@nauth-toolkit/sms-aws-sns';
@@ -301,7 +301,14 @@ export const authConfig: NAuthModuleConfig = {
   },
 
   // smsProvider: new AWSSMSProvider(smsConfig),
-  smsProvider: new ConsoleSMSProvider(),
+
+  // Twilio SMS provider — sends real SMS via Twilio Programmable Messaging API.
+  // Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER in .env.
+  smsProvider: new TwilioSMSProvider({
+    accountSid: process.env.TWILIO_ACCOUNT_SID!,
+    authToken: process.env.TWILIO_AUTH_TOKEN!,
+    fromNumber: process.env.TWILIO_FROM_NUMBER,
+  }),
 
   // ============================================================================
   // SMS Templates Configuration

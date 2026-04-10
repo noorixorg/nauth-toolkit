@@ -27,6 +27,7 @@
     "@nauth-toolkit/recaptcha": "^0.1.92",
     "@nauth-toolkit/sms-aws-sns": "^0.1.92",
     "@nauth-toolkit/sms-console": "^0.1.92",
+    "@nauth-toolkit/sms-twilio": "^0.2.3",
     "@nauth-toolkit/social-apple": "^0.1.92",
     "@nauth-toolkit/social-facebook": "^0.1.92",
     "@nauth-toolkit/social-google": "^0.1.92",

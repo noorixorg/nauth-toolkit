@@ -27,8 +27,9 @@ npm install @nauth-toolkit/mfa-sms
 
 Requires an SMS provider configured. Available SMS provider packages:
 
-- [`@nauth-toolkit/sms-aws-sns`](/docs/api/sms/overview) — AWS SNS / End User Messaging (`AWSSMSProvider`)
-- [`@nauth-toolkit/sms-console`](/docs/api/sms/overview) — Console logger for development (`ConsoleSMSProvider`)
+- [`@nauth-toolkit/sms-aws-sns`](/docs/api/sms/aws-sns) — AWS SNS / End User Messaging (`AWSSMSProvider`)
+- [`@nauth-toolkit/sms-twilio`](/docs/api/sms/twilio) — Twilio Programmable Messaging (`TwilioSMSProvider`)
+- [`@nauth-toolkit/sms-console`](/docs/api/sms/console) — Console logger for development (`ConsoleSMSProvider`)
 
 ## Usage
 

@@ -1,8 +1,8 @@
 ---
 title: 'Email & SMS Providers'
-description: 'Configure email and SMS providers for nauth-toolkit --- SMTP, AWS SES, SendGrid, AWS SNS, and custom implementations'
+description: 'Configure email and SMS providers for nauth-toolkit --- SMTP, AWS SES, SendGrid, AWS SNS, Twilio, and custom implementations'
 sidebar_position: 4
-keywords: [email, sms, smtp, aws ses, sendgrid, aws sns, nodemailer, provider, configuration]
+keywords: [email, sms, smtp, aws ses, sendgrid, aws sns, twilio, nodemailer, provider, configuration]
 image: /img/api-social-card.png
 ---
 
@@ -165,7 +165,38 @@ import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
 ## SMS Providers
 
 <Tabs groupId="sms-provider">
-<TabItem value="aws-sns" label="AWS SNS" default>
+<TabItem value="twilio" label="Twilio" default>
+
+```bash npm2yarn
+npm install @nauth-toolkit/sms-twilio
+```
+
+```typescript title="config/auth.config.ts"
+import { TwilioSMSProvider } from '@nauth-toolkit/sms-twilio';
+
+{
+  smsProvider: new TwilioSMSProvider({
+    accountSid: process.env.TWILIO_ACCOUNT_SID!,
+    authToken: process.env.TWILIO_AUTH_TOKEN!,
+    fromNumber: process.env.TWILIO_FROM_NUMBER!,
+  }),
+}
+```
+
+To use a Messaging Service instead of a direct phone number:
+
+```typescript
+new TwilioSMSProvider({
+  accountSid: process.env.TWILIO_ACCOUNT_SID!,
+  authToken: process.env.TWILIO_AUTH_TOKEN!,
+  messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID!,
+})
+```
+
+See [Twilio API Reference](/docs/api/sms/twilio) for full configuration options.
+
+</TabItem>
+<TabItem value="aws-sns" label="AWS SNS">
 
 ```bash npm2yarn
 npm install @nauth-toolkit/sms-aws-sns
@@ -200,6 +231,8 @@ new AWSSMSProvider({
 })
 ```
 
+See [AWS SNS API Reference](/docs/api/sms/aws-sns) for IAM permissions and configuration sets.
+
 </TabItem>
 <TabItem value="console" label="Console (Development)">
 
@@ -220,12 +253,12 @@ import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
 </TabItem>
 <TabItem value="custom" label="Custom Provider">
 
-Implement the `SMSProvider` interface to use any SMS service (Twilio, MessageBird, Vonage, etc.):
+Implement the `SMSProvider` interface to use any SMS service (MessageBird, Vonage, etc.):
 
-```typescript title="src/providers/twilio-sms.provider.ts"
+```typescript title="src/providers/my-sms.provider.ts"
 import { SMSProvider, SMSTemplateEngine, SMSTemplateVariables } from '@nauth-toolkit/core';
 
-class TwilioSMSProvider implements SMSProvider {
+class MySMSProvider implements SMSProvider {
   private templateEngine?: SMSTemplateEngine;
   private globalVariables: SMSTemplateVariables = {};
 
@@ -257,20 +290,12 @@ class TwilioSMSProvider implements SMSProvider {
       message = `Your verification code is: ${code}`;
     }
 
-    await twilioClient.messages.create({
-      to: phone,
-      from: this.fromNumber,
-      body: message,
-    });
+    await myClient.send({ to: phone, body: message });
   }
 }
 
 {
-  smsProvider: new TwilioSMSProvider({
-    accountSid: process.env.TWILIO_ACCOUNT_SID,
-    authToken: process.env.TWILIO_AUTH_TOKEN,
-    fromNumber: '+1234567890',
-  }),
+  smsProvider: new MySMSProvider(),
 }
 ```
 

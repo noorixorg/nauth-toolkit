@@ -5,6 +5,12 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.4] - 2026-04-10
+
+### Added
+
+- **Twilio SMS provider** (`@nauth-toolkit/sms-twilio`) — new first-party SMS provider using the Twilio Programmable Messaging API. Supports direct phone numbers and Messaging Services. Full template engine and global variables support, matching the same pattern as the AWS SNS provider
+
 ## [0.2.3] - 2026-03-09
 
 ### Changed

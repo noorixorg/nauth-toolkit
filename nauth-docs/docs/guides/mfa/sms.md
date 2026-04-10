@@ -44,7 +44,11 @@ SMS is vulnerable to SIM swapping attacks. Consider offering SMS as a secondary 
 npm install @nauth-toolkit/mfa-sms @nauth-toolkit/sms-console
 ```
 
-For production, use the AWS SNS provider instead:
+For production, install one of the production SMS providers:
+
+```bash npm2yarn
+npm install @nauth-toolkit/mfa-sms @nauth-toolkit/sms-twilio
+```
 
 ```bash npm2yarn
 npm install @nauth-toolkit/mfa-sms @nauth-toolkit/sms-aws-sns
@@ -69,12 +73,24 @@ mfa: {
 },
 ```
 
+For production with Twilio:
+
+```typescript title="config/auth.config.ts"
+import { TwilioSMSProvider } from '@nauth-toolkit/sms-twilio';
+
+smsProvider: new TwilioSMSProvider({
+  accountSid: process.env.TWILIO_ACCOUNT_SID!,
+  authToken: process.env.TWILIO_AUTH_TOKEN!,
+  fromNumber: process.env.TWILIO_FROM_NUMBER!,
+}),
+```
+
 For production with AWS SNS:
 
 ```typescript title="config/auth.config.ts"
-import { AwsSNSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
+import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
 
-smsProvider: new AwsSNSSMSProvider({
+smsProvider: new AWSSMSProvider({
   region: 'us-east-1',
   originationNumber: process.env.AWS_SMS_ORIGINATION || '+12345678901',
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,

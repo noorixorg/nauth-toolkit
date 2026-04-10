@@ -99,7 +99,7 @@ Configure in `AuthModule.forRoot()`:
 ```typescript
 AuthModule.forRoot({
   emailProvider: new NodemailerEmailProvider({ ... }),
-  smsProvider: new AWSSNSProvider({ ... }),
+  smsProvider: new TwilioSMSProvider({ ... }),
 })
 ```
 
@@ -226,7 +226,7 @@ Configure in `NAuth.create()`:
 const nauth = await NAuth.create({
   config: {
     emailProvider: new NodemailerEmailProvider({ ... }),
-    smsProvider: new AWSSNSProvider({ ... }),
+    smsProvider: new TwilioSMSProvider({ ... }),
   },
   dataSource,
   adapter: new ExpressAdapter(),
@@ -361,7 +361,7 @@ Configure in `NAuth.create()`:
 const nauth = await NAuth.create({
   config: {
     emailProvider: new NodemailerEmailProvider({ ... }),
-    smsProvider: new AWSSNSProvider({ ... }),
+    smsProvider: new TwilioSMSProvider({ ... }),
   },
   dataSource,
   adapter: new FastifyAdapter(),

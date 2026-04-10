@@ -439,7 +439,22 @@ Some notification keys map to a differently-named template type:
 Configure SMS delivery for phone verification, MFA, and password reset.
 
 <Tabs>
-  <TabItem value="aws-sns" label="AWS SNS (Production)" default>
+  <TabItem value="twilio" label="Twilio (Production)" default>
+
+```typescript
+import { TwilioSMSProvider } from '@nauth-toolkit/sms-twilio';
+
+smsProvider: new TwilioSMSProvider({
+  accountSid: process.env.TWILIO_ACCOUNT_SID!,
+  authToken: process.env.TWILIO_AUTH_TOKEN!,
+  fromNumber: process.env.TWILIO_FROM_NUMBER!, // E.164 format, e.g. '+15551234567'
+  // Or use a Messaging Service instead:
+  // messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID!,
+}),
+```
+
+  </TabItem>
+  <TabItem value="aws-sns" label="AWS SNS">
 
 ```typescript
 import { AWSSMSProvider } from '@nauth-toolkit/sms-aws-sns';
