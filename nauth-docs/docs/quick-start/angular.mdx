@@ -73,11 +73,7 @@ import { routes } from './app.routes';
 const nauthConfig: NAuthClientConfig = {
   baseUrl: 'http://localhost:3000',
   authPathPrefix: '/auth',
-  tokenDelivery: 'cookies',
-  csrf: {
-    cookieName: 'nauth_csrf_token',
-    headerName: 'x-csrf-token',
-  },
+  tokenDelivery: 'json', // use cookies if backend is configured in cookies mode
   redirects: {
     loginSuccess: '/dashboard',
     sessionExpired: '/login',
@@ -98,7 +94,7 @@ export const appConfig: ApplicationConfig = {
 ```
 
 :::note Token Delivery
-This guide uses `tokenDelivery: 'cookies'` with CSRF protection — the recommended setup for web apps. To use Bearer tokens instead, set `tokenDelivery: 'json'` and remove the `csrf` block (no CSRF config needed in JSON mode). See [Token Delivery](/docs/concepts/token-management) for details.
+This guide uses `tokenDelivery: 'json'` without CSRF protection — the recommended setup for web apps is cookies. To use cookies instead, set `tokenDelivery: 'cookies'` and add the `csrf` block (no CSRF config needed in JSON mode). See [Token Delivery](/docs/concepts/token-management) for details.
 :::
 
 </TabItem>
@@ -114,7 +110,9 @@ In `NAuthModule.forRoot()`, `baseUrl` is the full auth base URL — include the 
 import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
 import { AppModule } from './app/app.module';
 
-platformBrowserDynamic().bootstrapModule(AppModule).catch((err) => console.error(err));
+platformBrowserDynamic()
+  .bootstrapModule(AppModule)
+  .catch((err) => console.error(err));
 ```
 
 ```typescript title="src/app/app.module.ts"
@@ -137,11 +135,7 @@ import { routes } from './app-routing.module';
     NAuthModule.forRoot({
       // Include /auth in the baseUrl — no authPathPrefix in NgModule mode
       baseUrl: 'http://localhost:3000/auth',
-      tokenDelivery: 'cookies',
-      csrf: {
-        cookieName: 'nauth_csrf_token',
-        headerName: 'x-csrf-token',
-      },
+      tokenDelivery: 'json',
       redirects: {
         loginSuccess: '/dashboard',
         sessionExpired: '/login',
@@ -183,8 +177,7 @@ export const routes: Routes = [
   },
   {
     path: 'dashboard',
-    loadComponent: () =>
-      import('./dashboard/dashboard.component').then((m) => m.DashboardComponent),
+    loadComponent: () => import('./dashboard/dashboard.component').then((m) => m.DashboardComponent),
     canActivate: [authGuard()],
   },
   { path: '**', redirectTo: '/login' },
@@ -218,10 +211,10 @@ export const routes: Routes = [
 
 The [`AuthService`](/docs/frontend-sdk/angular/auth-service) API is identical in both application styles. The only difference is the import path:
 
-| Style | Import path |
-|---|---|
+| Style      | Import path                                |
+| ---------- | ------------------------------------------ |
 | Standalone | `@nauth-toolkit/client-angular/standalone` |
-| NgModule | `@nauth-toolkit/client-angular` |
+| NgModule   | `@nauth-toolkit/client-angular`            |
 
 The components below use the standalone import. Replace it with `@nauth-toolkit/client-angular` for NgModule apps, and remove `standalone: true` and the `imports` array from the `@Component` decorator.
 
@@ -248,7 +241,9 @@ import { NAuthClientError } from '@nauth-toolkit/client';
       <button type="submit" [disabled]="loading()">
         {{ loading() ? 'Signing in…' : 'Sign In' }}
       </button>
-      @if (error()) { <p>{{ error() }}</p> }
+      @if (error()) {
+        <p>{{ error() }}</p>
+      }
     </form>
     <a (click)="router.navigate(['/signup'])">Create account</a>
   `,
@@ -274,10 +269,7 @@ export class LoginComponent {
     this.loading.set(true);
     this.error.set(null);
     try {
-      await this.auth.login(
-        this.form.value.email,
-        this.form.value.password,
-      );
+      await this.auth.login(this.form.value.email, this.form.value.password);
     } catch (err) {
       this.error.set(err instanceof NAuthClientError ? err.message : 'Login failed');
     } finally {
@@ -310,7 +302,9 @@ import { NAuthClientError } from '@nauth-toolkit/client';
       <button type="submit" [disabled]="loading()">
         {{ loading() ? 'Creating account…' : 'Create Account' }}
       </button>
-      @if (error()) { <p>{{ error() }}</p> }
+      @if (error()) {
+        <p>{{ error() }}</p>
+      }
     </form>
     <a (click)="router.navigate(['/login'])">Already have an account?</a>
   `,

@@ -67,7 +67,10 @@ export const authConfig: NAuthConfig = {
       rotation: true,
     },
   },
-
+  logger: {
+    instance: new Logger('NAuth'),
+    enablePiiRedaction: true, // Redact emails, IPs, tokens
+  },
   password: {
     minLength: 8,
     requireUppercase: true,

@@ -13,7 +13,7 @@ import { Logger } from '@nestjs/common';
 
 // const smsConfig: AWSSMSConfig = {
 //   region: 'ap-southeast-2',
-//   originationNumber: 'anyspaces',
+//   originationNumber: 'arn:aws:sms-voice:ap-southeast-2:005372705714:pool/pool-f29f8e8e64c4406f962f2d1ee15bb881',
 //   apiMode: 'end-user-messaging-sms',
 //   configurationSetName: 'as2-sms-auth',
 //   // Credentials optional - AWS SDK auto-discovers from IAM role or environment
