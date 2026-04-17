@@ -765,7 +765,6 @@ export class UserService {
           }
         }
       }
-
     } catch (auditError) {
       // Non-blocking: Log but continue
       const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';

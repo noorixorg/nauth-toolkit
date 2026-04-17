@@ -206,6 +206,60 @@ describe('TokenDeliveryHandler', () => {
       expect(refreshCookieCall[2].maxAge).toBe(604800000); // 7 days in ms
     });
 
+    it('should align refresh cookie maxAge with hybridPolicy.cookieRefreshExpiresIn when set', async () => {
+      mockConfig.jwt = {
+        accessToken: { secret: 'test', expiresIn: '15m' },
+        refreshToken: { secret: 'test', expiresIn: '30d' },
+      };
+      mockConfig.tokenDelivery = {
+        method: 'hybrid',
+        hybridPolicy: {
+          webOrigins: ['https://web.example.com'],
+          nativeOrigins: ['mobile://app'],
+          cookieRefreshExpiresIn: '7d',
+          jsonRefreshExpiresIn: '90d',
+        },
+      };
+      handler = new TokenDeliveryHandler(mockConfig, mockLogger);
+      (mockRequest as any).raw = { headers: { origin: 'https://web.example.com' } };
+
+      await handler.handleResponse(mockRequest, mockResponse, {
+        accessToken: 'token-123',
+        refreshToken: 'refresh-456',
+      });
+
+      const refreshCookieCall = (mockResponse.setCookie as jest.Mock).mock.calls.find((call) =>
+        call[0].includes('refresh'),
+      );
+      expect(refreshCookieCall[2].maxAge).toBe(604800000); // 7d, not 30d
+    });
+
+    it('should fall back to jwt.refreshToken.expiresIn when hybrid override is unset', async () => {
+      mockConfig.jwt = {
+        accessToken: { secret: 'test', expiresIn: '15m' },
+        refreshToken: { secret: 'test', expiresIn: '30d' },
+      };
+      mockConfig.tokenDelivery = {
+        method: 'hybrid',
+        hybridPolicy: {
+          webOrigins: ['https://web.example.com'],
+          // No cookieRefreshExpiresIn set
+        },
+      };
+      handler = new TokenDeliveryHandler(mockConfig, mockLogger);
+      (mockRequest as any).raw = { headers: { origin: 'https://web.example.com' } };
+
+      await handler.handleResponse(mockRequest, mockResponse, {
+        accessToken: 'token-123',
+        refreshToken: 'refresh-456',
+      });
+
+      const refreshCookieCall = (mockResponse.setCookie as jest.Mock).mock.calls.find((call) =>
+        call[0].includes('refresh'),
+      );
+      expect(refreshCookieCall[2].maxAge).toBe(2592000000); // 30d from config
+    });
+
     it('should handle numeric expiry', async () => {
       mockConfig.jwt = {
         accessToken: { secret: 'test', expiresIn: 1800 },

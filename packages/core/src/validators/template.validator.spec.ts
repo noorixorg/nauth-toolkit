@@ -102,9 +102,7 @@ describe('Template Validator', () => {
 
     it('should pass validation with html content', () => {
       const definition = { html: '<html>{{code}} {{link}} {{expiryMinutes}}</html>' };
-      expect(() =>
-        validateCustomTemplate(TemplateType.VERIFICATION, definition, definition.html),
-      ).not.toThrow();
+      expect(() => validateCustomTemplate(TemplateType.VERIFICATION, definition, definition.html)).not.toThrow();
     });
 
     it('should throw error when neither htmlPath nor html is provided', () => {
@@ -140,16 +138,14 @@ describe('Template Validator', () => {
 
     it('should validate template content when provided', () => {
       const definition = { html: '<html>{{code}}</html>' };
-      expect(() =>
-        validateCustomTemplate(TemplateType.VERIFICATION, definition, definition.html),
-      ).toThrow('Missing required parameters');
+      expect(() => validateCustomTemplate(TemplateType.VERIFICATION, definition, definition.html)).toThrow(
+        'Missing required parameters',
+      );
     });
 
     it('should pass when template content is valid', () => {
       const definition = { html: '<html>{{code}} {{link}} {{expiryMinutes}}</html>' };
-      expect(() =>
-        validateCustomTemplate(TemplateType.VERIFICATION, definition, definition.html),
-      ).not.toThrow();
+      expect(() => validateCustomTemplate(TemplateType.VERIFICATION, definition, definition.html)).not.toThrow();
     });
   });
 

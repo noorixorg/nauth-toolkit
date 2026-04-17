@@ -803,6 +803,70 @@ describe('JwtService', () => {
       const serviceWithNumberTTL = new JwtService(configWithNumberTTL);
       expect(serviceWithNumberTTL.getRefreshTokenTTL()).toBe(604800);
     });
+
+    it('should honor an override value over the configured expiresIn', () => {
+      expect(service.getRefreshTokenTTL('7d')).toBe(604800);
+      expect(service.getRefreshTokenTTL(3600)).toBe(3600);
+      // Without override, falls back to config (30d)
+      expect(service.getRefreshTokenTTL()).toBe(2592000);
+    });
+  });
+
+  describe('generateRefreshToken with expiresIn override', () => {
+    it('should use override expiresIn in the issued token exp claim', async () => {
+      const beforeIat = Math.floor(Date.now() / 1000);
+      const refreshToken = await service.generateRefreshToken({
+        userId: 'user-1',
+        email: 'user@example.com',
+        sessionId: 'session-1',
+        tokenFamily: 'family-1',
+        expiresIn: '7d',
+      });
+      const afterIat = Math.floor(Date.now() / 1000);
+
+      const result = await service.validateRefreshToken(refreshToken);
+      expect(result.valid).toBe(true);
+      const exp = result.payload?.exp as number;
+      const iat = result.payload?.iat as number;
+      expect(iat).toBeGreaterThanOrEqual(beforeIat);
+      expect(iat).toBeLessThanOrEqual(afterIat);
+      expect(exp - iat).toBe(604800);
+    });
+
+    it('should fall back to config expiresIn when override is omitted', async () => {
+      const refreshToken = await service.generateRefreshToken({
+        userId: 'user-1',
+        email: 'user@example.com',
+        sessionId: 'session-1',
+        tokenFamily: 'family-1',
+      });
+      const result = await service.validateRefreshToken(refreshToken);
+      const exp = result.payload?.exp as number;
+      const iat = result.payload?.iat as number;
+      expect(exp - iat).toBe(2592000); // 30d from defaultConfig
+    });
+  });
+
+  describe('generateTokenPair with refreshExpiresIn override', () => {
+    it('should forward refreshExpiresIn only to the refresh token', async () => {
+      const pair = await service.generateTokenPair({
+        userId: 'user-1',
+        email: 'user@example.com',
+        sessionId: 'session-1',
+        refreshExpiresIn: '90d',
+      });
+
+      const refreshResult = await service.validateRefreshToken(pair.refreshToken);
+      const rExp = refreshResult.payload?.exp as number;
+      const rIat = refreshResult.payload?.iat as number;
+      expect(rExp - rIat).toBe(7776000); // 90d
+
+      const accessResult = await service.validateAccessToken(pair.accessToken);
+      const aExp = accessResult.payload?.exp as number;
+      const aIat = accessResult.payload?.iat as number;
+      // Access token uses configured accessToken.expiresIn (15m = 900s in defaults)
+      expect(aExp - aIat).toBe(900);
+    });
   });
 
   // ============================================================================

@@ -135,5 +135,3 @@ describe('AuthService.forgotPassword() (social-only)', () => {
     expect(mockPasswordResetService.requestReset).toHaveBeenCalledWith(socialOnlyUser, 'email', { baseUrl: undefined });
   });
 });
-
-

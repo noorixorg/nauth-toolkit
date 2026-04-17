@@ -181,7 +181,9 @@ describe('SessionService', () => {
       };
       (mockSessionRepository.createQueryBuilder as unknown as jest.Mock).mockReturnValue(qb);
 
-      await expect(service.findAuthContextBySessionId(1)).rejects.toMatchObject({ code: AuthErrorCode.ACCOUNT_INACTIVE });
+      await expect(service.findAuthContextBySessionId(1)).rejects.toMatchObject({
+        code: AuthErrorCode.ACCOUNT_INACTIVE,
+      });
     });
 
     it('should return safe user without passwordHash', async () => {
@@ -1039,7 +1041,7 @@ describe('SessionService', () => {
 
     it('should only revoke non-expired sessions', async () => {
       const deviceId = 'device-uuid-expired-check';
-      
+
       // The find query includes expiresAt: MoreThan(now)
       // So expired sessions won't be in the results
       mockSessionRepository.find.mockResolvedValue([]);

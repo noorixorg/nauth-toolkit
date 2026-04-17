@@ -28,8 +28,7 @@ const TEST_OTHER_SUB = 'b21b654c-2746-4168-acee-c175083a65cd';
 
 // Helper to create DTOs from plain objects
 function createSendVerificationEmailDto(data: Partial<SendVerificationEmailDTO>): SendVerificationEmailDTO {
-  const sub =
-    data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
+  const sub = data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
   return Object.assign(new SendVerificationEmailDTO(), { ...data, sub });
 }
 
@@ -42,8 +41,7 @@ function createVerifyEmailWithTokenDto(data: Partial<VerifyEmailWithTokenDTO>): 
 }
 
 function createResendVerificationEmailDto(data: Partial<ResendVerificationEmailDTO>): ResendVerificationEmailDTO {
-  const sub =
-    data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
+  const sub = data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
   return Object.assign(new ResendVerificationEmailDTO(), { ...data, sub });
 }
 
@@ -253,7 +251,9 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      const result = await service.sendVerificationEmail(createSendVerificationEmailDto({ sub: 'user-sub-123', baseUrl: 'https://example.com' }));
+      const result = await service.sendVerificationEmail(
+        createSendVerificationEmailDto({ sub: 'user-sub-123', baseUrl: 'https://example.com' }),
+      );
 
       expect(mockStorageAdapter.incr).toHaveBeenCalled();
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: TEST_USER_SUB } as any });
@@ -1242,7 +1242,9 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      const result = await service.resendVerificationEmail(createResendVerificationEmailDto({ sub: 'user-sub-123', baseUrl: 'https://example.com' }));
+      const result = await service.resendVerificationEmail(
+        createResendVerificationEmailDto({ sub: 'user-sub-123', baseUrl: 'https://example.com' }),
+      );
 
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: TEST_USER_SUB } as any });
       expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalled();
@@ -1303,7 +1305,9 @@ describe('EmailVerificationService', () => {
       mockVerificationTokenRepository.create.mockReturnValue(mockVerificationToken as any);
       mockVerificationTokenRepository.save.mockResolvedValue(mockVerificationToken as any);
 
-      await service.resendVerificationEmail(createResendVerificationEmailDto({ sub: 'user-sub-123', baseUrl: 'https://example.com' }));
+      await service.resendVerificationEmail(
+        createResendVerificationEmailDto({ sub: 'user-sub-123', baseUrl: 'https://example.com' }),
+      );
 
       // Should call sendVerificationEmail with same parameters
       expect(mockEmailProvider.sendVerificationEmail).toHaveBeenCalled();

@@ -4,7 +4,16 @@
  * Tests database column decorator functions.
  */
 
-import { UuidColumn, JsonColumn, ArrayColumn, TimestampColumn, BooleanColumn, IntegerColumn, VarcharColumn, TextColumn } from './database-columns';
+import {
+  UuidColumn,
+  JsonColumn,
+  ArrayColumn,
+  TimestampColumn,
+  BooleanColumn,
+  IntegerColumn,
+  VarcharColumn,
+  TextColumn,
+} from './database-columns';
 
 describe('Database Column Decorators', () => {
   describe('UuidColumn', () => {

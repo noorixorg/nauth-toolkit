@@ -500,9 +500,7 @@ describe('SocialAuthService', () => {
       mockAuthService.changePassword.mockRejectedValue(new Error('Database error'));
 
       try {
-        await runAs(mockUser, () =>
-          service.setPasswordForSocialUser({ sub: mockUserSub, password: 'newpassword' }),
-        );
+        await runAs(mockUser, () => service.setPasswordForSocialUser({ sub: mockUserSub, password: 'newpassword' }));
         fail('Should have thrown Error');
       } catch (error) {
         expect(error).toBeInstanceOf(Error);

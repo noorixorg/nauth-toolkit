@@ -14,13 +14,21 @@ import { NAuthConfig } from '../../interfaces/config.interface';
 import { NAuthLogger } from '../../utils/nauth-logger';
 
 // Mock dynamic imports
-jest.mock('@nauth-toolkit/database-typeorm-postgres', () => ({
-  runNAuthMigrations: jest.fn().mockResolvedValue(undefined),
-}), { virtual: true });
+jest.mock(
+  '@nauth-toolkit/database-typeorm-postgres',
+  () => ({
+    runNAuthMigrations: jest.fn().mockResolvedValue(undefined),
+  }),
+  { virtual: true },
+);
 
-jest.mock('@nauth-toolkit/database-typeorm-mysql', () => ({
-  runNAuthMigrations: jest.fn().mockResolvedValue(undefined),
-}), { virtual: true });
+jest.mock(
+  '@nauth-toolkit/database-typeorm-mysql',
+  () => ({
+    runNAuthMigrations: jest.fn().mockResolvedValue(undefined),
+  }),
+  { virtual: true },
+);
 
 describe('runNAuthMigrationsOnStartup', () => {
   let mockLogger: jest.Mocked<NAuthLogger>;
@@ -75,9 +83,7 @@ describe('runNAuthMigrationsOnStartup', () => {
     await runNAuthMigrationsOnStartup(mockConfig, mockDataSource as DataSource, mockLogger);
 
     // Should not throw and should call logger methods
-    expect(mockLogger.warn).not.toHaveBeenCalledWith(
-      expect.stringContaining('DataSource not initialized'),
-    );
+    expect(mockLogger.warn).not.toHaveBeenCalledWith(expect.stringContaining('DataSource not initialized'));
   });
 
   it('should detect mysql database type', async () => {
@@ -88,9 +94,7 @@ describe('runNAuthMigrationsOnStartup', () => {
 
     await runNAuthMigrationsOnStartup(mockConfig, mockDataSource as DataSource, mockLogger);
 
-    expect(mockLogger.warn).not.toHaveBeenCalledWith(
-      expect.stringContaining('DataSource not initialized'),
-    );
+    expect(mockLogger.warn).not.toHaveBeenCalledWith(expect.stringContaining('DataSource not initialized'));
   });
 
   it('should detect mariadb database type', async () => {
@@ -101,9 +105,7 @@ describe('runNAuthMigrationsOnStartup', () => {
 
     await runNAuthMigrationsOnStartup(mockConfig, mockDataSource as DataSource, mockLogger);
 
-    expect(mockLogger.warn).not.toHaveBeenCalledWith(
-      expect.stringContaining('DataSource not initialized'),
-    );
+    expect(mockLogger.warn).not.toHaveBeenCalledWith(expect.stringContaining('DataSource not initialized'));
   });
 
   it('should handle undefined options gracefully', async () => {

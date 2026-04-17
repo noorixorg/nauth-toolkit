@@ -2355,11 +2355,32 @@ export interface TokenDeliveryConfig {
 
   /**
    * Strict hybrid policy (origin-based) used when method === 'hybrid'.
-   * webOrigins → cookies; nativeOrigins → json
+   *
+   * Origin classification:
+   * - webOrigins → cookies delivery
+   * - nativeOrigins → json delivery
+   *
+   * Optional per-delivery refresh token TTL overrides allow issuing
+   * different refresh lifetimes for cookie vs json clients (e.g. short
+   * TTL for browsers, long TTL for mobile/workers). Both fields are
+   * optional and fall back to jwt.refreshToken.expiresIn when unset.
+   * These fields are only consulted when method === 'hybrid'.
    */
   hybridPolicy?: {
     webOrigins?: string[];
     nativeOrigins?: string[];
+    /**
+     * Refresh token TTL applied when a request resolves to 'cookies' delivery.
+     * Format: duration string ('7d', '12h') or seconds (number).
+     * Falls back to jwt.refreshToken.expiresIn if unset.
+     */
+    cookieRefreshExpiresIn?: string | number;
+    /**
+     * Refresh token TTL applied when a request resolves to 'json' delivery.
+     * Format: duration string ('90d', '24h') or seconds (number).
+     * Falls back to jwt.refreshToken.expiresIn if unset.
+     */
+    jsonRefreshExpiresIn?: string | number;
   };
 }
 

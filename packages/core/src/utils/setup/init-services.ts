@@ -349,6 +349,7 @@ export function initServices(
     clientInfoService,
     emailVerificationService,
     phoneVerificationService,
+    trustedDeviceService,
   );
 
   // ============================================================================

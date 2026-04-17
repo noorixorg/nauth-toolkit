@@ -405,10 +405,7 @@ describe('NAuthLogger', () => {
 
       logger.log('Message', circular);
 
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        'NAUTH: Message',
-        '[Object with circular reference or invalid JSON]',
-      );
+      expect(mockLogger.log).toHaveBeenCalledWith('NAUTH: Message', '[Object with circular reference or invalid JSON]');
     });
 
     it('should filter logs by logLevel', () => {
@@ -468,11 +465,7 @@ describe('NAuthLogger', () => {
     it('should redact params when PII redaction enabled', () => {
       logger.log('Message', 'user@example.com', { ip: '192.168.1.100' });
 
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        'NAUTH: Message',
-        expect.stringContaining('***'),
-        expect.any(Object),
-      );
+      expect(mockLogger.log).toHaveBeenCalledWith('NAUTH: Message', expect.stringContaining('***'), expect.any(Object));
     });
 
     it('should not redact params when PII redaction disabled', () => {

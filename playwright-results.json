@@ -11,7 +11,7 @@
     "grepInvert": null,
     "maxFailures": 0,
     "metadata": {
-      "actualWorkers": 1
+      "actualWorkers": 2
     },
     "preserveOutput": "always",
     "reporter": [
@@ -44,7 +44,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 2
         },
         "id": "cookies",
         "name": "cookies",
@@ -60,7 +60,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 1
+          "actualWorkers": 2
         },
         "id": "json",
         "name": "json",
@@ -82,20 +82,20 @@
   },
   "suites": [
     {
-      "title": "specs/expired-token-reuse.spec.ts",
-      "file": "specs/expired-token-reuse.spec.ts",
+      "title": "specs/hybrid-refresh-ttl.spec.ts",
+      "file": "specs/hybrid-refresh-ttl.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "Expired Refresh Token Reuse via Race Handler",
-          "file": "specs/expired-token-reuse.spec.ts",
-          "line": 104,
+          "title": "Hybrid Per-Delivery Refresh TTL",
+          "file": "specs/hybrid-refresh-ttl.spec.ts",
+          "line": 65,
           "column": 6,
           "specs": [
             {
-              "title": "expired refresh token is rejected even when Redis used-token entry still exists",
+              "title": "refresh TTL matches hybrid policy per delivery, and refresh expires at that boundary",
               "ok": true,
               "tags": [],
               "tests": [
@@ -110,109 +110,29 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 36295,
+                      "duration": 17919,
                       "errors": [],
                       "stdout": [
                         {
-                          "text": "\n=== STEP 1: Login ===\n"
+                          "text": "[cookies] issued refresh TTL = 10s (expected 10s)\n"
                         },
                         {
-                          "text": "Login status: 200\n"
+                          "text": "[cookies] refresh within window → 200\n"
                         },
                         {
-                          "text": "Cookies received: nauth_access_token, nauth_refresh_token, nauth_device_token, nauth_csrf_token\n"
+                          "text": "[cookies] waiting 12468ms for refresh TTL to elapse\n"
                         },
                         {
-                          "text": "RT1 (first 20 chars): eyJhbGciOiJIUzI1NiJ9...\n"
-                        },
-                        {
-                          "text": "\n=== STEP 2: Wait 10000ms then refresh (rotate RT1 -> RT2) ===\n"
-                        },
-                        {
-                          "text": "First refresh status: 200\n"
-                        },
-                        {
-                          "text": "RT2 (first 20 chars): eyJhbGciOiJIUzI1NiJ9...\n"
-                        },
-                        {
-                          "text": "Token rotation confirmed: RT1 != RT2\n"
-                        },
-                        {
-                          "text": "\n=== STEP 3: Reuse RT1 immediately (JWT still valid, same-session race) ===\n"
-                        },
-                        {
-                          "text": "RT1 reuse (before JWT expiry) status: 200\n"
-                        },
-                        {
-                          "text": "Same-session race handler accepted the valid (non-expired) stale token - correct behavior\n"
-                        },
-                        {
-                          "text": "\n=== STEP 4: Waiting 25000ms for RT1 JWT to expire (Redis entry still alive) ===\n"
-                        },
-                        {
-                          "text": "\n=== STEP 5: Reuse RT1 after JWT expiry (the bug scenario) ===\n"
-                        },
-                        {
-                          "text": "RT1 reuse (after JWT expiry) status: 401\n"
-                        },
-                        {
-                          "text": "Response body: {\"statusCode\":401,\"code\":\"AUTH_TOKEN_INVALID\",\"message\":\"Refresh token has expired. Please sign in again.\",\"timestamp\":\"2026-02-20T05:40:07.000Z\",\"path\":\"/auth/refresh\"}\n"
-                        },
-                        {
-                          "text": "\nSet-Cookie headers from expired reuse attempt:\n"
-                        },
-                        {
-                          "text": "  nauth_access_token= (maxAge=unset)\n"
-                        },
-                        {
-                          "text": "  nauth_refresh_token= (maxAge=unset)\n"
-                        },
-                        {
-                          "text": "  nauth_csrf_token= (maxAge=unset)\n"
-                        },
-                        {
-                          "text": "  nauth_access_token= (maxAge=unset)\n"
-                        },
-                        {
-                          "text": "  nauth_refresh_token= (maxAge=unset)\n"
-                        },
-                        {
-                          "text": "  nauth_csrf_token= (maxAge=unset)\n"
-                        },
-                        {
-                          "text": "  nauth_access_token= (maxAge=unset)\n"
-                        },
-                        {
-                          "text": "  nauth_refresh_token= (maxAge=unset)\n"
-                        },
-                        {
-                          "text": "  nauth_csrf_token= (maxAge=unset)\n"
-                        },
-                        {
-                          "text": "\n=== STEP 6: Bug verification ===\n"
-                        },
-                        {
-                          "text": "FIX VERIFIED: Expired refresh token correctly rejected.\n"
-                        },
-                        {
-                          "text": "Error code: AUTH_TOKEN_INVALID\n"
-                        },
-                        {
-                          "text": "Message: Refresh token has expired. Please sign in again.\n"
-                        },
-                        {
-                          "text": "\n=== STEP 7: Verify RT2 (rotated token) still works ===\n"
-                        },
-                        {
-                          "text": "RT2 refresh status: 200\n"
-                        },
-                        {
-                          "text": "RT2 still valid - legitimate rotation chain works correctly.\n"
+                          "text": "[cookies] refresh after TTL → 401\n"
                         }
                       ],
-                      "stderr": [],
+                      "stderr": [
+                        {
+                          "text": "Refresh token failed: status=401, body= {\n  statusCode: \u001b[33m401\u001b[39m,\n  code: \u001b[32m'AUTH_TOKEN_INVALID'\u001b[39m,\n  message: \u001b[32m'Refresh token is required'\u001b[39m,\n  timestamp: \u001b[32m'2026-04-17T03:09:05.736Z'\u001b[39m,\n  path: \u001b[32m'/api/auth/refresh'\u001b[39m\n}\n"
+                        }
+                      ],
                       "retry": 0,
-                      "startTime": "2026-02-20T05:39:30.718Z",
+                      "startTime": "2026-04-17T03:08:47.817Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -220,9 +140,60 @@
                   "status": "expected"
                 }
               ],
-              "id": "99718092363dea219665-84f17b0d470ab5e1b014",
-              "file": "specs/expired-token-reuse.spec.ts",
-              "line": 107,
+              "id": "204730953efb8485b02c-8c055fcd6f3172b680a0",
+              "file": "specs/hybrid-refresh-ttl.spec.ts",
+              "line": 69,
+              "column": 7
+            },
+            {
+              "title": "refresh TTL matches hybrid policy per delivery, and refresh expires at that boundary",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "json",
+                  "projectName": "json",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 27948,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "[json] issued refresh TTL = 20s (expected 20s)\n"
+                        },
+                        {
+                          "text": "[json] refresh within window → 200\n"
+                        },
+                        {
+                          "text": "[json] waiting 22473ms for refresh TTL to elapse\n"
+                        },
+                        {
+                          "text": "[json] refresh after TTL → 401\n"
+                        }
+                      ],
+                      "stderr": [
+                        {
+                          "text": "Refresh token failed: status=401, body= {\n  statusCode: \u001b[33m401\u001b[39m,\n  code: \u001b[32m'AUTH_TOKEN_INVALID'\u001b[39m,\n  message: \u001b[32m'Invalid refresh token'\u001b[39m,\n  timestamp: \u001b[32m'2026-04-17T03:09:15.768Z'\u001b[39m,\n  path: \u001b[32m'/api/mobile/auth/refresh'\u001b[39m\n}\n"
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2026-04-17T03:08:47.819Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "204730953efb8485b02c-484cf8aada3a5ada0493",
+              "file": "specs/hybrid-refresh-ttl.spec.ts",
+              "line": 69,
               "column": 7
             }
           ]
@@ -232,9 +203,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-02-20T05:39:30.236Z",
-    "duration": 36805.267,
-    "expected": 1,
+    "startTime": "2026-04-17T03:08:47.383Z",
+    "duration": 28413.111,
+    "expected": 2,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

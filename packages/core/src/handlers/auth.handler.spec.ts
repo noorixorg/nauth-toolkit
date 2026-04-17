@@ -88,5 +88,3 @@ describe('AuthHandler', () => {
     expect(user.sessionAuthMethod).toBe('google');
   });
 });
-
-

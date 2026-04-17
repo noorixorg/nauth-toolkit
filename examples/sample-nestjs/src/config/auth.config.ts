@@ -1,8 +1,8 @@
-import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
 import { MFAMethod, NAuthModuleConfig, createRedisStorageAdapter } from '@nauth-toolkit/nestjs';
-import { TwilioSMSProvider } from '@nauth-toolkit/sms-twilio';
+import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
+import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
+// import { TwilioSMSProvider } from '@nauth-toolkit/sms-twilio';
 
-// import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
 // import { AWSSMSProvider, AWSSMSConfig } from '@nauth-toolkit/sms-aws-sns';
 import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
 // import { NodemailerEmailProvider } from '@nauth-toolkit/email-nodemailer';
@@ -158,6 +158,18 @@ export const authConfig: NAuthModuleConfig = {
       sameSite: 'none',
       domain: process.env.COOKIE_DOMAIN || '.angular.dev1.noorix.com',
     },
+    // Per-delivery refresh token TTLs (hybrid mode only).
+    // The TTL for each request is selected by the route's @TokenDelivery()
+    // decorator (or nauth.helpers.tokenDelivery() for Express/Fastify):
+    //   @TokenDelivery('cookies') -> cookieRefreshExpiresIn
+    //   @TokenDelivery('json')    -> jsonRefreshExpiresIn
+    // The refresh cookie Max-Age and the JWT exp claim both align with the
+    // resolved value. Short values below are for E2E demonstration — real
+    // apps typically pair '7d' cookies with '90d' json.
+    hybridPolicy: {
+      cookieRefreshExpiresIn: '10s',
+      jsonRefreshExpiresIn: '20s',
+    },
   },
   security: {
     // Mask sensitive data in API responses (email/phone)
@@ -245,6 +257,21 @@ export const authConfig: NAuthModuleConfig = {
   //   },
   // }),
 
+  // emailProvider: new NodemailerEmailProvider({
+  //   transport: {
+  //     host: 'mail.noorix.com.au',
+  //     port: 465,
+  //     secure: true,
+  //     auth: {
+  //       user: 'nauth@noorix.com.au',
+  //       pass: '36bl1fj221Ds',
+  //     },
+  //   },
+  //   defaults: {
+  //     from: 'Nauth App <nauth@noorix.com.au>',
+  //   },
+  // }),
+
   email: {
     // Canonical template globals location (no templates.globalVariables)
     globalVariables: {
@@ -300,15 +327,17 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
 
+  smsProvider: new ConsoleSMSProvider(),
+
   // smsProvider: new AWSSMSProvider(smsConfig),
 
   // Twilio SMS provider — sends real SMS via Twilio Programmable Messaging API.
   // Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER in .env.
-  smsProvider: new TwilioSMSProvider({
-    accountSid: process.env.TWILIO_ACCOUNT_SID!,
-    authToken: process.env.TWILIO_AUTH_TOKEN!,
-    fromNumber: process.env.TWILIO_FROM_NUMBER,
-  }),
+  // smsProvider: new TwilioSMSProvider({
+  //   accountSid: process.env.TWILIO_ACCOUNT_SID!,
+  //   authToken: process.env.TWILIO_AUTH_TOKEN!,
+  //   fromNumber: process.env.TWILIO_FROM_NUMBER,
+  // }),
 
   // ============================================================================
   // SMS Templates Configuration
@@ -363,7 +392,7 @@ export const authConfig: NAuthModuleConfig = {
   lockout: { enabled: false, maxAttempts: 5, duration: 300, resetOnSuccess: true },
 
   recaptcha: {
-    enabled: process.env.RECAPTCHA_ENABLED === 'true',
+    enabled: false,
     provider: new RecaptchaEnterpriseProvider({
       projectId: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID || '',
       apiKey: process.env.RECAPTCHA_ENTERPRISE_API_KEY!, // API key (AIza...), NOT site key

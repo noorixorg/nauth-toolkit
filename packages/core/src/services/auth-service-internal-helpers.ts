@@ -1455,7 +1455,9 @@ export class AuthServiceInternalHelpers {
         const actionScore = effectiveAction ? recaptchaConfig.actionScores?.[effectiveAction] : undefined;
         const minimumScore = actionScore ?? recaptchaConfig.minimumScore ?? 0.5;
 
-        this.logger?.debug?.(`reCAPTCHA score: ${result.score} (minimum: ${minimumScore}, action: ${effectiveAction || 'unknown'})`);
+        this.logger?.debug?.(
+          `reCAPTCHA score: ${result.score} (minimum: ${minimumScore}, action: ${effectiveAction || 'unknown'})`,
+        );
 
         if (result.score < minimumScore) {
           this.logger?.warn?.(

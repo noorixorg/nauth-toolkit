@@ -167,6 +167,50 @@ sequenceDiagram
 Use a clear pattern like `/auth/*` for cookie routes and `/auth/*/mobile` for JSON routes. This makes it obvious which client should call which endpoint.
 :::
 
+### Per-Delivery Refresh TTL {#per-delivery-refresh-ttl}
+
+In hybrid mode you can issue different refresh token lifetimes for cookie-delivered vs JSON-delivered clients. Typical use: short TTL for browsers (cookies) to contain blast radius, long TTL for mobile/workers (JSON) so users stay signed in longer.
+
+```typescript title="config/auth.config.ts"
+{
+  jwt: {
+    refreshToken: {
+      secret: process.env.JWT_REFRESH_SECRET!,
+      expiresIn: '30d',          // Global fallback when no per-delivery value applies
+      reuseDetection: true,
+    },
+  },
+  tokenDelivery: {
+    method: 'hybrid',
+    hybridPolicy: {
+      // Optional — used only when you want origin-based classification.
+      webOrigins: ['https://app.example.com'],
+      nativeOrigins: ['capacitor://localhost'],
+
+      // Per-delivery TTL overrides (both optional, both independent).
+      cookieRefreshExpiresIn: '7d',   // Applied when request resolves to 'cookies'
+      jsonRefreshExpiresIn:   '90d',  // Applied when request resolves to 'json'
+    },
+  },
+}
+```
+
+**Resolution order** — how each request picks its TTL:
+
+1. The request's delivery mode is resolved first (route-level `@TokenDelivery()` / `nauth.helpers.tokenDelivery()` wins, then origin classification).
+2. The matching TTL is selected: `cookies` → `cookieRefreshExpiresIn`, `json` → `jsonRefreshExpiresIn`.
+3. If the matching side is unset, falls back to `jwt.refreshToken.expiresIn`.
+
+The resolved TTL is applied at every point where a refresh token is minted — login, refresh, and MFA/social challenge completion — and the refresh cookie's `maxAge` aligns with it automatically.
+
+:::note Hybrid-only
+`cookieRefreshExpiresIn` and `jsonRefreshExpiresIn` are only consulted when `tokenDelivery.method === 'hybrid'`. They're ignored in `'json'` or `'cookies'` mode.
+:::
+
+:::tip Security note
+Per-delivery TTL is configured server-side via `hybridPolicy`. Clients cannot request a longer lifetime — the delivery mode (and therefore the TTL) is determined by the route the client calls or the origin it presents.
+:::
+
 ## Setting Up Per-Route Delivery
 
 When using `hybrid` mode, each route must specify its delivery mode.

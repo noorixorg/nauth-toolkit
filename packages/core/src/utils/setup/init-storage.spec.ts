@@ -17,9 +17,13 @@ import { LoggerService } from '../../interfaces/config.interface';
 import { NAuthException, AuthErrorCode } from '../../index';
 
 // Mock dynamic imports
-jest.mock('@nauth-toolkit/storage-database', () => ({
-  DatabaseStorageAdapter: jest.fn(),
-}), { virtual: true });
+jest.mock(
+  '@nauth-toolkit/storage-database',
+  () => ({
+    DatabaseStorageAdapter: jest.fn(),
+  }),
+  { virtual: true },
+);
 
 describe('initStorage', () => {
   let mockConfig: NAuthConfig;
@@ -118,13 +122,9 @@ describe('initStorage', () => {
   it('should throw error when no adapter provided and no repositories available', async () => {
     mockConfig.storageAdapter = undefined;
 
-    await expect(
-      initStorage(mockConfig, null, null, mockLogger),
-    ).rejects.toThrow(NAuthException);
+    await expect(initStorage(mockConfig, null, null, mockLogger)).rejects.toThrow(NAuthException);
 
-    await expect(
-      initStorage(mockConfig, null, null, mockLogger),
-    ).rejects.toThrow('Storage adapter is REQUIRED');
+    await expect(initStorage(mockConfig, null, null, mockLogger)).rejects.toThrow('Storage adapter is REQUIRED');
   });
 
   it('should throw error with AuthErrorCode.VALIDATION_FAILED', async () => {

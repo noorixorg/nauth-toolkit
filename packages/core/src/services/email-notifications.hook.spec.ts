@@ -323,4 +323,3 @@ describe('registerBuiltInEmailNotificationHooks', () => {
     expect(emailProvider.sendVerificationEmail).not.toHaveBeenCalled();
   });
 });
-

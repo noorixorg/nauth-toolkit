@@ -20,6 +20,15 @@ import { MFAMethod, MFADeviceMethod, MFAVerificationMethod, MFADeviceMethods } f
 import { AuthFlowStateMachineService } from './auth-flow-state-machine.service';
 import { AuthFlowContextBuilder } from './auth-flow-context-builder.service';
 import { AuthFlowState, AuthFlowContext } from './auth-flow-state-machine.types';
+import { ContextStorage } from '../utils/context-storage';
+
+/**
+ * ContextStorage key used by AuthService to pass a pre-resolved refresh
+ * token TTL (hybrid-policy resolved) down to this helper. Using context
+ * instead of a constructor param keeps the helper's wiring stable for
+ * framework adapters that construct it with the legacy 11-arg signature.
+ */
+const RESOLVED_REFRESH_EXPIRES_IN = 'RESOLVED_REFRESH_EXPIRES_IN';
 
 /**
  * Helper service for challenge-response authentication flows
@@ -631,6 +640,13 @@ export class AuthChallengeHelperService {
     // Generate token family for rotation tracking
     const tokenFamily = this.jwtService.generateTokenFamily();
 
+    // Pre-resolved refresh TTL pushed down by AuthService (which has access
+    // to the full NAuthConfig). Undefined when no hybrid-policy override
+    // applies — generateTokenPair falls back to config.refreshToken.expiresIn.
+    // Same value is used for both the temp tokens and the final tokens so the
+    // session's reuse-detection storage TTL matches the issued token's lifetime.
+    const resolvedRefreshExpiresIn = ContextStorage.get<string | number>(RESOLVED_REFRESH_EXPIRES_IN);
+
     // Generate temporary tokens first (session creation requires token hashes)
     // Note: deviceId not included in token - session.deviceId is source of truth
     const tempTokens = await this.jwtService.generateTokenPair({
@@ -638,6 +654,7 @@ export class AuthChallengeHelperService {
       email: user.email,
       sessionId: 'temp', // Temporary - will be regenerated with real sessionId
       tokenFamily,
+      refreshExpiresIn: resolvedRefreshExpiresIn,
     });
 
     // Generate deviceId if not provided
@@ -698,6 +715,7 @@ export class AuthChallengeHelperService {
       email: user.email,
       sessionId: session.id.toString(),
       tokenFamily,
+      refreshExpiresIn: resolvedRefreshExpiresIn,
     });
 
     // Update session with new token hashes

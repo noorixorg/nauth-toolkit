@@ -220,9 +220,7 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
           message: 'reCAPTCHA validation failed',
         });
 
-        expect(mockLogger.warn).toHaveBeenCalledWith(
-          'reCAPTCHA validation failed: invalid-input-response',
-        );
+        expect(mockLogger.warn).toHaveBeenCalledWith('reCAPTCHA validation failed: invalid-input-response');
       });
     });
 
@@ -245,7 +243,9 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
           action: 'login',
         } as RecaptchaVerificationResult);
 
-        await expect(helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4', 'login')).rejects.toThrow(NAuthException);
+        await expect(helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4', 'login')).rejects.toThrow(
+          NAuthException,
+        );
         await expect(helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4', 'login')).rejects.toMatchObject({
           code: AuthErrorCode.RECAPTCHA_SCORE_TOO_LOW,
           message: 'Suspicious activity detected',
@@ -279,9 +279,7 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
         await helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4', 'login');
 
         expect(mockLogger.debug).toHaveBeenCalledWith('reCAPTCHA score: 0.8 (minimum: 0.5, action: login)');
-        expect(mockLogger.debug).toHaveBeenCalledWith(
-          'reCAPTCHA validation successful (score: 0.8) for action: login',
-        );
+        expect(mockLogger.debug).toHaveBeenCalledWith('reCAPTCHA validation successful (score: 0.8) for action: login');
       });
     });
 
@@ -397,7 +395,9 @@ describe('AuthServiceInternalHelpers - reCAPTCHA Validation', () => {
           action: 'password_reset',
         } as RecaptchaVerificationResult);
 
-        await expect(helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4', 'password_reset')).rejects.toMatchObject({
+        await expect(
+          helpers.validateRecaptchaIfNeeded('test-token', '1.2.3.4', 'password_reset'),
+        ).rejects.toMatchObject({
           code: AuthErrorCode.RECAPTCHA_SCORE_TOO_LOW,
         });
       });

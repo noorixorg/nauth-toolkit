@@ -9,11 +9,7 @@
  */
 
 import { StorageAdapter } from '../interfaces/storage-adapter.interface';
-import {
-  createDatabaseStorageAdapter,
-  createRedisStorageAdapter,
-  createRedisClusterAdapter,
-} from './storage.factory';
+import { createDatabaseStorageAdapter, createRedisStorageAdapter, createRedisClusterAdapter } from './storage.factory';
 
 describe('Storage Factory', () => {
   describe('createDatabaseStorageAdapter', () => {

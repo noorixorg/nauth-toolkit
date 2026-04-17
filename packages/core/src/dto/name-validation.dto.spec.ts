@@ -7,8 +7,8 @@ import { UserUpdateDTO } from './user-update.dto';
 
 describe('Name fields (firstName/lastName) validation', () => {
   const specialNames = {
-    firstName: "José 🚀 (QA) / R&D",
-    lastName: "O’Connor-Smith #2",
+    firstName: 'José 🚀 (QA) / R&D',
+    lastName: 'O’Connor-Smith #2',
   };
 
   it('SignupDTO should accept special characters in firstName/lastName', async () => {
@@ -54,4 +54,3 @@ describe('Name fields (firstName/lastName) validation', () => {
     expect(errors).toHaveLength(0);
   });
 });
-

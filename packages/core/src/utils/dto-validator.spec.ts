@@ -5,7 +5,13 @@
  */
 
 import { IsString, IsEmail, MinLength, IsOptional } from 'class-validator';
-import { ensureValidatedDto, ensureValidatedDtoSync, markDtoAsValidated, isDtoValidated, formatDtoValidationErrors } from './dto-validator';
+import {
+  ensureValidatedDto,
+  ensureValidatedDtoSync,
+  markDtoAsValidated,
+  isDtoValidated,
+  formatDtoValidationErrors,
+} from './dto-validator';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { ValidationError } from 'class-validator';
@@ -136,7 +142,7 @@ describe('dto-validator', () => {
       const input = { name: 'John', email: 'john@example.com' };
       const validatedDto = await ensureValidatedDto(TestDTO, input);
       expect(isDtoValidated(validatedDto)).toBe(true);
-      
+
       // Now pass it again - should skip validation since it's already marked
       // Note: plainToInstance may create a new instance, but validation should be skipped
       const result = await ensureValidatedDto(TestDTO, validatedDto);
@@ -169,7 +175,7 @@ describe('dto-validator', () => {
       const input = { name: 'John', email: 'john@example.com' };
       const validatedDto = ensureValidatedDtoSync(TestDTO, input);
       expect(isDtoValidated(validatedDto)).toBe(true);
-      
+
       // Now pass it again - should skip validation since it's already marked
       // Note: plainToInstance may create a new instance, but validation should be skipped
       const result = ensureValidatedDtoSync(TestDTO, validatedDto);

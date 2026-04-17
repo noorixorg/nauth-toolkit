@@ -49,9 +49,7 @@ describe('clearAuthCookies', () => {
 
     clearAuthCookies(mockRes, undefined, undefined, false);
 
-    const deviceTokenCall = (mockRes.cookie as jest.Mock).mock.calls.find(
-      (call) => call[0] === 'nauth_device_token',
-    );
+    const deviceTokenCall = (mockRes.cookie as jest.Mock).mock.calls.find((call) => call[0] === 'nauth_device_token');
     expect(deviceTokenCall).toBeUndefined();
   });
 

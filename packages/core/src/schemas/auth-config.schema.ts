@@ -503,6 +503,8 @@ export const tokenDeliveryConfigSchema = z.object({
     .object({
       webOrigins: z.array(z.string()).optional(),
       nativeOrigins: z.array(z.string()).optional(),
+      cookieRefreshExpiresIn: z.union([z.string(), z.number()]).optional(),
+      jsonRefreshExpiresIn: z.union([z.string(), z.number()]).optional(),
     })
     .optional(),
 });

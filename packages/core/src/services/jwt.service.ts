@@ -307,20 +307,32 @@ export class JwtService {
     email: string;
     sessionId: string;
     tokenFamily?: string;
+    /**
+     * Optional per-request override for the refresh token's expiresIn.
+     * When unset, falls back to config.refreshToken.expiresIn. Used by
+     * hybrid-policy resolution to issue different refresh TTLs per
+     * delivery mode.
+     */
+    refreshExpiresIn?: string | number;
   }): Promise<TokenPair> {
     // Generate or reuse token family ID for rotation tracking
     const tokenFamily = data.tokenFamily || this.generateTokenFamily();
 
     // Generate access token (short-lived)
     const accessToken = await this.generateAccessToken({
-      ...data,
+      userId: data.userId,
+      email: data.email,
+      sessionId: data.sessionId,
       tokenFamily,
     });
 
     // Generate refresh token (long-lived)
     const refreshToken = await this.generateRefreshToken({
-      ...data,
+      userId: data.userId,
+      email: data.email,
+      sessionId: data.sessionId,
       tokenFamily,
+      expiresIn: data.refreshExpiresIn,
     });
 
     // Calculate expiration time in seconds
@@ -403,6 +415,11 @@ export class JwtService {
     email: string;
     sessionId: string;
     tokenFamily: string;
+    /**
+     * Optional per-request override for this token's expiresIn.
+     * Falls back to config.refreshToken.expiresIn when unset.
+     */
+    expiresIn?: string | number;
   }): Promise<string> {
     if (!this.refreshTokenKey) {
       throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Refresh token secret not configured.');
@@ -420,7 +437,7 @@ export class JwtService {
     })
       .setProtectedHeader({ alg: algorithm })
       .setIssuedAt()
-      .setExpirationTime(this.config.refreshToken.expiresIn);
+      .setExpirationTime(data.expiresIn ?? this.config.refreshToken.expiresIn);
 
     return await jwt.sign(this.refreshTokenKey);
   }
@@ -629,10 +646,14 @@ export class JwtService {
    *
    * Used for setting expiration on used-token tracking in storage.
    *
+   * @param override - Optional per-request TTL (duration string or seconds)
+   *                   that overrides the configured refreshToken.expiresIn.
+   *                   Used by hybrid-policy resolution so storage TTLs match
+   *                   the actual issued token's lifetime.
    * @returns TTL in seconds
    */
-  getRefreshTokenTTL(): number {
-    return this.parseExpiresIn(this.config.refreshToken.expiresIn);
+  getRefreshTokenTTL(override?: string | number): number {
+    return this.parseExpiresIn(override ?? this.config.refreshToken.expiresIn);
   }
 
   /**

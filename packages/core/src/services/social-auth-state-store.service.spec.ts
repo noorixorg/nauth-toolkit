@@ -115,12 +115,13 @@ describe('SocialAuthStateStore', () => {
     });
     const ctx = await store.consumeRedirectContext('state-abc');
 
-      expect(storage.set).toHaveBeenCalledWith(
-        'social:oauth_redirect:state-abc',
-        expect.any(String),
-        300,
-      );
-    expect(ctx).toEqual({ returnTo: '/auth/callback', appState: '12345', action: 'login', deviceToken: 'device-token-123' });
+    expect(storage.set).toHaveBeenCalledWith('social:oauth_redirect:state-abc', expect.any(String), 300);
+    expect(ctx).toEqual({
+      returnTo: '/auth/callback',
+      appState: '12345',
+      action: 'login',
+      deviceToken: 'device-token-123',
+    });
     expect(storage.del).toHaveBeenCalledWith('social:oauth_redirect:state-abc');
   });
 
@@ -133,5 +134,3 @@ describe('SocialAuthStateStore', () => {
     expect(ctx).toBeNull();
   });
 });
-
-

@@ -313,9 +313,9 @@ describe('PasswordResetService', () => {
 
       await service.consumeValidCode(mockUser, '123456');
 
-      expect(mockVerificationTokenRepo.save).toHaveBeenCalledWith(expect.objectContaining({ usedAt: expect.any(Date) }));
+      expect(mockVerificationTokenRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ usedAt: expect.any(Date) }),
+      );
     });
   });
 });
-
-

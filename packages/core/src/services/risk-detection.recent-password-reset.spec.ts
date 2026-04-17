@@ -135,7 +135,3 @@ describe('RiskDetectionService (recent_password_reset)', () => {
     expect(factors).toEqual([]);
   });
 });
-
-
-
-

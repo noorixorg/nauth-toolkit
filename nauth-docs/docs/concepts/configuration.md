@@ -824,7 +824,10 @@ tokenDelivery: {
 
 ### Hybrid policy (tokenDelivery.method = 'hybrid')
 
-In hybrid mode, nauth-toolkit chooses between cookies vs JSON delivery based on request origin.
+In hybrid mode, nauth-toolkit chooses between cookies vs JSON delivery for each request. Delivery is resolved in this order:
+
+1. **Route-level override** — `@TokenDelivery('json' | 'cookies')` (NestJS) or `nauth.helpers.tokenDelivery(...)` (Express/Fastify). Typically used for dedicated `/mobile` endpoints.
+2. **Origin-based classification** — `webOrigins` → cookies, `nativeOrigins` → json.
 
 ```typescript
 tokenDelivery: {
@@ -832,9 +835,30 @@ tokenDelivery: {
   hybridPolicy: {
     webOrigins: ['https://app.myapp.com'],
     nativeOrigins: ['capacitor://localhost', 'ionic://localhost'],
+
+    // Optional: per-delivery refresh token TTLs
+    // When set, the resolved delivery mode selects which TTL is used.
+    // Fall back to jwt.refreshToken.expiresIn when unset.
+    cookieRefreshExpiresIn: '7d',   // Shorter lifetime for browsers (cookies)
+    jsonRefreshExpiresIn:   '90d',  // Longer lifetime for mobile / workers (json)
   },
 },
 ```
+
+| Property | Type | Purpose |
+| --- | --- | --- |
+| `webOrigins` | `string[]` | Origins that resolve to cookies delivery when no route-level override is set. |
+| `nativeOrigins` | `string[]` | Origins that resolve to json delivery when no route-level override is set. |
+| `cookieRefreshExpiresIn` | `string \| number` | Refresh token TTL applied when a request resolves to cookies delivery. Falls back to `jwt.refreshToken.expiresIn`. |
+| `jsonRefreshExpiresIn` | `string \| number` | Refresh token TTL applied when a request resolves to json delivery. Falls back to `jwt.refreshToken.expiresIn`. |
+
+:::note Hybrid-only
+`cookieRefreshExpiresIn` and `jsonRefreshExpiresIn` are read only when `tokenDelivery.method === 'hybrid'`. They're ignored in `'json'` or `'cookies'` mode.
+:::
+
+:::tip Common pairing
+Short cookie TTL (`7d`) for web and long json TTL (`90d`) for mobile gives browsers tight blast-radius while letting native apps stay signed in for months without re-authentication.
+:::
 
 ## Session Configuration {#session-configuration}
 

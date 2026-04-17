@@ -527,7 +527,9 @@ describe('AuthAuditService', () => {
       expect(result.page).toBe(1);
       expect(result.limit).toBe(50);
       expect(result.totalPages).toBe(1);
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'a21b654c-2746-4168-acee-c175083a65cd' } });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
+        where: { sub: 'a21b654c-2746-4168-acee-c175083a65cd' },
+      });
       expect(mockQueryBuilder.where).toHaveBeenCalledWith('audit.userId = :userId', { userId: 1 });
     });
 
@@ -784,7 +786,9 @@ describe('AuthAuditService', () => {
       const result = await service.getRiskAssessmentHistory(request);
 
       expect(result.data).toEqual([mockAuditRecord as any]);
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: 'a21b654c-2746-4168-acee-c175083a65cd' } });
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
+        where: { sub: 'a21b654c-2746-4168-acee-c175083a65cd' },
+      });
       expect(mockQueryBuilder.where).toHaveBeenCalledWith('audit.userId = :userId', { userId: 1 });
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('audit.eventType IN (:...eventTypes)', {
         eventTypes: [

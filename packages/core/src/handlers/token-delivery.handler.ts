@@ -7,6 +7,7 @@
 import {
   NAuthConfig,
   resolveDeliveryForRequest,
+  resolveRefreshExpiresIn,
   getAccessTokenCookieName,
   getRefreshTokenCookieName,
   NAuthLogger,
@@ -44,7 +45,7 @@ export class TokenDeliveryHandler {
       const deliveryMode = this.resolveDeliveryMode(req);
 
       if (deliveryMode === 'cookies') {
-        this.setTokenCookies(res, body);
+        this.setTokenCookies(res, body, req);
 
         // Remove tokens and expiration fields from body
         // Expiration is managed by cookie maxAge, so these fields are not needed
@@ -84,6 +85,7 @@ export class TokenDeliveryHandler {
   private setTokenCookies(
     res: NAuthResponse,
     body: Record<string, unknown> & { accessToken: string; refreshToken: string },
+    req: NAuthRequest,
   ): void {
     const accessTokenCookieName = getAccessTokenCookieName(this.config);
     const refreshTokenCookieName = getRefreshTokenCookieName(this.config);
@@ -97,8 +99,11 @@ export class TokenDeliveryHandler {
       priority: (this.config.tokenDelivery?.cookieOptions?.priority as 'low' | 'medium' | 'high') ?? 'high',
     };
 
+    // Align refresh cookie maxAge with the actual issued refresh token TTL
+    // (hybrid-policy override wins when set; otherwise global config value).
+    const resolvedRefreshExpiresIn = resolveRefreshExpiresIn(req, this.config);
     const accessMaxAge = this.parseExpiry(this.config.jwt.accessToken.expiresIn) * 1000;
-    const refreshMaxAge = this.parseExpiry(this.config.jwt.refreshToken.expiresIn) * 1000;
+    const refreshMaxAge = this.parseExpiry(resolvedRefreshExpiresIn ?? this.config.jwt.refreshToken.expiresIn) * 1000;
 
     res.setCookie(accessTokenCookieName, body.accessToken, {
       ...cookieOptions,

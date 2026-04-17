@@ -287,9 +287,9 @@ describe('SocialRedirectHandler', () => {
     });
 
     it('throws when code is missing', async () => {
-      await expect(
-        handler.callback('google', { state: 'csrf-state-123' }),
-      ).rejects.toMatchObject({ code: AuthErrorCode.VALIDATION_FAILED });
+      await expect(handler.callback('google', { state: 'csrf-state-123' })).rejects.toMatchObject({
+        code: AuthErrorCode.VALIDATION_FAILED,
+      });
     });
   });
 });

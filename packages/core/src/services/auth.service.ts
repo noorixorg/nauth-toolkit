@@ -26,6 +26,8 @@ import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { RiskFactor } from '../enums/risk-factor.enum';
 import { MFAService } from './mfa.service';
 import { ContextStorage } from '../utils/context-storage';
+import { resolveRefreshExpiresIn } from '../utils/token-delivery-policy';
+import type { NAuthRequest } from '../platform/interfaces';
 import { SignupDTO } from '../dto/signup.dto';
 // Admin DTOs moved to AdminAuthService
 import { LoginDTO } from '../dto/login.dto';
@@ -211,6 +213,10 @@ export class AuthService {
   async signup(dto: SignupDTO): Promise<AuthResponseDTO> {
     // Ensure DTO is validated (supports direct usage without framework validation)
     dto = await ensureValidatedDto(SignupDTO, dto);
+
+    // Resolve hybrid-policy refresh TTL once and publish to ContextStorage so
+    // AuthChallengeHelperService picks it up when minting token pairs.
+    this.publishResolvedRefreshExpiresIn();
 
     // Get client info from request context (transparent!)
     const clientInfo = this.clientInfoService.get();
@@ -474,6 +480,10 @@ export class AuthService {
   async login(dto: LoginDTO): Promise<AuthResponseDTO> {
     // Ensure DTO is validated (supports direct usage without framework validation)
     dto = await ensureValidatedDto(LoginDTO, dto);
+
+    // Resolve hybrid-policy refresh TTL once and publish to ContextStorage so
+    // AuthChallengeHelperService picks it up when minting token pairs.
+    this.publishResolvedRefreshExpiresIn();
 
     // Get client info from request context (transparent!)
     const clientInfo = this.clientInfoService.get();
@@ -1098,6 +1108,7 @@ export class AuthService {
           email: user.email,
           sessionId: sessionId.toString(),
           tokenFamily,
+          refreshExpiresIn: this.resolveRefreshExpiresInForRequest(),
         });
         return {
           accessTokenHash: this.jwtService.hashToken(pair.accessToken),
@@ -1257,6 +1268,10 @@ export class AuthService {
   async respondToChallenge(dto: RespondChallengeDTO): Promise<AuthResponseDTO> {
     // Ensure DTO is validated (supports direct usage without framework validation)
     dto = await ensureValidatedDto(RespondChallengeDTO, dto);
+
+    // Resolve hybrid-policy refresh TTL once and publish to ContextStorage so
+    // AuthChallengeHelperService picks it up when minting token pairs.
+    this.publishResolvedRefreshExpiresIn();
 
     const responseData = dto as ChallengeResponseData;
     const { session, type } = responseData;
@@ -1813,6 +1828,7 @@ export class AuthService {
                 email: user.email,
                 sessionId: currentSession.id.toString(),
                 tokenFamily: currentSession.tokenFamily,
+                refreshExpiresIn: this.resolveRefreshExpiresInForRequest(),
               });
 
               // Update session with these tokens (they're already there, but ensures consistency)
@@ -1912,9 +1928,13 @@ export class AuthService {
         // are sent before new cookies are received
         // ============================================================================
 
+        // Resolve per-request refresh TTL once so both the generated token's
+        // exp claim and the reuse-detection storage TTL stay aligned.
+        const resolvedRefreshExpiresIn = this.resolveRefreshExpiresInForRequest();
+
         // Mark token as used BEFORE generating new tokens (prevents reuse)
         if (this.config.jwt.refreshToken.reuseDetection) {
-          const refreshTokenTTL = this.jwtService.getRefreshTokenTTL();
+          const refreshTokenTTL = this.jwtService.getRefreshTokenTTL(resolvedRefreshExpiresIn);
           const marked = await this.sessionService.markRefreshTokenAsUsed(tokenHash, refreshTokenTTL);
 
           if (!marked) {
@@ -1963,6 +1983,7 @@ export class AuthService {
           email: payload.email,
           sessionId: lockedSession.id.toString(), // Convert integer to string for JWT
           tokenFamily: payload.tokenFamily,
+          refreshExpiresIn: resolvedRefreshExpiresIn,
         });
 
         // Update session with new token hashes (token rotation)
@@ -2032,6 +2053,37 @@ export class AuthService {
    *
    * @param code - Error code to evaluate
    */
+  /**
+   * Resolve the per-request refresh token TTL override.
+   *
+   * Pulls the current request from ContextStorage and delegates to the
+   * hybrid-policy resolver. Returns `undefined` when no override applies,
+   * in which case callers fall back to `jwt.refreshToken.expiresIn`.
+   */
+  private resolveRefreshExpiresInForRequest(): string | number | undefined {
+    const req = ContextStorage.get<NAuthRequest>('REQUEST');
+    return resolveRefreshExpiresIn(req, this.config);
+  }
+
+  /**
+   * Resolve the per-request refresh TTL AND publish it to ContextStorage so
+   * downstream services (AuthChallengeHelperService) that mint token pairs
+   * can pick it up without needing direct config access. This keeps the
+   * helper's constructor signature stable for framework adapters that wire
+   * it up with the legacy (pre-hybrid-TTL) argument list.
+   *
+   * No-ops silently when no ContextStorage context is active (e.g. unit
+   * tests that call AuthService methods directly without ContextStorage.run).
+   */
+  private publishResolvedRefreshExpiresIn(): string | number | undefined {
+    if (!ContextStorage.getStore()) {
+      return undefined;
+    }
+    const resolved = this.resolveRefreshExpiresInForRequest();
+    ContextStorage.set('RESOLVED_REFRESH_EXPIRES_IN', resolved);
+    return resolved;
+  }
+
   private clearAuthCookiesOnRefreshFailure(code: AuthErrorCode): void {
     if (this.config.tokenDelivery?.method === 'json') return;
     if (

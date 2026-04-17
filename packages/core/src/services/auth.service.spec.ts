@@ -2196,6 +2196,92 @@ describe('AuthService', () => {
 
         expect(mockSessionService.releaseRefreshLock).toHaveBeenCalled();
       });
+
+      it('should pass hybrid jsonRefreshExpiresIn when @TokenDelivery("json") decorator sets the route override', async () => {
+        mockConfig.tokenDelivery = {
+          method: 'hybrid',
+          hybridPolicy: {
+            webOrigins: ['https://web.example.com'],
+            nativeOrigins: ['mobile://app'],
+            cookieRefreshExpiresIn: '7d',
+            jsonRefreshExpiresIn: '90d',
+          },
+        };
+        mockConfig.jwt.refreshToken.reuseDetection = true;
+
+        await ContextStorage.run(async () => {
+          // Simulates an endpoint decorated with @TokenDelivery('json')
+          // — e.g. /auth/login/mobile. Origin header is irrelevant here.
+          ContextStorage.set('REQUEST', {
+            attributes: { nauthTokenDelivery: 'json' },
+            raw: {},
+          } as any);
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
+        });
+
+        expect(mockJwtService.generateTokenPair).toHaveBeenCalledWith(
+          expect.objectContaining({ refreshExpiresIn: '90d' }),
+        );
+        expect(mockJwtService.getRefreshTokenTTL).toHaveBeenCalledWith('90d');
+      });
+
+      it('should pass hybrid cookieRefreshExpiresIn when @TokenDelivery("cookies") decorator sets the route override', async () => {
+        mockConfig.tokenDelivery = {
+          method: 'hybrid',
+          hybridPolicy: {
+            webOrigins: ['https://web.example.com'],
+            nativeOrigins: ['mobile://app'],
+            cookieRefreshExpiresIn: '7d',
+            jsonRefreshExpiresIn: '90d',
+          },
+        };
+
+        await ContextStorage.run(async () => {
+          ContextStorage.set('REQUEST', {
+            attributes: { nauthTokenDelivery: 'cookies' },
+            raw: {},
+          } as any);
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
+        });
+
+        expect(mockJwtService.generateTokenPair).toHaveBeenCalledWith(
+          expect.objectContaining({ refreshExpiresIn: '7d' }),
+        );
+      });
+
+      it('should fall back to origin-based classification when no @TokenDelivery decorator is set', async () => {
+        mockConfig.tokenDelivery = {
+          method: 'hybrid',
+          hybridPolicy: {
+            webOrigins: ['https://web.example.com'],
+            nativeOrigins: ['mobile://app'],
+            cookieRefreshExpiresIn: '7d',
+            jsonRefreshExpiresIn: '90d',
+          },
+        };
+
+        await ContextStorage.run(async () => {
+          ContextStorage.set('REQUEST', {
+            attributes: {},
+            raw: { headers: { origin: 'mobile://app' } },
+          } as any);
+          await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
+        });
+
+        expect(mockJwtService.generateTokenPair).toHaveBeenCalledWith(
+          expect.objectContaining({ refreshExpiresIn: '90d' }),
+        );
+      });
+
+      it('should pass undefined refreshExpiresIn when tokenDelivery.method is not hybrid', async () => {
+        mockConfig.tokenDelivery = { method: 'cookies' };
+
+        await service.refreshToken(createRefreshTokenDto(mockRefreshToken));
+
+        expect(mockJwtService.generateTokenPair).toHaveBeenCalledWith(
+          expect.objectContaining({ refreshExpiresIn: undefined }),
+        );
+      });
     });
 
     describe('Invalid token handling', () => {
@@ -3809,12 +3895,10 @@ describe('AuthService', () => {
       it('should merge new metadata with existing metadata', async () => {
         const userWithMetadata = { ...mockUser, metadata: { existing: 'value1', keep: 'value2' } };
         mockUserRepository.findOne.mockReset();
-        mockUserRepository.findOne
-          .mockResolvedValueOnce(userWithMetadata as any)
-          .mockResolvedValueOnce({
-            ...userWithMetadata,
-            metadata: { existing: 'updated', keep: 'value2', new: 'value3' },
-          } as any);
+        mockUserRepository.findOne.mockResolvedValueOnce(userWithMetadata as any).mockResolvedValueOnce({
+          ...userWithMetadata,
+          metadata: { existing: 'updated', keep: 'value2', new: 'value3' },
+        } as any);
 
         await runUpdateUserAttributes(
           createUpdateUserAttributesDto(mockUser.sub, {
@@ -3866,12 +3950,10 @@ describe('AuthService', () => {
       it('should allow mixing metadata updates and deletions', async () => {
         const userWithMetadata = { ...mockUser, metadata: { delete: 'old', update: 'old', keep: 'value' } };
         mockUserRepository.findOne.mockReset();
-        mockUserRepository.findOne
-          .mockResolvedValueOnce(userWithMetadata as any)
-          .mockResolvedValueOnce({
-            ...userWithMetadata,
-            metadata: { update: 'new', keep: 'value', add: 'new' },
-          } as any);
+        mockUserRepository.findOne.mockResolvedValueOnce(userWithMetadata as any).mockResolvedValueOnce({
+          ...userWithMetadata,
+          metadata: { update: 'new', keep: 'value', add: 'new' },
+        } as any);
 
         await runUpdateUserAttributes(
           createUpdateUserAttributesDto(mockUser.sub, {

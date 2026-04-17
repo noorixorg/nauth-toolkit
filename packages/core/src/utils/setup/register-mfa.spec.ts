@@ -12,29 +12,52 @@
 import { Repository } from 'typeorm';
 import { registerMFAProviders } from './register-mfa';
 import { NAuthConfig } from '../../interfaces/config.interface';
-import { NAuthLogger, MFAService, EmailVerificationService, PhoneVerificationService, BaseMFADevice, BaseUser } from '../../index';
+import {
+  NAuthLogger,
+  MFAService,
+  EmailVerificationService,
+  PhoneVerificationService,
+  BaseMFADevice,
+  BaseUser,
+} from '../../index';
 import { PasswordService, ChallengeService } from '../../internal';
 import { AuthAuditService } from '../../services/auth-audit.service';
 import { ClientInfoService } from '../../services/client-info.service';
 
 // Mock dynamic imports
-jest.mock('@nauth-toolkit/mfa-totp', () => ({
-  TOTPMFAProviderService: jest.fn(),
-  TOTPService: jest.fn(),
-}), { virtual: true });
+jest.mock(
+  '@nauth-toolkit/mfa-totp',
+  () => ({
+    TOTPMFAProviderService: jest.fn(),
+    TOTPService: jest.fn(),
+  }),
+  { virtual: true },
+);
 
-jest.mock('@nauth-toolkit/mfa-sms', () => ({
-  SMSMFAProviderService: jest.fn(),
-}), { virtual: true });
+jest.mock(
+  '@nauth-toolkit/mfa-sms',
+  () => ({
+    SMSMFAProviderService: jest.fn(),
+  }),
+  { virtual: true },
+);
 
-jest.mock('@nauth-toolkit/mfa-email', () => ({
-  EmailMFAProviderService: jest.fn(),
-}), { virtual: true });
+jest.mock(
+  '@nauth-toolkit/mfa-email',
+  () => ({
+    EmailMFAProviderService: jest.fn(),
+  }),
+  { virtual: true },
+);
 
-jest.mock('@nauth-toolkit/mfa-passkey', () => ({
-  PasskeyMFAProviderService: jest.fn(),
-  PasskeyService: jest.fn(),
-}), { virtual: true });
+jest.mock(
+  '@nauth-toolkit/mfa-passkey',
+  () => ({
+    PasskeyMFAProviderService: jest.fn(),
+    PasskeyService: jest.fn(),
+  }),
+  { virtual: true },
+);
 
 describe('registerMFAProviders', () => {
   let mockConfig: NAuthConfig;
@@ -117,8 +140,6 @@ describe('registerMFAProviders', () => {
       mockClientInfoService,
     );
 
-    expect(mockLogger.debug).toHaveBeenCalledWith(
-      expect.stringContaining('Phone verification service not configured'),
-    );
+    expect(mockLogger.debug).toHaveBeenCalledWith(expect.stringContaining('Phone verification service not configured'));
   });
 });

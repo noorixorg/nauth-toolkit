@@ -7,6 +7,9 @@ import { TrustedDeviceService } from './trusted-device.service';
 import { JwtService } from './jwt.service';
 import { SessionService } from './session.service';
 import { AuthChallengeHelperService } from './auth-challenge-helper.service';
+import { ContextStorage } from '../utils/context-storage';
+import { resolveRefreshExpiresIn } from '../utils/token-delivery-policy';
+import type { NAuthRequest } from '../platform/interfaces';
 import { ClientInfoService } from './client-info.service';
 import { PhoneVerificationService } from './phone-verification.service';
 import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
@@ -168,6 +171,14 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
   async handleCallback(dto: HandleCallbackDTO): Promise<AuthResponseDTO> {
     // Ensure DTO is validated (supports direct usage without framework validation)
     dto = await ensureValidatedDto(HandleCallbackDTO, dto);
+
+    // Resolve hybrid-policy refresh TTL once and publish to ContextStorage so
+    // AuthChallengeHelperService picks it up when minting token pairs. No-ops
+    // when no ContextStorage context is active (direct unit-test invocation).
+    if (ContextStorage.getStore()) {
+      const req = ContextStorage.get<NAuthRequest>('REQUEST');
+      ContextStorage.set('RESOLVED_REFRESH_EXPIRES_IN', resolveRefreshExpiresIn(req, this.config));
+    }
 
     const providerConfig = this.getProviderConfig();
     if (!providerConfig) {

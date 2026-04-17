@@ -5,6 +5,19 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.5] - 2026-04-17
+
+### Added
+
+- **Per-delivery refresh token TTL in hybrid mode** — new `hybridPolicy.cookieRefreshExpiresIn` and `hybridPolicy.jsonRefreshExpiresIn` config fields let you issue different refresh token lifetimes for cookie-delivered (web) vs JSON-delivered (mobile, workers) clients. Typical pairing: short cookie TTL (e.g. `7d`) for browsers, long JSON TTL (e.g. `90d`) for mobile. The resolved TTL drives both the refresh JWT's `exp` claim and the refresh cookie's `Max-Age`, and flows through login, refresh, and MFA/social challenge completion. Both fields are optional — unset falls back to `jwt.refreshToken.expiresIn`. Fields are only consulted when `tokenDelivery.method === 'hybrid'`
+- **`JwtService` TTL override params** — `generateRefreshToken`, `generateTokenPair`, and `getRefreshTokenTTL` now accept an optional per-call TTL override. Default behavior unchanged when omitted
+- **`resolveRefreshExpiresIn` utility** (`@nauth-toolkit/core`) — framework-agnostic resolver that mirrors the delivery-mode precedence used by `TokenDeliveryHandler`: route-level override (`@TokenDelivery()` decorator or `nauth.helpers.tokenDelivery()` middleware) wins, origin-based classification via `webOrigins`/`nativeOrigins` as fallback
+- **E2E coverage** — new `tests/e2e/specs/hybrid-refresh-ttl.spec.ts` validates the feature end-to-end for both delivery modes: asserts the issued TTL matches config, refresh inside the window succeeds, refresh after expiry returns 401
+
+### Fixed
+
+- **Reuse-detection storage TTL alignment** — when a hybrid-policy TTL override is applied, the Redis used-token entry TTL (via `markRefreshTokenAsUsed`) now matches the issued JWT's lifetime instead of the global `refreshToken.expiresIn`, closing a window where the storage entry could outlive the token
+
 ## [0.2.4] - 2026-04-10
 
 ### Added

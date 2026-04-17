@@ -6,7 +6,20 @@
 
 import { Repository } from 'typeorm';
 import { initServices } from './init-services';
-import { NAuthConfig, NAuthLogger, StorageAdapter, BaseUser, BaseSession, BaseLoginAttempt, BaseVerificationToken, BaseSocialAccount, BaseChallengeSession, BaseMFADevice, BaseAuthAudit, BaseTrustedDevice } from '../../index';
+import {
+  NAuthConfig,
+  NAuthLogger,
+  StorageAdapter,
+  BaseUser,
+  BaseSession,
+  BaseLoginAttempt,
+  BaseVerificationToken,
+  BaseSocialAccount,
+  BaseChallengeSession,
+  BaseMFADevice,
+  BaseAuthAudit,
+  BaseTrustedDevice,
+} from '../../index';
 
 describe('initServices', () => {
   let mockConfig: NAuthConfig;
@@ -96,14 +109,7 @@ describe('initServices', () => {
 
   it('should throw error when emailProvider is missing', () => {
     expect(() => {
-      initServices(
-        mockConfig,
-        mockRepositories,
-        mockStorageAdapter,
-        mockLogger,
-        undefined,
-        mockSmsProvider,
-      );
+      initServices(mockConfig, mockRepositories, mockStorageAdapter, mockLogger, undefined, mockSmsProvider);
     }).toThrow();
   });
 });

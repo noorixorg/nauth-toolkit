@@ -615,6 +615,10 @@ async login(dto: LoginDTO): Promise<AuthResponseDTO>
 If client checks `result.accessToken`, behavior differs by `tokenDelivery.method`. In cookies mode, tokens are NOT in the response body—they're in httpOnly cookies set by framework adapters.
 :::
 
+:::note Hybrid refresh TTL
+In hybrid mode, the issued refresh token's lifetime reflects `hybridPolicy.cookieRefreshExpiresIn` or `jsonRefreshExpiresIn` when set, selected by the request's resolved delivery mode. See [Per-Delivery Refresh TTL](/docs/concepts/token-management#per-delivery-refresh-ttl).
+:::
+
 **Possible Outcomes**
 
 | Outcome                          | When                                                                                              | Response Body                                                                       |
@@ -1025,6 +1029,7 @@ async refreshToken(dto: RefreshTokenDTO): Promise<TokenResponse>
 - Implements token rotation (old tokens are invalidated when new ones are issued)
 - Detects token reuse attempts and revokes affected sessions
 - Returns current tokens if cookie race condition is detected (same session, legitimate duplicate request)
+- In hybrid mode, applies `hybridPolicy.cookieRefreshExpiresIn` or `jsonRefreshExpiresIn` to the rotated refresh token when set, selected by the request's resolved delivery mode; the reuse-detection storage TTL and refresh cookie `maxAge` align with the same resolved value. See [Per-Delivery Refresh TTL](/docs/concepts/token-management#per-delivery-refresh-ttl).
 
 **Errors**
 
@@ -1140,6 +1145,10 @@ async respondToChallenge(dto: RespondChallengeDTO): Promise<AuthResponseDTO>
 | **JSON** (`tokenDelivery.method: 'json'`)       | `{ accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt, user, authMethod, trusted?, deviceToken? }` | `{ challengeName, session, challengeParameters, sub }` | Tokens present in response body; client must store securely                 |
 | **Cookies** (`tokenDelivery.method: 'cookies'`) | `{ user, authMethod, trusted?, deviceToken? }` (tokens removed)                                                        | `{ challengeName, session, challengeParameters, sub }` | Tokens NOT in body (httpOnly cookies only); client reads via secure context |
 | **Hybrid** (`tokenDelivery.method: 'hybrid'`)   | Depends on `hybridPolicy`: web=cookies, mobile=json                                                                    | `{ challengeName, session, challengeParameters, sub }` | Policy-driven: web clients get cookies, mobile/API gets JSON tokens         |
+
+:::note Hybrid refresh TTL
+When the challenge completes and tokens are issued, the refresh token's lifetime reflects `hybridPolicy.cookieRefreshExpiresIn` or `jsonRefreshExpiresIn` when set. See [Per-Delivery Refresh TTL](/docs/concepts/token-management#per-delivery-refresh-ttl).
+:::
 
 **Phone Verification Notes:**
 

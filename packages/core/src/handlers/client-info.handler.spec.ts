@@ -127,7 +127,12 @@ describe('ClientInfoHandler', () => {
         tokenDelivery: { cookieNamePrefix: 'myapp_' },
       } as NAuthConfig;
 
-      const handlerWithConfig = new ClientInfoHandler(mockClientInfoService, config, mockGeoLocationService, mockLogger);
+      const handlerWithConfig = new ClientInfoHandler(
+        mockClientInfoService,
+        config,
+        mockGeoLocationService,
+        mockLogger,
+      );
 
       Object.defineProperty(mockRequest, 'cookies', {
         value: { myapp_device_token: 'device-token-prefixed' },

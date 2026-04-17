@@ -724,9 +724,7 @@ describe('UserService', () => {
   describe('disableUser', () => {
     it('should disable user account', async () => {
       const disabledUser = { ...mockUser, isLocked: true, isActive: false };
-      mockUserRepository.findOne
-        .mockResolvedValueOnce(mockUser as any)
-        .mockResolvedValueOnce(disabledUser as any);
+      mockUserRepository.findOne.mockResolvedValueOnce(mockUser as any).mockResolvedValueOnce(disabledUser as any);
       mockSessionService.revokeAllUserSessions.mockResolvedValue(3);
 
       const result = await service.disableUser({ sub: mockUserSub });
@@ -745,9 +743,7 @@ describe('UserService', () => {
 
     it('should revoke all user sessions when disabling', async () => {
       const disabledUser = { ...mockUser, isLocked: true, isActive: false };
-      mockUserRepository.findOne
-        .mockResolvedValueOnce(mockUser as any)
-        .mockResolvedValueOnce(disabledUser as any);
+      mockUserRepository.findOne.mockResolvedValueOnce(mockUser as any).mockResolvedValueOnce(disabledUser as any);
       mockSessionService.revokeAllUserSessions.mockResolvedValue(3);
 
       await service.disableUser({ sub: mockUserSub });
@@ -770,9 +766,7 @@ describe('UserService', () => {
     it('should enable user account', async () => {
       const disabledUser = { ...mockUser, isLocked: true, isActive: false };
       const enabledUser = { ...disabledUser, isLocked: false, isActive: true };
-      mockUserRepository.findOne
-        .mockResolvedValueOnce(disabledUser as any)
-        .mockResolvedValueOnce(enabledUser as any);
+      mockUserRepository.findOne.mockResolvedValueOnce(disabledUser as any).mockResolvedValueOnce(enabledUser as any);
 
       const result = await service.enableUser({ sub: mockUserSub });
 
