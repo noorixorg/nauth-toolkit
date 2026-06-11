@@ -7,7 +7,7 @@
     "start": "docusaurus start --port 3001",
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",
-    "deploy": "echo 'Set DEPLOY_TARGET (user@host:/path) before deploying' && test -n \"$DEPLOY_TARGET\" && rsync -avz --delete build/ \"$DEPLOY_TARGET\"",
+    "deploy": "echo 'Set DEPLOY_TARGET (user@host:/path) before deploying' && test -n \"$DEPLOY_TARGET\" && rsync -avz --delete-after --delay-updates build/ \"$DEPLOY_TARGET\"",
     "clear": "docusaurus clear",
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",
