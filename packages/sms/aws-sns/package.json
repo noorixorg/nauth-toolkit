@@ -18,7 +18,7 @@
     "@aws-sdk/client-sns": "^3.0.0"
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.3.0"
+    "@nauth-toolkit/core": "workspace:*"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",

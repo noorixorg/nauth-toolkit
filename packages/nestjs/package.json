@@ -44,7 +44,7 @@
     "typeorm": "^0.3.0"
   },
   "dependencies": {
-    "@nauth-toolkit/core": "^0.3.0"
+    "@nauth-toolkit/core": "workspace:*"
   },
   "devDependencies": {
     "@nestjs/common": "^11.1.8",

@@ -14,7 +14,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.3.0",
+    "@nauth-toolkit/core": "workspace:*",
     "typeorm": "^0.3.0"
   },
   "devDependencies": {

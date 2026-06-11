@@ -44,7 +44,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.3.0",
+    "@nauth-toolkit/core": "workspace:*",
     "jose": "^6.0.0",
     "@nestjs/common": "^9 || ^10 || ^11"
   },

@@ -38,7 +38,7 @@
   },
   "dependencies": {},
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.3.0",
+    "@nauth-toolkit/core": "workspace:*",
     "@nestjs/common": "^9 || ^10 || ^11"
   },
   "peerDependenciesMeta": {

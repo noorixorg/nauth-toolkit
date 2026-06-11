@@ -44,7 +44,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.3.0",
+    "@nauth-toolkit/core": "workspace:*",
     "@simplewebauthn/server": "^13.2.2"
   },
   "devDependencies": {
