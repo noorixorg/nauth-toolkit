@@ -1,0 +1,17 @@
+# Apache config for Docusaurus with trailingSlash: false
+# Serves extensionless URLs from their .html files and normalizes trailing slashes.
+
+DirectorySlash Off
+Options -Indexes
+RewriteEngine On
+
+# /page/ -> /page when page.html exists (canonical, avoids duplicate URLs)
+RewriteCond %{DOCUMENT_ROOT}/$1.html -f
+RewriteRule ^(.+)/$ /$1 [R=301,L]
+
+# Extensionless URL -> .html file (also covers /changelog where a dir of the same name exists)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME}.html -f
+RewriteRule ^(.+)$ $1.html [L]
+
+ErrorDocument 404 /404.html
