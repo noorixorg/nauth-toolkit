@@ -1,7 +1,7 @@
 {
   "name": "@nauth-toolkit/nestjs",
   "version": "0.2.7",
-  "description": "NestJS module for nauth-toolkit — guards, decorators, interceptors",
+  "description": "NestJS module for nauth-toolkit \u2014 guards, decorators, interceptors",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -52,7 +52,7 @@
     "@nestjs/testing": "^11.0.0",
     "@nestjs/typeorm": "^11.0.0",
     "@types/jest": "^29.5.0",
-    "@types/node": "^20.0.0",
+    "@types/node": "^22.0.0",
     "jest": "^29.7.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",

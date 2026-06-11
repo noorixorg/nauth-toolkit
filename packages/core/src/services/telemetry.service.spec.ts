@@ -185,6 +185,40 @@ describe('TelemetryService', () => {
       expect(idA).toBe(idB);
     });
 
+    it('uses a home-directory file for the instance ID when storage is in-memory', async () => {
+      enableTelemetryEnv();
+      const os = jest.requireActual<typeof import('os')>('os');
+      const fsMod = jest.requireActual<typeof import('fs')>('fs');
+      const tmpHome = fsMod.mkdtempSync(`${os.tmpdir()}/nauth-telemetry-test-`);
+      const homedirSpy = jest.spyOn(jest.requireActual<typeof import('os')>('os'), 'homedir').mockReturnValue(tmpHome);
+      try {
+        class MemoryStorageAdapter extends FakeStorageAdapter {}
+        const makeMemoryService = (): TelemetryService =>
+          new TelemetryService(
+            baseConfig,
+            new MemoryStorageAdapter() as unknown as StorageAdapter,
+            logger as unknown as NAuthLogger,
+            'express',
+          );
+
+        makeMemoryService().sendBootPing();
+        await flush();
+        // Fresh memory adapter on "restart" — file keeps the ID stable.
+        makeMemoryService().sendBootPing();
+        await flush();
+
+        const idA = (JSON.parse(fetchMock.mock.calls[0][1].body as string) as TelemetryPayload).instanceId;
+        const idB = (JSON.parse(fetchMock.mock.calls[1][1].body as string) as TelemetryPayload).instanceId;
+        expect(idA).toBe(idB);
+        expect(fsMod.existsSync(`${tmpHome}/.nauth-toolkit/telemetry-instance-id`)).toBe(true);
+        // Disclosure shown only by the boot that created the file.
+        expect(logger.log).toHaveBeenCalledTimes(1);
+      } finally {
+        homedirSpy.mockRestore();
+        fsMod.rmSync(tmpHome, { recursive: true, force: true });
+      }
+    });
+
     it('falls back to a per-process UUID when storage fails, without throwing', async () => {
       enableTelemetryEnv();
       storage.failGets = true;

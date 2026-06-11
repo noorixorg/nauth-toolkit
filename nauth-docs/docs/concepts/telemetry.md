@@ -45,7 +45,7 @@ One small JSON payload at boot and once per day afterwards. It describes the **s
 
 | Field | Source |
 | --- | --- |
-| `instanceId` | Random UUID generated on first boot, shared by processes using the same storage — identifies an install, not a person or machine |
+| `instanceId` | Random UUID generated on first boot — identifies an install, not a person or machine. Persisted in your storage adapter (Redis/database) so all processes of a deployment share one ID; installs using in-memory storage persist it in `~/.nauth-toolkit/telemetry-instance-id` instead |
 | `coreVersion`, `nodeMajor`, `platform`, `arch` | Package version and runtime environment |
 | `nodeEnv` | `production`, `development`, or `other` |
 | `framework` | `nestjs`, `express`, or `fastify` |

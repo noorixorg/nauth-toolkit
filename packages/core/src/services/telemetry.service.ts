@@ -1,4 +1,7 @@
 import { randomUUID } from 'crypto';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { NAuthConfig } from '../interfaces/config.interface';
 import { StorageAdapter } from '../interfaces/storage-adapter.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
@@ -189,28 +192,65 @@ export class TelemetryService {
   }
 
   /**
-   * Resolve the anonymous instance ID shared by all processes of a deployment.
+   * Resolve the anonymous instance ID, with layered persistence:
    *
-   * Uses an NX (set-if-absent) write to the storage adapter so concurrent
-   * processes converge on one ID; falls back to a per-process UUID when
-   * storage is unavailable. `isNew` is true only for the process that
-   * created the ID — used to show the disclosure notice exactly once per install.
+   * 1. **Storage adapter** (Redis/database) — deployment-scoped: all processes
+   *    sharing the deployment converge on one ID via an NX (set-if-absent) write.
+   * 2. **Home-directory file** (`~/.nauth-toolkit/telemetry-instance-id`) — used
+   *    when the storage adapter is the non-persistent in-memory adapter, so
+   *    restarts on the same machine keep one ID instead of minting a new
+   *    "install" per boot.
+   * 3. **Per-process UUID** — last resort when both stores are unavailable
+   *    (e.g. read-only filesystem); never throws.
+   *
+   * `isNew` is true only when this process created the ID — used to show the
+   * disclosure notice exactly once per install.
    */
   private async resolveInstanceId(): Promise<{ instanceId: string; isNew: boolean }> {
     if (this.cachedInstanceId) {
       return { instanceId: this.cachedInstanceId, isNew: false };
     }
     try {
-      const candidate = randomUUID();
+      // The first get() also initializes lazy wrappers, so the unwrapped
+      // adapter name below is accurate.
       const existing = await this.storageAdapter.get(INSTANCE_ID_KEY);
-      if (existing) {
+      // In-memory storage does not survive restarts — prefer the file store
+      // so an install keeps a stable identity across boots.
+      if (!this.storageAdapterName().toLowerCase().includes('memory')) {
+        if (existing) {
+          this.cachedInstanceId = existing;
+          return { instanceId: existing, isNew: false };
+        }
+        const candidate = randomUUID();
+        await this.storageAdapter.set(INSTANCE_ID_KEY, candidate, undefined, { nx: true });
+        const settled = (await this.storageAdapter.get(INSTANCE_ID_KEY)) ?? candidate;
+        this.cachedInstanceId = settled;
+        return { instanceId: settled, isNew: settled === candidate };
+      }
+    } catch {
+      // Storage unavailable — fall through to the file store.
+    }
+    return this.resolveInstanceIdFromFile();
+  }
+
+  /**
+   * File-backed instance ID under the user's home directory. Returns a
+   * per-process UUID when the filesystem is unavailable or read-only.
+   */
+  private resolveInstanceIdFromFile(): { instanceId: string; isNew: boolean } {
+    try {
+      const dir = path.join(os.homedir(), '.nauth-toolkit');
+      const file = path.join(dir, 'telemetry-instance-id');
+      const existing = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim() : '';
+      if (/^[0-9a-f-]{36}$/i.test(existing)) {
         this.cachedInstanceId = existing;
         return { instanceId: existing, isNew: false };
       }
-      await this.storageAdapter.set(INSTANCE_ID_KEY, candidate, undefined, { nx: true });
-      const settled = (await this.storageAdapter.get(INSTANCE_ID_KEY)) ?? candidate;
-      this.cachedInstanceId = settled;
-      return { instanceId: settled, isNew: settled === candidate };
+      const candidate = randomUUID();
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(file, candidate, 'utf8');
+      this.cachedInstanceId = candidate;
+      return { instanceId: candidate, isNew: true };
     } catch {
       const fallback = randomUUID();
       this.cachedInstanceId = fallback;
@@ -265,13 +305,27 @@ export class TelemetryService {
         },
         mfaProviders,
         socialProviders,
-        storageAdapter: this.storageAdapter.constructor.name,
+        storageAdapter: this.storageAdapterName(),
         signupVerificationMethod: cfg.signup?.verificationMethod ?? null,
         auditLogsEnabled: cfg.auditLogs?.enabled !== false,
         recaptchaEnabled: cfg.recaptcha?.enabled === true,
         geoLocationConfigured: cfg.geoLocation?.maxMind !== undefined,
       },
     };
+  }
+
+  /**
+   * Resolve the storage adapter class name for the payload.
+   *
+   * Lazy wrappers (used by the NestJS module and the core storage factory)
+   * would otherwise report 'LazyStorageAdapter' for every install; when the
+   * wrapper has an initialized inner adapter, its class name is reported
+   * instead. By the time the payload is built the instance-ID lookup has
+   * already gone through the adapter, so the inner adapter exists.
+   */
+  private storageAdapterName(): string {
+    const wrapper = this.storageAdapter as unknown as { inner?: { constructor?: { name?: string } } };
+    return wrapper.inner?.constructor?.name ?? this.storageAdapter.constructor.name;
   }
 
   /**
