@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **`telemetry` config section** — `{ enabled?: boolean; endpoint?: string }` on `NAuthConfig`
 - **`telemetryService` on `NAuthInstance`** — exposes `shutdown()` to stop the heartbeat timer (NestJS apps stop it automatically on application shutdown)
 
+### Changed
+
+- **Node 24 is now the recommended runtime** — CI and the example Docker images run Node 24. Node >= 22 remains the supported minimum; no action required for existing Node 22 deployments
+
 ## [0.2.7] - 2026-06-11
 
 ### Changed

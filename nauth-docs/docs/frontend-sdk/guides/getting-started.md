@@ -19,7 +19,7 @@ For dedicated setup guides with full working examples, see [Angular Standalone](
 ## Prerequisites
 
 - nauth-toolkit backend running and configured
-- Node.js 22+
+- Node.js 22+ — Node 24 recommended
 - Your framework of choice (Angular, React, Vue, etc.)
 
 ## Installation

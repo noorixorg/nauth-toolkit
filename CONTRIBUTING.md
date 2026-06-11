@@ -4,7 +4,7 @@ Thanks for your interest in contributing. This document covers the development w
 
 ## Prerequisites
 
-- Node.js >= 22 (see `.nvmrc`)
+- Node.js >= 22 — Node 24 recommended (see `.nvmrc`)
 - pnpm (npm and yarn are blocked by a preinstall hook)
 - PostgreSQL and Redis if you want to run the sample apps or E2E tests
 
