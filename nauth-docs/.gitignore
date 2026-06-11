@@ -18,3 +18,8 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Local SiteGround deployment (contains host/credentials — never commit)
+deploy-siteground.sh
+.deploy.env
+.deploy.env.*

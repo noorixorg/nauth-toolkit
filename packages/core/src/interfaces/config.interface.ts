@@ -105,6 +105,45 @@ export interface NAuthConfig {
   };
 
   /**
+   * Anonymous usage telemetry configuration
+   *
+   * nauth-toolkit collects anonymous usage data (config shape only — booleans, enums,
+   * and provider names) to guide development. No personal data, IP addresses, secrets,
+   * domains, or configuration values are ever collected. See
+   * https://nauth.dev/docs/concepts/telemetry for the exact payload.
+   *
+   * Telemetry is disabled automatically when any of the following is true:
+   * - `telemetry.enabled` is set to `false`
+   * - the `NAUTH_TELEMETRY_DISABLED=1` environment variable is set
+   * - the `DO_NOT_TRACK=1` environment variable is set
+   * - running in CI (`CI=true`) or tests (`NODE_ENV=test`)
+   *
+   * Telemetry never runs inside a request path and never blocks startup.
+   *
+   * @default { enabled: true }
+   *
+   * @example
+   * ```typescript
+   * // Opt out of telemetry
+   * telemetry: {
+   *   enabled: false
+   * }
+   * ```
+   */
+  telemetry?: {
+    /**
+     * Enable anonymous usage telemetry
+     * @default true
+     */
+    enabled?: boolean;
+    /**
+     * Override the telemetry endpoint (advanced; primarily for testing)
+     * @default 'https://telemetry.nauth.dev/'
+     */
+    endpoint?: string;
+  };
+
+  /**
    * Email provider for sending verification emails, password resets, etc.
    *
    * Configure based on your needs - consumer apps choose their own env var names.

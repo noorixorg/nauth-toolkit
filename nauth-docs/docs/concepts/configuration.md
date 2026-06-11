@@ -1043,6 +1043,24 @@ auditLogs: {
 },
 ```
 
+## Telemetry {#telemetry}
+
+Anonymous usage telemetry (config shape only — no PII, IPs, or secrets). See [Telemetry](/docs/concepts/telemetry) for exactly what is sent.
+
+```typescript
+telemetry: {
+  enabled: false,  // Opt out (default: true)
+},
+```
+
+| Option | Description | Default |
+| --- | --- | --- |
+| `enabled` | Enable anonymous usage telemetry | `true` |
+
+:::note Opt-out without code changes
+Set `NAUTH_TELEMETRY_DISABLED=1` (or `DO_NOT_TRACK=1`) in the environment. Telemetry is always disabled in CI and tests.
+:::
+
 ## reCAPTCHA {#recaptcha}
 
 Protect authentication endpoints from bot attacks using Google reCAPTCHA v2, v3, or Enterprise.

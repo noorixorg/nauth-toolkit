@@ -1,4 +1,13 @@
-import { Inject, Injectable, Module, DynamicModule, Global, OnApplicationBootstrap, Optional } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Module,
+  DynamicModule,
+  Global,
+  OnApplicationBootstrap,
+  OnApplicationShutdown,
+  Optional,
+} from '@nestjs/common';
 import { APP_INTERCEPTOR, APP_GUARD, ModuleRef } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DataSource, EntityMetadata, Repository } from 'typeorm';
@@ -63,6 +72,7 @@ import {
   SocialAuthStateStore,
   HookRegistryService,
   registerBuiltInEmailNotificationHooks,
+  TelemetryService,
 } from '@nauth-toolkit/core/internal';
 
 // MaxMind module type (for type safety in factory)
@@ -110,7 +120,7 @@ import { nauthMigrationsBootstrapProvider } from './services/migrations-bootstra
  * - `NAUTH_SOCIAL_PROVIDER_TOKEN`
  */
 @Injectable()
-class NAuthProviderAutoRegistrationService implements OnApplicationBootstrap {
+class NAuthProviderAutoRegistrationService implements OnApplicationBootstrap, OnApplicationShutdown {
   constructor(
     private readonly moduleRef: ModuleRef,
     private readonly mfaService: MFAService,
@@ -120,6 +130,7 @@ class NAuthProviderAutoRegistrationService implements OnApplicationBootstrap {
     // NOTE: These are provided by AuthModule. Marked optional for safe initialization in edge test contexts.
     @Optional() @Inject('NAUTH_LOGGER') private readonly logger?: NAuthLogger,
     @Optional() @Inject('NAUTH_CONFIG') private readonly config?: NAuthConfig,
+    @Optional() private readonly telemetryService?: TelemetryService,
   ) {}
 
   /**
@@ -180,6 +191,27 @@ class NAuthProviderAutoRegistrationService implements OnApplicationBootstrap {
         this.logger.debug('[nauth-toolkit] Registered built-in email notification hooks (NestJS)');
       }
     }
+
+    // ==========================================================================
+    // Anonymous Usage Telemetry (opt-out)
+    // ==========================================================================
+    // Deferred so application bootstrap gains no awaits; runs after provider
+    // registration above so the reported provider lists are complete.
+    // See https://nauth.dev/docs/concepts/telemetry
+    if (this.telemetryService) {
+      const telemetry = this.telemetryService;
+      setImmediate(() => {
+        telemetry.sendBootPing();
+        telemetry.startHeartbeat();
+      });
+    }
+  }
+
+  /**
+   * Stops the telemetry heartbeat timer on application shutdown.
+   */
+  onApplicationShutdown(): void {
+    this.telemetryService?.shutdown();
   }
 
   private safeGetAllProviders<T>(token: string): T[] {
@@ -1084,6 +1116,29 @@ export class AuthModule {
         // Provider modules (GoogleSocialAuthModule, AppleSocialAuthModule, etc.)
         // will automatically register themselves with this registry via OnModuleInit
         SocialProviderRegistry,
+
+        // Anonymous usage telemetry (opt-out) - boot ping + daily heartbeat,
+        // fired from NAuthProviderAutoRegistrationService after provider
+        // registration. See https://nauth.dev/docs/concepts/telemetry
+        {
+          provide: TelemetryService,
+          useFactory: (
+            config: NAuthConfig,
+            storageAdapter: StorageAdapter,
+            logger?: NAuthLogger,
+            mfaService?: MFAService,
+            socialProviderRegistry?: SocialProviderRegistry,
+          ) => {
+            return new TelemetryService(config, storageAdapter, logger, 'nestjs', mfaService, socialProviderRegistry);
+          },
+          inject: [
+            'NAUTH_CONFIG',
+            'STORAGE_ADAPTER',
+            { token: 'NAUTH_LOGGER', optional: true },
+            { token: MFAService, optional: true },
+            { token: SocialProviderRegistry, optional: true },
+          ],
+        },
 
         // MFA Service - registry for auto-registered MFA providers
         // Provider modules (TOTPMFAModule, SMSMFAModule, PasskeyMFAModule, etc.)

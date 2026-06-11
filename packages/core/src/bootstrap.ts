@@ -42,6 +42,7 @@ import { AuthHandler } from './handlers/auth.handler';
 import { TokenDeliveryHandler } from './handlers/token-delivery.handler';
 import { CsrfHandler } from './handlers/csrf.handler';
 import { CsrfService } from './services/csrf.service';
+import { TelemetryService } from './services/telemetry.service';
 
 // Setup Helpers
 import { getRepositories } from './utils/setup/get-repositories';
@@ -135,6 +136,9 @@ export interface NAuthInstance<TMiddleware = unknown, THelper = unknown>
 
   /** Social OAuth redirect handler — start, callback, and exchange flows */
   socialRedirect?: SocialRedirectHandler;
+
+  /** Anonymous usage telemetry (opt-out) — see https://nauth.dev/docs/concepts/telemetry */
+  telemetryService?: TelemetryService;
 }
 
 // ============================================================================
@@ -477,6 +481,22 @@ export class NAuth {
 
     logger.log(`NAuth initialized successfully with ${adapter.name}`);
 
+    // Anonymous usage telemetry (opt-out). Deferred via setImmediate so
+    // NAuth.create() gains no awaits; all telemetry work is fire-and-forget
+    // off the startup path and never touches a request path.
+    const telemetryService = new TelemetryService(
+      config,
+      storage,
+      logger,
+      adapter.name.replace(/Adapter$/i, '').toLowerCase(),
+      services.mfaService,
+      services.socialProviderRegistry,
+    );
+    setImmediate(() => {
+      telemetryService.sendBootPing();
+      telemetryService.startHeartbeat();
+    });
+
     return {
       ...publicServices,
       ...socialProviders,
@@ -488,6 +508,7 @@ export class NAuth {
       socialAuthService: services.socialAuthService,
       csrfService,
       socialRedirect: socialRedirectHandler,
+      telemetryService,
     };
   }
 }

@@ -69,3 +69,4 @@ OSS_TRANSITION_HANDOFF.md
 
 # MaxMind GeoIP databases (downloaded at runtime, see examples/demo-nestjs)
 *.mmdb
+telemetry-collector/

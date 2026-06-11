@@ -121,6 +121,7 @@ const sidebars: SidebarsConfig = {
         { type: 'doc', id: 'concepts/notifications', customProps: { icon: 'fa-light fa-bell' } },
         { type: 'doc', id: 'concepts/lifecycle-hooks', customProps: { icon: 'fa-light fa-webhook' } },
         { type: 'doc', id: 'concepts/audit-logs', customProps: { icon: 'fa-light fa-clipboard-list' } },
+        { type: 'doc', id: 'concepts/telemetry', customProps: { icon: 'fa-light fa-chart-simple' } },
       ],
     },
   ],

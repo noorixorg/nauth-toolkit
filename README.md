@@ -96,6 +96,10 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full development workflow and [
 | **Source & community** | [github.com/noorixorg/nauth-toolkit](https://github.com/noorixorg/nauth-toolkit) |
 | **npm** | [npmjs.com/org/nauth-toolkit](https://www.npmjs.com/org/nauth-toolkit) |
 
+## Telemetry
+
+nauth-toolkit collects anonymous usage data (configuration shape only — no PII, IPs, or secrets) to guide development. Opt out anytime with `NAUTH_TELEMETRY_DISABLED=1`. See [nauth.dev/docs/concepts/telemetry](https://nauth.dev/docs/concepts/telemetry) for exactly what is sent.
+
 ## License
 
 [MIT](./LICENSE)

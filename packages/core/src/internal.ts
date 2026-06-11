@@ -194,6 +194,14 @@ export { SocialAuthStateStore } from './services/social-auth-state-store.service
  */
 export { SocialProviderRegistry } from './services/social-provider-registry.service';
 
+/**
+ * Anonymous usage telemetry service (opt-out)
+ * Used by framework adapters to wire boot pings; see https://nauth.dev/docs/concepts/telemetry
+ * @internal
+ */
+export { TelemetryService } from './services/telemetry.service';
+export type { TelemetryPayload } from './services/telemetry.service';
+
 // ============================================================================
 // Adapter Discovery Tokens (Internal)
 // ============================================================================

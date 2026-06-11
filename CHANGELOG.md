@@ -5,6 +5,14 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-06-11
+
+### Added
+
+- **Anonymous usage telemetry (opt-out)** — nauth-toolkit now sends a small anonymous payload at boot and once per day describing the *shape* of your configuration: token delivery mode, MFA enforcement/methods, registered provider names, package version, Node version, and framework. No PII, IP addresses, secrets, domains, or configuration values are ever collected; telemetry never runs inside a request path and adds zero startup latency. A one-time console notice is shown on first boot. **Opt out** with `NAUTH_TELEMETRY_DISABLED=1`, `DO_NOT_TRACK=1`, or `telemetry: { enabled: false }`; always disabled in CI and tests. Full payload documentation: https://nauth.dev/docs/concepts/telemetry
+- **`telemetry` config section** — `{ enabled?: boolean; endpoint?: string }` on `NAuthConfig`
+- **`telemetryService` on `NAuthInstance`** — exposes `shutdown()` to stop the heartbeat timer (NestJS apps stop it automatically on application shutdown)
+
 ## [0.2.7] - 2026-06-11
 
 ### Changed

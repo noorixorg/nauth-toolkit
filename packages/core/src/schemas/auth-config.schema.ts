@@ -597,6 +597,12 @@ export const authConfigSchema = z
         fireAndForget: z.boolean().optional(),
       })
       .optional(),
+    telemetry: z
+      .object({
+        enabled: z.boolean().optional(),
+        endpoint: z.string().url().optional(),
+      })
+      .optional(),
     emailNotifications: emailNotificationsConfigSchema,
     emailProvider: z.any().optional(), // Runtime instance - cannot validate type
     email: emailConfigSchema.optional(),
