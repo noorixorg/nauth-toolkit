@@ -1,0 +1,37 @@
+name: Feature request
+description: Propose a new capability or an improvement to an existing one
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For open-ended ideas or anything you want community input on, prefer an
+        [Ideas discussion](https://github.com/noorixorg/nauth-toolkit/discussions/categories/ideas) —
+        the [roadmap](https://github.com/noorixorg/nauth-toolkit/discussions/3) lists what is already planned.
+        Use this template when the request is concrete enough to be actionable.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the use case, not just the feature. What are you building that nauth-toolkit currently cannot do?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should the API or config look like? A sketch of the config keys, method signature, or flow is enough.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds or alternatives you considered
+    validations:
+      required: false
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to implement this with guidance

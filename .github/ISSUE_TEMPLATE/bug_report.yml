@@ -1,0 +1,63 @@
+name: Bug report
+description: Something in a @nauth-toolkit package does not behave as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. The more precise the report, the faster the fix.
+        Not sure it is a bug? Ask in [Q&A discussions](https://github.com/noorixorg/nauth-toolkit/discussions/categories/q-a) first.
+  - type: input
+    id: packages
+    attributes:
+      label: Affected package(s) and version(s)
+      description: Run `npm ls | grep nauth` or `pnpm list | grep nauth`
+      placeholder: "@nauth-toolkit/core 0.2.7, @nauth-toolkit/nestjs 0.2.7"
+    validations:
+      required: true
+  - type: dropdown
+    id: framework
+    attributes:
+      label: Framework
+      options:
+        - NestJS
+        - Express
+        - Fastify
+        - Frontend SDK (vanilla / React / Vue)
+        - Frontend SDK (Angular)
+        - Other / not framework-specific
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      placeholder: "22.x"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect?
+      description: Include the exact error message, response body, or log output. Redact secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: |
+        The relevant slice of your auth config (redacted) plus the steps or code that trigger the bug.
+        A repo or fork of one of the [starter apps](https://github.com/noorixorg/nauth-toolkit/tree/main/examples) that reproduces it is ideal.
+      render: typescript
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and this is not a duplicate
+          required: true
+        - label: This is not a security vulnerability (those go through [SECURITY.md](https://github.com/noorixorg/nauth-toolkit/blob/main/SECURITY.md), not public issues)
+          required: true

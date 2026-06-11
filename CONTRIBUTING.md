@@ -12,7 +12,7 @@ Thanks for your interest in contributing. This document covers the development w
 
 ```bash
 git clone https://github.com/noorixorg/nauth-toolkit.git
-cd nauth
+cd nauth-toolkit
 pnpm install
 pnpm build:all
 ```

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question / help with integration
+    url: https://github.com/noorixorg/nauth-toolkit/discussions/categories/q-a
+    about: Ask in Q&A discussions — issues are reserved for confirmed bugs and actionable features
+  - name: Security vulnerability
+    url: https://github.com/noorixorg/nauth-toolkit/security/advisories/new
+    about: Report privately via a security advisory — never in a public issue
+  - name: Documentation
+    url: https://nauth.dev
+    about: Guides, configuration reference, and API docs
