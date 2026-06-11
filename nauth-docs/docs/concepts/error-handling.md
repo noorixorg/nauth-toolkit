@@ -1,0 +1,493 @@
+---
+title: Error Handling
+description: 'NAuthException class, AuthErrorCode enum values, HTTP status mapping, NestJS exception filter setup, and Express/Fastify error handler patterns'
+sidebar_position: 4
+keywords: [errors, exceptions, error-codes, http-status, filter, NAuthException]
+image: /img/api-social-card.png
+---
+
+# Error Handling
+
+## Philosophy
+
+The toolkit's responsibility is to **throw consistent, structured errors**. Consumer applications handle their own error formatting, filtering, and response mapping.
+
+---
+
+## Architecture
+
+### Framework-Agnostic Design
+
+`NAuthException` extends standard `Error` (not `HttpException`), making it usable in:
+
+- HTTP APIs (REST, NestJS)
+- WebSocket connections
+- GraphQL resolvers
+- gRPC services
+- Message queue workers
+- CLI tools
+- Standalone services
+
+### Separation of Concerns
+
+```mermaid
+flowchart TB
+    subgraph Domain["nauth-toolkit (Domain Layer)"]
+        Throw["Throws: NAuthException"]
+        Code["code: AuthErrorCode"]
+        Msg["message: string"]
+        Details["details?: Record&lt;string, unknown&gt;"]
+    end
+
+    subgraph Transport["Consumer App (Transport Layer)"]
+        Map["Maps: NAuthException → Response"]
+        HTTP["HTTP status codes (REST)"]
+        WS["WebSocket events"]
+        GQL["GraphQL errors"]
+    end
+
+    Domain --> Transport
+```
+
+---
+
+## Implementation
+
+### 1. Toolkit Side
+
+The toolkit throws structured domain exceptions:
+
+```typescript
+throw new NAuthException(AuthErrorCode.RATE_LIMIT_SMS, 'Too many verification SMS sent', {
+  retryAfter: 3600,
+  currentCount: 4,
+  maxAttempts: 3,
+});
+```
+
+### 2. Consumer Side (HTTP Applications)
+
+For HTTP/REST APIs, the toolkit provides a ready-to-use exception filter:
+
+#### Option A: Use Provided Filter (Easiest)
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS" default>
+
+```typescript
+// src/main.ts
+import { NAuthHttpExceptionFilter } from '@nauth-toolkit/nestjs';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  // Apply the filter globally
+  app.useGlobalFilters(new NAuthHttpExceptionFilter());
+
+  await app.listen(3000);
+}
+```
+
+**That's it!** The filter only catches `NAuthException` and won't interfere with your other exception filters.
+
+**Apply per-controller or per-route:**
+
+```typescript
+import { NAuthHttpExceptionFilter } from '@nauth-toolkit/nestjs';
+
+// Per-controller
+@Controller('auth')
+@UseFilters(NAuthHttpExceptionFilter)
+export class AuthController {}
+
+// Per-route
+@Post('signup')
+@UseFilters(NAuthHttpExceptionFilter)
+async signup() {}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+The toolkit does not ship an Express-specific filter. Use the “Custom Mapping” pattern below to map `NAuthException` to your API responses.
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+The toolkit does not ship a Fastify-specific filter. Use the “Custom Mapping” pattern below to map `NAuthException` to your API responses.
+
+</TabItem>
+</Tabs>
+
+#### Option B: Custom HTTP Filter
+
+If you need custom behavior (logging, different response format, etc.):
+
+```typescript
+// src/filters/custom-nauth.filter.ts
+import { ExceptionFilter, Catch, ArgumentsHost } from '@nestjs/common';
+import { Response } from 'express';
+import { NAuthException, getHttpStatusForErrorCode } from '@nauth-toolkit/core';
+
+@Catch(NAuthException)
+export class CustomNAuthFilter implements ExceptionFilter {
+  constructor(private logger: Logger) {}
+
+  catch(exception: NAuthException, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest();
+
+    // Custom logging
+    this.logger.error({
+      code: exception.code,
+      message: exception.message,
+      path: request.url,
+      user: request.user?.id,
+    });
+
+    // Custom status mapping
+    const statusCode = this.customStatusMapping(exception.code);
+
+    // Custom response format
+    response.status(statusCode).json({
+      error: {
+        type: exception.code,
+        description: exception.message,
+        metadata: exception.details,
+      },
+    });
+  }
+
+  private customStatusMapping(code: string): number {
+    // Your own mapping logic
+    if (code === 'RATE_LIMIT_SMS') return 429;
+    return 400;
+  }
+}
+```
+
+#### Recipe: GraphQL Error Handling
+
+_Note: The toolkit does not provide a built-in GraphQL filter. Implement this pattern in your application._
+
+```typescript
+// src/common/graphql-error-formatter.ts
+import { NAuthException, getHttpStatusForErrorCode } from '@nauth-toolkit/core';
+import { GraphQLError, GraphQLFormattedError } from 'graphql';
+
+export const formatError = (error: GraphQLError): GraphQLFormattedError => {
+  const originalError = error.originalError;
+
+  if (originalError instanceof NAuthException) {
+    return {
+      message: originalError.message,
+      extensions: {
+        code: originalError.code,
+        details: originalError.details,
+        timestamp: originalError.timestamp,
+        http: {
+          status: getHttpStatusForErrorCode(originalError.code),
+        },
+      },
+    };
+  }
+
+  return error;
+};
+```
+
+#### Recipe: WebSocket Handler (NestJS Example)
+
+_Note: The toolkit does not provide a built-in WebSocket filter. Implement this pattern in your application._
+
+```typescript
+// src/gateways/auth.gateway.ts
+@WebSocketGateway()
+export class AuthGateway {
+  @SubscribeMessage('verify-phone')
+  async handleVerifyPhone(client: Socket, payload: any) {
+    try {
+      return await this.authService.verifyPhone(payload);
+    } catch (error) {
+      if (error instanceof NAuthException) {
+        // Emit error event back to client
+        client.emit('error', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          timestamp: error.timestamp,
+        });
+      }
+      throw error;
+    }
+  }
+}
+```
+
+#### Option C: Custom Mapping
+
+```typescript
+// src/utils/error-mapper.ts
+import { NAuthException, AuthErrorCode } from '@nauth-toolkit/core';
+
+export class CustomErrorMapper {
+  /**
+   * Map to your own HTTP status codes
+   */
+  static toHttpStatus(code: AuthErrorCode): number {
+    switch (code) {
+      case AuthErrorCode.RATE_LIMIT_SMS:
+        return 429; // Too Many Requests
+      case AuthErrorCode.INVALID_CREDENTIALS:
+        return 401; // Unauthorized
+      case AuthErrorCode.EMAIL_EXISTS:
+        return 422; // Unprocessable Entity (your preference)
+      default:
+        return 400;
+    }
+  }
+
+  /**
+   * Map to custom error format
+   */
+  static toApiError(exception: NAuthException) {
+    return {
+      error: {
+        type: exception.code,
+        description: exception.message,
+        metadata: exception.details,
+        occurred_at: exception.timestamp,
+      },
+    };
+  }
+}
+```
+
+---
+
+## Helper Function
+
+The toolkit provides `getHttpStatusForErrorCode()` as a **suggested** mapping:
+
+```typescript
+import { getHttpStatusForErrorCode, AuthErrorCode } from '@nauth-toolkit/core';
+
+getHttpStatusForErrorCode(AuthErrorCode.RATE_LIMIT_SMS); // 429
+getHttpStatusForErrorCode(AuthErrorCode.INVALID_CREDENTIALS); // 401
+getHttpStatusForErrorCode(AuthErrorCode.EMAIL_EXISTS); // 409
+getHttpStatusForErrorCode(AuthErrorCode.NOT_FOUND); // 404
+```
+
+**Mapping logic:**
+
+- `RATE_LIMIT_*` → 429 (Too Many Requests)
+- `AUTH_*` → 401 (Unauthorized) or 403 (Forbidden for locked/inactive)
+- `EMAIL_EXISTS`, `USERNAME_EXISTS`, `PHONE_EXISTS` → 409 (Conflict)
+- `VALIDATION_*`, `INVALID_*` → 400 (Bad Request)
+- `NOT_FOUND` → 404 (Not Found)
+- `FORBIDDEN` → 403 (Forbidden)
+- `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE` → 500 (Server Error)
+
+**You can ignore this and use your own mapping!**
+
+---
+
+## Error Response Format
+
+### Toolkit Exception Structure
+
+```typescript
+class NAuthException extends Error {
+  code: AuthErrorCode; // Programmatic error code
+  message: string; // Human-readable message
+  details?: Record<string, unknown>; // Optional metadata
+  timestamp: string; // ISO 8601 timestamp
+}
+```
+
+### Suggested HTTP Response
+
+```json
+{
+  "statusCode": 429,
+  "code": "RATE_LIMIT_SMS",
+  "message": "Too many verification SMS sent. Please try again later.",
+  "details": {
+    "retryAfter": 3600,
+    "currentCount": 4,
+    "maxAttempts": 3
+  },
+  "timestamp": "2025-10-31T12:00:00.000Z",
+  "path": "/auth/verify-phone"
+}
+```
+
+**You can transform this to any format you want!**
+
+---
+
+## Complete Example: NestJS Application
+
+```typescript
+// ============================================================================
+// 1. Register Filter (ONE LINE!)
+// ============================================================================
+
+// src/main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { NAuthHttpExceptionFilter } from '@nauth-toolkit/nestjs';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  // Apply provided filter globally
+  app.useGlobalFilters(new NAuthHttpExceptionFilter());
+
+  await app.listen(3000);
+}
+bootstrap();
+
+// ============================================================================
+// 2. Use in Controllers (no changes needed!)
+// ============================================================================
+
+// src/auth/auth.controller.ts
+@Controller('auth')
+export class AuthController {
+  constructor(private authService: AuthService) {}
+
+  @Post('verify-phone')
+  async verifyPhone(@Body() dto: VerifyPhoneDTO) {
+    // If service throws NAuthException, filter catches and converts to HTTP
+    return this.authService.verifyPhone(dto);
+  }
+}
+
+// ============================================================================
+// 3. Frontend Receives Structured Error
+// ============================================================================
+
+// Frontend TypeScript
+try {
+  await authService.verifyPhone(code);
+} catch (error) {
+  if (error.response?.data?.code === 'RATE_LIMIT_SMS') {
+    const retryAfter = error.response.data.details.retryAfter;
+    showError(`Too many attempts. Try again in ${retryAfter}s`);
+  }
+}
+```
+
+**That's it!** The filter only catches `NAuthException` - your other exception filters continue to work normally.
+
+---
+
+## Toolkit Responsibilities
+
+### <i className="fa-duotone fa-check-circle" style={{color: 'var(--ifm-color-primary)'}}></i> What nauth-toolkit provides:
+
+- `NAuthException` - Framework-agnostic exception class
+- [`AuthErrorCode`](/docs/api/core/enums/auth-error-code) - Enum with all error codes
+- Structured metadata (retryAfter, validation details, etc.)
+- `getHttpStatusForErrorCode()` - Helper for HTTP status mapping
+- [`NAuthHttpExceptionFilter`](/docs/api/nestjs/filters/nauth-exception-filter) - **Optional** ready-to-use HTTP filter
+
+### <i className="fa-duotone fa-circle-xmark" style={{color: 'var(--ifm-color-primary)'}}></i> What nauth-toolkit does NOT do:
+
+- Force specific HTTP status codes (you can override)
+- Require using the provided filter (it's optional)
+- Handle error logging (consumer's responsibility)
+- Interfere with your other exception filters
+
+### <i className="fa-duotone fa-bullseye-arrow" style={{color: 'var(--ifm-color-primary)'}}></i> What consumer apps handle:
+
+- Create exception filter for their transport layer
+- Map error codes to status codes (or use helper)
+- Transform response format
+- Add logging, monitoring, tracing
+- Internationalization
+
+---
+
+## Benefits
+
+### For Any Transport Layer:
+
+- Works with HTTP, WebSocket, GraphQL, gRPC, etc.
+- Consumer controls response format
+- No framework coupling
+
+### For Developers:
+
+- **Programmatic error handling** - Check error codes, not strings
+- **Structured metadata** - retryAfter, validation details
+- **Type-safe** - Error codes are enums
+- **Flexible** - Use helper or define own mapping
+
+### For Production:
+
+- **Consistent errors** - Same structure everywhere
+- **Debuggable** - Timestamps, structured details
+- **Monitorable** - Error codes for dashboards
+- **Internationalization-ready** - Codes separate from messages
+
+---
+
+## Migration from Standard Exceptions
+
+### Before:
+
+```typescript
+throw new BadRequestException('Too many SMS sent');
+```
+
+**Problems:**
+
+- No error code for programmatic handling
+- No metadata (retryAfter)
+- Frontend has to parse message strings
+
+### After:
+
+```typescript
+throw new NAuthException(AuthErrorCode.RATE_LIMIT_SMS, 'Too many SMS sent', { retryAfter: 3600 });
+```
+
+**Benefits:**
+
+- Error code for programmatic handling
+- Metadata included
+- Frontend can show countdown timer
+
+---
+
+## Error Codes Reference
+
+[`AuthErrorCode`](/docs/api/core/enums/auth-error-code) enum contains 60+ error codes organized by category. Common codes:
+
+| Category | Codes |
+|---|---|
+| **Authentication** | `AUTH_INVALID_CREDENTIALS`, `AUTH_ACCOUNT_LOCKED`, `AUTH_ACCOUNT_INACTIVE`, `AUTH_TOKEN_EXPIRED`, `AUTH_TOKEN_INVALID`, `AUTH_TOKEN_REUSE_DETECTED`, `AUTH_SESSION_NOT_FOUND`, `AUTH_SESSION_EXPIRED`, `AUTH_BEARER_NOT_ALLOWED`, `AUTH_COOKIES_NOT_ALLOWED` |
+| **Signup** | `SIGNUP_EMAIL_EXISTS`, `SIGNUP_USERNAME_EXISTS`, `SIGNUP_PHONE_EXISTS`, `SIGNUP_WEAK_PASSWORD`, `SIGNUP_DISABLED`, `SIGNUP_NOT_ALLOWED`, `SIGNUP_PRESIGNUP_FAILED` |
+| **Verification** | `VERIFY_CODE_INVALID`, `VERIFY_CODE_EXPIRED`, `VERIFY_TOO_MANY_ATTEMPTS`, `VERIFY_ALREADY_VERIFIED` |
+| **Challenge** | `CHALLENGE_EXPIRED`, `CHALLENGE_INVALID`, `CHALLENGE_TYPE_MISMATCH`, `CHALLENGE_MAX_ATTEMPTS`, `CHALLENGE_ALREADY_COMPLETED` |
+| **MFA** | `MFA_SETUP_REQUIRED` |
+| **Rate Limits** | `RATE_LIMIT_SMS`, `RATE_LIMIT_EMAIL`, `RATE_LIMIT_LOGIN`, `RATE_LIMIT_RESEND`, `RATE_LIMIT_PASSWORD_RESET` |
+| **Password** | `PASSWORD_INCORRECT`, `PASSWORD_REUSED`, `PASSWORD_CHANGE_NOT_ALLOWED`, `PASSWORD_RESET_CODE_INVALID`, `PASSWORD_RESET_CODE_EXPIRED`, `PASSWORD_RESET_MAX_ATTEMPTS` |
+| **Social Auth** | `SOCIAL_TOKEN_INVALID`, `SOCIAL_ACCOUNT_LINKED`, `SOCIAL_ACCOUNT_NOT_FOUND`, `SOCIAL_EMAIL_REQUIRED`, `SOCIAL_CONFIG_MISSING`, `SOCIAL_ACCOUNT_EXISTS` |
+| **CSRF** | `AUTH_CSRF_TOKEN_INVALID`, `AUTH_CSRF_TOKEN_MISSING` |
+| **reCAPTCHA** | `RECAPTCHA_REQUIRED`, `RECAPTCHA_VALIDATION_FAILED`, `RECAPTCHA_SCORE_TOO_LOW`, `RECAPTCHA_PROVIDER_MISSING` |
+| **Validation** | `VALIDATION_FAILED`, `VALIDATION_INVALID_PHONE`, `VALIDATION_INVALID_EMAIL`, `VALIDATION_INVALID_PASSWORD` |
+| **Adaptive MFA** | `SIGNIN_BLOCKED_HIGH_RISK` |
+| **General** | `RESOURCE_NOT_FOUND`, `USER_NOT_FOUND`, `FORBIDDEN`, `SERVICE_UNAVAILABLE` |
+
+## What's Next
+
+- **[Challenge System](/docs/concepts/challenge-system)** --- Challenge error handling patterns
+- **[Rate Limiting](/docs/guides/rate-limiting)** --- Configure and handle rate limit errors
+- **[Configuration](/docs/concepts/configuration)** --- Full configuration reference

@@ -1,0 +1,71 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Compiled JavaScript files in source directories (should only be in dist/)
+packages/*/src/**/*.js
+packages/*/src/**/*.js.map
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Docker environment files (examples folder)
+examples/.env
+
+# Local development env files
+examples/demo-nestjs/.env
+examples/demo-angular/.env
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temp
+tmp/
+temp/
+
+
+playwright-report/
+test-results/
+playwright-results.json
+
+.npmrc
+
+# Local AI assistant configuration (not part of the public source tree)
+CLAUDE.md
+.claude/
+.cursor/
+.playwright-mcp/
+
+# Git backup directories
+.git.backup/
+
+# Temporary session handoff notes (never commit)
+OSS_TRANSITION_HANDOFF.md
+
+# MaxMind GeoIP databases (downloaded at runtime, see examples/demo-nestjs)
+*.mmdb

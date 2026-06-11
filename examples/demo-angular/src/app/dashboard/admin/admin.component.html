@@ -1,0 +1,708 @@
+<p-card styleClass="dashboard-card">
+  <ng-template pTemplate="header">
+    <div class="dashboard-card-header">
+      <div class="dashboard-card-header-content">
+        <div class="dashboard-card-header-title">
+          <i class="pi pi-shield dashboard-card-header-icon"></i>
+          <h2 class="dashboard-card-header-text">Admin</h2>
+        </div>
+        <div class="flex gap-2">
+          <p-button
+            label="Create User"
+            icon="pi pi-user-plus"
+            severity="primary"
+            size="small"
+            (onClick)="openCreateUserDialog()"
+          />
+          <p-button
+            label="Import Social User"
+            icon="pi pi-users"
+            severity="secondary"
+            [outlined]="true"
+            size="small"
+            (onClick)="openImportSocialUserDialog()"
+          />
+        </div>
+      </div>
+    </div>
+  </ng-template>
+
+  <div class="p-6">
+    <!-- Error Message -->
+    @if (error()) {
+      <p-message severity="error" [text]="error() || ''" styleClass="w-full mb-4" />
+    }
+
+    <app-user-list
+      [users]="users()"
+      [total]="total()"
+      [page]="page()"
+      [limit]="limit()"
+      [loading]="loading()"
+      (pageChange)="onPageChange($event)"
+      (userAction)="handleUserAction($event)"
+      (filtersChange)="onFiltersChange($event)"
+    />
+  </div>
+</p-card>
+
+<p-confirmDialog [style]="{ width: '600px', maxWidth: '90vw' }" />
+
+<!-- Create User Dialog -->
+<p-dialog
+  [visible]="showDialog()"
+  (visibleChange)="showDialog.set($event)"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '600px', maxWidth: '90vw' }"
+  header="Create User"
+  (onHide)="closeDialog()"
+>
+  <form [formGroup]="createUserForm" (ngSubmit)="onSubmit()" class="space-y-4">
+    <!-- Error Message -->
+    @if (createError(); as errorMessage) {
+      <div class="mb-4">
+        <p-message severity="error" [text]="errorMessage" styleClass="w-full" />
+      </div>
+    }
+
+    <!-- Success Message -->
+    @if (createSuccess(); as successMessage) {
+      <div class="mb-4">
+        <p-message severity="success" [text]="successMessage" styleClass="w-full" />
+      </div>
+    }
+
+    <!-- Email Field -->
+    <div class="flex flex-col gap-2">
+      <label for="email" class="form-label"> Email <span class="form-required">*</span> </label>
+      <input
+        id="email"
+        type="email"
+        pInputText
+        formControlName="email"
+        placeholder="user@example.com"
+        maxlength="255"
+        [class.p-invalid]="
+          createUserForm.get('email')?.invalid && createUserForm.get('email')?.touched
+        "
+        class="w-full"
+      />
+      @if (createUserForm.get('email')?.invalid && createUserForm.get('email')?.touched) {
+        <small class="p-error">
+          @if (createUserForm.get('email')?.errors?.['required']) {
+            Email is required
+          } @else if (createUserForm.get('email')?.errors?.['email']) {
+            Please enter a valid email address
+          } @else if (createUserForm.get('email')?.errors?.['maxlength']) {
+            Email must not exceed 255 characters
+          }
+        </small>
+      }
+    </div>
+
+    <!-- Generate Password Checkbox -->
+    <div class="flex items-center gap-2">
+      <p-checkbox formControlName="generatePassword" [binary]="true" inputId="generatePassword" />
+      <label for="generatePassword" class="form-label cursor-pointer">
+        Auto-generate secure password
+      </label>
+    </div>
+
+    <!-- Password Field (shown when not generating) -->
+    @if (!createUserForm.get('generatePassword')?.value) {
+      <div class="flex flex-col gap-2">
+        <label for="password" class="form-label">
+          Password <span class="form-required">*</span>
+        </label>
+        <p-password
+          id="password"
+          formControlName="password"
+          placeholder="Enter password"
+          [toggleMask]="true"
+          [feedback]="true"
+          [class.p-invalid]="
+            createUserForm.get('password')?.invalid && createUserForm.get('password')?.touched
+          "
+          styleClass="w-full"
+          inputStyleClass="w-full"
+        />
+        @if (createUserForm.get('password')?.invalid && createUserForm.get('password')?.touched) {
+          <small class="p-error">
+            @if (createUserForm.get('password')?.errors?.['required']) {
+              Password is required
+            } @else if (createUserForm.get('password')?.errors?.['minlength']) {
+              Password must be at least 8 characters
+            } @else if (createUserForm.get('password')?.errors?.['maxlength']) {
+              Password must not exceed 128 characters
+            }
+          </small>
+        }
+      </div>
+    }
+
+    <!-- Username Field -->
+    <div class="flex flex-col gap-2">
+      <label for="username" class="form-label">Username</label>
+      <input
+        id="username"
+        type="text"
+        pInputText
+        formControlName="username"
+        placeholder="username (optional)"
+        maxlength="255"
+        [class.p-invalid]="
+          createUserForm.get('username')?.invalid && createUserForm.get('username')?.touched
+        "
+        class="w-full"
+      />
+      @if (createUserForm.get('username')?.invalid && createUserForm.get('username')?.touched) {
+        <small class="p-error">
+          @if (createUserForm.get('username')?.errors?.['minlength']) {
+            Username must be at least 3 characters
+          } @else if (createUserForm.get('username')?.errors?.['maxlength']) {
+            Username must not exceed 255 characters
+          } @else if (createUserForm.get('username')?.errors?.['pattern']) {
+            Username can only contain letters, numbers, underscores, and hyphens
+          }
+        </small>
+      }
+    </div>
+
+    <!-- First Name and Last Name Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- First Name -->
+      <div class="flex flex-col gap-2">
+        <label for="firstName" class="form-label">First Name</label>
+        <input
+          id="firstName"
+          type="text"
+          pInputText
+          formControlName="firstName"
+          placeholder="First name (optional)"
+          maxlength="100"
+          [class.p-invalid]="
+            createUserForm.get('firstName')?.invalid && createUserForm.get('firstName')?.touched
+          "
+          class="w-full"
+        />
+        @if (createUserForm.get('firstName')?.invalid && createUserForm.get('firstName')?.touched) {
+          <small class="p-error">
+            @if (createUserForm.get('firstName')?.errors?.['maxlength']) {
+              First name must not exceed 100 characters
+            } @else if (createUserForm.get('firstName')?.errors?.['pattern']) {
+              First name can only contain letters, spaces, hyphens, and apostrophes
+            }
+          </small>
+        }
+      </div>
+
+      <!-- Last Name -->
+      <div class="flex flex-col gap-2">
+        <label for="lastName" class="form-label">Last Name</label>
+        <input
+          id="lastName"
+          type="text"
+          pInputText
+          formControlName="lastName"
+          placeholder="Last name (optional)"
+          maxlength="100"
+          [class.p-invalid]="
+            createUserForm.get('lastName')?.invalid && createUserForm.get('lastName')?.touched
+          "
+          class="w-full"
+        />
+        @if (createUserForm.get('lastName')?.invalid && createUserForm.get('lastName')?.touched) {
+          <small class="p-error">
+            @if (createUserForm.get('lastName')?.errors?.['maxlength']) {
+              Last name must not exceed 100 characters
+            } @else if (createUserForm.get('lastName')?.errors?.['pattern']) {
+              Last name can only contain letters, spaces, hyphens, and apostrophes
+            }
+          </small>
+        }
+      </div>
+    </div>
+
+    <!-- Phone Field -->
+    <div class="flex flex-col gap-2">
+      <label for="phone" class="form-label">Phone</label>
+      <p-inputmask
+        id="phone"
+        formControlName="phone"
+        mask="+99999999999999"
+        slotChar=""
+        placeholder="+14155552671"
+        [unmask]="false"
+        [autoClear]="false"
+        [class.p-invalid]="
+          createUserForm.get('phone')?.invalid && createUserForm.get('phone')?.touched
+        "
+        styleClass="w-full"
+        inputStyleClass="w-full"
+      />
+      @if (createUserForm.get('phone')?.invalid && createUserForm.get('phone')?.touched) {
+        <small class="p-error">
+          @if (createUserForm.get('phone')?.errors?.['phoneFormat']) {
+            {{ createUserForm.get('phone')?.errors?.['phoneFormat']?.['message'] }}
+          } @else if (createUserForm.get('phone')?.errors?.['maxlength']) {
+            Phone must not exceed 20 characters
+          }
+        </small>
+      }
+      <small class="text-secondary-500 text-xs"
+        >Format: +[country code][number] (e.g., +14155552671)</small
+      >
+    </div>
+
+    <!-- Admin Override Options -->
+    <div class="border-t border-secondary-200 pt-4 space-y-3">
+      <h3 class="text-sm font-semibold text-secondary-900 mb-3">Admin Options</h3>
+
+      <!-- Email Verified -->
+      <div class="flex items-center gap-2">
+        <p-checkbox formControlName="isEmailVerified" [binary]="true" inputId="isEmailVerified" />
+        <label for="isEmailVerified" class="form-label cursor-pointer">
+          Email verified (bypass email verification)
+        </label>
+      </div>
+
+      <!-- Phone Verified -->
+      <div class="flex items-center gap-2">
+        <p-checkbox formControlName="isPhoneVerified" [binary]="true" inputId="isPhoneVerified" />
+        <label for="isPhoneVerified" class="form-label cursor-pointer">
+          Phone verified (bypass phone verification)
+        </label>
+      </div>
+
+      <!-- Force Password Change -->
+      <div class="flex items-center gap-2">
+        <p-checkbox
+          formControlName="mustChangePassword"
+          [binary]="true"
+          inputId="mustChangePassword"
+        />
+        <label for="mustChangePassword" class="form-label cursor-pointer">
+          Force password change on first login
+        </label>
+      </div>
+    </div>
+
+    <!-- Submit Button -->
+    <div class="flex justify-end gap-2 pt-4 border-t border-secondary-200">
+      <p-button
+        label="Cancel"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="closeDialog()"
+        [disabled]="createLoading()"
+      />
+      <p-button
+        type="submit"
+        label="{{ createLoading() ? 'Creating...' : 'Create User' }}"
+        [disabled]="createUserForm.invalid || createLoading()"
+        [loading]="createLoading()"
+        icon="pi pi-user-plus"
+      />
+    </div>
+  </form>
+</p-dialog>
+
+<!-- Import Social User Dialog -->
+<p-dialog
+  [visible]="showImportSocialDialog()"
+  (visibleChange)="showImportSocialDialog.set($event)"
+  [modal]="true"
+  [style]="{ width: '600px' }"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  header="Import Social User"
+  (onHide)="closeImportSocialDialog()"
+>
+  <form [formGroup]="importSocialUserForm" (ngSubmit)="onSubmitImportSocial()" class="space-y-4">
+    <!-- Error Message -->
+    @if (importSocialError(); as errorMessage) {
+      <div class="mb-4">
+        <p-message severity="error" [text]="errorMessage" styleClass="w-full" />
+      </div>
+    }
+
+    <!-- Success Message -->
+    @if (importSocialSuccess(); as successMessage) {
+      <div class="mb-4">
+        <p-message severity="success" [text]="successMessage" styleClass="w-full" />
+      </div>
+    }
+
+    <!-- Email Field -->
+    <div class="flex flex-col gap-2">
+      <label for="import-email" class="form-label">
+        Email <span class="form-required">*</span>
+      </label>
+      <input
+        id="import-email"
+        type="email"
+        pInputText
+        formControlName="email"
+        placeholder="user@example.com"
+        maxlength="255"
+        [class.p-invalid]="
+          importSocialUserForm.get('email')?.invalid && importSocialUserForm.get('email')?.touched
+        "
+        class="w-full"
+      />
+      @if (
+        importSocialUserForm.get('email')?.invalid && importSocialUserForm.get('email')?.touched
+      ) {
+        <small class="p-error">
+          @if (importSocialUserForm.get('email')?.errors?.['required']) {
+            Email is required
+          } @else if (importSocialUserForm.get('email')?.errors?.['email']) {
+            Please enter a valid email address
+          } @else if (importSocialUserForm.get('email')?.errors?.['maxlength']) {
+            Email must not exceed 255 characters
+          }
+        </small>
+      }
+    </div>
+
+    <!-- Provider Selection -->
+    <div class="flex flex-col gap-2">
+      <label for="import-provider" class="form-label">
+        Provider <span class="form-required">*</span>
+      </label>
+      <p-select
+        id="import-provider"
+        formControlName="provider"
+        [options]="[
+          { label: 'Google', value: 'google' },
+          { label: 'Apple', value: 'apple' },
+          { label: 'Facebook', value: 'facebook' },
+        ]"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Select provider"
+        [class.p-invalid]="
+          importSocialUserForm.get('provider')?.invalid &&
+          importSocialUserForm.get('provider')?.touched
+        "
+        class="w-full"
+      />
+      @if (
+        importSocialUserForm.get('provider')?.invalid &&
+        importSocialUserForm.get('provider')?.touched
+      ) {
+        <small class="p-error">Provider is required</small>
+      }
+    </div>
+
+    <!-- Provider ID -->
+    <div class="flex flex-col gap-2">
+      <label for="import-providerId" class="form-label">
+        Provider ID <span class="form-required">*</span>
+      </label>
+      <input
+        id="import-providerId"
+        type="text"
+        pInputText
+        formControlName="providerId"
+        placeholder="google_12345"
+        maxlength="255"
+        [class.p-invalid]="
+          importSocialUserForm.get('providerId')?.invalid &&
+          importSocialUserForm.get('providerId')?.touched
+        "
+        class="w-full"
+      />
+      @if (
+        importSocialUserForm.get('providerId')?.invalid &&
+        importSocialUserForm.get('providerId')?.touched
+      ) {
+        <small class="p-error">
+          @if (importSocialUserForm.get('providerId')?.errors?.['required']) {
+            Provider ID is required
+          } @else if (importSocialUserForm.get('providerId')?.errors?.['maxlength']) {
+            Provider ID must not exceed 255 characters
+          }
+        </small>
+      }
+    </div>
+
+    <!-- First Name and Last Name Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="flex flex-col gap-2">
+        <label for="import-firstName" class="form-label">First Name</label>
+        <input
+          id="import-firstName"
+          type="text"
+          pInputText
+          formControlName="firstName"
+          placeholder="First name (optional)"
+          maxlength="100"
+          [class.p-invalid]="
+            importSocialUserForm.get('firstName')?.invalid &&
+            importSocialUserForm.get('firstName')?.touched
+          "
+          class="w-full"
+        />
+        @if (
+          importSocialUserForm.get('firstName')?.invalid &&
+          importSocialUserForm.get('firstName')?.touched
+        ) {
+          <small class="p-error">
+            @if (importSocialUserForm.get('firstName')?.errors?.['maxlength']) {
+              First name must not exceed 100 characters
+            } @else if (importSocialUserForm.get('firstName')?.errors?.['pattern']) {
+              First name can only contain letters, spaces, hyphens, and apostrophes
+            }
+          </small>
+        }
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="import-lastName" class="form-label">Last Name</label>
+        <input
+          id="import-lastName"
+          type="text"
+          pInputText
+          formControlName="lastName"
+          placeholder="Last name (optional)"
+          maxlength="100"
+          [class.p-invalid]="
+            importSocialUserForm.get('lastName')?.invalid &&
+            importSocialUserForm.get('lastName')?.touched
+          "
+          class="w-full"
+        />
+        @if (
+          importSocialUserForm.get('lastName')?.invalid &&
+          importSocialUserForm.get('lastName')?.touched
+        ) {
+          <small class="p-error">
+            @if (importSocialUserForm.get('lastName')?.errors?.['maxlength']) {
+              Last name must not exceed 100 characters
+            } @else if (importSocialUserForm.get('lastName')?.errors?.['pattern']) {
+              Last name can only contain letters, spaces, hyphens, and apostrophes
+            }
+          </small>
+        }
+      </div>
+    </div>
+
+    <!-- Phone Field -->
+    <div class="flex flex-col gap-2">
+      <label for="import-phone" class="form-label">Phone</label>
+      <p-inputmask
+        id="import-phone"
+        formControlName="phone"
+        mask="+99999999999999"
+        slotChar=""
+        placeholder="+14155552671"
+        [unmask]="false"
+        [autoClear]="false"
+        [class.p-invalid]="
+          importSocialUserForm.get('phone')?.invalid && importSocialUserForm.get('phone')?.touched
+        "
+      />
+      @if (
+        importSocialUserForm.get('phone')?.invalid && importSocialUserForm.get('phone')?.touched
+      ) {
+        <small class="p-error">
+          @if (importSocialUserForm.get('phone')?.errors?.['phoneFormat']) {
+            {{ importSocialUserForm.get('phone')?.errors?.['phoneFormat']?.['message'] }}
+          } @else if (importSocialUserForm.get('phone')?.errors?.['maxlength']) {
+            Phone must not exceed 20 characters
+          }
+        </small>
+      }
+      <small class="text-secondary-500 text-xs"
+        >Format: +[country code][number] (e.g., +14155552671)</small
+      >
+    </div>
+
+    <!-- Password Field (Optional for hybrid accounts) -->
+    <div class="flex flex-col gap-2">
+      <label for="import-password" class="form-label">Password (Optional)</label>
+      <p-password
+        id="import-password"
+        formControlName="password"
+        placeholder="Leave empty for social-only account"
+        [toggleMask]="true"
+        [feedback]="false"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+        [class.p-invalid]="
+          importSocialUserForm.get('password')?.invalid &&
+          importSocialUserForm.get('password')?.touched
+        "
+      />
+      @if (
+        importSocialUserForm.get('password')?.invalid &&
+        importSocialUserForm.get('password')?.touched
+      ) {
+        <small class="p-error">
+          @if (importSocialUserForm.get('password')?.errors?.['minlength']) {
+            Password must be at least 8 characters
+          } @else if (importSocialUserForm.get('password')?.errors?.['maxlength']) {
+            Password must not exceed 128 characters
+          }
+        </small>
+      }
+      <small class="text-secondary-500 text-xs">
+        Leave empty to create a social-only account (no password login). Provide a password to
+        create a hybrid account (social + password).
+      </small>
+    </div>
+
+    <!-- Admin Override Options -->
+    <div class="border-t border-secondary-200 pt-4 space-y-3">
+      <h3 class="text-sm font-semibold text-secondary-900 mb-3">Admin Options</h3>
+
+      <!-- Phone Verified -->
+      <div class="flex items-center gap-2">
+        <p-checkbox
+          formControlName="isPhoneVerified"
+          [binary]="true"
+          inputId="import-isPhoneVerified"
+        />
+        <label for="import-isPhoneVerified" class="form-label cursor-pointer">
+          Phone verified (bypass phone verification)
+        </label>
+      </div>
+
+      <!-- Force Password Change -->
+      <div class="flex items-center gap-2">
+        <p-checkbox
+          formControlName="mustChangePassword"
+          [binary]="true"
+          inputId="import-mustChangePassword"
+        />
+        <label for="import-mustChangePassword" class="form-label cursor-pointer">
+          Force password change on first login
+        </label>
+      </div>
+    </div>
+
+    <!-- Submit Button -->
+    <div class="flex justify-end gap-2 pt-4 border-t border-secondary-200">
+      <p-button
+        label="Cancel"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="closeImportSocialDialog()"
+        [disabled]="importSocialLoading()"
+      />
+      <p-button
+        type="submit"
+        label="{{ importSocialLoading() ? 'Importing...' : 'Import User' }}"
+        [disabled]="importSocialUserForm.invalid || importSocialLoading()"
+        [loading]="importSocialLoading()"
+        icon="pi pi-users"
+      />
+    </div>
+  </form>
+</p-dialog>
+
+<!-- Admin Reset Password Dialog (New Workflow) -->
+<p-dialog
+  [visible]="showAdminResetPasswordDialog()"
+  (visibleChange)="showAdminResetPasswordDialog.set($event)"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [style]="{ width: '600px', maxWidth: '90vw' }"
+  header="Admin Reset Password"
+  (onHide)="closeAdminResetPasswordDialog()"
+>
+  <form
+    [formGroup]="adminResetPasswordForm"
+    (ngSubmit)="onSubmitAdminResetPassword()"
+    class="space-y-4"
+  >
+    <p class="text-secondary-700 mb-4">
+      Initiate password reset workflow for
+      <strong>{{ selectedUser()?.email || selectedUser()?.phone || selectedUser()?.sub }}</strong
+      >. The user will receive a code via email or SMS to reset their password.
+    </p>
+
+    <!-- Delivery Method -->
+    <div class="flex flex-col gap-2">
+      <label for="deliveryMethod" class="form-label">
+        Delivery Method <span class="form-required">*</span>
+      </label>
+      <p-select
+        id="deliveryMethod"
+        formControlName="deliveryMethod"
+        [options]="[
+          { label: 'Email', value: 'email' },
+          { label: 'SMS', value: 'sms' },
+        ]"
+        optionLabel="label"
+        optionValue="value"
+        [class.p-invalid]="
+          adminResetPasswordForm.get('deliveryMethod')?.invalid &&
+          adminResetPasswordForm.get('deliveryMethod')?.touched
+        "
+        class="w-full"
+      />
+      @if (
+        adminResetPasswordForm.get('deliveryMethod')?.invalid &&
+        adminResetPasswordForm.get('deliveryMethod')?.touched
+      ) {
+        <small class="p-error">Delivery method is required</small>
+      }
+    </div>
+
+    <!-- Revoke Sessions -->
+    <div class="flex items-center gap-2">
+      <p-checkbox formControlName="revokeSessions" [binary]="true" inputId="revokeSessions" />
+      <label for="revokeSessions" class="form-label cursor-pointer">
+        Revoke all active sessions immediately
+      </label>
+    </div>
+
+    <!-- Reason (Optional) -->
+    <div class="flex flex-col gap-2">
+      <label for="reason" class="form-label">Reason (Optional)</label>
+      <textarea
+        id="reason"
+        pInputText
+        formControlName="reason"
+        placeholder="Reason for password reset (for audit trail)"
+        rows="3"
+        maxlength="500"
+        [class.p-invalid]="
+          adminResetPasswordForm.get('reason')?.invalid &&
+          adminResetPasswordForm.get('reason')?.touched
+        "
+        class="w-full"
+      ></textarea>
+      @if (
+        adminResetPasswordForm.get('reason')?.invalid &&
+        adminResetPasswordForm.get('reason')?.touched
+      ) {
+        <small class="p-error">Reason must not exceed 500 characters</small>
+      }
+    </div>
+
+    <div class="flex justify-end gap-2 pt-4 border-t border-secondary-200">
+      <p-button
+        label="Cancel"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="closeAdminResetPasswordDialog()"
+        [disabled]="adminResetPasswordLoading()"
+      />
+      <p-button
+        type="submit"
+        label="{{ adminResetPasswordLoading() ? 'Sending...' : 'Send Reset Code' }}"
+        [disabled]="adminResetPasswordForm.invalid || adminResetPasswordLoading()"
+        [loading]="adminResetPasswordLoading()"
+      />
+    </div>
+  </form>
+</p-dialog>

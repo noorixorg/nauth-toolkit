@@ -1,0 +1,32 @@
+/* MFA Component - Minimal styling, using common.css and dashboard-card classes */
+
+/* Card container inherits from dashboard-card in common.css */
+
+/* Ensure consistent spacing for menu items */
+::ng-deep .p-menu .p-menuitem-link {
+  padding: 0.75rem 1rem;
+}
+
+/* Style for destructive actions */
+::ng-deep .p-menu .text-red-500 .p-menuitem-link {
+  color: rgb(239, 68, 68);
+}
+
+::ng-deep .p-menu .text-red-500 .p-menuitem-link:hover {
+  background-color: rgb(254, 226, 226);
+}
+
+/* Preferred tag styling - smaller font and perfect vertical alignment */
+::ng-deep .preferred-tag {
+  font-size: 0.625rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+
+::ng-deep .preferred-tag .p-tag-value {
+  font-size: 0.625rem;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+}

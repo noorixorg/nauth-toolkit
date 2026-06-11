@@ -1,0 +1,158 @@
+<div class="auth-container">
+  <div class="auth-wrapper">
+    <div class="auth-header">
+      <img src="/img/nauth_square_logoonly.png" alt="nauth-toolkit Logo" class="auth-logo" />
+      <h1 class="auth-title">NAUTH Demo</h1>
+      <p class="auth-subtitle">Sign in to your account</p>
+    </div>
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="auth-form">
+      <!-- Email Field -->
+      <div class="form-field">
+        <label for="email" class="form-label"> Email <span class="form-required">*</span> </label>
+        <input
+          id="email"
+          type="email"
+          pInputText
+          formControlName="email"
+          placeholder="Enter your email"
+          [pAutoFocus]="true"
+          [class.p-invalid]="loginForm.get('email')?.invalid && loginForm.get('email')?.touched"
+          class="w-full"
+        />
+        @if (loginForm.get('email')?.invalid && loginForm.get('email')?.touched) {
+          <small class="p-error">
+            @if (loginForm.get('email')?.errors?.['required']) {
+              Email is required
+            } @else if (loginForm.get('email')?.errors?.['email']) {
+              Please enter a valid email address
+            }
+          </small>
+        }
+      </div>
+
+      <!-- Password Field -->
+      <div class="form-field">
+        <div class="flex items-center justify-between mb-2">
+          <label for="password" class="form-label">
+            Password <span class="form-required">*</span>
+          </label>
+          <a
+            (click)="navigateToForgotPassword()"
+            class="text-sm text-primary-600 hover:text-primary-700 font-medium"
+          >
+            Forgot Password?
+          </a>
+        </div>
+        <p-password
+          id="password"
+          formControlName="password"
+          placeholder="Enter your password"
+          [toggleMask]="true"
+          [feedback]="false"
+          [class.p-invalid]="
+            loginForm.get('password')?.invalid && loginForm.get('password')?.touched
+          "
+          styleClass="w-full"
+          inputStyleClass="w-full"
+        />
+        @if (loginForm.get('password')?.invalid && loginForm.get('password')?.touched) {
+          <small class="p-error">
+            @if (loginForm.get('password')?.errors?.['required']) {
+              Password is required
+            } @else if (loginForm.get('password')?.errors?.['minlength']) {
+              Password must be at least 6 characters
+            }
+          </small>
+        }
+      </div>
+
+      <!-- Submit Button -->
+      <p-button
+        type="submit"
+        label="{{ loading() ? 'Signing in...' : 'Sign in' }}"
+        [disabled]="loginForm.invalid || loading()"
+        [loading]="loading()"
+        styleClass="w-full"
+        icon="pi pi-sign-in"
+      />
+
+      <!-- Success Message -->
+      @if (success(); as successMessage) {
+        <div class="error-message-container-compact">
+          <p-message
+            severity="success"
+            [text]="successMessage"
+            [closable]="true"
+            (onClose)="success.set(null)"
+            styleClass="w-full"
+          />
+        </div>
+      }
+
+      <!-- Error Message -->
+      @if (error(); as errorMessage) {
+        <div class="error-message-container-compact">
+          <p-message
+            severity="error"
+            [text]="errorMessage"
+            [closable]="true"
+            (onClose)="error.set(null)"
+            styleClass="w-full"
+          />
+        </div>
+      }
+
+      <!-- Divider -->
+      <p-divider>
+        <span class="divider-text">or</span>
+      </p-divider>
+
+      <!-- Social Login Buttons -->
+      <div class="social-login-container">
+        <p-button
+          label="Continue with Google"
+          icon="pi pi-google"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="loading()"
+          (onClick)="onSocialLogin('google')"
+          styleClass="w-full social-button"
+          iconPos="left"
+        />
+        @if (showAppleLogin) {
+          <p-button
+            label="Continue with Apple"
+            icon="pi pi-apple"
+            severity="secondary"
+            [outlined]="true"
+            [disabled]="loading()"
+            (onClick)="onSocialLogin('apple')"
+            styleClass="w-full social-button"
+            iconPos="left"
+          />
+        }
+        @if (showFacebookLogin) {
+          <p-button
+            label="Continue with Facebook"
+            icon="pi pi-facebook"
+            severity="secondary"
+            [outlined]="true"
+            [disabled]="loading()"
+            (onClick)="onSocialLogin('facebook')"
+            styleClass="w-full social-button"
+            iconPos="left"
+          />
+        }
+      </div>
+
+      <!-- Signup Link -->
+      <div class="auth-footer">
+        <p class="auth-footer-text">
+          Don't have an account?
+          <a (click)="navigateToSignup()" class="auth-link">Sign up</a>
+        </p>
+      </div>
+    </form>
+  </div>
+</div>

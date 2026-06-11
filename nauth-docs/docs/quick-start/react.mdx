@@ -1,0 +1,945 @@
+---
+sidebar_position: 3
+title: React
+description: Connect a React frontend to nauth-toolkit using the client SDK
+keywords: [quick-start, react, frontend, sdk, authentication]
+image: /img/api-social-card.png
+---
+
+# Quick Start: React Frontend
+
+Connect a React application to a nauth-toolkit backend using `@nauth-toolkit/client`.
+
+:::note Sample Application
+A complete working example is available at [github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-react](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-react) — React + Vite + `@nauth-toolkit/client` with Auth context, protected routes, Google OAuth, and challenge handling.
+:::
+
+:::tip Live Demo
+See nauth-toolkit in action at **[demo.nauth.dev](https://demo.nauth.dev)** — a working demo app showcasing signup, login, MFA, social auth, and session management.
+:::
+
+:::info No React-specific SDK
+There is no React-specific SDK package. `@nauth-toolkit/client` supports all auth operations and works in any JS environment, but requires a bit more manual wiring than the Angular SDK — you'll set up a React Context, a token-refresh adapter, and a protected route component yourself. This guide provides the complete, production-ready patterns for all of these.
+:::
+
+:::info Backend Required
+This guide assumes you have a running nauth-toolkit backend. Complete the [NestJS](/docs/quick-start/nestjs) or [Express](/docs/quick-start/express) quick start first.
+:::
+
+## Prerequisites
+
+- A React application with [Vite](https://vitejs.dev/) or CRA (React 18+)
+- TypeScript
+- `react-router-dom` v6
+- A running nauth-toolkit backend at `http://localhost:3000`
+
+---
+
+## Installation
+
+```bash npm2yarn
+npm install @nauth-toolkit/client react-router-dom
+```
+
+---
+
+## File Structure
+
+You'll create the following files:
+
+```
+src/
+├── config/
+│   └── auth.config.ts       # SDK configuration
+├── lib/
+│   └── authHttpAdapter.ts   # Auto-refresh HTTP adapter
+├── context/
+│   └── AuthContext.tsx      # Auth state + operations
+├── hooks/
+│   └── useAuth.ts           # useAuth hook
+├── components/
+│   ├── GoogleIcon.tsx       # Google logo for OAuth button
+│   └── ProtectedRoute.tsx   # Route guard
+├── pages/
+│   ├── LoginPage.tsx
+│   ├── SignupPage.tsx
+│   ├── ChallengePage.tsx
+│   ├── MfaSetupPage.tsx
+│   ├── DashboardPage.tsx
+│   └── OAuthCallbackPage.tsx
+└── App.tsx                  # Routes
+```
+
+---
+
+## 1. Configure the SDK
+
+```typescript title="src/config/auth.config.ts"
+import type { NAuthClientConfig } from '@nauth-toolkit/client';
+
+const authConfig: NAuthClientConfig = {
+  baseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000',
+  authPathPrefix: '/auth',
+
+  // Use 'cookies' for web (httpOnly cookies, CSRF protection).
+  // Switch to 'json' and update the endpoints below for mobile/hybrid apps.
+  tokenDelivery: 'cookies',
+
+  debug: import.meta.env.DEV,
+
+  csrf: {
+    cookieName: 'nauth_csrf_token',
+    headerName: 'x-csrf-token',
+  },
+
+  // Disable SDK-driven hard redirects for login/challenge flows.
+  // The SDK's challengeRouter calls window.location.replace() after login/challenge
+  // responses, which conflicts with React Router navigation (loses route state and
+  // causes ProtectedRoute to see isAuthenticated=false on fresh page load).
+  // Setting onAuthResponse to a no-op hands full navigation control to the app.
+  // sessionExpired and oauthError still use hard redirects via navigateToError().
+  onAuthResponse: () => {},
+  redirects: {
+    sessionExpired: '/login',
+    oauthError: '/login',
+  },
+};
+
+export default authConfig;
+```
+
+---
+
+## 2. Auto-refresh HTTP Adapter
+
+The SDK's built-in `FetchAdapter` does not retry requests after a 401. This adapter wraps it to add automatic token refresh and retry, with a single in-flight refresh promise for concurrent requests.
+
+```typescript title="src/lib/authHttpAdapter.ts"
+import {
+  FetchAdapter,
+  NAuthClientError,
+  type HttpAdapter,
+  type HttpRequest,
+  type HttpResponse,
+  type NAuthClient,
+} from '@nauth-toolkit/client';
+
+/**
+ * HTTP adapter that wraps FetchAdapter and adds automatic 401-triggered token refresh.
+ *
+ * Why this exists:
+ * The SDK's built-in request methods (get, post, etc.) explicitly delegate 401 handling
+ * to "framework interceptors (Angular) or manually". The FetchAdapter makes a single
+ * request and throws NAuthClientError on non-2xx — it does not retry after refresh.
+ *
+ * How it works:
+ * 1. Makes the request via FetchAdapter.
+ * 2. If the response is 401 and the failing URL is not the refresh endpoint:
+ *    - Calls client.refreshTokens() (in cookies mode the browser sends the httpOnly
+ *      refresh cookie; the server sets new access/refresh cookies in the response).
+ *    - Multiple concurrent 401s share a single in-flight refresh promise so only
+ *      one refresh request hits the backend.
+ *    - After refresh, retries the original request exactly once.
+ * 3. If refresh fails (session truly expired), the SDK emits auth:session_expired,
+ *    which our AuthContext listener catches to clear user state and let ProtectedRoute
+ *    redirect to /login.
+ *
+ * Circular dependency is broken via setClient() — call it once after NAuthClient
+ * is constructed.
+ */
+export class RefreshingFetchAdapter implements HttpAdapter {
+  private readonly inner = new FetchAdapter();
+  private client: NAuthClient | null = null;
+  private refreshPromise: Promise<void> | null = null;
+
+  /** Wire up the client after construction to avoid circular dependency. */
+  setClient(client: NAuthClient): void {
+    this.client = client;
+  }
+
+  async request<T>(config: HttpRequest): Promise<HttpResponse<T>> {
+    try {
+      return await this.inner.request<T>(config);
+    } catch (err) {
+      const is401 = err instanceof NAuthClientError && err.statusCode === 401;
+      const isRefreshEndpoint = config.url.includes('/refresh');
+      const canRefresh = this.client !== null;
+
+      if (is401 && !isRefreshEndpoint && canRefresh) {
+        await this.doRefresh();
+        // Retry once — new auth cookies are already set by the browser after refresh.
+        return this.inner.request<T>(config);
+      }
+
+      throw err;
+    }
+  }
+
+  /**
+   * Ensures only one refresh request is in flight at a time.
+   * Concurrent callers await the same promise.
+   */
+  private doRefresh(): Promise<void> {
+    if (!this.refreshPromise) {
+      this.refreshPromise = this.client!.refreshTokens()
+        .then(() => undefined)
+        .finally(() => {
+          this.refreshPromise = null;
+        });
+    }
+    return this.refreshPromise;
+  }
+}
+```
+
+---
+
+## 3. Auth Context
+
+The `AuthContext` wraps the SDK client and exposes auth state (`user`, `isAuthenticated`, `isLoading`) and operations (`login`, `signup`, `logout`, etc.) to the rest of the app via React Context.
+
+```tsx title="src/context/AuthContext.tsx"
+import { createContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  NAuthClient,
+  type AuthUser,
+  type AuthResponse,
+  type ChallengeResponse,
+  type SignupRequest,
+  type GetSetupDataResponse,
+} from '@nauth-toolkit/client';
+import authConfig from '../config/auth.config';
+import { RefreshingFetchAdapter } from '../lib/authHttpAdapter';
+
+// ─── Context shape ────────────────────────────────────────────────────────────
+
+export interface AuthContextValue {
+  /** Currently authenticated user, or null if not logged in. */
+  user: AuthUser | null;
+  /** Pending auth challenge (e.g. VERIFY_EMAIL after signup). */
+  challenge: AuthResponse | null;
+  /** True while the SDK is hydrating state from storage on startup. */
+  isLoading: boolean;
+  isAuthenticated: boolean;
+
+  // Auth operations — each returns the raw AuthResponse so the caller
+  // can inspect challengeName and navigate accordingly.
+  login: (email: string, password: string) => Promise<AuthResponse>;
+  signup: (data: SignupRequest) => Promise<AuthResponse>;
+  logout: () => Promise<void>;
+  respondToChallenge: (response: ChallengeResponse) => Promise<AuthResponse>;
+  resendCode: (session: string) => Promise<{ destination: string }>;
+  getSetupData: (session: string, method: string) => Promise<GetSetupDataResponse>;
+
+  // Social
+  loginWithGoogle: () => Promise<void>;
+  /**
+   * Call this on the /auth/callback page after the OAuth redirect.
+   * Returns { user } on success, { needsChallenge: true } when MFA is required,
+   * or { user: null } if authentication failed.
+   */
+  handleOAuthCallback: () => Promise<{ user: AuthUser | null; needsChallenge: boolean }>;
+}
+
+export const AuthContext = createContext<AuthContextValue | null>(null);
+
+// ─── Provider ─────────────────────────────────────────────────────────────────
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [challenge, setChallenge] = useState<AuthResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Create the adapter and client once — refs prevent re-creation on re-renders
+  // or React StrictMode double-invocations.
+  //
+  // The adapter is created first (it has no dependency on the client), then the
+  // client is created with the adapter, and finally we call setClient() to break
+  // the circular dependency. This gives all SDK requests (including getProfile())
+  // automatic 401 → token refresh → retry behaviour.
+  const adapterRef = useRef<RefreshingFetchAdapter | null>(null);
+  const clientRef = useRef<NAuthClient | null>(null);
+  if (!adapterRef.current) {
+    adapterRef.current = new RefreshingFetchAdapter();
+  }
+  const adapter = adapterRef.current;
+  if (!clientRef.current) {
+    clientRef.current = new NAuthClient({ ...authConfig, httpAdapter: adapter });
+    adapter.setClient(clientRef.current);
+  }
+  const client = clientRef.current;
+
+  useEffect(() => {
+    let mounted = true;
+
+    // Subscribe to SDK events so React state stays in sync.
+    // NOTE: The event shape is { type, data, timestamp } — event.data is the AuthResponse.
+    // client.getCurrentUser() is used for auth:success because the SDK has already called
+    // setUser() internally before emitting the event, so currentUser is guaranteed to be set.
+    const unsubSuccess = client.on('auth:success', () => {
+      if (!mounted) return;
+      setChallenge(null);
+      // Set user immediately from SDK cache so ProtectedRoute sees isAuthenticated=true
+      // before any navigation happens, then update with the full server profile.
+      const currentUser = client.getCurrentUser();
+      if (currentUser) setUser(currentUser);
+      client.getProfile().then(
+        (profile) => {
+          if (mounted) setUser(profile);
+        },
+        () => {
+          if (mounted) setUser(client.getCurrentUser());
+        },
+      );
+    });
+
+    const unsubChallenge = client.on('auth:challenge', (event) => {
+      if (!mounted) return;
+      setChallenge((event.data as AuthResponse) ?? null);
+    });
+
+    const unsubLogout = client.on('auth:logout', () => {
+      if (!mounted) return;
+      setUser(null);
+      setChallenge(null);
+    });
+
+    const unsubExpired = client.on('auth:session_expired', () => {
+      if (!mounted) return;
+      setUser(null);
+      setChallenge(null);
+    });
+
+    // Hydrate from local storage (restores user + tokens from a previous session).
+    (async () => {
+      await client.initialize();
+      if (!mounted) return;
+      const current = client.getCurrentUser();
+      if (current) {
+        try {
+          const profile = await client.getProfile();
+          if (mounted) setUser(profile);
+        } catch {
+          if (mounted) setUser(current);
+        }
+      } else {
+        setUser(null);
+      }
+      if (!mounted) return;
+      const storedChallenge = await client.getStoredChallenge();
+      if (!mounted) return;
+      setChallenge(storedChallenge);
+      setIsLoading(false);
+    })();
+
+    return () => {
+      mounted = false;
+      unsubSuccess();
+      unsubChallenge();
+      unsubLogout();
+      unsubExpired();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── Auth operations ─────────────────────────────────────────────────────
+
+  const login = (email: string, password: string) => client.login(email, password);
+
+  const signup = (data: SignupRequest) => client.signup(data);
+
+  const logout = () => client.logout();
+
+  const respondToChallenge = (response: ChallengeResponse) => client.respondToChallenge(response);
+
+  const resendCode = (session: string) => client.resendCode(session);
+
+  const getSetupData = (session: string, method: string) =>
+    client.getSetupData(session, method as Parameters<typeof client.getSetupData>[1]);
+
+  const loginWithGoogle = () =>
+    client.loginWithSocial('google', {
+      // Pass the full URL so the backend redirects back to whichever port this
+      // app is running on. Requires allowAbsoluteReturnTo: true on the backend.
+      returnTo: `${window.location.origin}/auth/callback`,
+      oauthParams: { prompt: 'select_account' },
+    });
+
+  /**
+   * Completes the OAuth redirect flow on /auth/callback.
+   *
+   * Cookie mode:  backend already set auth cookies; we just fetch the profile.
+   * Hybrid mode:  backend embeds an exchangeToken in the redirect URL; we
+   *               exchange it for tokens (or a pending MFA challenge).
+   */
+  const handleOAuthCallback = async (): Promise<{ user: AuthUser | null; needsChallenge: boolean }> => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('error');
+    if (error) return { user: null, needsChallenge: false };
+
+    const exchangeToken = params.get('exchangeToken');
+
+    if (exchangeToken) {
+      const response = await client.exchangeSocialRedirect(exchangeToken);
+      if (response.challengeName) {
+        // MFA required after social login — challenge event already fired via SDK,
+        // but sync React state here too to avoid any timing gaps.
+        setChallenge(response);
+        return { user: null, needsChallenge: true };
+      }
+      const profileUser = await client.getProfile();
+      setUser(profileUser);
+      return { user: profileUser, needsChallenge: false };
+    } else {
+      // Cookie mode — cookies already set by backend; just fetch the profile.
+      const profileUser = await client.getProfile();
+      setUser(profileUser);
+      return { user: profileUser, needsChallenge: false };
+    }
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        challenge,
+        isLoading,
+        isAuthenticated: !!user,
+        login,
+        signup,
+        logout,
+        respondToChallenge,
+        resendCode,
+        getSetupData,
+        loginWithGoogle,
+        handleOAuthCallback,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+```
+
+---
+
+## 4. useAuth Hook
+
+```typescript title="src/hooks/useAuth.ts"
+import { useContext } from 'react';
+import { AuthContext } from '../context/AuthContext';
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within <AuthProvider>');
+  return ctx;
+}
+```
+
+---
+
+## 5. App & Routes
+
+Wrap your app in `<AuthProvider>` and define your routes. The `AuthProvider` must be at the top so all child components can access auth state via `useAuth()`.
+
+```tsx title="src/App.tsx"
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { LoginPage } from './pages/LoginPage';
+import { SignupPage } from './pages/SignupPage';
+import { ChallengePage } from './pages/ChallengePage';
+import { MfaSetupPage } from './pages/MfaSetupPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/auth/challenge" element={<ChallengePage />} />
+        <Route path="/auth/mfa-setup" element={<MfaSetupPage />} />
+        <Route path="/auth/callback" element={<OAuthCallbackPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </AuthProvider>
+  );
+}
+```
+
+---
+
+## 6. Protected Route
+
+```tsx title="src/components/ProtectedRoute.tsx"
+import { type ReactNode } from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+
+export function ProtectedRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="auth-layout">
+        <div className="auth-card">
+          <div className="spinner" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+}
+```
+
+---
+
+## 7. Login Page
+
+`login()` returns the raw `AuthResponse`. Check `challengeName` to decide where to navigate — challenges indicate the backend requires an additional step (email verification, MFA, etc.).
+
+```tsx title="src/pages/LoginPage.tsx"
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { NAuthClientError } from '@nauth-toolkit/client';
+import { useAuth } from '../hooks/useAuth';
+
+export function LoginPage() {
+  const { login, loginWithGoogle } = useAuth();
+  const navigate = useNavigate();
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const response = await login(email, password);
+      if (response.challengeName) {
+        navigate('/auth/challenge', { state: { response } });
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      setError(err instanceof NAuthClientError ? err.message : 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="auth-layout">
+      <div className="auth-card">
+        <div className="auth-header">
+          <h1>Welcome back</h1>
+          <p>Sign in to your account</p>
+        </div>
+
+        {error && <div className="error-message">{error}</div>}
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="current-password"
+              required
+            />
+          </div>
+
+          <button type="submit" className="btn-primary" disabled={loading}>
+            {loading ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+
+        <button type="button" className="btn-social" onClick={() => loginWithGoogle()}>
+          Continue with Google
+        </button>
+
+        <p className="auth-footer">
+          Don&apos;t have an account? <Link to="/signup">Sign up</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## 8. Signup Page
+
+```tsx title="src/pages/SignupPage.tsx"
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { NAuthClientError } from '@nauth-toolkit/client';
+import { useAuth } from '../hooks/useAuth';
+
+export function SignupPage() {
+  const { signup, loginWithGoogle } = useAuth();
+  const navigate = useNavigate();
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const response = await signup({
+        email,
+        password,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        // Phone is optional here but may be required depending on your backend
+        // verification config. Format: E.164 e.g. +14155552671
+        ...(phone.trim() && { phone: phone.trim() }),
+      });
+      if (response.challengeName) {
+        navigate('/auth/challenge', { state: { response } });
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      setError(err instanceof NAuthClientError ? err.message : 'Signup failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="auth-layout">
+      <div className="auth-card">
+        <div className="auth-header">
+          <h1>Create an account</h1>
+          <p>Get started — it&apos;s free</p>
+        </div>
+
+        {error && <div className="error-message">{error}</div>}
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="firstName">First name</label>
+              <input
+                id="firstName"
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Jane"
+                autoComplete="given-name"
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="lastName">Last name</label>
+              <input
+                id="lastName"
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Smith"
+                autoComplete="family-name"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="phone">
+              Phone <span className="label-optional">(optional)</span>
+            </label>
+            <input
+              id="phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+14155552671"
+              autoComplete="tel"
+            />
+            <span className="input-hint">E.164 format including country code</span>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 8 characters"
+              autoComplete="new-password"
+              required
+            />
+          </div>
+
+          <button type="submit" className="btn-primary" disabled={loading}>
+            {loading ? 'Creating account…' : 'Create account'}
+          </button>
+        </form>
+
+        <button type="button" className="btn-social" onClick={() => loginWithGoogle()}>
+          Sign up with Google
+        </button>
+
+        <p className="auth-footer">
+          Already have an account? <Link to="/login">Sign in</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## 9. Dashboard Page
+
+```tsx title="src/pages/DashboardPage.tsx"
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+
+export function DashboardPage() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const initials =
+    [user?.firstName?.[0], user?.lastName?.[0]].filter(Boolean).join('').toUpperCase() ||
+    user?.email?.[0]?.toUpperCase() ||
+    '?';
+
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(' ');
+
+  return (
+    <div className="dashboard-layout">
+      <header className="dashboard-header">
+        <span className="dashboard-brand">nauth</span>
+        <button type="button" className="btn-outline" onClick={handleLogout}>
+          Sign out
+        </button>
+      </header>
+
+      <main className="dashboard-main">
+        <div className="profile-card">
+          <div className="profile-avatar">{initials}</div>
+
+          <h2>{fullName || 'Your Profile'}</h2>
+          <p className="profile-email">{user?.email}</p>
+
+          <div className="profile-details">
+            <div className="detail-row">
+              <span className="detail-label">Email</span>
+              <span className="detail-value">{user?.email}</span>
+              <span className={user?.isEmailVerified ? 'badge-success' : 'badge-neutral'}>
+                {user?.isEmailVerified ? 'Verified' : 'Unverified'}
+              </span>
+            </div>
+
+            {user?.phone && (
+              <div className="detail-row">
+                <span className="detail-label">Phone</span>
+                <span className="detail-value">{user.phone}</span>
+                <span className={user.isPhoneVerified ? 'badge-success' : 'badge-neutral'}>
+                  {user.isPhoneVerified ? 'Verified' : 'Unverified'}
+                </span>
+              </div>
+            )}
+
+            {user?.socialProviders && user.socialProviders.length > 0 && (
+              <div className="detail-row">
+                <span className="detail-label">Linked</span>
+                <span className="detail-value">
+                  {user.socialProviders.join(', ')}
+                </span>
+              </div>
+            )}
+
+            <div className="detail-row">
+              <span className="detail-label">MFA</span>
+              <span className={user?.mfaEnabled ? 'badge-success' : 'badge-neutral'}>
+                {user?.mfaEnabled ? 'Enabled' : 'Not enabled'}
+              </span>
+            </div>
+
+            <div className="detail-row">
+              <span className="detail-label">Member since</span>
+              <span className="detail-value">
+                {user?.createdAt
+                  ? new Date(user.createdAt).toLocaleDateString(undefined, {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })
+                  : '—'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+```
+
+---
+
+## 10. OAuth Callback Page
+
+If you add Google OAuth, users land on `/auth/callback` after authenticating. This page completes the handshake and redirects to `/dashboard`.
+
+```tsx title="src/pages/OAuthCallbackPage.tsx"
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+
+/**
+ * Landing page for the OAuth redirect flow.
+ *
+ * After the user authenticates with Google (or another provider), the backend
+ * redirects the browser to this route. This page then completes the handshake:
+ *
+ * - Cookie mode: backend has already set auth cookies; we just load the profile.
+ * - JSON mode:   backend passes an `exchangeToken` query param; we exchange it
+ *                for tokens via POST /auth/social/exchange.
+ */
+export function OAuthCallbackPage() {
+  const { handleOAuthCallback } = useAuth();
+  const navigate = useNavigate();
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const ranRef = useRef(false);
+
+  useEffect(() => {
+    // Guard against StrictMode double-invocation.
+    if (ranRef.current) return;
+    ranRef.current = true;
+
+    // Check for an error forwarded by the backend (e.g. user denied OAuth consent).
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('error')) {
+      navigate('/login', { replace: true });
+      return;
+    }
+
+    handleOAuthCallback()
+      .then(({ user, needsChallenge }) => {
+        if (user) {
+          navigate('/dashboard', { replace: true });
+        } else if (needsChallenge) {
+          navigate('/auth/challenge', { replace: true });
+        } else {
+          navigate('/login', { replace: true });
+        }
+      })
+      .catch(() => {
+        setErrorMsg('Authentication failed. Please try again.');
+        setTimeout(() => navigate('/login', { replace: true }), 3000);
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (errorMsg) {
+    return (
+      <div className="auth-layout">
+        <div className="auth-card">
+          <div className="error-message">{errorMsg}</div>
+          <p className="auth-footer">Redirecting to login…</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="auth-layout">
+      <div className="auth-card loading-card">
+        <div className="spinner" />
+        <p className="loading-text">Completing sign in…</p>
+      </div>
+    </div>
+  );
+}
+```
+
+---
+
+## Verify the Full Stack
+
+Start both servers and open your React app in the browser:
+
+1. Navigate to `/signup`, create an account — you should be redirected to `/dashboard` and see your profile.
+2. Click **Sign out** — you should be redirected to `/login`.
+3. Navigate directly to `/dashboard` while logged out — `ProtectedRoute` should redirect you to `/login`.
+
+---
+
+## Challenge Handling
+
+If you enable email or phone verification (`verificationMethod: 'email'`), login and signup return a `challengeName` instead of tokens. You'll need a `/auth/challenge` route to collect the verification code and call `respondToChallenge()`. See the [Challenge System](/docs/concepts/challenge-system) guide for complete patterns.
+
+---
+
+## What's Next
+
+- [React Sample App](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-react) — Full working example with Google OAuth, challenge handling, and protected routes
+- [Challenge System](/docs/concepts/challenge-system) — Handle verification, MFA, and password-change challenges
+- [Configuration](/docs/concepts/configuration) — Full backend configuration reference
+- [Token Delivery](/docs/concepts/token-management) — Cookie vs. JSON token delivery explained
+- [Social Login](/docs/guides/social/how-social-login-works) — Add Google, Apple, and Facebook OAuth

@@ -1,0 +1,551 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* Fix for Docusaurus rendering double navbar and footer in article wrapper */
+article .navbar,
+article .footer {
+  display: none !important;
+}
+
+/* You can override the default Infima variables here. */
+:root {
+  /* Primary blue colors matching homepage */
+  --ifm-color-primary: #3b82f6;
+  --ifm-color-primary-dark: #2563eb;
+  --ifm-color-primary-darker: #1e40af;
+  --ifm-color-primary-darkest: #1e3a8a;
+  --ifm-color-primary-light: #60a5fa;
+  --ifm-color-primary-lighter: #93c5fd;
+  --ifm-color-primary-lightest: #bfdbfe;
+
+  /* Gradient background colors */
+  --ifm-background-color: #f9fafb;
+  --ifm-navbar-background-color: rgba(255, 255, 255, 0.95);
+  --ifm-footer-background-color: #1e293b;
+
+  /* Links */
+  --ifm-link-color: #2563eb;
+  --ifm-link-hover-color: #1e40af;
+
+  /* Border radius for modern look */
+  --ifm-global-radius: 12px;
+  --ifm-button-border-radius: 12px;
+  --ifm-code-border-radius: 8px;
+
+  /* Shadows for depth */
+  --ifm-global-shadow-lw: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --ifm-global-shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --ifm-global-shadow-tl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  /* Sidebar width */
+  --doc-sidebar-width: 280px;
+
+  /* Typography */
+  --ifm-font-family-base: 'Red Hat Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --ifm-heading-font-weight: 700;
+}
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme='dark'] {
+  /* Brighter primary blue — better contrast on dark surfaces */
+  --ifm-color-primary: #7cb9fc;
+  --ifm-color-primary-dark: #60a5fa;
+  --ifm-color-primary-darker: #3b82f6;
+  --ifm-color-primary-darkest: #2563eb;
+  --ifm-color-primary-light: #93c5fd;
+  --ifm-color-primary-lighter: #bfdbfe;
+  --ifm-color-primary-lightest: #dbeafe;
+
+  /* Clean dark backgrounds — no purple midpoint shift */
+  --ifm-background-color: #0d1117;
+  --ifm-background-surface-color: #161b22;
+  --ifm-navbar-background-color: rgba(13, 17, 23, 0.96);
+  --ifm-footer-background-color: #010409;
+
+  /* Legible text — warmer off-white, not harsh #fff */
+  --ifm-font-color-base: #e6edf3;
+  --ifm-heading-color: #f0f6fc;
+
+  /* Links */
+  --ifm-link-color: #7cb9fc;
+  --ifm-link-hover-color: #a5c8fd;
+
+  /* Sidebar */
+  --ifm-menu-color: #8b949e;
+  --ifm-menu-color-active: #e6edf3;
+  --ifm-menu-link-sublist-icon-filter: invert(60%) sepia(10%) saturate(300%) hue-rotate(180deg);
+
+  /* TOC rail */
+  --ifm-toc-link-color: #8b949e;
+  --ifm-toc-border-color: rgba(255, 255, 255, 0.08);
+
+  /* Borders */
+  --ifm-color-emphasis-300: rgba(255, 255, 255, 0.1);
+  --ifm-hr-border-color: rgba(255, 255, 255, 0.08);
+
+  /* Code inline */
+  --ifm-code-background: rgba(99, 110, 123, 0.2);
+  --ifm-code-color: #f0abfc;
+
+  /* Breadcrumbs */
+  --ifm-breadcrumb-item-color: #8b949e;
+  --ifm-breadcrumb-color-active: #e6edf3;
+  --ifm-breadcrumb-separator-filter: invert(55%) sepia(8%) saturate(400%) hue-rotate(180deg) brightness(120%);
+
+  /* Content secondary text (used by several components) */
+  --ifm-color-content-secondary: #8b949e;
+  --ifm-color-content: #e6edf3;
+}
+
+/* Expand main content column in docs without touching sidebars */
+.theme-doc-markdown {
+  max-width: none;
+}
+
+/* Modern styling for all pages */
+html {
+  background: linear-gradient(135deg, #f9fafb 0%, #eff6ff 50%, #f0f9ff 100%);
+  background-attachment: fixed;
+  min-height: 100%;
+  height: auto;
+}
+
+body {
+  background: linear-gradient(135deg, #f9fafb 0%, #eff6ff 50%, #f0f9ff 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  height: auto;
+}
+
+[data-theme='dark'] html,
+[data-theme='dark'] body {
+  /* Clean dark — no purple shift, no gradient drift */
+  background: #0d1117;
+  background-attachment: fixed;
+}
+
+
+/* Ensure main wrapper extends background */
+#__docusaurus {
+  min-height: 100vh;
+  background: inherit;
+}
+
+.main-wrapper {
+  min-height: 100vh;
+  background: inherit;
+}
+
+/* Navbar blur effect via ::before so .navbar itself does NOT become a
+   CSS containing block for position:fixed descendants (the mobile sidebar).
+   backdrop-filter on a parent traps fixed children inside it — using ::before avoids this. */
+.navbar {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+  background: transparent;
+}
+
+.navbar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ifm-navbar-background-color);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+[data-theme='dark'] .navbar {
+  border-bottom: 1px solid rgba(96, 165, 250, 0.1);
+}
+
+/* Card-like content area on desktop */
+article {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='dark'] article {
+  background: #161b22;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Sidebar: visual styling only — no backdrop-filter (breaks position:sticky) */
+.theme-doc-sidebar-container {
+  background: rgba(255, 255, 255, 0.6);
+  border-right: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+[data-theme='dark'] .theme-doc-sidebar-container {
+  background: #0d1117;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Modern sidebar menu items */
+.menu__link {
+  font-size: 15px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.menu__link:hover {
+  background: rgba(59, 130, 246, 0.1);
+  transform: translateX(4px);
+}
+
+.menu__link--active {
+  background: rgba(59, 130, 246, 0.15);
+  font-weight: 600;
+}
+
+[data-theme='dark'] .menu__link:hover {
+  background: rgba(96, 165, 250, 0.1);
+}
+
+[data-theme='dark'] .menu__link--active {
+  background: rgba(96, 165, 250, 0.15);
+}
+
+/* Enhanced code blocks */
+.prism-code {
+  border-radius: 12px !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Modern buttons */
+.button {
+  border-radius: 12px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.button--primary {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+/* Enhanced admonitions */
+.admonition {
+  border-radius: 12px;
+  border-left-width: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* Table of contents (right rail) */
+.table-of-contents {
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid rgba(59, 130, 246, 0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='dark'] .table-of-contents {
+  background: rgba(22, 27, 34, 0.8);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+/* Homepage specific overrides - make it truly full width */
+.homepage-wrapper .main-wrapper {
+  padding: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+.homepage-wrapper .main-wrapper > .container-fluid,
+.homepage-wrapper .main-wrapper > .container {
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+/* Sidebar icons (FontAwesome via customProps.icon) */
+.sidebar-nav-icon {
+  margin-right: 0.45rem;
+  font-size: 0.85em;
+  color: var(--ifm-color-primary);
+  flex-shrink: 0;
+  vertical-align: -0.05em;
+  width: 1em;
+  display: inline-block;
+  text-align: center;
+}
+
+/* Child link icons: smaller, muted */
+.menu__list .menu__list .sidebar-nav-icon {
+  font-size: 0.75em;
+  opacity: 0.65;
+  color: var(--ifm-color-primary);
+}
+
+/* Brand icons (fa-brands) align slightly differently */
+.sidebar-nav-icon.fa-brands {
+  font-size: 0.9em;
+  vertical-align: -0.08em;
+}
+
+/* Feature grid for modern card layouts */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+/* ─── Global narrow fixed footer (all pages except homepage) ────────────── */
+.footer {
+  position: fixed !important;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  padding: 0.45rem 1.5rem !important;
+  background: rgba(10, 14, 26, 0.96) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255, 255, 255, 0.07) !important;
+  min-height: unset !important;
+}
+
+.footer__bottom {
+  padding: 0 !important;
+  text-align: center;
+}
+
+.footer__copyright {
+  font-size: 0.72rem !important;
+  color: rgba(148, 163, 184, 0.55) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.4 !important;
+}
+
+/* Push page content above the fixed footer */
+.main-wrapper {
+  padding-bottom: 40px;
+}
+
+/* Hide the global footer on the homepage (it has its own footer) */
+.homepage ~ footer,
+.homepage ~ .footer,
+body:has(.homepage) .footer {
+  display: none !important;
+}
+
+/* ─── Dark mode polish ───────────────────────────────────────────────────── */
+
+/* Navbar dark */
+[data-theme='dark'] .navbar {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+[data-theme='dark'] .navbar__title {
+  color: #f0f6fc;
+}
+
+[data-theme='dark'] .navbar__link {
+  color: #8b949e;
+}
+
+[data-theme='dark'] .navbar__link:hover,
+[data-theme='dark'] .navbar__link--active {
+  color: #e6edf3;
+}
+
+/* Sidebar categories */
+[data-theme='dark'] .menu__link {
+  color: #8b949e;
+}
+
+[data-theme='dark'] .menu__link:hover {
+  color: #e6edf3;
+  background: rgba(124, 185, 252, 0.08);
+}
+
+[data-theme='dark'] .menu__link--active {
+  color: #7cb9fc;
+  background: rgba(124, 185, 252, 0.1);
+}
+
+[data-theme='dark'] .menu__caret::before,
+[data-theme='dark'] .menu__link--sublist::after {
+  filter: invert(55%) sepia(8%) saturate(600%) hue-rotate(180deg) brightness(110%);
+}
+
+/* Category labels */
+[data-theme='dark'] .menu__list-item-collapsible > .menu__link {
+  color: #c9d1d9;
+  font-weight: 600;
+}
+
+/* TOC active link */
+[data-theme='dark'] .table-of-contents__link--active,
+[data-theme='dark'] .table-of-contents__link:hover {
+  color: #7cb9fc;
+}
+
+/* Breadcrumbs — !important needed to beat Infima specificity */
+[data-theme='dark'] .breadcrumbs__link {
+  color: #8b949e !important;
+  background: transparent !important;
+}
+
+[data-theme='dark'] .breadcrumbs__item--active .breadcrumbs__link {
+  color: #e6edf3 !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+[data-theme='dark'] .breadcrumbs__item--active .breadcrumbs__link:hover,
+[data-theme='dark'] .breadcrumbs__link:hover {
+  background: rgba(124, 185, 252, 0.1) !important;
+  color: #e6edf3 !important;
+}
+
+/* Admonitions — proper tinted backgrounds in dark */
+[data-theme='dark'] .alert--info {
+  background: rgba(31, 111, 235, 0.12);
+  border-color: rgba(31, 111, 235, 0.4);
+  color: #cdd9e5;
+}
+
+[data-theme='dark'] .alert--warning {
+  background: rgba(210, 153, 34, 0.12);
+  border-color: rgba(210, 153, 34, 0.45);
+  color: #cdd9e5;
+}
+
+[data-theme='dark'] .alert--danger {
+  background: rgba(218, 54, 51, 0.12);
+  border-color: rgba(218, 54, 51, 0.4);
+  color: #cdd9e5;
+}
+
+[data-theme='dark'] .alert--success {
+  background: rgba(35, 134, 54, 0.12);
+  border-color: rgba(35, 134, 54, 0.4);
+  color: #cdd9e5;
+}
+
+[data-theme='dark'] .admonition-heading {
+  color: #e6edf3;
+}
+
+/* Inline code */
+[data-theme='dark'] code {
+  color: #f0abfc;
+  background: rgba(99, 110, 123, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Code block shell */
+[data-theme='dark'] .prism-code {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Tab bars (npm/yarn/pnpm switcher) */
+[data-theme='dark'] .tabs__item {
+  color: #8b949e;
+}
+
+[data-theme='dark'] .tabs__item--active {
+  color: #7cb9fc;
+  border-bottom-color: #7cb9fc;
+}
+
+[data-theme='dark'] .tabs__item:hover {
+  color: #e6edf3;
+}
+
+/* Tables */
+[data-theme='dark'] table {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='dark'] table th {
+  background: rgba(124, 185, 252, 0.07);
+  color: #e6edf3;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme='dark'] table td {
+  border-color: rgba(255, 255, 255, 0.06);
+  color: #cdd9e5;
+}
+
+[data-theme='dark'] table tr:hover td {
+  background: rgba(124, 185, 252, 0.04);
+}
+
+/* Pagination */
+[data-theme='dark'] .pagination-nav__link {
+  background: #161b22;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme='dark'] .pagination-nav__link:hover {
+  border-color: #7cb9fc;
+}
+
+[data-theme='dark'] .pagination-nav__label {
+  color: #7cb9fc;
+}
+
+[data-theme='dark'] .pagination-nav__sublabel {
+  color: #8b949e;
+}
+
+/* ─── Mobile ─────────────────────────────────────────────────────────────── */
+@media (max-width: 996px) {
+  /* Strip article card — go edge-to-edge with just content padding */
+  article {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 1.25rem 1rem;
+  }
+
+  [data-theme='dark'] article {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  /* Category/generated index pages: add side padding to the header/title
+     (these don't use an article element for the title area) */
+  .generatedIndexPage_vN6x {
+    padding-inline: 1rem;
+  }
+
+  /* Tables scroll horizontally */
+  .theme-doc-markdown table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Code blocks scroll horizontally */
+  .prism-code {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Collapse feature grid to single column */
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+}

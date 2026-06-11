@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*", "nestjs/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+

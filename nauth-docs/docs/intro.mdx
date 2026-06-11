@@ -1,0 +1,255 @@
+---
+sidebar_position: 1
+title: Introduction
+description: A framework-agnostic authentication toolkit for Node.js applications
+---
+
+import Tooltip from '@site/src/components/Tooltip';
+import FeatureCard from '@site/src/components/FeatureCard';
+
+# Introduction
+
+**nauth-toolkit** is a framework-agnostic authentication library for Node.js. It runs inside your application as an embedded library—not a SaaS service, proxy, or microservice. Authentication logic executes in your process, using your database and infrastructure. Add complete authentication to NestJS, Express, Fastify, or any Node.js framework without vendor lock-in.
+
+:::warning Under Active Development
+nauth-toolkit is under active development. API may change frequently.
+:::
+
+:::tip Live Demo
+See nauth-toolkit in action at **[demo.nauth.dev](https://demo.nauth.dev)** — a working demo app showcasing signup, login, MFA, social auth, and session management.
+:::
+
+Ready to start? Check out [Quick Start](/docs/quick-start/nestjs) to configure nauth-toolkit.
+
+## Features
+
+### Authentication Methods
+
+<div className="feature-grid">
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-envelope-open-text"
+  heading="Identifier & Password"
+  description="Signup/login with configurable password policies, reset flows, email and phone verification"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-users"
+  heading="Social Login"
+  description="Google, Apple, Facebook OAuth with web redirect and native mobile token flows"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-shield-keyhole"
+  heading="Multi-Factor Authentication"
+  description="TOTP authenticator apps, SMS codes, WebAuthn passkeys, backup recovery codes"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-brain-circuit"
+  heading="Adaptive Security"
+  description="Risk-based MFA triggered by login context, location changes, new devices"
+/>
+
+</div>
+
+### Security & Compliance
+
+<div className="feature-grid">
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-gauge-max"
+  heading="Rate Limiting & Lockouts"
+  description="Per-IP and per-user limits with configurable account lockout policies"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-key-skeleton"
+  heading="Token Security"
+  description="Refresh token rotation, reuse detection, distributed locks, optimistic locking"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-shield-check"
+  heading="CSRF Protection"
+  description="Cookie-based token delivery with automatic CSRF safeguards"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-clipboard-list-check"
+  heading="Audit Trail"
+  description="Comprehensive logging for logins, MFA, password changes, security events"
+/>
+
+</div>
+
+### Session & Device Management
+
+<div className="feature-grid">
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-mobile-screen"
+  heading="Device Tracking"
+  description="Device ID, name, type for each session with fingerprinting"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-location-dot"
+  heading="IP Geolocation"
+  description="Track login locations using MaxMind GeoIP2 for risk analysis"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-browser"
+  heading="Session Modes"
+  description="Single, limited concurrent, or unlimited sessions"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-badge-check"
+  heading="Trusted Devices"
+  description="Remember device to bypass MFA on known hardware"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-right-from-bracket"
+  heading="Session Revocation"
+  description="Manual or policy-based automatic invalidation"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-coin"
+  heading="JWT Tokens"
+  description="Bearer tokens with configurable algorithms (HS256, RS256) and expiration"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-cookie"
+  heading="Cookie Tokens"
+  description="HttpOnly secure cookies with CSRF protection"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-gingerbread-man"
+  heading="Hybrid Token Management"
+  description="HttpOnly cookies or header tokens on same backend. Best of both for web and mobile"
+/>
+</div>
+
+### Developer Experience
+
+<div className="feature-grid">
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-code"
+  heading="Challenge-Based Architecture"
+  description="Multi-step flows with unified API. Returns challenge states (not errors) for verification, MFA, password changes"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-envelope-open-text"
+  heading="Email Templates"
+  description="Handlebars templates with file-based customization, global variables, custom helpers"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-terminal"
+  heading="Logger Integration"
+  description="Winston, Pino, or NestJS logger compatible. Automatic PII redaction, structured logging"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-webhook"
+  heading="Lifecycle Hooks"
+  description="Extensible hooks at signup, login, MFA triggers, sign-in blocks"
+/>
+
+</div>
+
+### Infrastructure Adapters
+
+<div className="feature-grid">
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-database"
+  heading="Storage"
+  description="Memory (dev), Database (single-server), Redis with cluster (production)"
+/>
+
+<FeatureCard icon="fa-duotone fa-light fa-server" heading="Databases" description="PostgreSQL and MySQL via TypeORM" />
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-envelope"
+  heading="Email"
+  description="Console (dev), Nodemailer SMTP, AWS SES, Gmail"
+/>
+
+<FeatureCard
+  icon="fa-duotone fa-light fa-message-sms"
+  heading="SMS"
+  description="Console (dev), AWS SNS, Twilio"
+/>
+
+</div>
+
+## Framework Support
+
+Backend integrations plug into your Node.js server; client SDKs run in the browser or mobile app and talk to your nauth-toolkit API.
+
+### Backend (Node.js)
+
+| Framework   | Status       | Package                                    |
+| ----------- | ------------ | ------------------------------------------ |
+| **NestJS**  | Full adapter | `@nauth-toolkit/nestjs`                    |
+| **Express** | Full adapter | `@nauth-toolkit/core` (`ExpressAdapter`)   |
+| **Fastify** | Full adapter | `@nauth-toolkit/core` (`FastifyAdapter`)   |
+
+### Frontend (Client SDKs)
+
+| SDK            | Status             | Package                         |
+| -------------- | ------------------ | ------------------------------- |
+| **Client SDK** | Framework-agnostic | `@nauth-toolkit/client`         |
+| **Angular**    | Full adapter       | `@nauth-toolkit/client-angular` |
+
+The **Client SDK** (`@nauth-toolkit/client`) is framework-agnostic and can be used with React, Vue, Svelte, and other TypeScript-based frontends. The **Angular** package builds on the Client SDK and adds Angular-specific services and wiring.
+
+## Why nauth-toolkit?
+
+### vs SaaS Authentication Providers
+
+**What you gain:**
+
+- Complete control over code and data
+- No vendor lock-in or usage-based pricing
+- Customize flows without limitations
+- Data in your database, your infrastructure
+- No additional costs
+
+**What you trade:**
+
+- You manage infrastructure and security audits
+- No managed compliance certifications (HIPAA, SOC2)
+- Limited to Node.js ecosystem
+
+### When to Choose nauth-toolkit
+
+- Need full control over auth logic
+- Want predictable infrastructure costs
+- Require deep customization
+- Building on Node.js (NestJS, Express, Fastify)
+
+---
+
+## GitHub & Community
+
+| Resource | Link |
+| -------- | ---- |
+| Live demo | [demo.nauth.dev](https://demo.nauth.dev) |
+| Source code | [github.com/noorixorg/nauth-toolkit](https://github.com/noorixorg/nauth-toolkit) |
+| npm packages | [npmjs.com/org/nauth-toolkit](https://www.npmjs.com/org/nauth-toolkit) |
+| Discussions & support | [github.com/noorixorg/nauth-toolkit/discussions](https://github.com/noorixorg/nauth-toolkit/discussions) |
+| Bug reports | [github.com/noorixorg/nauth-toolkit/issues](https://github.com/noorixorg/nauth-toolkit/issues) |
+
+---
+
+**License:** MIT — free for commercial and non-commercial use | **Version:** v0.2.6 | **Status:** Active Development

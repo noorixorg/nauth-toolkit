@@ -1,0 +1,183 @@
+<p-confirmDialog></p-confirmDialog>
+
+<p-card styleClass="dashboard-card h-full">
+  <ng-template pTemplate="header">
+    <div class="dashboard-card-header">
+      <div class="dashboard-card-header-content">
+        <div class="dashboard-card-header-title">
+          <i class="pi pi-shield dashboard-card-header-icon"></i>
+          <h2 class="dashboard-card-header-text">MFA Devices</h2>
+        </div>
+        @if (!isDeviceTrusted()) {
+          <p-button
+            label="Trust Device"
+            icon="pi pi-shield"
+            severity="secondary"
+            size="small"
+            [loading]="trustingDevice()"
+            [disabled]="trustingDevice()"
+            (onClick)="trustDevice()"
+          />
+        } @else {
+          <div class="flex items-center gap-2 text-success-600">
+            <i class="pi pi-shield text-lg"></i>
+            <span class="text-sm font-medium">Trusted Device</span>
+          </div>
+        }
+      </div>
+    </div>
+  </ng-template>
+
+  <!-- Loading State -->
+  @if (loading()) {
+    <div class="flex justify-center items-center p-8">
+      <p-progressSpinner styleClass="w-12 h-12" />
+    </div>
+  }
+
+  <!-- Error State -->
+  @if (!loading() && error()) {
+    <div class="p-6">
+      <p-message severity="error" [text]="error()!" styleClass="w-full" />
+      <div class="mt-4">
+        <p-button
+          label="Retry"
+          icon="pi pi-refresh"
+          severity="secondary"
+          size="small"
+          (onClick)="loadMfaData()"
+        />
+      </div>
+    </div>
+  }
+
+  <!-- Content -->
+  @if (!loading() && !error()) {
+    <div class="p-6">
+      <!-- MFA Status Banner -->
+      <div class="mb-6 p-4 rounded-lg" [class]="mfaEnabled() ? 'bg-green-50' : 'bg-amber-50'">
+        <div class="flex items-center gap-3">
+          <i
+            [class]="
+              mfaEnabled()
+                ? 'pi pi-check-circle text-success-600'
+                : 'pi pi-exclamation-triangle text-warning-600'
+            "
+            class="text-xl"
+          ></i>
+          <div class="flex-1">
+            <p
+              class="font-semibold text-sm m-0"
+              [class]="mfaEnabled() ? 'text-success-900' : 'text-warning-900'"
+            >
+              {{
+                mfaEnabled()
+                  ? 'Multi-Factor Authentication Enabled'
+                  : 'Multi-Factor Authentication Disabled'
+              }}
+            </p>
+            <p
+              class="text-xs mt-1 m-0"
+              [class]="mfaEnabled() ? 'text-success-700' : 'text-warning-700'"
+            >
+              {{
+                mfaEnabled()
+                  ? 'Your account is protected with additional security'
+                  : 'Enhance your account security by enabling MFA'
+              }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Enrolled Devices -->
+      @if (devices().length > 0) {
+        <div class="mb-6">
+          <h3 class="text-lg font-semibold text-secondary-900 mb-3">Enrolled Devices</h3>
+
+          <div class="space-y-3">
+            @for (device of devices(); track device.id) {
+              <div
+                class="flex items-center gap-4 p-4 bg-white border border-slate-200 rounded-lg hover:shadow-md transition-shadow"
+              >
+                <!-- Icon -->
+                <div class="flex-shrink-0">
+                  <div class="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
+                    <i [class]="getMethodIcon(device.type)" class="text-xl text-primary-600"></i>
+                  </div>
+                </div>
+
+                <!-- Device Info -->
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2 mb-1">
+                    <p class="font-semibold text-secondary-900 m-0 truncate">
+                      {{ device.name }}
+                    </p>
+                    @if (device.isPreferred) {
+                      <p-tag severity="success" styleClass="preferred-tag"> Preferred </p-tag>
+                    }
+                  </div>
+                  <p class="text-sm text-secondary-600 m-0">
+                    {{ getMethodName(device.type) }} • Added {{ formatDate(device.createdAt) }}
+                  </p>
+                </div>
+
+                <!-- Actions Menu -->
+                <div class="flex-shrink-0">
+                  <p-button
+                    icon="pi pi-ellipsis-v"
+                    [text]="true"
+                    [rounded]="true"
+                    severity="secondary"
+                    size="small"
+                    [disabled]="loading()"
+                    (onClick)="openDeviceMenu($event, device)"
+                  />
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      } @else {
+        <div
+          class="mb-6 p-6 text-center bg-slate-50 rounded-lg border-2 border-dashed border-slate-300"
+        >
+          <i class="pi pi-shield text-4xl text-secondary-400 mb-3"></i>
+          <p class="text-secondary-600 font-medium mb-2">No MFA devices enrolled</p>
+          <p class="text-sm text-secondary-500">
+            Add your first authentication device to secure your account
+          </p>
+        </div>
+      }
+
+      <!-- Actions -->
+      <div class="space-y-3">
+        <!-- Enroll New Device -->
+        @if (availableMethods().length > 0) {
+          <p-button
+            label="Enroll New Device"
+            icon="pi pi-plus"
+            severity="primary"
+            styleClass="w-full"
+            variant="outlined"
+            (onClick)="enrollNewDevice()"
+          />
+        }
+      </div>
+
+      <!-- Info Message -->
+      @if (!mfaEnabled() && devices().length === 0) {
+        <div class="mt-4">
+          <p-message
+            severity="info"
+            text="Multi-factor authentication adds an extra layer of security to your account by requiring a second form of verification."
+            styleClass="w-full"
+          />
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Single menu instance for all devices (outside loop) -->
+  <p-menu #deviceMenu [model]="deviceMenuItems()" [popup]="true" appendTo="body" />
+</p-card>

@@ -1,0 +1,42 @@
+{
+  "name": "starter-nestjs",
+  "version": "0.1.0",
+  "description": "NestJS example demonstrating nauth-toolkit authentication",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "start:dev": "nest start --watch",
+    "start": "nest start",
+    "start:prod": "node dist/main"
+  },
+  "dependencies": {
+    "@nauth-toolkit/database-typeorm-postgres": "latest",
+    "@nauth-toolkit/email-console": "latest",
+    "@nauth-toolkit/mfa-email": "latest",
+    "@nauth-toolkit/mfa-sms": "latest",
+    "@nauth-toolkit/mfa-totp": "latest",
+    "@nauth-toolkit/nestjs": "latest",
+    "@nauth-toolkit/sms-console": "latest",
+    "@nauth-toolkit/social-google": "latest",
+    "@nauth-toolkit/storage-database": "latest",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/typeorm": "^11.0.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.0",
+    "pg": "^8.16.3",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0",
+    "typeorm": "^0.3.20"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.0.0",
+    "@types/cookie-parser": "^1.4.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

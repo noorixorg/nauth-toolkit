@@ -1,0 +1,13 @@
+packages:
+  - 'packages/core'
+  - 'packages/nestjs'
+  - 'packages/client'
+  - 'packages/client-angular'
+  - 'packages/recaptcha'
+  - 'packages/database/*'
+  - 'packages/email/*'
+  - 'packages/sms/*'
+  - 'packages/social/*'
+  - 'packages/mfa/*'
+  - 'packages/storage/*'
+  - 'examples/*'

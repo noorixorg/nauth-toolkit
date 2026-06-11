@@ -1,0 +1,8 @@
+{
+  "label": "Session Storage",
+  "position": 13,
+  "link": {
+    "type": "doc",
+    "id": "api/storage/overview"
+  }
+}

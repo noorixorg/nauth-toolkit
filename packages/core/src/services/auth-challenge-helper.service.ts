@@ -1,0 +1,967 @@
+import { Repository } from 'typeorm';
+import { BaseMFADevice } from '../entities';
+import { AuthResponseDTO, toAuthResponseUser } from '../dto/auth-response.dto';
+import { AuthChallenge } from '../dto/auth-challenge.dto';
+import { SendVerificationEmailDTO } from '../dto/verify-email.dto';
+import { SendVerificationSMSDTO } from '../dto/verify-phone.dto';
+import { IUser, IMFADevice } from '../interfaces/entities.interface';
+import { ChallengeService } from './challenge.service';
+import { JwtService } from './jwt.service';
+import { SessionService } from './session.service';
+import { EmailVerificationService } from './email-verification.service';
+import { PhoneVerificationService } from './phone-verification.service';
+import { TrustedDeviceService } from './trusted-device.service';
+import { ClientInfoService } from './client-info.service';
+import { NAuthConfig } from '../interfaces/config.interface';
+import { NAuthLogger } from '../utils/nauth-logger';
+import { NAuthException } from '../exceptions/nauth.exception';
+import { AuthErrorCode } from '../enums/error-codes.enum';
+import { MFAMethod, MFADeviceMethod, MFAVerificationMethod, MFADeviceMethods } from '../enums/mfa-method.enum';
+import { AuthFlowStateMachineService } from './auth-flow-state-machine.service';
+import { AuthFlowContextBuilder } from './auth-flow-context-builder.service';
+import { AuthFlowState, AuthFlowContext } from './auth-flow-state-machine.types';
+import { ContextStorage } from '../utils/context-storage';
+
+/**
+ * ContextStorage key used by AuthService to pass a pre-resolved refresh
+ * token TTL (hybrid-policy resolved) down to this helper. Using context
+ * instead of a constructor param keeps the helper's wiring stable for
+ * framework adapters that construct it with the legacy 11-arg signature.
+ */
+const RESOLVED_REFRESH_EXPIRES_IN = 'RESOLVED_REFRESH_EXPIRES_IN';
+
+/**
+ * Helper service for challenge-response authentication flows
+ *
+ * This service determines if a user needs to complete challenges
+ * before full authentication can be granted, and generates appropriate
+ * responses including MFA challenges.
+ *
+ * @example
+ * ```typescript
+ * const response = await challengeHelper.determineAuthResponse(
+ *   user,
+ *   'login',
+ *   { ipAddress: '1.2.3.4' }
+ * );
+ * ```
+ */
+export class AuthChallengeHelperService {
+  constructor(
+    private readonly challengeService: ChallengeService,
+    private readonly jwtService: JwtService,
+    private readonly sessionService: SessionService,
+    private readonly mfaDeviceRepository: Repository<BaseMFADevice>,
+    private readonly logger: NAuthLogger,
+    private readonly stateMachine: AuthFlowStateMachineService,
+    private readonly contextBuilder: AuthFlowContextBuilder,
+    private readonly clientInfoService: ClientInfoService,
+    private readonly emailVerificationService?: EmailVerificationService,
+    private readonly phoneVerificationService?: PhoneVerificationService,
+    private readonly trustedDeviceService?: TrustedDeviceService,
+  ) {}
+
+  // ============================================================================
+  // OLD METHODS DELETED - Replaced by state machine
+  // ============================================================================
+  // determinePendingChallenges() - DELETED (replaced by state machine)
+  // isMFASetupRequired() - DELETED (replaced by state machine)
+  // checkMFARequirement() - DELETED (replaced by state machine)
+  // All challenge determination is now handled by determineAuthResponse() using state machine
+
+  /**
+   * Create challenge response for authentication
+   *
+   * Generates a challenge session and returns challenge details to client.
+   * Sends verification codes when challenges are created to ensure sequential flow.
+   *
+   * @param user - User who needs to complete challenges
+   * @param challengeName - Type of challenge
+   * @param config - Auth configuration
+   * @param authMethod - Authentication method ('password' or 'social')
+   * @param authProvider - Provider name for social auth (e.g., 'google', 'facebook')
+   * @returns Challenge response DTO
+   *
+   * @example
+   * ```typescript
+   * const response = await challengeHelper.createChallengeResponse(
+   *   user,
+   *   AuthChallenge.VERIFY_EMAIL,
+   *   config,
+   *   'social',
+   *   'google'
+   * );
+   * ```
+   */
+  async createChallengeResponse(
+    user: IUser,
+    challengeName: AuthChallenge,
+    config: NAuthConfig,
+    authMethod: 'password' | 'social' = 'password',
+    authProvider?: string,
+    skipAutoSend?: boolean,
+  ): Promise<AuthResponseDTO> {
+    // Client info (ipAddress, userAgent) automatically extracted from ClientInfoService
+    // Note: ClientInfoService is used transparently by ChallengeService and AuditService
+
+    // ============================================================================
+    // STEP 1: Create challenge session FIRST (before sending codes)
+    // ============================================================================
+    // This ensures the session exists before any verification codes are sent.
+    // Creating the session first is critical for proper audit trail and session tracking.
+    this.logger?.debug?.(
+      `Creating challenge with authMethod=${authMethod}, authProvider=${authProvider || 'none'} for user ${user.sub}`,
+    );
+
+    // Client info (ipAddress, userAgent) automatically extracted from ClientInfoService
+    const challengeSession = await this.challengeService.createChallengeSession(user, challengeName, {
+      email: user.email,
+      phone: user.phone,
+      authMethod, // Store auth method for challenge completion flow
+      authProvider, // Store provider for social auth (e.g., 'google', 'facebook')
+    });
+
+    // ============================================================================
+    // STEP 2: Send verification codes AFTER session is created
+    // ============================================================================
+    // This ensures codes are sent at the right time:
+    // - Email code sent when VERIFY_EMAIL challenge is created
+    // - Phone code sent when VERIFY_PHONE challenge is created (after email is verified)
+    // This prevents sending both codes at once, avoiding user confusion.
+    // Challenges are sequential: first VERIFY_EMAIL, then VERIFY_PHONE
+    if (challengeName === AuthChallenge.VERIFY_EMAIL && this.emailVerificationService) {
+      this.logger?.log?.(`Sending verification email to: ${user.email}`);
+      // Await email sending to ensure code is sent before returning challenge
+      // baseUrl will be read from config if not provided
+      const emailDto = Object.assign(new SendVerificationEmailDTO(), {
+        sub: user.sub,
+        challengeSessionId: challengeSession.id, // Link verification token to this challenge session (for database lookup)
+        challengeSessionToken: challengeSession.sessionToken, // Session token for verification link (UUID, not exposed in DB)
+      });
+      try {
+        await this.emailVerificationService.sendVerificationEmail(emailDto);
+        this.logger?.log?.(`Verification email sent successfully to: ${user.email}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger?.error?.(`Failed to send verification email to ${user.email}: ${errorMessage}`);
+        // Re-throw the error so user knows email wasn't sent
+        throw error;
+      }
+    }
+
+    // Skip auto-send if SMS was already sent (e.g., during phone collection)
+    if (!skipAutoSend && challengeName === AuthChallenge.VERIFY_PHONE && this.phoneVerificationService && user.phone) {
+      this.logger?.log?.(`Sending verification SMS to: ${user.phone}`);
+      // Await SMS sending to ensure code is sent before returning challenge
+      const smsDto = Object.assign(new SendVerificationSMSDTO(), {
+        sub: user.sub,
+        skipAlreadyVerifiedCheck: false, // Explicitly set to false for phone verification (not MFA)
+        challengeSessionId: challengeSession.id, // Link verification token to this challenge session
+      });
+      try {
+        await this.phoneVerificationService.sendVerificationSMS(smsDto);
+        this.logger?.log?.(`Verification SMS sent successfully to: ${user.phone}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger?.error?.(`Failed to send verification SMS to ${user.phone}: ${errorMessage}`);
+        // Re-throw the error so user knows SMS wasn't sent
+        throw error;
+      }
+    }
+
+    // ============================================================================
+    // STEP 3: Send MFA challenge code for MFA_REQUIRED (if SMS is preferred method)
+    // ============================================================================
+    // When user logs in and MFA verification is required, automatically send SMS code
+    // if SMS is their preferred MFA method. This provides better UX by not requiring
+    // a separate API call to trigger code sending.
+    //
+    // Note: MFA_REQUIRED challenges are handled by createMFAChallengeResponse()
+    // which includes auto-send SMS logic
+
+    // Build challenge parameters
+    // Note: Type is Record<string, unknown> to allow arrays (e.g., allowedMethods for MFA)
+    const challengeParameters: Record<string, unknown> = {};
+
+    switch (challengeName) {
+      case AuthChallenge.VERIFY_EMAIL:
+        challengeParameters.email = user.email;
+        challengeParameters.codeDeliveryDestination = this.challengeService.maskEmail(user.email);
+        break;
+
+      case AuthChallenge.VERIFY_PHONE:
+        challengeParameters.phone = user.phone || undefined;
+        challengeParameters.codeDeliveryDestination = user.phone
+          ? this.challengeService.maskPhone(user.phone)
+          : undefined;
+        // If no phone, indicate user must provide it first
+        if (!user.phone) {
+          challengeParameters.requiresPhoneCollection = 'true';
+          challengeParameters.instructions = 'You must add a phone number and verify it to continue';
+        }
+        break;
+
+      case AuthChallenge.MFA_REQUIRED:
+        challengeParameters.instructions = 'Multi-factor authentication is required';
+        // Include masked phone if SMS is preferred method
+        if (user.preferredMfaMethod === 'sms' && user.phone) {
+          challengeParameters.codeDeliveryDestination = this.challengeService.maskPhone(user.phone);
+        }
+        // Include masked email if Email is preferred method
+        if (user.preferredMfaMethod === 'email' && user.email) {
+          challengeParameters.codeDeliveryDestination = this.challengeService.maskEmail(user.email);
+        }
+        break;
+
+      case AuthChallenge.MFA_SETUP_REQUIRED: {
+        const allowedMethods = config.mfa?.allowedMethods || [...MFADeviceMethods];
+        challengeParameters.allowedMethods = allowedMethods;
+        challengeParameters.instructions = 'Multi-factor authentication setup is required before you can login';
+        break;
+      }
+
+      case AuthChallenge.FORCE_CHANGE_PASSWORD:
+        challengeParameters.instructions = 'You must change your password before continuing';
+        break;
+    }
+
+    const response: AuthResponseDTO = {
+      challengeName,
+      session: challengeSession.sessionToken,
+      challengeParameters,
+      sub: user.sub,
+    };
+
+    return response;
+  }
+
+  // ============================================================================
+  // MFA Challenge Support
+  // ============================================================================
+  // checkMFARequirement() - DELETED (replaced by state machine)
+  // All MFA requirement checking is now handled by state machine in determineAuthResponse()
+
+  /**
+   * Create MFA setup challenge response
+   *
+   * Generates challenge session for MFA setup requirement.
+   * User must set up MFA before being allowed to login.
+   *
+   * @param user - User requiring MFA setup
+   * @param config - Auth configuration
+   * @param authMethod - Authentication method ('password' or 'social')
+   * @param authProvider - Provider name for social auth (e.g., 'google', 'facebook')
+   * @returns MFA setup challenge response
+   *
+   * @example
+   * ```typescript
+   * const response = await challengeHelper.createMFASetupChallengeResponse(
+   *   user,
+   *   config,
+   *   'social',
+   *   'google'
+   * );
+   * // Returns: { challengeName: 'MFA_SETUP_REQUIRED', session: '...', challengeParameters: {...} }
+   * ```
+   */
+  async createMFASetupChallengeResponse(
+    user: IUser,
+    config: NAuthConfig,
+    authMethod: 'password' | 'social' = 'password',
+    authProvider?: string,
+  ): Promise<AuthResponseDTO> {
+    // Client info (ipAddress, userAgent) automatically extracted from ClientInfoService
+    // Note: ClientInfoService is used transparently by ChallengeService and AuditService
+    this.logger?.log?.(`Creating MFA setup challenge for user: ${user.sub}`);
+
+    const allowedMethods = config.mfa?.allowedMethods || [...MFADeviceMethods];
+
+    // Create challenge session with auth context
+    this.logger?.debug?.(
+      `Creating MFA setup challenge with authMethod=${authMethod}, authProvider=${authProvider || 'none'} for user ${user.sub}`,
+    );
+
+    // Client info (ipAddress, userAgent) automatically extracted from ClientInfoService
+    const challengeSession = await this.challengeService.createChallengeSession(
+      user,
+      AuthChallenge.MFA_SETUP_REQUIRED,
+      {
+        allowedMethods,
+        requiresSetup: true,
+        authMethod, // Store auth method for challenge completion flow
+        authProvider, // Store provider for social auth
+      },
+    );
+
+    this.logger?.log?.(`MFA setup challenge created for user: ${user.sub}`);
+
+    // Return challenge response
+    return {
+      challengeName: AuthChallenge.MFA_SETUP_REQUIRED,
+      session: challengeSession.sessionToken,
+      challengeParameters: {
+        allowedMethods,
+        instructions: 'Multi-factor authentication setup is required before you can login',
+      },
+      sub: user.sub,
+    } as AuthResponseDTO;
+  }
+
+  /**
+   * Create MFA challenge response
+   *
+   * Generates challenge session for MFA verification.
+   * Returns available MFA methods and challenge parameters.
+   *
+   * @param user - User requiring MFA
+   * @returns MFA challenge response
+   * @remarks Client info (ipAddress, userAgent) is automatically extracted from ClientInfoService context
+   *
+   * @example
+   * ```typescript
+   * const response = await challengeHelper.createMFAChallengeResponse(
+   *   user,
+   *   '1.2.3.4',
+   *   'Mozilla/5.0...'
+   * );
+   * // Returns: { challengeName: 'MFA_REQUIRED', session: '...', challengeParameters: {...} }
+   * ```
+   */
+  async createMFAChallengeResponse(user: IUser): Promise<AuthResponseDTO> {
+    // Client info (ipAddress, userAgent) automatically extracted from ClientInfoService
+    // Note: ClientInfoService is used transparently by ChallengeService and AuditService
+    this.logger?.log?.(`Creating MFA challenge for user: ${user.sub}`);
+
+    // Get user's active MFA devices
+    const devices = (await this.mfaDeviceRepository.find({
+      where: { userId: user.id, isActive: true },
+      order: { isPrimary: 'DESC', lastUsedAt: 'DESC' },
+    })) as unknown as IMFADevice[];
+
+    if (devices.length === 0) {
+      this.logger?.warn?.(`User has MFA enabled but no active devices: ${user.sub}`);
+      // User has MFA enabled but no devices - should not happen
+      // Allow login and let them set up MFA
+      throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'MFA enabled but no devices configured');
+    }
+
+    // Get available methods (device types only - no backup)
+    const deviceMethods = [...new Set(devices.map((d) => d.type))] as MFADeviceMethod[];
+
+    // Build full available methods list (including backup if available)
+    const availableMethods: MFAVerificationMethod[] = [...deviceMethods];
+    if (user.backupCodes && user.backupCodes.length > 0) {
+      availableMethods.push(MFAMethod.BACKUP);
+    }
+
+    // Debug logging for troubleshooting
+    this.logger?.debug?.(
+      `MFA challenge for user ${user.sub}: preferredMfaMethod=${user.preferredMfaMethod}, deviceMethods=[${deviceMethods.join(', ')}], devices=[${devices.map((d) => `${d.type}${d.isPrimary ? '(primary)' : ''}`).join(', ')}]`,
+    );
+
+    // Determine preferred method - prioritize user.preferredMfaMethod over primaryDevice
+    // This ensures that when user explicitly sets a preferred method, it's respected
+    let preferredMethod: string;
+
+    // Normalize preferred method to lowercase for comparison (database might store in different case)
+    const normalizedPreferredMethod = user.preferredMfaMethod?.toLowerCase();
+
+    // Check if user has a preferred method and it's available
+    if (
+      normalizedPreferredMethod &&
+      (normalizedPreferredMethod === MFAMethod.TOTP ||
+        normalizedPreferredMethod === MFAMethod.SMS ||
+        normalizedPreferredMethod === MFAMethod.EMAIL ||
+        normalizedPreferredMethod === MFAMethod.PASSKEY) &&
+      deviceMethods.some((m) => m.toLowerCase() === normalizedPreferredMethod)
+    ) {
+      // User has explicitly set a preferred method and it's available
+      // Find the actual method from deviceMethods to ensure case consistency
+      preferredMethod =
+        deviceMethods.find((m) => m.toLowerCase() === normalizedPreferredMethod) || normalizedPreferredMethod;
+      this.logger?.debug?.(
+        `Using user preferred MFA method: ${preferredMethod} (from user.preferredMfaMethod: ${user.preferredMfaMethod})`,
+      );
+    } else {
+      // Fallback to primary device or first available method
+      const primaryDevice = devices.find((d) => d.isPrimary);
+      preferredMethod = primaryDevice?.type || deviceMethods[0];
+      this.logger?.debug?.(
+        `Using fallback MFA method: ${preferredMethod} (preferred: ${user.preferredMfaMethod}, available: ${deviceMethods.join(', ')})`,
+      );
+    }
+
+    // Get masked phone if SMS is available
+    let maskedPhone: string | undefined;
+    const smsDevice = devices.find((d) => d.type === MFAMethod.SMS && d.phoneNumber);
+    if (smsDevice?.phoneNumber) {
+      maskedPhone = this.challengeService.maskPhone(smsDevice.phoneNumber);
+    }
+
+    // Get masked email if Email is available
+    let maskedEmail: string | undefined;
+    const emailDevice = devices.find((d) => d.type === MFAMethod.EMAIL && d.email);
+    const emailToMask = emailDevice?.email || user.email; // Fallback to user.email if device doesn't have it
+    if (emailToMask) {
+      maskedEmail = this.challengeService.maskEmail(emailToMask);
+    }
+
+    // Build device information for methods that support multiple devices (TOTP and Passkey)
+    // This allows the frontend to display individual devices when multiple exist
+    const deviceInfo: Array<{ id: number; name: string; type: string }> = [];
+    const multiDeviceMethods = [MFAMethod.TOTP, MFAMethod.PASSKEY];
+    for (const device of devices) {
+      if (multiDeviceMethods.includes(device.type as MFAMethod)) {
+        deviceInfo.push({
+          id: device.id,
+          name: device.name || `${device.type} Device`,
+          type: device.type,
+        });
+      }
+    }
+
+    // Determine preferred device ID if the preferred method supports multiple devices
+    // Use isPrimary flag to find the preferred device (internal database field)
+    let preferredDeviceId: number | undefined;
+    if (multiDeviceMethods.includes(preferredMethod as MFAMethod)) {
+      const preferredMethodDevices = devices.filter((d) => d.type === preferredMethod);
+      if (preferredMethodDevices.length > 0) {
+        // Find device marked as primary, fallback to first device
+        const primaryDevice = preferredMethodDevices.find((d) => d.isPrimary);
+        preferredDeviceId = primaryDevice?.id || preferredMethodDevices[0].id;
+      }
+    }
+
+    // Create challenge session
+    // Client info (ipAddress, userAgent) automatically extracted from ClientInfoService
+    // Store preferred method in metadata for resend endpoint to know which method to use
+    const challengeSession = await this.challengeService.createChallengeSession(user, AuthChallenge.MFA_REQUIRED, {
+      availableMethods,
+      preferredMethod,
+      preferredDeviceId, // Include preferred device ID for multi-device methods
+      maskedPhone,
+      maskedEmail,
+      method: preferredMethod, // Store method in metadata for resend endpoint
+      devices: deviceInfo.length > 0 ? deviceInfo : undefined, // Include device info for multi-device methods
+    });
+
+    this.logger?.log?.(`MFA challenge created for user: ${user.sub}`);
+
+    // ============================================================================
+    // Auto-send SMS code if SMS is the preferred method
+    // ============================================================================
+    // Automatically send SMS code if:
+    // 1. SMS is user's preferred MFA method, OR
+    // 2. SMS is the ONLY MFA method they have setup
+    //
+    // This provides better UX by not requiring a separate API call to trigger code sending.
+    const smsIsPreferred = preferredMethod.toLowerCase() === 'sms';
+    const smsIsOnly = deviceMethods.length === 1 && deviceMethods[0].toLowerCase() === 'sms';
+
+    if ((smsIsPreferred || smsIsOnly) && this.phoneVerificationService && user.phone) {
+      this.logger?.log?.(
+        `Auto-sending MFA SMS code to user ${user.sub} (preferred=${smsIsPreferred}, only=${smsIsOnly})`,
+      );
+      // Await SMS sending to ensure code is sent before returning challenge
+      // Use PhoneVerificationService which handles SMS sending, rate limits, and token storage
+      // skipAlreadyVerifiedCheck=true because phone is already verified but we need MFA code
+      const smsDto = Object.assign(new SendVerificationSMSDTO(), {
+        sub: user.sub,
+        skipAlreadyVerifiedCheck: true,
+        challengeSessionId: challengeSession.id, // Link MFA SMS code to this challenge session
+      });
+      try {
+        await this.phoneVerificationService.sendVerificationSMS(smsDto);
+        this.logger?.log?.(`MFA SMS code sent successfully to user ${user.sub}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorCode = (error as any)?.code;
+        // Rate limit and resend delay errors are expected - log as warning but still throw
+        if (errorCode === 'RATE_LIMIT_SMS' || errorCode === 'RATE_LIMIT_RESEND') {
+          this.logger?.warn?.(
+            `MFA SMS code sending rate limited for user ${user.sub}: ${errorMessage}. User can try again or use another method.`,
+          );
+        } else {
+          // Unexpected errors - log as error
+          this.logger?.error?.(`Failed to send MFA SMS code to user ${user.sub}: ${errorMessage}`);
+        }
+        // Re-throw the error so user knows SMS wasn't sent
+        throw error;
+      }
+    } else {
+      this.logger?.debug?.(
+        `Skipped auto-send MFA SMS for user ${user.sub}: ` +
+          `phoneService=${!!this.phoneVerificationService}, ` +
+          `preferredMethod=${preferredMethod}, ` +
+          `smsIsPreferred=${smsIsPreferred}, ` +
+          `smsIsOnly=${smsIsOnly}, ` +
+          `deviceMethods=[${deviceMethods.join(', ')}], ` +
+          `phone=${!!user.phone}`,
+      );
+    }
+
+    // ============================================================================
+    // Auto-send Email code if Email is the preferred method
+    // ============================================================================
+    // Automatically send Email code if:
+    // 1. Email is user's preferred MFA method, OR
+    // 2. Email is the ONLY MFA method they have setup
+    //
+    // This provides better UX by not requiring a separate API call to trigger code sending.
+    const emailIsPreferred = preferredMethod.toLowerCase() === 'email';
+    const emailIsOnly = deviceMethods.length === 1 && deviceMethods[0].toLowerCase() === 'email';
+
+    if ((emailIsPreferred || emailIsOnly) && this.emailVerificationService && user.email) {
+      this.logger?.log?.(
+        `Auto-sending MFA Email code to user ${user.sub} (preferred=${emailIsPreferred}, only=${emailIsOnly})`,
+      );
+      // Await email sending to ensure code is sent before returning challenge
+      // Use EmailVerificationService.sendMFAEmailCode which handles email sending, rate limits, and token storage
+      // skipAlreadyVerifiedCheck=true because email is already verified but we need MFA code
+      const emailDto = Object.assign(new SendVerificationEmailDTO(), {
+        sub: user.sub,
+        skipAlreadyVerifiedCheck: true,
+        challengeSessionId: challengeSession.id, // Link MFA email code to this challenge session
+      });
+      try {
+        await this.emailVerificationService.sendMFAEmailCode(emailDto);
+        this.logger?.log?.(`MFA Email code sent successfully to user ${user.sub}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorCode = (error as any)?.code;
+        // Rate limit and resend delay errors are expected - log as warning but still throw
+        if (errorCode === 'RATE_LIMIT_EMAIL' || errorCode === 'RATE_LIMIT_RESEND') {
+          this.logger?.warn?.(
+            `MFA Email code sending rate limited for user ${user.sub}: ${errorMessage}. User can try again or use another method.`,
+          );
+        } else {
+          // Unexpected errors - log as error
+          this.logger?.error?.(`Failed to send MFA Email code to user ${user.sub}: ${errorMessage}`);
+        }
+        // Re-throw the error so user knows email wasn't sent
+        throw error;
+      }
+    } else {
+      this.logger?.debug?.(
+        `Skipped auto-send MFA Email for user ${user.sub}: ` +
+          `emailService=${!!this.emailVerificationService}, ` +
+          `preferredMethod=${preferredMethod}, ` +
+          `emailIsPreferred=${emailIsPreferred}, ` +
+          `emailIsOnly=${emailIsOnly}, ` +
+          `deviceMethods=[${deviceMethods.join(', ')}], ` +
+          `email=${!!user.email}`,
+      );
+    }
+
+    // Return challenge response
+    // Always include maskedEmail if email is preferred, even if undefined (frontend can use user.email)
+    const challengeParams: Record<string, unknown> = {
+      availableMethods,
+      preferredMethod: preferredMethod as MFADeviceMethod,
+    };
+    if (maskedPhone) {
+      challengeParams.maskedPhone = maskedPhone;
+    }
+    if (maskedEmail || preferredMethod.toLowerCase() === 'email') {
+      // Include maskedEmail if available, or if email is preferred (frontend will handle display)
+      challengeParams.maskedEmail = maskedEmail || user.email || '';
+    }
+    // Include device information for methods that support multiple devices (TOTP, Passkey)
+    if (deviceInfo.length > 0) {
+      challengeParams.devices = deviceInfo;
+    }
+    // Include preferred device ID - frontend uses this to show which device to use
+    if (preferredDeviceId !== undefined) {
+      challengeParams.preferredDeviceId = preferredDeviceId;
+    }
+
+    return {
+      challengeName: AuthChallenge.MFA_REQUIRED,
+      session: challengeSession.sessionToken,
+      challengeParameters: challengeParams,
+    } as AuthResponseDTO;
+  }
+
+  // ============================================================================
+  // Success Response
+  // ============================================================================
+
+  /**
+   * Create successful authentication response with tokens
+   *
+   * Generates tokens and session for fully authenticated user.
+   *
+   * @param user - Authenticated user
+   * @param deviceToken - Device token (optional)
+   * @param isTrusted - Whether device is trusted (optional)
+   * @param isSocialLogin - Whether this is a social login (optional)
+   * @param metadata - Response metadata (optional)
+   * @returns Auth response with tokens
+   *
+   * @example
+   * ```typescript
+   * const response = await challengeHelper.createSuccessResponse(
+   *   user,
+   *   'abc123',
+   *   true,
+   *   false
+   * );
+   * ```
+   */
+  async createSuccessResponse(
+    user: IUser,
+    deviceToken?: string,
+    isTrusted?: boolean,
+    _isSocialLogin = false, // Reserved for future use
+    _metadata?: {
+      // Reserved for future use
+      gracePeriodEndsAt?: Date;
+      riskScore?: number;
+      riskLevel?: 'low' | 'medium' | 'high';
+      blockedUntil?: Date;
+      reason?: string;
+    },
+    sessionAuthMethod: string = 'password',
+  ): Promise<AuthResponseDTO> {
+    // Get client info from ClientInfoService (for deviceToken only - IP/userAgent come from context automatically)
+    const clientInfo = this.clientInfoService.get();
+    // Use the explicitly provided deviceToken (newly created trusted device) if available,
+    // otherwise fall back to clientInfo.deviceToken (existing device).
+    // WHY: When a new trusted device token is created (e.g., after MFA), we must use that
+    // new token instead of the old one from the cookie/header (which may belong to a different user).
+    const finalDeviceToken = deviceToken || clientInfo.deviceToken;
+
+    // ============================================================================
+    // SECURITY: Defense-in-depth validation before token issuance
+    // ============================================================================
+    // Note: Challenge validation is now handled by state machine in determineAuthResponse
+    // This method is only called when state is AUTHENTICATED, so no additional check needed
+
+    // Generate token family for rotation tracking
+    const tokenFamily = this.jwtService.generateTokenFamily();
+
+    // Pre-resolved refresh TTL pushed down by AuthService (which has access
+    // to the full NAuthConfig). Undefined when no hybrid-policy override
+    // applies — generateTokenPair falls back to config.refreshToken.expiresIn.
+    // Same value is used for both the temp tokens and the final tokens so the
+    // session's reuse-detection storage TTL matches the issued token's lifetime.
+    const resolvedRefreshExpiresIn = ContextStorage.get<string | number>(RESOLVED_REFRESH_EXPIRES_IN);
+
+    // Generate temporary tokens first (session creation requires token hashes)
+    // Note: deviceId not included in token - session.deviceId is source of truth
+    const tempTokens = await this.jwtService.generateTokenPair({
+      userId: user.sub, // Use sub in JWT payload (external identifier)
+      email: user.email,
+      sessionId: 'temp', // Temporary - will be regenerated with real sessionId
+      tokenFamily,
+      refreshExpiresIn: resolvedRefreshExpiresIn,
+    });
+
+    // Generate deviceId if not provided
+    let finalDeviceId = finalDeviceToken;
+    if (!finalDeviceId) {
+      const crypto = await import('crypto');
+      finalDeviceId = crypto.randomUUID();
+    }
+
+    // ============================================================================
+    // Revoke Existing Sessions with Same DeviceId (Prevent Duplicates)
+    // ============================================================================
+    // When a user logs in with a persistent deviceToken (trusted device),
+    // revoke any existing sessions from that same device to prevent token confusion.
+    // This is safe because deviceToken is system-issued, not client-provided.
+    //
+    // Skip if finalDeviceId was randomly generated (no persistent device).
+    if (finalDeviceToken) {
+      try {
+        const revokedCount = await this.sessionService.revokeUserSessionsByDeviceId(
+          user.id,
+          finalDeviceId,
+          'New login on same device',
+        );
+        if (revokedCount > 0) {
+          this.logger?.log?.(
+            `Revoked ${revokedCount} existing session(s) with deviceId ${finalDeviceId} for user ${user.sub}`,
+          );
+        }
+      } catch (error) {
+        // Non-blocking: Log but continue with session creation
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger?.warn?.(`Failed to revoke existing sessions for deviceId ${finalDeviceId}: ${errorMessage}`, {
+          error,
+        });
+      }
+    }
+
+    // Create session
+    // Client info (ipAddress, ipCountry, ipCity, userAgent) automatically extracted from ClientInfoService
+    const session = await this.sessionService.createSession({
+      userId: user.id, // Use internal id for foreign key
+      accessTokenHash: this.jwtService.hashToken(tempTokens.accessToken),
+      refreshTokenHash: this.jwtService.hashToken(tempTokens.refreshToken),
+      tokenFamily,
+      deviceId: finalDeviceId,
+      expiresAt: this.sessionService.getSessionExpirationDate(),
+      // WHY: Persist how the session was authenticated so the frontend can tell whether the user logged in
+      // via password or via a specific social provider (google/apple/facebook).
+      authMethod: sessionAuthMethod,
+      isTrustedDevice: isTrusted || false,
+    });
+
+    // Now regenerate tokens with the actual sessionId
+    // Note: deviceId not included in token - session.deviceId is source of truth
+    const tokens = await this.jwtService.generateTokenPair({
+      userId: user.sub,
+      email: user.email,
+      sessionId: session.id.toString(),
+      tokenFamily,
+      refreshExpiresIn: resolvedRefreshExpiresIn,
+    });
+
+    // Update session with new token hashes
+    await this.sessionService.updateTokens(
+      session.id,
+      this.jwtService.hashToken(tokens.accessToken),
+      this.jwtService.hashToken(tokens.refreshToken),
+    );
+
+    // Decode tokens to get expiry times
+    const accessTokenValidation = await this.jwtService.validateAccessToken(tokens.accessToken);
+    const refreshTokenValidation = await this.jwtService.validateRefreshToken(tokens.refreshToken);
+
+    const response: AuthResponseDTO = {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      accessTokenExpiresAt: accessTokenValidation.payload?.exp || 0,
+      refreshTokenExpiresAt: refreshTokenValidation.payload?.exp || 0,
+      authMethod: sessionAuthMethod,
+      trusted: isTrusted,
+      // Expose deviceToken so that:
+      // - In cookies mode, CookieTokenInterceptor can set the httpOnly nauth_device_token cookie
+      // - In JSON mode, mobile clients can store it securely and send via header
+      // NOTE: finalDeviceToken is a logical device identifier derived from:
+      // - clientInfo.deviceToken (existing trusted device), OR
+      // - deviceToken parameter passed from AuthService / state machine
+      deviceToken: finalDeviceToken,
+      user: toAuthResponseUser(user),
+      sub: user.sub,
+    };
+
+    return response;
+  }
+
+  /**
+   * Determine and create appropriate auth response
+   *
+   * Main entry point that decides whether to return challenges or tokens.
+   * Uses state machine to evaluate authentication flow state.
+   *
+   * @param params - Authentication parameters
+   * @param params.user - User attempting authentication
+   * @param params.config - Auth configuration
+   * @param params.deviceToken - Device token (optional)
+   * @param params.isSocialLogin - Whether this is a social login (OAuth) authentication (optional)
+   * @param params.skipMFAVerification - Skip MFA verification flag (optional)
+   * @param params.authProvider - Social auth provider name (optional)
+   * @returns Auth response (either challenge or success)
+   *
+   * @example
+   * ```typescript
+   * const response = await challengeHelper.determineAuthResponse({
+   *   user,
+   *   config,
+   *   deviceToken: 'abc123',
+   *   isSocialLogin: false
+   * });
+   * ```
+   */
+  async determineAuthResponse(params: {
+    user: IUser;
+    config: NAuthConfig;
+    deviceToken?: string;
+    isSocialLogin?: boolean;
+    skipMFAVerification?: boolean;
+    authProvider?: string;
+  }): Promise<AuthResponseDTO> {
+    const { user, config, deviceToken, isSocialLogin = false, skipMFAVerification = false, authProvider } = params;
+
+    this.logger?.debug?.(
+      `[ChallengeHelper] determineAuthResponse called for user ${user.sub} (isSocialLogin=${isSocialLogin}, skipMFA=${skipMFAVerification}, deviceToken=${deviceToken ? 'present' : 'none'})`,
+    );
+
+    // Build context with pre-computed values
+    const context = await this.contextBuilder.build({
+      user,
+      config,
+      authMethod: isSocialLogin ? 'social' : 'password',
+      authProvider,
+      deviceToken,
+      skipMFAVerification,
+    });
+
+    // Evaluate state using state machine
+    const state = await this.stateMachine.evaluateState(context);
+
+    // Get state definition
+    const stateDefinition = this.stateMachine.getStateDefinition(state);
+    if (!stateDefinition) {
+      this.logger?.error?.(`No state definition found for state: ${state}`, { state, userId: user.id });
+      throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Invalid authentication state');
+    }
+
+    // Build metadata if available
+    const metadata = this.stateMachine.buildMetadata(state, context);
+
+    // Convert state to response
+    const response = await this.stateToResponse(state, stateDefinition, context, metadata);
+
+    this.logger?.debug?.(
+      `[ChallengeHelper] State ${state} → Challenge: ${response.challengeName || 'SUCCESS'} for user ${user.sub}`,
+    );
+
+    return response;
+  }
+
+  /**
+   * Convert state to authentication response
+   *
+   * Maps state to appropriate response (challenge or success).
+   * Merges state metadata into response.
+   *
+   * @param state - Authentication flow state
+   * @param stateDefinition - State definition
+   * @param context - Authentication flow context
+   * @param metadata - Response metadata (optional)
+   * @returns Authentication response
+   */
+  private async stateToResponse(
+    state: AuthFlowState,
+    stateDefinition: { challenge?: AuthChallenge },
+    context: AuthFlowContext,
+    metadata?: {
+      gracePeriodEndsAt?: Date;
+      riskScore?: number;
+      riskLevel?: 'low' | 'medium' | 'high';
+      blockedUntil?: Date;
+      reason?: string;
+    },
+  ): Promise<AuthResponseDTO> {
+    // Get client info from ClientInfoService
+    const clientInfo = this.clientInfoService.get();
+    // Prioritize context.deviceToken (newly created/validated) over clientInfo.deviceToken (from request header)
+    // WHY: When a new device token is created (e.g., after MFA for a different user), we must use the new token
+    // from context, not the old one from the client's request header (which may belong to a different user).
+    const deviceToken = context.deviceToken || clientInfo.deviceToken;
+
+    const authMethod = context.authMethod || 'password';
+
+    // Handle challenge states
+    if (stateDefinition.challenge) {
+      // Handle MFA_SETUP_REQUIRED challenge specially
+      if (stateDefinition.challenge === AuthChallenge.MFA_SETUP_REQUIRED) {
+        return this.createMFASetupChallengeResponse(context.user, context.config, authMethod, context.authProvider);
+      }
+
+      // Handle MFA_REQUIRED challenge specially - needs preferred method logic
+      if (stateDefinition.challenge === AuthChallenge.MFA_REQUIRED) {
+        return this.createMFAChallengeResponse(context.user);
+      }
+
+      // Handle other challenges
+      return this.createChallengeResponse(
+        context.user,
+        stateDefinition.challenge,
+        context.config,
+        authMethod,
+        context.authProvider,
+      );
+    }
+
+    // Handle special states
+    if (state === AuthFlowState.GRACE_PERIOD_ACTIVE) {
+      // Grace period active - return success with metadata
+      const isTrusted = context.computed.isDeviceTrusted;
+      const sessionAuthMethod =
+        context.authMethod === 'social' ? context.authProvider || 'social' : context.authMethod || 'password';
+      const response = await this.createSuccessResponse(
+        context.user,
+        deviceToken,
+        isTrusted,
+        context.authMethod === 'social',
+        metadata,
+        sessionAuthMethod,
+      );
+      // Merge metadata
+      if (metadata?.gracePeriodEndsAt) {
+        (response as AuthResponseDTO & { gracePeriodEndsAt?: Date }).gracePeriodEndsAt = metadata.gracePeriodEndsAt;
+      }
+      if (metadata?.riskScore !== undefined) {
+        (response as AuthResponseDTO & { riskScore?: number }).riskScore = metadata.riskScore;
+      }
+      if (metadata?.riskLevel) {
+        (response as AuthResponseDTO & { riskLevel?: 'low' | 'medium' | 'high' }).riskLevel = metadata.riskLevel;
+      }
+      return response;
+    }
+
+    if (state === AuthFlowState.BLOCKED) {
+      // User is blocked - throw exception with metadata
+      const errorCode =
+        (context.config.mfa?.adaptive?.blockedSignIn?.errorCode as AuthErrorCode) ||
+        AuthErrorCode.SIGNIN_BLOCKED_HIGH_RISK;
+      const message =
+        metadata?.reason ||
+        context.config.mfa?.adaptive?.blockedSignIn?.message ||
+        'Sign-in blocked due to suspicious activity';
+      throw new NAuthException(errorCode, message, {
+        expiresAt: metadata?.blockedUntil,
+      });
+    }
+
+    // AUTHENTICATED state - return success
+    let isTrusted = context.computed.isDeviceTrusted;
+    let finalDeviceToken = deviceToken;
+
+    // Auto-trust mode: create device token automatically if not already trusted
+    const rememberMode = context.config.mfa?.rememberDevices;
+    this.logger?.debug?.(
+      `[ChallengeHelper] AUTHENTICATED state: rememberMode=${rememberMode}, isTrusted=${isTrusted}, hasTrustedDeviceService=${!!this.trustedDeviceService}, deviceToken=${deviceToken ? 'present' : 'none'}`,
+    );
+
+    if (rememberMode === 'always' && !isTrusted && this.trustedDeviceService) {
+      try {
+        this.logger?.debug?.(`[ChallengeHelper] Attempting to create trusted device for user ${context.user.sub}...`);
+        finalDeviceToken = await this.trustedDeviceService.createTrustedDevice(
+          context.user.id,
+          clientInfo.deviceName,
+          clientInfo.deviceType,
+          clientInfo.ipAddress,
+          clientInfo.userAgent,
+          clientInfo.platform,
+          clientInfo.browser,
+        );
+        isTrusted = true;
+        this.logger?.debug?.(
+          `[ChallengeHelper] Auto-created trusted device token for user ${context.user.sub} (rememberDevices='always', no MFA), token=${finalDeviceToken}`,
+        );
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger?.warn?.(
+          `[ChallengeHelper] Failed to create trusted device token for user ${context.user.sub}: ${errorMessage}`,
+          { error },
+        );
+      }
+    }
+
+    const sessionAuthMethod =
+      context.authMethod === 'social' ? context.authProvider || 'social' : context.authMethod || 'password';
+    return this.createSuccessResponse(
+      context.user,
+      finalDeviceToken,
+      isTrusted,
+      context.authMethod === 'social',
+      metadata,
+      sessionAuthMethod,
+    );
+  }
+}

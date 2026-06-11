@@ -1,0 +1,15 @@
+Email Verification
+
+{{#if fullName}}Hi {{fullName}},{{/if}}
+{{#if firstName}}Hi {{firstName}},{{/if}}
+
+Thank you for signing up for {{appName}}! Please verify your email address to activate your account.
+
+{{#if code}}Your Verification Code: {{code}}{{/if}}
+
+{{#if link}}Or use this link: {{link}}{{/if}}
+
+{{#if expiryMinutes}}This code expires in {{expiryMinutes}} minutes.{{/if}}
+
+If you didn't create an account, you can safely ignore this email.
+{{#if supportEmail}}Questions? Contact us at {{supportEmail}}{{/if}}

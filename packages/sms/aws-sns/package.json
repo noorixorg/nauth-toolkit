@@ -1,0 +1,67 @@
+{
+  "name": "@nauth-toolkit/sms-aws-sns",
+  "version": "0.2.7",
+  "description": "AWS SNS SMS provider for nauth-toolkit",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "test": "jest --passWithNoTests",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "@aws-sdk/client-pinpoint-sms-voice-v2": "^3.989.0",
+    "@aws-sdk/client-sns": "^3.0.0"
+  },
+  "peerDependencies": {
+    "@nauth-toolkit/core": "^0.2.7"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^22.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
+  },
+  "license": "MIT",
+  "keywords": [
+    "nauth",
+    "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
+    "sms",
+    "aws",
+    "sns",
+    "phone-verification"
+  ],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth-toolkit"
+  },
+  "homepage": "https://nauth.dev",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": false
+}

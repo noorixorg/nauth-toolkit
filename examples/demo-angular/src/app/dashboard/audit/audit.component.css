@@ -1,0 +1,8 @@
+/* Audit component styles - minimal, clean approach */
+
+/* Mobile responsive table - hide less important columns on small screens */
+@media (max-width: 767px) {
+  .hide-mobile {
+    display: none;
+  }
+}

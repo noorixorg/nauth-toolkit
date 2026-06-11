@@ -1,0 +1,90 @@
+{
+  "name": "nauth-toolkit",
+  "version": "0.1.0",
+  "description": "Embedded authentication library for Node.js — NestJS, Express, Fastify",
+  "homepage": "https://nauth.dev",
+  "private": true,
+  "packageManager": "pnpm@10.30.2",
+  "pnpm": {
+    "overrides": {
+      "@nauth-toolkit/core": "workspace:*"
+    },
+    "onlyBuiltDependencies": [
+      "argon2",
+      "esbuild",
+      "@parcel/watcher",
+      "lmdb",
+      "msgpackr-extract"
+    ]
+  },
+  "scripts": {
+    "preinstall": "node -e \"if(!/pnpm/.test(process.env.npm_execpath||'')){console.error('\\nERROR: This monorepo requires pnpm, not npm or yarn!\\nPlease use: pnpm install\\n');process.exit(1)}\"",
+    "postinstall": "node -e \"const fs=require('fs');const path=require('path');const recaptchaDist=path.join(__dirname,'packages/recaptcha/dist');if(!fs.existsSync(recaptchaDist)||!fs.existsSync(path.join(recaptchaDist,'src','index.js'))){console.log('Building @nauth-toolkit/recaptcha...');require('child_process').execSync('pnpm --filter @nauth-toolkit/recaptcha build',{stdio:'inherit'});}const coreDist=path.join(__dirname,'packages/core/dist');if(!fs.existsSync(coreDist)||!fs.existsSync(path.join(coreDist,'index.js'))){console.log('Building @nauth-toolkit/core...');require('child_process').execSync('pnpm --filter @nauth-toolkit/core build',{stdio:'inherit'});}\"",
+    "build": "pnpm --filter @nauth-toolkit/core run clean && pnpm --filter @nauth-toolkit/core run build",
+    "build:all": "pnpm run clean && pnpm run build:recaptcha && pnpm run build:core && pnpm run build:deps && pnpm run build:nestjs && pnpm run build:client && pnpm run build:client-angular && pnpm run build:providers",
+    "build:recaptcha": "pnpm --filter @nauth-toolkit/recaptcha run build",
+    "build:core": "pnpm --filter @nauth-toolkit/core run build",
+    "build:nestjs": "pnpm --filter @nauth-toolkit/nestjs run build",
+    "build:client": "pnpm --filter @nauth-toolkit/client run build",
+    "build:client-angular": "pnpm --filter @nauth-toolkit/client-angular run build",
+    "build:deps": "pnpm --filter @nauth-toolkit/database-typeorm-postgres run build && pnpm --filter @nauth-toolkit/database-typeorm-mysql run build && pnpm --filter @nauth-toolkit/email-console run build && pnpm --filter @nauth-toolkit/email-nodemailer run build && pnpm --filter @nauth-toolkit/sms-console run build && pnpm --filter @nauth-toolkit/sms-aws-sns run build && pnpm --filter @nauth-toolkit/sms-twilio run build && pnpm --filter @nauth-toolkit/storage-database run build && pnpm --filter @nauth-toolkit/storage-redis run build",
+    "build:providers": "pnpm --filter @nauth-toolkit/social-google run build && pnpm --filter @nauth-toolkit/social-apple run build && pnpm --filter @nauth-toolkit/social-facebook run build && pnpm --filter @nauth-toolkit/mfa-totp run build && pnpm --filter @nauth-toolkit/mfa-sms run build && pnpm --filter @nauth-toolkit/mfa-email run build && pnpm --filter @nauth-toolkit/mfa-passkey run build",
+    "clean": "find packages -type d -name 'node_modules' -prune -o -type d -name 'dist' -exec rm -rf {} + 2>/dev/null || true && find packages -type d -name 'node_modules' -prune -o -type f -name '*.tsbuildinfo' -delete 2>/dev/null || true",
+    "test": "pnpm --filter @nauth-toolkit/core run test",
+    "test:all": "pnpm -r run test",
+    "test:e2e": "playwright test",
+    "lint": "pnpm -r --filter './packages/**' run lint",
+    "lint:fix": "pnpm -r --filter './packages/**' run lint:fix && pnpm run format",
+    "format": "pnpm -r --filter './packages/**' run format",
+    "format:check": "pnpm -r --filter './packages/**' run format:check",
+    "fix": "pnpm run lint:fix",
+    "prepare": "husky",
+    "commitlint": "commitlint",
+    "lint:commit": "commitlint --from=HEAD~1 --to=HEAD",
+    "kill": "kill -9 $(lsof -t -i :3000) "
+  },
+  "devDependencies": {
+    "@changesets/changelog-github": "^0.5.2",
+    "@changesets/cli": "^2.29.8",
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.2",
+    "@typescript-eslint/parser": "^8.46.2",
+    "eslint": "^9.38.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-unused-imports": "^4.3.0",
+    "husky": "^9.1.7",
+    "playwright": "^1.56.1",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "license": "MIT",
+  "keywords": [
+    "nauth",
+    "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
+    "jwt",
+    "oauth",
+    "mfa",
+    "nestjs",
+    "express",
+    "fastify"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth-toolkit"
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "name": "@nauth-toolkit/nestjs",
+  "version": "0.2.7",
+  "description": "NestJS module for nauth-toolkit — guards, decorators, interceptors",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage",
+    "lint": "eslint \"{src,test}/**/*.ts\" --fix",
+    "lint:fix": "eslint \"{src,test}/**/*.ts\" --fix"
+  },
+  "keywords": [
+    "nauth",
+    "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
+    "nestjs",
+    "jwt",
+    "oauth",
+    "mfa",
+    "guards",
+    "decorators",
+    "module"
+  ],
+  "author": "nauth-toolkit",
+  "license": "MIT",
+  "peerDependencies": {
+    "@nestjs/common": "^9.0.0 || ^10.0.0 || ^11.0.0",
+    "@nestjs/core": "^9.0.0 || ^10.0.0 || ^11.0.0",
+    "@nestjs/typeorm": "^9.0.0 || ^10.0.0 || ^11.0.0",
+    "reflect-metadata": "^0.1.13 || ^0.2.0",
+    "rxjs": "^7.0.0",
+    "typeorm": "^0.3.0"
+  },
+  "dependencies": {
+    "@nauth-toolkit/core": "^0.2.7"
+  },
+  "devDependencies": {
+    "@nestjs/common": "^11.1.8",
+    "@nestjs/core": "^11.1.8",
+    "@nestjs/testing": "^11.0.0",
+    "@nestjs/typeorm": "^11.0.0",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.7.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "ts-jest": "^29.2.0",
+    "typeorm": "^0.3.27",
+    "typescript": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth-toolkit"
+  },
+  "homepage": "https://nauth.dev"
+}

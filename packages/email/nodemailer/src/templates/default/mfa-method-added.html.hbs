@@ -1,0 +1,66 @@
+---
+subject: New MFA Method Added - {{appName}}
+---
+<!doctype html>
+<html lang="en" dir="auto">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ subject }}</title>
+  </head>
+  <body style="margin:0;padding:0;font-family:Arial, sans-serif;background:#f6f7fb;color:#111827;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:12px;overflow:hidden;">
+            <tr>
+              <td style="padding:24px 24px 8px 24px;">
+                <div style="font-size:18px;font-weight:700;">{{appName}}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 24px 16px 24px;">
+                <div style="font-size:16px;line-height:24px;">
+                  Hi {{ userName }},
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 24px 16px 24px;">
+                <div style="font-size:16px;line-height:24px;">
+                  A new multi-factor authentication (MFA) method was added to your account.
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 24px 16px 24px;">
+                <div style="font-size:14px;line-height:22px;">
+                  <strong>Method:</strong> {{method}}<br />
+                  {{#if enabledMethods}}<strong>Enabled methods:</strong> {{enabledMethods}}<br />{{/if}}
+                  <strong>Time:</strong> {{timestamp}}
+                </div>
+              </td>
+            </tr>
+            {{#if supportEmail}}
+            <tr>
+              <td style="padding:0 24px 24px 24px;">
+                <div style="font-size:14px;line-height:22px;color:#b91c1c;">
+                  If you did not make this change, please contact support immediately at
+                  <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>.
+                </div>
+              </td>
+            </tr>
+            {{/if}}
+            <tr>
+              <td style="padding:16px 24px;border-top:1px solid #e5e7eb;">
+                <div style="font-size:12px;line-height:18px;color:#6b7280;">
+                  {{#if companyName}}&copy; {{companyName}}{{/if}}
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

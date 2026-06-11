@@ -1,0 +1,42 @@
+User-agent: *
+Allow: /
+
+# AI crawlers — explicitly allowed
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+# LLM-optimized documentation
+# Generated at build time by docusaurus-plugin-llms
+# llms.txt            — index of all LLM docs
+# llms-full.txt       — complete documentation
+# llms-guides.txt     — guides & concepts
+# llms-api-core.txt   — core API reference
+# llms-api-adapters.txt    — framework adapters
+# llms-api-providers.txt   — provider packages
+# llms-frontend-sdk.txt    — frontend SDK
+
+Sitemap: https://nauth.dev/sitemap.xml

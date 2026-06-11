@@ -1,0 +1,183 @@
+<div class="challenge-container">
+  <div class="challenge-card">
+    <div class="challenge-header">
+      <div class="challenge-header-content">
+        <i class="pi pi-shield challenge-header-icon"></i>
+        <h2 class="challenge-header-title">
+          @if (isAuthenticatedFlow()) {
+            Add Multi-Factor Authentication
+          } @else {
+            Set Up Multi-Factor Authentication
+          }
+        </h2>
+      </div>
+    </div>
+
+    <div class="challenge-content">
+      @if (error(); as errorMessage) {
+        <div class="error-message-container">
+          <p-message
+            severity="error"
+            [text]="errorMessage"
+            styleClass="w-full"
+            [closable]="true"
+            (onClose)="error.set(null)"
+          />
+        </div>
+      }
+
+      @if (!selectedMethod()) {
+        <div class="space-y-6">
+          <p class="text-secondary-600 m-0 pb-5">{{ instructions() }}</p>
+
+          <div class="space-y-3">
+            @if (smsAvailable()) {
+              <button
+                type="button"
+                class="w-full p-4 flex items-center gap-4 bg-white border-2 border-secondary-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-all text-left"
+                [disabled]="loading()"
+                (click)="selectMethod('sms')"
+              >
+                <div
+                  class="w-12 h-12 rounded-full bg-secondary-100 flex items-center justify-center flex-shrink-0"
+                >
+                  <i class="pi pi-mobile text-xl text-secondary-600"></i>
+                </div>
+                <div class="flex-1">
+                  <h3 class="text-base font-semibold text-secondary-900 m-0">SMS</h3>
+                  <p class="text-sm text-secondary-600 m-0">Receive codes via SMS</p>
+                </div>
+                <i class="pi pi-chevron-right text-secondary-400"></i>
+              </button>
+            }
+
+            @if (emailAvailable()) {
+              <button
+                type="button"
+                class="w-full p-4 flex items-center gap-4 bg-white border-2 border-secondary-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-all text-left"
+                [disabled]="loading()"
+                (click)="selectMethod('email')"
+              >
+                <div
+                  class="w-12 h-12 rounded-full bg-secondary-100 flex items-center justify-center flex-shrink-0"
+                >
+                  <i class="pi pi-envelope text-xl text-secondary-600"></i>
+                </div>
+                <div class="flex-1">
+                  <h3 class="text-base font-semibold text-secondary-900 m-0">Email</h3>
+                  <p class="text-sm text-secondary-600 m-0">Receive codes via email</p>
+                </div>
+                <i class="pi pi-chevron-right text-secondary-400"></i>
+              </button>
+            }
+
+            @if (totpAvailable()) {
+              <button
+                type="button"
+                class="w-full p-4 flex items-center gap-4 bg-white border-2 border-secondary-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-all text-left"
+                [disabled]="loading()"
+                (click)="selectMethod('totp')"
+              >
+                <div
+                  class="w-12 h-12 rounded-full bg-secondary-100 flex items-center justify-center flex-shrink-0"
+                >
+                  <i class="pi pi-qrcode text-xl text-secondary-600"></i>
+                </div>
+                <div class="flex-1">
+                  <h3 class="text-base font-semibold text-secondary-900 m-0">Authenticator App</h3>
+                  <p class="text-sm text-secondary-600 m-0">Use authenticator app</p>
+                </div>
+                <i class="pi pi-chevron-right text-secondary-400"></i>
+              </button>
+            }
+
+            @if (passkeyAvailable()) {
+              <button
+                type="button"
+                class="w-full p-4 flex items-center gap-4 bg-white border-2 border-secondary-200 rounded-lg hover:border-primary-500 hover:bg-primary-50 transition-all text-left"
+                [disabled]="loading()"
+                (click)="selectMethod('passkey')"
+              >
+                <div
+                  class="w-12 h-12 rounded-full bg-secondary-100 flex items-center justify-center flex-shrink-0"
+                >
+                  <i class="pi pi-key text-xl text-secondary-600"></i>
+                </div>
+                <div class="flex-1">
+                  <h3 class="text-base font-semibold text-secondary-900 m-0">Passkey</h3>
+                  <p class="text-sm text-secondary-600 m-0">Use biometric authentication</p>
+                </div>
+                <i class="pi pi-chevron-right text-secondary-400"></i>
+              </button>
+            }
+          </div>
+
+          <div class="flex justify-center">
+            <p-button
+              [label]="backButtonText()"
+              icon="pi pi-arrow-left"
+              styleClass="p-button-text p-button-sm"
+              (onClick)="navigateBack()"
+            />
+          </div>
+        </div>
+      } @else if (setupData()?.autoCompleted) {
+        <div class="space-y-6">
+          <div class="flex flex-col items-center gap-4 py-8">
+            <div class="w-16 h-16 rounded-full bg-success-100 flex items-center justify-center">
+              <i class="pi pi-check text-3xl text-success-600"></i>
+            </div>
+            <h3 class="text-xl font-semibold text-secondary-900 m-0">Setup Complete!</h3>
+            <p class="text-center text-secondary-600 m-0 max-w-md">
+              Your {{ getMethodName(selectedMethod()!) }} is already verified and has been set as an
+              MFA method successfully.
+            </p>
+          </div>
+
+          <div class="flex justify-center">
+            <p-button
+              label="Continue"
+              icon="pi pi-arrow-right"
+              iconPos="right"
+              [loading]="loading()"
+              (onClick)="continueToDashboard()"
+            />
+          </div>
+        </div>
+      } @else if (selectedMethod() === 'totp') {
+        <app-totp-setup
+          [session]="challenge()?.session"
+          [isAuthenticatedFlow]="isAuthenticatedFlow()"
+          [isEmbedded]="true"
+          (setupComplete)="onTotpSetupComplete()"
+          (setupCancelled)="onTotpSetupCancelled()"
+        />
+
+        <div class="flex justify-center mt-6">
+          <p-button
+            label="Back to method selection"
+            icon="pi pi-arrow-left"
+            styleClass="p-button-text p-button-sm"
+            (onClick)="backToSelection()"
+          />
+        </div>
+      } @else if (selectedMethod() === 'passkey') {
+        <app-passkey-setup
+          [session]="challenge()?.session"
+          [isAuthenticatedFlow]="isAuthenticatedFlow()"
+          (setupComplete)="onPasskeySetupComplete()"
+          (setupCancelled)="onPasskeySetupCancelled()"
+        />
+
+        <div class="flex justify-center mt-6">
+          <p-button
+            label="Back to method selection"
+            icon="pi pi-arrow-left"
+            styleClass="p-button-text p-button-sm"
+            (onClick)="backToSelection()"
+          />
+        </div>
+      }
+    </div>
+  </div>
+</div>

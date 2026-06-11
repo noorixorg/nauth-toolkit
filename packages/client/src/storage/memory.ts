@@ -1,0 +1,24 @@
+import { NAuthStorageAdapter } from './interface';
+
+/**
+ * In-memory storage adapter for SSR, tests, or environments without Web Storage.
+ */
+export class InMemoryStorage implements NAuthStorageAdapter {
+  private readonly store = new Map<string, string>();
+
+  async getItem(key: string): Promise<string | null> {
+    return this.store.has(key) ? (this.store.get(key) as string) : null;
+  }
+
+  async setItem(key: string, value: string): Promise<void> {
+    this.store.set(key, value);
+  }
+
+  async removeItem(key: string): Promise<void> {
+    this.store.delete(key);
+  }
+
+  async clear(): Promise<void> {
+    this.store.clear();
+  }
+}

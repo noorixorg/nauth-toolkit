@@ -1,0 +1,31 @@
+{
+	email {$CADDY_EMAIL:admin@example.com}
+}
+
+# Single domain setup - demo.nauth.dev
+{$FRONTEND_DOMAIN:demo.nauth.dev} {
+	# API routes (backend has global prefix /api)
+	handle /api/* {
+		reverse_proxy 127.0.0.1:13005
+	}
+
+	# Frontend (everything else)
+	handle {
+		reverse_proxy 127.0.0.1:13006
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Frame-Options "SAMEORIGIN"
+		X-Content-Type-Options "nosniff"
+		X-XSS-Protection "1; mode=block"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	encode gzip zstd
+
+	log {
+		output stdout
+		format console
+	}
+}

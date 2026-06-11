@@ -1,0 +1,78 @@
+.feature-card {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.feature-card-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.feature-card-link:hover {
+  text-decoration: none;
+  color: inherit;
+}
+
+.feature-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.feature-card-header i {
+  font-size: 1.75rem;
+  color: var(--ifm-color-primary);
+  flex-shrink: 0;
+}
+
+.feature-card-header strong {
+  font-size: 1.1rem;
+  color: var(--ifm-color-primary-dark);
+  line-height: 1.3;
+  margin: 0;
+}
+
+.feature-card-description {
+  margin: 0;
+  color: var(--ifm-color-content);
+  line-height: 1.6;
+  flex-grow: 1;
+}
+
+/* Dark mode styles */
+[data-theme='dark'] .feature-card {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(96, 165, 250, 0.15);
+}
+
+[data-theme='dark'] .feature-card:hover {
+  box-shadow: 0 8px 20px rgba(96, 165, 250, 0.2);
+  border-color: rgba(96, 165, 250, 0.4);
+}
+
+[data-theme='dark'] .feature-card-header i {
+  color: var(--ifm-color-primary-light);
+}
+
+[data-theme='dark'] .feature-card-header strong {
+  color: var(--ifm-color-primary-light);
+}
+
+[data-theme='dark'] .feature-card-description {
+  color: var(--ifm-color-content-secondary);
+}
+

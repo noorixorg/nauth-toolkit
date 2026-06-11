@@ -1,0 +1,553 @@
+<p-confirmDialog></p-confirmDialog>
+
+<p-card styleClass="dashboard-card">
+  <ng-template pTemplate="header">
+    <div class="dashboard-card-header">
+      <div class="dashboard-card-header-content">
+        <div class="dashboard-card-header-title">
+          <i class="pi pi-user dashboard-card-header-icon"></i>
+          <h2 class="dashboard-card-header-text">Profile</h2>
+        </div>
+        @if (!editMode()) {
+          <p-button
+            label="Edit"
+            icon="pi pi-pencil"
+            severity="secondary"
+            size="small"
+            (onClick)="enableEdit()"
+          />
+        }
+      </div>
+    </div>
+  </ng-template>
+
+  @if (loading()) {
+    <div class="p-6 text-center">
+      <i class="pi pi-spin pi-spinner text-2xl text-primary-600"></i>
+      <p class="text-secondary-600 mt-2">Loading profile...</p>
+    </div>
+  } @else if (error() && !user()) {
+    <div class="p-6">
+      <p-message severity="error" [text]="error() || ''" styleClass="w-full" />
+    </div>
+  } @else if (user(); as currentUser) {
+    <div class="p-6">
+      <!-- Avatar Section -->
+      <div class="flex items-center gap-4 mb-6">
+        <p-avatar
+          [label]="userInitials()"
+          shape="circle"
+          size="xlarge"
+          styleClass="bg-gradient-to-br from-primary-600 to-primary-800 text-white text-xl font-semibold"
+        />
+        <div class="flex-1">
+          <h3 class="text-lg font-semibold text-secondary-900">
+            {{ currentUser.firstName || '' }} {{ currentUser.lastName || '' }}
+          </h3>
+          <p class="text-sm text-secondary-600">{{ currentUser.email }}</p>
+        </div>
+        @if (sessionSocialProvider(); as provider) {
+          <div class="flex justify-end">
+            <div
+              class="inline-flex items-center gap-2 px-3 py-2  rounded-lg"
+              role="status"
+              [attr.aria-label]="'Signed in with ' + getProviderName(provider)"
+            >
+              <i [class]="getProviderIcon(provider)" class="text-sm text-secondary-700"></i>
+              <span class="text-sm text-secondary-700">
+                Signed in with {{ getProviderName(provider) }}
+              </span>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Success Message -->
+      @if (success()) {
+        <div class="mb-6">
+          <p-message severity="success" [text]="success() || ''" styleClass="w-full" />
+        </div>
+      }
+
+      <!-- Error Message -->
+      @if (error()) {
+        <div class="mb-6">
+          <p-message severity="error" [text]="error() || ''" styleClass="w-full" />
+        </div>
+      }
+
+      <!-- Basic Profile Information -->
+      <div class="mb-6">
+        <h3 class="text-lg font-semibold text-secondary-900 mb-4">Basic Information</h3>
+        <form [formGroup]="profileForm">
+          <div class="space-y-4">
+            <!-- First Name and Last Name Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- First Name -->
+              <div class="flex flex-col gap-2">
+                <label for="firstName" class="form-label">First Name</label>
+                @if (editMode()) {
+                  <input
+                    id="firstName"
+                    type="text"
+                    pInputText
+                    formControlName="firstName"
+                    placeholder="Enter first name"
+                    class="w-full"
+                    [class.p-invalid]="
+                      profileForm.get('firstName')?.invalid && profileForm.get('firstName')?.touched
+                    "
+                  />
+                  @if (
+                    profileForm.get('firstName')?.invalid && profileForm.get('firstName')?.touched
+                  ) {
+                    <small class="p-error">
+                      @if (profileForm.get('firstName')?.errors?.['maxlength']) {
+                        First name must not exceed 100 characters
+                      }
+                    </small>
+                  }
+                } @else {
+                  <p class="text-secondary-900">{{ currentUser.firstName || 'Not set' }}</p>
+                }
+              </div>
+
+              <!-- Last Name -->
+              <div class="flex flex-col gap-2">
+                <label for="lastName" class="form-label">Last Name</label>
+                @if (editMode()) {
+                  <input
+                    id="lastName"
+                    type="text"
+                    pInputText
+                    formControlName="lastName"
+                    placeholder="Enter last name"
+                    class="w-full"
+                    [class.p-invalid]="
+                      profileForm.get('lastName')?.invalid && profileForm.get('lastName')?.touched
+                    "
+                  />
+                  @if (
+                    profileForm.get('lastName')?.invalid && profileForm.get('lastName')?.touched
+                  ) {
+                    <small class="p-error">
+                      @if (profileForm.get('lastName')?.errors?.['maxlength']) {
+                        Last name must not exceed 100 characters
+                      }
+                    </small>
+                  }
+                } @else {
+                  <p class="text-secondary-900">{{ currentUser.lastName || 'Not set' }}</p>
+                }
+              </div>
+            </div>
+
+            <!-- Email and Phone Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Email -->
+              <div class="flex flex-col gap-2">
+                <label for="email" class="form-label"
+                  >Email &nbsp;<i
+                    [class]="
+                      currentUser.isEmailVerified
+                        ? 'pi pi-check-circle text-success-600 '
+                        : 'pi pi-times-circle text-error-500'
+                    "
+                    [pTooltip]="
+                      currentUser.isEmailVerified ? 'Email verified' : 'Email not verified'
+                    "
+                    tooltipPosition="top"
+                    class="text-lg cursor-help flex-shrink-0"
+                  ></i
+                ></label>
+                <div class="flex items-center gap-2">
+                  @if (editMode()) {
+                    <input
+                      id="email"
+                      type="email"
+                      pInputText
+                      formControlName="email"
+                      placeholder="Enter email"
+                      class="flex-1"
+                      [disabled]="isEmailDisabled()"
+                      [class.p-invalid]="
+                        profileForm.get('email')?.invalid && profileForm.get('email')?.touched
+                      "
+                    />
+                  } @else {
+                    <p class="text-secondary-900 flex-1">{{ currentUser.email }}</p>
+                  }
+                </div>
+                @if (editMode() && isEmailDisabled()) {
+                  <small class="text-secondary-500 text-xs">
+                    Email cannot be changed for social accounts or accounts with linked social
+                    providers
+                  </small>
+                }
+                @if (editMode()) {
+                  @if (profileForm.get('email')?.invalid && profileForm.get('email')?.touched) {
+                    <small class="p-error">
+                      @if (profileForm.get('email')?.errors?.['required']) {
+                        Email is required
+                      } @else if (profileForm.get('email')?.errors?.['email']) {
+                        Please enter a valid email address
+                      } @else if (profileForm.get('email')?.errors?.['maxlength']) {
+                        Email must not exceed 255 characters
+                      }
+                    </small>
+                  }
+                }
+              </div>
+
+              <!-- Phone -->
+              <div class="flex flex-col gap-2">
+                <label for="phone" class="form-label"
+                  >Phone &nbsp;
+                  @if (currentUser.phone) {
+                    <i
+                      [class]="
+                        currentUser.isPhoneVerified
+                          ? 'pi pi-check-circle text-success-600'
+                          : 'pi pi-times-circle text-error-500'
+                      "
+                      [pTooltip]="
+                        currentUser.isPhoneVerified ? 'Phone verified' : 'Phone not verified'
+                      "
+                      tooltipPosition="top"
+                      class="text-lg cursor-help flex-shrink-0"
+                    ></i>
+                  }
+                </label>
+                <div class="flex items-center gap-2">
+                  @if (editMode()) {
+                    <input
+                      id="phone"
+                      type="text"
+                      pInputText
+                      formControlName="phone"
+                      placeholder="Enter phone number"
+                      class="flex-1"
+                      [class.p-invalid]="
+                        profileForm.get('phone')?.invalid && profileForm.get('phone')?.touched
+                      "
+                    />
+                  } @else {
+                    <p class="text-secondary-900 flex-1">{{ currentUser.phone || 'Not set' }}</p>
+                  }
+                </div>
+                @if (editMode()) {
+                  @if (profileForm.get('phone')?.invalid && profileForm.get('phone')?.touched) {
+                    <small class="p-error">
+                      @if (profileForm.get('phone')?.errors?.['maxlength']) {
+                        Phone must not exceed 20 characters
+                      }
+                    </small>
+                  }
+                }
+              </div>
+            </div>
+
+            <!-- Edit Mode Actions -->
+            @if (editMode()) {
+              <div class="flex gap-2 pt-2">
+                <p-button
+                  label="Save"
+                  icon="pi pi-check"
+                  (onClick)="saveProfile()"
+                  [loading]="updating()"
+                  [disabled]="profileForm.invalid"
+                  styleClass="flex-1"
+                />
+                <p-button
+                  label="Cancel"
+                  icon="pi pi-times"
+                  severity="secondary"
+                  (onClick)="cancelEdit()"
+                  [disabled]="updating()"
+                  styleClass="flex-1"
+                />
+              </div>
+            }
+          </div>
+        </form>
+      </div>
+
+      <!-- Account Details Section -->
+      <div class="mb-6 pt-6 border-t border-secondary-200">
+        <h3 class="text-lg font-semibold text-secondary-900 mb-4">Account Details</h3>
+        <div class="space-y-4">
+          <!-- Account Type -->
+          <div>
+            <label class="form-label-section">Account Type</label>
+            <div class="flex items-center gap-2">
+              @if (isPureSocialAccount()) {
+                <p-badge value="Social Account" severity="info" />
+                <span class="text-xs text-secondary-500">(No password set)</span>
+              } @else if (hasLinkedAccounts() || hasSocialProviders()) {
+                <p-badge value="Password based + linked social" severity="success" />
+              } @else {
+                <p-badge value="Password based" severity="secondary" />
+              }
+            </div>
+          </div>
+
+          <!-- Member Since -->
+          @if (currentUser.createdAt) {
+            <div>
+              <label class="form-label-section">Member Since</label>
+              <p class="text-secondary-900">{{ currentUser.createdAt | date: 'mediumDate' }}</p>
+            </div>
+          }
+
+          <!-- Change Password Link -->
+          @if (hasPassword()) {
+            <div>
+              <button
+                type="button"
+                class="text-primary-600 hover:text-primary-700 text-sm font-medium flex items-center gap-2 transition-colors"
+                (click)="openChangePasswordDialog()"
+              >
+                <i class="pi pi-key text-sm"></i>
+                <span>Change Password</span>
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Social Accounts Section -->
+      @if (isPureSocialAccount() || hasSocialProviders() || hasLinkedAccounts()) {
+        <div class="pt-6 border-t border-secondary-200">
+          <h3 class="text-lg font-semibold text-secondary-900 mb-4">Social Accounts</h3>
+          @if (loadingAccounts()) {
+            <div class="flex items-center gap-2 text-sm text-secondary-500">
+              <i class="pi pi-spin pi-spinner"></i>
+              <span>Loading accounts...</span>
+            </div>
+          } @else {
+            <div class="space-y-3">
+              <!-- Primary Social Account (from user.socialProviders) -->
+              @if (hasSocialProviders()) {
+                @for (provider of getSocialProviders(); track provider) {
+                  <div
+                    class="flex items-center justify-between p-4 bg-white border border-secondary-200 rounded-lg hover:shadow-md transition-shadow"
+                  >
+                    <div class="flex items-center gap-3">
+                      <div
+                        class="w-10 h-10 rounded-full bg-secondary-50 flex items-center justify-center"
+                      >
+                        <i
+                          [class]="getProviderIcon(provider)"
+                          class="text-lg text-secondary-600"
+                        ></i>
+                      </div>
+                      <div>
+                        <p class="text-sm font-semibold text-secondary-900 m-0">
+                          {{ getProviderName(provider) }}
+                        </p>
+                        <p-tag severity="info" styleClass="text-xs mt-1">Primary</p-tag>
+                      </div>
+                    </div>
+                    @if (canUnlinkProvider(provider)) {
+                      <p-button
+                        icon="pi pi-unlink"
+                        label="Unlink"
+                        severity="secondary"
+                        size="small"
+                        [loading]="unlinking() === provider"
+                        [disabled]="unlinking() !== null"
+                        (onClick)="unlinkAccount(provider)"
+                      />
+                    } @else {
+                      <span class="text-xs text-secondary-500">Cannot unlink</span>
+                    }
+                  </div>
+                }
+              }
+
+              <!-- Linked Social Accounts (from getLinkedAccounts API) -->
+              @if (hasLinkedAccounts()) {
+                @for (provider of linkedAccounts(); track provider) {
+                  @if (!getSocialProviders().includes(provider)) {
+                    <div
+                      class="flex items-center justify-between p-4 bg-white border border-secondary-200 rounded-lg hover:shadow-md transition-shadow"
+                    >
+                      <div class="flex items-center gap-3">
+                        <div
+                          class="w-10 h-10 rounded-full bg-secondary-50 flex items-center justify-center"
+                        >
+                          <i
+                            [class]="getProviderIcon(provider)"
+                            class="text-lg text-secondary-600"
+                          ></i>
+                        </div>
+                        <div>
+                          <p class="text-sm font-semibold text-secondary-900 m-0">
+                            {{ getProviderName(provider) }}
+                          </p>
+                          <p-tag severity="success" styleClass="text-xs mt-1">Linked</p-tag>
+                        </div>
+                      </div>
+                      @if (canUnlinkProvider(provider)) {
+                        <p-button
+                          icon="pi pi-unlink"
+                          label="Unlink"
+                          severity="secondary"
+                          size="small"
+                          [loading]="unlinking() === provider"
+                          [disabled]="unlinking() !== null"
+                          (onClick)="unlinkAccount(provider)"
+                        />
+                      } @else {
+                        <span class="text-xs text-secondary-500">Cannot unlink</span>
+                      }
+                    </div>
+                  }
+                }
+              }
+
+              @if (!hasSocialProviders() && !hasLinkedAccounts()) {
+                <div
+                  class="p-6 text-center bg-secondary-50 rounded-lg border-2 border-dashed border-secondary-300"
+                >
+                  <i class="pi pi-share-alt text-3xl text-secondary-400 mb-2"></i>
+                  <p class="text-sm text-secondary-500 m-0">No social accounts linked</p>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+</p-card>
+
+<!-- Change Password Dialog -->
+<p-dialog
+  [visible]="showChangePasswordDialog()"
+  (visibleChange)="showChangePasswordDialog.set($event)"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  header="Change Password"
+  [style]="{ width: '90%', maxWidth: '500px' }"
+  (onHide)="closeChangePasswordDialog()"
+>
+  <form [formGroup]="changePasswordForm" class="space-y-4">
+    <!-- Error Message -->
+    @if (error()) {
+      <p-message severity="error" [text]="error() || ''" styleClass="w-full" />
+    }
+
+    <!-- Old Password -->
+    <div class="flex flex-col gap-2">
+      <label for="oldPassword" class="form-label">Current Password</label>
+      <p-password
+        id="oldPassword"
+        formControlName="oldPassword"
+        placeholder="Enter current password"
+        [feedback]="false"
+        [toggleMask]="true"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+        [class.p-invalid]="
+          changePasswordForm.get('oldPassword')?.invalid &&
+          changePasswordForm.get('oldPassword')?.touched
+        "
+      />
+      @if (
+        changePasswordForm.get('oldPassword')?.invalid &&
+        changePasswordForm.get('oldPassword')?.touched
+      ) {
+        <small class="p-error">
+          @if (changePasswordForm.get('oldPassword')?.errors?.['required']) {
+            Current password is required
+          }
+        </small>
+      }
+    </div>
+
+    <!-- New Password -->
+    <div class="flex flex-col gap-2">
+      <label for="newPassword" class="form-label">New Password</label>
+      <p-password
+        id="newPassword"
+        formControlName="newPassword"
+        placeholder="Enter new password"
+        [feedback]="true"
+        [toggleMask]="true"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+        [class.p-invalid]="
+          changePasswordForm.get('newPassword')?.invalid &&
+          changePasswordForm.get('newPassword')?.touched
+        "
+      />
+      @if (
+        changePasswordForm.get('newPassword')?.invalid &&
+        changePasswordForm.get('newPassword')?.touched
+      ) {
+        <small class="p-error">
+          @if (changePasswordForm.get('newPassword')?.errors?.['required']) {
+            New password is required
+          } @else if (changePasswordForm.get('newPassword')?.errors?.['minlength']) {
+            Password must be at least 8 characters
+          } @else if (changePasswordForm.get('newPassword')?.errors?.['maxlength']) {
+            Password must not exceed 128 characters
+          }
+        </small>
+      }
+    </div>
+
+    <!-- Confirm Password -->
+    <div class="flex flex-col gap-2">
+      <label for="confirmPassword" class="form-label">Confirm New Password</label>
+      <p-password
+        id="confirmPassword"
+        formControlName="confirmPassword"
+        placeholder="Confirm new password"
+        [feedback]="false"
+        [toggleMask]="true"
+        styleClass="w-full"
+        inputStyleClass="w-full"
+        [class.p-invalid]="
+          changePasswordForm.get('confirmPassword')?.invalid &&
+          changePasswordForm.get('confirmPassword')?.touched
+        "
+      />
+      @if (
+        changePasswordForm.get('confirmPassword')?.invalid &&
+        changePasswordForm.get('confirmPassword')?.touched
+      ) {
+        <small class="p-error">
+          @if (changePasswordForm.get('confirmPassword')?.errors?.['required']) {
+            Please confirm your new password
+          } @else if (changePasswordForm.get('confirmPassword')?.errors?.['passwordMismatch']) {
+            Passwords do not match
+          }
+        </small>
+      }
+    </div>
+
+    <!-- Dialog Actions -->
+    <div class="flex gap-2 pt-4">
+      <p-button
+        label="Change Password"
+        icon="pi pi-check"
+        (onClick)="changePassword()"
+        [loading]="changingPassword()"
+        [disabled]="changePasswordForm.invalid"
+        styleClass="flex-1"
+      />
+      <p-button
+        label="Cancel"
+        icon="pi pi-times"
+        severity="secondary"
+        (onClick)="closeChangePasswordDialog()"
+        [disabled]="changingPassword()"
+        styleClass="flex-1"
+      />
+    </div>
+  </form>
+</p-dialog>

@@ -1,0 +1,88 @@
+{
+  "name": "@nauth-toolkit/mfa-sms",
+  "version": "0.2.7",
+  "description": "SMS one-time code MFA provider for nauth-toolkit",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "openapi": [
+        "dist/src/openapi/index.d.ts"
+      ],
+      "nestjs": [
+        "dist/nestjs/index.d.ts"
+      ]
+    }
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/src/index.js",
+      "require": "./dist/src/index.js",
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./openapi": {
+      "import": "./dist/src/openapi/index.js",
+      "require": "./dist/src/openapi/index.js",
+      "types": "./dist/src/openapi/index.d.ts",
+      "default": "./dist/src/openapi/index.js"
+    },
+    "./nestjs": {
+      "import": "./dist/nestjs/index.js",
+      "require": "./dist/nestjs/index.js",
+      "types": "./dist/nestjs/index.d.ts",
+      "default": "./dist/nestjs/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b && node dist/src/openapi/generate-openapi.js",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "test": "jest --passWithNoTests",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\""
+  },
+  "peerDependencies": {
+    "@nauth-toolkit/core": "^0.2.7"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^22.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.0",
+    "ts-json-schema-generator": "^2.4.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
+  },
+  "license": "MIT",
+  "keywords": [
+    "nauth",
+    "authentication",
+    "auth",
+    "nodejs",
+    "typescript",
+    "mfa",
+    "2fa",
+    "sms",
+    "otp",
+    "phone-verification"
+  ],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth-toolkit"
+  },
+  "homepage": "https://nauth.dev",
+  "sideEffects": false
+}

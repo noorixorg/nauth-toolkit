@@ -1,0 +1,8 @@
+{
+  "label": "MFA",
+  "position": 9,
+  "link": {
+    "type": "doc",
+    "id": "api/mfa/overview"
+  }
+}

@@ -1,0 +1,61 @@
+<!-- Email Changed Alert (to OLD email) Email Content -->
+<mj-text>
+  Your account email address has been changed.
+</mj-text>
+
+<mj-text css-class="text-small alert-box alert-warning" padding="16px 24px">
+  Security Alert: Email address changed
+</mj-text>
+
+<mj-text css-class="text-small font-bold" padding="24px 24px 8px 24px">
+  Change Details:
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 8px 24px">
+  Old Email (this address): {{userEmail}}
+</mj-text>
+
+<mj-raw>
+  {{#if newEmail}}
+</mj-raw>
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  New Email: {{newEmail}}
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+
+<mj-raw>
+  {{#if deactivatedMFADevices}}
+  {{#gt deactivatedMFADevices 0}}
+</mj-raw>
+<mj-text css-class="text-small alert-box alert-info" padding="16px 24px">
+  Note: {{deactivatedMFADevices}} email-based MFA device(s) were deactivated due to this change.
+</mj-text>
+<mj-raw>
+  {{/gt}}
+  {{/if}}
+</mj-raw>
+
+<mj-text css-class="text-small" padding="24px 24px 8px 24px">
+  What should I do?
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 8px 24px">
+  If you made this change, no action is required. This is just a security notification to let you know the email address for your account has been updated.
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  Future notifications will be sent to the new email address.
+</mj-text>
+
+<mj-raw>
+  {{#if supportEmail}}
+</mj-raw>
+<mj-text css-class="text-small text-danger font-bold" padding="0 24px 24px 24px">
+  If you didn't make this change, please contact support immediately at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>. Your account may be compromised.
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+

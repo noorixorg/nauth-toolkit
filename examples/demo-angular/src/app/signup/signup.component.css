@@ -1,0 +1,6 @@
+/* Signup Component - Minimal styling, using common.css and PrimeNG theme */
+
+/* Only custom styles that can't be done with Tailwind @apply */
+.social-button .p-button-icon {
+  margin-right: 0.5rem;
+}

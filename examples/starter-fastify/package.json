@@ -1,0 +1,42 @@
+{
+  "name": "starter-fastify",
+  "version": "0.1.0",
+  "description": "Fastify example demonstrating nauth-toolkit platform-agnostic usage",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "nodemon --exec ts-node src/index.ts",
+    "start:prod": "node dist/index.js",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^10.0.0",
+    "@fastify/cors": "^10.0.0",
+    "@nauth-toolkit/core": "latest",
+    "@nauth-toolkit/database-typeorm-postgres": "latest",
+    "@nauth-toolkit/email-console": "latest",
+    "@nauth-toolkit/mfa-email": "latest",
+    "@nauth-toolkit/mfa-passkey": "latest",
+    "@nauth-toolkit/mfa-sms": "latest",
+    "@nauth-toolkit/mfa-totp": "latest",
+    "@nauth-toolkit/sms-aws-sns": "latest",
+    "@nauth-toolkit/sms-console": "latest",
+    "@nauth-toolkit/social-google": "latest",
+    "@nauth-toolkit/storage-database": "latest",
+    "dotenv": "^16.4.0",
+    "fastify": "^5.0.0",
+    "pg": "^8.16.3",
+    "typeorm": "^0.3.20"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "nodemon": "^3.1.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

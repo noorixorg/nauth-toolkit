@@ -1,0 +1,170 @@
+<div class="challenge-container">
+  <div class="challenge-card">
+    <div class="challenge-header">
+      <div class="challenge-header-content">
+        <i [class]="challengeIconClasses()" class="text-xl"></i>
+        <h2 class="challenge-header-title">{{ title() }}</h2>
+      </div>
+    </div>
+
+    <div class="challenge-content">
+      @if (description()) {
+        <p class="text-secondary-600 m-0 pb-5">{{ description() }}</p>
+      }
+
+      <form [formGroup]="otpForm" (ngSubmit)="onSubmit()" class="space-y-6">
+        @if (currentChallengeType() === AuthChallenge.VERIFY_PHONE && requiresPhoneCollection()) {
+          <!-- Phone Collection Mode -->
+          <div class="space-y-2">
+            <label for="phone" class="block text-sm font-medium text-secondary-700">
+              Phone Number <span class="text-error-500">*</span>
+            </label>
+            <p-inputmask
+              #phoneInput
+              id="phone"
+              formControlName="phone"
+              mask="+99999999999999"
+              slotChar=""
+              placeholder="+14155552671"
+              [unmask]="false"
+              [autoClear]="false"
+              [class.p-invalid]="otpForm.get('phone')?.invalid && otpForm.get('phone')?.touched"
+              styleClass="w-full"
+              inputStyleClass="w-full"
+            />
+            @if (otpForm.get('phone')?.invalid && otpForm.get('phone')?.touched) {
+              <small class="p-error">
+                @if (otpForm.get('phone')?.errors?.['required']) {
+                  Phone number is required
+                } @else if (otpForm.get('phone')?.errors?.['phoneFormat']) {
+                  {{ otpForm.get('phone')?.errors?.['phoneFormat']?.['message'] }}
+                } @else if (otpForm.get('phone')?.errors?.['maxlength']) {
+                  Phone must not exceed 20 characters
+                }
+              </small>
+            }
+            <small class="text-secondary-500 text-xs mt-1"
+              >Format: +[country code][number] (e.g., +14155552671)</small
+            >
+          </div>
+
+          <!-- Submit Button for Phone Collection -->
+          <div class="mt-4">
+            <p-button
+              type="submit"
+              label="{{ loading() ? 'Sending Code...' : 'Send Verification Code' }}"
+              [disabled]="otpForm.get('phone')?.invalid || loading()"
+              [loading]="loading()"
+              styleClass="w-full"
+              icon="pi pi-send"
+            />
+          </div>
+        } @else {
+          <!-- OTP Verification Mode -->
+          <div class="space-y-5">
+            <div class="flex justify-center">
+              <p-inputOtp
+                #otpInput
+                id="code"
+                formControlName="code"
+                [length]="otpLength()"
+                [integerOnly]="true"
+                size="large"
+                styleClass="mx-auto"
+                autoFocus="true"
+                (paste)="onPaste()"
+                [class.p-invalid]="otpForm.get('code')?.invalid && otpForm.get('code')?.touched"
+              />
+            </div>
+            @if (otpForm.get('code')?.invalid && otpForm.get('code')?.touched) {
+              <small class="p-error">
+                @if (otpForm.get('code')?.errors?.['required']) {
+                  Verification code is required
+                } @else if (otpForm.get('code')?.errors?.['minlength']) {
+                  Code must be at least
+                  {{ otpForm.get('code')?.errors?.['minlength'].requiredLength }} characters
+                } @else if (otpForm.get('code')?.errors?.['maxlength']) {
+                  Code must not exceed
+                  {{ otpForm.get('code')?.errors?.['maxlength'].requiredLength }} characters
+                }
+              </small>
+            }
+          </div>
+
+          <!-- Submit Button for Code Verification -->
+          <div class="mt-4">
+            <p-button
+              type="submit"
+              label="{{ loading() ? 'Verifying...' : 'Verify Code' }}"
+              [disabled]="otpForm.get('code')?.invalid || loading()"
+              [loading]="loading()"
+              styleClass="w-full"
+              icon="pi pi-check"
+            />
+          </div>
+        }
+
+        <!-- Resend Code Button (only for email/phone verification and SMS/email MFA) -->
+        @if (canResend()) {
+          <div class="text-center mt-4">
+            <button
+              type="button"
+              [disabled]="resending() || loading() || resendTimer() > 0"
+              (click)="resendCode()"
+              class="text-primary-600 hover:text-primary-700 text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-transparent border-none p-0"
+            >
+              @if (resending()) {
+                Sending...
+              } @else if (resendTimer() > 0) {
+                Resend Code ({{ resendTimer() }}s)
+              } @else {
+                Resend Code
+              }
+            </button>
+          </div>
+        }
+
+        <!-- Success Message (for resend) -->
+        @if (success(); as successMessage) {
+          <div>
+            <p-message
+              severity="success"
+              [text]="successMessage"
+              [closable]="true"
+              (onClose)="success.set(null)"
+            />
+          </div>
+        }
+
+        <!-- Error Message -->
+        @if (error(); as errorMessage) {
+          <div class="error-message-container-compact">
+            <p-message
+              severity="error"
+              [text]="errorMessage"
+              [closable]="true"
+              styleClass="w-full"
+              (onClose)="error.set(null)"
+            />
+          </div>
+        }
+      </form>
+
+      <!-- Back Navigation Link - Dynamically adapts based on challenge type -->
+      <div class="flex justify-center mt-6">
+        <p-button
+          [label]="
+            currentChallengeType() === AuthChallenge.MFA_REQUIRED
+              ? 'Use another verification method'
+              : currentChallengeType() === AuthChallenge.MFA_SETUP_REQUIRED
+                ? 'Back to method selection'
+                : 'Back to login'
+          "
+          icon="pi pi-arrow-left"
+          styleClass="p-button-text p-button-sm"
+          (onClick)="goBack()"
+        />
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,288 @@
+<p-card styleClass="dashboard-card">
+  <ng-template pTemplate="header">
+    <div class="dashboard-card-header">
+      <div class="dashboard-card-header-content">
+        <div class="dashboard-card-header-title">
+          <i class="pi pi-history dashboard-card-header-icon"></i>
+          <h2 class="dashboard-card-header-text">Audit Trail</h2>
+        </div>
+      </div>
+    </div>
+  </ng-template>
+
+  <div class="p-6">
+    <!-- Filters -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      <div>
+        <label class="form-label-section">Date Range</label>
+        <p-datepicker
+          [(ngModel)]="dateRange"
+          selectionMode="range"
+          [readonlyInput]="true"
+          dateFormat="yy-mm-dd"
+          placeholder="Select date range"
+          class="w-full"
+          (onSelect)="onDateRangeChange()"
+          [showIcon]="true"
+        />
+      </div>
+      <div>
+        <label class="form-label-section">Status</label>
+        <p-multiselect
+          [ngModel]="selectedStatuses()"
+          (ngModelChange)="selectedStatuses.set($event)"
+          [options]="statusOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Select statuses"
+          [showClear]="true"
+          class="w-full"
+          (onChange)="onStatusChange()"
+        />
+      </div>
+      <div class="flex items-end">
+        <p-button
+          label="Clear"
+          icon="pi pi-filter-slash"
+          severity="secondary"
+          size="small"
+          class="w-full md:w-auto"
+          (onClick)="clearFilters()"
+          [disabled]="!dateRange() && selectedStatuses().length === 0"
+        />
+      </div>
+    </div>
+
+    <!-- Error Message -->
+    @if (error()) {
+      <p-message severity="error" [text]="error() || ''" styleClass="w-full mb-4" />
+    }
+
+    <!-- Table -->
+    <p-table
+      [value]="events()"
+      [loading]="loading()"
+      [paginator]="false"
+      [rowHover]="true"
+      [rows]="limit()"
+      [lazy]="true"
+      [totalRecords]="total()"
+      [scrollable]="true"
+      scrollHeight="400px"
+      responsiveLayout="scroll"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="min-width: 12rem">Event Type</th>
+          <th style="min-width: 8rem">Status</th>
+          <th style="min-width: 10rem">Date & Time</th>
+          <th style="min-width: 10rem" class="hide-mobile">IP Address</th>
+          <th style="min-width: 10rem" class="hide-mobile">Device</th>
+          <th style="min-width: 6rem" class="hide-mobile">Risk</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-event>
+        <tr class="cursor-pointer" (click)="openEventDetail(event)">
+          <td>
+            <span class="font-medium text-secondary-900 font-mono text-sm">{{
+              event.eventType
+            }}</span>
+          </td>
+          <td>
+            <p-tag [value]="event.eventStatus" [severity]="getStatusSeverity(event.eventStatus)" />
+          </td>
+          <td>
+            <span class="text-secondary-700 text-sm">{{ formatDate(event.createdAt) }}</span>
+          </td>
+          <td class="hide-mobile">
+            <span class="text-secondary-700 font-mono text-xs">{{ event.ipAddress || 'N/A' }}</span>
+          </td>
+          <td class="hide-mobile">
+            <span class="text-secondary-700 text-sm">{{ event.deviceName || 'N/A' }}</span>
+          </td>
+          <td class="hide-mobile">
+            @if (event.riskFactor !== null && event.riskFactor !== undefined) {
+              <span class="text-secondary-700">{{ event.riskFactor }}</span>
+            } @else {
+              <span class="text-secondary-400">-</span>
+            }
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="6" class="text-center p-6">
+            <p class="text-secondary-500">No audit events found</p>
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+
+    <!-- Pagination -->
+    @if (total() > 0) {
+      <div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="text-sm text-secondary-600">
+          Showing {{ paginationInfo().start }} to {{ paginationInfo().end }} of
+          {{ paginationInfo().total }} entries
+        </div>
+        <p-paginator
+          [rows]="limit()"
+          [totalRecords]="total()"
+          [first]="(page() - 1) * limit()"
+          (onPageChange)="onPageChange($event)"
+          [rowsPerPageOptions]="[10, 20, 50]"
+        />
+      </div>
+    }
+  </div>
+</p-card>
+
+<!-- Event Detail Drawer -->
+<p-drawer
+  [(visible)]="sidebarVisible"
+  position="right"
+  [modal]="true"
+  [dismissible]="true"
+  [showCloseIcon]="true"
+  [style]="{ width: drawerWidth() }"
+  header="Event Details"
+>
+  @if (selectedEvent(); as event) {
+    <div class="space-y-6">
+      <!-- Header: Event Type & Status (Most Prominent) -->
+      <div class="border-b border-slate-200 pb-4">
+        <div class="flex items-start justify-between gap-4 mb-3">
+          <div class="flex-1">
+            <div class="text-xs font-semibold text-secondary-500 uppercase tracking-wide mb-1">
+              Event Type
+            </div>
+            <div class="text-lg font-bold text-secondary-900 font-mono">{{ event.eventType }}</div>
+          </div>
+          <div>
+            <p-tag
+              [value]="event.eventStatus"
+              [severity]="getStatusSeverity(event.eventStatus)"
+              styleClass="text-sm px-3 py-1"
+            />
+          </div>
+        </div>
+        <div class="text-sm text-secondary-600">
+          <i class="pi pi-calendar mr-2"></i>
+          <span>{{ formatDate(event.createdAt) }}</span>
+        </div>
+      </div>
+
+      <!-- Summary (Only show if there's meaningful content) -->
+      @if (hasImportantDetails(event)) {
+        <div class="bg-slate-50 rounded-lg p-4">
+          <h4 class="text-sm font-semibold text-secondary-700 mb-3">Summary</h4>
+          <div class="space-y-3 text-sm">
+            @if (event.reason) {
+              <div>
+                <span class="font-semibold text-secondary-700">Reason:</span>
+                <p class="text-secondary-600 mt-1">{{ event.reason }}</p>
+              </div>
+            }
+            @if (event.description) {
+              <div>
+                <span class="font-semibold text-secondary-700">Description:</span>
+                <p class="text-secondary-600 mt-1">{{ event.description }}</p>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Location & Network -->
+      <div class="bg-slate-50 rounded-lg p-4">
+        <h4 class="text-sm font-semibold text-secondary-700 mb-3 flex items-center gap-2">
+          <i class="pi pi-map-marker"></i>
+          Location & Network
+        </h4>
+        <div class="space-y-2 text-sm">
+          <div class="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-2">
+            <span class="text-secondary-600 font-medium">IP Address:</span>
+            <span class="text-secondary-900 font-mono text-xs sm:text-sm break-all font-semibold">{{
+              event.ipAddress || 'N/A'
+            }}</span>
+          </div>
+          <div class="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-2">
+            <span class="text-secondary-600">Country:</span>
+            <span class="text-secondary-900 font-medium">{{ event.ipCountry || 'N/A' }}</span>
+          </div>
+          <div class="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-2">
+            <span class="text-secondary-600">City:</span>
+            <span class="text-secondary-900 font-medium">{{ event.ipCity || 'N/A' }}</span>
+          </div>
+          <div class="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-2">
+            <span class="text-secondary-600">Coordinates:</span>
+            <span class="text-secondary-900 font-mono text-xs font-medium">
+              @if (event.ipLatitude && event.ipLongitude) {
+                {{ event.ipLatitude }}, {{ event.ipLongitude }}
+              } @else {
+                N/A
+              }
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Device Information -->
+      <div class="bg-slate-50 rounded-lg p-4">
+        <h4 class="text-sm font-semibold text-secondary-700 mb-3 flex items-center gap-2">
+          <i class="pi pi-desktop"></i>
+          Device Information
+        </h4>
+        <div class="space-y-2 text-sm">
+          <div class="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-2">
+            <span class="text-secondary-600">Device Name:</span>
+            <span class="text-secondary-900 font-medium">{{ event.deviceName || 'N/A' }}</span>
+          </div>
+          <div class="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-2">
+            <span class="text-secondary-600">Device Type:</span>
+            <span class="text-secondary-900 font-medium">{{ event.deviceType || 'N/A' }}</span>
+          </div>
+          <div class="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-2">
+            <span class="text-secondary-600">Platform:</span>
+            <span class="text-secondary-900 font-medium">{{ event.platform || 'N/A' }}</span>
+          </div>
+          <div class="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-2">
+            <span class="text-secondary-600">Browser:</span>
+            <span class="text-secondary-900 font-medium">{{ event.browser || 'N/A' }}</span>
+          </div>
+          <div class="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-2">
+            <span class="text-secondary-600">Auth Method:</span>
+            <span class="text-secondary-900 font-medium">{{ event.authMethod || 'N/A' }}</span>
+          </div>
+          @if (event.userAgent) {
+            <div class="flex flex-col mt-3 pt-3 border-t border-slate-200">
+              <span class="text-secondary-600 mb-1 text-xs">User Agent:</span>
+              <span
+                class="text-secondary-700 text-xs font-mono break-all bg-white p-2 rounded border border-slate-200"
+                >{{ event.userAgent }}</span
+              >
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Metadata (Always Expanded) -->
+      <div class="border-t border-slate-200 pt-4">
+        <h4 class="text-sm font-semibold text-secondary-700 mb-3 flex items-center gap-2">
+          <i class="pi pi-database"></i>
+          Metadata
+        </h4>
+        <div class="bg-slate-50 rounded-lg p-4">
+          @if (event.metadata) {
+            <pre
+              class="bg-white p-4 rounded border border-slate-200 text-xs font-mono overflow-x-auto max-h-96 overflow-y-auto whitespace-pre-wrap"
+              >{{ formatMetadata(event.metadata) }}</pre
+            >
+          } @else {
+            <p class="text-secondary-500 text-sm italic">No metadata available</p>
+          }
+        </div>
+      </div>
+    </div>
+  }
+</p-drawer>

@@ -1,0 +1,29 @@
+<!-- Welcome Email Content -->
+<mj-text>
+  We're excited to have you with us! Your account has been successfully created and you're ready to get started.
+</mj-text>
+
+<mj-raw>
+  {{#if dashboardUrl}}
+</mj-raw>
+<mj-button href="{{dashboardUrl}}">
+  Get Started
+</mj-button>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+
+<mj-raw>
+  {{#if supportEmail}}
+</mj-raw>
+<mj-text css-class="text-small" padding="24px 24px 16px 24px">
+  If you have any questions or need assistance, feel free to reach out to our support team at <a href="mailto:{{supportEmail}}">{{supportEmail}}</a>.
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>
+
+<mj-text css-class="font-bold text-primary" padding="0 24px 24px 24px">
+  Happy exploring!
+</mj-text>
+

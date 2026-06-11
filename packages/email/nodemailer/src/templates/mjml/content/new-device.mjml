@@ -1,0 +1,35 @@
+<!-- New Device Login Email Content -->
+<mj-text> We detected a login to your account from a new device. </mj-text>
+
+<mj-text css-class="text-small alert-box alert-info" padding="16px 24px">
+  <mj-raw>
+    {{#if deviceName}}<strong>Device:</strong> {{ deviceName }}<br />{{/if}} {{#if deviceType}}<strong>Type:</strong>
+    {{ deviceType }}<br />{{/if}} {{#if ipAddress}}<strong>IP Address:</strong> {{ ipAddress }}<br />{{/if}}
+    {{#if location}}<strong>Location:</strong> {{ location }}<br />{{/if}} {{#if timestamp}}<strong>Time:</strong>
+    {{ timestamp }}{{/if}}
+  </mj-raw>
+</mj-text>
+
+<mj-text css-class="heading" padding="24px 24px 8px 24px"> Was this you? </mj-text>
+<mj-text css-class="text-small" padding="0 24px 16px 24px">
+  If you recognize this login, no action is needed. Your account is secure.
+</mj-text>
+
+<mj-text css-class="heading text-danger" padding="16px 24px 8px 24px"> Not you? </mj-text>
+<mj-text css-class="text-small" padding="0 24px 16px 24px">
+  If you don't recognize this activity, please secure your account immediately:
+</mj-text>
+
+<mj-text css-class="text-small" padding="0 24px 16px 24px">
+  <ul>
+    <li>Change your password</li>
+    <li>Review your recent account activity</li>
+    <mj-raw>
+      {{#if supportEmail}}
+      <li>
+        Contact support at <a href="mailto:{{supportEmail}}">{{ supportEmail }}</a>
+      </li>
+      {{/if}}
+    </mj-raw>
+  </ul>
+</mj-text>

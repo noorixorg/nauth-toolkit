@@ -1,0 +1,484 @@
+---
+sidebar_position: 4
+title: Express
+description: 'Set up nauth-toolkit with Express: install packages, initialize nauth-toolkit, mount middleware, add signup/login/logout/profile routes with error handling, and verify with curl'
+keywords: [quick-start, express, setup, installation, authentication]
+image: /img/api-social-card.png
+---
+
+# Quick Start: Express
+
+Add authentication to an Express application using nauth-toolkit's framework-agnostic core. By the end of this guide you'll have signup, login, logout, token refresh, and a protected profile endpoint working.
+
+:::note Sample Application
+A complete working example is available at [github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-express](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-express) — Express + TypeORM + PostgreSQL with Google OAuth and TOTP MFA preconfigured.
+:::
+
+:::tip Live Demo
+See nauth-toolkit in action at **[demo.nauth.dev](https://demo.nauth.dev)** — a working demo app showcasing signup, login, MFA, social auth, and session management.
+:::
+
+## Prerequisites
+
+- Node.js 22+ (older versions may work but are untested)
+- PostgreSQL or MySQL database running
+- An Express application
+
+---
+
+## Installation
+
+This example uses PostgreSQL. For MySQL, replace `@nauth-toolkit/database-typeorm-postgres` with `@nauth-toolkit/database-typeorm-mysql` and `pg` with `mysql2`.
+
+```bash npm2yarn
+npm install @nauth-toolkit/core @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console cookie-parser cors dotenv typeorm pg
+```
+
+---
+
+## Configuration
+
+Create the auth configuration file. `DatabaseStorageAdapter` is passed `null` repositories here — `NAuth.create()` injects them from your `DataSource` automatically.
+
+```typescript title="src/config/auth.config.ts"
+import { NAuthConfig } from '@nauth-toolkit/core';
+import { DatabaseStorageAdapter } from '@nauth-toolkit/storage-database';
+import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
+import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
+
+export const authConfig: NAuthConfig = {
+  tablePrefix: 'nauth_',
+
+  // DatabaseStorageAdapter stores transient state (rate limits, sessions, locks)
+  // in the same PostgreSQL database — no Redis required.
+  // NAuth.create() injects the DataSource repositories automatically.
+  // For multi-server production deployments, use createRedisStorageAdapter() instead.
+  storageAdapter: new DatabaseStorageAdapter(null, null),
+
+  jwt: {
+    algorithm: 'HS256',
+    accessToken: {
+      secret: process.env.JWT_SECRET,
+      expiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRES_IN || '1h',
+    },
+    refreshToken: {
+      secret: process.env.JWT_REFRESH_SECRET as string,
+      expiresIn: process.env.JWT_REFRESH_TOKEN_EXPIRES_IN || '30d',
+      rotation: true,
+    },
+  },
+  logger: {
+    instance: new Logger('NAuth'),
+    enablePiiRedaction: true, // Redact emails, IPs, tokens
+  },
+
+  password: {
+    minLength: 8,
+    requireUppercase: true,
+    requireNumbers: true,
+    requireSpecialChars: true,
+  },
+
+  signup: {
+    enabled: true,
+    // Set to 'email', 'phone', or 'both' to require verification via the Challenge System
+    verificationMethod: 'none',
+  },
+
+  // Cookie-based token delivery — requires cookie-parser middleware
+  tokenDelivery: {
+    method: 'cookies',
+    cookieOptions: {
+      // On localhost (HTTP) use lax + insecure. For production HTTPS cross-site
+      // deployments set COOKIE_SECURE=true, COOKIE_SAME_SITE=none, COOKIE_DOMAIN=.yourdomain.com
+      secure: process.env.COOKIE_SECURE === 'true',
+      sameSite: (process.env.COOKIE_SAME_SITE as 'lax' | 'strict' | 'none') || 'lax',
+    },
+  },
+
+  security: {
+    csrf: {
+      cookieName: 'nauth_csrf_token',
+      headerName: 'x-csrf-token',
+    },
+  },
+
+  // Console providers log to stdout — replace with real providers for production
+  emailProvider: new ConsoleEmailProvider(),
+  smsProvider: new ConsoleSMSProvider(),
+} satisfies NAuthConfig;
+```
+
+---
+
+## Bootstrap
+
+Middleware order is critical — `clientInfo` must be registered first because it initialises the `AsyncLocalStorage` context that all subsequent middleware and handlers depend on.
+
+```typescript title="src/index.ts"
+import 'dotenv/config';
+import express from 'express';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import { DataSource } from 'typeorm';
+import { NAuth, ExpressAdapter, ExpressMiddlewareType, NAuthInstance } from '@nauth-toolkit/core';
+import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
+import { authConfig } from './config/auth.config';
+import { createAuthRoutes } from './routes/auth.routes';
+import { errorHandler } from './utils/error-handler';
+
+type TypedNAuth = NAuthInstance<ExpressMiddlewareType, express.RequestHandler>;
+
+async function main(): Promise<void> {
+  // ── Database ──────────────────────────────────────────────────────────────────
+  // getNAuthTransientStorageEntities() adds the tables used by DatabaseStorageAdapter
+  // (nauth_rate_limits, nauth_storage_locks) so no Redis is needed.
+
+  const dataSource = new DataSource({
+    type: 'postgres',
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT ?? '5432', 10),
+    username: process.env.DB_USERNAME as string,
+    password: process.env.DB_PASSWORD as string,
+    database: process.env.DB_DATABASE ?? 'myapp',
+    entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()],
+    logging: false,
+  });
+
+  await dataSource.initialize();
+
+  // ── NAuth ─────────────────────────────────────────────────────────────────────
+
+  const nauth = await NAuth.create({
+    config: authConfig,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    dataSource: dataSource as any,
+    adapter: new ExpressAdapter(),
+  });
+
+  // ── Express App ───────────────────────────────────────────────────────────────
+
+  const app = express();
+
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+  app.use(cookieParser());
+
+  // In production, replace `origin: true` with an explicit list of allowed origins.
+  app.use(
+    cors({
+      origin: true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id', 'x-csrf-token', 'x-device-token'],
+    }),
+  );
+
+  // ── NAuth Middleware (ORDER MATTERS) ──────────────────────────────────────────
+  app.use(nauth.middleware.clientInfo as ExpressMiddlewareType); // MUST BE FIRST — initializes AsyncLocalStorage
+  app.use(nauth.middleware.csrf as ExpressMiddlewareType); // CSRF validation
+  app.use(nauth.middleware.auth as ExpressMiddlewareType); // JWT validation (sets user on context)
+  app.use(nauth.middleware.tokenDelivery as ExpressMiddlewareType); // Response interceptor for cookie delivery
+
+  // ── Health Check ──────────────────────────────────────────────────────────────
+
+  app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+
+  // ── Routes ────────────────────────────────────────────────────────────────────
+
+  app.use('/auth', createAuthRoutes(nauth as TypedNAuth));
+
+  // ── Error Handler (MUST BE LAST) ──────────────────────────────────────────────
+  app.use(errorHandler);
+
+  // ── Start ─────────────────────────────────────────────────────────────────────
+
+  const port = parseInt(process.env.PORT || '3000', 10);
+  app.listen(port, '0.0.0.0', () => {
+    // server listening
+  });
+}
+
+main().catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
+});
+```
+
+---
+
+## Auth Routes
+
+Use `nauth.helpers.public()` to mark routes that don't require authentication, and `nauth.helpers.requireAuth()` to enforce it. Call `nauth.helpers.getCurrentUser()` inside protected handlers to retrieve the validated user from the request context — no need to parse tokens manually.
+
+```typescript title="src/routes/auth.routes.ts"
+import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
+import { NAuthInstance, ExpressMiddlewareType, IUser, UserResponseDTO } from '@nauth-toolkit/core';
+
+export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, RequestHandler>): Router {
+  const router = Router();
+  const { authService } = nauth;
+
+  // ── Primary Auth Flow ────────────────────────────────────────────────────────
+
+  router.post('/signup', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.status(201).json(await authService.signup(req.body));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/login', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(await authService.login(req.body));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/respond-challenge', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(await authService.respondToChallenge(req.body));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/refresh', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Cookies mode: fall back to cookie if body token is absent or empty
+      const token = req.body?.refreshToken?.trim() || req.cookies?.['nauth_refresh_token'];
+      res.json(await authService.refreshToken({ refreshToken: token }));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // ── Logout ───────────────────────────────────────────────────────────────────
+  // GET avoids CSRF issues for session destruction; csrf: false bypasses the CSRF check
+
+  router.get(
+    '/logout',
+    nauth.helpers.requireAuth({ csrf: false }),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        res.json(await authService.logout(req.query));
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // ── User Profile ─────────────────────────────────────────────────────────────
+
+  router.get('/profile', nauth.helpers.requireAuth(), (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = nauth.helpers.getCurrentUser() as IUser;
+      res.json(UserResponseDTO.fromEntity(user));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.put('/profile', nauth.helpers.requireAuth(), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(await authService.updateUserAttributes(req.body));
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post(
+    '/change-password',
+    nauth.helpers.requireAuth(),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        res.json(await authService.changePassword(req.body));
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // ── Account Recovery ─────────────────────────────────────────────────────────
+
+  router.post('/forgot-password', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(
+        await authService.forgotPassword({
+          ...req.body,
+          baseUrl: process.env.FRONTEND_BASE_URL || 'http://localhost:5173',
+        }),
+      );
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post(
+    '/forgot-password/confirm',
+    nauth.helpers.public(),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        res.json(await authService.confirmForgotPassword(req.body));
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  return router;
+}
+```
+
+---
+
+## Error Handler
+
+Map [`NAuthException`](/docs/concepts/error-handling) errors to HTTP status codes and return a structured JSON response. Register this **last** with `app.use(errorHandler)`.
+
+```typescript title="src/utils/error-handler.ts"
+import { Request, Response, NextFunction } from 'express';
+import { NAuthException, getHttpStatusForErrorCode } from '@nauth-toolkit/core';
+
+/**
+ * Express error handler middleware
+ *
+ * Maps NAuthException to structured HTTP error responses.
+ * Must be registered LAST with app.use(errorHandler).
+ */
+export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
+  if (err instanceof NAuthException) {
+    const statusCode = getHttpStatusForErrorCode(err.code);
+    res.status(statusCode).json({ ...err.toJSON(), path: req.path });
+    return;
+  }
+
+  console.error('[Error]', err);
+  res.status(500).json({
+    code: 'INTERNAL_ERROR',
+    message: 'An unexpected error occurred',
+    timestamp: new Date().toISOString(),
+    path: req.path,
+  });
+}
+```
+
+---
+
+## Environment Variables
+
+```bash title=".env"
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+DB_DATABASE=myapp
+
+JWT_SECRET=your-access-token-secret-min-32-chars
+JWT_REFRESH_SECRET=your-refresh-token-secret-min-32-chars
+
+# Cookie settings (for production)
+COOKIE_SECURE=true
+COOKIE_SAME_SITE=lax
+```
+
+---
+
+## Verify the Backend
+
+Start your application and test the endpoints:
+
+```bash
+# Signup
+curl -c cookies.txt -X POST http://localhost:3000/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "MyPassword1!"}'
+
+# Login
+curl -c cookies.txt -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "MyPassword1!"}'
+
+# Profile (cookies are sent automatically by curl with -b)
+curl -b cookies.txt http://localhost:3000/auth/profile
+```
+
+With `tokenDelivery: { method: 'cookies' }`, auth tokens are set as `httpOnly` cookies. The profile endpoint is protected — requests without a valid session cookie return `401`.
+
+---
+
+## Adding Features
+
+### Social Login (Google)
+
+```bash npm2yarn
+npm install @nauth-toolkit/social-google
+```
+
+Social providers auto-register when configured. Add to your `authConfig`:
+
+```typescript title="src/config/auth.config.ts"
+export const authConfig: NAuthConfig = {
+  // ...
+  social: {
+    redirect: {
+      frontendBaseUrl: process.env.FRONTEND_BASE_URL || 'http://localhost:5173',
+      allowAbsoluteReturnTo: true,
+      allowedReturnToOrigins: ['http://localhost:5173'],
+    },
+    google: {
+      enabled: true,
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      callbackUrl: `${process.env.API_BASE_URL || 'http://localhost:3000'}/auth/social/google/callback`,
+      scopes: ['openid', 'email', 'profile'],
+      autoLink: true,
+      allowSignup: true,
+    },
+  },
+};
+```
+
+See the [Social Login](/docs/guides/social/how-social-login-works) guide for the full route implementation.
+
+### MFA (TOTP)
+
+```bash npm2yarn
+npm install @nauth-toolkit/mfa-totp
+```
+
+MFA providers also auto-register when configured. Add to your `authConfig`:
+
+```typescript title="src/config/auth.config.ts"
+import { MFAMethod } from '@nauth-toolkit/core';
+
+export const authConfig: NAuthConfig = {
+  // ...
+  mfa: {
+    enabled: true,
+    enforcement: 'OPTIONAL',
+    allowedMethods: [MFAMethod.TOTP],
+    issuer: 'My App',
+    totp: { digits: 6, stepSeconds: 30, algorithm: 'sha1', window: 1 },
+  },
+};
+```
+
+See the [MFA](/docs/guides/mfa/how-mfa-works) guide for setup and verification route implementations.
+
+:::tip Complete Route Examples
+This quick start covers the essential routes. For complete implementations including MFA management, session management, social linking, admin endpoints, and more, see the [Authentication Routes](/docs/guides/routes) guide.
+:::
+
+---
+
+## What's Next
+
+- [Express Sample App](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-express) — Full working example with Google OAuth, TOTP MFA, and complete route implementations
+- [Configuration](/docs/concepts/configuration) — Full configuration reference with all available options
+- [Challenge System](/docs/concepts/challenge-system) — Understand multi-step authentication flows (MFA, verification)
+- [Authentication Routes](/docs/guides/routes) — Complete route implementations for all auth flows
+- [Token Delivery](/docs/concepts/token-management) — Switch between cookie and JSON token delivery
+- [React Frontend](/docs/quick-start/react) — Connect a React frontend to this backend
