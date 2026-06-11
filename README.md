@@ -1,5 +1,9 @@
 # nauth-toolkit
 
+[![npm version](https://img.shields.io/npm/v/@nauth-toolkit/core)](https://www.npmjs.com/package/@nauth-toolkit/core)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![docs](https://img.shields.io/badge/docs-nauth.dev-4f46e5)](https://nauth.dev)
+
 **Authentication that lives in your codebase.**
 
 nauth-toolkit is an embedded TypeScript authentication library for Node.js. It runs inside your server process, stores all data in your own database, and makes zero external API calls. No per-user fees, no vendor lock-in — you own the code and the data.
