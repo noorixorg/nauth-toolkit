@@ -363,7 +363,7 @@ export default function Home() {
             </h1>
             <p className="hero-subtitle">
               An embedded TypeScript library for NestJS, Express &amp; Fastify. Runs in your server, stores data in your
-              database. Free to use.
+              database. Free and open source under the MIT license.
             </p>
             <div className="hero-buttons">
               <Link className="btn btn-primary" to="/docs/intro">
@@ -424,10 +424,10 @@ export default function Home() {
           </div>
           <div className="stat-div"></div>
           <div className="value-item">
-            <i className="fa-duotone fa-light fa-file-code value-icon"></i>
+            <i className="fa-duotone fa-light fa-scale-balanced value-icon"></i>
             <div className="value-text">
-              <span className="value-title">Full TypeScript source</span>
-              <span className="value-desc">Read, modify, and fork every line. No black boxes.</span>
+              <span className="value-title">Open source (MIT)</span>
+              <span className="value-desc">Read, modify, and fork every line. No black boxes, no strings attached.</span>
             </div>
           </div>
           <div className="stat-div"></div>
@@ -824,7 +824,8 @@ export default function Home() {
           <h2>Start building today</h2>
           <p className="cta-description">
             Add complete authentication to your Node.js application — social login, adaptive MFA, passkeys, and full
-            audit trails. No third-party services, no per-user fees, no vendor lock-in.
+            audit trails. Free and open source under the MIT license — no third-party services, no per-user fees, no
+            vendor lock-in.
           </p>
           <div className="button-group">
             <Link className="btn btn-primary" to="/docs/intro">

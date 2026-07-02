@@ -8,7 +8,7 @@
  * - Old password verified before allowing change
  * - New password validated for minimum strength
  * - Password history checked (configurable)
- * - Max length prevents DoS via bcrypt
+ * - Max length prevents DoS via Argon2 hashing
  *
  * @example
  * ```typescript
@@ -41,7 +41,7 @@ export class ChangePasswordDTO {
    * Validation:
    * - Must be a string
    * - Min 8 characters (security requirement)
-   * - Max 128 characters (prevents DoS via bcrypt)
+   * - Max 128 characters (prevents DoS via Argon2 hashing)
    *
    * Note: NOT trimmed (passwords can have leading/trailing spaces)
    *

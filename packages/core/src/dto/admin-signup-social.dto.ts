@@ -153,7 +153,7 @@ export class AdminSignupSocialDTO {
    *
    * Validation:
    * - Min 8 characters
-   * - Max 128 characters (prevents DoS via bcrypt)
+   * - Max 128 characters (prevents DoS via Argon2 hashing)
    * - Additional policy checks in service layer
    *
    * Note: NOT trimmed (passwords can have leading/trailing spaces)

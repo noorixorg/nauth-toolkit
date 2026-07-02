@@ -694,7 +694,7 @@ security: {
 | Option                | Description                                                                                                   | Default | Recommended                        |
 | --------------------- | ------------------------------------------------------------------------------------------------------------- | ------- | ---------------------------------- |
 | `minLength`           | Minimum password length. NIST recommends at least 8 characters.                                               | 8       | 8 or higher                        |
-| `maxLength`           | Maximum password length. Prevents DoS attacks from bcrypt hashing very long strings.                          | 128     | 128                                |
+| `maxLength`           | Maximum password length. Prevents DoS attacks from Argon2 hashing very long strings.                          | 128     | 128                                |
 | `requireUppercase`    | Require at least one uppercase letter (A-Z).                                                                  | false   | true for moderate security         |
 | `requireLowercase`    | Require at least one lowercase letter (a-z).                                                                  | false   | true for moderate security         |
 | `requireNumbers`      | Require at least one number (0-9).                                                                            | false   | true for moderate security         |
