@@ -568,6 +568,33 @@ export const emailNotificationsConfigSchema = z
   .optional();
 
 // ============================================================================
+// API Key Configuration Schema
+// ============================================================================
+
+/**
+ * API key authentication configuration schema
+ */
+export const apiKeyConfigSchema = z.object({
+  enabled: z.boolean().optional(),
+  allowUserCreation: z.boolean().optional(),
+  header: z.string().optional(),
+  keyPrefix: z.string().optional(),
+  maxKeysPerUser: z.number().optional(),
+  maxExpiryDays: z.number().optional(),
+  allowIndefinite: z.boolean().optional(),
+  trackUsageIp: z.boolean().optional(),
+  lastUsedThrottleSeconds: z.number().optional(),
+  globalAllowlist: z.boolean().optional(),
+  ipRestrictions: z
+    .object({
+      enabled: z.boolean().optional(),
+      requireForNewKeys: z.boolean().optional(),
+      maxIpsPerKey: z.number().optional(),
+    })
+    .optional(),
+});
+
+// ============================================================================
 // Root Configuration Schema with Cross-Dependency Validation
 // ============================================================================
 
@@ -616,6 +643,7 @@ export const authConfigSchema = z
     tokenDelivery: tokenDeliveryConfigSchema.optional(),
     challenge: challengeConfigSchema.optional(),
     geoLocation: geoLocationConfigSchema.optional(),
+    apiKeys: apiKeyConfigSchema.optional(),
   })
   .superRefine((data, ctx) => {
     // ============================================================================

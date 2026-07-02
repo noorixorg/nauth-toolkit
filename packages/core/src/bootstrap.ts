@@ -39,6 +39,7 @@ import { ContextStorage } from './utils/context-storage';
 // Handlers
 import { ClientInfoHandler } from './handlers/client-info.handler';
 import { AuthHandler } from './handlers/auth.handler';
+import { ApiKeyHandler } from './handlers/api-key.handler';
 import { TokenDeliveryHandler } from './handlers/token-delivery.handler';
 import { CsrfHandler } from './handlers/csrf.handler';
 import { CsrfService } from './services/csrf.service';
@@ -315,6 +316,12 @@ export class NAuth {
       logger,
     );
 
+    // API key handler (only when the feature is enabled and the service is available)
+    const apiKeyHandler =
+      config.apiKeys?.enabled && services.apiKeyService
+        ? new ApiKeyHandler(services.apiKeyService, services.authService, config, logger)
+        : null;
+
     const tokenDeliveryHandler = new TokenDeliveryHandler(config, logger);
 
     // CSRF service (only for cookies/hybrid delivery)
@@ -333,6 +340,14 @@ export class NAuth {
       clientInfo: adapter.registerMiddleware('clientInfo', clientInfoHandler.handle.bind(clientInfoHandler), {
         initializesContext: true,
       }),
+
+      // API key handler - MUST run before the JWT auth handler. When an API key is present it
+      // is the only credential considered; a valid key makes the auth handler skip cookie/bearer.
+      apiKey: apiKeyHandler
+        ? adapter.registerMiddleware('apiKey', apiKeyHandler.handle.bind(apiKeyHandler))
+        : adapter.registerMiddleware('noop', async (_req: NAuthRequest, _res: NAuthResponse, next: () => void) => {
+            await next();
+          }),
 
       // Auth handler
       auth: adapter.registerMiddleware('auth', authHandler.handle.bind(authHandler)),
@@ -384,6 +399,24 @@ export class NAuth {
               code: 'AUTH_REQUIRED',
             });
             return;
+          }
+
+          // API-key route opt-in enforcement (deny-wins, least privilege):
+          // a key-authenticated request is only allowed on routes explicitly opted-in via
+          // allowApiKey() (or globalAllowlist), and never on routes opted-out via denyApiKey().
+          if (req.attributes.nauthApiKeyAuth) {
+            const allowed =
+              req.attributes.nauthDenyApiKey !== true &&
+              (req.attributes.nauthAllowApiKey === true || config.apiKeys?.globalAllowlist === true);
+            if (!allowed) {
+              res.status(403).json({
+                statusCode: 403,
+                error: 'Forbidden',
+                message: 'API key authentication is not allowed for this route',
+                code: AuthErrorCode.FORBIDDEN,
+              });
+              return;
+            }
           }
 
           return next();
@@ -463,6 +496,35 @@ export class NAuth {
       requireRecaptcha: () =>
         adapter.registerMiddleware('requireRecaptcha', (req: NAuthRequest, _res: NAuthResponse, next: () => void) => {
           req.attributes.nauthRequireRecaptcha = true;
+          return next();
+        }),
+
+      /**
+       * Allow API-key authentication for this route (opt-in).
+       *
+       * With the default opt-in policy, API keys only authenticate on routes marked with this
+       * helper. Enforced by `requireAuth()`.
+       *
+       * @example
+       * ```typescript
+       * app.get('/api/data', nauth.helpers.allowApiKey(), nauth.helpers.requireAuth(), handler);
+       * ```
+       */
+      allowApiKey: () =>
+        adapter.registerMiddleware('allowApiKey', (req: NAuthRequest, _res: NAuthResponse, next: () => void) => {
+          req.attributes.nauthAllowApiKey = true;
+          return next();
+        }),
+
+      /**
+       * Deny API-key authentication for this route (takes precedence over allow / globalAllowlist).
+       *
+       * Use to exclude a sensitive route even when keys are enabled globally or on a controller.
+       * Enforced by `requireAuth()`.
+       */
+      denyApiKey: () =>
+        adapter.registerMiddleware('denyApiKey', (req: NAuthRequest, _res: NAuthResponse, next: () => void) => {
+          req.attributes.nauthDenyApiKey = true;
           return next();
         }),
 

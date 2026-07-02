@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/nestjs",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "NestJS module for nauth-toolkit — guards, decorators, interceptors",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -44,7 +44,7 @@
     "typeorm": "^0.3.0"
   },
   "dependencies": {
-    "@nauth-toolkit/core": "workspace:*"
+    "@nauth-toolkit/core": "^0.3.1"
   },
   "devDependencies": {
     "@nestjs/common": "^11.1.8",

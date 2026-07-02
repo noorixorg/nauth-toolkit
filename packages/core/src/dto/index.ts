@@ -80,6 +80,10 @@ export * from './admin-get-user-auth-history.dto';
 export * from './social-auth.dto';
 export * from './social-redirect.dto';
 
+// API Key DTOs
+export * from './api-key.dto';
+export * from './admin-api-key.dto';
+
 // Note: Social and MFA DTOs moved to their respective packages
 // - social-login.dto → @nauth-toolkit/social-*
 // - mfa.dto → @nauth-toolkit/mfa-*

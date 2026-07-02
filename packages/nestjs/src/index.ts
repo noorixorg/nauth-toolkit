@@ -47,6 +47,7 @@ export { Public, IS_PUBLIC_KEY } from './decorators/public.decorator';
 export { ClientInfo } from './decorators/client-info.decorator';
 export { TokenDelivery, TOKEN_DELIVERY_KEY, RouteDelivery } from './decorators/token-delivery.decorator';
 export { RequireRecaptcha } from './decorators/recaptcha.decorator';
+export { AllowApiKey, ALLOW_API_KEY_KEY, DenyApiKey, DENY_API_KEY_KEY } from './decorators/api-key.decorator';
 export {
   PreSignupHook,
   PostSignupHook,

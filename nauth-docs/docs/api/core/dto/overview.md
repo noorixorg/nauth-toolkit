@@ -99,6 +99,20 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [ConfirmAdminResetPasswordDTO](./confirm-admin-reset-password-dto) | Confirm admin password reset | Code, new password, and session                                                    |
 | [UpdateVerifiedStatusRequestDTO](./update-verified-status-request-dto) | Admin verification status | Update email/phone verified flags                                                  |
 
+## API Key DTOs
+
+| DTO                                                    | Description                     | Documentation                                             |
+| ------------------------------------------------------ | ------------------------------- | --------------------------------------------------------- |
+| [CreateApiKeyDTO](./create-api-key-dto)                | Create API key (user)           | Name, mandatory expiry, optional IP allowlist             |
+| [UpdateApiKeyDTO](./update-api-key-dto)                | Update API key (user)           | Change label and/or IP allowlist                          |
+| [RevokeApiKeyDTO](./revoke-api-key-dto)                | Revoke API key (user)           | Soft-disable a key by keyId                               |
+| [DeleteApiKeyDTO](./delete-api-key-dto)                | Delete API key (user)           | Permanently delete a key by keyId                         |
+| [ApiKeyResponseDTO](./api-key-response-dto)            | Sanitized key metadata          | Returned by list/update (never the secret)                |
+| [CreateApiKeyResponseDTO](./create-api-key-response-dto) | Key creation response         | One-time plaintext key plus metadata                      |
+| [AdminCreateApiKeyDTO](./admin-create-api-key-dto)     | Admin create key for user       | Target sub plus key options                               |
+| [AdminUpdateApiKeyDTO](./admin-update-api-key-dto)     | Admin update user's key         | Target sub, keyId, label/IP allowlist                     |
+| [AdminManageApiKeyDTO](./admin-manage-api-key-dto)     | Admin list/revoke/delete key    | Target sub and optional keyId                             |
+
 ## Password Management DTOs
 
 | DTO                                                                         | Description                    | Documentation                        |

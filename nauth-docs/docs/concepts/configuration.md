@@ -1118,6 +1118,44 @@ challenge: {
 },
 ```
 
+## API Keys {#api-keys}
+
+Long-lived keys that authenticate as their owning user. Disabled by default. See the [API Keys guide](../guides/api-keys.md) for routes and decorators.
+
+```typescript
+apiKeys: {
+  enabled: true,             // Default: false
+  allowUserCreation: false,  // Default: false (admin-only creation). true = users self-serve
+  header: 'X-API-Key',       // Default: 'X-API-Key' (case-insensitive)
+  keyPrefix: 'nauth',        // Default: 'nauth' (embedded in generated keys)
+  maxKeysPerUser: 10,        // Default: 10
+  maxExpiryDays: 365,        // Caps finite expiries; omit for no cap
+  allowIndefinite: true,     // Default: true (allow never-expiring keys)
+  trackUsageIp: true,        // Default: true (record last-used IP per key)
+  lastUsedThrottleSeconds: 60, // Default: 60 (throttle last-used writes)
+  globalAllowlist: false,    // Default: false (opt-in per route via @AllowApiKey())
+  ipRestrictions: {
+    enabled: true,           // Default: true (allow per-key IP allowlists)
+    requireForNewKeys: false, // Default: false
+    maxIpsPerKey: 20,        // Default: 20
+  },
+},
+```
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `enabled` | `false` | Enable API key authentication |
+| `allowUserCreation` | `false` | Allow end users (not just admins) to create keys |
+| `header` | `'X-API-Key'` | Header carrying the key; when present it is the only credential used |
+| `maxKeysPerUser` | `10` | Maximum active keys per user |
+| `maxExpiryDays` | — | Caps finite expiry; unset means no cap |
+| `allowIndefinite` | `true` | Allow never-expiring keys |
+| `trackUsageIp` | `true` | Record the source IP of each key's last use |
+| `globalAllowlist` | `false` | Accept keys on all protected routes (opt-out via `@DenyApiKey()`) |
+| `ipRestrictions.enabled` | `true` | Allow per-key IP allowlists (IPs / IPv4 CIDR) |
+| `ipRestrictions.requireForNewKeys` | `false` | Require an allowlist on every new key |
+| `ipRestrictions.maxIpsPerKey` | `20` | Max allowlist entries per key |
+
 ## Complete Example
 
 Here's a production-ready configuration:

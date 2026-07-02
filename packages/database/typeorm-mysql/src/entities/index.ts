@@ -10,6 +10,7 @@ export * from './trusted-device.entity';
 export * from './rate-limit.entity';
 export * from './storage-lock.entity';
 export * from './social-provider-secret.entity';
+export * from './api-key.entity';
 
 // Import all entities for the helper function
 import { User } from './user.entity';
@@ -24,6 +25,7 @@ import { TrustedDevice } from './trusted-device.entity';
 import { RateLimit } from './rate-limit.entity';
 import { StorageLock } from './storage-lock.entity';
 import { SocialProviderSecret } from './social-provider-secret.entity';
+import { ApiKey } from './api-key.entity';
 
 /**
  * Get all nauth-toolkit entities for TypeORM configuration (MySQL)
@@ -79,6 +81,7 @@ export function getNAuthEntities(): Function[] {
     AuthAudit,
     TrustedDevice,
     SocialProviderSecret,
+    ApiKey,
   ];
 }
 

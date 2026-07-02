@@ -4,6 +4,7 @@
 
 export * from './pii-redactor';
 export * from './ip-extractor';
+export * from './ip-match';
 export * from './nauth-logger';
 export * from './cookies.util';
 export * from './cookie-names.util';

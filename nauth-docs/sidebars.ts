@@ -93,6 +93,7 @@ const sidebars: SidebarsConfig = {
           ],
         },
         { type: 'doc', id: 'guides/admin-operations', customProps: { icon: 'fa-light fa-user-gear' } },
+        { type: 'doc', id: 'guides/api-keys', customProps: { icon: 'fa-light fa-key' } },
         { type: 'doc', id: 'guides/email-sms-providers', customProps: { icon: 'fa-light fa-paper-plane' } },
         { type: 'doc', id: 'guides/email-templates', customProps: { icon: 'fa-light fa-envelope-open-text' } },
         { type: 'doc', id: 'guides/sms-templates', customProps: { icon: 'fa-light fa-comment-sms' } },

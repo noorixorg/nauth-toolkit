@@ -373,4 +373,38 @@ export enum AuthAuditEventType {
    * Suspicious activity detected (token reuse, impossible travel, etc.)
    */
   SUSPICIOUS_ACTIVITY = 'SUSPICIOUS_ACTIVITY',
+
+  // ============================================================================
+  // API Key Events
+  // ============================================================================
+
+  /**
+   * API key created (by the owning user or an administrator)
+   */
+  API_KEY_CREATED = 'API_KEY_CREATED',
+
+  /**
+   * API key updated (name or allowed IP restrictions changed)
+   */
+  API_KEY_UPDATED = 'API_KEY_UPDATED',
+
+  /**
+   * API key used to authenticate a request (throttled to reduce noise)
+   */
+  API_KEY_USED = 'API_KEY_USED',
+
+  /**
+   * API key revoked (soft-disabled)
+   */
+  API_KEY_REVOKED = 'API_KEY_REVOKED',
+
+  /**
+   * API key permanently deleted
+   */
+  API_KEY_DELETED = 'API_KEY_DELETED',
+
+  /**
+   * API key authentication failed (invalid, expired, revoked, or IP not allowed)
+   */
+  API_KEY_AUTH_FAILED = 'API_KEY_AUTH_FAILED',
 }

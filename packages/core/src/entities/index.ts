@@ -28,3 +28,4 @@ export { BaseAuthAudit, type AuthAuditEventStatus } from './auth-audit.entity';
 export { BaseRateLimit } from './rate-limit.entity';
 export { BaseStorageLock } from './storage-lock.entity';
 export { BaseSocialProviderSecret } from './social-provider-secret.entity';
+export { BaseApiKey } from './api-key.entity';

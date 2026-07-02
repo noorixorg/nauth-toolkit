@@ -59,6 +59,9 @@ import { SocialAuthService } from './social-auth.service';
 import { AuthServiceInternalHelpers } from './auth-service-internal-helpers';
 import { UserService } from './user.service';
 import { AdminUpdateUserAttributesDTO } from '../dto/admin-update-user-attributes.dto';
+import { ApiKeyService } from './api-key.service';
+import { AdminCreateApiKeyDTO, AdminUpdateApiKeyDTO, AdminManageApiKeyDTO } from '../dto/admin-api-key.dto';
+import { ApiKeyResponseDTO, CreateApiKeyResponseDTO } from '../dto/api-key.dto';
 
 /**
  * Administrative authentication service
@@ -101,6 +104,7 @@ export class AdminAuthService {
     private readonly challengeSessionRepository?: Repository<BaseChallengeSession>,
     private readonly authAuditRepository?: Repository<BaseAuthAudit>,
     private readonly trustedDeviceRepository?: Repository<BaseTrustedDevice>,
+    private readonly apiKeyService?: ApiKeyService,
   ) {
     this.helpers = new AuthServiceInternalHelpers(
       userRepository,
@@ -1118,5 +1122,112 @@ export class AdminAuthService {
       isActive,
       endsAt: isActive ? gracePeriodEnd : undefined,
     };
+  }
+
+  // ==========================================================================
+  // API Key Management (admin, on behalf of a user)
+  // ==========================================================================
+
+  /**
+   * Create an API key on behalf of a user.
+   *
+   * Admin-created keys bypass the `allowUserCreation` restriction but still obey
+   * `maxKeysPerUser`, expiry, and IP-restriction rules.
+   *
+   * Warning: This endpoint must be protected by admin authentication — the service
+   * does not enforce authorization.
+   *
+   * @param dto - Target user sub plus key options
+   * @returns The plaintext key (shown once) and sanitized metadata
+   * @throws {NAuthException} USER_NOT_FOUND, or any API_KEY_* creation error
+   */
+  async createApiKeyForUser(dto: AdminCreateApiKeyDTO): Promise<CreateApiKeyResponseDTO> {
+    const userId = await this.resolveUserIdBySub(dto.sub);
+    return this.getApiKeyService().createKey({
+      userId,
+      name: dto.name,
+      expiresInDays: dto.expiresInDays,
+      allowedIps: dto.allowedIps,
+      createdByAdmin: true,
+    });
+  }
+
+  /**
+   * Update a user's API key (label and IP allowlist) as an administrator.
+   *
+   * @throws {NAuthException} USER_NOT_FOUND, API_KEY_NOT_FOUND, VALIDATION_FAILED
+   */
+  async updateUserApiKey(dto: AdminUpdateApiKeyDTO): Promise<ApiKeyResponseDTO> {
+    const userId = await this.resolveUserIdBySub(dto.sub);
+    return this.getApiKeyService().updateKey({
+      userId,
+      keyId: dto.keyId,
+      name: dto.name,
+      allowedIps: dto.allowedIps,
+    });
+  }
+
+  /**
+   * List a user's API keys as an administrator.
+   *
+   * @throws {NAuthException} USER_NOT_FOUND
+   */
+  async listUserApiKeys(dto: AdminManageApiKeyDTO): Promise<ApiKeyResponseDTO[]> {
+    const userId = await this.resolveUserIdBySub(dto.sub);
+    return this.getApiKeyService().listKeys(userId);
+  }
+
+  /**
+   * Revoke (soft-delete) a user's API key as an administrator.
+   *
+   * @throws {NAuthException} USER_NOT_FOUND, VALIDATION_FAILED, API_KEY_NOT_FOUND
+   */
+  async revokeUserApiKey(dto: AdminManageApiKeyDTO): Promise<{ success: boolean }> {
+    if (!dto.keyId) {
+      throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'keyId is required to revoke an API key');
+    }
+    const userId = await this.resolveUserIdBySub(dto.sub);
+    return this.getApiKeyService().revokeKey({ userId, keyId: dto.keyId, reason: 'admin_revoked' });
+  }
+
+  /**
+   * Permanently delete a user's API key as an administrator.
+   *
+   * @throws {NAuthException} USER_NOT_FOUND, VALIDATION_FAILED, API_KEY_NOT_FOUND
+   */
+  async deleteUserApiKey(dto: AdminManageApiKeyDTO): Promise<{ success: boolean }> {
+    if (!dto.keyId) {
+      throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'keyId is required to delete an API key');
+    }
+    const userId = await this.resolveUserIdBySub(dto.sub);
+    return this.getApiKeyService().deleteKey({ userId, keyId: dto.keyId });
+  }
+
+  /**
+   * Ensure the API key feature is enabled and return the service.
+   *
+   * @throws {NAuthException} SERVICE_UNAVAILABLE when apiKeys.enabled is false
+   */
+  private getApiKeyService(): ApiKeyService {
+    if (!this.apiKeyService) {
+      throw new NAuthException(
+        AuthErrorCode.SERVICE_UNAVAILABLE,
+        'API key feature is not enabled. Set apiKeys.enabled to true in the NAuth configuration.',
+      );
+    }
+    return this.apiKeyService;
+  }
+
+  /**
+   * Resolve an internal user id from an external sub (UUID).
+   *
+   * @throws {NAuthException} USER_NOT_FOUND
+   */
+  private async resolveUserIdBySub(sub: string): Promise<number> {
+    const user = await this.userRepository.findOne({ where: { sub }, select: { id: true } });
+    if (!user) {
+      throw new NAuthException(AuthErrorCode.USER_NOT_FOUND, 'User not found');
+    }
+    return user.id;
   }
 }

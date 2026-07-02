@@ -152,6 +152,17 @@ import { AuthAuditEventType } from '@nauth-toolkit/core';
 | --------------------- | ------------------------------------------------------------- |
 | `SUSPICIOUS_ACTIVITY` | Suspicious activity detected (token reuse, impossible travel) |
 
+## API Key Events
+
+| Value                 | Description                                                        |
+| --------------------- | ------------------------------------------------------------------ |
+| `API_KEY_CREATED`     | API key created (by the owning user or an administrator)           |
+| `API_KEY_UPDATED`     | API key updated (name or IP restrictions changed)                  |
+| `API_KEY_USED`        | API key used to authenticate a request (throttled)                 |
+| `API_KEY_REVOKED`     | API key revoked (soft-disabled)                                    |
+| `API_KEY_DELETED`     | API key permanently deleted                                        |
+| `API_KEY_AUTH_FAILED` | API key authentication failed (invalid, expired, revoked, or IP)   |
+
 ## Related
 
 - [AuthAuditEventStatus](./auth-audit-event-status)

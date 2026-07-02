@@ -44,6 +44,7 @@ import {
 } from '../types/user.types';
 import { ChallengeRouter } from './challenge-router';
 import { AdminOperations } from './admin-operations';
+import { ApiKeyOperations } from './api-key-operations';
 
 const USER_KEY = 'nauth_user';
 const CHALLENGE_KEY = 'nauth_challenge_session';
@@ -119,6 +120,21 @@ export class NAuthClient {
   public readonly admin?: AdminOperations;
 
   /**
+   * API key management operations (create/list/update/revoke/delete).
+   *
+   * Calls your backend's API-key endpoints (default base path `{baseUrl}/api-keys`).
+   *
+   * @example
+   * ```typescript
+   * const { key } = await client.apiKeys.create({ expiresInDays: 90, allowedIps: ['203.0.113.0/24'] });
+   * const keys = await client.apiKeys.list();
+   * await client.apiKeys.update(keyId, { allowedIps: ['203.0.113.5'] });
+   * await client.apiKeys.revoke(keyId);
+   * ```
+   */
+  public readonly apiKeys: ApiKeyOperations;
+
+  /**
    * Create a new client instance.
    *
    * @param userConfig - Client configuration
@@ -136,6 +152,9 @@ export class NAuthClient {
     if (this.config.admin) {
       this.admin = new AdminOperations(this.config);
     }
+
+    // API key operations (endpoints default to `{baseUrl}/api-keys`)
+    this.apiKeys = new ApiKeyOperations(this.config);
 
     if (hasWindow()) {
       window.addEventListener('storage', this.handleStorageEvent);

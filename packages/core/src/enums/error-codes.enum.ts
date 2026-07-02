@@ -536,4 +536,72 @@ export enum AuthErrorCode {
    * - expiresAt: When the block expires (if temporary)
    */
   SIGNIN_BLOCKED_HIGH_RISK = 'SIGNIN_BLOCKED_HIGH_RISK',
+
+  // ============================================================================
+  // API Key Errors (API_KEY_*)
+  // ============================================================================
+
+  /**
+   * API key is invalid
+   *
+   * The provided key does not match any active key. Access is denied;
+   * the request does not fall back to cookie/bearer authentication.
+   */
+  API_KEY_INVALID = 'API_KEY_INVALID',
+
+  /**
+   * API key has expired
+   *
+   * The key's expiry timestamp is in the past. Create a new key.
+   */
+  API_KEY_EXPIRED = 'API_KEY_EXPIRED',
+
+  /**
+   * API key used from a disallowed IP address
+   *
+   * The key has an IP allowlist and the request source IP is not on it.
+   */
+  API_KEY_IP_NOT_ALLOWED = 'API_KEY_IP_NOT_ALLOWED',
+
+  /**
+   * Maximum number of API keys per user reached
+   *
+   * Delete or revoke an existing key before creating a new one.
+   */
+  API_KEY_LIMIT_REACHED = 'API_KEY_LIMIT_REACHED',
+
+  /**
+   * API key creation is disabled for end users
+   *
+   * Only administrators can create keys (apiKeys.allowUserCreation is false).
+   */
+  API_KEY_CREATION_DISABLED = 'API_KEY_CREATION_DISABLED',
+
+  /**
+   * API key not found
+   *
+   * No key with the given identifier exists for this user.
+   */
+  API_KEY_NOT_FOUND = 'API_KEY_NOT_FOUND',
+
+  /**
+   * Expiry must be specified when creating an API key
+   *
+   * Every key must declare an explicit expiry (finite days or an explicit never).
+   */
+  API_KEY_EXPIRY_REQUIRED = 'API_KEY_EXPIRY_REQUIRED',
+
+  /**
+   * Indefinite (never-expiring) API keys are not allowed
+   *
+   * A no-expiry key was requested but apiKeys.allowIndefinite is false.
+   */
+  API_KEY_INDEFINITE_NOT_ALLOWED = 'API_KEY_INDEFINITE_NOT_ALLOWED',
+
+  /**
+   * Requested API key expiry exceeds the configured maximum
+   *
+   * Details include maxExpiryDays.
+   */
+  API_KEY_EXPIRY_TOO_LONG = 'API_KEY_EXPIRY_TOO_LONG',
 }

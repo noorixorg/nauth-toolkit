@@ -199,6 +199,18 @@ export function getHttpStatusForErrorCode(code: AuthErrorCode): number {
   // Rate limits
   if (code.startsWith('RATE_LIMIT_')) return 429;
 
+  // API key errors (checked before generic prefix rules)
+  if (code === AuthErrorCode.API_KEY_INVALID || code === AuthErrorCode.API_KEY_EXPIRED) return 401;
+  if (code === AuthErrorCode.API_KEY_IP_NOT_ALLOWED || code === AuthErrorCode.API_KEY_CREATION_DISABLED) return 403;
+  if (code === AuthErrorCode.API_KEY_NOT_FOUND) return 404;
+  if (code === AuthErrorCode.API_KEY_LIMIT_REACHED) return 409;
+  if (
+    code === AuthErrorCode.API_KEY_EXPIRY_REQUIRED ||
+    code === AuthErrorCode.API_KEY_INDEFINITE_NOT_ALLOWED ||
+    code === AuthErrorCode.API_KEY_EXPIRY_TOO_LONG
+  )
+    return 400;
+
   // Authentication errors
   if (code.startsWith('AUTH_')) {
     if (code === AuthErrorCode.ACCOUNT_INACTIVE || code === AuthErrorCode.ACCOUNT_LOCKED) return 403;

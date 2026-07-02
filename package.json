@@ -8,7 +8,9 @@
   "pnpm": {
     "overrides": {
       "@nauth-toolkit/core": "workspace:*",
-      "@nauth-toolkit/nestjs": "workspace:*"
+      "@nauth-toolkit/nestjs": "workspace:*",
+      "@nauth-toolkit/database-typeorm-postgres": "workspace:*",
+      "@nauth-toolkit/database-typeorm-mysql": "workspace:*"
     },
     "onlyBuiltDependencies": [
       "argon2",

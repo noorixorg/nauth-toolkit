@@ -20,6 +20,7 @@ import {
   BaseRateLimit,
   BaseStorageLock,
   BaseSocialProviderSecret,
+  BaseApiKey,
 } from '../../entities';
 
 /**
@@ -45,6 +46,7 @@ export function getRepositories(dataSource: DataSource): {
   rateLimitRepository: Repository<BaseRateLimit> | null;
   storageLockRepository: Repository<BaseStorageLock> | null;
   socialProviderSecretRepository: Repository<BaseSocialProviderSecret>;
+  apiKeyRepository: Repository<BaseApiKey> | null;
 } {
   return {
     userRepository: getRepository<BaseUser>(dataSource, 'User', 'nauth_users', true),
@@ -79,6 +81,8 @@ export function getRepositories(dataSource: DataSource): {
     ),
     rateLimitRepository: getRepository<BaseRateLimit>(dataSource, 'RateLimit', 'nauth_rate_limits', false),
     storageLockRepository: getRepository<BaseStorageLock>(dataSource, 'StorageLock', 'nauth_storage_locks', false),
+    // Optional - only present when the API keys feature is enabled and the entity is registered
+    apiKeyRepository: getRepository<BaseApiKey>(dataSource, 'ApiKey', 'nauth_api_keys', false),
     socialProviderSecretRepository: (() => {
       try {
         return getRepository<BaseSocialProviderSecret>(

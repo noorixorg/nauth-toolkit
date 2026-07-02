@@ -415,4 +415,20 @@ export const authConfig: NAuthModuleConfig = {
     maxAttempts: 3, // Default: 3 attempts (4th failure causes error)
   },
   auditLogs: { enabled: true, fireAndForget: true },
+
+  // API key authentication — users can self-serve keys; protect routes with @AllowApiKey()/@DenyApiKey()
+  apiKeys: {
+    enabled: true,
+    allowUserCreation: true, // demo: let signed-in users create their own keys
+    header: 'X-API-Key',
+    maxKeysPerUser: 10,
+    maxExpiryDays: 365,
+    allowIndefinite: true,
+    trackUsageIp: true,
+    ipRestrictions: {
+      enabled: true,
+      requireForNewKeys: false,
+      maxIpsPerKey: 20,
+    },
+  },
 } satisfies NAuthModuleConfig;

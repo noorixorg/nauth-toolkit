@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/client-angular",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Angular SDK for nauth-toolkit — services, guards, interceptors",
   "keywords": [
     "nauth",
@@ -27,7 +27,7 @@
   "peerDependencies": {
     "@angular/common": ">=17.0.0",
     "@angular/core": ">=17.0.0",
-    "@nauth-toolkit/client": "workspace:*",
+    "@nauth-toolkit/client": "^0.3.1",
     "rxjs": "^7.0.0 || ^8.0.0"
   },
   "dependencies": {

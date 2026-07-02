@@ -73,6 +73,14 @@ export { CsrfService } from './services/csrf.service';
  */
 export { HookRegistryService } from './services/hook-registry.service';
 
+/**
+ * API Key service
+ * Manages API key lifecycle (create/list/update/revoke/delete) and validation.
+ * Available when apiKeys.enabled is true.
+ */
+export { ApiKeyService } from './services/api-key.service';
+export type { CreateApiKeyParams, UpdateApiKeyParams, ApiKeyValidationResult } from './services/api-key.service';
+
 // ============================================================================
 // Internal Services - NOT EXPORTED
 // ============================================================================

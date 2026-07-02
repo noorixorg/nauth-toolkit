@@ -599,6 +599,144 @@ export interface NAuthConfig {
    * ```
    */
   recaptcha?: RecaptchaConfig;
+
+  /**
+   * API key authentication configuration
+   *
+   * When enabled, users (or admins on their behalf) can generate long-lived
+   * API keys that authenticate as the owning user. Disabled by default.
+   *
+   * @example
+   * ```typescript
+   * apiKeys: {
+   *   enabled: true,
+   *   allowUserCreation: false, // admin-only key creation
+   *   header: 'X-API-Key',
+   *   maxKeysPerUser: 10,
+   *   maxExpiryDays: 365,
+   *   allowIndefinite: true,
+   *   ipRestrictions: { enabled: true },
+   * }
+   * ```
+   */
+  apiKeys?: ApiKeyConfig;
+}
+
+/**
+ * API key authentication configuration
+ */
+export interface ApiKeyConfig {
+  /**
+   * Enable API key authentication
+   *
+   * @default false
+   */
+  enabled?: boolean;
+
+  /**
+   * Allow end users to create their own API keys
+   *
+   * When false, only the admin API can create keys (on behalf of a user).
+   * When true, authenticated users can create and manage their own keys.
+   *
+   * @default false
+   */
+  allowUserCreation?: boolean;
+
+  /**
+   * HTTP header carrying the API key
+   *
+   * When this header is present on a request, it is the ONLY credential
+   * considered — cookies and bearer tokens are ignored. Header lookup is
+   * case-insensitive.
+   *
+   * @default 'X-API-Key'
+   */
+  header?: string;
+
+  /**
+   * Prefix embedded in generated key strings (helps identify keys in logs/leaks)
+   *
+   * @default 'nauth'
+   */
+  keyPrefix?: string;
+
+  /**
+   * Maximum number of active keys per user
+   *
+   * @default 10
+   */
+  maxKeysPerUser?: number;
+
+  /**
+   * Maximum allowed finite expiry, in days
+   *
+   * Caps any finite expiry supplied at creation. When unset, there is no cap.
+   */
+  maxExpiryDays?: number;
+
+  /**
+   * Allow creating keys that never expire
+   *
+   * When false, every key must be created with a finite expiry.
+   *
+   * @default true
+   */
+  allowIndefinite?: boolean;
+
+  /**
+   * Track the source IP of the most recent successful use on each key
+   *
+   * @default true
+   */
+  trackUsageIp?: boolean;
+
+  /**
+   * Minimum interval (seconds) between `lastUsedAt`/usage writes for a key
+   *
+   * Throttles hot-path writes so high-traffic keys don't update on every request.
+   *
+   * @default 60
+   */
+  lastUsedThrottleSeconds?: number;
+
+  /**
+   * Allow API keys to authenticate on ALL protected routes by default
+   *
+   * When false (default), keys only work on routes explicitly opted-in via the
+   * `@AllowApiKey()` decorator (NestJS) or `allowApiKey()` marker (Express/Fastify).
+   * When true, keys work everywhere the normal auth guard protects, except routes
+   * that opt out via `@DenyApiKey()` / `denyApiKey()`.
+   *
+   * @default false
+   */
+  globalAllowlist?: boolean;
+
+  /**
+   * Per-key IP restriction settings
+   */
+  ipRestrictions?: {
+    /**
+     * Enable per-key IP allowlists
+     *
+     * @default true
+     */
+    enabled?: boolean;
+
+    /**
+     * Require an IP allowlist on every newly created key
+     *
+     * @default false
+     */
+    requireForNewKeys?: boolean;
+
+    /**
+     * Maximum number of IP/CIDR entries allowed per key
+     *
+     * @default 20
+     */
+    maxIpsPerKey?: number;
+  };
 }
 
 /**

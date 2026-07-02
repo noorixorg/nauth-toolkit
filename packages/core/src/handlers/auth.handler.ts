@@ -50,6 +50,13 @@ export class AuthHandler {
         return;
       }
 
+      // Skip if already authenticated via an API key (single mechanism per request):
+      // when an API key is present, cookies/bearer are ignored entirely.
+      if (req.attributes.nauthApiKeyAuth) {
+        await next();
+        return;
+      }
+
       const token = this.extractToken(req);
 
       if (!token) {

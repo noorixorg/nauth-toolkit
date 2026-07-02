@@ -1,4 +1,4 @@
-import { Injectable, CanActivate, ExecutionContext, Inject, Logger } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, Inject, Optional, Logger } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import {
   NAuthConfig,
@@ -7,12 +7,15 @@ import {
   resolveDeliveryForRequest,
   getAccessTokenCookieName,
   AuthService,
+  ApiKeyService,
   ContextStorage,
   IUser,
+  IClientInfo,
 } from '@nauth-toolkit/core';
 import { JwtService, SessionService } from '@nauth-toolkit/core/internal';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { TOKEN_DELIVERY_KEY, RouteDelivery } from '../decorators/token-delivery.decorator';
+import { ALLOW_API_KEY_KEY, DENY_API_KEY_KEY } from '../decorators/api-key.decorator';
 import { getNAuthContextStore } from './nauth-context.guard';
 
 /**
@@ -57,12 +60,30 @@ export class AuthGuard implements CanActivate {
   @Inject('NAUTH_CONFIG')
   private readonly config!: NAuthConfig;
 
+  // Optional - only bound when the API keys feature is enabled.
+  @Optional()
+  @Inject(ApiKeyService)
+  private readonly _apiKeyService?: ApiKeyService;
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Check if route is public
     const isPublic = this._reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
+
+    // API key authentication takes precedence: when the configured header is present it is the
+    // ONLY credential considered. A valid key attaches the user and short-circuits the JWT path;
+    // an invalid/expired/IP-blocked key throws (access denied) with no fallback.
+    //
+    // Public routes bypass API-key auth entirely (mirrors the Express ApiKeyHandler which skips
+    // when nauthPublic is set): a stray/invalid key header must never make a @Public() route fail.
+    if (!isPublic) {
+      const handledByApiKey = await this.tryApiKeyAuth(context);
+      if (handledByApiKey) {
+        return true;
+      }
+    }
 
     // Public routes can optionally accept authentication:
     // - If a valid token is present, we attach user/context so `@CurrentUser()` works.
@@ -72,6 +93,93 @@ export class AuthGuard implements CanActivate {
 
     // if error is not thrown then it's valid tokens or public route
     return true;
+  }
+
+  /**
+   * Attempt API-key authentication for the request.
+   *
+   * @returns true if the request carried an API key (and was authenticated + authorized);
+   *   false if no API key header was present (caller should fall back to JWT auth).
+   * @throws {NAuthException} On an invalid key (401) or a route that does not accept API keys (403).
+   */
+  private async tryApiKeyAuth(context: ExecutionContext): Promise<boolean> {
+    const apiKeysConfig = this.config.apiKeys;
+    if (!apiKeysConfig?.enabled || !this._apiKeyService) {
+      return false;
+    }
+
+    const request = context.switchToHttp().getRequest();
+    const headerName = (apiKeysConfig.header || 'X-API-Key').toLowerCase();
+    const headers = (request.headers ?? {}) as Record<string, string | string[] | undefined>;
+    const rawHeader = headers[headerName] ?? headers[headerName.toUpperCase()];
+    const rawKey = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+
+    if (!rawKey) {
+      return false; // No API key - fall back to JWT/cookie auth.
+    }
+
+    // Route opt-in enforcement (deny-wins). Checked before authentication so keys are never
+    // usable on routes that don't accept them, regardless of validity.
+    if (!this.isApiKeyAllowed(context)) {
+      throw new NAuthException(AuthErrorCode.FORBIDDEN, 'API key authentication is not allowed for this route');
+    }
+
+    const callerIp = this.resolveCallerIp(request);
+    const result = await this._apiKeyService.validateKey(rawKey, callerIp);
+
+    const user = await this._authService.getUserForAuthContext(result.sub);
+    (user as IUser & { sessionAuthMethod?: string | null }).sessionAuthMethod = 'api-key';
+
+    request.user = user;
+    request.nauthApiKeyAuth = true;
+    request.nauthApiKeyId = result.keyId;
+
+    // Populate ContextStorage for service-layer access (mirrors the JWT path).
+    const store = getNAuthContextStore(request);
+    if (store) {
+      await ContextStorage.enterStore(store, async () => {
+        ContextStorage.set('CURRENT_USER', user);
+        const clientInfo = ContextStorage.get<IClientInfo>('CLIENT_INFO');
+        if (clientInfo) {
+          if (typeof user.id === 'number' && user.id > 0) {
+            clientInfo.userId = user.id;
+          }
+          if (user.sub) {
+            clientInfo.sub = user.sub;
+          }
+          ContextStorage.set('CLIENT_INFO', clientInfo);
+        }
+      });
+    }
+
+    return true;
+  }
+
+  /**
+   * Resolve the API-key route policy with deny-wins precedence:
+   * route deny > route allow > controller deny > controller allow > globalAllowlist.
+   */
+  private isApiKeyAllowed(context: ExecutionContext): boolean {
+    const handler = context.getHandler();
+    const cls = context.getClass();
+
+    const denyRoute = this._reflector.get<boolean>(DENY_API_KEY_KEY, handler);
+    if (denyRoute) return false;
+    const allowRoute = this._reflector.get<boolean>(ALLOW_API_KEY_KEY, handler);
+    if (allowRoute) return true;
+    const denyClass = this._reflector.get<boolean>(DENY_API_KEY_KEY, cls);
+    if (denyClass) return false;
+    const allowClass = this._reflector.get<boolean>(ALLOW_API_KEY_KEY, cls);
+    if (allowClass) return true;
+    return this.config.apiKeys?.globalAllowlist === true;
+  }
+
+  /**
+   * Resolve the caller IP for IP-allowlist enforcement + usage tracking.
+   */
+  private resolveCallerIp(request: { ip?: string }): string | null {
+    const clientInfo = ContextStorage.get<IClientInfo>('CLIENT_INFO');
+    return clientInfo?.ipAddress || request.ip || null;
   }
 
   /**

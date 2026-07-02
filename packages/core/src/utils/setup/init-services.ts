@@ -24,6 +24,7 @@ import {
   NAuthException,
   AuthErrorCode,
   HookRegistryService,
+  ApiKeyService,
 } from '../../index';
 import { registerBuiltInEmailNotificationHooks } from '../../services/email-notifications.hook';
 // Internal API imports (for framework adapter use only)
@@ -54,6 +55,7 @@ import {
   BaseMFADevice,
   BaseAuthAudit,
   BaseTrustedDevice,
+  BaseApiKey,
 } from '../../entities';
 
 /**
@@ -87,6 +89,7 @@ export interface NAuthServices {
   riskDetectionService?: RiskDetectionService;
   riskScoringService?: RiskScoringService;
   adaptiveMFADecisionService?: AdaptiveMFADecisionService;
+  apiKeyService?: ApiKeyService;
   csrfService?: unknown; // CsrfService (created in createNAuth)
 }
 
@@ -131,6 +134,7 @@ export function initServices(
     mfaDeviceRepository: Repository<BaseMFADevice>;
     authAuditRepository: Repository<BaseAuthAudit>;
     trustedDeviceRepository: Repository<BaseTrustedDevice> | null;
+    apiKeyRepository?: Repository<BaseApiKey> | null;
   },
   storageAdapter: StorageAdapter,
   logger: NAuthLogger,
@@ -300,6 +304,15 @@ export function initServices(
     : undefined;
 
   // ============================================================================
+  // 8.5 API Key Service (Conditional)
+  // ============================================================================
+
+  const apiKeyService =
+    config.apiKeys?.enabled && repositories.apiKeyRepository
+      ? new ApiKeyService(repositories.apiKeyRepository, repositories.userRepository, config, logger, auditService)
+      : undefined;
+
+  // ============================================================================
   // 9. Risk Detection and Adaptive MFA Services (Always created)
   // ============================================================================
   // NOTE: These services are needed by the auth flow context builder to decide
@@ -454,6 +467,7 @@ export function initServices(
     repositories.challengeSessionRepository,
     repositories.authAuditRepository,
     repositories.trustedDeviceRepository || undefined,
+    apiKeyService,
   );
 
   // ============================================================================
@@ -511,5 +525,6 @@ export function initServices(
     riskDetectionService,
     riskScoringService,
     adaptiveMFADecisionService,
+    apiKeyService,
   };
 }

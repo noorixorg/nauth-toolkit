@@ -5,6 +5,16 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] - 2026-07-03
+
+### Added
+
+- **API key authentication** — long-lived keys that authenticate as their owning user, for scripts and machine-to-machine calls. Off by default; enable via the new `apiKeys` config. Adds `ApiKeyService`, admin key management on `AdminAuthService`, `@AllowApiKey()`/`@DenyApiKey()` route decorators (with `allowApiKey()`/`denyApiKey()` helpers for Express/Fastify), configurable auth header, per-key IP allowlists, mandatory config-bounded expiry, usage tracking, `API_KEY_*` error codes and audit events, and `client.apiKeys.*` in the frontend SDK. A `nauth_api_keys` table is added and migrated automatically on startup. [Guide](https://nauth.dev/docs/guides/api-keys)
+
+### Security
+
+- When the API-key header is present it is the only credential used — cookies/bearer are ignored, and an invalid/expired/revoked/IP-blocked key is denied with no fallback. Keys are stored hashed; the plaintext is returned only once at creation.
+
 ## [0.3.0] - 2026-06-11
 
 ### Added

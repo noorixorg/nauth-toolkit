@@ -103,6 +103,18 @@ export interface NAuthRequestAttributes {
   /** Require reCAPTCHA validation for this route (set by @RequireRecaptcha()) */
   nauthRequireRecaptcha?: boolean;
 
+  /** Request was authenticated via an API key (set by ApiKeyHandler / AuthGuard) */
+  nauthApiKeyAuth?: boolean;
+
+  /** External identifier of the API key used to authenticate (when nauthApiKeyAuth is true) */
+  nauthApiKeyId?: string;
+
+  /** Route opts in to accepting API-key auth (set by allowApiKey() / @AllowApiKey()) */
+  nauthAllowApiKey?: boolean;
+
+  /** Route opts out of API-key auth — takes precedence (set by denyApiKey() / @DenyApiKey()) */
+  nauthDenyApiKey?: boolean;
+
   /** Allow arbitrary string keys for extensibility */
   [key: string]: unknown;
 }

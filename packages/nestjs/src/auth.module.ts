@@ -14,6 +14,7 @@ import { DataSource, EntityMetadata, Repository } from 'typeorm';
 // Public API imports
 import {
   BaseUser,
+  BaseApiKey,
   BaseSession,
   BaseChallengeSession,
   BaseMFADevice,
@@ -32,6 +33,7 @@ import {
   authConfigSchema,
   AuthService,
   AdminAuthService,
+  ApiKeyService,
   EmailVerificationService,
   PhoneVerificationService,
   SocialAuthService,
@@ -776,6 +778,22 @@ export class AuthModule {
           },
           inject: [DataSource],
         },
+        {
+          provide: 'ApiKeyRepository',
+          useFactory: (dataSource: DataSource) => {
+            const entityFromConfig = entities.find((e: Function) => e.name === 'ApiKey');
+            if (entityFromConfig) {
+              return dataSource.getRepository(entityFromConfig);
+            }
+            const metadata = dataSource.entityMetadatas.find((m: EntityMetadata) => m.tableName === 'nauth_api_keys');
+            if (!metadata) {
+              // Return null if not found (API keys feature might be disabled)
+              return null;
+            }
+            return dataSource.getRepository(metadata.target);
+          },
+          inject: [DataSource],
+        },
 
         // Services
         {
@@ -944,6 +962,7 @@ export class AuthModule {
             challengeSessionRepository?: Repository<BaseChallengeSession>,
             authAuditRepository?: Repository<BaseAuthAudit>,
             trustedDeviceRepository?: Repository<BaseTrustedDevice>,
+            apiKeyService?: ApiKeyService,
           ) => {
             return new AdminAuthService(
               userRepository,
@@ -970,6 +989,7 @@ export class AuthModule {
               challengeSessionRepository,
               authAuditRepository,
               trustedDeviceRepository,
+              apiKeyService,
             );
           },
           inject: [
@@ -997,6 +1017,7 @@ export class AuthModule {
             { token: 'ChallengeSessionRepository', optional: true },
             { token: 'AuthAuditRepository', optional: true },
             { token: 'TrustedDeviceRepository', optional: true },
+            { token: ApiKeyService, optional: true },
           ],
         },
         {
@@ -1730,6 +1751,38 @@ export class AuthModule {
           inject: ['STORAGE_ADAPTER'],
         },
 
+        // API Key Service (only functional when apiKeys.enabled; repository may be null otherwise)
+        ...(config.apiKeys?.enabled
+          ? [
+              {
+                provide: ApiKeyService,
+                useFactory: (
+                  apiKeyRepository: Repository<BaseApiKey> | null,
+                  userRepository: Repository<BaseUser>,
+                  nauthConfig: NAuthConfig,
+                  logger: NAuthLogger,
+                  auditService?: InternalAuthAuditService,
+                ) => {
+                  if (!apiKeyRepository) {
+                    throw new NAuthException(
+                      AuthErrorCode.VALIDATION_FAILED,
+                      'API keys are enabled but the ApiKey entity was not found in the DataSource. ' +
+                        'Ensure getNAuthEntities() (which now includes ApiKey) is registered with TypeORM and the migration has run.',
+                    );
+                  }
+                  return new ApiKeyService(apiKeyRepository, userRepository, nauthConfig, logger, auditService);
+                },
+                inject: [
+                  'ApiKeyRepository',
+                  'UserRepository',
+                  'NAUTH_CONFIG',
+                  'NAUTH_LOGGER',
+                  { token: InternalAuthAuditService, optional: true },
+                ],
+              },
+            ]
+          : []),
+
         // Guards
         AuthGuard,
         ...(config.tokenDelivery?.method === 'cookies' || config.tokenDelivery?.method === 'hybrid' ? [CsrfGuard] : []),
@@ -1737,6 +1790,7 @@ export class AuthModule {
       exports: [
         AuthService,
         AdminAuthService,
+        ...(config.apiKeys?.enabled ? [ApiKeyService] : []),
         SocialAuthService, // Needed by social auth provider modules
         PasswordService,
         JwtService,

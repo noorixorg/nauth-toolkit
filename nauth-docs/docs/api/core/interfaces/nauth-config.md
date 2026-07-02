@@ -50,6 +50,7 @@ import { NAuthConfig } from '@nauth-toolkit/core';
 - `mfa.adaptive.blockedSignIn.scope`: control whether Adaptive MFA blocks apply to the **user**, **device**, or **IP**.
 - `emailNotifications.suppress.mfaMethodAdded`: opt-in email notification when an **additional MFA method** is added.
 - `signup.emailVerification.baseUrl`: base URL for email verification links. When configured, verification emails include a clickable link with the code (format: `${baseUrl}?code=${code}`). The consumer app handles routing. Supports both development (localhost) and production URLs.
+- `apiKeys`: API key authentication. Configure `enabled`, `allowUserCreation`, `header`, `maxKeysPerUser`, `maxExpiryDays`, `allowIndefinite`, and per-key `ipRestrictions`. Protect routes with the `@AllowApiKey()` / `@DenyApiKey()` decorators. See the [API Keys Guide](/docs/guides/api-keys).
 
 ## Related Types
 
