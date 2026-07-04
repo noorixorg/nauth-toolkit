@@ -6,9 +6,14 @@
  *
  * **Single auth mechanism per request:**
  * When the configured API key header is present it is the ONLY credential considered.
- * A valid key authenticates as the owning user; an invalid/expired/revoked key (or one
- * used from a disallowed IP) results in access denied — the request never falls back to
- * cookie/bearer authentication.
+ * A valid key authenticates as the owning user; on a protected route an invalid/expired/revoked
+ * key (or one used from a disallowed IP) results in access denied — the request never falls back
+ * to cookie/bearer authentication.
+ *
+ * **Optional identification on public routes:**
+ * On a `@Public()` route the key is best-effort (mirrors the JWT optional-auth path): a valid key
+ * still attaches the owning user so downstream handlers know who is calling, but a missing/invalid
+ * key is tolerated and the request proceeds unauthenticated rather than failing.
  *
  * **Platform-Agnostic:**
  * Operates purely on the NAuthRequest interface. Route opt-in enforcement (which endpoints
@@ -42,12 +47,6 @@ export class ApiKeyHandler {
       return;
     }
 
-    // Public routes never require authentication.
-    if (req.attributes.nauthPublic) {
-      await next();
-      return;
-    }
-
     const headerName = this.config.apiKeys.header || 'X-API-Key';
     const rawKey = req.getHeader(headerName);
 
@@ -57,10 +56,25 @@ export class ApiKeyHandler {
       return;
     }
 
-    // Presence of the header means "use API key auth". Failures throw (access denied);
-    // we intentionally do NOT swallow the error to fall back to other credentials.
+    // Public routes offer OPTIONAL identification (mirrors the JWT optional-auth path): a valid key
+    // still attaches the user so downstream handlers see who is calling, but a missing/invalid key
+    // must never make a @Public() route fail. On protected routes the key is strict.
+    const isPublic = req.attributes.nauthPublic === true;
+
+    // Presence of the header means "use API key auth". On protected routes, failures throw (access
+    // denied) and we intentionally do NOT swallow the error to fall back to other credentials. On
+    // public routes, an invalid key is ignored and the request proceeds unauthenticated.
     const callerIp = this.resolveCallerIp(req);
-    const result = await this.apiKeyService.validateKey(rawKey, callerIp);
+    let result: { keyId: string; sub: string };
+    try {
+      result = await this.apiKeyService.validateKey(rawKey, callerIp);
+    } catch (error) {
+      if (!isPublic) {
+        throw error; // protected route: invalid key = access denied, no fallback
+      }
+      await next(); // public route: optional identification — ignore an invalid key
+      return;
+    }
 
     // Load the owning user in the same shape as the JWT path (reuses the shared loader).
     const user = await this.authService.getUserForAuthContext(result.sub);

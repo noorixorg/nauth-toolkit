@@ -1127,7 +1127,6 @@ apiKeys: {
   enabled: true,             // Default: false
   allowUserCreation: false,  // Default: false (admin-only creation). true = users self-serve
   header: 'X-API-Key',       // Default: 'X-API-Key' (case-insensitive)
-  keyPrefix: 'nauth',        // Default: 'nauth' (embedded in generated keys)
   maxKeysPerUser: 10,        // Default: 10
   maxExpiryDays: 365,        // Caps finite expiries; omit for no cap
   allowIndefinite: true,     // Default: true (allow never-expiring keys)

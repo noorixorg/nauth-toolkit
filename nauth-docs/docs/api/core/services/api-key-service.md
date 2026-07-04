@@ -49,57 +49,70 @@ import { ApiKeyService } from '@nauth-toolkit/core';
 This service does not enforce endpoint authorization. Protect management routes with your own guard, and use the decorators/helpers to control which routes accept API-key auth.
 :::
 
-## Methods
+Every method takes a request DTO and returns a response DTO, and validates the DTO at runtime
+so Express/Fastify callers are protected too.
 
-### createKey(params)
+## Self-service methods (identity from auth context)
 
-Creates a key and returns the plaintext once.
+These act on the **currently authenticated user** — resolved from request context. They take no
+user identifier.
+
+### createKey(dto)
+
+Creates a key for the current user and returns the plaintext once.
 
 ```typescript
 const { key, apiKey } = await apiKeyService.createKey({
-  userId: user.id,
   name: 'CI pipeline',
-  expiresInDays: 90,          // required: number of days, or null for never
-  allowedIps: ['203.0.113.0/24'], // optional IP allowlist
+  expiresInDays: 90,               // required: number of days, or null for never
+  allowedIps: ['203.0.113.0/24'],  // optional IP allowlist
 });
 ```
 
-| Param | Type | Notes |
-| --- | --- | --- |
-| `userId` | `number` | Owning user (required) |
-| `name` | `string?` | Optional label |
-| `expiresInDays` | `number \| null` | Required. Positive integer, or `null` for never (if allowed) |
-| `allowedIps` | `string[]?` | IPs / IPv4 CIDR ranges |
-| `createdByAdmin` | `boolean?` | Bypasses `allowUserCreation` (set by the admin API) |
+`dto` is a [CreateApiKeyDTO](../dto/create-api-key-dto.md). Returns [CreateApiKeyResponseDTO](../dto/create-api-key-response-dto.md) — `{ key, apiKey }` where `key` is the plaintext (shown once).
 
-Returns `{ key: string; apiKey: ApiKeyResponseDTO }`.
+### listKeys()
 
-### updateKey(params)
+Returns [ListApiKeysResponseDTO](../dto/list-api-keys-response-dto.md) — `{ apiKeys }` (sanitized; never the secret).
 
-Updates the label and/or IP allowlist. The secret and expiry are immutable.
+### updateKey(dto)
+
+Updates the label and/or IP allowlist ([UpdateApiKeyDTO](../dto/update-api-key-dto.md)). The secret and expiry are immutable. Returns [ApiKeyResponseDTO](../dto/api-key-response-dto.md).
+
+### revokeKey(dto)
+
+Soft-disables a key ([RevokeApiKeyDTO](../dto/revoke-api-key-dto.md); retained for audit). Returns `{ success: true }`.
+
+### deleteKey(dto)
+
+Permanently deletes a key ([DeleteApiKeyDTO](../dto/delete-api-key-dto.md)). Returns `{ success: true }`.
+
+## Admin methods (target user by `sub`)
+
+Protect these with admin authentication. They act on a user identified by `sub` and, for creation,
+bypass `allowUserCreation`.
 
 ```typescript
-await apiKeyService.updateKey({ userId: user.id, keyId, allowedIps: ['203.0.113.5'] });
+await apiKeyService.adminCreateKey({ sub, expiresInDays: 90, allowedIps: ['203.0.113.0/24'] });
+await apiKeyService.adminListKeys({ sub });
+await apiKeyService.adminUpdateKey({ sub, keyId, allowedIps: ['203.0.113.5'] });
+await apiKeyService.adminRevokeKey({ sub, keyId });
+await apiKeyService.adminDeleteKey({ sub, keyId });
 ```
 
-### listKeys(userId)
+- `adminCreateKey(dto)` → [AdminCreateApiKeyDTO](../dto/admin-create-api-key-dto.md), returns `CreateApiKeyResponseDTO`
+- `adminUpdateKey(dto)` → [AdminUpdateApiKeyDTO](../dto/admin-update-api-key-dto.md), returns `ApiKeyResponseDTO`
+- `adminListKeys` / `adminRevokeKey` / `adminDeleteKey` → [AdminManageApiKeyDTO](../dto/admin-manage-api-key-dto.md)
 
-Returns sanitized `ApiKeyResponseDTO[]` (never the secret).
-
-### revokeKey(params)
-
-Soft-disables a key (`{ userId, keyId }`; retained for audit). Returns `{ success: true }`.
-
-### deleteKey(params)
-
-Permanently deletes a key (`{ userId, keyId }`). Returns `{ success: true }`.
+## Validation (internal)
 
 ### validateKey(rawKey, callerIp?)
 
-Validates a presented key and resolves its owner. Throws a precise `NAuthException` on failure (invalid/expired/IP-blocked) — used internally by the guard/handler.
+Validates a presented key by looking up its hash and resolves the owner. Throws a precise
+`NAuthException` on failure (invalid/expired/IP-blocked) — used internally by the guard/handler.
 
 ```typescript
-const { keyId, userId, sub } = await apiKeyService.validateKey(rawKey, callerIp);
+const { keyId, sub } = await apiKeyService.validateKey(rawKey, callerIp);
 ```
 
 ## Errors

@@ -655,13 +655,6 @@ export interface ApiKeyConfig {
   header?: string;
 
   /**
-   * Prefix embedded in generated key strings (helps identify keys in logs/leaks)
-   *
-   * @default 'nauth'
-   */
-  keyPrefix?: string;
-
-  /**
    * Maximum number of active keys per user
    *
    * @default 10

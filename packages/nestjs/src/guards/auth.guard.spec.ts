@@ -11,6 +11,7 @@ import {
   AuthService,
   ContextStorage,
 } from '@nauth-toolkit/core';
+import { ApiKeyService } from '@nauth-toolkit/core';
 import { JwtService, SessionService } from '@nauth-toolkit/core/internal';
 import { getNAuthContextStore } from './nauth-context.guard';
 
@@ -202,6 +203,87 @@ describe('AuthGuard token source enforcement', () => {
     const req = ctx.switchToHttp().getRequest();
     expect(req.user).toBeUndefined();
     expect(req.token).toBeUndefined();
+  });
+});
+
+describe('AuthGuard API-key optional identification', () => {
+  const SUB = '550e8400-e29b-41d4-a716-446655440000';
+  const KEY_ID = '660e8400-e29b-41d4-a716-446655440001';
+
+  const mockApiKeyService = {
+    validateKey: jest.fn(),
+  } as unknown as ApiKeyService;
+
+  async function createApiKeyGuard(): Promise<AuthGuard> {
+    const baseConfig = {
+      jwt: {
+        accessToken: { expiresIn: '15m' },
+        refreshToken: { secret: 'x'.repeat(32), expiresIn: '30d' },
+      },
+      apiKeys: { enabled: true, header: 'X-API-Key' },
+    } as unknown as NAuthConfig;
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AuthGuard,
+        { provide: Reflector, useValue: mockReflector },
+        { provide: JwtService, useValue: mockJwtService },
+        { provide: SessionService, useValue: mockSessionService },
+        { provide: AuthService, useValue: mockAuthService },
+        { provide: ApiKeyService, useValue: mockApiKeyService },
+        { provide: 'NAUTH_CONFIG', useValue: baseConfig },
+      ],
+    }).compile();
+
+    return module.get(AuthGuard);
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (mockAuthService.getUserForAuthContext as unknown as jest.Mock).mockResolvedValue({ id: 1, sub: SUB });
+  });
+
+  it('identifies the user on a public route when a valid key is supplied', async () => {
+    (mockReflector.getAllAndOverride as unknown as jest.Mock).mockReturnValue(true); // @Public()
+    (mockApiKeyService.validateKey as unknown as jest.Mock).mockResolvedValue({ keyId: KEY_ID, sub: SUB });
+
+    const guard = await createApiKeyGuard();
+    const ctx = createHttpContext({ headers: { 'x-api-key': 'good-key' } });
+
+    await expect(guard.canActivate(ctx as any)).resolves.toBe(true);
+    const req = ctx.switchToHttp().getRequest();
+    expect(req.user).toMatchObject({ sub: SUB });
+    expect(req.nauthApiKeyAuth).toBe(true);
+    expect(req.nauthApiKeyId).toBe(KEY_ID);
+  });
+
+  it('tolerates an invalid key on a public route (no throw, no user)', async () => {
+    (mockReflector.getAllAndOverride as unknown as jest.Mock).mockReturnValue(true); // @Public()
+    (mockApiKeyService.validateKey as unknown as jest.Mock).mockRejectedValue(
+      new NAuthException(AuthErrorCode.API_KEY_INVALID, 'bad'),
+    );
+
+    const guard = await createApiKeyGuard();
+    const ctx = createHttpContext({ headers: { 'x-api-key': 'bad-key' } });
+
+    await expect(guard.canActivate(ctx as any)).resolves.toBe(true);
+    const req = ctx.switchToHttp().getRequest();
+    expect(req.user).toBeUndefined();
+    expect(req.nauthApiKeyAuth).toBeUndefined();
+  });
+
+  it('rejects an invalid key on a protected, opted-in route', async () => {
+    (mockReflector.getAllAndOverride as unknown as jest.Mock).mockReturnValue(false); // not @Public()
+    // @AllowApiKey() at route level, no deny marker (deny-wins precedence checks deny first).
+    (mockReflector.get as unknown as jest.Mock).mockImplementation((key: string) => String(key).includes('ALLOW'));
+    (mockApiKeyService.validateKey as unknown as jest.Mock).mockRejectedValue(
+      new NAuthException(AuthErrorCode.API_KEY_INVALID, 'bad'),
+    );
+
+    const guard = await createApiKeyGuard();
+    const ctx = createHttpContext({ headers: { 'x-api-key': 'bad-key' } });
+
+    await expect(guard.canActivate(ctx as any)).rejects.toMatchObject({ code: AuthErrorCode.API_KEY_INVALID });
   });
 });
 

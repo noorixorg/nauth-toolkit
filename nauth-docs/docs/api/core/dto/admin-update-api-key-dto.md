@@ -59,4 +59,4 @@ import { AdminUpdateApiKeyDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AdminAuthService.updateUserApiKey()](../services/admin-auth-service)
+- [ApiKeyService.adminUpdateKey()](../services/api-key-service)

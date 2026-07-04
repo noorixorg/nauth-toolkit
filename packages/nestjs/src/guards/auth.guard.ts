@@ -73,16 +73,16 @@ export class AuthGuard implements CanActivate {
     ]);
 
     // API key authentication takes precedence: when the configured header is present it is the
-    // ONLY credential considered. A valid key attaches the user and short-circuits the JWT path;
-    // an invalid/expired/IP-blocked key throws (access denied) with no fallback.
+    // ONLY credential considered. A valid key attaches the user and short-circuits the JWT path.
     //
-    // Public routes bypass API-key auth entirely (mirrors the Express ApiKeyHandler which skips
-    // when nauthPublic is set): a stray/invalid key header must never make a @Public() route fail.
-    if (!isPublic) {
-      const handledByApiKey = await this.tryApiKeyAuth(context);
-      if (handledByApiKey) {
-        return true;
-      }
+    // - Protected route (strict): an invalid/expired/IP-blocked key, or a key on a route that
+    //   doesn't opt in, is rejected (no fallback to cookie/bearer).
+    // - Public route (optional): a valid key still identifies the user (like a valid JWT), but a
+    //   missing/invalid key is tolerated — it never makes a @Public() route fail. The route opt-in
+    //   policy is not enforced, because a public route offers optional identification, not protection.
+    const handledByApiKey = await this.tryApiKeyAuth(context, { strict: !isPublic });
+    if (handledByApiKey) {
+      return true;
     }
 
     // Public routes can optionally accept authentication:
@@ -98,11 +98,15 @@ export class AuthGuard implements CanActivate {
   /**
    * Attempt API-key authentication for the request.
    *
-   * @returns true if the request carried an API key (and was authenticated + authorized);
-   *   false if no API key header was present (caller should fall back to JWT auth).
-   * @throws {NAuthException} On an invalid key (401) or a route that does not accept API keys (403).
+   * @param context - Nest execution context
+   * @param options.strict - When true (protected routes), an invalid key or a non-opted-in route
+   *   throws (access denied). When false (public routes), the key is best-effort: a valid key
+   *   identifies the user, but any failure is swallowed and the request proceeds unauthenticated.
+   * @returns true if a valid API key authenticated the request; false if no key was present, or
+   *   (on a public route) the key was invalid.
+   * @throws {NAuthException} On a protected route: invalid key (401) or route that doesn't accept keys (403).
    */
-  private async tryApiKeyAuth(context: ExecutionContext): Promise<boolean> {
+  private async tryApiKeyAuth(context: ExecutionContext, options: { strict: boolean }): Promise<boolean> {
     const apiKeysConfig = this.config.apiKeys;
     if (!apiKeysConfig?.enabled || !this._apiKeyService) {
       return false;
@@ -118,14 +122,22 @@ export class AuthGuard implements CanActivate {
       return false; // No API key - fall back to JWT/cookie auth.
     }
 
-    // Route opt-in enforcement (deny-wins). Checked before authentication so keys are never
-    // usable on routes that don't accept them, regardless of validity.
-    if (!this.isApiKeyAllowed(context)) {
+    // Route opt-in enforcement (deny-wins), only on protected routes. Checked before authentication
+    // so keys are never usable on routes that don't accept them, regardless of validity.
+    if (options.strict && !this.isApiKeyAllowed(context)) {
       throw new NAuthException(AuthErrorCode.FORBIDDEN, 'API key authentication is not allowed for this route');
     }
 
     const callerIp = this.resolveCallerIp(request);
-    const result = await this._apiKeyService.validateKey(rawKey, callerIp);
+    let result: { keyId: string; sub: string };
+    try {
+      result = await this._apiKeyService.validateKey(rawKey, callerIp);
+    } catch (error) {
+      if (options.strict) {
+        throw error; // protected route: invalid key = access denied, no fallback
+      }
+      return false; // public route: optional identification — ignore an invalid key
+    }
 
     const user = await this._authService.getUserForAuthContext(result.sub);
     (user as IUser & { sessionAuthMethod?: string | null }).sessionAuthMethod = 'api-key';

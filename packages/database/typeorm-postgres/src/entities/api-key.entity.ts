@@ -19,7 +19,7 @@ import { User } from './user.entity';
  */
 @Entity('nauth_api_keys')
 @Index(['keyId'], { unique: true })
-@Index(['lookupId'], { unique: true })
+@Index(['keyHash'], { unique: true })
 @Index(['userId'])
 @Index(['isActive'])
 @Index(['expiresAt'])
@@ -36,9 +36,6 @@ export class ApiKey extends BaseApiKey {
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user!: User;
-
-  @Column({ type: 'varchar', length: 64 })
-  declare lookupId: string;
 
   @Column({ type: 'varchar', length: 128 })
   declare keyHash: string;

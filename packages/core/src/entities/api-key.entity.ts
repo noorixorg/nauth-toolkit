@@ -10,8 +10,8 @@
  * extend this class in their respective packages.
  *
  * Security:
- * - The full key is never stored; only `keyHash` (SHA-256) is persisted.
- * - `lookupId` is a non-secret, indexed identifier used for O(1) lookup.
+ * - The plaintext key is never stored; only `keyHash` (SHA-256) is persisted, in a unique index.
+ * - Presented keys are hashed and looked up by `keyHash` (O(1), no plaintext comparison).
  * - `allowedIps` restricts which source IPs may use the key (empty/null = any IP).
  */
 export class BaseApiKey {
@@ -33,16 +33,9 @@ export class BaseApiKey {
   userId!: number;
 
   /**
-   * Non-secret lookup identifier (indexed, unique)
+   * SHA-256 hash of the plaintext key (indexed, unique)
    *
-   * Embedded in the plaintext key and used to locate the record without
-   * scanning every hash. Not a secret on its own.
-   */
-  lookupId!: string;
-
-  /**
-   * SHA-256 hash of the full plaintext key
-   * The plaintext key is never stored.
+   * The plaintext key is never stored. Presented keys are hashed and looked up by this value.
    */
   keyHash!: string;
 

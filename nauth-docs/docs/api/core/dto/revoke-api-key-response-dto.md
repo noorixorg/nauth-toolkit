@@ -1,38 +1,38 @@
 ---
-title: DeleteApiKeyDTO
-description: Permanently delete an API key by identifier.
-keywords: [dto, api key, delete]
+title: RevokeApiKeyResponseDTO
+description: Response for revoking (soft-deleting) an API key.
+keywords: [dto, api key, revoke, response]
 image: /img/api-social-card.png
 ---
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# DeleteApiKeyDTO
+# RevokeApiKeyResponseDTO
 
 **Package:** `@nauth-toolkit/core`
-**Type:** DTO (Request)
+**Type:** DTO (Response)
 
-Permanently delete an API key by identifier.
+Response for revoking (soft-deleting) an API key.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-import { DeleteApiKeyDTO } from '@nauth-toolkit/nestjs';
+import { RevokeApiKeyResponseDTO } from '@nauth-toolkit/nestjs';
 ```
 
 </TabItem>
 <TabItem value="express" label="Express">
 
 ```typescript
-import { DeleteApiKeyDTO } from '@nauth-toolkit/core';
+import { RevokeApiKeyResponseDTO } from '@nauth-toolkit/core';
 ```
 
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { DeleteApiKeyDTO } from '@nauth-toolkit/core';
+import { RevokeApiKeyResponseDTO } from '@nauth-toolkit/core';
 ```
 
 </TabItem>
@@ -42,16 +42,16 @@ import { DeleteApiKeyDTO } from '@nauth-toolkit/core';
 
 | Property | Type | Required | Description with validation inline |
 | -------- | ---- | -------- | ---------------------------------- |
-| `keyId` | `string` | Yes | External key identifier (UUID v4). |
+| `success` | `boolean` | Yes | Whether the key was revoked. |
 
 ## Example
 
 ```json
 {
-  "keyId": "550e8400-e29b-41d4-a716-446655440000"
+  "success": true
 }
 ```
 
 ## Used By
 
-- [ApiKeyService.deleteKey()](../services/api-key-service#deletekeydto)
+- [ApiKeyService.revokeKey()](../services/api-key-service#revokekeydto)

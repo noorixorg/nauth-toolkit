@@ -467,7 +467,6 @@ export function initServices(
     repositories.challengeSessionRepository,
     repositories.authAuditRepository,
     repositories.trustedDeviceRepository || undefined,
-    apiKeyService,
   );
 
   // ============================================================================

@@ -184,3 +184,27 @@ export class CreateApiKeyResponseDTO {
    */
   apiKey!: ApiKeyResponseDTO;
 }
+
+/**
+ * Response for listing API keys
+ */
+export class ListApiKeysResponseDTO {
+  /** The user's API keys (sanitized; never includes secrets) */
+  apiKeys!: ApiKeyResponseDTO[];
+}
+
+/**
+ * Response for revoking an API key
+ */
+export class RevokeApiKeyResponseDTO {
+  /** Whether the key was revoked */
+  success!: boolean;
+}
+
+/**
+ * Response for deleting an API key
+ */
+export class DeleteApiKeyResponseDTO {
+  /** Whether the key was deleted */
+  success!: boolean;
+}

@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/sms-twilio",
-  "version": "0.3.1",
+  "version": "0.3.3",
   "description": "Twilio SMS provider for nauth-toolkit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -22,7 +22,7 @@
     "twilio": "^5.7.0"
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.3.1"
+    "@nauth-toolkit/core": "^0.3.3"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",

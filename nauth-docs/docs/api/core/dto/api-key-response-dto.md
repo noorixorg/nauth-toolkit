@@ -72,5 +72,5 @@ import { ApiKeyResponseDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [ApiKeyService.listKeys()](../services/api-key-service#listkeysuserid)
-- [ApiKeyService.updateKey()](../services/api-key-service#updatekeyparams)
+- [ApiKeyService.listKeys()](../services/api-key-service#listkeys)
+- [ApiKeyService.updateKey()](../services/api-key-service#updatekeydto)

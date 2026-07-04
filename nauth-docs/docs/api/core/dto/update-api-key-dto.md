@@ -57,4 +57,4 @@ import { UpdateApiKeyDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [ApiKeyService.updateKey()](../services/api-key-service#updatekeyparams)
+- [ApiKeyService.updateKey()](../services/api-key-service#updatekeydto)

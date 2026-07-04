@@ -578,7 +578,6 @@ export const apiKeyConfigSchema = z.object({
   enabled: z.boolean().optional(),
   allowUserCreation: z.boolean().optional(),
   header: z.string().optional(),
-  keyPrefix: z.string().optional(),
   maxKeysPerUser: z.number().optional(),
   maxExpiryDays: z.number().optional(),
   allowIndefinite: z.boolean().optional(),

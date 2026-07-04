@@ -962,7 +962,6 @@ export class AuthModule {
             challengeSessionRepository?: Repository<BaseChallengeSession>,
             authAuditRepository?: Repository<BaseAuthAudit>,
             trustedDeviceRepository?: Repository<BaseTrustedDevice>,
-            apiKeyService?: ApiKeyService,
           ) => {
             return new AdminAuthService(
               userRepository,
@@ -989,7 +988,6 @@ export class AuthModule {
               challengeSessionRepository,
               authAuditRepository,
               trustedDeviceRepository,
-              apiKeyService,
             );
           },
           inject: [
@@ -1017,7 +1015,6 @@ export class AuthModule {
             { token: 'ChallengeSessionRepository', optional: true },
             { token: 'AuthAuditRepository', optional: true },
             { token: 'TrustedDeviceRepository', optional: true },
-            { token: ApiKeyService, optional: true },
           ],
         },
         {

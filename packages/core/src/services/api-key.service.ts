@@ -1,65 +1,58 @@
 import { Repository } from 'typeorm';
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import { BaseApiKey } from '../entities/api-key.entity';
 import { BaseUser } from '../entities/user.entity';
 import { NAuthConfig } from '../interfaces/config.interface';
+import { IUser } from '../interfaces/entities.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
+import { ContextStorage } from '../utils/context-storage';
+import { ensureValidatedDto } from '../utils/dto-validator';
 import { isValidIpOrCidr, ipMatchesEntry } from '../utils/ip-match';
 import { InternalAuthAuditService } from './auth-audit.service';
-import { ApiKeyResponseDTO, CreateApiKeyResponseDTO } from '../dto/api-key.dto';
+import {
+  CreateApiKeyDTO,
+  UpdateApiKeyDTO,
+  RevokeApiKeyDTO,
+  DeleteApiKeyDTO,
+  ApiKeyResponseDTO,
+  CreateApiKeyResponseDTO,
+  ListApiKeysResponseDTO,
+  RevokeApiKeyResponseDTO,
+  DeleteApiKeyResponseDTO,
+} from '../dto/api-key.dto';
+import { AdminCreateApiKeyDTO, AdminUpdateApiKeyDTO, AdminManageApiKeyDTO } from '../dto/admin-api-key.dto';
 
-/**
- * Parameters for creating an API key.
- * The owning `userId` is always supplied by the caller (never from request bodies).
- */
-export interface CreateApiKeyParams {
-  /** Internal user ID the key authenticates as */
-  userId: number;
-  /** Optional label */
-  name?: string | null;
-  /** Expiry in days, `null` for never, or `undefined` to trigger the mandatory-expiry error */
-  expiresInDays?: number | null;
-  /** Optional IP allowlist (IPs / IPv4 CIDR ranges) */
-  allowedIps?: string[];
-  /** Whether an administrator is creating the key on behalf of the user */
-  createdByAdmin?: boolean;
-}
-
-/** Parameters for updating an API key's mutable fields. */
-export interface UpdateApiKeyParams {
-  userId: number;
-  keyId: string;
-  name?: string | null;
-  allowedIps?: string[];
-}
-
-/** Result of a successful API key validation. */
+/** Result of a successful API key validation (internal auth path). */
 export interface ApiKeyValidationResult {
   /** External key identifier (UUID v4) */
   keyId: string;
-  /** Internal owning user ID */
-  userId: number;
-  /** Owning user's external identifier (UUID v4) */
+  /** Owning user's external identifier (UUID v4) — callers load the user context from this */
   sub: string;
 }
 
 /**
  * API Key Service
  *
- * Manages the lifecycle of API keys (create/list/update/revoke/delete) and validates
- * keys presented on requests. Keys authenticate as their owning user.
+ * Owns the full API key lifecycle and validation. Keys authenticate **as their owning user**.
+ *
+ * Identity convention (matches the rest of the toolkit):
+ * - **Self-service** methods (`createKey`, `listKeys`, `updateKey`, `revokeKey`, `deleteKey`)
+ *   act on the *currently authenticated* user, resolved from request context. They take no
+ *   user identifier.
+ * - **Admin** methods (`adminCreateKey`, `adminListKeys`, `adminUpdateKey`, `adminRevokeKey`,
+ *   `adminDeleteKey`) act on a target user identified by `sub`. Protect them with admin auth.
+ *
+ * Every public method takes a request DTO and returns a response DTO, and validates the DTO at
+ * runtime (via {@link ensureValidatedDto}) so non-NestJS callers are protected from invalid input.
  *
  * Security:
- * - Only a SHA-256 hash of the full key is stored; the plaintext is returned once at creation.
- * - Lookup uses a non-secret, indexed `lookupId`; the secret is compared in constant time.
+ * - Only a SHA-256 hash of the key is stored; the plaintext is returned once at creation.
+ * - Presented keys are hashed and looked up by that hash (indexed, unique) — the plaintext never
+ *   leaves the caller and is never compared field-by-field.
  * - Per-key IP allowlists (optional) restrict which source IPs may use a key.
- *
- * @remarks
- * This service does NOT enforce endpoint authorization. Route protection (which endpoints
- * accept API keys) is the responsibility of the framework adapter (guard/middleware).
  */
 export class ApiKeyService {
   constructor(
@@ -72,155 +65,129 @@ export class ApiKeyService {
     this.logger?.log?.('ApiKeyService initialized');
   }
 
+  // ==========================================================================
+  // Self-service (acting user resolved from auth context)
+  // ==========================================================================
+
   /**
-   * Create a new API key.
+   * Create an API key for the currently authenticated user.
    *
-   * @param params - Creation parameters (owning userId is required)
-   * @returns The plaintext key (shown once) plus sanitized metadata
    * @throws {NAuthException} API_KEY_CREATION_DISABLED, API_KEY_LIMIT_REACHED,
    *   API_KEY_EXPIRY_REQUIRED, API_KEY_INDEFINITE_NOT_ALLOWED, API_KEY_EXPIRY_TOO_LONG,
-   *   VALIDATION_FAILED (invalid IP allowlist), USER_NOT_FOUND
+   *   VALIDATION_FAILED, FORBIDDEN (not authenticated)
    */
-  async createKey(params: CreateApiKeyParams): Promise<CreateApiKeyResponseDTO> {
-    const cfg = this.config.apiKeys ?? {};
-
-    // Creation-rights gate: only admins may create keys unless user creation is enabled.
-    if (!params.createdByAdmin && cfg.allowUserCreation !== true) {
-      throw new NAuthException(
-        AuthErrorCode.API_KEY_CREATION_DISABLED,
-        'API key creation is disabled for users. Contact an administrator.',
-      );
-    }
-
-    const user = await this.userRepository.findOne({ where: { id: params.userId } });
-    if (!user) {
-      throw new NAuthException(AuthErrorCode.USER_NOT_FOUND, 'User not found');
-    }
-
-    // Enforce per-user active key limit.
-    const maxKeys = cfg.maxKeysPerUser ?? 10;
-    const activeCount = await this.apiKeyRepository.count({ where: { userId: params.userId, isActive: true } });
-    if (activeCount >= maxKeys) {
-      throw new NAuthException(AuthErrorCode.API_KEY_LIMIT_REACHED, `Maximum of ${maxKeys} active API keys reached.`, {
-        maxKeysPerUser: maxKeys,
-      });
-    }
-
-    const expiresAt = this.resolveExpiry(params.expiresInDays);
-    const allowedIps = this.normalizeAllowedIps(params.allowedIps);
-
-    // Generate the key material.
-    const keyId = randomUUID();
-    const lookupId = randomBytes(8).toString('hex'); // 16 non-secret hex chars
-    const secret = randomBytes(32).toString('base64url');
-    const prefix = cfg.keyPrefix ?? 'nauth';
-    const fullKey = `${prefix}_${lookupId}.${secret}`;
-    const keyHash = this.hashKey(fullKey);
-
-    const entity = this.apiKeyRepository.create({
-      keyId,
-      userId: params.userId,
-      lookupId,
-      keyHash,
-      name: params.name ?? null,
-      lastFour: secret.slice(-4),
-      allowedIps: allowedIps.length > 0 ? allowedIps : null,
-      expiresAt,
-      isActive: true,
-      createdByAdmin: params.createdByAdmin === true,
-      usageCount: 0,
-    });
-
-    const saved = await this.apiKeyRepository.save(entity);
-
-    await this.audit(AuthAuditEventType.API_KEY_CREATED, params.userId, 'SUCCESS', {
-      keyId,
-      createdByAdmin: entity.createdByAdmin,
-      hasExpiry: expiresAt !== null,
-      ipRestricted: allowedIps.length > 0,
-    });
-
-    return { key: fullKey, apiKey: this.toResponse(saved) };
+  async createKey(dto: CreateApiKeyDTO): Promise<CreateApiKeyResponseDTO> {
+    dto = await ensureValidatedDto(CreateApiKeyDTO, dto);
+    const user = this.getCurrentUserOrThrow();
+    return this.createForUser(user.id, dto, false);
   }
 
   /**
-   * Update a key's mutable fields (name and IP allowlist).
-   * The secret and expiry are immutable — rotate/extend by deleting and recreating.
+   * List the current user's API keys (sanitized; never includes secrets).
+   */
+  async listKeys(): Promise<ListApiKeysResponseDTO> {
+    const user = this.getCurrentUserOrThrow();
+    return this.listForUser(user.id);
+  }
+
+  /**
+   * Update the current user's key (label and/or IP allowlist). Secret and expiry are immutable.
    *
-   * @throws {NAuthException} API_KEY_NOT_FOUND, VALIDATION_FAILED
+   * @throws {NAuthException} API_KEY_NOT_FOUND, VALIDATION_FAILED, FORBIDDEN
    */
-  async updateKey(params: UpdateApiKeyParams): Promise<ApiKeyResponseDTO> {
-    const key = await this.apiKeyRepository.findOne({ where: { keyId: params.keyId, userId: params.userId } });
-    if (!key) {
-      throw new NAuthException(AuthErrorCode.API_KEY_NOT_FOUND, 'API key not found');
-    }
-
-    if (params.name !== undefined) {
-      key.name = params.name ?? null;
-    }
-    if (params.allowedIps !== undefined) {
-      const allowedIps = this.normalizeAllowedIps(params.allowedIps);
-      key.allowedIps = allowedIps.length > 0 ? allowedIps : null;
-    }
-
-    const saved = await this.apiKeyRepository.save(key);
-
-    await this.audit(AuthAuditEventType.API_KEY_UPDATED, params.userId, 'INFO', { keyId: params.keyId });
-
-    return this.toResponse(saved);
+  async updateKey(dto: UpdateApiKeyDTO): Promise<ApiKeyResponseDTO> {
+    dto = await ensureValidatedDto(UpdateApiKeyDTO, dto);
+    const user = this.getCurrentUserOrThrow();
+    return this.updateForUser(user.id, dto.keyId, dto.name, dto.allowedIps);
   }
 
   /**
-   * List all keys owned by a user (sanitized; never includes secrets).
-   */
-  async listKeys(userId: number): Promise<ApiKeyResponseDTO[]> {
-    const keys = await this.apiKeyRepository.find({
-      where: { userId },
-      order: { createdAt: 'DESC' },
-    });
-    return keys.map((k) => this.toResponse(k));
-  }
-
-  /**
-   * Revoke (soft-delete) a key. The record is retained for audit history.
+   * Revoke (soft-delete) one of the current user's keys.
    *
-   * @throws {NAuthException} API_KEY_NOT_FOUND
+   * @throws {NAuthException} API_KEY_NOT_FOUND, FORBIDDEN
    */
-  async revokeKey(params: { userId: number; keyId: string; reason?: string }): Promise<{ success: boolean }> {
-    const key = await this.apiKeyRepository.findOne({ where: { keyId: params.keyId, userId: params.userId } });
-    if (!key) {
-      throw new NAuthException(AuthErrorCode.API_KEY_NOT_FOUND, 'API key not found');
-    }
-
-    if (key.isActive) {
-      key.isActive = false;
-      key.revokedAt = new Date();
-      key.revokeReason = params.reason ?? 'user_revoked';
-      await this.apiKeyRepository.save(key);
-    }
-
-    await this.audit(AuthAuditEventType.API_KEY_REVOKED, params.userId, 'INFO', { keyId: params.keyId });
-
-    return { success: true };
+  async revokeKey(dto: RevokeApiKeyDTO): Promise<RevokeApiKeyResponseDTO> {
+    dto = await ensureValidatedDto(RevokeApiKeyDTO, dto);
+    const user = this.getCurrentUserOrThrow();
+    return this.revokeForUser(user.id, dto.keyId, 'user_revoked');
   }
 
   /**
-   * Permanently delete a key.
+   * Permanently delete one of the current user's keys.
    *
-   * @throws {NAuthException} API_KEY_NOT_FOUND
+   * @throws {NAuthException} API_KEY_NOT_FOUND, FORBIDDEN
    */
-  async deleteKey(params: { userId: number; keyId: string }): Promise<{ success: boolean }> {
-    const key = await this.apiKeyRepository.findOne({ where: { keyId: params.keyId, userId: params.userId } });
-    if (!key) {
-      throw new NAuthException(AuthErrorCode.API_KEY_NOT_FOUND, 'API key not found');
-    }
-
-    await this.apiKeyRepository.remove(key);
-
-    await this.audit(AuthAuditEventType.API_KEY_DELETED, params.userId, 'INFO', { keyId: params.keyId });
-
-    return { success: true };
+  async deleteKey(dto: DeleteApiKeyDTO): Promise<DeleteApiKeyResponseDTO> {
+    dto = await ensureValidatedDto(DeleteApiKeyDTO, dto);
+    const user = this.getCurrentUserOrThrow();
+    return this.deleteForUser(user.id, dto.keyId);
   }
+
+  // ==========================================================================
+  // Admin (target user identified by sub) — protect with admin authentication
+  // ==========================================================================
+
+  /**
+   * Create an API key on behalf of a user. Bypasses `allowUserCreation`, but still enforces
+   * `maxKeysPerUser`, expiry, and IP-restriction rules.
+   *
+   * @throws {NAuthException} USER_NOT_FOUND, or any API_KEY_* creation error
+   */
+  async adminCreateKey(dto: AdminCreateApiKeyDTO): Promise<CreateApiKeyResponseDTO> {
+    dto = await ensureValidatedDto(AdminCreateApiKeyDTO, dto);
+    const userId = await this.resolveUserIdBySub(dto.sub);
+    return this.createForUser(userId, dto, true);
+  }
+
+  /**
+   * List a user's API keys (admin).
+   *
+   * @throws {NAuthException} USER_NOT_FOUND
+   */
+  async adminListKeys(dto: AdminManageApiKeyDTO): Promise<ListApiKeysResponseDTO> {
+    dto = await ensureValidatedDto(AdminManageApiKeyDTO, dto);
+    const userId = await this.resolveUserIdBySub(dto.sub);
+    return this.listForUser(userId);
+  }
+
+  /**
+   * Update a user's key (admin).
+   *
+   * @throws {NAuthException} USER_NOT_FOUND, API_KEY_NOT_FOUND, VALIDATION_FAILED
+   */
+  async adminUpdateKey(dto: AdminUpdateApiKeyDTO): Promise<ApiKeyResponseDTO> {
+    dto = await ensureValidatedDto(AdminUpdateApiKeyDTO, dto);
+    const userId = await this.resolveUserIdBySub(dto.sub);
+    return this.updateForUser(userId, dto.keyId, dto.name, dto.allowedIps);
+  }
+
+  /**
+   * Revoke (soft-delete) a user's key (admin).
+   *
+   * @throws {NAuthException} USER_NOT_FOUND, API_KEY_NOT_FOUND, VALIDATION_FAILED
+   */
+  async adminRevokeKey(dto: AdminManageApiKeyDTO): Promise<RevokeApiKeyResponseDTO> {
+    dto = await ensureValidatedDto(AdminManageApiKeyDTO, dto);
+    const keyId = this.requireKeyId(dto.keyId);
+    const userId = await this.resolveUserIdBySub(dto.sub);
+    return this.revokeForUser(userId, keyId, 'admin_revoked');
+  }
+
+  /**
+   * Permanently delete a user's key (admin).
+   *
+   * @throws {NAuthException} USER_NOT_FOUND, API_KEY_NOT_FOUND, VALIDATION_FAILED
+   */
+  async adminDeleteKey(dto: AdminManageApiKeyDTO): Promise<DeleteApiKeyResponseDTO> {
+    dto = await ensureValidatedDto(AdminManageApiKeyDTO, dto);
+    const keyId = this.requireKeyId(dto.keyId);
+    const userId = await this.resolveUserIdBySub(dto.sub);
+    return this.deleteForUser(userId, keyId);
+  }
+
+  // ==========================================================================
+  // Validation (internal auth path — called by the handler / guard)
+  // ==========================================================================
 
   /**
    * Validate a presented API key and resolve its owner.
@@ -230,18 +197,17 @@ export class ApiKeyService {
    *
    * @param rawKey - The full plaintext key from the request header
    * @param callerIp - Source IP of the request (for IP-allowlist enforcement + usage tracking)
-   * @returns The owning user's identifiers on success
    * @throws {NAuthException} API_KEY_INVALID, API_KEY_EXPIRED, API_KEY_IP_NOT_ALLOWED
    */
   async validateKey(rawKey: string, callerIp?: string | null): Promise<ApiKeyValidationResult> {
-    const lookupId = this.parseLookupId(rawKey);
-    if (!lookupId) {
+    if (typeof rawKey !== 'string' || rawKey.length === 0) {
       await this.audit(AuthAuditEventType.API_KEY_AUTH_FAILED, null, 'FAILURE', { reason: 'malformed' });
       throw new NAuthException(AuthErrorCode.API_KEY_INVALID, 'Invalid API key');
     }
 
-    const key = await this.apiKeyRepository.findOne({ where: { lookupId } });
-    if (!key || !key.isActive || !this.hashesEqual(key.keyHash, this.hashKey(rawKey))) {
+    // Look up by the hash of the presented key (indexed). A miss means unknown/invalid.
+    const key = await this.apiKeyRepository.findOne({ where: { keyHash: this.hashKey(rawKey) } });
+    if (!key || !key.isActive) {
       await this.audit(AuthAuditEventType.API_KEY_AUTH_FAILED, key?.userId ?? null, 'FAILURE', { reason: 'invalid' });
       throw new NAuthException(AuthErrorCode.API_KEY_INVALID, 'Invalid API key');
     }
@@ -262,7 +228,6 @@ export class ApiKeyService {
       throw new NAuthException(AuthErrorCode.API_KEY_IP_NOT_ALLOWED, 'API key not permitted from this IP address');
     }
 
-    // Resolve the owner's external id (sub) so callers can load the shared auth context.
     const owner = await this.userRepository.findOne({
       where: { id: key.userId },
       select: { id: true, sub: true, isActive: true },
@@ -277,12 +242,177 @@ export class ApiKeyService {
 
     await this.recordUsage(key, callerIp ?? null);
 
-    return { keyId: key.keyId, userId: key.userId, sub: owner.sub };
+    return { keyId: key.keyId, sub: owner.sub };
   }
 
   // ==========================================================================
-  // Internal helpers
+  // Internal primitives (keyed by internal userId)
   // ==========================================================================
+
+  /**
+   * Core key creation for a resolved user.
+   */
+  private async createForUser(
+    userId: number,
+    params: { name?: string; expiresInDays?: number | null; allowedIps?: string[] },
+    createdByAdmin: boolean,
+  ): Promise<CreateApiKeyResponseDTO> {
+    const cfg = this.config.apiKeys ?? {};
+
+    // Creation-rights gate: only admins may create keys unless user creation is enabled.
+    if (!createdByAdmin && cfg.allowUserCreation !== true) {
+      throw new NAuthException(
+        AuthErrorCode.API_KEY_CREATION_DISABLED,
+        'API key creation is disabled for users. Contact an administrator.',
+      );
+    }
+
+    const maxKeys = cfg.maxKeysPerUser ?? 10;
+    const activeCount = await this.apiKeyRepository.count({ where: { userId, isActive: true } });
+    if (activeCount >= maxKeys) {
+      throw new NAuthException(AuthErrorCode.API_KEY_LIMIT_REACHED, `Maximum of ${maxKeys} active API keys reached.`, {
+        maxKeysPerUser: maxKeys,
+      });
+    }
+
+    const expiresAt = this.resolveExpiry(params.expiresInDays);
+    const allowedIps = this.normalizeAllowedIps(params.allowedIps);
+
+    // Server-generated 256-bit secret. The plaintext is returned once; only its hash is stored.
+    const keyId = randomUUID();
+    const rawKey = randomBytes(32).toString('base64url');
+    const keyHash = this.hashKey(rawKey);
+
+    const entity = this.apiKeyRepository.create({
+      keyId,
+      userId,
+      keyHash,
+      name: params.name ?? null,
+      lastFour: rawKey.slice(-4),
+      allowedIps: allowedIps.length > 0 ? allowedIps : null,
+      expiresAt,
+      isActive: true,
+      createdByAdmin,
+      usageCount: 0,
+    });
+
+    const saved = await this.apiKeyRepository.save(entity);
+
+    await this.audit(AuthAuditEventType.API_KEY_CREATED, userId, 'SUCCESS', {
+      keyId,
+      createdByAdmin,
+      hasExpiry: expiresAt !== null,
+      ipRestricted: allowedIps.length > 0,
+    });
+
+    return { key: rawKey, apiKey: this.toResponse(saved) };
+  }
+
+  /**
+   * List a resolved user's keys.
+   */
+  private async listForUser(userId: number): Promise<ListApiKeysResponseDTO> {
+    const keys = await this.apiKeyRepository.find({ where: { userId }, order: { createdAt: 'DESC' } });
+    return { apiKeys: keys.map((k) => this.toResponse(k)) };
+  }
+
+  /**
+   * Update a resolved user's key (label / IP allowlist).
+   */
+  private async updateForUser(
+    userId: number,
+    keyId: string,
+    name: string | undefined,
+    allowedIps: string[] | undefined,
+  ): Promise<ApiKeyResponseDTO> {
+    const key = await this.apiKeyRepository.findOne({ where: { keyId, userId } });
+    if (!key) {
+      throw new NAuthException(AuthErrorCode.API_KEY_NOT_FOUND, 'API key not found');
+    }
+
+    if (name !== undefined) {
+      key.name = name ?? null;
+    }
+    if (allowedIps !== undefined) {
+      const normalized = this.normalizeAllowedIps(allowedIps);
+      key.allowedIps = normalized.length > 0 ? normalized : null;
+    }
+
+    const saved = await this.apiKeyRepository.save(key);
+    await this.audit(AuthAuditEventType.API_KEY_UPDATED, userId, 'INFO', { keyId });
+    return this.toResponse(saved);
+  }
+
+  /**
+   * Revoke (soft-delete) a resolved user's key.
+   */
+  private async revokeForUser(userId: number, keyId: string, reason: string): Promise<RevokeApiKeyResponseDTO> {
+    const key = await this.apiKeyRepository.findOne({ where: { keyId, userId } });
+    if (!key) {
+      throw new NAuthException(AuthErrorCode.API_KEY_NOT_FOUND, 'API key not found');
+    }
+    if (key.isActive) {
+      key.isActive = false;
+      key.revokedAt = new Date();
+      key.revokeReason = reason;
+      await this.apiKeyRepository.save(key);
+    }
+    await this.audit(AuthAuditEventType.API_KEY_REVOKED, userId, 'INFO', { keyId });
+    return { success: true };
+  }
+
+  /**
+   * Permanently delete a resolved user's key.
+   */
+  private async deleteForUser(userId: number, keyId: string): Promise<DeleteApiKeyResponseDTO> {
+    const key = await this.apiKeyRepository.findOne({ where: { keyId, userId } });
+    if (!key) {
+      throw new NAuthException(AuthErrorCode.API_KEY_NOT_FOUND, 'API key not found');
+    }
+    await this.apiKeyRepository.remove(key);
+    await this.audit(AuthAuditEventType.API_KEY_DELETED, userId, 'INFO', { keyId });
+    return { success: true };
+  }
+
+  // ==========================================================================
+  // Helpers
+  // ==========================================================================
+
+  /**
+   * Resolve the currently authenticated user from request context.
+   *
+   * @throws {NAuthException} FORBIDDEN when no authenticated user is present
+   */
+  private getCurrentUserOrThrow(): IUser {
+    const currentUser = ContextStorage.get<IUser>('CURRENT_USER');
+    if (!currentUser) {
+      throw new NAuthException(AuthErrorCode.FORBIDDEN, 'Authentication required');
+    }
+    return currentUser;
+  }
+
+  /**
+   * Resolve an internal user id from an external sub (UUID).
+   *
+   * @throws {NAuthException} USER_NOT_FOUND
+   */
+  private async resolveUserIdBySub(sub: string): Promise<number> {
+    const user = await this.userRepository.findOne({ where: { sub }, select: { id: true } });
+    if (!user) {
+      throw new NAuthException(AuthErrorCode.USER_NOT_FOUND, 'User not found');
+    }
+    return user.id;
+  }
+
+  /**
+   * Ensure a keyId is present for admin revoke/delete operations.
+   */
+  private requireKeyId(keyId: string | undefined): string {
+    if (!keyId) {
+      throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'keyId is required for this operation');
+    }
+    return keyId;
+  }
 
   /**
    * Resolve the mandatory, config-bounded expiry.
@@ -331,7 +461,6 @@ export class ApiKeyService {
     const cfg = this.config.apiKeys ?? {};
     const ipCfg = cfg.ipRestrictions ?? {};
 
-    // When IP restrictions are disabled, allowlists are ignored entirely.
     if (ipCfg.enabled === false) {
       if (allowedIps && allowedIps.length > 0) {
         this.logger?.debug?.('[ApiKey] IP restrictions disabled - ignoring provided allowedIps');
@@ -366,43 +495,10 @@ export class ApiKeyService {
   }
 
   /**
-   * Compute the SHA-256 hex hash of a full key string.
+   * Compute the SHA-256 hex hash of a key string (used for storage + indexed lookup).
    */
   private hashKey(rawKey: string): string {
     return createHash('sha256').update(rawKey).digest('hex');
-  }
-
-  /**
-   * Constant-time comparison of two equal-length hex hashes.
-   */
-  private hashesEqual(a: string, b: string): boolean {
-    if (a.length !== b.length) {
-      return false;
-    }
-    try {
-      return timingSafeEqual(Buffer.from(a), Buffer.from(b));
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Extract the non-secret lookup id from a raw key of the form `prefix_lookupId.secret`.
-   */
-  private parseLookupId(rawKey: string): string | null {
-    if (typeof rawKey !== 'string') {
-      return null;
-    }
-    const dotIndex = rawKey.indexOf('.');
-    if (dotIndex <= 0) {
-      return null;
-    }
-    const head = rawKey.slice(0, dotIndex); // prefix_lookupId
-    const underscoreIndex = head.lastIndexOf('_');
-    if (underscoreIndex < 0 || underscoreIndex === head.length - 1) {
-      return null;
-    }
-    return head.slice(underscoreIndex + 1);
   }
 
   /**
@@ -416,7 +512,7 @@ export class ApiKeyService {
     const last = key.lastUsedAt ? key.lastUsedAt.getTime() : 0;
 
     if (last !== 0 && now - last < throttleMs) {
-      return; // Within throttle window - skip write and audit noise.
+      return;
     }
 
     try {

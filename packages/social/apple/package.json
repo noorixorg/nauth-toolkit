@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/social-apple",
-  "version": "0.3.1",
+  "version": "0.3.3",
   "description": "Apple Sign In provider for nauth-toolkit — web and native flows",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -44,7 +44,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.3.1",
+    "@nauth-toolkit/core": "^0.3.3",
     "jose": "^6.0.0",
     "@nestjs/common": "^9 || ^10 || ^11"
   },

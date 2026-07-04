@@ -54,4 +54,4 @@ import { RevokeApiKeyDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [ApiKeyService.revokeKey()](../services/api-key-service#revokekeyparams)
+- [ApiKeyService.revokeKey()](../services/api-key-service#revokekeydto)

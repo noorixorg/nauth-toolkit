@@ -79,7 +79,7 @@ export { HookRegistryService } from './services/hook-registry.service';
  * Available when apiKeys.enabled is true.
  */
 export { ApiKeyService } from './services/api-key.service';
-export type { CreateApiKeyParams, UpdateApiKeyParams, ApiKeyValidationResult } from './services/api-key.service';
+export type { ApiKeyValidationResult } from './services/api-key.service';
 
 // ============================================================================
 // Internal Services - NOT EXPORTED

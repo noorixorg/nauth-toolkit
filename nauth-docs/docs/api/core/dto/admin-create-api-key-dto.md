@@ -59,4 +59,4 @@ import { AdminCreateApiKeyDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AdminAuthService.createApiKeyForUser()](../services/admin-auth-service)
+- [ApiKeyService.adminCreateKey()](../services/api-key-service)

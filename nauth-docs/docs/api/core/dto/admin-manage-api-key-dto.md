@@ -56,4 +56,4 @@ import { AdminManageApiKeyDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [AdminAuthService.listUserApiKeys() / revokeUserApiKey() / deleteUserApiKey()](../services/admin-auth-service)
+- [ApiKeyService.adminListKeys() / adminRevokeKey() / adminDeleteKey()](../services/api-key-service)

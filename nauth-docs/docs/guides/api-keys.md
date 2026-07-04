@@ -18,7 +18,8 @@ By the end of this guide you will have user and admin key-management endpoints p
 ## How it works
 
 - A key is presented in a configurable header (default `X-API-Key`).
-- **Single mechanism per request:** when the header is present it is the *only* credential considered. A valid key authenticates as the owning user; an invalid, expired, revoked, or IP-blocked key is **denied (401/403)** with no fallback to cookies/bearer.
+- **Single mechanism per request:** when the header is present it is the *only* credential considered. A valid key authenticates as the owning user; on a protected route an invalid, expired, revoked, or IP-blocked key is **denied (401/403)** with no fallback to cookies/bearer.
+- **Optional identification on public routes:** on a `@Public()` route a valid key still identifies the caller (just like a valid JWT would), so `@CurrentUser()` is populated — but a missing or invalid key is tolerated and the request proceeds unauthenticated. Public routes are never made to fail by a stray key.
 - Only a SHA-256 hash of the key is stored. The plaintext is returned **once** at creation.
 - **Opt-in route access (least privilege):** keys only work on routes explicitly marked with `@AllowApiKey()` (or globally via `apiKeys.globalAllowlist`). `@DenyApiKey()` always wins.
 
@@ -102,9 +103,22 @@ Register the `apiKey` middleware before `auth` in your pipeline: `clientInfo →
 
 When `allowUserCreation: true`, let users manage their own keys. Inject [`ApiKeyService`](../api/core/services/api-key-service.md).
 
+Each self-service method takes a DTO and returns a response DTO. The **acting user is resolved
+from the auth context** — you never pass a user id.
+
 ```typescript title="src/api-keys/api-keys.controller.ts"
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { AuthGuard, CurrentUser, IUser, ApiKeyService, CreateApiKeyDTO, UpdateApiKeyDTO } from '@nauth-toolkit/nestjs';
+import {
+  AuthGuard,
+  ApiKeyService,
+  CreateApiKeyDTO,
+  UpdateApiKeyDTO,
+  CreateApiKeyResponseDTO,
+  ApiKeyResponseDTO,
+  ListApiKeysResponseDTO,
+  RevokeApiKeyResponseDTO,
+  DeleteApiKeyResponseDTO,
+} from '@nauth-toolkit/nestjs';
 
 @UseGuards(AuthGuard)
 @Controller('api-keys')
@@ -112,58 +126,54 @@ export class ApiKeysController {
   constructor(private readonly apiKeys: ApiKeyService) {}
 
   @Post()
-  create(@CurrentUser() user: IUser, @Body() dto: CreateApiKeyDTO) {
+  create(@Body() dto: CreateApiKeyDTO): Promise<CreateApiKeyResponseDTO> {
     // Returns the plaintext key ONCE — deliver it securely.
-    return this.apiKeys.createKey({
-      userId: user.id,
-      name: dto.name,
-      expiresInDays: dto.expiresInDays, // required: number of days or null
-      allowedIps: dto.allowedIps,       // optional IP allowlist
-    });
+    return this.apiKeys.createKey(dto);
   }
 
   @Get()
-  list(@CurrentUser() user: IUser) {
-    return this.apiKeys.listKeys(user.id);
+  list(): Promise<ListApiKeysResponseDTO> {
+    return this.apiKeys.listKeys();
   }
 
   @Patch(':keyId')
-  update(@CurrentUser() user: IUser, @Param('keyId') keyId: string, @Body() dto: UpdateApiKeyDTO) {
-    return this.apiKeys.updateKey({ userId: user.id, keyId, name: dto.name, allowedIps: dto.allowedIps });
+  update(@Param('keyId') keyId: string, @Body() dto: UpdateApiKeyDTO): Promise<ApiKeyResponseDTO> {
+    return this.apiKeys.updateKey({ keyId, name: dto.name, allowedIps: dto.allowedIps });
   }
 
   @Post(':keyId/revoke')
-  revoke(@CurrentUser() user: IUser, @Param('keyId') keyId: string) {
-    return this.apiKeys.revokeKey({ userId: user.id, keyId });
+  revoke(@Param('keyId') keyId: string): Promise<RevokeApiKeyResponseDTO> {
+    return this.apiKeys.revokeKey({ keyId });
   }
 
   @Delete(':keyId')
-  remove(@CurrentUser() user: IUser, @Param('keyId') keyId: string) {
-    return this.apiKeys.deleteKey({ userId: user.id, keyId });
+  remove(@Param('keyId') keyId: string): Promise<DeleteApiKeyResponseDTO> {
+    return this.apiKeys.deleteKey({ keyId });
   }
 }
 ```
 
 ## Admin key management
 
-Admins can create/manage keys on behalf of any user via [`AdminAuthService`](../api/core/services/admin-auth-service.md) — even when `allowUserCreation` is `false`. Protect these routes with your admin guard.
+Admins manage keys on behalf of any user with the `admin*` methods on [`ApiKeyService`](../api/core/services/api-key-service.md), which take the target user's **`sub`** — and work even when `allowUserCreation` is `false`. Protect these routes with your admin guard.
 
 ```typescript
 // Create a key for a user (bypasses allowUserCreation)
-await adminAuthService.createApiKeyForUser({ sub, expiresInDays: 90, allowedIps: ['203.0.113.0/24'] });
+await apiKeys.adminCreateKey({ sub, expiresInDays: 90, allowedIps: ['203.0.113.0/24'] });
 
-await adminAuthService.listUserApiKeys({ sub });
-await adminAuthService.updateUserApiKey({ sub, keyId, allowedIps: ['203.0.113.5'] });
-await adminAuthService.revokeUserApiKey({ sub, keyId });
-await adminAuthService.deleteUserApiKey({ sub, keyId });
+await apiKeys.adminListKeys({ sub });
+await apiKeys.adminUpdateKey({ sub, keyId, allowedIps: ['203.0.113.5'] });
+await apiKeys.adminRevokeKey({ sub, keyId });
+await apiKeys.adminDeleteKey({ sub, keyId });
 ```
 
 ## Using a key
 
-Send the key in the configured header:
+A key is a single opaque token generated by the server (users/admins never supply their own).
+Send it, whole, in the configured header:
 
 ```bash
-curl https://api.example.com/reports -H "X-API-Key: nauth_ab12cd34.<secret>"
+curl https://api.example.com/reports -H "X-API-Key: Zdh-wUDorVIDtYEiW2q1fT5m9jdXxss-cmyZbIZ73Qg"
 ```
 
 From the frontend SDK, attach the header or use the management methods:
@@ -208,8 +218,7 @@ Everything the API-key feature touches, linked in one place.
 
 **Service & config**
 
-- [ApiKeyService](../api/core/services/api-key-service.md) — create / list / update / revoke / delete / validate
-- [AdminAuthService](../api/core/services/admin-auth-service.md) — admin key management on behalf of a user
+- [ApiKeyService](../api/core/services/api-key-service.md) — self-service (`createKey`, …) + admin (`adminCreateKey`, …) + validation
 - [Configuration → API Keys](../concepts/configuration.md#api-keys) — the full `apiKeys` config block
 - [NAuthConfig](../api/core/interfaces/nauth-config.md) — top-level config interface
 

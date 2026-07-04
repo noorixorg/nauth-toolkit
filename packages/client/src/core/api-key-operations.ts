@@ -61,7 +61,8 @@ export class ApiKeyOperations {
    * List the current user's API keys (sanitized).
    */
   async list(): Promise<ApiKeyInfo[]> {
-    return this.get<ApiKeyInfo[]>(this.basePath);
+    const res = await this.get<{ apiKeys: ApiKeyInfo[] }>(this.basePath);
+    return res.apiKeys ?? [];
   }
 
   /**

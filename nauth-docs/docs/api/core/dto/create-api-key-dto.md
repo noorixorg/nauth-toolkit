@@ -58,4 +58,4 @@ import { CreateApiKeyDTO } from '@nauth-toolkit/core';
 
 ## Used By
 
-- [ApiKeyService.createKey()](../services/api-key-service#createkeyparams)
+- [ApiKeyService.createKey()](../services/api-key-service#createkeydto)

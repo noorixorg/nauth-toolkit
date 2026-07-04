@@ -109,6 +109,9 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [DeleteApiKeyDTO](./delete-api-key-dto)                | Delete API key (user)           | Permanently delete a key by keyId                         |
 | [ApiKeyResponseDTO](./api-key-response-dto)            | Sanitized key metadata          | Returned by list/update (never the secret)                |
 | [CreateApiKeyResponseDTO](./create-api-key-response-dto) | Key creation response         | One-time plaintext key plus metadata                      |
+| [ListApiKeysResponseDTO](./list-api-keys-response-dto) | Key list response               | `{ apiKeys }` — sanitized array                           |
+| [RevokeApiKeyResponseDTO](./revoke-api-key-response-dto) | Key revoke response           | `{ success }`                                             |
+| [DeleteApiKeyResponseDTO](./delete-api-key-response-dto) | Key delete response           | `{ success }`                                             |
 | [AdminCreateApiKeyDTO](./admin-create-api-key-dto)     | Admin create key for user       | Target sub plus key options                               |
 | [AdminUpdateApiKeyDTO](./admin-update-api-key-dto)     | Admin update user's key         | Target sub, keyId, label/IP allowlist                     |
 | [AdminManageApiKeyDTO](./admin-manage-api-key-dto)     | Admin list/revoke/delete key    | Target sub and optional keyId                             |

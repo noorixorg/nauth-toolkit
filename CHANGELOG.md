@@ -5,6 +5,24 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.3] - 2026-07-05
+
+### Fixed
+
+- **API keys on public routes now identify the caller** — a valid key on a `@Public()` route attaches the owning user (so `@CurrentUser()` works), matching JWT optional-auth. A missing/invalid key is tolerated; protected routes stay strict (invalid key ⇒ denied, no fallback).
+
+## [0.3.2] - 2026-07-03
+
+### Changed
+
+- **API keys — corrected the public API** (feature introduced in 0.3.1). Self-service `ApiKeyService` methods now resolve the acting user from the auth context instead of taking a user id, and every method takes a request DTO and returns a response DTO (validated at runtime). Admin key management now lives on `ApiKeyService` as `adminCreateKey` / `adminListKeys` / `adminUpdateKey` / `adminRevokeKey` / `adminDeleteKey` (keyed by `sub`); the `AdminAuthService` API-key wrappers were removed. Generated keys are now a plain server-generated secret — the `nauth_` prefix / embedded lookup id and the `apiKeys.keyPrefix` option were removed.
+
+### Migration
+
+- Self-service calls: drop the `userId` argument — identity comes from the session (e.g. `apiKeys.createKey(dto)`).
+- Admin calls: use `apiKeys.adminCreateKey({ sub, … })` (and siblings) instead of `adminAuthService.createApiKeyForUser(…)`.
+- Remove `apiKeys.keyPrefix` from config. The `nauth_api_keys` schema change (drop `lookupId`, unique index on `keyHash`) ships as an automatic follow-up migration — no manual step, whether you're upgrading from 0.3.1 or installing fresh.
+
 ## [0.3.1] - 2026-07-03
 
 ### Added

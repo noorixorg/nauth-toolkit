@@ -49,11 +49,11 @@ import { CreateApiKeyResponseDTO } from '@nauth-toolkit/core';
 
 ```json
 {
-  "key": "nauth_a1b2c3d4.<secret>",
+  "key": "Zdh-wUDorVIDtYEiW2q1fT5m9jdXxss-cmyZbIZ73Qg",
   "apiKey": { "keyId": "550e8400-...", "isActive": true }
 }
 ```
 
 ## Used By
 
-- [ApiKeyService.createKey()](../services/api-key-service#createkeyparams)
+- [ApiKeyService.createKey()](../services/api-key-service#createkeydto)
