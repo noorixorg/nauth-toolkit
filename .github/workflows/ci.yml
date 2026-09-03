@@ -12,8 +12,17 @@ concurrency:
 
 jobs:
   build-and-test:
+    name: Build & test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      # Report both runtimes independently - a break on the floor version
+      # should not hide the result on the recommended one.
+      fail-fast: false
+      matrix:
+        # 22 is the engines floor declared by every package; 24 matches .nvmrc
+        # and is the version contributors develop on. Both must stay green.
+        node-version: [22, 24]
     steps:
       - uses: actions/checkout@v4
 
@@ -22,7 +31,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version: ${{ matrix.node-version }}
           cache: pnpm
 
       - name: Install dependencies
