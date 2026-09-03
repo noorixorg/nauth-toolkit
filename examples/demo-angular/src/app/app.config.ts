@@ -1,5 +1,6 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
+import { PENDING_INTERACTION_KEY } from './oidc/interaction.component';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { providePrimeNG } from 'primeng/config';
 import { MessageService } from 'primeng/api';
@@ -45,7 +46,7 @@ const TOKEN_MODE: TokenMode = environment.tokenMode;
  * @param mode - Token delivery mode
  * @returns Configured NAuthClientConfig
  */
-const buildNAuthConfig = (mode: TokenMode): NAuthClientConfig => {
+const buildNAuthConfig = (mode: TokenMode, router: Router): NAuthClientConfig => {
   const baseConfig = {
     baseUrl: environment.apiBaseUrl,
     authPathPrefix: '/auth',
@@ -65,6 +66,33 @@ const buildNAuthConfig = (mode: TokenMode): NAuthClientConfig => {
     },
     admin: {
       pathPrefix: '/admin',
+    },
+
+    /**
+     * Return the user to a pending OpenID Connect request after they log in.
+     *
+     * The SDK navigates on its own — through the challenge chain, then to
+     * `redirects.loginSuccess`. This is the single chokepoint for all of it, so it is
+     * the one place that can divert the *terminal* navigation without disturbing the
+     * challenge steps in between.
+     *
+     * A query parameter would not survive: the SDK builds challenge URLs itself and
+     * drops anything it does not recognise. `sessionStorage` rides through untouched.
+     */
+    navigationHandler: (url: string): void => {
+      if (url.startsWith('/auth/challenge')) {
+        void router.navigateByUrl(url);
+        return;
+      }
+
+      const pending = sessionStorage.getItem(PENDING_INTERACTION_KEY);
+      if (pending) {
+        sessionStorage.removeItem(PENDING_INTERACTION_KEY);
+        void router.navigateByUrl(`/interaction/${pending}`);
+        return;
+      }
+
+      void router.navigateByUrl(url);
     },
   };
 
@@ -176,7 +204,8 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     {
       provide: NAUTH_CLIENT_CONFIG,
-      useValue: buildNAuthConfig(TOKEN_MODE),
+      useFactory: (router: Router) => buildNAuthConfig(TOKEN_MODE, router),
+      deps: [Router],
     },
     AngularHttpAdapter,
     AuthService,

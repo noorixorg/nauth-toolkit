@@ -1,0 +1,59 @@
+.oidc-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem 0;
+}
+
+.oidc-scopes {
+  list-style: none;
+  margin: 1.5rem 0;
+  padding: 0;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: var(--p-content-border-radius);
+  overflow: hidden;
+}
+
+.oidc-scope {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+}
+
+.oidc-scope + .oidc-scope {
+  border-top: 1px solid var(--p-content-border-color);
+}
+
+.oidc-scope-label {
+  font-size: 0.95rem;
+}
+
+.oidc-scope-code {
+  font-size: 0.75rem;
+  opacity: 0.65;
+  white-space: nowrap;
+}
+
+.oidc-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.oidc-client-link {
+  text-align: center;
+  font-size: 0.875rem;
+  margin: 0.5rem 0 0;
+}
+
+.oidc-footnote {
+  text-align: center;
+  font-size: 0.8125rem;
+  opacity: 0.7;
+  margin-top: 1.25rem;
+  overflow-wrap: anywhere;
+}

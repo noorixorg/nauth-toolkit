@@ -35,4 +35,7 @@ export { OIDCInteractionBridge } from './interaction-bridge';
 export type { InteractionStateDTO, InteractionRedirectDTO } from './interaction-bridge';
 export { mountOIDCProviderExpress, isProviderPath } from './mount/express';
 export { toRawHttp } from './raw-http';
+export { OIDCSessionTerminator } from './session-termination';
+export { createOIDCRateLimiter } from './rate-limit';
+export type { OIDCRateLimitConfig, OIDCEndpointLimit } from './rate-limit';
 export type { NAuthOIDCOptions, NAuthOIDCClient } from './config.types';

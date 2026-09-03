@@ -17,6 +17,19 @@ import {
 } from '../../oidc-helpers';
 
 /**
+ * A pre-seeded account for these tests: verified, active, no MFA.
+ *
+ * Create it with `pnpm seed:oidc-e2e`, or override with OIDC_E2E_EMAIL and
+ * OIDC_E2E_PASSWORD.
+ */
+const E2E_ACCOUNT = {
+  email: process.env.OIDC_E2E_EMAIL ?? 'oidc-e2e@example.com',
+  password: process.env.OIDC_E2E_PASSWORD ?? 'OidcE2E!Passw0rd',
+};
+
+const SEED_HINT = 'run `pnpm seed:oidc-e2e` against the dev database';
+
+/**
  * OpenID Connect provider — the authorization code flow.
  *
  * The demo acts as an authorization server for a third-party client. A user signs in
@@ -122,52 +135,23 @@ test.describe('OIDC Provider: authorization code flow', () => {
   // ==========================================================================
 
   test.describe.serial('a partner application signs a user in', () => {
-    test('a user completes nauth signup, including every configured challenge', async ({
-      flows,
-      flowState,
-      authConfig,
-      mail,
-      sms,
-    }) => {
-      const signup = await flows.signup(flowState.userEmail, flowState.userPhone);
-      expect(signup.success).toBe(true);
+    test('a verified user signs in through nauth', async ({ api }) => {
+      // A pre-seeded, fully verified account with no MFA. The signup and challenge
+      // chain has its own suite; what matters here is that the OIDC flow inherits a
+      // genuinely authenticated nauth session, so this keeps the setup deterministic.
+      const login = await api.post('/auth/login', {
+        data: { email: E2E_ACCOUNT.email, password: E2E_ACCOUNT.password },
+      });
 
-      // Walk whatever chain this configuration produces. Which challenges appear is
-      // the auth suite's concern; here it only matters that the OIDC flow inherits a
-      // fully authenticated user at the end of it.
-      let challenge = signup.data?.challengeName;
-      for (let step = 0; challenge && step < 6; step += 1) {
-        const session = flowState.challengeSession;
-        expect(session).toBeTruthy();
+      expect(login.status(), `Seed the account first: ${SEED_HINT}`).toBe(200);
 
-        let code: string | undefined;
-        if (challenge === 'VERIFY_EMAIL') {
-          code = await mail.latestCode(session!);
-        } else if (challenge === 'VERIFY_PHONE') {
-          code = await sms.latestCode(session!);
-        }
-
-        if (!code) {
-          // An MFA challenge needs an enrolled device, which this suite does not set
-          // up. Stop here and let the assertion below decide whether that is a problem.
-          break;
-        }
-
-        const result = await flows.completeChallenge(challenge, code);
-        expect(result.success).toBe(true);
-        challenge = result.data?.challengeName;
-      }
-
-      void authConfig;
-      expect(challenge).toBeFalsy();
+      const body = (await login.json()) as { challengeName?: string; user?: { sub: string } };
+      // Any challenge here means the seed is wrong, not that the provider is broken.
+      expect(body.challengeName, 'Seeded account should not present a challenge').toBeUndefined();
+      expect(body.user?.sub).toBeTruthy();
     });
 
     test('the authorization request completes and the client receives a code', async ({ api, flowState }) => {
-      const login = await api.post('/auth/login', {
-        data: { email: flowState.userEmail, password: flowState.password },
-      });
-      expect(login.ok()).toBe(true);
-
       const pkce = createPkce();
       const { callback } = await runAuthorizationFlow(api, {
         redirectUri,

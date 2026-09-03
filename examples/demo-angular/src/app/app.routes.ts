@@ -18,6 +18,17 @@ export const routes: Routes = [
     loadComponent: () => import('./login/login.component').then((m) => m.LoginComponent),
   },
   {
+    // Where the OpenID Connect provider sends the browser when a third-party
+    // application needs this user to log in or approve access.
+    //
+    // Deliberately unguarded: an anonymous visitor is exactly the case that has to
+    // render, because the page's job is then to send them to /login and remember
+    // where to come back to.
+    path: 'interaction/:uid',
+    loadComponent: () =>
+      import('./oidc/interaction.component').then((m) => m.OidcInteractionComponent),
+  },
+  {
     path: 'signup',
     loadComponent: () => import('./signup/signup.component').then((m) => m.SignupComponent),
   },

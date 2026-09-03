@@ -1,0 +1,74 @@
+<div class="auth-container">
+  <div class="auth-wrapper">
+    @switch (view()) {
+      @case ('loading') {
+        <div class="oidc-loading">
+          <p-progressSpinner strokeWidth="4" [style]="{ width: '48px', height: '48px' }" />
+          <p class="auth-subtitle">Checking this request…</p>
+        </div>
+      }
+
+      @case ('consent') {
+        <div class="auth-header">
+          @if (state()?.client?.logoUri) {
+            <img [src]="state()!.client.logoUri" [alt]="clientName()" class="auth-logo" />
+          } @else {
+            <img src="/img/nauth_square_logoonly.png" alt="nauth-toolkit Logo" class="auth-logo" />
+          }
+          <h1 class="auth-title">{{ clientName() }} wants to sign you in</h1>
+          <p class="auth-subtitle">
+            Approving lets this application know who you are. You can withdraw access later.
+          </p>
+        </div>
+
+        <ul class="oidc-scopes">
+          @for (line of scopeLines(); track line.scope) {
+            <li class="oidc-scope">
+              <span class="oidc-scope-label">{{ line.label }}</span>
+              <code class="oidc-scope-code">{{ line.scope }}</code>
+            </li>
+          }
+        </ul>
+
+        @if (state()?.client?.clientUri) {
+          <p class="oidc-client-link">
+            <a [href]="state()!.client.clientUri" target="_blank" rel="noopener noreferrer">
+              About {{ clientName() }}
+            </a>
+          </p>
+        }
+
+        <div class="oidc-actions">
+          <p-button
+            label="Allow"
+            severity="primary"
+            [loading]="submitting()"
+            (onClick)="approve()"
+            styleClass="w-full"
+          />
+          <p-button
+            label="Not now"
+            severity="secondary"
+            [outlined]="true"
+            [disabled]="submitting()"
+            (onClick)="deny()"
+            styleClass="w-full"
+          />
+        </div>
+
+        <p class="oidc-footnote">
+          Signing in as <strong>{{ state()?.sub }}</strong>
+        </p>
+      }
+
+      @case ('error') {
+        <div class="auth-header">
+          <img src="/img/nauth_square_logoonly.png" alt="nauth-toolkit Logo" class="auth-logo" />
+          <h1 class="auth-title">Something went wrong</h1>
+        </div>
+        <p-message severity="error" [text]="error() ?? 'Unknown error'" styleClass="w-full" />
+        <p class="oidc-footnote">Return to the application and try signing in again.</p>
+      }
+    }
+  </div>
+</div>

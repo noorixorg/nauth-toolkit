@@ -143,7 +143,18 @@ export class NAuthOIDCAdapter implements Adapter {
    * replay detection, cascades across access tokens, refresh tokens and codes.
    */
   async revokeByGrantId(grantId: string): Promise<void> {
-    await this.sweep(`${NS}:g:${grantId}:*`);
+    // Grant markers span every model, and that is the point: revoking a grant must
+    // reach the access tokens, refresh tokens and codes derived from it.
+    const markers = await this.storage.keys(`${NS}:g:${grantId}:*`);
+    for (const marker of markers) {
+      const parts = marker.split(':');
+      const model = parts[3];
+      const id = parts.slice(4).join(':');
+      if (model && id) {
+        await this.storage.del(`${NS}:${model}:${id}`);
+      }
+      await this.storage.del(marker);
+    }
   }
 
   /**
@@ -155,27 +166,16 @@ export class NAuthOIDCAdapter implements Adapter {
    * @internal
    */
   async revokeByAccountId(accountId: string): Promise<number> {
-    return this.sweep(`${NS}:acct:${accountId}:*`);
-  }
-
-  /**
-   * Delete the payloads named by a set of marker keys, then the markers.
-   *
-   * A marker is `{prefix}:{model}:{id}`, and ids may themselves contain colons, so the
-   * model and id are recovered by splitting off the fixed leading segments rather than
-   * by splitting the whole key.
-   */
-  private async sweep(pattern: string): Promise<number> {
-    const markers = await this.storage.keys(pattern);
-    const leading = pattern.replace(/\*$/, '').split(':').length - 1;
+    // Scoped to THIS model. The account marker namespace is shared by every model, so
+    // sweeping it wholesale from one adapter would silently destroy the others'
+    // artifacts too — a session termination would take live access tokens with it.
+    const markers = await this.storage.keys(`${NS}:acct:${accountId}:${this.name}:*`);
 
     let removed = 0;
     for (const marker of markers) {
-      const parts = marker.split(':');
-      const model = parts[leading];
-      const id = parts.slice(leading + 1).join(':');
-      if (model && id) {
-        await this.storage.del(`${NS}:${model}:${id}`);
+      const id = marker.split(':').slice(4).join(':');
+      if (id) {
+        await this.storage.del(this.key(id));
         removed += 1;
       }
       await this.storage.del(marker);

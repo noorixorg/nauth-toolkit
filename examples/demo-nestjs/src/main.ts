@@ -8,7 +8,11 @@ dotenv.config();
 
 import { AppModule } from './app.module';
 import { NAuthHttpExceptionFilter, NAuthValidationPipe } from '@nauth-toolkit/nestjs';
-import { NAUTH_OIDC_PROVIDER, mountOIDCProviderNest } from '@nauth-toolkit/oidc-provider/nestjs';
+import {
+  NAUTH_OIDC_PROVIDER,
+  createOIDCRateLimiter,
+  mountOIDCProviderNest,
+} from '@nauth-toolkit/oidc-provider/nestjs';
 import { oidcConfig } from './config/oidc.config';
 
 /**
@@ -31,6 +35,22 @@ async function bootstrap() {
   //
   // Being on the Express instance also means setGlobalPrefix('api') does not apply,
   // so the endpoints sit exactly where the discovery document advertises them.
+  // Rate limit ahead of the provider. oidc-provider ships none, and the mount sits
+  // outside nauth's guard chain, so nothing else covers these paths — POST /token is
+  // otherwise an unauthenticated brute-force surface against client secrets and
+  // authorization codes.
+  app.use(
+    createOIDCRateLimiter(
+      app.get('STORAGE_ADAPTER'),
+      {
+        authorize: { max: 60, windowSeconds: 60 },
+        token: { max: 60, windowSeconds: 60 },
+        introspection: { max: 600, windowSeconds: 60 },
+      },
+      { pathPrefix: oidcConfig.pathPrefix },
+    ),
+  );
+
   mountOIDCProviderNest(app, app.get(NAUTH_OIDC_PROVIDER), { pathPrefix: oidcConfig.pathPrefix });
 
   // Cookie middleware for cookie-based token delivery (e.g. nauth_refresh_token)

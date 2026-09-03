@@ -14,8 +14,10 @@ import {
   BadRequestException,
   Query,
   Param,
+  Optional,
 } from '@nestjs/common';
 import type { Request } from 'express';
+import { NAUTH_OIDC_SESSIONS, type OIDCSessionTerminator } from '@nauth-toolkit/oidc-provider/nestjs';
 import {
   AuthService,
   AdminAuthService,
@@ -148,6 +150,9 @@ export class CustomAuthController {
     protected readonly auditService?: AuthAuditService,
     @Inject(SocialAuthService)
     protected readonly socialAuthService?: SocialAuthService,
+    @Optional()
+    @Inject(NAUTH_OIDC_SESSIONS)
+    protected readonly oidcSessions?: OIDCSessionTerminator,
   ) {}
 
   // ============================================================================
@@ -645,7 +650,24 @@ export class CustomAuthController {
 
   @Get('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@Query() dto: LogoutDTO): Promise<LogoutResponseDTO> {
+  async logout(@Query() dto: LogoutDTO, @CurrentUser() user?: { sub: string }): Promise<LogoutResponseDTO> {
+    // End the OpenID Connect session too.
+    //
+    // The provider keeps its own SSO session, separate from nauth's. Without this,
+    // signing out here leaves it standing and the next authorization request from any
+    // client silently issues a fresh code for a user who believes they signed out.
+    //
+    // Tokens already issued to third parties are deliberately left alone — they have
+    // their own lifecycle and are revoked explicitly or left to expire.
+    if (user?.sub && this.oidcSessions) {
+      try {
+        await this.oidcSessions.terminateFor(user.sub);
+      } catch (error) {
+        // Never let this fail the logout itself.
+        this.logger.warn(`Failed to end OIDC sessions for ${user.sub}: ${(error as Error).message}`);
+      }
+    }
+
     // Session ID is automatically extracted from JWT token context by the library
     // Automatically clears cookies via ClientInfoService context
     return await this.authService.logout(dto);

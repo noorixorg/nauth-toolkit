@@ -5,6 +5,7 @@ import type { BaseUser, StorageAdapter } from '@nauth-toolkit/core';
 import { IdpSessionGate } from '@nauth-toolkit/core/internal';
 import { createNAuthOIDCProvider } from '../src/create-provider';
 import { OIDCInteractionBridge } from '../src/interaction-bridge';
+import { OIDCSessionTerminator } from '../src/session-termination';
 import type { NAuthOIDCOptions } from '../src/config.types';
 
 /** Injection token for the configured `oidc-provider` instance. */
@@ -12,6 +13,9 @@ export const NAUTH_OIDC_PROVIDER = 'NAUTH_OIDC_PROVIDER';
 
 /** Injection token for the interaction bridge. */
 export const NAUTH_OIDC_BRIDGE = 'NAUTH_OIDC_BRIDGE';
+
+/** Injection token for the single-logout helper. */
+export const NAUTH_OIDC_SESSIONS = 'NAUTH_OIDC_SESSIONS';
 
 /**
  * Everything the module needs that is not already available from `AuthModule`.
@@ -62,10 +66,16 @@ export class OIDCProviderModule {
       inject: [NAUTH_OIDC_PROVIDER, IdpSessionGate],
     };
 
+    const terminatorFactory: NestProvider = {
+      provide: NAUTH_OIDC_SESSIONS,
+      useFactory: (storage: StorageAdapter): OIDCSessionTerminator => new OIDCSessionTerminator(storage),
+      inject: ['STORAGE_ADAPTER'],
+    };
+
     return {
       module: OIDCProviderModule,
-      providers: [providerFactory, bridgeFactory],
-      exports: [NAUTH_OIDC_PROVIDER, NAUTH_OIDC_BRIDGE],
+      providers: [providerFactory, bridgeFactory, terminatorFactory],
+      exports: [NAUTH_OIDC_PROVIDER, NAUTH_OIDC_BRIDGE, NAUTH_OIDC_SESSIONS],
     };
   }
 }

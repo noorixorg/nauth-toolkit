@@ -45,7 +45,8 @@
     "commitlint": "commitlint",
     "lint:commit": "commitlint --from=HEAD~1 --to=HEAD",
     "kill": "kill -9 $(lsof -t -i :3000) ",
-    "test:e2e:oidc": "playwright test --project oidc"
+    "test:e2e:oidc": "playwright test --project oidc",
+    "seed:oidc-e2e": "node scripts/seed-oidc-e2e-user.js"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.5.2",
