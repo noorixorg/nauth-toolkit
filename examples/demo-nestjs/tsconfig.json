@@ -19,12 +19,31 @@
     "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
     "paths": {
-      "@nauth-toolkit/core": ["../../packages/core/dist/index"],
-      "@nauth-toolkit/core/*": ["../../packages/core/dist/*"],
-      "@nauth-toolkit/nestjs": ["../../packages/nestjs/dist/index"],
-      "@nauth-toolkit/nestjs/*": ["../../packages/nestjs/dist/*"]
+      "@nauth-toolkit/core": [
+        "../../packages/core/dist/index"
+      ],
+      "@nauth-toolkit/core/*": [
+        "../../packages/core/dist/*"
+      ],
+      "@nauth-toolkit/nestjs": [
+        "../../packages/nestjs/dist/index"
+      ],
+      "@nauth-toolkit/nestjs/*": [
+        "../../packages/nestjs/dist/*"
+      ],
+      "@nauth-toolkit/oidc-provider": [
+        "../../packages/oidc-provider/dist/src/index"
+      ],
+      "@nauth-toolkit/oidc-provider/*": [
+        "../../packages/oidc-provider/dist/*"
+      ]
     }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

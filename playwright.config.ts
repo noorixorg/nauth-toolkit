@@ -53,6 +53,9 @@ export default defineConfig({
   projects: [
     {
       name: 'cookies',
+      // The OIDC provider suite has its own project: it drives browser-shaped
+      // redirects against the provider rather than nauth's own API surface.
+      testIgnore: /specs\/oidc\//,
       use: {
         baseURL: process.env.TEST_BASE_URL || 'http://localhost:3000',
         extraHTTPHeaders: {
@@ -62,11 +65,31 @@ export default defineConfig({
     },
     {
       name: 'json',
+      testIgnore: /specs\/oidc\//,
       use: {
         baseURL: process.env.TEST_BASE_URL || 'http://localhost:3000',
         extraHTTPHeaders: {
           Origin: 'http://localhost', // capacitorjs
           'X-Forwarded-For': '203.97.24.118', // Default IP for JSON mode
+        },
+      },
+    },
+    {
+      // OpenID Connect provider flows.
+      //
+      // Separate from the two token-delivery projects because it exercises a
+      // different surface entirely: the provider owns the origin root (/oidc/*) and
+      // is reached through redirects, while its interaction bridge is an ordinary
+      // nauth route under /api. Cookie delivery is assumed throughout — the flow is
+      // browser-shaped and the bridge needs nauth's session cookie.
+      //
+      // Run on its own with: npx playwright test --project oidc
+      name: 'oidc',
+      testMatch: /specs\/oidc\/.*\.spec\.ts/,
+      use: {
+        baseURL: process.env.TEST_BASE_URL || 'http://localhost:3000',
+        extraHTTPHeaders: {
+          Origin: process.env.TEST_FRONTEND_URL || 'http://localhost:4200',
         },
       },
     },

@@ -31,7 +31,7 @@
     "build:client": "pnpm --filter @nauth-toolkit/client run build",
     "build:client-angular": "pnpm --filter @nauth-toolkit/client-angular run build",
     "build:deps": "pnpm --filter @nauth-toolkit/database-typeorm-postgres run build && pnpm --filter @nauth-toolkit/database-typeorm-mysql run build && pnpm --filter @nauth-toolkit/email-console run build && pnpm --filter @nauth-toolkit/email-nodemailer run build && pnpm --filter @nauth-toolkit/sms-console run build && pnpm --filter @nauth-toolkit/sms-aws-sns run build && pnpm --filter @nauth-toolkit/sms-twilio run build && pnpm --filter @nauth-toolkit/storage-database run build && pnpm --filter @nauth-toolkit/storage-redis run build",
-    "build:providers": "pnpm --filter @nauth-toolkit/social-google run build && pnpm --filter @nauth-toolkit/social-apple run build && pnpm --filter @nauth-toolkit/social-facebook run build && pnpm --filter @nauth-toolkit/mfa-totp run build && pnpm --filter @nauth-toolkit/mfa-sms run build && pnpm --filter @nauth-toolkit/mfa-email run build && pnpm --filter @nauth-toolkit/mfa-passkey run build",
+    "build:providers": "pnpm --filter @nauth-toolkit/social-google run build && pnpm --filter @nauth-toolkit/social-apple run build && pnpm --filter @nauth-toolkit/social-facebook run build && pnpm --filter @nauth-toolkit/mfa-totp run build && pnpm --filter @nauth-toolkit/mfa-sms run build && pnpm --filter @nauth-toolkit/mfa-email run build && pnpm --filter @nauth-toolkit/mfa-passkey run build && pnpm --filter @nauth-toolkit/oidc-provider run build",
     "clean": "find packages -type d -name 'node_modules' -prune -o -type d -name 'dist' -exec rm -rf {} + 2>/dev/null || true && find packages -type d -name 'node_modules' -prune -o -type f -name '*.tsbuildinfo' -delete 2>/dev/null || true",
     "test": "pnpm --filter @nauth-toolkit/core run test",
     "test:all": "pnpm -r run test",
@@ -44,7 +44,8 @@
     "prepare": "husky",
     "commitlint": "commitlint",
     "lint:commit": "commitlint --from=HEAD~1 --to=HEAD",
-    "kill": "kill -9 $(lsof -t -i :3000) "
+    "kill": "kill -9 $(lsof -t -i :3000) ",
+    "test:e2e:oidc": "playwright test --project oidc"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.5.2",

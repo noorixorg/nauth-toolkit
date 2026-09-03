@@ -26,6 +26,12 @@ type AuthFlowState = {
   challengeSession?: string;
   challengeName?: string;
   mfaSecret?: string;
+  /** Authorization code captured from the OIDC relying-party callback. */
+  oidcCode?: string;
+  /** PKCE verifier for the in-flight OIDC authorization request. */
+  oidcVerifier?: string;
+  /** Token response from the OIDC token endpoint. */
+  oidcTokens?: Record<string, string>;
 };
 
 type FlowResult<T> = {

@@ -4,6 +4,7 @@ packages:
   - 'packages/client'
   - 'packages/client-angular'
   - 'packages/recaptcha'
+  - 'packages/oidc-provider'
   - 'packages/database/*'
   - 'packages/email/*'
   - 'packages/sms/*'

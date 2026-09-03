@@ -75,6 +75,7 @@ import {
   HookRegistryService,
   registerBuiltInEmailNotificationHooks,
   TelemetryService,
+  IdpSessionGate,
 } from '@nauth-toolkit/core/internal';
 
 // MaxMind module type (for type safety in factory)
@@ -1780,6 +1781,16 @@ export class AuthModule {
             ]
           : []),
 
+        // Identity-provider session gate. Always available: provider packages
+        // (e.g. @nauth-toolkit/oidc-provider) need it to confirm a completed login
+        // before issuing credentials to a third party.
+        {
+          provide: IdpSessionGate,
+          useFactory: (userRepository: Repository<BaseUser>, nauthConfig: NAuthConfig, logger: NAuthLogger) =>
+            new IdpSessionGate(userRepository, nauthConfig, logger),
+          inject: ['UserRepository', 'NAUTH_CONFIG', 'NAUTH_LOGGER'],
+        },
+
         // Guards
         AuthGuard,
         ...(config.tokenDelivery?.method === 'cookies' || config.tokenDelivery?.method === 'hybrid' ? [CsrfGuard] : []),
@@ -1787,6 +1798,8 @@ export class AuthModule {
       exports: [
         AuthService,
         AdminAuthService,
+        IdpSessionGate,
+        'STORAGE_ADAPTER',
         ...(config.apiKeys?.enabled ? [ApiKeyService] : []),
         SocialAuthService, // Needed by social auth provider modules
         PasswordService,

@@ -14,7 +14,11 @@ import { SMSMFAModule } from '@nauth-toolkit/mfa-sms/nestjs';
 import { EmailMFAModule } from '@nauth-toolkit/mfa-email/nestjs';
 import { TOTPMFAModule } from '@nauth-toolkit/mfa-totp/nestjs';
 import { PasskeyMFAModule } from '@nauth-toolkit/mfa-passkey/nestjs';
+import { OIDCProviderModule } from '@nauth-toolkit/oidc-provider/nestjs';
+import { OIDCInteractionController } from '../oidc/oidc-interaction.controller';
+import { OIDCTestRelyingPartyController } from '../oidc/oidc-test-rp.controller';
 import { authConfig } from '../config/auth.config';
+import { oidcConfig } from '../config/oidc.config';
 import { PreSignupDebugHook, PostSignupDebugHook } from './hooks';
 
 /**
@@ -40,6 +44,7 @@ import { PreSignupDebugHook, PostSignupDebugHook } from './hooks';
     TOTPMFAModule,
     PasskeyMFAModule,
     AuthModule.forRoot(authConfig),
+    OIDCProviderModule.forRoot(oidcConfig),
     // Register lifecycle hooks - automatically discovered and registered
     NAuthHooksModule.forFeature([PreSignupDebugHook, PostSignupDebugHook]),
   ],
@@ -47,6 +52,8 @@ import { PreSignupDebugHook, PostSignupDebugHook } from './hooks';
     CustomAuthController,
     MobileAuthController,
     SocialRedirectController,
+    OIDCInteractionController,
+    OIDCTestRelyingPartyController,
     ApiKeysController,
     ApiKeyDemoController,
     ApiKeyUnmarkedDemoController,

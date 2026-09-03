@@ -1,0 +1,88 @@
+{
+  "name": "@nauth-toolkit/oidc-provider",
+  "version": "0.3.3",
+  "description": "OpenID Connect provider for nauth-toolkit, backed by the OpenID Certified oidc-provider library",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "nestjs": [
+        "dist/nestjs/index.d.ts"
+      ]
+    }
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/src/index.js",
+      "require": "./dist/src/index.js",
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./nestjs": {
+      "import": "./dist/nestjs/index.js",
+      "require": "./dist/nestjs/index.js",
+      "types": "./dist/nestjs/index.d.ts",
+      "default": "./dist/nestjs/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --passWithNoTests",
+    "lint": "eslint src nestjs --ext .ts",
+    "lint:fix": "eslint src nestjs --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\" \"nestjs/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"nestjs/**/*.ts\""
+  },
+  "peerDependencies": {
+    "@nauth-toolkit/core": "^0.3.3",
+    "oidc-provider": "^9.0.0",
+    "@nestjs/common": "^9.0.0 || ^10.0.0 || ^11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/oidc-provider": "^9.12.0",
+    "oidc-provider": "^9.12.0",
+    "typescript": "^5.5.0",
+    "@nestjs/common": "^11.0.0",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.0.0",
+    "typeorm": "^0.3.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "latest"
+  },
+  "license": "MIT",
+  "keywords": [
+    "nauth",
+    "authentication",
+    "auth",
+    "oidc",
+    "openid-connect",
+    "oauth2",
+    "authorization-server",
+    "identity-provider",
+    "nodejs",
+    "typescript"
+  ],
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noorixorg/nauth-toolkit"
+  },
+  "homepage": "https://nauth.dev",
+  "sideEffects": false,
+  "peerDependenciesMeta": {
+    "@nestjs/common": {
+      "optional": true
+    }
+  }
+}

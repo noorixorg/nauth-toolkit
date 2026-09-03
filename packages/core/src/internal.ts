@@ -240,3 +240,22 @@ export const NAUTH_SOCIAL_PROVIDER_TOKEN = 'NAUTH_SOCIAL_PROVIDER_TOKEN';
  * @internal
  */
 export { InternalAuthAuditService as AuthAuditService } from './services/auth-audit.service';
+
+// ============================================================================
+// Identity Provider Internals (Framework adapters and provider packages only)
+// ============================================================================
+
+/**
+ * Protocol-neutral gate answering whether a fully completed nauth login stands
+ * behind the current request.
+ *
+ * A valid access token only proves the challenge state machine reached
+ * `AUTHENTICATED` *at issue time*. This re-reads the account so that a user disabled,
+ * locked, or newly required to change their password since then cannot have
+ * credentials minted for a third party. Used by the OIDC interaction bridge, and by
+ * any future identity-provider protocol with the same requirement.
+ *
+ * @internal
+ */
+export { IdpSessionGate } from './services/idp-session-gate.service';
+export type { IdpGateResult } from './services/idp-session-gate.service';

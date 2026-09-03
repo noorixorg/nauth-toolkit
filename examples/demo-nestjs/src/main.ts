@@ -8,6 +8,8 @@ dotenv.config();
 
 import { AppModule } from './app.module';
 import { NAuthHttpExceptionFilter, NAuthValidationPipe } from '@nauth-toolkit/nestjs';
+import { NAUTH_OIDC_PROVIDER, mountOIDCProviderNest } from '@nauth-toolkit/oidc-provider/nestjs';
+import { oidcConfig } from './config/oidc.config';
 
 /**
  * Bootstrap the NestJS application with Express (5.x)
@@ -19,6 +21,17 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, new ExpressAdapter(), {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
+
+  // Mount the OpenID Connect provider FIRST.
+  //
+  // It attaches to the Express instance rather than Nest's router, so it deliberately
+  // sits outside the guard, interceptor, pipe and filter chain — it speaks OAuth on
+  // its own paths and wants nothing from nauth's request pipeline. Mounting ahead of
+  // the body parsers also leaves the raw request stream intact for POST /oidc/token.
+  //
+  // Being on the Express instance also means setGlobalPrefix('api') does not apply,
+  // so the endpoints sit exactly where the discovery document advertises them.
+  mountOIDCProviderNest(app, app.get(NAUTH_OIDC_PROVIDER), { pathPrefix: oidcConfig.pathPrefix });
 
   // Cookie middleware for cookie-based token delivery (e.g. nauth_refresh_token)
   app.use(cookieParser());

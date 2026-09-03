@@ -48,6 +48,7 @@ import { TelemetryService } from './services/telemetry.service';
 // Setup Helpers
 import { getRepositories } from './utils/setup/get-repositories';
 import { initStorage } from './utils/setup/init-storage';
+import type { StorageAdapter } from './interfaces/storage-adapter.interface';
 import { initServices, NAuthServices } from './utils/setup/init-services';
 import { registerMFAProviders } from './utils/setup/register-mfa';
 import { initSocialAuth, NAuthSocialProviders } from './utils/setup/init-social';
@@ -131,6 +132,15 @@ export interface NAuthInstance<TMiddleware = unknown, THelper = unknown>
 
   /** Logger instance */
   logger: NAuthLogger;
+
+  /**
+   * The resolved transient storage adapter (Memory, Database, or Redis).
+   *
+   * Exposed so provider packages can persist their own short-lived, TTL-bounded state
+   * without opening a second connection or requiring new tables — for example
+   * `@nauth-toolkit/oidc-provider`, which stores every OpenID Connect artifact here.
+   */
+  storage: StorageAdapter;
 
   /** CSRF service (if enabled) */
   csrfService?: CsrfService;
@@ -567,6 +577,7 @@ export class NAuth {
       adapter,
       config,
       logger,
+      storage,
       socialAuthService: services.socialAuthService,
       csrfService,
       socialRedirect: socialRedirectHandler,
