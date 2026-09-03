@@ -271,7 +271,7 @@ fastify.cron.createJob({
 
 ### updateGeoLocationDatabase()
 
-Download the latest MaxMind database files and reload them into memory. Uses distributed locking to prevent concurrent downloads in multi-server deployments.
+Download the latest MaxMind database files and reload them into memory. Downloads are serialized across instances with a distributed lock, so containers that start in parallel take turns instead of all calling MaxMind at once.
 
 ```typescript
 async updateGeoLocationDatabase(): Promise<void>
@@ -289,10 +289,19 @@ Promise that resolves when databases are downloaded and reloaded
 
 - Downloads configured editions (default: `GeoLite2-City`, `GeoLite2-Country`) from MaxMind
 - Uses distributed locking (lock key: `maxmind-db-update-lock`, TTL: 5 minutes)
+- If another instance holds the lock, **waits** for it (up to 2 minutes) rather than giving up
+- Reuses `.mmdb` files on disk that are less than 24 hours old instead of re-downloading
 - Automatically reloads in-memory database readers after download
-- If another process holds the lock, skips download and returns immediately
+- Concurrent calls in the same process share a single run
 - Requires `licenseKey` and `accountId` in configuration
 - Throws if `skipDownloads: true`
+
+:::note Clustered deployments
+The lock serializes instances rather than silencing them, which keeps both storage layouts correct:
+
+- **Shared volume** (EFS, NFS, mounted PVC) — the first instance downloads; the rest find fresh files and load them without hitting MaxMind.
+- **Container-local path** (the default, `os.tmpdir()`) — each instance downloads its own copy when its turn comes, so no container is left without geolocation data.
+:::
 
 **Errors**
 

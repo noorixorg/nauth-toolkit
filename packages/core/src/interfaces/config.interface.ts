@@ -34,6 +34,14 @@ export interface NAuthConfig {
   tablePrefix?: string;
 
   /**
+   * Database migration configuration
+   *
+   * Migrations run automatically at startup and are safe for clustered deployments
+   * (ECS/Kubernetes) with no configuration. See {@link MigrationsConfig}.
+   */
+  migrations?: MigrationsConfig;
+
+  /**
    * JWT configuration
    */
   jwt: JwtConfig;
@@ -620,6 +628,44 @@ export interface NAuthConfig {
    * ```
    */
   apiKeys?: ApiKeyConfig;
+}
+
+/**
+ * Database migration configuration
+ *
+ * nauth-toolkit owns its own migration table (`<tablePrefix>migrations`) and applies
+ * pending migrations during {@link NAuth.create}.
+ *
+ * @remarks
+ * **Parallel starts are safe by default and need no configuration.** In a clustered
+ * deployment (ECS tasks, Kubernetes pods) several instances boot at the same time and
+ * would otherwise race to create the same tables. nauth-toolkit serializes the run
+ * behind a database-level lock:
+ * - PostgreSQL: a session-scoped advisory lock (`pg_try_advisory_lock`)
+ * - MySQL / MariaDB: a session-scoped named lock (`GET_LOCK`)
+ *
+ * Instances that lose the race wait for the winner, then re-check the migration table
+ * and start with no work to do. The lock lives on a dedicated connection and the
+ * database drops it if the instance dies, so a crashed task can never wedge a deploy.
+ *
+ * @example Apply migrations from a one-off release task instead of at boot
+ * ```typescript
+ * // Application containers:
+ * migrations: { autoRun: false }
+ * // Release task: run the TypeORM CLI, or boot once with autoRun left on.
+ * ```
+ */
+export interface MigrationsConfig {
+  /**
+   * Automatically apply pending nauth-toolkit migrations during `NAuth.create()`.
+   *
+   * Set to `false` when migrations are applied out-of-band (for example an ECS
+   * one-off task or a Kubernetes Job that runs before the new task set rolls out).
+   * Application instances then start without touching the schema.
+   *
+   * @default true
+   */
+  autoRun?: boolean;
 }
 
 /**
@@ -2838,8 +2884,9 @@ export interface GeoLocationConfig {
      * Auto-download on startup if files don't exist
      * Default: false
      *
-     * WARNING: Only enable if using distributed storage adapter (Redis/Database)
-     * to prevent concurrent downloads in multi-server deployments.
+     * Safe for clustered deployments: downloads are serialized through a distributed
+     * lock when a Redis or database storage adapter is configured, so instances that
+     * boot in parallel take turns instead of all hammering MaxMind at once.
      *
      * Ignored if skipDownloads is true.
      */

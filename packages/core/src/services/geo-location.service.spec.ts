@@ -591,14 +591,75 @@ describe('GeoLocationService', () => {
       }
     });
 
-    it('should skip update when lock already acquired', async () => {
-      mockStorageAdapter.set.mockResolvedValue(null); // Lock not acquired
+    it('should wait for another instance instead of skipping when the lock is held', async () => {
+      jest.useFakeTimers();
+      // Lock held by another instance on the first attempt, released before the second.
+      mockStorageAdapter.set.mockResolvedValueOnce(null).mockResolvedValue('lock-value');
+      mockStorageAdapter.del.mockResolvedValue(undefined);
+      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+
+      try {
+        const pending = service.updateGeoLocationDatabase();
+        await jest.advanceTimersByTimeAsync(3_000);
+        await pending;
+      } finally {
+        jest.useRealTimers();
+      }
+
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'Another instance is updating the MaxMind database; waiting for it to finish...',
+      );
+      // Eventually acquired the lock and released it - never silently gave up.
+      expect(mockStorageAdapter.set).toHaveBeenCalledTimes(2);
+      expect(mockStorageAdapter.del).toHaveBeenCalledWith('maxmind-db-update-lock');
+    }, 15000);
+
+    it('should download without the lock once the wait times out', async () => {
+      jest.useFakeTimers();
+      mockStorageAdapter.set.mockResolvedValue(null); // Never acquired
+      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+
+      try {
+        const pending = service.updateGeoLocationDatabase();
+        await jest.advanceTimersByTimeAsync(130_000); // past the 2 minute wait
+        await pending;
+      } finally {
+        jest.useRealTimers();
+      }
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        (expect as any).stringContaining('waiting for the MaxMind update lock'),
+      );
+      // Downloaded anyway rather than starting with no geolocation data.
+      expect(global.fetch).toHaveBeenCalled();
+      // Never held the lock, so must not delete another instance's lock.
+      expect(mockStorageAdapter.del).not.toHaveBeenCalled();
+    }, 15000);
+
+    it('should share a single run between concurrent callers in the same process', async () => {
+      mockStorageAdapter.set.mockResolvedValue('lock-value');
+      mockStorageAdapter.del.mockResolvedValue(undefined);
+      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+
+      await Promise.all([service.updateGeoLocationDatabase(), service.updateGeoLocationDatabase()]);
+
+      // One lock acquisition for both callers.
+      expect(mockStorageAdapter.set).toHaveBeenCalledTimes(1);
+    }, 15000);
+
+    it('should not release a lock that another instance has taken over', async () => {
+      mockStorageAdapter.set.mockResolvedValue('lock-value');
+      // Our lock expired and a different instance now owns the key.
+      mockStorageAdapter.get.mockResolvedValue('lock-someone-else');
+      global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
 
       await service.updateGeoLocationDatabase();
 
-      expect(mockLogger.warn).toHaveBeenCalledWith('MaxMind database update already in progress, skipping...');
       expect(mockStorageAdapter.del).not.toHaveBeenCalled();
-    });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        (expect as any).stringContaining('taken over by another instance'),
+      );
+    }, 15000);
 
     it('should acquire distributed lock before downloading', async () => {
       mockStorageAdapter.set.mockResolvedValue('lock-value');

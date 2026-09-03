@@ -535,6 +535,20 @@ export const geoLocationConfigSchema = z.object({
 });
 
 // ============================================================================
+// Migrations Configuration Schema
+// ============================================================================
+
+/**
+ * Migration configuration schema
+ *
+ * Cross-instance migration locking is always on and has no knobs; only auto-run is
+ * configurable.
+ */
+export const migrationsConfigSchema = z.object({
+  autoRun: z.boolean().optional(),
+});
+
+// ============================================================================
 // Email Notifications Configuration Schema
 // ============================================================================
 
@@ -610,6 +624,7 @@ export const apiKeyConfigSchema = z.object({
 export const authConfigSchema = z
   .object({
     tablePrefix: z.string().optional(),
+    migrations: migrationsConfigSchema.optional(),
     jwt: jwtConfigSchema,
     signup: signupConfigSchema.optional(),
     login: loginConfigSchema.optional(),

@@ -25,6 +25,8 @@ npm install @nauth-toolkit/database-typeorm-mysql
 | `getNAuthEntities()` | User/session entities (always include) |
 | `getNAuthTransientStorageEntities()` | Rate limit/lock entities (only if using `DatabaseStorageAdapter`) |
 | `runNAuthMigrations` | Run pending nauth-toolkit migrations. Called automatically during bootstrap. |
+| `acquireMigrationLock` | Take the same cross-instance migration lock nauth uses. For applying migrations out-of-band. |
+| `computeNamedLockKey` | Derive the lock identifier from a migrations table name. |
 | Individual entities | `User`, `Session`, `MFADevice`, `SocialProviderSecret`, etc. |
 
 ## getNAuthEntities()
@@ -190,6 +192,34 @@ const nauth = await NAuth.create({
 |-----------------|----------------------------------------------|
 | `RedisStorageAdapter` | No |
 | `DatabaseStorageAdapter` | **Yes** (required) |
+
+## Migrations
+
+nauth-toolkit owns its own migration table (`<tablePrefix>migrations`, default `nauth_migrations`) and applies pending migrations during `NAuth.create()` / module bootstrap. It uses a dedicated `DataSource` built from your connection settings, so your own migrations are never touched.
+
+### Parallel container starts
+
+Running several instances that boot at the same time — ECS tasks, Kubernetes pods, a rolling deploy — is safe with no configuration. Each run is serialized behind a MySQL/MariaDB session-scoped **named lock** (`GET_LOCK`) derived from the migrations table name:
+
+- One instance applies the migrations; the others wait, then find nothing pending and continue.
+- On a first deployment this is what stops two instances creating the same tables.
+- The lock lives on a dedicated connection, so MySQL/MariaDB drops it automatically if an instance crashes — a dead task can never wedge a deploy.
+- Deriving the lock from the table name means two apps sharing one database under different `tablePrefix` values never block each other.
+
+If an instance waits 5 minutes and migrations are still pending, startup fails with an explicit error rather than migrating concurrently.
+
+### Applying migrations out-of-band
+
+To apply migrations from a release task instead of at boot, turn off auto-run in the application containers:
+
+```typescript title="src/config/auth.config.ts"
+export const authConfig: NAuthModuleConfig = {
+  migrations: { autoRun: false },
+  // ...
+};
+```
+
+`migrations.autoRun` is the only migration option. Locking is always on and has no settings.
 
 ## Related
 

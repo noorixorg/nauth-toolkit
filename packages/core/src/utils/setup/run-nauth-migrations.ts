@@ -20,12 +20,24 @@ type MigrationRunnerModule = {
  * @remarks
  * This dynamically loads the database-specific adapter package and asks it to run its
  * own adapter-owned migrations into the provided `DataSource`.
+ *
+ * The adapter serializes the run behind a database-level lock (Postgres advisory lock /
+ * MySQL named lock), so multiple instances booting in parallel — ECS tasks, Kubernetes
+ * pods — cannot race on the same schema. See `config.migrations`.
+ *
+ * Set `config.migrations.autoRun = false` to skip this entirely and apply migrations
+ * out-of-band (for example from a one-off release task).
  */
 export async function runNAuthMigrationsOnStartup(
   config: NAuthConfig,
   dataSource: DataSource,
   logger: NAuthLogger,
 ): Promise<void> {
+  if (config.migrations?.autoRun === false) {
+    logger.log('[nauth-toolkit] Automatic migrations disabled (migrations.autoRun: false); skipping.');
+    return;
+  }
+
   if (!dataSource.isInitialized) {
     logger.warn('[nauth-toolkit] DataSource not initialized; skipping migrations');
     return;

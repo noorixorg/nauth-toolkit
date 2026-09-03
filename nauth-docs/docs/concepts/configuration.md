@@ -181,6 +181,7 @@ These are the top-level keys you can provide in `NAuthConfig` / `NAuthModuleConf
 | Option          | Required | Description                                                                        |
 | --------------- | -------- | ---------------------------------------------------------------------------------- |
 | `tablePrefix`   | No       | Database table prefix. Default: `nauth_`. Example: `'myapp_'` → tables become `myapp_users`, `myapp_sessions`. |
+| [`migrations`](#migrations) | No | Whether nauth applies its own schema migrations at startup. Safe for parallel container starts by default. |
 | [`jwt`](#jwt-configuration) | **Yes** | JWT signing algorithm, secrets, and token lifetimes. |
 | [`storageAdapter`](#storage-adapter) | No* | Transient storage for sessions, rate limits, and token reuse detection. Auto-detected if omitted and DB storage entities are registered. |
 | [`signup`](#signup-configuration) | No | Signup toggle, verification method (email/phone/both/none), and rate limits. |
@@ -255,6 +256,27 @@ jwt: {
 - `accessToken.expiresIn`: Short-lived (15m recommended)
 - `refreshToken.expiresIn`: Long-lived (7d-30d)
 - `reuseDetection`: Recommended for production
+
+### Migrations {#migrations}
+
+nauth-toolkit applies its own schema migrations at startup. **Parallel container starts are safe with no configuration** — each run is serialized behind a database-level lock (a PostgreSQL advisory lock, or a MySQL named lock), so ECS tasks or Kubernetes pods that boot together cannot race to create the same tables. Instances that lose the race wait for the winner and then find nothing to do.
+
+The lock is held on a dedicated connection and released by the database if an instance dies, so a crashed task can never block a deploy.
+
+```typescript
+// Apply migrations from a one-off release task instead of at boot
+migrations: {
+  autoRun: false,  // default: true
+},
+```
+
+| Option | Type | Default | Description |
+| ------ | ---- | ------- | ----------- |
+| `autoRun` | `boolean` | `true` | Apply pending nauth migrations during startup. Set to `false` when a release task or Kubernetes Job runs them first. |
+
+Locking is always on and has no settings.
+
+See [TypeORM PostgreSQL](/docs/api/database/typeorm-postgres#migrations) or [TypeORM MySQL](/docs/api/database/typeorm-mysql#migrations) for details.
 
 ### Storage Adapter {#storage-adapter}
 

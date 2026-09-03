@@ -63,8 +63,12 @@ For production, manage database files externally and skip downloads:
 | `editions` | `string[]` | `['GeoLite2-City', 'GeoLite2-Country']` | Which MaxMind databases to download |
 | `skipDownloads` | `boolean` | `false` | Skip downloads, use existing files only |
 
-:::warning Multi-Server Deployments
-Only enable `autoDownloadOnStartup` if you're using a distributed storage adapter (Redis/Database). Otherwise, multiple servers may try to download simultaneously.
+:::tip Clustered deployments
+`autoDownloadOnStartup` is safe when several containers start in parallel. With a distributed storage adapter (Redis or database), instances take turns behind a shared lock instead of all downloading at once, and files already on disk and less than 24 hours old are reused.
+
+Both storage layouts work: on a shared volume the first instance downloads and the rest load its files; on a container-local `dbPath` (the default) each instance downloads its own copy when its turn comes.
+
+Without a distributed adapter the lock is process-local, so each container downloads independently — correct, just not coordinated.
 :::
 
 ## Step 4: Enable Adaptive MFA (Optional)

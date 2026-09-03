@@ -77,6 +77,12 @@ export class GeoLocationService {
   private readonly defaultEditions = ['GeoLite2-City', 'GeoLite2-Country'];
   private readonly lockKey = 'maxmind-db-update-lock';
   private readonly lockTtlSeconds = 300; // 5 minutes
+  /** How long to wait for another instance holding the download lock. */
+  private readonly lockWaitMs = 120_000; // 2 minutes
+  /** Reuse existing .mmdb files younger than this; GeoLite2 publishes twice a week. */
+  private readonly minRefreshIntervalHours = 24;
+  private readonly lockRetryDelayMs = 2_000;
+  private updateInFlight: Promise<void> | null = null;
 
   constructor(
     nauthConfig: NAuthConfig,
@@ -289,16 +295,28 @@ export class GeoLocationService {
   /**
    * Update MaxMind GeoIP2 database files
    *
-   * Downloads the latest database files from MaxMind using distributed locking
-   * to prevent concurrent downloads in multi-server deployments, then reloads
-   * the in-memory database readers.
+   * Downloads the latest database files from MaxMind, then reloads the in-memory
+   * database readers.
    *
-   * Uses storage adapter for distributed locking:
+   * **Cluster behaviour (ECS tasks, Kubernetes pods, multiple servers):**
+   * Downloads are *serialized*, not skipped. Instances take turns behind a distributed
+   * lock held in the storage adapter (Redis or database), and each one re-checks
+   * `dbPath` before downloading:
+   * - **Shared volume** (EFS, NFS, mounted PVC): the first instance downloads, the rest
+   *   find fresh files and load them without touching MaxMind's API.
+   * - **Container-local path** (the default, `os.tmpdir()`): each instance downloads its
+   *   own copy when its turn comes, so no instance is left without geolocation data.
+   *
+   * Concurrent calls within a single process share one run.
+   *
+   * Lock details:
    * - Lock key: 'maxmind-db-update-lock'
-   * - Lock TTL: 5 minutes (300 seconds)
-   * - Only one server/process can download at a time
+   * - Lock TTL: 5 minutes (300 seconds), so a crashed instance cannot wedge the cluster
+   * - Waits up to 2 minutes for another instance, then downloads anyway rather than
+   *   starting without geolocation data
+   * - Files younger than 24 hours are reused instead of re-downloaded
    *
-   * After successful download, the in-memory database readers are automatically
+   * After a successful download, the in-memory database readers are automatically
    * updated to use the new files.
    *
    * @throws {NAuthException} If MaxMind credentials are missing or download fails
@@ -339,27 +357,94 @@ export class GeoLocationService {
     }
 
     // ============================================================================
-    // Acquire Distributed Lock (if using distributed storage)
+    // Deduplicate Within This Process
     // ============================================================================
-    // Memory storage: Lock works within single process (fine for single-server deployments)
-    // Redis/Database storage: Lock works across multiple servers (prevents concurrent downloads)
-    const lockAcquired = await this.storageAdapter.set(this.lockKey, `lock-${Date.now()}`, this.lockTtlSeconds, {
-      nx: true,
-    });
+    // Startup auto-download and a cron-triggered update can overlap; share one run
+    // rather than downloading the same file twice into the same directory.
+    const inFlight = this.updateInFlight;
+    if (inFlight) {
+      this.logger?.debug?.('MaxMind database update already running in this process; awaiting it.');
+      return inFlight;
+    }
 
-    if (!lockAcquired) {
-      // Another process/server is already updating
-      this.logger?.warn?.('MaxMind database update already in progress, skipping...');
-      return;
+    const run = this.runDatabaseUpdate().finally(() => {
+      this.updateInFlight = null;
+    });
+    this.updateInFlight = run;
+    return run;
+  }
+
+  // ============================================================================
+  // Private Helper Methods
+  // ============================================================================
+
+  /**
+   * Perform one database update, serialized against other instances.
+   *
+   * @remarks
+   * Assumes configuration has already been validated by
+   * {@link GeoLocationService.updateGeoLocationDatabase}.
+   */
+  private async runDatabaseUpdate(): Promise<void> {
+    // ============================================================================
+    // Acquire Distributed Lock (waiting, not skipping)
+    // ============================================================================
+    // Memory storage: Lock works within a single process (fine for single-server deployments)
+    // Redis/Database storage: Lock works across servers, so instances take turns
+    const lockToken = `lock-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const deadline = Date.now() + this.lockWaitMs;
+
+    let holdsLock = false;
+    let waitLogged = false;
+
+    for (;;) {
+      // Adapters return the stored value on success and null when the key already exists.
+      const acquired = await this.storageAdapter.set(this.lockKey, lockToken, this.lockTtlSeconds, { nx: true });
+
+      if (acquired) {
+        holdsLock = true;
+        break;
+      }
+
+      // Another instance holds the lock. On a shared dbPath its files land here and we
+      // are done; on a container-local dbPath nothing appears and we wait for our turn.
+      if (await this.loadFreshDatabasesFromDisk()) {
+        this.logger?.log?.('MaxMind databases were updated by another instance; loaded from disk.');
+        return;
+      }
+
+      if (Date.now() >= deadline) {
+        this.logger?.warn?.(
+          `Timed out after ${this.lockWaitMs}ms waiting for the MaxMind update lock; downloading without it.`,
+        );
+        break;
+      }
+
+      if (!waitLogged) {
+        waitLogged = true;
+        this.logger?.log?.('Another instance is updating the MaxMind database; waiting for it to finish...');
+      }
+
+      await this.delay(this.lockRetryDelayMs);
     }
 
     try {
       // ============================================================================
+      // Skip If Already Fresh
+      // ============================================================================
+      // Re-checked under the lock: on a shared volume the instance that just released
+      // it has written the files we were about to download.
+      if (await this.loadFreshDatabasesFromDisk()) {
+        this.logger?.log?.('MaxMind databases are already up to date; skipping download.');
+        return;
+      }
+
+      // ============================================================================
       // Download and Update Databases
       // ============================================================================
-      const editions = this.config.editions || this.defaultEditions;
-      const accountId = this.config.accountId;
-      const licenseKey = this.config.licenseKey;
+      const editions = this.config?.editions || this.defaultEditions;
+      const accountId = this.config?.accountId as number;
+      const licenseKey = this.config?.licenseKey as string;
 
       let successCount = 0;
       let failureCount = 0;
@@ -394,20 +479,83 @@ export class GeoLocationService {
       // ============================================================================
       // Release Lock
       // ============================================================================
-      try {
-        await this.storageAdapter.del(this.lockKey);
-      } catch (error) {
-        // Non-fatal: Lock will expire automatically after TTL
-        this.logger?.warn?.(
-          `Failed to release MaxMind update lock: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        );
+      if (holdsLock) {
+        await this.releaseUpdateLock(lockToken);
       }
     }
   }
 
-  // ============================================================================
-  // Private Helper Methods
-  // ============================================================================
+  /**
+   * Release the distributed update lock, but only if this instance still owns it.
+   *
+   * @remarks
+   * If the download outran the lock TTL another instance may already hold the lock;
+   * deleting it unconditionally would let a third instance download concurrently.
+   * The read-then-delete is not atomic, so this narrows the window rather than closing
+   * it — the TTL remains the backstop.
+   *
+   * @param lockToken - Token written when the lock was acquired
+   */
+  private async releaseUpdateLock(lockToken: string): Promise<void> {
+    try {
+      const current = await this.storageAdapter.get(this.lockKey);
+      // Only bail out when the adapter reports a *different* owner. Adapters that do not
+      // report a value (or where the key already expired) fall through to the delete.
+      if (typeof current === 'string' && current !== lockToken) {
+        this.logger?.warn?.('MaxMind update lock expired and was taken over by another instance; leaving it in place.');
+        return;
+      }
+      await this.storageAdapter.del(this.lockKey);
+    } catch (error) {
+      // Non-fatal: Lock will expire automatically after TTL
+      this.logger?.warn?.(
+        `Failed to release MaxMind update lock: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
+
+  /**
+   * Load database files from disk if they are present and fresh enough to reuse.
+   *
+   * @remarks
+   * Freshness is judged by file mtime. Every configured edition must be present and
+   * fresh, otherwise a download is still needed.
+   *
+   * @returns True if fresh files were found and at least one reader was loaded
+   */
+  private async loadFreshDatabasesFromDisk(): Promise<boolean> {
+    const editions = this.config?.editions || this.defaultEditions;
+    if (!editions.length) {
+      return false;
+    }
+
+    const maxAgeMs = this.minRefreshIntervalHours * 60 * 60 * 1000;
+    const now = Date.now();
+
+    for (const edition of editions) {
+      try {
+        const stats = await fs.stat(path.join(this.dbPath, `${edition}.mmdb`));
+        if (!Number.isFinite(stats.mtimeMs) || now - stats.mtimeMs > maxAgeMs) {
+          return false;
+        }
+      } catch {
+        // Missing or unreadable - a download is required.
+        return false;
+      }
+    }
+
+    await this.loadDatabaseFiles();
+    return Boolean(this.cityReader || this.countryReader);
+  }
+
+  /**
+   * Pause for the given number of milliseconds.
+   *
+   * @param ms - Delay in milliseconds
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
   /**
    * Ensure database directory exists

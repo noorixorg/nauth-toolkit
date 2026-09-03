@@ -50,6 +50,40 @@ describe('runNAuthMigrationsOnStartup', () => {
     } as NAuthConfig;
   });
 
+  it('should skip migrations entirely when autoRun is disabled', async () => {
+    const mockDataSource = {
+      isInitialized: true,
+      options: { type: 'postgres' },
+    } as any;
+
+    await runNAuthMigrationsOnStartup(
+      { ...mockConfig, migrations: { autoRun: false } },
+      mockDataSource as DataSource,
+      mockLogger,
+    );
+
+    expect(mockLogger.log).toHaveBeenCalledWith(
+      '[nauth-toolkit] Automatic migrations disabled (migrations.autoRun: false); skipping.',
+    );
+  });
+
+  it('should still run migrations when autoRun is explicitly enabled', async () => {
+    const mockDataSource = {
+      isInitialized: true,
+      options: { type: 'postgres' },
+    } as any;
+
+    await runNAuthMigrationsOnStartup(
+      { ...mockConfig, migrations: { autoRun: true } },
+      mockDataSource as DataSource,
+      mockLogger,
+    );
+
+    expect(mockLogger.log).not.toHaveBeenCalledWith(
+      '[nauth-toolkit] Automatic migrations disabled (migrations.autoRun: false); skipping.',
+    );
+  });
+
   it('should skip migrations when DataSource is not initialized', async () => {
     const mockDataSource = {
       isInitialized: false,
