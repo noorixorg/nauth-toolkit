@@ -95,6 +95,15 @@ services:
       RECAPTCHA_ENTERPRISE_PROJECT_ID: ${RECAPTCHA_ENTERPRISE_PROJECT_ID}
       RECAPTCHA_ENTERPRISE_API_KEY: ${RECAPTCHA_ENTERPRISE_API_KEY}
       RECAPTCHA_ENTERPRISE_SITE_KEY: ${RECAPTCHA_ENTERPRISE_SITE_KEY}
+      # OpenID Connect provider. OIDC_ISSUER must be the public origin with no path —
+      # without it the discovery document advertises localhost and every endpoint 404s
+      # for real clients. OIDC_TRUST_PROXY is required behind the reverse proxy, or
+      # generated URLs come out http:// and the secure cookies are refused.
+      OIDC_ISSUER: ${OIDC_ISSUER}
+      OIDC_FRONTEND_URL: ${OIDC_FRONTEND_URL}
+      OIDC_COOKIE_SECRET: ${OIDC_COOKIE_SECRET}
+      OIDC_TRUST_PROXY: ${OIDC_TRUST_PROXY:-true}
+      OIDC_DEMO_CLIENT_SECRET: ${OIDC_DEMO_CLIENT_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
