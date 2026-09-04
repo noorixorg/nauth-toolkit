@@ -71,7 +71,7 @@ const client = new NAuthClient({
 });
 ```
 
-:::tip Best of Both Worlds
+:::tip[Best of Both Worlds]
 Hybrid deployment lets you optimize security for each platform: httpOnly cookies for web (XSS protection), JSON tokens for mobile (full control).
 :::
 
@@ -257,7 +257,7 @@ sequenceDiagram
 5. Tab B reads updated state from localStorage
 6. Tab B updates in-memory state
 
-:::tip Automatic
+:::tip[Automatic]
 No configuration needed - cross-tab sync works automatically in JSON mode.
 :::
 

@@ -34,7 +34,7 @@ graph TB
 
 Your routes call nauth services. nauth reads and writes to your database. Your frontend talks to your backend as normal — nothing in the middle.
 
-:::warning Authentication only — not authorization
+:::warning[Authentication only — not authorization]
 nauth-toolkit verifies identity and issues tokens. It does **not** check permissions, roles, or access control. Authorization is your responsibility — use your own guards, policies, or an RBAC library on top.
 :::
 
@@ -196,7 +196,7 @@ graph LR
 | 3 | **AuthHandler** | Validates the JWT access token and attaches the authenticated user to the request context. Routes marked `@Public()` skip validation. |
 | 4 | **TokenDeliveryHandler** | Response interceptor — rewrites the outgoing response to deliver tokens via `Set-Cookie` headers (cookie/hybrid mode) or leaves them in the JSON body (JSON mode). |
 
-:::note Framework specifics
+:::note[Framework specifics]
 - **NestJS** — Handlers 1-3 run as global guards (`NAuthContextGuard` → `CsrfGuard`); handler 4 runs as a global interceptor (`CookieTokenInterceptor`).
 - **Express** — Handlers 1-3 register as middleware via `app.use()`; handler 4 registers via `registerResponseInterceptor()`.
 - **Fastify** — Handlers 1-3 register as `onRequest`/`preHandler` hooks; handler 4 registers as an `onSend` hook. Each hook restores the `AsyncLocalStorage` context from the request object.

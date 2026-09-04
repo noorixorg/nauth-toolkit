@@ -62,7 +62,7 @@ A single-page app or a mobile app, which cannot keep a secret. Omit `client_secr
 
 Any other metadata `oidc-provider` accepts can be set alongside these. See [`NAuthOIDCClient`](/docs/api/oidc-provider/create-provider#client-metadata).
 
-:::warning Redirect URIs are matched exactly
+:::warning[Redirect URIs are matched exactly]
 `https://myapp.com/callback` does not match `https://myapp.com/callback/` or `https://myapp.com/callback?x=1`. Register every URI the client will actually use, including the localhost ones your partners develop against.
 :::
 

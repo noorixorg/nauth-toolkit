@@ -10,7 +10,7 @@ image: /img/api-social-card.png
 
 The provider redirects the browser to your `interactionUrl` whenever it needs a user to log in or approve access. That page is yours to build. This guide walks through it with the frontend SDK's `oidc` namespace, so there is no hand-written HTTP.
 
-:::tip Sample app
+:::tip[Sample app]
 `examples/demo-angular` in the [nauth-toolkit repository](https://github.com/noorixorg/nauth-toolkit) has the complete page, including a scope list and the "not you?" affordance.
 :::
 
@@ -199,7 +199,7 @@ Put it on every route a freshly logged-in user can land on. See [`oidcReturnGuar
 
 Both read the same stash. Whichever you use consumes it, so a later visit to the same route is not diverted a second time.
 
-:::note Why a stash and not a query parameter
+:::note[Why a stash and not a query parameter]
 The login that follows may run several challenge steps, each with its own URL. A query parameter does not survive that; the session-scoped stash does.
 :::
 

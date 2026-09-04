@@ -41,11 +41,11 @@ With NestJS you do not call this directly — [`OIDCProviderModule.forRoot()`](.
 | `storage` | `StorageAdapter` | Yes | nauth-toolkit's storage adapter. Backs every provider model; no tables are created |
 | `userRepository` | `Repository<BaseUser>` | Yes | Used to resolve accounts and release claims |
 
-:::warning `issuer` must be an origin
+:::warning[`issuer` must be an origin]
 `oidc-provider` builds every endpoint URL as `new URL(absolutePath, issuer)`, so any path on the issuer is silently discarded — `new URL('/auth', 'https://host/oidc')` is `https://host/auth`, and the discovery document then advertises endpoints that 404. Namespace with `pathPrefix` instead.
 :::
 
-:::warning Set `jwks` outside local development
+:::warning[Set `jwks` outside local development]
 Omitting it generates a fresh development key on every start, which invalidates every id_token already issued. Generate a persistent key set and pass it in.
 :::
 

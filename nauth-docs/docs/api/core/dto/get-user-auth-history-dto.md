@@ -15,7 +15,7 @@ import TabItem from '@theme/TabItem';
 
 Request DTO for getting paginated authentication history for the current authenticated user with optional filtering by event types, status, and date ranges.
 
-:::note User Self-Service
+:::note[User Self-Service]
 This DTO is for user self-service operations. The `sub` is automatically derived from the authenticated user's context. For admin operations, use [`AdminGetUserAuthHistoryDTO`](./admin-get-user-auth-history-dto) instead.
 :::
 

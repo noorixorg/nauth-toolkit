@@ -13,7 +13,7 @@ import TabItem from '@theme/TabItem';
 
 This is not an exhaustive and complete guide but shows how to implement the most common authentication endpoints with DTO validation, error handling, and multi-step authentication flows.
 
-:::warning Accuracy and Adaptation
+:::warning[Accuracy and Adaptation]
 The examples on this page may not compile or run accurately if directly copied. Please use this to build your own flows. Don't assume input validation and do your input santisation, and application specific logic where possible.
 :::
 

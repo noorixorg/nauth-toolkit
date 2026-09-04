@@ -25,7 +25,7 @@ Add passkey-based multi-factor authentication using WebAuthn. By the end of this
 | `/auth/challenge/challenge-data` | POST | Public | Get WebAuthn assertion options during login |
 | `/auth/challenge/setup-data` | POST | Public | Get setup data during forced MFA setup |
 
-:::tip Sample apps
+:::tip[Sample apps]
 Passkey MFA is fully implemented in the [nauth example apps](https://github.com/noorixorg/nauth-toolkit) — see the NestJS, Express, and Fastify examples for MFA routes, and the Angular example for `passkey-setup.component.ts`.
 :::
 
@@ -90,7 +90,7 @@ passkey: {
 
 ## Step 3: Add Backend Routes
 
-:::note Already have MFA routes?
+:::note[Already have MFA routes?]
 If you already set up routes for another MFA method (Email, SMS, TOTP), the same routes handle Passkey — just add `MFAMethod.PASSKEY` to `allowedMethods` in your config and add the `challenge/challenge-data` route shown in the [challenge helper routes](#challenge-helper-routes-public--used-during-login) section below.
 :::
 
@@ -557,7 +557,7 @@ const handlePasskeyChallenge = async (session: string) => {
 };
 ```
 
-:::note Cross-device authentication
+:::note[Cross-device authentication]
 Users can authenticate on a desktop using a passkey stored on their phone via QR code scanning. This is handled automatically by the browser's WebAuthn implementation — no additional backend configuration is needed.
 :::
 

@@ -15,7 +15,7 @@ import TabItem from '@theme/TabItem';
 
 Request DTO for retrieving comprehensive MFA status for a target user (admin operation).
 
-:::warning Admin Only
+:::warning[Admin Only]
 This DTO requires the `sub` field to specify the target user. For user self-service MFA status, use [`MFAService.getMfaStatus()`](../services/mfa-service#getmfastatus) which takes no DTO and derives the user from authenticated context.
 :::
 

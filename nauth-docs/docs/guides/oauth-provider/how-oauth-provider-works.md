@@ -12,7 +12,7 @@ image: /img/api-social-card.png
 
 The protocol itself is implemented by [`oidc-provider`](https://github.com/panva/node-oidc-provider) — OpenID Certified, MIT licensed. nauth-toolkit owns no protocol code. It supplies three things and nothing else: **storage**, **accounts**, and a **login and consent bridge**.
 
-:::tip Sample apps
+:::tip[Sample apps]
 The provider is wired up end to end in the [nauth-toolkit repository](https://github.com/noorixorg/nauth-toolkit) — see `examples/demo-nestjs` for the backend and `examples/demo-angular` for the consent screen and a third-party relying party built on a certified client library.
 :::
 
@@ -22,7 +22,7 @@ This is for letting **other applications** sign users in with accounts they alre
 here: "Sign in with your app", a partner integration, a first-party mobile or desktop
 client that wants standard OAuth rather than the nauth-toolkit SDK.
 
-:::warning Not a replacement for your own login
+:::warning[Not a replacement for your own login]
 Do not route your own application's sign-in through the OpenID Connect provider. Use
 [`AuthService`](/docs/api/core/services/auth-service) and the
 [frontend SDK](/docs/frontend-sdk/overview) for that, as you already do.

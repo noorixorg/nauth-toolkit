@@ -44,11 +44,11 @@ import { SocialAuthService } from '@nauth-toolkit/core';
 
 Service for managing social authentication accounts and their relationships. This service provides account linking/unlinking, password management for social-only users, and querying linked accounts.
 
-:::tip OAuth Login Flows
+:::tip[OAuth Login Flows]
 For OAuth authentication (login/signup), use `SocialRedirectHandler` or the frontend SDK's `loginWithSocial()` method. See the [Social Login Guide](/docs/guides/social/how-social-login-works) for details.
 :::
 
-:::tip Optional Feature
+:::tip[Optional Feature]
 Only available when social auth provider modules are imported (e.g., `GoogleSocialAuthModule`, `AppleSocialAuthModule`).
 :::
 

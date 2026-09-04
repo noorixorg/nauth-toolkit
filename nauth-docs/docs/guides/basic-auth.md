@@ -28,7 +28,7 @@ By the end you will have a working auth layer with these endpoints:
 | `/auth/change-password`         | POST   | Protected | Change password (authenticated)                |
 | `/auth/profile`                 | GET    | Protected | Get current user profile                       |
 
-:::tip Sample apps
+:::tip[Sample apps]
 The code in this guide is taken directly from the example apps. If you get stuck, clone and run them:
 
 - [`Github Samples & Community`](https://github.com/noorixorg/nauth-toolkit)
@@ -198,7 +198,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance, nauth: NAuthI
 
 The `session` token is short-lived and scoped to this verification flow. Store it in your frontend state — you will need it for the next step.
 
-:::note Email masking
+:::note[Email masking]
 `codeDeliveryDestination` shows a masked email by default (`j***@example.com`). To return the full email (development only), set `security.maskSensitiveData: false` in your config.
 :::
 
@@ -399,7 +399,7 @@ fastify.post(
 }
 ```
 
-:::warning Rate limiting
+:::warning[Rate limiting]
 Resend is rate-limited by `signup.emailVerification.resendDelay` (default: 60 seconds) and `rateLimitMax` (default: 3 per window). If the user hits the limit, a `429 Too Many Requests` error is returned. See [Rate Limiting](/docs/guides/rate-limiting) for details.
 :::
 
@@ -475,7 +475,7 @@ The `identifier` field accepts email, username, or phone depending on your [`log
 
 All challenge responses are handled by the same `/auth/respond-challenge` endpoint documented above.
 
-:::note Account lockout
+:::note[Account lockout]
 If `lockout.enabled: true`, failed login attempts from the same IP are tracked. After `maxAttempts` failures within `attemptWindow`, the IP is locked out for `duration` seconds. See [Configuration > Account Lockout](/docs/concepts/configuration#password-security).
 :::
 
@@ -556,7 +556,7 @@ For `cookies` or `hybrid` mode, the refresh token is sent automatically via the 
 }
 ```
 
-:::warning Reuse detection
+:::warning[Reuse detection]
 If `jwt.refreshToken.reuseDetection: true` (recommended), using an already-rotated refresh token invalidates the **entire token family** and forces re-authentication. This detects token theft — if an attacker replays an old refresh token, all sessions in that family are revoked.
 :::
 
@@ -630,7 +630,7 @@ fastify.get(
 
 In `cookies` or `hybrid` mode, the response also clears the `nauth_access_token`, `nauth_refresh_token`, and `nauth_csrf_token` cookies automatically.
 
-:::note Why GET?
+:::note[Why GET?]
 Logout uses GET instead of POST so that:
 
 - No request body is needed
@@ -716,7 +716,7 @@ fastify.post(
 }
 ```
 
-:::note Security
+:::note[Security]
 The response is always the same regardless of whether the account exists. This prevents user enumeration attacks. The `baseUrl` is optional — if provided, the email includes a clickable reset link; otherwise, only the 6-digit code is sent.
 :::
 

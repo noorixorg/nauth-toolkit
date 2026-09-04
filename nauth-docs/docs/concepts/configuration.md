@@ -19,7 +19,7 @@ import TabItem from '@theme/TabItem';
 
 This keeps your configuration organized, testable, and easy to maintain across environments.
 
-:::tip Configuration Sources
+:::tip[Configuration Sources]
 Load sensitive values (secrets, credentials) from your preferred configuration source:
 
 - Environment variables (`process.env`)
@@ -204,8 +204,7 @@ These are the top-level keys you can provide in `NAuthConfig` / `NAuthModuleConf
 | [`challenge`](#challenge) | No | Max verification attempts before a challenge session is invalidated. Default: 3. |
 | [`logger`](#logger) | No | Logger instance and PII redaction controls. Silent by default. |
 
-### JWT Configuration {#jwt-configuration}
-
+### JWT Configuration {/* #jwt-configuration */}
 Controls JWT token generation and validation. JWTs are used for stateless authentication - the access token authorizes API requests, while the refresh token allows obtaining new access tokens without re-authentication.
 
 ```typescript
@@ -257,8 +256,7 @@ jwt: {
 - `refreshToken.expiresIn`: Long-lived (7d-30d)
 - `reuseDetection`: Recommended for production
 
-### Migrations {#migrations}
-
+### Migrations {/* #migrations */}
 nauth-toolkit applies its own schema migrations at startup. **Parallel container starts are safe with no configuration** — each run is serialized behind a database-level lock (a PostgreSQL advisory lock, or a MySQL named lock), so ECS tasks or Kubernetes pods that boot together cannot race to create the same tables. Instances that lose the race wait for the winner and then find nothing to do.
 
 The lock is held on a dedicated connection and released by the database if an instance dies, so a crashed task can never block a deploy.
@@ -278,8 +276,7 @@ Locking is always on and has no settings.
 
 See [TypeORM PostgreSQL](/docs/api/database/typeorm-postgres#migrations) or [TypeORM MySQL](/docs/api/database/typeorm-mysql#migrations) for details.
 
-### Storage Adapter {#storage-adapter}
-
+### Storage Adapter {/* #storage-adapter */}
 **Storage adapter is REQUIRED.** Choose between Redis or Database for transient storage.
 
 ```typescript
@@ -302,8 +299,7 @@ If you don't provide a `storageAdapter` explicitly, `DatabaseStorageAdapter` wil
 
 See [Storage](/docs/concepts/storage) for detailed comparison and auto-detection behavior.
 
-### Login Configuration {#login-configuration}
-
+### Login Configuration {/* #login-configuration */}
 Controls which identifier types are accepted during login.
 
 | `identifierType` | Accepts |
@@ -320,8 +316,7 @@ login: {
 },
 ```
 
-### Email Provider {#email-provider}
-
+### Email Provider {/* #email-provider */}
 Configure email delivery for verification codes and notifications.
 
 <Tabs>
@@ -421,8 +416,7 @@ email: {
   </TabItem>
 </Tabs>
 
-### Email Notifications (Optional) {#email-notifications-optional}
-
+### Email Notifications (Optional) {/* #email-notifications-optional */}
 Optional notification emails are **opt-in** and controlled via `emailNotifications.suppress`.
 This is separate from template customization (see [Email Templates](/docs/guides/email-templates)).
 
@@ -449,15 +443,14 @@ emailNotifications: {
 },
 ```
 
-::::note Naming tip
+::::note[Naming tip]
 Some notification keys map to a differently-named template type:
 
 - `mfaFirstEnabled` notification uses the `mfaEnabled` email template (`TemplateType.MFA_ENABLED`)
 - `adaptiveMfaRiskDetected` notification uses the `adaptiveMfaRiskAlert` email template (`TemplateType.ADAPTIVE_MFA_RISK_ALERT`)
 ::::
 
-### SMS Provider {#sms-provider}
-
+### SMS Provider {/* #sms-provider */}
 Configure SMS delivery for phone verification, MFA, and password reset.
 
 <Tabs>
@@ -503,8 +496,7 @@ smsProvider: new ConsoleSMSProvider(),
   </TabItem>
 </Tabs>
 
-### SMS Templates {#sms-templates}
-
+### SMS Templates {/* #sms-templates */}
 Customize SMS message content globally (branding + custom templates).
 
 ```typescript
@@ -537,8 +529,7 @@ sms: {
 
 See [SMS Templates Feature Guide](/docs/guides/sms-templates) and [SMS Templates Configuration](/docs/api/sms/templates).
 
-### Logger {#logger}
-
+### Logger {/* #logger */}
 Configure logging with PII redaction.
 
 <Tabs>
@@ -569,8 +560,7 @@ logger: {
   </TabItem>
 </Tabs>
 
-## Signup Configuration {#signup-configuration}
-
+## Signup Configuration {/* #signup-configuration */}
 Controls user registration behavior, verification requirements, and anti-abuse measures.
 
 ```typescript
@@ -656,8 +646,7 @@ signup: {
 - **IP-based Limits**: Stops distributed attacks from multiple accounts
 - **Expiration**: Short expiration windows reduce attack surface
 
-## Password & Security {#password-security}
-
+## Password & Security {/* #password-security */}
 Configure password policies, account lockout, and CSRF protection.
 
 ```typescript
@@ -792,8 +781,7 @@ Uses IP addresses instead of user identifiers. This prevents attackers from lock
 - **Required** when using `tokenDelivery.method = 'cookies'` or `'hybrid'`
 - **Not needed** when using `tokenDelivery.method = 'json'` (Bearer tokens are CSRF-safe)
 
-## Token Delivery {#token-delivery}
-
+## Token Delivery {/* #token-delivery */}
 Control how tokens are delivered to clients.
 
 ```typescript
@@ -874,16 +862,15 @@ tokenDelivery: {
 | `cookieRefreshExpiresIn` | `string \| number` | Refresh token TTL applied when a request resolves to cookies delivery. Falls back to `jwt.refreshToken.expiresIn`. |
 | `jsonRefreshExpiresIn` | `string \| number` | Refresh token TTL applied when a request resolves to json delivery. Falls back to `jwt.refreshToken.expiresIn`. |
 
-:::note Hybrid-only
+:::note[Hybrid-only]
 `cookieRefreshExpiresIn` and `jsonRefreshExpiresIn` are read only when `tokenDelivery.method === 'hybrid'`. They're ignored in `'json'` or `'cookies'` mode.
 :::
 
-:::tip Common pairing
+:::tip[Common pairing]
 Short cookie TTL (`7d`) for web and long json TTL (`90d`) for mobile gives browsers tight blast-radius while letting native apps stay signed in for months without re-authentication.
 :::
 
-## Session Configuration {#session-configuration}
-
+## Session Configuration {/* #session-configuration */}
 Manage user sessions and concurrency.
 
 ```typescript
@@ -894,8 +881,7 @@ session: {
 },
 ```
 
-## Social Login {#social-authentication}
-
+## Social Login {/* #social-authentication */}
 Configure OAuth providers.
 
 ```typescript
@@ -944,7 +930,7 @@ social: {
 
 ### Social Redirect (`social.redirect`)
 
-:::warning Required when social login is enabled
+:::warning[Required when social login is enabled]
 `social.redirect.frontendBaseUrl` is **required** whenever any social provider is enabled. The Zod schema will throw a validation error at startup if it is missing.
 :::
 
@@ -970,8 +956,7 @@ social: {
 | `allowAbsoluteReturnTo` | Allow absolute URLs in `returnTo` query param. Enable only for multi-frontend setups. | false |
 | `allowedReturnToOrigins` | Origin allowlist enforced when `allowAbsoluteReturnTo` is true. Prevents open redirects. | — |
 
-## Multi-Factor Authentication (MFA) {#multi-factor-authentication}
-
+## Multi-Factor Authentication (MFA) {/* #multi-factor-authentication */}
 Configure MFA methods and enforcement.
 
 ```typescript
@@ -1037,8 +1022,7 @@ mfa: {
 },
 ```
 
-## Geolocation {#geolocation}
-
+## Geolocation {/* #geolocation */}
 Configure IP geolocation for adaptive MFA.
 
 ```typescript
@@ -1054,8 +1038,7 @@ geoLocation: {
 },
 ```
 
-## Audit Logs {#audit-logs}
-
+## Audit Logs {/* #audit-logs */}
 Configure audit trail.
 
 ```typescript
@@ -1065,8 +1048,7 @@ auditLogs: {
 },
 ```
 
-## Telemetry {#telemetry}
-
+## Telemetry {/* #telemetry */}
 Anonymous usage telemetry (config shape only — no PII, IPs, or secrets). See [Telemetry](/docs/concepts/telemetry) for exactly what is sent.
 
 ```typescript
@@ -1079,12 +1061,11 @@ telemetry: {
 | --- | --- | --- |
 | `enabled` | Enable anonymous usage telemetry | `true` |
 
-:::note Opt-out without code changes
+:::note[Opt-out without code changes]
 Set `NAUTH_TELEMETRY_DISABLED=1` (or `DO_NOT_TRACK=1`) in the environment. Telemetry is always disabled in CI and tests.
 :::
 
-## reCAPTCHA {#recaptcha}
-
+## reCAPTCHA {/* #recaptcha */}
 Protect authentication endpoints from bot attacks using Google reCAPTCHA v2, v3, or Enterprise.
 
 :::note
@@ -1130,8 +1111,7 @@ recaptcha: {
 | [`RecaptchaV2Provider`](/docs/api/recaptcha/providers/recaptcha-v2-provider) | Checkbox ("I'm not a robot") | Highest-risk actions, legacy setups |
 | [`RecaptchaEnterpriseProvider`](/docs/api/recaptcha/providers/recaptcha-enterprise-provider) | Score-based with advanced signals | Enterprise — requires GCP project |
 
-## Challenge Configuration {#challenge}
-
+## Challenge Configuration {/* #challenge */}
 Challenge session limits for flows like verification, MFA, and step-up challenges.
 
 ```typescript
@@ -1140,8 +1120,7 @@ challenge: {
 },
 ```
 
-## API Keys {#api-keys}
-
+## API Keys {/* #api-keys */}
 Long-lived keys that authenticate as their owning user. Disabled by default. See the [API Keys guide](../guides/api-keys.md) for routes and decorators.
 
 ```typescript
@@ -1177,8 +1156,7 @@ apiKeys: {
 | `ipRestrictions.requireForNewKeys` | `false` | Require an allowlist on every new key |
 | `ipRestrictions.maxIpsPerKey` | `20` | Max allowlist entries per key |
 
-## OpenID Connect Provider {#oidc-provider}
-
+## OpenID Connect Provider {/* #oidc-provider */}
 The [OpenID Connect provider](/docs/guides/oauth-provider/how-oauth-provider-works) is **not** configured through `NAuthConfig`. It is a separate package with its own options object, passed to `OIDCProviderModule.forRoot()` alongside `AuthModule.forRoot()`:
 
 ```typescript title="src/config/oidc.config.ts"

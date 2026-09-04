@@ -39,7 +39,7 @@ sequenceDiagram
     Backend-->>User: Response
 ```
 
-:::tip Non-Blocking Design
+:::tip[Non-Blocking Design]
 Audit recording never interrupts authentication flows. If an audit write fails, the error is logged but the auth operation completes normally.
 :::
 
@@ -174,7 +174,7 @@ Each carries `authMethod: 'oidc'` and a `clientId` in metadata, so you can answe
 |---|---|---|
 | `SUSPICIOUS_ACTIVITY` | SUSPICIOUS | Token reuse, impossible travel |
 
-:::info TOKEN_REFRESHED Excluded
+:::info[TOKEN_REFRESHED Excluded]
 Token refreshes are intentionally not audited --- they occur too frequently and would create excessive noise. Only security-relevant token operations (reuse detection, revocation) are recorded.
 :::
 
@@ -210,7 +210,7 @@ These fields are automatically populated from request context --- no manual inpu
 | `deviceName` | `string` | `iPhone 15 Pro`, `Chrome on MacBook` |
 | `deviceType` | `string` | `mobile`, `desktop`, `tablet` |
 
-:::note Geolocation Required
+:::note[Geolocation Required]
 `ipCountry`, `ipCity`, `ipLatitude`, and `ipLongitude` are only populated when [Geolocation](/docs/guides/geolocation) is configured.
 :::
 

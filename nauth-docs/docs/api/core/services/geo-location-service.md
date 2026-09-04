@@ -48,7 +48,7 @@ The `GeoLocationService` provides IP geolocation using MaxMind GeoIP2 database f
 Only available when `geoLocation.maxMind` is configured. Auto-injected by framework when enabled.
 :::
 
-:::info Requirements
+:::info[Requirements]
 - `@maxmind/geoip2-node` peer dependency must be installed
 - MaxMind license key and account ID (for downloads) OR pre-existing .mmdb files
 - See the [Geolocation guide](/docs/guides/geolocation) for setup instructions
@@ -296,7 +296,7 @@ Promise that resolves when databases are downloaded and reloaded
 - Requires `licenseKey` and `accountId` in configuration
 - Throws if `skipDownloads: true`
 
-:::note Clustered deployments
+:::note[Clustered deployments]
 The lock serializes instances rather than silencing them, which keeps both storage layouts correct:
 
 - **Shared volume** (EFS, NFS, mounted PVC) — the first instance downloads; the rest find fresh files and load them without hitting MaxMind.

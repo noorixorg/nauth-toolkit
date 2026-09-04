@@ -24,7 +24,7 @@ Add a second layer of security beyond passwords. After users authenticate with t
 
 Users can enroll **multiple devices per method** (e.g., two TOTP apps, or laptop Touch ID + phone Face ID). Each device is managed independently.
 
-:::tip Sample apps
+:::tip[Sample apps]
 MFA is implemented in the [nauth example apps](https://github.com/noorixorg/nauth-toolkit) — see the NestJS, Express, and Fastify examples for MFA management routes, challenge helpers, and the Angular example for `mfa-setup.component.ts`, `otp-verify.component.ts`, and `passkey-setup.component.ts`.
 :::
 
@@ -438,7 +438,7 @@ fastify.delete('/auth/mfa/devices/:deviceId', { preHandler: [nauth.helpers.requi
 }
 ```
 
-:::warning Last device removal
+:::warning[Last device removal]
 If the user removes their **only** MFA device, MFA is automatically disabled. If `enforcement: 'REQUIRED'`, they'll be prompted to set up MFA again on the next login.
 :::
 
@@ -540,7 +540,7 @@ mfa: {
 
 Location-based triggers (`new_country`, `impossible_travel`) require [Geolocation](/docs/guides/geolocation) configured.
 
-:::note Smart deduplication
+:::note[Smart deduplication]
 The system excludes `new_ip` when `new_country` or `impossible_travel` is detected to prevent double-counting.
 :::
 

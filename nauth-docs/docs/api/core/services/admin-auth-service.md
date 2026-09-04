@@ -205,11 +205,11 @@ fastify.delete(
 </TabItem>
 </Tabs>
 
-:::warning Authorization
+:::warning[Authorization]
 Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
 :::
 
-:::danger Irreversible Operation
+:::danger[Irreversible Operation]
 This operation permanently deletes all user data and cannot be undone. All associated records (sessions, tokens, devices, etc.) are deleted from the database.
 :::
 
@@ -289,11 +289,11 @@ fastify.post(
 </TabItem>
 </Tabs>
 
-:::note Permanent vs Temporary Locks
+:::note[Permanent vs Temporary Locks]
 Rate limiting sets temporary locks with `lockedUntil` = future date. Admin `disableUser()` sets `lockedUntil = NULL` for permanent locks.
 :::
 
-:::warning Authorization
+:::warning[Authorization]
 Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
 :::
 
@@ -371,11 +371,11 @@ fastify.post(
 </TabItem>
 </Tabs>
 
-:::note Unlocking Accounts
+:::note[Unlocking Accounts]
 This method clears all lock fields including temporary rate-limit locks. Use this to unlock accounts that were locked by either `disableUser()` or automatic rate limiting.
 :::
 
-:::warning Authorization
+:::warning[Authorization]
 Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
 :::
 
@@ -524,7 +524,7 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed b
 | ----------- | -------------- | ----------- |
 | `NOT_FOUND` | User not found | `undefined` |
 
-:::warning Authorization
+:::warning[Authorization]
 Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
 :::
 
@@ -650,11 +650,11 @@ fastify.get(
 </TabItem>
 </Tabs>
 
-:::note Data Privacy
+:::note[Data Privacy]
 Returns sanitized user data (no `passwordHash`, secrets, or sensitive fields). All users have access to standard `UserResponseDTO` fields only.
 :::
 
-:::warning Authorization
+:::warning[Authorization]
 Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
 :::
 
@@ -691,7 +691,7 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed b
 | ----------- | -------------- | ----------- |
 | `NOT_FOUND` | User not found | `undefined` |
 
-:::warning Authorization
+:::warning[Authorization]
 Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
 :::
 
@@ -811,7 +811,7 @@ fastify.post(
 </TabItem>
 </Tabs>
 
-:::warning Authorization
+:::warning[Authorization]
 Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
 :::
 
@@ -850,7 +850,7 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed b
 | `SESSION_NOT_FOUND` | Session not found               | `undefined` |
 | `FORBIDDEN`         | Session does not belong to user | `undefined` |
 
-:::warning Authorization
+:::warning[Authorization]
 Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
 :::
 
@@ -979,7 +979,7 @@ Example strings returned in `errors`:
 }
 ```
 
-:::info Social accounts
+:::info[Social accounts]
 Admins can also use this method to **set the first password** for a social-only (social-first) account. This makes the account both password + social enabled.
 :::
 
@@ -1027,7 +1027,7 @@ fastify.post(
 </TabItem>
 </Tabs>
 
-:::warning Authorization
+:::warning[Authorization]
 Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
 :::
 
@@ -1077,7 +1077,7 @@ When password validation fails, `details` includes an array of error strings:
 
 When `generatePassword = false` and `password` is missing, `details` is `undefined`.
 
-:::note Admin capabilities
+:::note[Admin capabilities]
 
 - Can Bypass email/phone verification requirements by setting _isPhoneVerified_ and _isEmailVerified_ to true
 - Force password change on first login
@@ -1129,7 +1129,7 @@ fastify.post(
 </TabItem>
 </Tabs>
 
-:::warning Authorization
+:::warning[Authorization]
 Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
 :::
 
@@ -1174,7 +1174,7 @@ When password validation fails (only relevant for hybrid social+password account
 }
 ```
 
-:::note Admin capabilities
+:::note[Admin capabilities]
 
 - Import social users with pre-linked social accounts
 - Create social-only users (no password) or hybrid users (social + password)
@@ -1246,7 +1246,7 @@ const result = await adminAuthService.signupSocial({
 });
 ```
 
-:::warning Authorization
+:::warning[Authorization]
 Please ensure you implement Admin authorization as required. This method does not check admin status - protect routes with your own permission guards.
 :::
 
@@ -1334,7 +1334,7 @@ await adminAuthService.updateUserAttributes({
 });
 ```
 
-:::warning MFA Device Deletion
+:::warning[MFA Device Deletion]
 When updating `email` or `phone`, associated MFA devices are **automatically deleted** (cannot be reactivated):
 
 - **Email change**: All Email MFA devices are permanently deleted (requires re-setup)
@@ -1409,7 +1409,7 @@ const updatedUser = await adminAuthService.updateVerifiedStatus({
 });
 ```
 
-:::info Admin Use Case
+:::info[Admin Use Case]
 This method is intended for administrative operations such as:
 
 - Migrating users from external systems with pre-verified emails/phones

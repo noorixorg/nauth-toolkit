@@ -21,7 +21,7 @@ Add Google, Apple, or Facebook sign-in to your app. nauth-toolkit uses a **redir
 | [**Apple**](/docs/guides/social/apple) | `@nauth-toolkit/social-apple` | JWT client secret auto-managed, `form_post` callback |
 | [**Facebook**](/docs/guides/social/facebook) | `@nauth-toolkit/social-facebook` | Standard OAuth 2.0 |
 
-:::tip Sample apps
+:::tip[Sample apps]
 Social login is implemented in the [nauth example apps](https://github.com/noorixorg/nauth-toolkit) — see the NestJS, Express, and Fastify examples for social routes, and the React/Angular examples for frontend callback handling.
 :::
 
@@ -412,7 +412,7 @@ Users can manage linked accounts from their security settings:
 | `/auth/social/can-set-password` | GET | Protected | Check if social-only user can set a password |
 | `/auth/social/set-password` | POST | Protected | Set password for social-only user |
 
-:::note Session auth method
+:::note[Session auth method]
 After social login, `authMethod` is set to the provider name (e.g., `google`, `apple`, `facebook`) instead of `password`. This is available in the response and stored on the cached user as `sessionAuthMethod`.
 :::
 
@@ -460,13 +460,13 @@ The `appState` value you pass to `loginWithSocial()` is returned in the callback
 
 See the [Frontend Social Authentication Guide](/docs/frontend-sdk/guides/social-auth) for complete implementation examples.
 
-:::info Security notes
+:::info[Security notes]
 - **`appState` is not secret** — it appears in browser history and logs
 - **Open redirect protection** — keep `allowAbsoluteReturnTo: false` unless you truly need absolute return URLs
 - **Cluster-safe** — OAuth `state` is stored via transient `StorageAdapter` (Redis/DB), so the flow works across multiple containers
 :::
 
-:::warning Apple form_post
+:::warning[Apple form_post]
 Apple uses POST with `form_post` response mode for callbacks. Ensure your backend can parse `application/x-www-form-urlencoded` bodies. Express handles this by default; Fastify requires the `@fastify/formbody` plugin.
 :::
 

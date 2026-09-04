@@ -41,7 +41,7 @@ const client = new NAuthClient({
 
 ## Methods
 
-:::warning Backend Configuration Required
+:::warning[Backend Configuration Required]
 Some methods require additional backend features to be enabled:
 
 - **MFA methods** (`generateBackupCodes`, `getMfaDevices`, `getMfaStatus`, `removeMfaDeviceById`, `setPreferredMfaDevice`, `setupMfaDevice`, `verifyMfaSetup`): require MFA enabled in `nauth.config.ts`. See [Backend MFA Configuration](/docs/guides/mfa/how-mfa-works).
@@ -745,7 +745,7 @@ async logout(forgetDevice?: boolean): Promise<void>
 | -------------- | --------- | ----------------------------------------------- |
 | `forgetDevice` | `boolean` | If true, removes device trust. Default: `false` |
 
-:::info Authentication Required
+:::info[Authentication Required]
 This method requires the user to be authenticated. The endpoint is protected and cannot be called publicly.
 :::
 
@@ -781,7 +781,7 @@ async logoutAll(forgetDevices?: boolean): Promise<{ revokedCount: number }>
 | -------------- | -------- | -------------------------- |
 | `revokedCount` | `number` | Number of sessions revoked |
 
-:::info Authentication Required
+:::info[Authentication Required]
 This method requires the user to be authenticated. The endpoint is protected and cannot be called publicly.
 :::
 

@@ -88,7 +88,7 @@ await nauth.authService.logout({ forgetMe: false });
 
 Destroying the **sessions** is what makes the provider's `_session` cookie stop resolving. Destroying the **grants** means the next authorization request asks for consent again rather than silently reusing a remembered one.
 
-:::note Issued tokens are deliberately left alone
+:::note[Issued tokens are deliberately left alone]
 A third party holding a valid access token should not lose it because the user closed a browser tab. Those have their own lifecycle: they expire, or a client revokes them at `/oidc/token/revocation`.
 :::
 
@@ -118,7 +118,7 @@ A client can also start logout itself, at the `end_session` endpoint advertised 
 
 The client then sends the user to `/oidc/session/end?id_token_hint=…&post_logout_redirect_uri=https://myapp.com`.
 
-:::warning The default logout screens come from `oidc-provider`
+:::warning[The default logout screens come from `oidc-provider`]
 `rpInitiatedLogout` is enabled by default and renders its own confirmation and post-logout pages. Both are generic defaults, and `oidc-provider` logs a notice asking you to replace them. Do that through `extraConfiguration`:
 
 ```typescript title="src/config/oidc.config.ts"

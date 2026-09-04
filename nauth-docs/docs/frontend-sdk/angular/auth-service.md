@@ -191,7 +191,7 @@ async logoutAll(forgetDevices?: boolean): Promise<{ revokedCount: number }>
 | -------------- | -------- | -------------------------- |
 | `revokedCount` | `number` | Number of sessions revoked |
 
-:::info Authentication Required
+:::info[Authentication Required]
 This method requires the user to be authenticated. The endpoint is protected and cannot be called publicly.
 :::
 
@@ -650,7 +650,7 @@ const tokens = await this.auth.refresh();
 
 Get underlying NAuthClient instance for advanced operations.
 
-:::warning Deprecated
+:::warning[Deprecated]
 This method is deprecated. Use the direct promise-based methods on AuthService instead. The `getClient()` method is kept for backward compatibility only and may be removed in a future version.
 :::
 

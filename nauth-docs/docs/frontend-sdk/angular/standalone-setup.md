@@ -10,7 +10,7 @@ sidebar_position: 1
 
 Set up `@nauth-toolkit/client-angular` in an Angular application using standalone components (Angular 17+).
 
-:::note Sample Application
+:::note[Sample Application]
 A complete working example is available at [github.com/noorixorg/nauth-toolkit/tree/main/examples/demo-angular](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/demo-angular) — Angular standalone + `@nauth-toolkit/client-angular` paired with the NestJS backend example.
 :::
 

@@ -18,7 +18,7 @@ Turns a nauth-toolkit application into an OAuth 2.0 authorization server and Ope
 npm install @nauth-toolkit/oidc-provider oidc-provider
 ```
 
-:::warning For third-party integrations, not your own login
+:::warning[For third-party integrations, not your own login]
 Keep your own application on [`AuthService`](/docs/api/core/services/auth-service). The protocol endpoints here do not carry nauth-toolkit's per-identifier rate limiting or account lockout — see [when to use this, and when not to](/docs/guides/oauth-provider/how-oauth-provider-works#when-to-use-this--and-when-not-to).
 :::
 

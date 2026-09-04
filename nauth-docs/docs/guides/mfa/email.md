@@ -27,7 +27,7 @@ Add email-based multi-factor authentication. By the end of this guide you will h
 
 Email MFA is the simplest method — it uses your existing email provider and requires no additional user setup (the email is already on file).
 
-:::tip Sample apps
+:::tip[Sample apps]
 Email MFA is fully implemented in the [nauth example apps](https://github.com/noorixorg/nauth-toolkit) — see the NestJS, Express, and Fastify examples for MFA routes, and the Angular example for `mfa-setup.component.ts` and `otp-verify.component.ts`.
 :::
 
@@ -498,7 +498,7 @@ POST /auth/challenge/setup-data
 | Email already verified | `{ "setupData": { "autoCompleted": true, "deviceId": 42 } }` |
 | Email not yet verified | `{ "setupData": { "maskedEmail": "j***@example.com" } }` — code sent |
 
-:::tip Auto-completion
+:::tip[Auto-completion]
 If the user already verified their email during signup, the setup auto-completes — no additional code is needed. The frontend can proceed directly to the respond-challenge step with the `deviceId`.
 :::
 

@@ -54,7 +54,7 @@ import { LogoutSessionDTO } from '@nauth-toolkit/core';
 
 ## Security
 
-:::warning Authentication Required
+:::warning[Authentication Required]
 This endpoint **requires authentication**. The user's identity is extracted from the authenticated JWT token. Session ownership is validated automatically.
 :::
 

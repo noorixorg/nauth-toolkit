@@ -56,11 +56,11 @@ Build a complete admin panel for user management. By the end of this guide you w
 | --- | --- | --- |
 | `/auth/admin/audit/history` | GET | Get authentication audit history for a user |
 
-:::tip Sample apps
+:::tip[Sample apps]
 Admin routes are fully implemented in the [nauth example apps](https://github.com/noorixorg/nauth-toolkit) — see the Express and Fastify examples for admin routes, and the Angular example for `admin.component.ts`.
 :::
 
-:::warning Authorization is your responsibility
+:::warning[Authorization is your responsibility]
 nauth-toolkit is an **authentication** framework — it does not handle authorization or permissions. All admin endpoints below use `requireAuth()` to verify the caller has a valid JWT, but **you must add your own authorization layer** on top (role checks, permission guards, RBAC, etc.) to ensure only admins can access these routes.
 :::
 

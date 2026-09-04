@@ -25,11 +25,11 @@ Add SMS-based multi-factor authentication. By the end of this guide you will hav
 | `/auth/challenge/setup-data` | POST | Public | Get setup data during forced MFA setup |
 | `/auth/challenge/resend` | POST | Public | Resend MFA verification code |
 
-:::tip Sample apps
+:::tip[Sample apps]
 SMS MFA is configured in the [nauth example apps](https://github.com/noorixorg/nauth-toolkit) using `ConsoleSMSProvider` (logs to stdout). See the NestJS, Express, and Fastify examples.
 :::
 
-:::warning SMS Security
+:::warning[SMS Security]
 SMS is vulnerable to SIM swapping attacks. Consider offering SMS as a secondary option alongside TOTP or Passkey, which are more resistant to interception.
 :::
 
@@ -100,7 +100,7 @@ smsProvider: new AWSSMSProvider({
 
 ## Step 3: Add Backend Routes
 
-:::note Already have MFA routes?
+:::note[Already have MFA routes?]
 If you already set up routes for another MFA method (Email, TOTP, Passkey), the same routes handle SMS — just add `MFAMethod.SMS` to `allowedMethods` in your config and skip to [Step 4](#step-4-frontend--mfa-setup-security-settings).
 :::
 
@@ -508,7 +508,7 @@ POST /auth/challenge/setup-data
 
 Both are sent to `POST /auth/respond-challenge`. On success, tokens are issued.
 
-:::note Phone number collection
+:::note[Phone number collection]
 If the user doesn't have a phone number on their account, the challenge system can collect it during a `VERIFY_PHONE` challenge. See [Basic Auth Flows > Other challenge types](/docs/guides/basic-auth#other-challenge-types-same-endpoint) for the phone number collection flow.
 :::
 

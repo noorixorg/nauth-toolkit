@@ -11,7 +11,7 @@ image: /img/api-social-card.png
 
 Global guard that initializes AsyncLocalStorage context and extracts client information for all HTTP requests. Runs FIRST before other guards to ensure context is available.
 
-:::tip Import from NestJS Package
+:::tip[Import from NestJS Package]
 ```typescript
 import { NAuthContextGuard } from '@nauth-toolkit/nestjs';
 ```

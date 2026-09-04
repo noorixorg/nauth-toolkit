@@ -13,7 +13,7 @@ import TabItem from '@theme/TabItem';
 
 Query and display authentication audit history in your app. Audit logging is enabled by default --- this guide shows how to configure it, query events from the backend, and display login activity in your frontend.
 
-:::tip Sample apps
+:::tip[Sample apps]
 The code in this guide is taken directly from the example apps. If you get stuck, clone and run them:
 
 - [`Github Samples & Community`](https://github.com/noorixorg/nauth-toolkit)
@@ -52,7 +52,7 @@ For high-throughput environments, enable fire-and-forget mode to avoid awaiting 
 | `enabled` | `boolean` | `true` | Enable/disable audit logging |
 | `fireAndForget` | `boolean` | `false` | Don't await audit writes on request path |
 
-:::warning Disabling Audit Logs
+:::warning[Disabling Audit Logs]
 Disabling audit logs reduces security observability. Keep audit logging enabled in production systems.
 :::
 

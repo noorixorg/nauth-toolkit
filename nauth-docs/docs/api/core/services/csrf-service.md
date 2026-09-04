@@ -46,7 +46,7 @@ Provides CSRF protection for cookie-based authentication. Generates cryptographi
 Auto-injected by framework adapters. CSRF protection is handled automatically by middleware when using the framework's CSRF handler/interceptor.
 :::
 
-:::warning When CSRF Protection is Active
+:::warning[When CSRF Protection is Active]
 CSRF protection is **only enabled** when:
 
 - `tokenDelivery.method` is `'cookies'` or `'hybrid'`

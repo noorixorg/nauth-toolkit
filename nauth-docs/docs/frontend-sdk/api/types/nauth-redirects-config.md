@@ -30,8 +30,7 @@ import { NAuthRedirectsConfig } from '@nauth-toolkit/client';
 | `useSingleChallengeRoute` | `boolean`                                 | No       | `false`              | When `true`, uses query param mode: `/auth/challenge?challenge=VERIFY_EMAIL`. When `false`, uses separate routes: `/auth/challenge/verify-email` |
 | `mfaRoutes`               | [`MfaRoutesConfig`](#mfaroutesconfig)  | No       | `undefined`          | MFA-specific route overrides (only applies to `MFA_REQUIRED` challenge). See below. |
 
-### MfaRoutesConfig {#mfaroutesconfig}
-
+### MfaRoutesConfig {/* #mfaroutesconfig */}
 Fine-grained control over MFA navigation. Only applies when challenge type is [`MFA_REQUIRED`](./auth-challenge#values). The SDK selects routes based on the MFA method and available options:
 
 | Property   | Type     | Required | Description                                          |

@@ -22,7 +22,7 @@ Add Google Sign-In to your app. By the end of this guide you will have these end
 
 The redirect, callback, and exchange endpoints use the [shared social routes](/docs/guides/social/how-social-login-works#shared-routes) you set up in the How Social Login Works guide. This page adds the Google-specific configuration and the native mobile verify endpoint.
 
-:::tip Sample apps
+:::tip[Sample apps]
 Google social login is fully implemented in the [nauth example apps](https://github.com/noorixorg/nauth-toolkit) — see the NestJS, Express, and Fastify examples for social routes, and the React/Angular examples for the login button and callback handling.
 :::
 
@@ -275,7 +275,7 @@ await client.loginWithSocial('google', {
 });
 ```
 
-:::note Hosted domain filtering
+:::note[Hosted domain filtering]
 The `hd` parameter only filters the account chooser UI — it does not enforce domain restriction server-side. If you need strict enforcement, validate the user's email domain in a [post-signup hook](/docs/guides/lifecycle-hooks).
 :::
 

@@ -10,7 +10,7 @@ sidebar_position: 1
 
 Integrate `@nauth-toolkit/client` into a React application using Context and hooks. The SDK is framework-agnostic — no React-specific package needed.
 
-:::note Sample Application
+:::note[Sample Application]
 A complete working example is available at [github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-react](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-react) — React + Vite with Auth context, protected routes, Google OAuth, and challenge handling.
 :::
 

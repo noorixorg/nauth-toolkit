@@ -13,11 +13,11 @@ import TabItem from '@theme/TabItem';
 
 Override the emails nauth-toolkit sends to your users and control which security notifications are enabled. `@nauth-toolkit/email-nodemailer` ships with production-ready HTML templates for all 18 email types --- you only need to override the ones you want to customize.
 
-:::tip Sample apps
+:::tip[Sample apps]
 The [nauth example apps](https://github.com/noorixorg/nauth-toolkit) include working email configuration with custom templates.
 :::
 
-:::note Want full control?
+:::note[Want full control?]
 You can disable the built-in email system entirely (`emailNotifications.enabled: false`) and use [Lifecycle Hooks](/docs/guides/lifecycle-hooks) to send your own notifications via any service. Hooks fire on the same auth events (password changed, account locked, MFA enabled, etc.) and give you complete control over delivery.
 :::
 

@@ -1150,7 +1150,7 @@ await client.logoutAll(true); // forgetDevices = true
 await client.logoutAll(); // forgetDevices defaults to false
 ```
 
-:::info Authentication Required
+:::info[Authentication Required]
 All logout methods (`logout()` and `logoutAll()`) require the user to be authenticated. These endpoints are protected and cannot be called publicly.
 :::
 

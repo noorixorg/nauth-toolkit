@@ -83,7 +83,7 @@ export class AppRoutingModule {}
 
 Functional guard factory that redirects unauthenticated users to the configured `redirects.sessionExpired` route, or `/login` by default.
 
-:::important Call the Function
+:::important[Call the Function]
 `authGuard` is a **factory function** that must be called with `()` to return the guard function:
 
 ```typescript
@@ -228,7 +228,7 @@ export const routes: Routes = [
 
 Put it on every route a freshly logged-in user can land on. It consumes the stash, so a later visit to the same route is not diverted a second time.
 
-:::tip You may not need it
+:::tip[You may not need it]
 If your app lets the SDK drive navigation, the `navigationHandler` config option is a single chokepoint that does the same job without touching your routes. Reach for the guard when your own challenge components call `router.navigate()` themselves — a common pattern, and one that bypasses `navigationHandler` entirely. See [Building the Consent Screen](/docs/guides/oauth-provider/consent-screen#returning-after-login).
 :::
 

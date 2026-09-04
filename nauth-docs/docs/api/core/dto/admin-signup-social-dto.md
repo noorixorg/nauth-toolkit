@@ -72,7 +72,7 @@ import { AdminSignupSocialDTO } from '@nauth-toolkit/core';
 }
 ```
 
-:::note Email Verification
+:::note[Email Verification]
 Email is automatically verified for all social imports (like normal social signup). The `isEmailVerified` field is not required and is not part of the DTO.
 :::
 

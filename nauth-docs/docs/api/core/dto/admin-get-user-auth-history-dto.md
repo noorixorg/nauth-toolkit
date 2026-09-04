@@ -15,7 +15,7 @@ import TabItem from '@theme/TabItem';
 
 Request DTO for getting paginated authentication history for any user (admin operation) with optional filtering by event types, status, and date ranges.
 
-:::warning Admin Only
+:::warning[Admin Only]
 This DTO requires the `sub` field to specify the target user. It extends [`GetUserAuthHistoryDTO`](./get-user-auth-history-dto) and adds the `sub` field. For user self-service operations, use [`GetUserAuthHistoryDTO`](./get-user-auth-history-dto) instead.
 :::
 

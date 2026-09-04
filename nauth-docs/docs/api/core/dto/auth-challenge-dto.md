@@ -59,8 +59,7 @@ Legacy challenge completion request DTO (kept for backwards compatibility).
 | `challengeName`      | [`AuthChallenge`](#authchallenge-enum) | Yes      | Challenge type enum value.                                       |
 | `challengeResponses` | `Record<string, unknown>`              | Yes      | Challenge-specific responses object.                             |
 
-## AuthChallenge enum {#authchallenge-enum}
-
+## AuthChallenge enum {/* #authchallenge-enum */}
 Represents the challenge type returned by the auth flow.
 
 - `VERIFY_EMAIL`

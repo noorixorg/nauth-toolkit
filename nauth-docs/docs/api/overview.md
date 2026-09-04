@@ -317,7 +317,7 @@ fastify.post(
 );
 ```
 
-:::note Fastify Context
+:::note[Fastify Context]
 Fastify hooks run independently, so AsyncLocalStorage context must be restored in route handlers.
 Use `nauth.adapter.wrapRouteHandler()` to access `nauth.helpers.getCurrentUser()` and context-dependent services.
 :::

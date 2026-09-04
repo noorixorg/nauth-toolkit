@@ -22,7 +22,7 @@ import type { OIDCInteractionRedirect } from '@nauth-toolkit/client';
 | --- | --- | --- |
 | `redirectTo` | `string` | Absolute URL to navigate to |
 
-:::warning Leave the app entirely
+:::warning[Leave the app entirely]
 Use `window.location.assign(redirectTo)`, never a router navigation. The browser is leaving your single-page app: the provider resumes the authorization request and redirects on to the client from there.
 :::
 

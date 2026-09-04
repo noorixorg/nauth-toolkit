@@ -214,7 +214,7 @@ const nauth = await NAuth.create({
 </TabItem>
 </Tabs>
 
-:::tip Redis Cluster
+:::tip[Redis Cluster]
 For high availability, `RedisStorageAdapter` also accepts a cluster client:
 
 ```typescript
@@ -313,7 +313,7 @@ If you don't provide a `storageAdapter` in your config, nauth-toolkit automatica
 
 This is convenient for getting started, but **explicit configuration is recommended** for production clarity.
 
-:::warning Multi-Server Deployments
+:::warning[Multi-Server Deployments]
 Database adapter auto-detection works for single-server setups. If you run multiple application instances, you **must** use `RedisStorageAdapter` --- rate limits and distributed locks need to be shared across all instances to work correctly.
 :::
 

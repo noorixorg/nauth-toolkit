@@ -15,7 +15,7 @@ import TabItem from '@theme/TabItem';
 
 Request DTO for removing a single MFA device by device ID (admin operation).
 
-:::warning Admin Only
+:::warning[Admin Only]
 This DTO allows removing any user's device by ID. For user self-service device removal, use [`MFAService.removeDevice()`](../services/mfa-service#removedevice) which validates ownership.
 :::
 

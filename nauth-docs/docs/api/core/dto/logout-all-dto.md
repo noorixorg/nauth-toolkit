@@ -54,7 +54,7 @@ import { LogoutAllDTO } from '@nauth-toolkit/core';
 
 ## Security
 
-:::warning Authentication Required
+:::warning[Authentication Required]
 This endpoint **requires authentication**. The user must be logged in to call this endpoint. The user's identity is automatically extracted from the authenticated user's JWT token by the framework adapters.
 :::
 

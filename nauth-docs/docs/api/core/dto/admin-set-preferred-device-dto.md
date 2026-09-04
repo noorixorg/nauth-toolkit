@@ -15,7 +15,7 @@ import TabItem from '@theme/TabItem';
 
 Request DTO for setting a specific MFA device as preferred for a user (admin operation).
 
-:::warning Admin Only
+:::warning[Admin Only]
 This DTO requires both `sub` and `deviceId`. For user self-service, use [`MFAService.setPreferredDevice()`](../services/mfa-service#setpreferreddevice) which derives user from context.
 :::
 

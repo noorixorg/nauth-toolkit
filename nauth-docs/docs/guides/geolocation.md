@@ -63,7 +63,7 @@ For production, manage database files externally and skip downloads:
 | `editions` | `string[]` | `['GeoLite2-City', 'GeoLite2-Country']` | Which MaxMind databases to download |
 | `skipDownloads` | `boolean` | `false` | Skip downloads, use existing files only |
 
-:::tip Clustered deployments
+:::tip[Clustered deployments]
 `autoDownloadOnStartup` is safe when several containers start in parallel. With a distributed storage adapter (Redis or database), instances take turns behind a shared lock instead of all downloading at once, and files already on disk and less than 24 hours old are reused.
 
 Both storage layouts work: on a shared volume the first instance downloads and the rest load its files; on a container-local `dbPath` (the default) each instance downloads its own copy when its turn comes.
@@ -158,7 +158,7 @@ When enabled, every session and authentication event includes:
 
 This data is stored in session records, audit logs, and is available via `ClientInfoService` in request context.
 
-:::note Privacy
+:::note[Privacy]
 IP addresses are personal data under GDPR. Disclose geolocation tracking in your privacy policy and consider letting users view their login locations.
 :::
 

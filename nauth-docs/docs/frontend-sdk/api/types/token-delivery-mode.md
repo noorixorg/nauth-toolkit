@@ -49,7 +49,7 @@ const client = new NAuthClient({
 - Sent via `Authorization: Bearer` header
 - Required for mobile/native apps
 
-:::info Hybrid Backend
+:::info[Hybrid Backend]
 "Hybrid" is a backend deployment pattern, not a frontend mode. When your backend supports both web and mobile, it exposes separate endpoints. The frontend chooses ONE mode based on the platform.
 :::
 

@@ -10,7 +10,7 @@ sidebar_position: 2
 
 Set up `@nauth-toolkit/client-angular` in a traditional Angular application using NgModule.
 
-:::note Sample Application
+:::note[Sample Application]
 A complete working example is available at [github.com/noorixorg/nauth-toolkit/tree/main/examples/demo-angular](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/demo-angular) — includes both standalone and NgModule patterns paired with the NestJS backend example.
 :::
 

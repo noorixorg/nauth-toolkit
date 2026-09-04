@@ -9,7 +9,7 @@ description: Mark routes as public to bypass authentication
 
 Decorator that marks a route or controller as public, allowing it to bypass the `AuthGuard`.
 
-:::tip Import from NestJS Package
+:::tip[Import from NestJS Package]
 ```typescript
 import { Public } from '@nauth-toolkit/nestjs';
 ```

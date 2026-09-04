@@ -11,7 +11,7 @@ image: /img/api-social-card.png
 
 Class decorator that automatically registers a provider as an account locked hook. Executes after account lockouts triggered by failed login attempts. Non-blocking - errors are logged but don't affect lockout.
 
-:::warning Not in Main Barrel Export
+:::warning[Not in Main Barrel Export]
 `AccountLockedHook` is not exported from the `@nauth-toolkit/nestjs` main entry point. Register this hook manually using [`HookRegistryService`](/docs/api/core/services/hook-registry-service) instead of the decorator pattern.
 :::
 

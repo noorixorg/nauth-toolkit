@@ -14,7 +14,7 @@ import TabItem from '@theme/TabItem';
 
 NestJS guard that validates CSRF tokens for state-changing requests when using cookie-based token delivery.
 
-:::tip Import from NestJS Package
+:::tip[Import from NestJS Package]
 ```typescript
 import { CsrfGuard } from '@nauth-toolkit/nestjs';
 ```

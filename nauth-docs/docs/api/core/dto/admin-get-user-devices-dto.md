@@ -15,7 +15,7 @@ import TabItem from '@theme/TabItem';
 
 Request DTO for retrieving all active MFA devices for a target user (admin operation).
 
-:::warning Admin Only
+:::warning[Admin Only]
 This DTO requires the `sub` field to specify the target user. For user self-service device listing, use [`MFAService.getUserDevices()`](../services/mfa-service#getuserdevices) which derives the user from authenticated context.
 :::
 

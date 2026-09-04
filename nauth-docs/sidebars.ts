@@ -66,6 +66,7 @@ const sidebars: SidebarsConfig = {
           label: 'MFA',
           collapsible: true,
           collapsed: true,
+          link: { type: 'doc', id: 'guides/mfa/how-mfa-works' },
           customProps: { icon: 'fa-light fa-shield-halved' },
           items: [
             { type: 'doc', id: 'guides/mfa/how-mfa-works', customProps: { icon: 'fa-light fa-circle-info' } },
@@ -80,6 +81,7 @@ const sidebars: SidebarsConfig = {
           label: 'Social Login',
           collapsible: true,
           collapsed: true,
+          link: { type: 'doc', id: 'guides/social/how-social-login-works' },
           customProps: { icon: 'fa-light fa-share-nodes' },
           items: [
             {
@@ -97,6 +99,7 @@ const sidebars: SidebarsConfig = {
           label: 'OIDC Provider',
           collapsible: true,
           collapsed: true,
+          link: { type: 'doc', id: 'guides/oauth-provider/how-oauth-provider-works' },
           customProps: { icon: 'fa-light fa-id-badge' },
           items: [
             {

@@ -21,7 +21,7 @@ nauth-toolkit implements rate limiting at multiple layers to protect against bru
 | **Token refresh locking** | Prevent concurrent refresh abuse | Per session | Distributed lock |
 | **Resend delay** | Prevent rapid code resending | Per user | Fixed cooldown |
 
-:::tip Why Multiple Layers?
+:::tip[Why Multiple Layers?]
 Each layer protects against different attack vectors. IP-based lockout stops automated attacks, per-user limits prevent account targeting, and distributed locks prevent race conditions.
 :::
 
@@ -80,7 +80,7 @@ Time    Event                    Counter  TTL      Status
 12:19   (15 min elapsed)        0        -        OK (reset)
 ```
 
-:::info Why IP-based?
+:::info[Why IP-based?]
 IP-based lockout (not user-based) prevents attackers from locking out legitimate users by guessing their email/username.
 :::
 
@@ -168,7 +168,7 @@ sequenceDiagram
 - **Lock TTL**: 10 seconds (with jitter to prevent thundering herd)
 - **Lock release**: Automatic on TTL or manual after refresh completes
 
-:::warning Token Reuse Attack
+:::warning[Token Reuse Attack]
 If a refresh token is used twice (detected as reuse attack), the entire session and its token family are invalidated immediately. This is security enforcement, not rate limiting.
 :::
 

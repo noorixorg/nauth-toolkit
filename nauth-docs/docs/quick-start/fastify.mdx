@@ -10,11 +10,11 @@ image: /img/api-social-card.png
 
 Add authentication to a Fastify application using nauth-toolkit's framework-agnostic core. By the end of this guide you'll have signup, login, logout, token refresh, and a protected profile endpoint working.
 
-:::note Sample Application
+:::note[Sample Application]
 A complete working example is available at [github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-fastify](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-fastify) — Fastify + TypeORM + PostgreSQL with Google OAuth and TOTP MFA preconfigured.
 :::
 
-:::tip Live Demo
+:::tip[Live Demo]
 See nauth-toolkit in action at **[demo.nauth.dev](https://demo.nauth.dev)** — a working demo app showcasing signup, login, MFA, social auth, and session management.
 :::
 
@@ -326,7 +326,7 @@ export async function registerAuthRoutes(fastify: FastifyInstance, nauth: TypedN
 }
 ```
 
-:::note Route paths vs Express
+:::note[Route paths vs Express]
 Unlike Express (where routes are mounted under a prefix with `app.use('/auth', router)`), Fastify routes are registered on the root instance with the full path included (e.g., `/auth/signup`). This is why `registerAuthRoutes` registers `/auth/signup` directly rather than just `/signup`.
 :::
 
@@ -473,7 +473,7 @@ export const authConfig: NAuthConfig = {
 
 See the [MFA](/docs/guides/mfa/how-mfa-works) guide for setup and verification route implementations.
 
-:::tip Complete Route Examples
+:::tip[Complete Route Examples]
 This quick start covers the essential routes. For complete implementations including MFA management, session management, social linking, admin endpoints, and more, see the [Authentication Routes](/docs/guides/routes) guide.
 :::
 

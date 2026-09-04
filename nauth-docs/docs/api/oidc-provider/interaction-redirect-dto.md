@@ -23,7 +23,7 @@ import type { InteractionRedirectDTO } from '@nauth-toolkit/oidc-provider';
 | --- | --- | --- |
 | `redirectTo` | `string` | Absolute URL to navigate to |
 
-:::note Why JSON and not a 302
+:::note[Why JSON and not a 302]
 Returning the URL rather than redirecting lets a single-page app drive the whole flow with `fetch`. Navigate with `window.location.assign(redirectTo)` — never a router navigation, because the browser is leaving your app: the provider resumes the authorization request and redirects on to the client from there.
 :::
 

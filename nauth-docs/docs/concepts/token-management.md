@@ -23,7 +23,7 @@ Your backend configuration determines how tokens travel between backend and fron
 | `cookies` | Web apps (most secure) | HTTP-only cookies | Automatic (cookies) | Yes |
 | `hybrid` | Web + Mobile from same backend | Varies by route | Depends on endpoint | Yes (for cookie routes) |
 
-:::tip Quick Recommendation
+:::tip[Quick Recommendation]
 - **Web app only?** Use `cookies` (most secure for browsers)
 - **Mobile app only?** Use `json` (standard Bearer tokens)
 - **Both web and mobile?** Use `hybrid` (separate routes per client type)
@@ -68,7 +68,7 @@ sequenceDiagram
 }
 ```
 
-:::warning Security
+:::warning[Security]
 For web apps, avoid storing tokens in `localStorage` --- they're vulnerable to XSS attacks. Use `cookies` mode instead, or store tokens in memory only.
 :::
 
@@ -163,12 +163,11 @@ sequenceDiagram
 }
 ```
 
-:::tip Route Naming Convention
+:::tip[Route Naming Convention]
 Use a clear pattern like `/auth/*` for cookie routes and `/auth/*/mobile` for JSON routes. This makes it obvious which client should call which endpoint.
 :::
 
-### Per-Delivery Refresh TTL {#per-delivery-refresh-ttl}
-
+### Per-Delivery Refresh TTL {/* #per-delivery-refresh-ttl */}
 In hybrid mode you can issue different refresh token lifetimes for cookie-delivered vs JSON-delivered clients. Typical use: short TTL for browsers (cookies) to contain blast radius, long TTL for mobile/workers (JSON) so users stay signed in longer.
 
 ```typescript title="config/auth.config.ts"
@@ -203,11 +202,11 @@ In hybrid mode you can issue different refresh token lifetimes for cookie-delive
 
 The resolved TTL is applied at every point where a refresh token is minted — login, refresh, and MFA/social challenge completion — and the refresh cookie's `maxAge` aligns with it automatically.
 
-:::note Hybrid-only
+:::note[Hybrid-only]
 `cookieRefreshExpiresIn` and `jsonRefreshExpiresIn` are only consulted when `tokenDelivery.method === 'hybrid'`. They're ignored in `'json'` or `'cookies'` mode.
 :::
 
-:::tip Security note
+:::tip[Security note]
 Per-delivery TTL is configured server-side via `hybridPolicy`. Clients cannot request a longer lifetime — the delivery mode (and therefore the TTL) is determined by the route the client calls or the origin it presents.
 :::
 
@@ -551,7 +550,7 @@ fastify.post(
 
 </details>
 
-:::tip Frontend SDK
+:::tip[Frontend SDK]
 If you're using `@nauth-toolkit/client`, token refresh is handled automatically. The SDK intercepts 401 responses, calls the refresh endpoint, and retries the original request.
 :::
 
@@ -578,7 +577,7 @@ When `reuseDetection: true` is set and a previously-used refresh token is presen
 1. Revokes **all active sessions** for that user (prevents the attacker from using other tokens)
 2. Returns `AUTH_TOKEN_REUSE_DETECTED` — the user must log in again
 
-:::tip When to Enable
+:::tip[When to Enable]
 Enable `reuseDetection` for security-sensitive applications. Without it, token theft may go undetected until the token expires naturally.
 :::
 
@@ -637,7 +636,7 @@ fetch('/api/protected', {
 });
 ```
 
-:::danger Never Disable CSRF
+:::danger[Never Disable CSRF]
 CSRF protection is **required** for cookie-based authentication. Without it, malicious sites can perform actions on behalf of your users by exploiting automatic cookie sending.
 :::
 
@@ -707,7 +706,7 @@ If you configure `cookies` mode for security but a client sends a Bearer token f
 </TabItem>
 </Tabs>
 
-:::danger Never Change Algorithm After Launch
+:::danger[Never Change Algorithm After Launch]
 Changing `jwt.algorithm` after users have active sessions will **break all existing tokens**. Plan your algorithm choice before going to production.
 :::
 
@@ -748,7 +747,7 @@ Fine-tune cookie behavior for your deployment:
 | `nauth_csrf_token` | CSRF token | No | Yes (required) |
 | `nauth_device_id` | Trusted device token | Yes | No |
 
-:::note Localhost Development
+:::note[Localhost Development]
 For local development, set `secure: false` because localhost uses HTTP:
 
 ```typescript

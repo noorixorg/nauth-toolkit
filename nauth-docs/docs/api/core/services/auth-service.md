@@ -93,7 +93,7 @@ When password validation fails, `details` includes an array of error strings:
 }
 ```
 
-:::info Social-only users
+:::info[Social-only users]
 This method **requires an existing password**. Social-only users (users who signed up via OAuth and have no password) cannot use this method.
 
 **For social-only users:**
@@ -237,7 +237,7 @@ fastify.post('/auth/forgot-password/confirm', async (req, reply) => {
 
 Request a password reset code (account recovery). This method is **non-enumerating**—it always returns success even if the user doesn't exist, to prevent account enumeration attacks.
 
-::::note Social accounts
+::::note[Social accounts]
 This flow can also be used by social-only (social-first) accounts to **set a first password** after proving ownership via the reset code.
 ::::
 
@@ -421,7 +421,7 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed b
 | `NOT_FOUND`        | User not found   | `undefined` |
 | `ACCOUNT_INACTIVE` | Account disabled | `undefined` |
 
-:::note Internal use
+:::note[Internal use]
 This method is primarily used by AuthHandler and AuthGuard to load authenticated users. It ensures consistent user object shape across platforms (core + NestJS) with sensitive fields removed.
 :::
 
@@ -491,7 +491,7 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed b
 | ----------- | -------------- | ----------- |
 | `NOT_FOUND` | User not found | `undefined` |
 
-:::warning Authentication Required
+:::warning[Authentication Required]
 This method requires authentication. For user endpoints, extract `sub` from authenticated user context. For admin endpoints, protect with admin guards and accept `sub` from route parameter.
 :::
 
@@ -611,11 +611,11 @@ async login(dto: LoginDTO): Promise<AuthResponseDTO>
 | **Cookies** (`tokenDelivery.method: 'cookies'`) | `{ user, authMethod, trusted?, deviceToken? }` (tokens removed)                                                        | `{ challengeName, session, challengeParameters, sub }` | Tokens NOT in body (httpOnly cookies only); client reads via secure context |
 | **Hybrid** (`tokenDelivery.method: 'hybrid'`)   | Depends on `hybridPolicy`: web=cookies, mobile=json                                                                    | `{ challengeName, session, challengeParameters, sub }` | Policy-driven: web clients get cookies, mobile/API gets JSON tokens         |
 
-:::note Token Delivery
+:::note[Token Delivery]
 If client checks `result.accessToken`, behavior differs by `tokenDelivery.method`. In cookies mode, tokens are NOT in the response body—they're in httpOnly cookies set by framework adapters.
 :::
 
-:::note Hybrid refresh TTL
+:::note[Hybrid refresh TTL]
 In hybrid mode, the issued refresh token's lifetime reflects `hybridPolicy.cookieRefreshExpiresIn` or `jsonRefreshExpiresIn` when set, selected by the request's resolved delivery mode. See [Per-Delivery Refresh TTL](/docs/concepts/token-management#per-delivery-refresh-ttl).
 :::
 
@@ -801,7 +801,7 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed b
 | ------------------- | ------------------------------------------------------------------- | ----------- |
 | `SESSION_NOT_FOUND` | Session ID not found in request context (request not authenticated) | `undefined` |
 
-:::warning Authentication Required
+:::warning[Authentication Required]
 This method requires the user to be authenticated. The endpoint is protected and cannot be called publicly. The session ID is automatically extracted from the authenticated user's JWT token by framework adapters.
 :::
 
@@ -857,7 +857,7 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed b
 | ----------- | -------------- | ----------- |
 | `NOT_FOUND` | User not found | `undefined` |
 
-:::warning Authentication Required
+:::warning[Authentication Required]
 This method requires authentication. For user endpoints, extract `sub` from authenticated user context. For admin endpoints, protect with admin guards and accept `sub` from route parameter.
 :::
 
@@ -947,7 +947,7 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed b
 | `SESSION_NOT_FOUND` | Session not found               | `undefined` |
 | `FORBIDDEN`         | Session does not belong to user | `undefined` |
 
-:::warning Authentication Required
+:::warning[Authentication Required]
 This method requires authentication. For user endpoints, extract `sub` from authenticated user context. For admin endpoints, protect with admin guards and accept `sub` from route parameter. Session ownership is validated automatically.
 :::
 
@@ -1146,7 +1146,7 @@ async respondToChallenge(dto: RespondChallengeDTO): Promise<AuthResponseDTO>
 | **Cookies** (`tokenDelivery.method: 'cookies'`) | `{ user, authMethod, trusted?, deviceToken? }` (tokens removed)                                                        | `{ challengeName, session, challengeParameters, sub }` | Tokens NOT in body (httpOnly cookies only); client reads via secure context |
 | **Hybrid** (`tokenDelivery.method: 'hybrid'`)   | Depends on `hybridPolicy`: web=cookies, mobile=json                                                                    | `{ challengeName, session, challengeParameters, sub }` | Policy-driven: web clients get cookies, mobile/API gets JSON tokens         |
 
-:::note Hybrid refresh TTL
+:::note[Hybrid refresh TTL]
 When the challenge completes and tokens are issued, the refresh token's lifetime reflects `hybridPolicy.cookieRefreshExpiresIn` or `jsonRefreshExpiresIn` when set. See [Per-Delivery Refresh TTL](/docs/concepts/token-management#per-delivery-refresh-ttl).
 :::
 
@@ -1406,7 +1406,7 @@ await authService.updateUserAttributes({
 });
 ```
 
-:::warning MFA Device Deletion
+:::warning[MFA Device Deletion]
 When updating `email` or `phone`, associated MFA devices are **automatically deleted** (cannot be reactivated):
 
 - **Email change**: All Email MFA devices are permanently deleted (requires re-setup)

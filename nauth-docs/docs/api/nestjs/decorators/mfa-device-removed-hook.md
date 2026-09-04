@@ -11,7 +11,7 @@ image: /img/api-social-card.png
 
 Class decorator that automatically registers a provider as an MFA device removed hook. Executes after MFA device removal. Non-blocking - errors are logged but don't affect removal.
 
-:::warning Not in Main Barrel Export
+:::warning[Not in Main Barrel Export]
 `MFADeviceRemovedHook` is not exported from the `@nauth-toolkit/nestjs` main entry point. Register this hook manually using [`HookRegistryService`](/docs/api/core/services/hook-registry-service) instead of the decorator pattern.
 :::
 

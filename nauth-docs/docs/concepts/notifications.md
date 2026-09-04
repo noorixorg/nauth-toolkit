@@ -49,7 +49,7 @@ These emails are sent automatically during authentication flows. They cannot be 
 | `adminPasswordReset` | Admin initiates password reset | `code`, `link`, `expiryMinutes` |
 | `welcome` | After onboarding completes (post-verification or immediately if verification is disabled) | (none) |
 
-:::note Understanding "required variables"
+:::note[Understanding "required variables"]
 The validator checks that your template **mentions** each variable (e.g. `{{code}}` or `{{#if code}}`). At runtime, some variables may be `undefined` --- for example, `link` is only provided when a `baseUrl` is configured. Use Handlebars conditionals to handle this:
 
 ```handlebars

@@ -45,7 +45,7 @@ import { ApiKeyService } from '@nauth-toolkit/core';
 - Optional per-key IP allowlists (IPs / IPv4 CIDR ranges); an empty list means any IP.
 - Route access is opt-in — see the [API Keys guide](../../../guides/api-keys.md) for `@AllowApiKey()` / `@DenyApiKey()`.
 
-:::note Authorization
+:::note[Authorization]
 This service does not enforce endpoint authorization. Protect management routes with your own guard, and use the decorators/helpers to control which routes accept API-key auth.
 :::
 

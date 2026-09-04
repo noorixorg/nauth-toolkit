@@ -263,7 +263,7 @@ Context object provided to the [`onAuthResponse`](#properties) callback. Contain
 | `cookies` | Tokens stored in HTTP-only cookies by backend        | Web apps (recommended) |
 | `json`    | Tokens returned in response body, stored client-side | Mobile/native apps     |
 
-:::info Backend Hybrid Deployment
+:::info[Backend Hybrid Deployment]
 When your backend supports both web and mobile (hybrid deployment), it exposes separate endpoints:
 
 - Web: `/auth/*` (cookies mode)
@@ -387,8 +387,7 @@ interface NAuthStorageAdapter {
 }
 ```
 
-### Built-in Adapters {#built-in-adapters}
-
+### Built-in Adapters {/* #built-in-adapters */}
 The SDK provides two built-in storage adapters that implement [`NAuthStorageAdapter`](./types/nauth-storage-adapter):
 
 | Adapter                               | Description                                   | Export                                                    |
@@ -396,8 +395,7 @@ The SDK provides two built-in storage adapters that implement [`NAuthStorageAdap
 | [`BrowserStorage`](#browserstorage)   | Uses localStorage (default) or sessionStorage | `import { BrowserStorage } from '@nauth-toolkit/client'`  |
 | [`InMemoryStorage`](#inmemorystorage) | In-memory storage (for SSR or testing)        | `import { InMemoryStorage } from '@nauth-toolkit/client'` |
 
-#### BrowserStorage {#browserstorage}
-
+#### BrowserStorage {/* #browserstorage */}
 Browser storage adapter that wraps `localStorage` or `sessionStorage`. This is the default storage adapter for web applications.
 
 ```typescript
@@ -410,8 +408,7 @@ const storage = new BrowserStorage();
 const storage = new BrowserStorage(window.sessionStorage);
 ```
 
-#### InMemoryStorage {#inmemorystorage}
-
+#### InMemoryStorage {/* #inmemorystorage */}
 In-memory storage adapter for server-side rendering (SSR), testing, or environments without Web Storage API.
 
 ```typescript

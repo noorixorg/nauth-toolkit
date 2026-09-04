@@ -44,7 +44,7 @@ mountOIDCProviderExpress(app, provider, { pathPrefix: '/oidc' });
 app.use(express.json());
 ```
 
-:::warning No URL rewriting
+:::warning[No URL rewriting]
 The request is handed over with its path intact, because the provider's routes are configured with the prefix already baked in. `app.use('/oidc', provider.callback())` — the recipe in the upstream README — strips the prefix and breaks every URL the provider generates.
 :::
 
@@ -73,7 +73,7 @@ app.use(cookieParser());
 app.setGlobalPrefix('api');
 ```
 
-:::note NestJS does not need `bodyParser: false`
+:::note[NestJS does not need `bodyParser: false`]
 `oidc-provider` falls back to a pre-parsed `req.body`. Mounting before the parsers still avoids a startup warning and keeps the provider's own request size limit.
 :::
 

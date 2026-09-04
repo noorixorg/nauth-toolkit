@@ -32,7 +32,7 @@ import { AuthGuard } from '@nauth-toolkit/nestjs';
 async canActivate(context: ExecutionContext): Promise<boolean>
 ```
 
-::::important AuthGuard Throws Exceptions
+::::important[AuthGuard Throws Exceptions]
 The guard throws [`NAuthException`](../../core/exceptions/nauth-exception) on auth failures. It does not return `false`.
 ::::
 

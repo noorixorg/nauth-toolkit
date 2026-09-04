@@ -10,7 +10,7 @@ image: /img/api-social-card.png
 
 Override the SMS messages nauth-toolkit sends to your users. There are 3 SMS template types --- verification, MFA, and password reset --- all using `{{variable}}` placeholders. The defaults work out of the box; override them when you need custom wording or branding.
 
-:::note Want full control?
+:::note[Want full control?]
 You can bypass the built-in SMS templates entirely and use [Lifecycle Hooks](/docs/guides/lifecycle-hooks) to send messages via any service. Hooks fire on the same auth events and give you complete control over delivery.
 :::
 

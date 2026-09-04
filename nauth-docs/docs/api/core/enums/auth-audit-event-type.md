@@ -187,7 +187,7 @@ Each carries `authMethod: 'oidc'` and a `metadata` object identifying the applic
 
 `grantedScopes` appears on `OIDC_CONSENT_GRANTED`; `reason` appears on `OIDC_ACCESS_DENIED`. IP address, geolocation, device and user agent are captured automatically, as for any other event.
 
-:::note The user's own sign-in is recorded separately
+:::note[The user's own sign-in is recorded separately]
 Signing in produces the ordinary `LOGIN_SUCCESS` first — at that point no application is known, because the authorization request is still parked. `OIDC_LOGIN_COMPLETED` is the record of *which* application the user was then released to.
 :::
 

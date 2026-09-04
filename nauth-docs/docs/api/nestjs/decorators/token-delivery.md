@@ -14,7 +14,7 @@ import TabItem from '@theme/TabItem';
 
 Method decorator that overrides the global token delivery mode for a specific route.
 
-:::tip Import from NestJS Package
+:::tip[Import from NestJS Package]
 ```typescript
 import { TokenDelivery } from '@nauth-toolkit/nestjs';
 ```

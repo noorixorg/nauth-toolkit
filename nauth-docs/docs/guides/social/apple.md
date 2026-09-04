@@ -22,7 +22,7 @@ Add Sign in with Apple to your app. By the end of this guide you will have these
 
 The redirect, callback, and exchange endpoints use the [shared social routes](/docs/guides/social/how-social-login-works#shared-routes). This page adds Apple-specific configuration and the native iOS verify endpoint.
 
-:::tip Sample apps
+:::tip[Sample apps]
 Apple social login is fully implemented in the [nauth example apps](https://github.com/noorixorg/nauth-toolkit) — see the NestJS, Express, and Fastify examples for social routes, and the React/Angular examples for the login button and callback handling.
 :::
 
@@ -97,11 +97,11 @@ social: {
 
 The web flow uses the first client ID (Service ID). Native token verification accepts either.
 
-:::note JWT client secret
+:::note[JWT client secret]
 Apple does not use a static client secret. nauth-toolkit auto-generates an ES256-signed JWT from your `teamId`, `keyId`, and `privateKeyPem`, stores it in the database, and refreshes it when less than 30 days until expiration (180-day lifetime). No manual JWT management needed.
 :::
 
-:::tip Private key format
+:::tip[Private key format]
 The `privateKeyPem` field accepts both multi-line PEM format and single-line with `\n` escapes. Both are normalized automatically.
 :::
 

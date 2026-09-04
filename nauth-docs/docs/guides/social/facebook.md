@@ -22,7 +22,7 @@ Add Facebook Login to your app. By the end of this guide you will have these end
 
 The redirect, callback, and exchange endpoints use the [shared social routes](/docs/guides/social/how-social-login-works#shared-routes). This page adds Facebook-specific configuration and the native mobile verify endpoint.
 
-:::tip Sample apps
+:::tip[Sample apps]
 Facebook social login is fully implemented in the [nauth example apps](https://github.com/noorixorg/nauth-toolkit) — see the NestJS, Express, and Fastify examples for social routes, and the React/Angular examples for the login button and callback handling.
 :::
 
@@ -40,7 +40,7 @@ Facebook social login is fully implemented in the [nauth example apps](https://g
    - Production: `https://api.example.com/auth/social/facebook/callback`
 4. Under **App Settings > Basic**, copy the **App ID** and **App Secret**
 
-:::note App review
+:::note[App review]
 During development, only test users and app administrators can log in. For production, submit your app for [App Review](https://developers.facebook.com/docs/app-review/) to allow all Facebook users.
 :::
 

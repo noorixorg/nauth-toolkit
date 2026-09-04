@@ -52,7 +52,7 @@ Auto-injected by framework. No manual instantiation required.
 This service must be called within the context of an HTTP request. If called outside a request context (e.g., cron jobs, CLI), it will return default values with 'unknown' fields.
 :::
 
-:::info Geolocation Data (IP Country, City, Coordinates)
+:::info[Geolocation Data (IP Country, City, Coordinates)]
 Optional geolocation fields (`ipCountry`, `ipCity`, `ipLatitude`, `ipLongitude`) are only populated when MaxMind GeoIP2 is configured. See the [Geolocation guide](/docs/guides/geolocation) for setup instructions.
 :::
 

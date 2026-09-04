@@ -11,7 +11,7 @@ image: /img/api-social-card.png
 
 NestJS module for automatic hook registration. Discovers and registers classes decorated with any of the 11 lifecycle hook decorators at module initialization.
 
-:::tip Import from NestJS Package
+:::tip[Import from NestJS Package]
 ```typescript
 import { NAuthHooksModule } from '@nauth-toolkit/nestjs';
 ```

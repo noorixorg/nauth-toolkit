@@ -14,7 +14,7 @@ import TabItem from '@theme/TabItem';
 
 Parameter decorator that injects client information (IP address, user agent, device info) into controller methods.
 
-:::tip Import from NestJS Package
+:::tip[Import from NestJS Package]
 ```typescript
 import { ClientInfo } from '@nauth-toolkit/nestjs';
 ```

@@ -40,7 +40,7 @@ A rejected request gets `429` with `Retry-After` and `Cache-Control: no-store`:
 }
 ```
 
-:::warning Mount it immediately before the provider
+:::warning[Mount it immediately before the provider]
 A rejected request must never reach the provider.
 :::
 

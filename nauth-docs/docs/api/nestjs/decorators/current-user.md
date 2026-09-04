@@ -10,7 +10,7 @@ image: /img/api-social-card.png
 
 Parameter decorator that extracts the authenticated user from the request object. Must be used with `AuthGuard`.
 
-:::tip Import from NestJS Package
+:::tip[Import from NestJS Package]
 ```typescript
 import { CurrentUser } from '@nauth-toolkit/nestjs';
 ```

@@ -62,7 +62,7 @@ Content-Type: application/x-www-form-urlencoded
 code=c1234567890abcdef&state=xyz789
 ```
 
-:::note Apple Form Post
+:::note[Apple Form Post]
 **Apple** uses `form_post` response mode (POST instead of GET) when requesting `name` or `email` scopes. Ensure your backend parses `application/x-www-form-urlencoded` bodies. The `user` field (JSON string with name/email) is only sent by Apple on the **first** sign-in.
 :::
 

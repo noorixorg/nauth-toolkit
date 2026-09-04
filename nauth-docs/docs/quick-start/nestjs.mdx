@@ -10,11 +10,11 @@ image: /img/api-social-card.png
 
 Add authentication to a NestJS application using nauth-toolkit. By the end of this guide you'll have signup, login, logout, and a protected route working.
 
-:::note Sample Application
+:::note[Sample Application]
 A complete working example is available at [github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-nestjs](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-nestjs) — NestJS + TypeORM + PostgreSQL with lifecycle hooks, custom email templates, Google OAuth, and TOTP MFA preconfigured. A more extensive demo app lives at [examples/demo-nestjs](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/demo-nestjs).
 :::
 
-:::tip Live Demo
+:::tip[Live Demo]
 Try the finished result at **[demo.nauth.dev](https://demo.nauth.dev)** — a working app built on nauth-toolkit showcasing signup, login, MFA, social auth, and session management.
 :::
 
@@ -34,7 +34,7 @@ This example uses PostgreSQL. For MySQL, replace `@nauth-toolkit/database-typeor
 npm install @nauth-toolkit/core @nauth-toolkit/nestjs @nauth-toolkit/database-typeorm-postgres @nauth-toolkit/storage-database @nauth-toolkit/email-console @nauth-toolkit/sms-console cookie-parser dotenv
 ```
 
-:::note Yarn 1.x Users
+:::note[Yarn 1.x Users]
 Yarn 1.x doesn't auto-install peer dependencies. You'll need to also run:
 
 ```bash
@@ -321,7 +321,7 @@ export class AppModule {}
 
 Configure MFA settings in your auth config — see the [MFA](/docs/guides/mfa/how-mfa-works) guide for complete setup.
 
-:::tip Complete Route Examples
+:::tip[Complete Route Examples]
 This quick start covers the minimal setup. For complete route implementations including password reset, MFA verification, social login callbacks, and challenge handling, see the [Authentication Routes](/docs/guides/routes) guide.
 :::
 

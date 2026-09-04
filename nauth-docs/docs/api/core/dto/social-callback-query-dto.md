@@ -60,7 +60,7 @@ GET /auth/social/google/callback?code=4%2F0AY0e-g7...&state=xyz789&scope=openid+
 Host: api.example.com
 ```
 
-:::note Provider-Specific Parameters
+:::note[Provider-Specific Parameters]
 **Google** includes extra parameters in callbacks: `scope` (granted scopes), `authuser` (account index), `hd` (workspace domain if applicable), `prompt` (auth screens shown). These are validated to prevent `forbidNonWhitelisted` errors.
 
 **Facebook** and other providers use only standard OAuth parameters (`code`, `state`, `error`, `error_description`).

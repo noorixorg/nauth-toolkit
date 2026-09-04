@@ -26,7 +26,7 @@ By the end of this guide your application serves a discovery document, a JWKS, a
 
 The interaction routes the consent screen calls are separate — they are ordinary routes in *your* application, at `oidc/interaction/:uid` under any global prefix. See [Step 5](#step-5--the-interaction-routes).
 
-:::tip Sample apps
+:::tip[Sample apps]
 `examples/demo-nestjs` in the [nauth-toolkit repository](https://github.com/noorixorg/nauth-toolkit) has all of this wired up, including rate limiting and two registered clients.
 :::
 
@@ -36,7 +36,7 @@ You have completed the [Basic Auth Flows](/docs/guides/basic-auth) guide and hav
 
 Read [How the OpenID Connect Provider Works](/docs/guides/oauth-provider/how-oauth-provider-works) first if you have not.
 
-:::warning This is for third-party integrations
+:::warning[This is for third-party integrations]
 Your own application should keep signing in through [`AuthService`](/docs/api/core/services/auth-service) and the [frontend SDK](/docs/frontend-sdk/overview). The provider's protocol endpoints do not carry nauth-toolkit's granular rate limiting or account lockout — see [when to use this, and when not to](/docs/guides/oauth-provider/how-oauth-provider-works#when-to-use-this--and-when-not-to).
 :::
 
@@ -89,7 +89,7 @@ export const oidcConfig: OIDCProviderModuleOptions = {
 };
 ```
 
-:::warning The issuer must be an origin with no path
+:::warning[The issuer must be an origin with no path]
 `oidc-provider` builds every endpoint URL as `new URL(absolutePath, issuer)`, so a path on the issuer is silently discarded — `new URL('/auth', 'https://host/oidc')` is `https://host/auth`. The discovery document then advertises endpoints that 404. Set `issuer` to the bare origin and namespace the endpoints with `pathPrefix`, which is what this package does for you. Discovery still lands at `/.well-known/openid-configuration`, exactly where OpenID Connect Discovery expects it for an origin issuer.
 :::
 
@@ -257,7 +257,7 @@ const fastify = Fastify({
 </TabItem>
 </Tabs>
 
-:::note Mount before the body parsers
+:::note[Mount before the body parsers]
 `oidc-provider` reads the raw request stream for `POST /token`. It falls back to a pre-parsed `req.body`, so it works either way, but mounting first avoids a startup warning and keeps the provider's own 56 KB request limit rather than deferring to the upstream parser's.
 :::
 
@@ -277,7 +277,7 @@ OIDCProviderModule.forRoot({
 OIDCProviderModule.forRoot({ ...oidcConfig, interaction: { enabled: false } });
 ```
 
-:::warning If you write your own controller
+:::warning[If you write your own controller]
 It needs `@UseGuards(AuthGuard)` at the class level **and** `@Public()` on every route. `AuthGuard` is not a global guard in this toolkit, so without it `CURRENT_USER` is never populated and the session gate reports `no_session` for everyone, forever. `@Public()` is what then makes the guard optional — attaching a user when there is one, never rejecting — which is required because an anonymous caller is the case that has to work. Start from [`createOIDCInteractionController`](/docs/api/oidc-provider/interaction-controller).
 :::
 

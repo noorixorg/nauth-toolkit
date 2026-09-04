@@ -42,7 +42,7 @@ import { NAuthException, AuthErrorCode } from '@nauth-toolkit/express';
 - ISO 8601 timestamps
 - Framework-agnostic (works with any transport layer)
 
-:::tip Comprehensive Error Handling Guide
+:::tip[Comprehensive Error Handling Guide]
 For complete error handling patterns, HTTP mapping, WebSocket examples, and best practices, see the [Error Handling Guide](/docs/concepts/error-handling).
 :::
 
@@ -292,7 +292,7 @@ if (error instanceof NAuthException) {
 }
 ```
 
-:::tip Complete Error Handling Patterns
+:::tip[Complete Error Handling Patterns]
 For HTTP mapping, WebSocket handling, custom filters, and production-ready patterns, see the [Error Handling Guide](/docs/concepts/error-handling).
 :::
 

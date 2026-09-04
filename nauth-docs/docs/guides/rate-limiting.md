@@ -39,7 +39,7 @@ Block IP addresses after too many failed login attempts:
 | `duration` | `number` | `900` | How long (seconds) to block the IP |
 | `resetOnSuccess` | `boolean` | `true` | Reset counter on successful login |
 
-:::info Why IP-based?
+:::info[Why IP-based?]
 Lockout tracks IP addresses, not user accounts. This prevents attackers from locking out legitimate users by guessing their email.
 :::
 
@@ -79,7 +79,7 @@ Control how often users can request and attempt email/SMS verification codes:
 | `maxAttemptsPerIP` | `number` | `20` | Max wrong-code attempts per IP |
 | `attemptWindow` | `number` | `3600` | Window (seconds) for attempt limits |
 
-:::tip Resend delay vs rate limit
+:::tip[Resend delay vs rate limit]
 `resendDelay` is a fixed cooldown between consecutive requests. `rateLimitMax` + `rateLimitWindow` is the total cap over a time period. Both work together.
 :::
 

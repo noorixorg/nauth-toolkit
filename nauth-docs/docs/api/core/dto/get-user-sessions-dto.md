@@ -54,7 +54,7 @@ import { GetUserSessionsDTO } from '@nauth-toolkit/core';
 
 ## Security
 
-:::warning Authentication Required
+:::warning[Authentication Required]
 This endpoint **requires authentication**. For user endpoints, extract `sub` from authenticated user context. For admin endpoints, protect with admin guards and accept `sub` from route parameter.
 :::
 

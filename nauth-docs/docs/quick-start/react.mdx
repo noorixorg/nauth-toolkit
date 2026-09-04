@@ -10,19 +10,19 @@ image: /img/api-social-card.png
 
 Connect a React application to a nauth-toolkit backend using `@nauth-toolkit/client`.
 
-:::note Sample Application
+:::note[Sample Application]
 A complete working example is available at [github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-react](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-react) — React + Vite + `@nauth-toolkit/client` with Auth context, protected routes, Google OAuth, and challenge handling.
 :::
 
-:::tip Live Demo
+:::tip[Live Demo]
 See nauth-toolkit in action at **[demo.nauth.dev](https://demo.nauth.dev)** — a working demo app showcasing signup, login, MFA, social auth, and session management.
 :::
 
-:::info No React-specific SDK
+:::info[No React-specific SDK]
 There is no React-specific SDK package. `@nauth-toolkit/client` supports all auth operations and works in any JS environment, but requires a bit more manual wiring than the Angular SDK — you'll set up a React Context, a token-refresh adapter, and a protected route component yourself. This guide provides the complete, production-ready patterns for all of these.
 :::
 
-:::info Backend Required
+:::info[Backend Required]
 This guide assumes you have a running nauth-toolkit backend. Complete the [NestJS](/docs/quick-start/nestjs) or [Express](/docs/quick-start/express) quick start first.
 :::
 

@@ -26,7 +26,7 @@ Add time-based one-time password (TOTP) authentication. By the end of this guide
 | `/auth/respond-challenge` | POST | Public | Complete TOTP challenge during login |
 | `/auth/challenge/setup-data` | POST | Public | Get setup data during forced MFA setup |
 
-:::tip Sample apps
+:::tip[Sample apps]
 TOTP MFA is fully implemented in the [nauth example apps](https://github.com/noorixorg/nauth-toolkit) — see the NestJS, Express, and Fastify examples for MFA routes, and the Angular example for `mfa-setup.component.ts`.
 :::
 
@@ -69,7 +69,7 @@ The `issuer` appears in the authenticator app as the account label (e.g., "YourA
 
 ## Step 3: Add Backend Routes
 
-:::note Already have MFA routes?
+:::note[Already have MFA routes?]
 If you already set up routes for another MFA method (Email, SMS, Passkey), the same routes handle TOTP — just add `MFAMethod.TOTP` to `allowedMethods` in your config and skip to [Step 4](#step-4-frontend--mfa-setup-security-settings).
 :::
 
@@ -304,7 +304,7 @@ POST /auth/mfa/setup-data
 
 Display the QR code for the user to scan with their authenticator app. Show `manualEntryKey` as a fallback for users who can't scan.
 
-:::note QR code format
+:::note[QR code format]
 The QR code encodes a standard `otpauth://` URI:
 ```
 otpauth://totp/YourAppName:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=YourAppName&algorithm=SHA1&digits=6&period=30

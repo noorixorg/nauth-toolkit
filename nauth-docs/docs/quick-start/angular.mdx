@@ -13,15 +13,15 @@ import TabItem from '@theme/TabItem';
 
 Connect an Angular application to a nauth-toolkit backend using `@nauth-toolkit/client-angular`. The SDK provides a built-in HTTP interceptor for automatic token attachment and silent refresh, and a route guard for protected routes.
 
-:::note Sample Application
+:::note[Sample Application]
 A complete working example is available at [github.com/noorixorg/nauth-toolkit/tree/main/examples/demo-angular](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/demo-angular) — Angular standalone + `@nauth-toolkit/client-angular` paired with the NestJS backend example.
 :::
 
-:::tip Live Demo
+:::tip[Live Demo]
 See the Angular + NestJS stack in action at **[demo.nauth.dev](https://demo.nauth.dev)** — signup, login, MFA, social auth, and session management working end-to-end.
 :::
 
-:::info Backend Required
+:::info[Backend Required]
 This guide assumes you have a running nauth-toolkit backend. If you haven't set one up yet, complete the [NestJS](/docs/quick-start/nestjs) quick start first.
 :::
 
@@ -93,7 +93,7 @@ export const appConfig: ApplicationConfig = {
 };
 ```
 
-:::note Token Delivery
+:::note[Token Delivery]
 This guide uses `tokenDelivery: 'json'` without CSRF protection — the recommended setup for web apps is cookies. To use cookies instead, set `tokenDelivery: 'cookies'` and add the `csrf` block (no CSRF config needed in JSON mode). See [Token Delivery](/docs/concepts/token-management) for details.
 :::
 
@@ -102,7 +102,7 @@ This guide uses `tokenDelivery: 'json'` without CSRF protection — the recommen
 
 Import `NAuthModule.forRoot()` in your root `AppModule`. It registers the HTTP interceptor and all providers automatically.
 
-:::note baseUrl in NgModule
+:::note[baseUrl in NgModule]
 In `NAuthModule.forRoot()`, `baseUrl` is the full auth base URL — include the `/auth` path prefix directly (e.g., `http://localhost:3000/auth`).
 :::
 

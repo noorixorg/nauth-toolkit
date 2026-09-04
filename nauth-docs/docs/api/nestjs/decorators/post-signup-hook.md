@@ -11,7 +11,7 @@ image: /img/api-social-card.png
 
 Class decorator that automatically registers a provider as a post-signup hook. Post-signup hooks execute after successful user creation for notifications, integrations, and analytics. Non-blocking - errors are logged but don't affect signup.
 
-:::tip Import from NestJS Package
+:::tip[Import from NestJS Package]
 
 ```typescript
 import { PostSignupHook } from '@nauth-toolkit/nestjs';

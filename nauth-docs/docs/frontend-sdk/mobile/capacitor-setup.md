@@ -10,7 +10,7 @@ sidebar_position: 1
 
 Set up `@nauth-toolkit/client` (or `@nauth-toolkit/client-angular`) in a Capacitor mobile application using JSON token delivery with native storage.
 
-:::note Sample Application
+:::note[Sample Application]
 The [NestJS example](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/demo-nestjs) backend supports hybrid token delivery (cookies + JSON) out of the box — pair it with this mobile setup guide.
 :::
 

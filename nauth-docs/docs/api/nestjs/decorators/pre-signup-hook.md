@@ -11,7 +11,7 @@ image: /img/api-social-card.png
 
 Class decorator that automatically registers a provider as a pre-signup hook. Pre-signup hooks execute before user creation and can block signups by throwing exceptions.
 
-:::tip Import from NestJS Package
+:::tip[Import from NestJS Package]
 ```typescript
 import { PreSignupHook } from '@nauth-toolkit/nestjs';
 ```

@@ -88,7 +88,7 @@ if (exchangeToken) {
 
 For Capacitor and React Native apps, use native SDKs to get tokens and verify them with the backend.
 
-:::tip Recommended Plugin
+:::tip[Recommended Plugin]
 **[@capgo/capacitor-social-login](https://github.com/Cap-go/capacitor-social-login)** is the recommended plugin for native social authentication in Capacitor apps. It provides:
 
 - Unified API for Google, Apple, and Facebook

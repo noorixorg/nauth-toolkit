@@ -11,7 +11,7 @@ image: /img/api-social-card.png
 
 Global interceptor that restores the AsyncLocalStorage context that was initialized by `NAuthContextGuard`. This ensures controllers and services run inside the same request-scoped context.
 
-:::tip Import from NestJS Package
+:::tip[Import from NestJS Package]
 ```typescript
 import { NAuthContextInterceptor } from '@nauth-toolkit/nestjs';
 ```

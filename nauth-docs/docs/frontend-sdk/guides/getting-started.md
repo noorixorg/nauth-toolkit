@@ -12,7 +12,7 @@ import TabItem from '@theme/TabItem';
 
 Complete guide to setting up authentication in your frontend application with `@nauth-toolkit/client`.
 
-:::tip Framework-Specific Guides
+:::tip[Framework-Specific Guides]
 For dedicated setup guides with full working examples, see [Angular Standalone](../angular/standalone-setup), [Angular NgModule](../angular/ngmodule-setup), [React](../react/setup), or [Capacitor Mobile](../mobile/capacitor-setup). This page covers the generic SDK setup that works with any framework.
 :::
 
