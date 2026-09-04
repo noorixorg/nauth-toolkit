@@ -32,8 +32,11 @@ RUN apk add --no-cache wget
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nestjs -u 1001
 
-# Create app directory with correct ownership
-RUN mkdir -p /app && chown nestjs:nodejs /app
+# Create app directory with correct ownership. maxmind/ holds the GeoLite2 databases
+# the app downloads at runtime — it is not in source control, so it is created here
+# rather than copied from the builder (which made the image unbuildable from a
+# clean checkout).
+RUN mkdir -p /app/maxmind && chown -R nestjs:nodejs /app
 
 WORKDIR /app
 
@@ -51,7 +54,6 @@ RUN npm install --legacy-peer-deps --omit=dev --include=optional
 # Copy built application from builder with ownership
 COPY --chown=nestjs:nodejs --from=builder /app/dist ./dist
 COPY --chown=nestjs:nodejs --from=builder /app/resources ./resources
-COPY --chown=nestjs:nodejs --from=builder /app/maxmind ./maxmind
 
 # Expose port
 EXPOSE 3000
