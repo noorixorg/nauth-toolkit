@@ -9,8 +9,15 @@ import type { OIDCProviderModuleOptions } from '@nauth-toolkit/oidc-provider/nes
  */
 const ORIGIN = process.env.OIDC_ISSUER ?? process.env.PUBLIC_ORIGIN ?? 'http://localhost:3000';
 
-/** Where the browser goes when the provider needs the user to log in or consent. */
-const FRONTEND = process.env.FRONTEND_BASE_URL ?? process.env.FRONTEND_URL ?? 'http://localhost:4200';
+/**
+ * Where the browser goes when the provider needs the user to log in or consent.
+ *
+ * `OIDC_FRONTEND_URL` is checked first so local testing can point the OIDC flow at a
+ * local Angular app without disturbing `FRONTEND_BASE_URL`, which also drives social
+ * login redirects and is usually set to the deployed origin.
+ */
+const FRONTEND =
+  process.env.OIDC_FRONTEND_URL ?? process.env.FRONTEND_BASE_URL ?? process.env.FRONTEND_URL ?? 'http://localhost:4200';
 
 /**
  * Demo OpenID Connect provider configuration.
