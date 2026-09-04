@@ -1,6 +1,8 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { Router, provideRouter } from '@angular/router';
 import { PENDING_INTERACTION_KEY } from './oidc/interaction.component';
+import { provideAuth } from 'angular-auth-oidc-client';
+import { rpAuthConfig } from './rp/rp.config';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { providePrimeNG } from 'primeng/config';
 import { MessageService } from 'primeng/api';
@@ -211,5 +213,10 @@ export const appConfig: ApplicationConfig = {
     AuthService,
     provideRecaptcha(),
     provideHttpClient(withInterceptors([authInterceptor])),
+
+    // The third-party application simulator at /rp. A certified OIDC client library,
+    // pointed at this deployment's own provider, so the demo proves interoperability
+    // rather than only self-consistency.
+    provideAuth(rpAuthConfig),
   ],
 };

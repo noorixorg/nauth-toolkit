@@ -1,0 +1,48 @@
+<div class="auth-container">
+  <div class="auth-wrapper rp-wrapper">
+    <div class="auth-header">
+      <h1 class="auth-title">Partner App</h1>
+      <p class="auth-subtitle">
+        A stand-in for a third-party product, signing users in with
+        <code>angular-auth-oidc-client</code> against this deployment's OpenID Connect provider.
+      </p>
+    </div>
+
+    @if (!ready()) {
+      <div class="rp-center">
+        <p-progressSpinner strokeWidth="4" [style]="{ width: '40px', height: '40px' }" />
+      </div>
+    } @else {
+      @if (error()) {
+        <p-message severity="error" [text]="error()!" styleClass="w-full" />
+      }
+
+      @if (authenticated()) {
+        <p-message severity="success" text="Signed in via OpenID Connect" styleClass="w-full" />
+
+        <h2 class="rp-heading">Verified id_token claims</h2>
+        <pre class="rp-claims" data-testid="rp-claims">{{ claimsJson() }}</pre>
+
+        <h2 class="rp-heading">Access token</h2>
+        <p class="rp-token" data-testid="rp-token">{{ tokenExcerpt() }}</p>
+
+        <div class="rp-actions">
+          <p-button label="Refresh token" severity="secondary" [outlined]="true" (onClick)="refresh()" />
+          <p-button label="Sign out" severity="danger" [outlined]="true" (onClick)="signOut()" />
+        </div>
+      } @else {
+        <p class="rp-intro">
+          This application holds no credentials of its own. Signing in hands you to the provider,
+          which authenticates you and asks whether to share your details.
+        </p>
+        <p-button
+          label="Sign in with nauth"
+          severity="primary"
+          styleClass="w-full"
+          data-testid="rp-signin"
+          (onClick)="signIn()"
+        />
+      }
+    }
+  </div>
+</div>

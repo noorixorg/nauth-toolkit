@@ -16,11 +16,12 @@ const FRONTEND = process.env.FRONTEND_BASE_URL ?? process.env.FRONTEND_URL ?? 'h
  * Demo OpenID Connect provider configuration.
  *
  * Two clients are registered:
- * - `demo-partner` — a confidential client standing in for a third-party integration.
- * - `demo-public` — a public client (no secret) exercising the PKCE-only path.
+ * - `demo-partner` — a confidential client, used by the API-driven end-to-end suite.
+ * - `demo-public` — a public client with no secret, used by the browser-based
+ *   third-party simulator at `/rp`, which signs in with `angular-auth-oidc-client`.
  *
- * Both point their redirect URIs at the demo's own test relying party, so the whole
- * authorization-code flow can be driven end to end without a second application.
+ * Both also allow the demo's own test callback, so the whole flow can be exercised
+ * without standing up a second application.
  */
 export const oidcConfig: OIDCProviderModuleOptions = {
   issuer: ORIGIN,
@@ -45,7 +46,7 @@ export const oidcConfig: OIDCProviderModuleOptions = {
       client_secret: process.env.OIDC_DEMO_CLIENT_SECRET ?? 'demo-partner-secret',
       client_name: 'Demo Partner App',
       client_uri: 'https://nauth.dev',
-      redirect_uris: [`${ORIGIN}/api/test/oidc/callback`, `${FRONTEND}/oidc/callback`],
+      redirect_uris: [`${ORIGIN}/api/test/oidc/callback`, `${FRONTEND}/rp/callback`],
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
       token_endpoint_auth_method: 'client_secret_basic',
@@ -53,7 +54,10 @@ export const oidcConfig: OIDCProviderModuleOptions = {
     {
       client_id: 'demo-public',
       client_name: 'Demo Public Client',
-      redirect_uris: [`${ORIGIN}/api/test/oidc/callback`, `${FRONTEND}/oidc/callback`],
+      // The browser-based simulator at /rp signs in as this client. A public client
+      // holds no secret, so PKCE is the only thing binding the code to it.
+      redirect_uris: [`${ORIGIN}/api/test/oidc/callback`, `${FRONTEND}/rp/callback`],
+      post_logout_redirect_uris: [`${FRONTEND}/rp`],
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
       token_endpoint_auth_method: 'none',

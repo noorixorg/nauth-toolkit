@@ -1,0 +1,48 @@
+.rp-wrapper {
+  max-width: 40rem;
+}
+
+.rp-center {
+  display: flex;
+  justify-content: center;
+  padding: 2rem 0;
+}
+
+.rp-intro {
+  font-size: 0.95rem;
+  opacity: 0.8;
+  margin: 0 0 1.25rem;
+}
+
+.rp-heading {
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.6;
+  margin: 1.5rem 0 0.5rem;
+}
+
+.rp-claims {
+  background: var(--p-content-background);
+  border: 1px solid var(--p-content-border-color);
+  border-radius: var(--p-content-border-radius);
+  padding: 0.875rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  margin: 0;
+}
+
+.rp-token {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8125rem;
+  opacity: 0.75;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+
+.rp-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}

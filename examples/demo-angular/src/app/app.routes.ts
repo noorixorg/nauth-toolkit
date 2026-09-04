@@ -18,6 +18,18 @@ export const routes: Routes = [
     loadComponent: () => import('./login/login.component').then((m) => m.LoginComponent),
   },
   {
+    // A stand-in third-party application, signing in with a certified OIDC client
+    // library rather than nauth's own SDK. Both the entry page and the callback
+    // resolve to the same component: angular-auth-oidc-client completes the code
+    // exchange on whichever route it lands on.
+    path: 'rp',
+    loadComponent: () => import('./rp/rp.component').then((m) => m.RpComponent),
+  },
+  {
+    path: 'rp/callback',
+    loadComponent: () => import('./rp/rp.component').then((m) => m.RpComponent),
+  },
+  {
     // Where the OpenID Connect provider sends the browser when a third-party
     // application needs this user to log in or approve access.
     //
