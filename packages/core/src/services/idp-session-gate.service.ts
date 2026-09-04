@@ -23,6 +23,14 @@ export type IdpGateResult =
       /** The user is known but must not be issued anything. Fail the request outright. */
       status: 'denied';
       reason: 'account_disabled' | 'account_locked' | 'account_unavailable';
+      /**
+       * External identifier of the account that was refused.
+       *
+       * Present whenever the request carried a session — which is every `denied`
+       * verdict, since the check is what identified the account in the first place. It
+       * is what lets a refusal be attributed in an audit trail.
+       */
+      sub: string;
     };
 
 /**
@@ -53,7 +61,7 @@ export type IdpGateResult =
  *   return { redirectTo: buildLoginUrl(requestId) };
  * }
  * if (gate.status === 'denied') {
- *   throw new NAuthException(AuthErrorCode.OAUTH_ACCESS_DENIED, 'Account unavailable');
+ *   throw new NAuthException(AuthErrorCode.OIDC_ACCESS_DENIED, 'Account unavailable');
  * }
  * // gate.user is fully authenticated
  * ```
@@ -87,15 +95,15 @@ export class IdpSessionGate {
       this.logger?.warn?.(
         `[IdpSessionGate] Authenticated context references a user that no longer exists (sub ${contextUser.sub})`,
       );
-      return { status: 'denied', reason: 'account_unavailable' };
+      return { status: 'denied', reason: 'account_unavailable', sub: contextUser.sub };
     }
 
     if (!user.isActive) {
-      return { status: 'denied', reason: 'account_disabled' };
+      return { status: 'denied', reason: 'account_disabled', sub: user.sub };
     }
 
     if (this.isCurrentlyLocked(user)) {
-      return { status: 'denied', reason: 'account_locked' };
+      return { status: 'denied', reason: 'account_locked', sub: user.sub };
     }
 
     // A forced password change is recoverable: send the user through login, where

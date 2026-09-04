@@ -1,12 +1,15 @@
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
-  rootDir: 'src',
+  rootDir: '.',
+  roots: ['<rootDir>/src', '<rootDir>/nestjs'],
   testRegex: '.*\\.spec\\.ts$',
+  // TypeScript only. The workspace `dist` folders reached through moduleNameMapper are
+  // already compiled JavaScript; handing them to ts-jest just produces allowJs warnings.
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    '^.+\\.ts$': 'ts-jest',
   },
-  collectCoverageFrom: ['**/*.(t|j)s'],
-  coverageDirectory: '../coverage',
+  collectCoverageFrom: ['src/**/*.(t|j)s', 'nestjs/**/*.(t|j)s'],
+  coverageDirectory: 'coverage',
   testEnvironment: 'node',
   // Transform NOTHING in node_modules.
   //
@@ -17,8 +20,9 @@ module.exports = {
   // oidc-provider fails to link with "does not provide an export named 'EmbeddedJWK'".
   transformIgnorePatterns: ['/node_modules/'],
   moduleNameMapper: {
-    '^@nauth-toolkit/core$': '<rootDir>/../../core/dist',
-    '^@nauth-toolkit/core/internal$': '<rootDir>/../../core/dist/internal',
+    '^@nauth-toolkit/core$': '<rootDir>/../core/dist',
+    '^@nauth-toolkit/core/internal$': '<rootDir>/../core/dist/internal',
+    '^@nauth-toolkit/nestjs$': '<rootDir>/../nestjs/dist',
   },
-  setupFilesAfterEnv: ['<rootDir>/../../core/jest.setup.ts'],
+  setupFilesAfterEnv: ['<rootDir>/../core/jest.setup.ts'],
 };

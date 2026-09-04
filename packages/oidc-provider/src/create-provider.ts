@@ -73,8 +73,8 @@ export async function loadProviderCtor(): Promise<ProviderCtor> {
  * @example
  * ```typescript
  * const provider = await createNAuthOIDCProvider({
- *   issuer: 'https://demo.nauth.dev',
- *   interactionUrl: (uid) => `https://demo.nauth.dev/interaction/${uid}`,
+ *   issuer: 'https://auth.example.com',
+ *   interactionUrl: (uid) => `https://auth.example.com/interaction/${uid}`,
  *   storage: nauth.storage,
  *   userRepository,
  *   cookieKeys: [process.env.OIDC_COOKIE_SECRET!],

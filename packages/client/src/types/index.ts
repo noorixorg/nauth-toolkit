@@ -7,3 +7,4 @@ export * from './config.types';
 export * from './audit.types';
 export * from './admin.types';
 export * from './api-key.types';
+export * from './oidc.types';

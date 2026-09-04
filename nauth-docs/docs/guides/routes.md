@@ -31,6 +31,7 @@ nauth-toolkit provides a comprehensive set of authentication endpoints that supp
 - **Password management** - Change password, forgot password, password reset
 - **Multi-factor authentication** - MFA setup, verification, device management
 - **Social authentication** - OAuth flows, account linking
+- **OpenID Connect interaction** - Login and consent bridge, when you are a provider yourself
 - **Session management** - Device trust, session revocation
 - **Audit logging** - Authentication history
 
@@ -942,6 +943,21 @@ export class SocialRedirectController {
 
 Response: [`AuthResponseDTO`](/docs/api/core/dto/auth-response-dto)
 
+## OpenID Connect Interaction
+
+When your application is also an [OpenID Connect provider](/docs/guides/oauth-provider/how-oauth-provider-works), four more routes bridge the provider and your login. `OIDCProviderModule.forRoot()` registers them for you at `oidc/interaction/:uid`, under any global prefix — the paths below assume none.
+
+| Endpoint | Method | Auth | Purpose |
+| --- | --- | --- | --- |
+| `/oidc/interaction/:uid` | GET | Optional | What the pending authorization request needs |
+| `/oidc/interaction/:uid/abort` | POST | Optional | Abandon the request with `access_denied` |
+| `/oidc/interaction/:uid/confirm` | POST | Optional | Record the consent decision |
+| `/oidc/interaction/:uid/login` | POST | Optional | Complete the login step |
+
+"Optional" means the routes run inside the guard chain so a signed-in caller is identified, but an anonymous caller is **answered**, not rejected — a signed-out response is what tells your page to send the user to login. If you write these routes yourself, reproduce that: `@UseGuards(AuthGuard)` on the class and `@Public()` on every route.
+
+Each returns JSON rather than a 302; the consent screen navigates itself with `window.location.assign(redirectTo)`. See [`createOIDCInteractionController`](/docs/api/oidc-provider/interaction-controller) for the shipped implementation and [Building the Consent Screen](/docs/guides/oauth-provider/consent-screen) for the frontend.
+
 ## User Profile
 
 ### Get Current User
@@ -1055,4 +1071,5 @@ See [Error Handling](/docs/concepts/error-handling) for complete error handling 
 - [DTO Reference](/docs/api/core/dto/overview) - All request/response DTOs
 - [MFA Guide](/docs/guides/mfa/how-mfa-works) - Multi-factor authentication setup
 - [Social Login](/docs/guides/social/how-social-login-works) - OAuth integration
+- [OIDC Provider](/docs/guides/oauth-provider/how-oauth-provider-works) - Being an identity provider yourself
 - [Token Delivery](/docs/concepts/token-management) - Token delivery modes

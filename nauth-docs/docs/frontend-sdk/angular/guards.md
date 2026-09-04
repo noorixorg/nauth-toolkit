@@ -16,10 +16,11 @@ Route guards for protecting routes based on authentication.
 
 ## Available Guards
 
-| Guard       | Type            | Description                       |
-| ----------- | --------------- | --------------------------------- |
-| `authGuard` | `CanActivateFn` | Requires authentication           |
-| `AuthGuard` | `class`         | Class-based auth guard (NgModule) |
+| Guard             | Type            | Description                                                |
+| ----------------- | --------------- | ---------------------------------------------------------- |
+| `authGuard`       | `CanActivateFn` | Requires authentication                                     |
+| `AuthGuard`       | `class`         | Class-based auth guard (NgModule)                           |
+| `oidcReturnGuard` | `CanActivateFn` | Returns a user to a pending OpenID Connect request          |
 
 ## Setup
 
@@ -197,7 +198,42 @@ export const challengeAwareGuard: CanActivateFn = () => {
 };
 ```
 
+## oidcReturnGuard
+
+Returns a user to a pending OpenID Connect authorization request after they finish signing in. Only relevant when your application is itself an [OpenID Connect provider](/docs/guides/oauth-provider/how-oauth-provider-works).
+
+When a third-party application starts an authorization request and the user is not signed in, the consent page stashes the request id and sends them to login. Your challenge chain then runs — possibly several steps of it — and lands the user wherever your app puts people after login. This guard intercepts that landing and sends them back to finish the authorization request.
+
+### Signature
+
+```typescript
+function oidcReturnGuard(interactionPath?: string): CanActivateFn
+```
+
+`interactionPath` defaults to the client config's `oidc.interactionPath`, which itself defaults to `/interaction`.
+
+### Usage
+
+```typescript title="src/app/app.routes.ts"
+import { authGuard, oidcReturnGuard } from '@nauth-toolkit/client-angular/standalone';
+
+export const routes: Routes = [
+  {
+    path: 'dashboard',
+    loadComponent: () => import('./dashboard/dashboard.component').then((m) => m.DashboardComponent),
+    canActivate: [authGuard(), oidcReturnGuard()],
+  },
+];
+```
+
+Put it on every route a freshly logged-in user can land on. It consumes the stash, so a later visit to the same route is not diverted a second time.
+
+:::tip You may not need it
+If your app lets the SDK drive navigation, the `navigationHandler` config option is a single chokepoint that does the same job without touching your routes. Reach for the guard when your own challenge components call `router.navigate()` themselves — a common pattern, and one that bypasses `navigationHandler` entirely. See [Building the Consent Screen](/docs/guides/oauth-provider/consent-screen#returning-after-login).
+:::
+
 ## Related APIs
 
 - [AuthService](./auth-service) - Authentication service
 - [Interceptor](./interceptor) - HTTP interceptor
+- [OIDCOperations](../api/oidc-operations) - What the guard reads its stash from

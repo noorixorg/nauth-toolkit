@@ -466,18 +466,22 @@ export class RedisStorageAdapter implements StorageAdapter {
     const client = this.redisClient as RedisClientLike;
     const prefixedPattern = `${this.keyPrefix}${pattern}`;
 
-    // Use SCAN command (both clients support it)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await (client as any).scan(cursor, 'MATCH', prefixedPattern, 'COUNT', count);
+    // node-redis takes the cursor as a string and the modifiers as an options object.
+    // The variadic `scan(cursor, 'MATCH', pattern, 'COUNT', count)` form is ioredis's,
+    // and node-redis v5 rejects it outright: its encoder requires every argument to be
+    // a string or Buffer, so a numeric cursor throws before the command is sent.
+    const result = await client.scan(String(cursor), { MATCH: prefixedPattern, COUNT: count });
 
     // Handle both array format [cursor, keys] and object format { cursor, keys }
     let newCursor: number;
     let keys: string[];
 
     if (Array.isArray(result)) {
-      [newCursor, keys] = result;
+      newCursor = Number(result[0]);
+      keys = result[1];
     } else {
-      newCursor = result.cursor;
+      // v5 answers with a string cursor, v4 with a number.
+      newCursor = Number(result.cursor);
       keys = result.keys || [];
     }
 

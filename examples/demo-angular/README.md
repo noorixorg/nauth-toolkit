@@ -2,6 +2,23 @@
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.0.2.
 
+## Working against the workspace SDK
+
+`@nauth-toolkit/client-angular` is an **injected** workspace dependency: pnpm copies the
+library's `dist/` into this app's `node_modules` rather than symlinking it. That is what
+lets an Angular 21 app consume a library built on Angular 17 — a symlink into
+`packages/client-angular` would resolve `@angular/core` to the library's own copy and the
+build would see two Angulars.
+
+The copy is a snapshot, so after changing the library:
+
+```bash
+pnpm --filter @nauth-toolkit/client-angular run build
+pnpm install          # refresh the injected copy
+```
+
+Then restart `ng serve`.
+
 ## Development server
 
 To start a local development server, run:

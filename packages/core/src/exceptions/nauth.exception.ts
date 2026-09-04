@@ -211,6 +211,11 @@ export function getHttpStatusForErrorCode(code: AuthErrorCode): number {
   )
     return 400;
 
+  // Identity provider errors (checked before generic prefix rules)
+  if (code === AuthErrorCode.OIDC_INTERACTION_NOT_FOUND) return 404;
+  if (code === AuthErrorCode.OIDC_LOGIN_REQUIRED) return 401;
+  if (code === AuthErrorCode.OIDC_ACCESS_DENIED) return 403;
+
   // Authentication errors
   if (code.startsWith('AUTH_')) {
     if (code === AuthErrorCode.ACCOUNT_INACTIVE || code === AuthErrorCode.ACCOUNT_LOCKED) return 403;

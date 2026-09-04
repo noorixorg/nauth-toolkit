@@ -7,7 +7,7 @@
     "start": "docusaurus start --port 3001",
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",
-    "deploy": "echo 'Set DEPLOY_TARGET (user@host:/path) before deploying' && test -n \"$DEPLOY_TARGET\" && rsync -avz --delete-after --delay-updates build/ \"$DEPLOY_TARGET\"",
+    "deploy": "test -x ./deploy-siteground.sh && ./deploy-siteground.sh || (echo 'ERROR: ./deploy-siteground.sh not found (it is gitignored \u2014 it holds the SiteGround credentials). Restore it from your local copy; do not rsync by hand with --delay-updates.' && exit 1)",
     "clear": "docusaurus clear",
     "serve": "docusaurus serve",
     "write-translations": "docusaurus write-translations",

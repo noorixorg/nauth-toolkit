@@ -543,4 +543,49 @@ export interface NAuthClientConfig {
      */
     headers?: Record<string, string>;
   };
+
+  /**
+   * OpenID Connect interaction configuration.
+   *
+   * Only relevant to an application that *is* an OpenID Connect provider — one running
+   * `@nauth-toolkit/oidc-provider` and hosting its own consent screen. A relying party
+   * signing in with someone else's provider needs none of this.
+   *
+   * @example
+   * ```typescript
+   * const client = new NAuthClient({
+   *   baseUrl: 'https://api.example.com',
+   *   authPathPrefix: '/auth',
+   *   tokenDelivery: 'cookies',
+   *   oidc: {
+   *     // Only needed when the backend mounts the interaction routes somewhere
+   *     // other than `{baseUrl}/oidc/interaction`.
+   *     basePath: 'https://api.example.com/identity/interaction',
+   *   },
+   * });
+   * ```
+   */
+  oidc?: {
+    /**
+     * Base path (or absolute URL) of the backend's interaction routes.
+     *
+     * Must match where the provider module mounted them — `interaction.path` in
+     * `OIDCProviderModule.forRoot()`, plus any global prefix.
+     *
+     * @default `{baseUrl}/oidc/interaction`
+     */
+    basePath?: string;
+
+    /**
+     * Frontend route that renders the consent screen.
+     *
+     * The interaction id is appended to it, so `/interaction` produces
+     * `/interaction/<uid>`. This must match the route the backend's
+     * `interactionUrl` sends the browser to, and is what the return guard and
+     * navigation handler send a user back to after a login detour.
+     *
+     * @default '/interaction'
+     */
+    interactionPath?: string;
+  };
 }

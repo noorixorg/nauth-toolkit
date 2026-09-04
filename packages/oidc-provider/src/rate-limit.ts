@@ -14,11 +14,11 @@ export interface OIDCEndpointLimit {
  * Endpoints not listed are unlimited.
  */
 export interface OIDCRateLimitConfig {
-  /** `/oauth/authorize`, keyed by client id and source IP. */
+  /** The authorization endpoint. Keyed by source IP. */
   authorize?: OIDCEndpointLimit;
-  /** `/oauth/token`, keyed by source IP. The brute-force surface that matters most. */
+  /** The token endpoint. Keyed by source IP — the brute-force surface that matters most. */
   token?: OIDCEndpointLimit;
-  /** `/oauth/token/introspection`. Often on a gateway's hot path — set generously or leave unset. */
+  /** The introspection endpoint. Often on a gateway's hot path — set generously or leave unset. */
   introspection?: OIDCEndpointLimit;
 }
 

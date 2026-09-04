@@ -604,4 +604,35 @@ export enum AuthErrorCode {
    * Details include maxExpiryDays.
    */
   API_KEY_EXPIRY_TOO_LONG = 'API_KEY_EXPIRY_TOO_LONG',
+
+  // ============================================================================
+  // Identity Provider Errors (OIDC_*)
+  // ============================================================================
+
+  /**
+   * The pending authorization request no longer exists
+   *
+   * Its interaction session expired, it was already resolved, or the id is wrong.
+   * The relying party must start a fresh authorization request; there is nothing
+   * for the user to resume.
+   */
+  OIDC_INTERACTION_NOT_FOUND = 'OIDC_INTERACTION_NOT_FOUND',
+
+  /**
+   * A completed login is required before the authorization request can continue
+   *
+   * Raised when the identity-provider session gate reports `login_required` — no
+   * session, an expired one, or an account that must change its password or verify
+   * its email first. Recoverable: send the user through login and return them to the
+   * interaction. Details include `uid` and the gate's `reason`.
+   */
+  OIDC_LOGIN_REQUIRED = 'OIDC_LOGIN_REQUIRED',
+
+  /**
+   * The account may not be issued credentials for a relying party
+   *
+   * Raised when the identity-provider session gate reports `denied` — the account is
+   * disabled, locked, or no longer exists. Not recoverable by logging in again.
+   */
+  OIDC_ACCESS_DENIED = 'OIDC_ACCESS_DENIED',
 }

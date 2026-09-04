@@ -55,6 +55,18 @@ export interface RedisClientLike {
   ttl(key: string): Promise<number>;
 
   /**
+   * Iterate the keyspace.
+   *
+   * node-redis takes the cursor as a string and the modifiers as an options object,
+   * and answers `{ cursor, keys }` — a string cursor in v5, a number in v4. The array
+   * form is accepted too, for clients that answer the way Redis itself does.
+   */
+  scan(
+    cursor: string,
+    options?: { MATCH?: string; COUNT?: number },
+  ): Promise<{ cursor: string | number; keys: string[] } | [string | number, string[]]>;
+
+  /**
    * Get a field value from a hash
    */
   hget(key: string, field: string): Promise<string | null>;

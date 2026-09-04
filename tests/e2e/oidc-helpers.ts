@@ -22,6 +22,34 @@ export const BRIDGE_PREFIX = '/api/oidc/interaction';
 /** The stand-in relying party the demo exposes for tests. */
 export const RP_CALLBACK_PATH = '/api/test/oidc/callback';
 
+/**
+ * nauth's own login, which is likewise under the application's `/api` prefix.
+ *
+ * The other suites reach it as `/auth/login` because their `TEST_BASE_URL` already
+ * carries the prefix. This project's base URL must be the bare origin — the provider
+ * is mounted there — so the prefix has to be spelled out.
+ */
+export const LOGIN_PATH = '/api/auth/login';
+
+/**
+ * Headers for a confidential client's back-channel call to the provider.
+ *
+ * The empty `Origin` overrides the project-wide one, which the `oidc` project sets for
+ * nauth's own CORS-protected routes. It is not merely unnecessary here: a token request
+ * carrying an `Origin` is a *browser* request as far as `oidc-provider` is concerned,
+ * and it refuses one for a client that has not registered that origin — which a
+ * confidential client never should. A real back-channel exchange has no origin at all.
+ *
+ * @returns Content type, client authentication, and the emptied Origin
+ */
+function backChannelHeaders(): Record<string, string> {
+  return {
+    'content-type': 'application/x-www-form-urlencoded',
+    authorization: basicAuth(),
+    Origin: '',
+  };
+}
+
 /** Credentials for the demo's confidential client. */
 export const DEMO_CLIENT = {
   clientId: 'demo-partner',
@@ -169,10 +197,7 @@ export async function exchangeCode(
   verifier: string,
 ): Promise<Record<string, string>> {
   const response = await api.post(`${OIDC_PREFIX}/token`, {
-    headers: {
-      'content-type': 'application/x-www-form-urlencoded',
-      authorization: basicAuth(),
-    },
+    headers: backChannelHeaders(),
     form: {
       grant_type: 'authorization_code',
       code,
@@ -193,7 +218,7 @@ export async function exchangeCode(
  */
 export async function refreshTokens(api: OidcApi, refreshToken: string): Promise<Record<string, string>> {
   const response = await api.post(`${OIDC_PREFIX}/token`, {
-    headers: { 'content-type': 'application/x-www-form-urlencoded', authorization: basicAuth() },
+    headers: backChannelHeaders(),
     form: { grant_type: 'refresh_token', refresh_token: refreshToken },
     maxRedirects: 0,
   });
@@ -209,7 +234,7 @@ export async function refreshTokens(api: OidcApi, refreshToken: string): Promise
  */
 export async function introspect(api: OidcApi, token: string): Promise<Record<string, unknown>> {
   const response = await api.post(`${OIDC_PREFIX}/token/introspection`, {
-    headers: { 'content-type': 'application/x-www-form-urlencoded', authorization: basicAuth() },
+    headers: backChannelHeaders(),
     form: { token },
     maxRedirects: 0,
   });
@@ -224,7 +249,7 @@ export async function introspect(api: OidcApi, token: string): Promise<Record<st
  */
 export async function revoke(api: OidcApi, token: string): Promise<void> {
   await api.post(`${OIDC_PREFIX}/token/revocation`, {
-    headers: { 'content-type': 'application/x-www-form-urlencoded', authorization: basicAuth() },
+    headers: backChannelHeaders(),
     form: { token },
     maxRedirects: 0,
   });

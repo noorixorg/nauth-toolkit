@@ -150,12 +150,18 @@ export const authConfig: NAuthModuleConfig = {
   tokenDelivery: {
     method: 'hybrid',
     cookieOptions: {
-      // For cross-site cookies (frontend on different subdomain than API):
-      // - Must use secure: true (requires HTTPS)
-      // - Must use sameSite: 'none' (allows cross-site cookie delivery)
-      // - Domain must match both subdomains (use leading dot)
-      secure: true,
-      sameSite: 'none',
+      // Driven by environment so localhost and a deployed origin can differ.
+      //
+      // Local development defaults to `secure: false` and `sameSite: 'lax'`: ports
+      // are not part of a site, so localhost:4200 and localhost:3000 are same-site
+      // and `lax` is sufficient. It also avoids `Secure`, which Safari refuses over
+      // plain http even on localhost.
+      //
+      // A deployment with the frontend and API on different subdomains needs
+      // COOKIE_SECURE=true, COOKIE_SAMESITE=none and a COOKIE_DOMAIN with a leading
+      // dot — `sameSite: 'none'` is only honoured alongside `secure: true`.
+      secure: process.env.COOKIE_SECURE === 'true',
+      sameSite: (process.env.COOKIE_SAMESITE as 'lax' | 'strict' | 'none') ?? 'lax',
       // Set COOKIE_DOMAIN (e.g. '.app.example.com') when frontend and API run on
       // different subdomains; leave unset for localhost development.
       domain: process.env.COOKIE_DOMAIN,
@@ -168,9 +174,12 @@ export const authConfig: NAuthModuleConfig = {
     // The refresh cookie Max-Age and the JWT exp claim both align with the
     // resolved value. Short values below are for E2E demonstration — real
     // apps typically pair '7d' cookies with '90d' json.
+    // Deliberately tiny by default so the refresh-TTL end-to-end tests can observe
+    // expiry without waiting. Override for manual testing, where a 10-second session
+    // makes any multi-step flow (OpenID Connect consent especially) impossible.
     hybridPolicy: {
-      cookieRefreshExpiresIn: '10s',
-      jsonRefreshExpiresIn: '20s',
+      cookieRefreshExpiresIn: process.env.HYBRID_COOKIE_REFRESH_EXPIRES_IN || '10s',
+      jsonRefreshExpiresIn: process.env.HYBRID_JSON_REFRESH_EXPIRES_IN || '20s',
     },
   },
   security: {
@@ -181,6 +190,10 @@ export const authConfig: NAuthModuleConfig = {
       cookieName: 'nauth_csrf_token',
       headerName: 'x-csrf-token',
       cookieOptions: {
+        // The CSRF cookie is read by JavaScript, so it is not httpOnly, but it must
+        // travel under the same rules as the session cookies it protects.
+        secure: process.env.COOKIE_SECURE === 'true',
+        sameSite: (process.env.COOKIE_SAMESITE as 'lax' | 'strict' | 'none') ?? 'lax',
         domain: process.env.COOKIE_DOMAIN,
       },
     },

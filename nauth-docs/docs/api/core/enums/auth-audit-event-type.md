@@ -163,7 +163,36 @@ import { AuthAuditEventType } from '@nauth-toolkit/core';
 | `API_KEY_DELETED`     | API key permanently deleted                                        |
 | `API_KEY_AUTH_FAILED` | API key authentication failed (invalid, expired, revoked, or IP)   |
 
+## OpenID Connect Provider Events
+
+Recorded when another application signs a user in through your [OpenID Connect provider](/docs/guides/oauth-provider/how-oauth-provider-works). Only present when `@nauth-toolkit/oidc-provider` is installed and audit logs are enabled.
+
+| Value                  | Description                                                            |
+| ---------------------- | ---------------------------------------------------------------------- |
+| `OIDC_ACCESS_DENIED`   | Refused because the account may not be vouched for (disabled or locked) |
+| `OIDC_CONSENT_DENIED`  | The user refused a relying party's request                              |
+| `OIDC_CONSENT_GRANTED` | The user approved a relying party's request                             |
+| `OIDC_LOGIN_COMPLETED` | A completed login was released to a relying party                       |
+
+Each carries `authMethod: 'oidc'` and a `metadata` object identifying the application:
+
+```json
+{
+  "clientId": "partner",
+  "interactionUid": "kPz3Q8sLm2",
+  "requestedScopes": ["openid", "email", "profile"],
+  "grantedScopes": ["openid", "email"]
+}
+```
+
+`grantedScopes` appears on `OIDC_CONSENT_GRANTED`; `reason` appears on `OIDC_ACCESS_DENIED`. IP address, geolocation, device and user agent are captured automatically, as for any other event.
+
+:::note The user's own sign-in is recorded separately
+Signing in produces the ordinary `LOGIN_SUCCESS` first — at that point no application is known, because the authorization request is still parked. `OIDC_LOGIN_COMPLETED` is the record of *which* application the user was then released to.
+:::
+
 ## Related
 
 - [AuthAuditEventStatus](./auth-audit-event-status)
 - [AuthAuditService](../services/auth-audit-service)
+- [OIDC Provider](/docs/api/oidc-provider/overview) - Where the `OIDC_*` events are recorded

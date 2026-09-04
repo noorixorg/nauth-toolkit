@@ -5,6 +5,26 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-09-04
+
+### Added
+
+- **OpenID Connect provider** — a new optional package, `@nauth-toolkit/oidc-provider`, that turns your application into an OAuth 2.0 authorization server so other apps can offer "Sign in with your app". Your existing login runs unchanged inside the flow, challenges and MFA included. NestJS gets the interaction routes registered for you; every artifact lives in your existing storage adapter, so there are no new tables and no migrations. See [the guide](https://nauth.dev/docs/guides/oauth-provider/how-oauth-provider-works).
+- **Frontend SDK support for the consent screen** — `client.oidc` (and `auth.oidc` in Angular) drives the interaction routes, remembers a pending request across the login detour, and ships an optional `oidcReturnGuard()` for apps whose own components handle navigation.
+- **Audit trail for third-party sign-in** — `OIDC_LOGIN_COMPLETED`, `OIDC_CONSENT_GRANTED`, `OIDC_CONSENT_DENIED` and `OIDC_ACCESS_DENIED` record which application a user was signed into, with the requested and granted scopes. The ordinary `LOGIN_SUCCESS` cannot carry this, because the authorization request is still parked when the user signs in.
+- Error codes `OIDC_INTERACTION_NOT_FOUND` (404), `OIDC_LOGIN_REQUIRED` (401) and `OIDC_ACCESS_DENIED` (403).
+- **`migrations.autoRun`** (default `true`) — set it to `false` to apply migrations from a release task instead of on boot.
+
+### Changed
+
+- **Node.js 22 and 24 are both verified.** The declared `engines` floor stays `>=22.0.0`; CI now builds, lints and tests on both, so the floor is exercised rather than assumed.
+
+### Fixed
+
+- **Parallel instances no longer race on startup migrations.** Instances that boot together (ECS tasks, Kubernetes pods) each saw an empty migrations table and ran the same DDL. Migrations are now serialized behind a database-level lock — a Postgres advisory lock or a MySQL named lock — released automatically if an instance dies. Always on, nothing to configure. This mattered most on MySQL, which commits implicitly on DDL, so concurrent runs could half-apply a migration with no rollback.
+- **Geolocation no longer goes missing on the instances that lose the MaxMind download race.** Previously every instance but one skipped the download and came up with no readers loaded, leaving them without geolocation until restart. Instances now wait their turn and load the database, reusing `.mmdb` files under 24 hours old.
+- **Redis storage: `keys()` no longer throws.** The adapter called `SCAN` with ioredis's argument style, which node-redis v5 rejects outright, so every prefix scan failed. Affects any deployment on `@nauth-toolkit/storage-redis` with node-redis v5.
+
 ## [0.3.3] - 2026-07-05
 
 ### Fixed

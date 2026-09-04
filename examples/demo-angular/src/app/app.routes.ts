@@ -1,5 +1,9 @@
 import { Routes } from '@angular/router';
-import { authGuard, socialRedirectCallbackGuard } from '@nauth-toolkit/client-angular/standalone';
+import {
+  authGuard,
+  oidcReturnGuard,
+  socialRedirectCallbackGuard,
+} from '@nauth-toolkit/client-angular/standalone';
 import { challengeRouteGuard } from './guards/challenge-route.guard';
 
 /**
@@ -115,7 +119,9 @@ export const routes: Routes = [
     path: 'dashboard',
     loadComponent: () =>
       import('./dashboard/dashboard.component').then((m) => m.DashboardComponent),
-    canActivate: [authGuard()],
+    // oidcReturnGuard sends the user back to a pending OpenID Connect request instead
+    // of landing here, when one is outstanding.
+    canActivate: [authGuard(), oidcReturnGuard()],
   },
   {
     path: 'dashboard/mfa/enroll',

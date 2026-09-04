@@ -54,22 +54,87 @@ imports: [AuthModule.forRoot(authConfig), OIDCProviderModule.forRoot(oidcConfig)
 mountOIDCProviderNest(app, app.get(NAUTH_OIDC_PROVIDER));
 ```
 
-Then expose the interaction bridge as an ordinary controller. Unlike the provider's own endpoints, these are normal nauth routes with the full guard chain and request context:
+`OIDCProviderModule.forRoot()` also registers the interaction controller your consent
+screen talks to, at `oidc/interaction/:uid` (under any global prefix). Move it or take
+it over:
 
 ```ts
-@Controller('oidc/interaction')
-export class OIDCInteractionController {
-  constructor(@Inject(NAUTH_OIDC_BRIDGE) private readonly bridge: OIDCInteractionBridge) {}
+OIDCProviderModule.forRoot({
+  ...oidcConfig,
+  interaction: { path: 'identity/interaction' },   // or { enabled: false } to write your own
+});
+```
 
-  @Public() @Get(':uid')          state(@Req() q, @Res({ passthrough: true }) s) { return this.bridge.getState(q, s); }
-  @Public() @Post(':uid/login')   login(@Req() q, @Res({ passthrough: true }) s) { return this.bridge.completeLogin(q, s); }
-  @Public() @Post(':uid/confirm') confirm(@Req() q, @Res({ passthrough: true }) s, @Body() b) {
-    return this.bridge.completeConsent(q, s, { approve: b.approve !== false });
-  }
+Those routes are ordinary nauth routes — full guard chain, full request context —
+unlike the provider's own endpoints, which own raw HTTP under `pathPrefix`. Writing
+your own means injecting `NAUTH_OIDC_BRIDGE` and calling it; start from
+`createOIDCInteractionController`, and note that it applies `@UseGuards(AuthGuard)` at
+the class level *and* `@Public()` on every route. That combination is load-bearing:
+`AuthGuard` is not global in this toolkit, so without it the session gate reports
+`no_session` for everyone, and `@Public()` is what makes it attach a user when there is
+one without rejecting the anonymous caller you have to answer.
+
+## The consent screen
+
+The frontend SDK drives all four routes, so there is no hand-written HTTP in your app:
+
+```ts
+const state = await client.oidc.getInteraction(uid);
+
+if (state.gate === 'login_required') {
+  await client.oidc.setPendingInteraction(uid);   // survives the whole challenge chain
+  router.navigate(['/login']);
+} else if (state.prompt === 'login') {
+  window.location.assign((await client.oidc.completeLogin(uid)).redirectTo);
+} else {
+  // render state.client and state.missingScopes, then:
+  window.location.assign((await client.oidc.approve(uid)).redirectTo);
 }
 ```
 
-See `examples/demo-nestjs` for the whole thing wired up, and `examples/demo-angular` for the interaction page.
+Angular apps get `auth.oidc` on `AuthService` and an optional `oidcReturnGuard()` for
+routes a freshly logged-in user lands on. See `examples/demo-nestjs` for the backend
+wired up and `examples/demo-angular` for the interaction page.
+
+## Errors the frontend has to act on
+
+Bridge failures are `NAuthException`s, so `NAuthHttpExceptionFilter` maps them:
+
+| Code | Status | Meaning |
+|---|---|---|
+| `OIDC_INTERACTION_NOT_FOUND` | 404 | Expired or already resolved. Start again from the client. |
+| `OIDC_LOGIN_REQUIRED` | 401 | Recoverable. `details.uid` says what to come back to. |
+
+A session that lapses while the consent screen sits open is the common case, and it
+surfaces as `OIDC_LOGIN_REQUIRED` on the confirm call — re-stash `details.uid`, send the
+user through login, and resume.
+
+A **disabled or locked account is not an error.** The bridge resolves the interaction
+with `access_denied` and returns an ordinary `redirectTo`, so the relying party gets a
+protocol error rather than the user getting a dead browser tab. Follow the redirect as
+you would any other.
+
+## What lands in the audit trail
+
+When audit logs are enabled, the bridge records who was released to which application —
+something the ordinary `LOGIN_SUCCESS` cannot say, because the authorization request is
+still parked when the user types their password.
+
+| Event | When |
+|---|---|
+| `OIDC_LOGIN_COMPLETED` | A completed login was released to a relying party |
+| `OIDC_CONSENT_GRANTED` | The user approved the request |
+| `OIDC_CONSENT_DENIED` | The user refused it |
+| `OIDC_ACCESS_DENIED` | The account may not be vouched for |
+
+Each carries `authMethod: 'oidc'` and a metadata object with `clientId`,
+`interactionUid`, `requestedScopes` and (on a grant) `grantedScopes`. IP address,
+geolocation, device and user agent are captured automatically, because these are
+ordinary nauth-toolkit routes.
+
+**Scope:** this covers the login and consent decisions. Token issuance, refresh and
+introspection happen on the provider's own endpoints, outside the request context, and
+are **not** recorded.
 
 ## Two things that will bite you
 

@@ -9,6 +9,7 @@ const PACKAGES_DIR = path.join(__dirname, '..', 'packages');
 const TAG = process.argv[2] || 'latest';
 const DRY_RUN = process.argv.includes('--dry-run') || process.argv.includes('-d');
 const SKIP_VERSION_BUMP = process.argv.includes('--skip-version-bump');
+const MINOR_BUMP = process.argv.includes('--minor');
 
 const PUBLISH_ORDER = [
   'core',
@@ -36,6 +37,11 @@ const PUBLISH_ORDER = [
 
 function incrementVersion(version) {
   const parts = version.split('.');
+  // `--minor` for a release that adds public API — a new package, a new exported
+  // namespace, new enum members. The default stays a patch bump.
+  if (MINOR_BUMP) {
+    return `${parts[0]}.${parseInt(parts[1] || 0, 10) + 1}.0`;
+  }
   return `${parts[0]}.${parts[1]}.${parseInt(parts[2] || 0, 10) + 1}`;
 }
 
@@ -160,6 +166,19 @@ function publishPackage(pkg, newVersion) {
   // peerDependencies verbatim from root.
   resolveWorkspaceProtocol(path.join(publishCwd, 'package.json'), newVersion);
 
+  // ng-packagr copies publishConfig verbatim, so the dist manifest inherits the
+  // `directory: 'dist'` that makes pnpm link workspace consumers to the built output.
+  // Inside dist that would mean dist/dist, so strip it from what is published.
+  if (pkg.name === '@nauth-toolkit/client-angular') {
+    const distManifestPath = path.join(publishCwd, 'package.json');
+    const distManifest = JSON.parse(fs.readFileSync(distManifestPath, 'utf8'));
+    if (distManifest.publishConfig) {
+      delete distManifest.publishConfig.directory;
+      delete distManifest.publishConfig.linkDirectory;
+      fs.writeFileSync(distManifestPath, `${JSON.stringify(distManifest, null, 2)}\n`);
+    }
+  }
+
   execSync(`npm publish --tag ${TAG} --registry https://registry.npmjs.org/`, {
     stdio: 'inherit',
     cwd: publishCwd,
@@ -191,7 +210,9 @@ function changelogHasVersion(version) {
 }
 
 async function main() {
-  const flags = [DRY_RUN && 'DRY RUN', SKIP_VERSION_BUMP && 'SKIP VERSION BUMP'].filter(Boolean);
+  const flags = [DRY_RUN && 'DRY RUN', SKIP_VERSION_BUMP && 'SKIP VERSION BUMP', MINOR_BUMP && 'MINOR'].filter(
+    Boolean,
+  );
   const flagStr = flags.length ? ` [${flags.join(', ')}]` : '';
   console.log(`Publishing nauth-toolkit packages (tag: ${TAG})${flagStr}\n`);
 

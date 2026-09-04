@@ -128,6 +128,16 @@ import { NAuthErrorCode } from '@nauth-toolkit/client';
 | `INTERNAL_ERROR`      | Internal error      |
 | `SERVICE_UNAVAILABLE` | Service unavailable |
 
+### OpenID Connect Provider Errors
+
+For an application that is itself an OpenID Connect provider. The first two are what [`client.oidc`](../oidc-operations) rejects with; `OIDC_ACCESS_DENIED` is available for identity-provider routes you write yourself.
+
+| Code                         | Description                                                        |
+| ---------------------------- | ------------------------------------------------------------------ |
+| `OIDC_ACCESS_DENIED`         | The account may not be issued credentials at all                    |
+| `OIDC_INTERACTION_NOT_FOUND` | The authorization request expired or was already resolved           |
+| `OIDC_LOGIN_REQUIRED`        | Recoverable — `details.uid` names the request to resume after login |
+
 ## Example
 
 ```typescript

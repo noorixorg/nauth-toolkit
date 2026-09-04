@@ -40,6 +40,7 @@ import { NAuthClientConfig } from '@nauth-toolkit/client';
 | `httpAdapter`       | `HttpAdapter`                                                                                                                      | No       | HTTP adapter for making requests. Auto-provided in Angular (`NAuthModule`). In React/Vue, uses the built-in `FetchAdapter` by default.                                 |
 | `debug`             | `boolean`                                                                                                                          | No       | Enable debug logging                                                                                                                                                   |
 | `admin`             | `{ pathPrefix?: string; endpoints?: Partial<[NAuthAdminEndpoints](./types/nauth-admin-endpoints)>; headers?: Record<string, string> }` | No       | Admin operations configuration. When provided, enables `client.admin.*` methods. See [AdminOperations](./admin-operations) for details.                                |
+| `oidc`              | `{ basePath?: string; interactionPath?: string }`                                                                                  | No       | OpenID Connect interaction routes, for an app that is itself a provider. `basePath` defaults to `{baseUrl}/oidc/interaction`, `interactionPath` to `/interaction`. See [OIDCOperations](./oidc-operations). |
 
 ### Redirect URLs
 

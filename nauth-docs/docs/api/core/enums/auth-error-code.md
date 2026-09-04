@@ -110,10 +110,14 @@ import { AuthErrorCode } from '@nauth-toolkit/core';
 | `API_KEY_EXPIRY_REQUIRED` | `API_KEY_EXPIRY_REQUIRED` |
 | `API_KEY_INDEFINITE_NOT_ALLOWED` | `API_KEY_INDEFINITE_NOT_ALLOWED` |
 | `API_KEY_EXPIRY_TOO_LONG` | `API_KEY_EXPIRY_TOO_LONG` |
+| `OIDC_INTERACTION_NOT_FOUND` | `OIDC_INTERACTION_NOT_FOUND` |
+| `OIDC_LOGIN_REQUIRED` | `OIDC_LOGIN_REQUIRED` |
+| `OIDC_ACCESS_DENIED` | `OIDC_ACCESS_DENIED` |
 
 ## Related
 
 - [NAuthException](/docs/api/core/exceptions/nauth-exception) - Error type
 - [AuthService](/docs/api/core/services/auth-service) - Service errors
+- [OIDC Provider](/docs/api/oidc-provider/overview) - Where the `OIDC_*` codes are thrown
 
 

@@ -1367,6 +1367,33 @@ if (client.admin) {
 
 ---
 
+## OpenID Connect Interaction
+
+### oidc
+
+Drives the consent screen of an application that is itself an OpenID Connect provider. Always present; the routes it calls default to `{baseUrl}/oidc/interaction`.
+
+```typescript
+public readonly oidc: OIDCOperations
+```
+
+**Access**
+
+```typescript
+const state = await client.oidc.getInteraction(uid);
+
+if (state.gate === 'login_required') {
+  await client.oidc.setPendingInteraction(uid);
+  router.navigate(['/login']);
+} else {
+  window.location.assign((await client.oidc.approve(uid)).redirectTo);
+}
+```
+
+**See [OIDCOperations](./oidc-operations) for complete API documentation.**
+
+---
+
 ## Related APIs
 
 - [NAuthClientConfig](./nauth-client-config) - Configuration options
@@ -1376,5 +1403,6 @@ if (client.admin) {
 - [AuthUser](./types/auth-user) - User profile type
 - [MFAStatus](./types/mfa-status) - MFA configuration
 - [AdminOperations](./admin-operations) - Admin operations service
+- [OIDCOperations](./oidc-operations) - OpenID Connect consent operations
 - [Angular AuthService](../angular/auth-service) - Angular wrapper with Observables
 - [Angular Interceptor](../angular/interceptor) - HTTP interceptor for token management

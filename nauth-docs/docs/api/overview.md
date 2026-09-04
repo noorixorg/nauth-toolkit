@@ -1,6 +1,6 @@
 ---
 title: API Reference
-description: 'API reference covering core services (AuthService, MFAService, SocialAuthService), 90+ DTOs, enums, interfaces, NestJS/Express/Fastify adapters, and provider packages for MFA, social auth, email, SMS, database, and storage'
+description: 'API reference covering core services (AuthService, MFAService, SocialAuthService), 90+ DTOs, enums, interfaces, NestJS/Express/Fastify adapters, and provider packages for MFA, social auth, the OpenID Connect provider, email, SMS, database, and storage'
 keywords: [api, reference, documentation, nestjs, express, fastify, authentication]
 image: /img/api-social-card.png
 ---
@@ -42,6 +42,10 @@ import { AuthService, AuthModule, AuthGuard } from '@nauth-toolkit/nestjs';
 - **[SignupDTO](/docs/api/core/dto/signup-dto)** - User registration request
 - **[AuthResponseDTO](/docs/api/core/dto/auth-response-dto)** - Unified authentication response
 - **[All DTOs](/docs/api/core/dto/overview)** - Complete DTO list
+
+### Identity Provider
+
+- **[OIDC Provider](/docs/api/oidc-provider/overview)** - Be an OpenID Connect provider, so other apps can offer "Sign in with your app"
 
 ### Error Handling
 
@@ -102,6 +106,22 @@ AuthModule.forRoot({
   smsProvider: new TwilioSMSProvider({ ... }),
 })
 ```
+
+### OpenID Connect Provider
+
+```bash npm2yarn
+npm install @nauth-toolkit/oidc-provider oidc-provider
+```
+
+```typescript
+import { OIDCProviderModule } from '@nauth-toolkit/oidc-provider/nestjs';
+
+@Module({
+  imports: [AuthModule.forRoot(config), OIDCProviderModule.forRoot(oidcConfig)],
+})
+```
+
+See [Set Up the OpenID Connect Provider](/docs/guides/oauth-provider/setup).
 
 </TabItem>
 <TabItem value="express" label="Express">

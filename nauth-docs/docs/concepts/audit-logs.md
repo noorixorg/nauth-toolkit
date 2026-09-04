@@ -45,7 +45,7 @@ Audit recording never interrupts authentication flows. If an audit write fails, 
 
 ## Event Types
 
-nauth-toolkit records 60+ event types across 11 categories. Every event has a `status` of `SUCCESS`, `FAILURE`, `INFO`, or `SUSPICIOUS`.
+nauth-toolkit records 60+ event types across 12 categories. Every event has a `status` of `SUCCESS`, `FAILURE`, `INFO`, or `SUSPICIOUS`.
 
 ### Authentication
 
@@ -155,6 +155,19 @@ nauth-toolkit records 60+ event types across 11 categories. Every event has a `s
 | `CHALLENGE_COMPLETED` | SUCCESS | Challenge passed |
 | `CHALLENGE_ATTEMPT_FAILED` | FAILURE | Wrong code, max attempts |
 
+### OpenID Connect Provider
+
+Only when [`@nauth-toolkit/oidc-provider`](/docs/guides/oauth-provider/how-oauth-provider-works) is installed.
+
+| Event | Status | When |
+|---|---|---|
+| `OIDC_LOGIN_COMPLETED` | SUCCESS | A completed login was released to a relying party |
+| `OIDC_CONSENT_GRANTED` | SUCCESS | The user approved an application's request |
+| `OIDC_CONSENT_DENIED` | INFO | The user refused it |
+| `OIDC_ACCESS_DENIED` | FAILURE | The account may not be vouched for (disabled, locked) |
+
+Each carries `authMethod: 'oidc'` and a `clientId` in metadata, so you can answer "which application signed this user in?" --- the ordinary `LOGIN_SUCCESS` cannot, because the authorization request is still parked when the user types their password.
+
 ### Security
 
 | Event | Status | When |
@@ -261,6 +274,14 @@ The `metadata` field stores event-specific details as flexible JSON:
 {
   performedByName: 'Jane Admin',
   reason: 'Security review',
+}
+
+// OIDC_CONSENT_GRANTED --- which application, and what it may see
+{
+  clientId: 'partner',
+  interactionUid: 'kPz3Q8sLm2',
+  requestedScopes: ['openid', 'email', 'profile'],
+  grantedScopes: ['openid', 'email'],
 }
 ```
 

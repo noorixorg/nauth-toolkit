@@ -168,13 +168,19 @@ export function createNAuthAuthHttpInterceptor(params: {
   // Therefore, the interceptor ALWAYS adds CSRF for mutating methods in cookies mode,
   // regardless of whether buildHeaders() added it (for vanilla clients).
   let authReq = req;
-  if (tokenDelivery === 'cookies') {
+  // Scoped to nauth's own API.
+  //
+  // Applying `withCredentials` to every outbound request would send the session
+  // cookie to unrelated hosts, and would break any third-party endpoint that serves
+  // CORS without `Access-Control-Allow-Credentials` — which is the correct, and
+  // common, configuration for public metadata such as an OpenID Connect discovery
+  // document or JWKS. Credentials belong only on requests to the API that issued them.
+  if (tokenDelivery === 'cookies' && isAuthApiRequest) {
     authReq = authReq.clone({ withCredentials: true });
     // Add CSRF token for mutating methods (POST, PUT, PATCH, DELETE)
     // Always add it here - don't rely on buildHeaders() in Angular context
-    // Add CSRF token for mutating methods (POST, PUT, PATCH, DELETE)
-    // This runs for ALL requests in cookies mode, not just auth API requests
-    // This ensures CSRF protection for all mutating operations
+    // Add CSRF token for mutating methods (POST, PUT, PATCH, DELETE).
+    // Scoped to the API the token belongs to, for the same reason as above.
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
       // Respect user's CSRF config, fallback to defaults if not provided
       // These defaults must match the backend's CSRF configuration

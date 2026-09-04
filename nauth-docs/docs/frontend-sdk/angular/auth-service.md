@@ -50,6 +50,13 @@ AuthService wraps the core NAuthClient and provides:
 | `getCurrentUser()`      | [`AuthUser`](../api/types/auth-user) \| `null`         | Current user from cache                   |
 | `getCurrentChallenge()` | [`AuthResponse`](../api/types/auth-response) \| `null` | Current challenge from cache              |
 
+### Operation Namespaces
+
+| Property | Type                                                    | Description                                                       |
+| -------- | ------------------------------------------------------- | ----------------------------------------------------------------- |
+| `admin`  | [`AdminOperations`](../api/admin-operations) \| `undefined` | Admin user management. Present when `admin` is configured          |
+| `oidc`   | [`OIDCOperations`](../api/oidc-operations)              | OpenID Connect consent operations, when this app is a provider     |
+
 ## Methods
 
 ### login()
@@ -785,5 +792,6 @@ export class LoginComponent {
 - [AuthUser](../api/types/auth-user) - User profile type
 - [ChallengeResponse](../api/types/challenge-response) - Challenge response union
 - [Interceptor](./interceptor) - HTTP interceptor for token management
-- [Guards](./guards) - Route protection guards
+- [Guards](./guards) - Route protection guards, including `oidcReturnGuard`
+- [OIDCOperations](../api/oidc-operations) - `auth.oidc` reference
 - [NAuthClientError](../api/nauth-client-error) - Error handling

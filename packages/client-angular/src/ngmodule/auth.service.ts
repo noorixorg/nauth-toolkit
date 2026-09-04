@@ -29,6 +29,7 @@ import {
   SocialVerifyRequest,
   AuditHistoryResponse,
   AdminOperations,
+  OIDCOperations,
 } from '@nauth-toolkit/client';
 
 /**
@@ -1139,6 +1140,37 @@ export class AuthService {
    */
   get admin(): AdminOperations | undefined {
     return this.client.admin;
+  }
+
+  // ============================================================================
+  // OpenID Connect Interaction Operations
+  // ============================================================================
+
+  /**
+   * OpenID Connect interaction operations.
+   *
+   * Only meaningful when this application *is* an OpenID Connect provider — one whose
+   * backend runs `@nauth-toolkit/oidc-provider`. Use it to build the consent screen the
+   * provider redirects to, and to remember a pending request across a login detour.
+   *
+   * @returns OIDCOperations instance
+   *
+   * @example
+   * ```typescript
+   * const state = await this.auth.oidc.getInteraction(uid);
+   *
+   * if (state.gate === 'login_required') {
+   *   await this.auth.oidc.setPendingInteraction(uid);
+   *   void this.router.navigate(['/login']);
+   *   return;
+   * }
+   *
+   * const { redirectTo } = await this.auth.oidc.approve(uid);
+   * window.location.assign(redirectTo);   // leaves Angular; the provider takes over
+   * ```
+   */
+  get oidc(): OIDCOperations {
+    return this.client.oidc;
   }
 
   // ============================================================================

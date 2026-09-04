@@ -1,28 +1,10 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
-import { AuthService } from '@nauth-toolkit/client-angular/standalone';
+import { AuthService, type OIDCInteractionState } from '@nauth-toolkit/client-angular/standalone';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { firstValueFrom } from 'rxjs';
-import { environment } from '../../environments/environment';
-
-/** Key under which a pending interaction is remembered across the login detour. */
-export const PENDING_INTERACTION_KEY = 'nauth.pendingInteraction';
-
-/** What the backend bridge reports about a pending authorization request. */
-interface InteractionState {
-  uid: string;
-  prompt: string;
-  client: { clientId: string; clientName?: string; logoUri?: string; clientUri?: string };
-  scopes: string[];
-  missingScopes: string[];
-  gate: 'authenticated' | 'login_required' | 'denied';
-  gateReason?: string;
-  sub?: string;
-}
 
 /** Human wording for the scopes this demo issues. */
 const SCOPE_LABELS: Record<string, string> = {
@@ -41,11 +23,14 @@ const SCOPE_LABELS: Record<string, string> = {
  * what the request needs, and then either sends the user through the ordinary nauth
  * login or shows them what the application is asking for.
  *
+ * Every backend call goes through the SDK's `auth.oidc` namespace — there is no
+ * hand-written HTTP here, and no hand-written storage key for the login detour.
+ *
  * Nothing about nauth's login is special-cased. If the user is not signed in, the
  * pending interaction is remembered and they are sent to `/login`, where the existing
  * challenge flow runs unchanged — forced password change, email and phone
- * verification, MFA. A navigation handler configured in `app.config.ts` brings them
- * back here afterwards.
+ * verification, MFA. `oidcReturnGuard` on the post-login routes brings them back here
+ * afterwards.
  *
  * The page must tolerate being re-entered under a *different* id: the login step and
  * the consent step are two separate interactions with two separate ids.
@@ -60,14 +45,13 @@ const SCOPE_LABELS: Record<string, string> = {
 export class OidcInteractionComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
-  private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
 
   /** What the page is currently showing. */
   readonly view = signal<'loading' | 'consent' | 'error'>('loading');
 
   /** The pending request, once loaded. */
-  readonly state = signal<InteractionState | null>(null);
+  readonly state = signal<OIDCInteractionState | null>(null);
 
   /** An error to show instead of the consent screen. */
   readonly error = signal<string | null>(null);
@@ -81,38 +65,38 @@ export class OidcInteractionComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     const uid = this.route.snapshot.paramMap.get('uid');
     if (!uid) {
-      this.fail('This authorization link is missing its request id.');
+      await this.fail('This authorization link is missing its request id.');
       return;
     }
 
     try {
-      const state = await this.load(uid);
+      const state = await this.auth.oidc.getInteraction(uid);
       this.state.set(state);
 
       if (state.gate === 'denied') {
         // The account cannot authorize anything — tell the client, don't strand the user.
-        await this.resolveAndLeave(uid, 'abort');
+        this.leave(await this.auth.oidc.abort(uid));
         return;
       }
 
       if (state.gate === 'login_required') {
         // Remember where to come back to, then hand over to the ordinary login flow.
-        sessionStorage.setItem(PENDING_INTERACTION_KEY, uid);
+        await this.auth.oidc.setPendingInteraction(uid);
         void this.router.navigate(['/login'], { queryParams: { interaction: uid } });
         return;
       }
 
-      sessionStorage.removeItem(PENDING_INTERACTION_KEY);
+      await this.auth.oidc.clearPendingInteraction();
 
       if (state.prompt === 'login') {
         // Already signed in: complete the login step without showing anything.
-        await this.resolveAndLeave(uid, 'login');
+        this.leave(await this.auth.oidc.completeLogin(uid));
         return;
       }
 
       this.view.set('consent');
     } catch {
-      this.fail('This authorization request has expired. Please start again from the application.');
+      await this.fail('This authorization request has expired. Please start again from the application.');
     }
   }
 
@@ -158,49 +142,24 @@ export class OidcInteractionComponent implements OnInit {
     }
     this.submitting.set(true);
     try {
-      const { redirectTo } = await firstValueFrom(
-        this.http.post<{ redirectTo: string }>(
-          `${environment.apiBaseUrl}/oidc/interaction/${uid}/confirm`,
-          { approve },
-          { withCredentials: true },
-        ),
-      );
-      // Leaving Angular entirely — the provider resumes and redirects to the client.
-      window.location.assign(redirectTo);
+      this.leave(approve ? await this.auth.oidc.approve(uid) : await this.auth.oidc.deny(uid));
     } catch {
       this.submitting.set(false);
-      this.fail('That decision could not be recorded. Please start again from the application.');
+      await this.fail('That decision could not be recorded. Please start again from the application.');
     }
   }
 
   /**
-   * Read the pending interaction from the backend bridge.
+   * Follow the provider's redirect, leaving Angular entirely — the provider resumes
+   * the authorization request and redirects on to the client from there.
    */
-  private load(uid: string): Promise<InteractionState> {
-    return firstValueFrom(
-      this.http.get<InteractionState>(`${environment.apiBaseUrl}/oidc/interaction/${uid}`, {
-        withCredentials: true,
-      }),
-    );
-  }
-
-  /**
-   * Resolve the interaction on the backend and follow wherever it points.
-   */
-  private async resolveAndLeave(uid: string, action: 'login' | 'abort'): Promise<void> {
-    const { redirectTo } = await firstValueFrom(
-      this.http.post<{ redirectTo: string }>(
-        `${environment.apiBaseUrl}/oidc/interaction/${uid}/${action}`,
-        {},
-        { withCredentials: true },
-      ),
-    );
-    window.location.assign(redirectTo);
+  private leave(result: { redirectTo: string }): void {
+    window.location.assign(result.redirectTo);
   }
 
   /** Show an error instead of the consent screen. */
-  private fail(message: string): void {
-    sessionStorage.removeItem(PENDING_INTERACTION_KEY);
+  private async fail(message: string): Promise<void> {
+    await this.auth.oidc.clearPendingInteraction();
     this.error.set(message);
     this.view.set('error');
   }

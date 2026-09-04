@@ -407,4 +407,46 @@ export enum AuthAuditEventType {
    * API key authentication failed (invalid, expired, revoked, or IP not allowed)
    */
   API_KEY_AUTH_FAILED = 'API_KEY_AUTH_FAILED',
+
+  // ============================================================================
+  // Identity Provider Events (OIDC_*)
+  // ============================================================================
+  //
+  // Recorded by @nauth-toolkit/oidc-provider's interaction bridge, which runs as an
+  // ordinary nauth route and so carries full request context. They answer the question
+  // the ordinary LOGIN_SUCCESS cannot: *which third-party application* this user was
+  // signed into, and what it was allowed to see.
+
+  /**
+   * A completed nauth login was released to a relying party
+   *
+   * The user had already authenticated; this is the moment the identity provider
+   * vouched for them to a third-party application. Metadata carries `clientId`,
+   * `clientName` and the requested `scopes`.
+   */
+  OIDC_LOGIN_COMPLETED = 'OIDC_LOGIN_COMPLETED',
+
+  /**
+   * The user approved a relying party's request for access
+   *
+   * Metadata carries `clientId`, `clientName` and the `scopes` actually granted, which
+   * may be narrower than those requested.
+   */
+  OIDC_CONSENT_GRANTED = 'OIDC_CONSENT_GRANTED',
+
+  /**
+   * The user refused a relying party's request
+   *
+   * The relying party receives `access_denied`. Metadata carries `clientId`.
+   */
+  OIDC_CONSENT_DENIED = 'OIDC_CONSENT_DENIED',
+
+  /**
+   * An authorization request was refused because the account may not be vouched for
+   *
+   * The session gate reported `denied` — disabled, locked, or no longer present — so
+   * no credentials were issued to the relying party. Metadata carries `clientId` and
+   * the gate's `reason`.
+   */
+  OIDC_ACCESS_DENIED = 'OIDC_ACCESS_DENIED',
 }

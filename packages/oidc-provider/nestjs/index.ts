@@ -1,10 +1,8 @@
-export {
-  OIDCProviderModule,
-  NAUTH_OIDC_PROVIDER,
-  NAUTH_OIDC_BRIDGE,
-  NAUTH_OIDC_SESSIONS,
-} from './oidc-provider.module';
-export type { OIDCProviderModuleOptions } from './oidc-provider.module';
+export { OIDCProviderModule } from './oidc-provider.module';
+export type { OIDCProviderModuleOptions, OIDCInteractionRouteOptions } from './oidc-provider.module';
+export { NAUTH_OIDC_PROVIDER, NAUTH_OIDC_BRIDGE, NAUTH_OIDC_SESSIONS } from './tokens';
+export { createOIDCInteractionController, DEFAULT_INTERACTION_PATH } from './oidc-interaction.controller';
+export type { OIDCConsentBody } from './oidc-interaction.controller';
 export { mountOIDCProviderNest } from './mount';
 
 // Re-exported so a consumer's controller can type the bridge it injects without

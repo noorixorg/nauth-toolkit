@@ -16,8 +16,8 @@
  * import { createNAuthOIDCProvider, mountOIDCProviderExpress } from '@nauth-toolkit/oidc-provider';
  *
  * const provider = await createNAuthOIDCProvider({
- *   issuer: 'https://demo.nauth.dev',        // an origin, never a path
- *   interactionUrl: (uid) => `https://demo.nauth.dev/interaction/${uid}`,
+ *   issuer: 'https://auth.example.com',        // an origin, never a path
+ *   interactionUrl: (uid) => `https://auth.example.com/interaction/${uid}`,
  *   storage: nauth.storage,
  *   userRepository,
  *   cookieKeys: [process.env.OIDC_COOKIE_SECRET!],

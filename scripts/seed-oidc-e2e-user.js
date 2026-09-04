@@ -7,6 +7,11 @@
  * has its own suite. Running this repeatedly is safe: an existing account is reset to
  * a known-good state rather than duplicated.
  *
+ * The account is marked `mfaExempt`, which is what keeps it deterministic: the demo
+ * runs ADAPTIVE enforcement, so without the exemption a login would sometimes return
+ * MFA_SETUP_REQUIRED depending on the risk score, and the suite would fail for reasons
+ * that have nothing to do with the provider.
+ *
  * Reads the same DB_* variables as examples/demo-nestjs.
  *
  *   node scripts/seed-oidc-e2e-user.js
@@ -53,7 +58,7 @@ async function main() {
         `UPDATE nauth_users SET
            "passwordHash" = $1, "isEmailVerified" = true, "isPhoneVerified" = true,
            "isActive" = true, "isLocked" = false, "mustChangePassword" = false,
-           "mfaEnabled" = false, "failedLoginAttempts" = 0, "lockedUntil" = NULL
+           "mfaEnabled" = false, "mfaExempt" = true, "failedLoginAttempts" = 0, "lockedUntil" = NULL
          WHERE email = $2`,
         [passwordHash, EMAIL],
       );
@@ -66,7 +71,7 @@ async function main() {
          (sub, email, phone, "firstName", "lastName", "passwordHash",
           "isEmailVerified", "isPhoneVerified", "isActive", "isLocked",
           "mustChangePassword", "mfaEnabled", "failedLoginAttempts", "hasSocialAuth", "mfaExempt")
-       VALUES ($1, $2, $3, 'Ada', 'Lovelace', $4, true, true, true, false, false, false, 0, false, false)
+       VALUES ($1, $2, $3, 'Ada', 'Lovelace', $4, true, true, true, false, false, false, 0, false, true)
        RETURNING id, sub`,
       [randomUUID(), EMAIL, PHONE, passwordHash],
     );

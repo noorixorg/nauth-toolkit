@@ -1,5 +1,7 @@
 import type Provider from 'oidc-provider';
-import type { IdpSessionGate } from '@nauth-toolkit/core/internal';
+import type { InteractionResults } from 'oidc-provider';
+import { AuthAuditEventType, AuthErrorCode, NAuthException } from '@nauth-toolkit/core';
+import type { AuthAuditService, IdpSessionGate } from '@nauth-toolkit/core/internal';
 import { toRawHttp } from './raw-http';
 
 /** What the consent screen needs in order to ask the user. */
@@ -41,10 +43,43 @@ export interface InteractionRedirectDTO {
  * single-page app can drive the flow with `fetch` and navigate itself. That is
  * `interactionResult()` rather than `interactionFinished()`.
  */
+/** The unwrapped Node request and response pair the provider works with. */
+type RawHttp = ReturnType<typeof toRawHttp>;
+
+/** What `interactionDetails` resolves to, without naming the provider's internals. */
+type InteractionDetails = Awaited<ReturnType<Provider['interactionDetails']>>;
+
+/**
+ * The error a frontend acts on by sending the user back through login.
+ *
+ * Carries the interaction id so the caller can stash it before navigating away and
+ * return to exactly this request afterwards, and the gate's reason so it can explain
+ * itself. Recoverable, unlike `OIDC_ACCESS_DENIED`.
+ *
+ * @param uid - The pending interaction id
+ * @param reason - Why the session gate refused
+ * @returns An exception the HTTP layer maps to 401
+ */
+function loginRequired(uid: string, reason: string): NAuthException {
+  return new NAuthException(
+    AuthErrorCode.OIDC_LOGIN_REQUIRED,
+    'A completed login is required to continue this authorization request',
+    { uid, reason },
+  );
+}
+
 export class OIDCInteractionBridge {
+  /**
+   * @param provider - The configured `oidc-provider` instance
+   * @param sessionGate - nauth's verdict on whether a request may be vouched for
+   * @param auditService - Optional. When supplied, every decision is written to nauth's
+   *   audit trail with the relying party's identity attached. Omitted when audit logs
+   *   are disabled, in which case nothing is recorded
+   */
   constructor(
     private readonly provider: Provider,
     private readonly sessionGate: IdpSessionGate,
+    private readonly auditService?: AuthAuditService,
   ) {}
 
   /**
@@ -56,10 +91,11 @@ export class OIDCInteractionBridge {
    * @param req - The framework request
    * @param res - The framework response
    * @returns What the interaction needs, and whether nauth considers the caller signed in
+   * @throws {NAuthException} `OIDC_INTERACTION_NOT_FOUND` when there is no such pending request
    */
   async getState(req: unknown, res: unknown): Promise<InteractionStateDTO> {
     const raw = toRawHttp(req, res);
-    const details = await this.provider.interactionDetails(raw.req, raw.res);
+    const details = await this.loadInteraction(raw);
     const client = await this.provider.Client.find(details.params.client_id as string);
 
     const gate = await this.sessionGate.evaluate();
@@ -104,33 +140,40 @@ export class OIDCInteractionBridge {
    * @param req - The framework request
    * @param res - The framework response
    * @returns Where to send the browser to resume the authorization request
-   * @throws {Error} When no completed nauth login stands behind the request
+   * @throws {NAuthException} `OIDC_INTERACTION_NOT_FOUND` when the request has expired,
+   *   or `OIDC_LOGIN_REQUIRED` when no completed nauth login stands behind it — the
+   *   latter carrying `uid` so the frontend can resume after logging in
    */
   async completeLogin(req: unknown, res: unknown): Promise<InteractionRedirectDTO> {
     const raw = toRawHttp(req, res);
+    // Loaded before the gate is consulted, so an expired interaction is reported as
+    // such rather than as a login problem, and so `uid` is available to the error the
+    // frontend has to act on.
+    const details = await this.loadInteraction(raw);
     const gate = await this.sessionGate.evaluate();
 
     if (gate.status === 'denied') {
-      return {
-        redirectTo: await this.provider.interactionResult(raw.req, raw.res, {
-          error: 'access_denied',
-          error_description: `Account unavailable (${gate.reason})`,
-        }),
-      };
+      this.audit(
+        AuthAuditEventType.OIDC_ACCESS_DENIED,
+        'FAILURE',
+        details,
+        { reason: gate.reason },
+        undefined,
+        gate.sub,
+      );
+      return this.resolve(raw, {
+        error: 'access_denied',
+        error_description: `Account unavailable (${gate.reason})`,
+      });
     }
 
     if (gate.status !== 'authenticated') {
-      throw new Error(`A completed login is required (${gate.reason})`);
+      throw loginRequired(details.uid, gate.reason);
     }
 
-    const redirectTo = await this.provider.interactionResult(
-      raw.req,
-      raw.res,
-      { login: { accountId: gate.user.sub, remember: true } },
-      { mergeWithLastSubmission: false },
-    );
+    this.audit(AuthAuditEventType.OIDC_LOGIN_COMPLETED, 'SUCCESS', details, {}, gate.user.id);
 
-    return { redirectTo };
+    return this.resolve(raw, { login: { accountId: gate.user.sub, remember: true } }, false);
   }
 
   /**
@@ -144,6 +187,8 @@ export class OIDCInteractionBridge {
    * @param res - The framework response
    * @param decision - Whether the user approved, and optionally a narrowed scope set
    * @returns Where to send the browser next
+   * @throws {NAuthException} `OIDC_INTERACTION_NOT_FOUND` when the request has expired,
+   *   or `OIDC_LOGIN_REQUIRED` when the session lapsed while the consent screen was open
    */
   async completeConsent(
     req: unknown,
@@ -151,20 +196,43 @@ export class OIDCInteractionBridge {
     decision: { approve: boolean; scopes?: string[] },
   ): Promise<InteractionRedirectDTO> {
     const raw = toRawHttp(req, res);
+    const details = await this.loadInteraction(raw);
 
     if (!decision.approve) {
-      return {
-        redirectTo: await this.provider.interactionResult(raw.req, raw.res, {
-          error: 'access_denied',
-          error_description: 'The user denied the request',
-        }),
-      };
+      this.audit(AuthAuditEventType.OIDC_CONSENT_DENIED, 'INFO', details);
+      return this.resolve(raw, {
+        error: 'access_denied',
+        error_description: 'The user denied the request',
+      });
     }
 
-    const details = await this.provider.interactionDetails(raw.req, raw.res);
+    // The gate runs here for the same reason it runs on login: a consent screen is
+    // somewhere users linger, and the session behind it can lapse — or the account be
+    // disabled — between the screen rendering and the button being pressed.
+    const gate = await this.sessionGate.evaluate();
+    if (gate.status === 'denied') {
+      this.audit(
+        AuthAuditEventType.OIDC_ACCESS_DENIED,
+        'FAILURE',
+        details,
+        { reason: gate.reason },
+        undefined,
+        gate.sub,
+      );
+      return this.resolve(raw, {
+        error: 'access_denied',
+        error_description: `Account unavailable (${gate.reason})`,
+      });
+    }
+    if (gate.status !== 'authenticated') {
+      throw loginRequired(details.uid, gate.reason);
+    }
+
     const accountId = details.session?.accountId;
     if (!accountId) {
-      throw new Error('Cannot record consent before a login has been established');
+      // The provider's own login record is gone even though nauth still has a session:
+      // the interaction has to be restarted from the login step.
+      throw loginRequired(details.uid, 'no_session');
     }
 
     const promptDetails = details.prompt.details as {
@@ -178,7 +246,11 @@ export class OIDCInteractionBridge {
       : new this.provider.Grant({ accountId, clientId: String(details.params.client_id) });
 
     if (!grant) {
-      throw new Error('The grant referenced by this interaction no longer exists');
+      throw new NAuthException(
+        AuthErrorCode.OIDC_INTERACTION_NOT_FOUND,
+        'The grant referenced by this authorization request no longer exists',
+        { uid: details.uid },
+      );
     }
 
     const granting = decision.scopes ?? promptDetails.missingOIDCScope ?? [];
@@ -194,14 +266,9 @@ export class OIDCInteractionBridge {
 
     const grantId = await grant.save();
 
-    return {
-      redirectTo: await this.provider.interactionResult(
-        raw.req,
-        raw.res,
-        { consent: { grantId } },
-        { mergeWithLastSubmission: Boolean(details.grantId) },
-      ),
-    };
+    this.audit(AuthAuditEventType.OIDC_CONSENT_GRANTED, 'SUCCESS', details, { grantedScopes: granting }, gate.user.id);
+
+    return this.resolve(raw, { consent: { grantId } }, Boolean(details.grantId));
   }
 
   /**
@@ -216,10 +283,116 @@ export class OIDCInteractionBridge {
    */
   async abort(req: unknown, res: unknown): Promise<InteractionRedirectDTO> {
     const raw = toRawHttp(req, res);
+    // Loaded first so that aborting an interaction which has already expired answers
+    // 404 like every other route here, rather than surfacing as a server fault.
+    await this.loadInteraction(raw);
+    return this.resolve(raw, {
+      error: 'access_denied',
+      error_description: 'End-user aborted the interaction',
+    });
+  }
+
+  /**
+   * Write one decision to nauth's audit trail, with the relying party attached.
+   *
+   * The ordinary `LOGIN_SUCCESS` recorded when the user typed their password cannot
+   * carry this: at that point the authorization request is still parked and nauth has
+   * no idea a third party is waiting. Here it does.
+   *
+   * Fire-and-forget, and never allowed to fail the flow — an audit backend being down
+   * must not stop a user signing in. Client info (IP, geolocation, device, user agent)
+   * is filled in automatically by the audit service, because these are ordinary nauth
+   * routes running inside the request context.
+   *
+   * @param eventType - Which decision this was
+   * @param eventStatus - How it turned out
+   * @param details - The interaction the decision belongs to
+   * @param metadata - Anything to record beyond the client and scopes
+   * @param userId - Internal user id, when the gate has already resolved one
+   * @param sub - External identifier, for a refusal where no internal id was resolved
+   */
+  private audit(
+    eventType: AuthAuditEventType,
+    eventStatus: 'SUCCESS' | 'FAILURE' | 'INFO',
+    details: InteractionDetails,
+    metadata: Record<string, unknown> = {},
+    userId?: number,
+    sub?: string,
+  ): void {
+    if (!this.auditService) {
+      return;
+    }
+
+    const clientId = details.params.client_id === undefined ? undefined : String(details.params.client_id);
+    // At the login step the provider has not recorded an account yet, so a refusal has
+    // to be attributed from the gate's own verdict instead.
+    const account = sub ?? details.session?.accountId;
+
+    // Without one of these the audit service cannot resolve a user, and would only log
+    // a warning per event.
+    if (userId === undefined && !account) {
+      return;
+    }
+
+    void this.auditService
+      .recordEvent({
+        ...(userId === undefined ? { sub: account } : { userId }),
+        eventType,
+        eventStatus,
+        authMethod: 'oidc',
+        metadata: {
+          clientId,
+          interactionUid: details.uid,
+          requestedScopes: String(details.params.scope ?? '')
+            .split(/\s+/)
+            .filter(Boolean),
+          ...metadata,
+        },
+      })
+      .catch(() => {
+        // Auditing must never break the authorization flow.
+      });
+  }
+
+  /**
+   * Read the pending interaction, or say plainly that there isn't one.
+   *
+   * `interactionDetails` throws `SessionNotFound` for an interaction that has expired,
+   * been resolved already, or never existed — all of which are a 404 to the caller, not
+   * a server fault.
+   *
+   * @param raw - The unwrapped Node request and response
+   * @returns The provider's view of the pending interaction
+   * @throws {NAuthException} `OIDC_INTERACTION_NOT_FOUND` when there is no such interaction
+   */
+  private async loadInteraction(raw: RawHttp): Promise<InteractionDetails> {
+    try {
+      return await this.provider.interactionDetails(raw.req, raw.res);
+    } catch (error) {
+      throw new NAuthException(
+        AuthErrorCode.OIDC_INTERACTION_NOT_FOUND,
+        'This authorization request has expired or was already completed',
+        { cause: error instanceof Error ? error.message : String(error) },
+      );
+    }
+  }
+
+  /**
+   * Resolve the interaction and report where the browser should go.
+   *
+   * @param raw - The unwrapped Node request and response
+   * @param result - What to resolve the interaction with
+   * @param mergeWithLastSubmission - Whether to merge into the previous submission
+   * @returns The provider's redirect target
+   */
+  private async resolve(
+    raw: RawHttp,
+    result: InteractionResults,
+    mergeWithLastSubmission = true,
+  ): Promise<InteractionRedirectDTO> {
     return {
-      redirectTo: await this.provider.interactionResult(raw.req, raw.res, {
-        error: 'access_denied',
-        error_description: 'End-user aborted the interaction',
+      redirectTo: await this.provider.interactionResult(raw.req, raw.res, result, {
+        mergeWithLastSubmission,
       }),
     };
   }

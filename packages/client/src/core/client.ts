@@ -45,6 +45,7 @@ import {
 import { ChallengeRouter } from './challenge-router';
 import { AdminOperations } from './admin-operations';
 import { ApiKeyOperations } from './api-key-operations';
+import { OIDCOperations } from './oidc-operations';
 
 const USER_KEY = 'nauth_user';
 const CHALLENGE_KEY = 'nauth_challenge_session';
@@ -135,6 +136,28 @@ export class NAuthClient {
   public readonly apiKeys: ApiKeyOperations;
 
   /**
+   * OpenID Connect interaction operations (consent screen, login step, abort).
+   *
+   * Only meaningful when this application *is* an OpenID Connect provider — one
+   * running `@nauth-toolkit/oidc-provider`. Calls the interaction routes the backend
+   * mounts (default base path `{baseUrl}/oidc/interaction`; override with
+   * `oidc.basePath`).
+   *
+   * @example
+   * ```typescript
+   * const state = await client.oidc.getInteraction(uid);
+   * if (state.gate === 'login_required') {
+   *   await client.oidc.setPendingInteraction(uid);
+   *   router.navigate(['/login']);
+   * } else {
+   *   const { redirectTo } = await client.oidc.approve(uid);
+   *   window.location.assign(redirectTo);
+   * }
+   * ```
+   */
+  public readonly oidc: OIDCOperations;
+
+  /**
    * Create a new client instance.
    *
    * @param userConfig - Client configuration
@@ -155,6 +178,11 @@ export class NAuthClient {
 
     // API key operations (endpoints default to `{baseUrl}/api-keys`)
     this.apiKeys = new ApiKeyOperations(this.config);
+
+    // OIDC interaction operations. The pending-interaction stash shares the ephemeral
+    // sessionStorage the OAuth state uses: it must survive a full-page navigation but
+    // must not outlive the tab.
+    this.oidc = new OIDCOperations(this.config, this.oauthStorage);
 
     if (hasWindow()) {
       window.addEventListener('storage', this.handleStorageEvent);

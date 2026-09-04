@@ -29,9 +29,9 @@ export interface NAuthOIDCClient {
   response_types?: 'code'[];
   /** How the client authenticates at the token endpoint. @default 'client_secret_basic' */
   token_endpoint_auth_method?: 'client_secret_basic' | 'client_secret_post' | 'none';
-  /** Logo shown on the consent screen. Must be https. */
+  /** Logo shown on the consent screen. An absolute http(s) URL. */
   logo_uri?: string;
-  /** Client home page, shown on the consent screen. Must be https. */
+  /** Client home page, shown on the consent screen. An absolute http(s) URL. */
   client_uri?: string;
   /** Post-logout redirect URIs for RP-initiated logout. */
   post_logout_redirect_uris?: string[];
@@ -56,7 +56,7 @@ export interface NAuthOIDCOptions {
    * paths are absolute, so any path on the issuer is silently discarded. Namespace
    * the endpoints with {@link NAuthOIDCOptions.pathPrefix} instead.
    *
-   * @example 'https://demo.nauth.dev'
+   * @example 'https://auth.example.com'
    */
   issuer: string;
 

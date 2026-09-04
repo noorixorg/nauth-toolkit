@@ -87,7 +87,13 @@ export default defineConfig({
       name: 'oidc',
       testMatch: /specs\/oidc\/.*\.spec\.ts/,
       use: {
-        baseURL: process.env.TEST_BASE_URL || 'http://localhost:3000',
+        // Must be the **issuer origin**, which is not necessarily the API base URL the
+        // other projects use: the provider is mounted at the origin root, and every
+        // registered redirect URI is built from the issuer. In a single-origin
+        // deployment (Caddy in front of both, or the dev proxy in examples/demo-angular)
+        // that is the frontend origin. TEST_OIDC_BASE_URL sets it without disturbing the
+        // cookies and json projects.
+        baseURL: process.env.TEST_OIDC_BASE_URL || process.env.TEST_BASE_URL || 'http://localhost:3000',
         extraHTTPHeaders: {
           Origin: process.env.TEST_FRONTEND_URL || 'http://localhost:4200',
         },

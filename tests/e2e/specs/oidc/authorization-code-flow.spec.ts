@@ -2,6 +2,7 @@ import { test, expect } from '../../fixtures';
 import {
   BRIDGE_PREFIX,
   DEMO_CLIENT,
+  LOGIN_PATH,
   OIDC_PREFIX,
   RP_CALLBACK_PATH,
   authorizeUrl,
@@ -46,7 +47,9 @@ const SEED_HINT = 'run `pnpm seed:oidc-e2e` against the dev database';
  * bearer-token mode. Run it alone with `npx playwright test --project oidc`.
  */
 test.describe('OIDC Provider: authorization code flow', () => {
-  const baseUrl = process.env.TEST_BASE_URL ?? 'http://localhost:3000';
+  // The issuer origin, matching the project's baseURL — every registered redirect URI
+  // is built from it, so a mismatch is refused before the flow starts.
+  const baseUrl = process.env.TEST_OIDC_BASE_URL ?? process.env.TEST_BASE_URL ?? 'http://localhost:3000';
   const redirectUri = `${baseUrl}${RP_CALLBACK_PATH}`;
 
   test.beforeAll(({}, testInfo) => {
@@ -139,8 +142,8 @@ test.describe('OIDC Provider: authorization code flow', () => {
       // A pre-seeded, fully verified account with no MFA. The signup and challenge
       // chain has its own suite; what matters here is that the OIDC flow inherits a
       // genuinely authenticated nauth session, so this keeps the setup deterministic.
-      const login = await api.post('/auth/login', {
-        data: { email: E2E_ACCOUNT.email, password: E2E_ACCOUNT.password },
+      const login = await api.post(LOGIN_PATH, {
+        data: { identifier: E2E_ACCOUNT.email, password: E2E_ACCOUNT.password },
       });
 
       expect(login.status(), `Seed the account first: ${SEED_HINT}`).toBe(200);
@@ -189,12 +192,6 @@ test.describe('OIDC Provider: authorization code flow', () => {
       flowState.oidcTokens = tokens;
     });
 
-    test('a replayed authorization code is rejected', async ({ api, flowState }) => {
-      const replay = await exchangeCode(api, flowState.oidcCode!, redirectUri, flowState.oidcVerifier!);
-      expect(replay.error).toBe('invalid_grant');
-      expect(replay.access_token).toBeUndefined();
-    });
-
     test('UserInfo releases only the claims the granted scopes allow', async ({ api, flowState }) => {
       const response = await api.get(`${OIDC_PREFIX}/me`, {
         headers: { authorization: `Bearer ${flowState.oidcTokens!.access_token}` },
@@ -203,7 +200,9 @@ test.describe('OIDC Provider: authorization code flow', () => {
 
       const claims = (await response.json()) as Record<string, unknown>;
       expect(claims.sub).toBe(decodeJwtClaims(flowState.oidcTokens!.id_token).sub);
-      expect(claims.email).toBe(flowState.userEmail.toLowerCase());
+      // The seeded account, not `flowState.userEmail` — that belongs to the signup flow
+      // the shared fixture generates, and this suite never runs it.
+      expect(claims.email).toBe(E2E_ACCOUNT.email.toLowerCase());
     });
 
     test('introspection reports the token as active, with its binding claims', async ({ api, flowState }) => {
@@ -234,15 +233,36 @@ test.describe('OIDC Provider: authorization code flow', () => {
       expect(result.scope).toBeUndefined();
     });
 
+    test('a replayed authorization code is rejected', async ({ api, flowState }) => {
+      // Deliberately last of the token tests. Code reuse is treated as a compromise:
+      // the provider revokes the entire grant, which takes the access and refresh
+      // tokens issued above with it. Running this earlier would leave every following
+      // assertion looking at credentials that were correctly destroyed.
+      const replay = await exchangeCode(api, flowState.oidcCode!, redirectUri, flowState.oidcVerifier!);
+      expect(replay.error).toBe('invalid_grant');
+      expect(replay.access_token).toBeUndefined();
+    });
+
     test('an already signed-in user is not asked to log in again', async ({ api }) => {
       const start = await api.get(authorizeUrl({ redirectUri, pkce: createPkce() }), { maxRedirects: 0 });
       expect(start.status()).toBe(303);
 
+      const location = new URL(String(start.headers()['location']));
+
+      if (location.pathname === RP_CALLBACK_PATH) {
+        // The strongest form of the property: the provider's session *and* a remembered
+        // grant carried the whole request through with no interaction at all.
+        expect(location.searchParams.get('code')).toBeTruthy();
+        return;
+      }
+
+      // Otherwise an interaction is parked — but it must be about consent, never about
+      // logging in again.
       const state = (await (
         await api.get(`${BRIDGE_PREFIX}/${interactionUidFrom(start)}`)
       ).json()) as InteractionState;
 
-      // The provider's own session is established, and nauth's gate agrees.
+      expect(state.prompt).not.toBe('login');
       expect(state.gate).toBe('authenticated');
       expect(state.sub).toBeTruthy();
     });

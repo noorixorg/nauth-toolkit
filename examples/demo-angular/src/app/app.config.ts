@@ -1,6 +1,5 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { ApplicationConfig, Injector, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { Router, provideRouter } from '@angular/router';
-import { PENDING_INTERACTION_KEY } from './oidc/interaction.component';
 import { provideAuth } from 'angular-auth-oidc-client';
 import { rpAuthConfig } from './rp/rp.config';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
@@ -46,9 +45,11 @@ const TOKEN_MODE: TokenMode = environment.tokenMode;
  * Note: Native mobile apps use socialVerify endpoint (not shown here)
  *
  * @param mode - Token delivery mode
+ * @param router - Angular router, used by the navigation handler
+ * @param injector - Resolves AuthService lazily; it depends on this very config
  * @returns Configured NAuthClientConfig
  */
-const buildNAuthConfig = (mode: TokenMode, router: Router): NAuthClientConfig => {
+const buildNAuthConfig = (mode: TokenMode, router: Router, injector: Injector): NAuthClientConfig => {
   const baseConfig = {
     baseUrl: environment.apiBaseUrl,
     authPathPrefix: '/auth',
@@ -78,8 +79,9 @@ const buildNAuthConfig = (mode: TokenMode, router: Router): NAuthClientConfig =>
      * the one place that can divert the *terminal* navigation without disturbing the
      * challenge steps in between.
      *
-     * A query parameter would not survive: the SDK builds challenge URLs itself and
-     * drops anything it does not recognise. `sessionStorage` rides through untouched.
+     * This demo also registers `oidcReturnGuard` on its post-login routes, because its
+     * own challenge components call `router.navigate()` themselves and so never reach
+     * this handler. An app that lets the SDK do all its navigating needs only this.
      */
     navigationHandler: (url: string): void => {
       if (url.startsWith('/auth/challenge')) {
@@ -87,14 +89,13 @@ const buildNAuthConfig = (mode: TokenMode, router: Router): NAuthClientConfig =>
         return;
       }
 
-      const pending = sessionStorage.getItem(PENDING_INTERACTION_KEY);
-      if (pending) {
-        sessionStorage.removeItem(PENDING_INTERACTION_KEY);
-        void router.navigateByUrl(`/interaction/${pending}`);
-        return;
-      }
-
-      void router.navigateByUrl(url);
+      void (async (): Promise<void> => {
+        // Resolved here rather than injected into the factory: AuthService is built
+        // *from* this config, so asking for it up front would be a cycle.
+        const oidc = injector.get(AuthService).oidc;
+        const pending = await oidc.takePendingInteraction();
+        void router.navigateByUrl(pending ? oidc.interactionRoute(pending) : url);
+      })();
     },
   };
 
@@ -206,8 +207,8 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     {
       provide: NAUTH_CLIENT_CONFIG,
-      useFactory: (router: Router) => buildNAuthConfig(TOKEN_MODE, router),
-      deps: [Router],
+      useFactory: (router: Router, injector: Injector) => buildNAuthConfig(TOKEN_MODE, router, injector),
+      deps: [Router, Injector],
     },
     AngularHttpAdapter,
     AuthService,

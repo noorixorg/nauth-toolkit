@@ -1,21 +1,42 @@
-import { DynamicModule, Module, Provider as NestProvider } from '@nestjs/common';
+import { DynamicModule, Module, Provider as NestProvider, Type } from '@nestjs/common';
 import type Provider from 'oidc-provider';
 import type { Repository } from 'typeorm';
 import type { BaseUser, StorageAdapter } from '@nauth-toolkit/core';
-import { IdpSessionGate } from '@nauth-toolkit/core/internal';
+import { AuthAuditService, IdpSessionGate } from '@nauth-toolkit/core/internal';
 import { createNAuthOIDCProvider } from '../src/create-provider';
 import { OIDCInteractionBridge } from '../src/interaction-bridge';
 import { OIDCSessionTerminator } from '../src/session-termination';
 import type { NAuthOIDCOptions } from '../src/config.types';
+import { NAUTH_OIDC_BRIDGE, NAUTH_OIDC_PROVIDER, NAUTH_OIDC_SESSIONS } from './tokens';
+import { createOIDCInteractionController, DEFAULT_INTERACTION_PATH } from './oidc-interaction.controller';
 
-/** Injection token for the configured `oidc-provider` instance. */
-export const NAUTH_OIDC_PROVIDER = 'NAUTH_OIDC_PROVIDER';
+export { NAUTH_OIDC_BRIDGE, NAUTH_OIDC_PROVIDER, NAUTH_OIDC_SESSIONS };
 
-/** Injection token for the interaction bridge. */
-export const NAUTH_OIDC_BRIDGE = 'NAUTH_OIDC_BRIDGE';
+/**
+ * How the module registers the interaction routes the consent screen talks to.
+ */
+export interface OIDCInteractionRouteOptions {
+  /**
+   * Register the shipped interaction controller.
+   *
+   * Turn this off to write your own — the bridge stays exported either way, so a
+   * hand-written controller only has to inject `NAUTH_OIDC_BRIDGE` and call it.
+   *
+   * @default true
+   */
+  enabled?: boolean;
 
-/** Injection token for the single-logout helper. */
-export const NAUTH_OIDC_SESSIONS = 'NAUTH_OIDC_SESSIONS';
+  /**
+   * Path the interaction routes are served under, relative to any global prefix.
+   *
+   * With Nest's `setGlobalPrefix('api')` the default lands the routes at
+   * `/api/oidc/interaction/:uid`. Whatever you choose here has to match the frontend
+   * SDK's `oidc.basePath`.
+   *
+   * @default 'oidc/interaction'
+   */
+  path?: string;
+}
 
 /**
  * Everything the module needs that is not already available from `AuthModule`.
@@ -23,7 +44,10 @@ export const NAUTH_OIDC_SESSIONS = 'NAUTH_OIDC_SESSIONS';
  * Storage and the user repository are resolved from `AuthModule`'s exports, so they
  * are deliberately absent here.
  */
-export type OIDCProviderModuleOptions = Omit<NAuthOIDCOptions, 'storage' | 'userRepository'>;
+export type OIDCProviderModuleOptions = Omit<NAuthOIDCOptions, 'storage' | 'userRepository'> & {
+  /** How the interaction routes are registered. */
+  interaction?: OIDCInteractionRouteOptions;
+};
 
 /**
  * Registers an OpenID Connect provider alongside `AuthModule`.
@@ -33,6 +57,10 @@ export type OIDCProviderModuleOptions = Omit<NAuthOIDCOptions, 'storage' | 'user
  * See `mountOIDCProviderNest`. What this module contributes is the configured
  * provider instance and the interaction bridge, both injectable into your own
  * controllers.
+ *
+ * The interaction routes the consent screen talks to *are* registered here, as an
+ * ordinary Nest controller at `oidc/interaction/:uid`. Set `interaction.enabled` to
+ * false to supply your own, or `interaction.path` to move them.
  *
  * @example
  * ```typescript
@@ -48,22 +76,26 @@ export class OIDCProviderModule {
   /**
    * Configure the provider.
    *
-   * @param options - Issuer, interaction URL, cookie keys and clients
+   * @param options - Issuer, interaction URL, cookie keys, clients and interaction routing
    * @returns A dynamic module exporting the provider and its interaction bridge
    */
   static forRoot(options: OIDCProviderModuleOptions): DynamicModule {
+    const { interaction, ...providerOptions } = options;
+
     const providerFactory: NestProvider = {
       provide: NAUTH_OIDC_PROVIDER,
       useFactory: async (storage: StorageAdapter, userRepository: Repository<BaseUser>): Promise<Provider> =>
-        createNAuthOIDCProvider({ ...options, storage, userRepository }),
+        createNAuthOIDCProvider({ ...providerOptions, storage, userRepository }),
       inject: ['STORAGE_ADAPTER', 'UserRepository'],
     };
 
     const bridgeFactory: NestProvider = {
       provide: NAUTH_OIDC_BRIDGE,
-      useFactory: (provider: Provider, gate: IdpSessionGate): OIDCInteractionBridge =>
-        new OIDCInteractionBridge(provider, gate),
-      inject: [NAUTH_OIDC_PROVIDER, IdpSessionGate],
+      useFactory: (provider: Provider, gate: IdpSessionGate, audit?: AuthAuditService): OIDCInteractionBridge =>
+        new OIDCInteractionBridge(provider, gate, audit),
+      // The audit service is optional: `AuthModule` only exports it when audit logs are
+      // enabled, and the bridge simply records nothing when it is absent.
+      inject: [NAUTH_OIDC_PROVIDER, IdpSessionGate, { token: AuthAuditService, optional: true }],
     };
 
     const terminatorFactory: NestProvider = {
@@ -72,8 +104,14 @@ export class OIDCProviderModule {
       inject: ['STORAGE_ADAPTER'],
     };
 
+    const controllers: Type<unknown>[] =
+      interaction?.enabled === false
+        ? []
+        : [createOIDCInteractionController(interaction?.path ?? DEFAULT_INTERACTION_PATH)];
+
     return {
       module: OIDCProviderModule,
+      controllers,
       providers: [providerFactory, bridgeFactory, terminatorFactory],
       exports: [NAUTH_OIDC_PROVIDER, NAUTH_OIDC_BRIDGE, NAUTH_OIDC_SESSIONS],
     };

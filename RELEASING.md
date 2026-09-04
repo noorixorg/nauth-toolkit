@@ -104,8 +104,13 @@ node scripts/publish.js latest --dry-run
 ## 4. Publish (bumps versions, builds, publishes all ~20 packages)
 
 ```bash
-node scripts/publish.js latest
+node scripts/publish.js latest            # patch bump (0.3.3 -> 0.3.4)
+node scripts/publish.js latest --minor    # minor bump (0.3.3 -> 0.4.0)
 ```
+
+Use `--minor` when the release adds public API — a new package, a new exported
+namespace, new enum members. The changelog heading must match the resulting version or
+the script refuses to publish.
 
 ## 5. Commit, tag, push
 

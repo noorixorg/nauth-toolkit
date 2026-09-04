@@ -15,7 +15,15 @@ import type { AddressInfo } from 'node:net';
 import { createHash, randomBytes } from 'node:crypto';
 import type Provider from 'oidc-provider';
 import type { Repository } from 'typeorm';
-import { MemoryStorageAdapter, type BaseUser, type NAuthConfig } from '@nauth-toolkit/core';
+import {
+  AuthAuditEventType,
+  MemoryStorageAdapter,
+  NAuthException,
+  getHttpStatusForErrorCode,
+  type BaseUser,
+  type NAuthConfig,
+} from '@nauth-toolkit/core';
+import type { AuthAuditService } from '@nauth-toolkit/core/internal';
 import { IdpSessionGate } from '@nauth-toolkit/core/internal';
 import { ContextStorage } from '@nauth-toolkit/core';
 import { createNAuthOIDCProvider } from './create-provider';
@@ -49,6 +57,10 @@ describe('OIDC provider flow', () => {
   let server: http.Server;
   let base: string;
   let signedIn: boolean;
+  let accountActive: boolean;
+
+  /** Everything the bridge wrote to the audit trail during a test. */
+  let auditLog: { eventType: AuthAuditEventType; metadata?: Record<string, unknown> | null }[];
 
   /** Cookie jar shared across the flow, standing in for the browser's. */
   let jar: Map<string, string>;
@@ -69,10 +81,11 @@ describe('OIDC provider flow', () => {
     await storage.initialize();
     jar = new Map();
     signedIn = true;
+    accountActive = true;
 
     const userRepository = {
       findOne: async ({ where }: { where: { sub?: string } }) =>
-        where.sub === user.sub ? user : null,
+        where.sub === user.sub ? ({ ...user, isActive: accountActive } as BaseUser) : null,
     } as unknown as Repository<BaseUser>;
 
     const config = { signup: { verificationMethod: 'none' } } as unknown as NAuthConfig;
@@ -106,7 +119,15 @@ describe('OIDC provider flow', () => {
       ],
     });
 
-    bridge = new OIDCInteractionBridge(provider, new IdpSessionGate(userRepository, config));
+    auditLog = [];
+    const auditService = {
+      recordEvent: async (event: { eventType: AuthAuditEventType; metadata?: Record<string, unknown> | null }) => {
+        auditLog.push(event);
+        return null;
+      },
+    } as unknown as AuthAuditService;
+
+    bridge = new OIDCInteractionBridge(provider, new IdpSessionGate(userRepository, config), auditService);
 
     const callback = provider.callback();
     server = http.createServer((req, res) => {
@@ -141,7 +162,14 @@ describe('OIDC provider flow', () => {
             res.writeHead(200, { 'content-type': 'application/json' });
             res.end(JSON.stringify(out));
           } catch (e) {
-            res.writeHead(400, { 'content-type': 'application/json' });
+            // Mirrors NAuthHttpExceptionFilter: a domain error must reach the frontend
+            // with a status it can act on, not as an opaque 500.
+            if (e instanceof NAuthException) {
+              res.writeHead(getHttpStatusForErrorCode(e.code), { 'content-type': 'application/json' });
+              res.end(JSON.stringify({ code: e.code, message: e.message, details: e.details }));
+              return;
+            }
+            res.writeHead(500, { 'content-type': 'application/json' });
             res.end(JSON.stringify({ error: (e as Error).message }));
           }
         });
@@ -163,7 +191,32 @@ describe('OIDC provider flow', () => {
   beforeEach(() => {
     jar = new Map();
     signedIn = true;
+    accountActive = true;
+    auditLog = [];
   });
+
+  /** The audit events of one type recorded so far. */
+  const auditedAs = (
+    eventType: AuthAuditEventType,
+  ): { eventType: AuthAuditEventType; metadata?: Record<string, unknown> | null }[] =>
+    auditLog.filter((event) => event.eventType === eventType);
+
+  /** Start an authorization request and return the interaction it parks. */
+  const startAuthorization = async (state: string, scope = 'openid'): Promise<string> => {
+    const q = new URLSearchParams({
+      client_id: 'partner',
+      response_type: 'code',
+      scope,
+      redirect_uri: REDIRECT_URI,
+      state,
+      code_challenge: createHash('sha256').update('v'.repeat(43)).digest('base64url'),
+      code_challenge_method: 'S256',
+    });
+
+    const r = await fetch(`${base}${PREFIX}/auth?${q}`, { redirect: 'manual', headers: headers() });
+    capture(r);
+    return (r.headers.get('location') ?? '').split('/').pop() as string;
+  };
 
   /** Drive authorize → login → consent → code, returning the authorization code. */
   const getCode = async (verifier: string, scope = 'openid email profile'): Promise<URL> => {
@@ -464,21 +517,9 @@ describe('OIDC provider flow', () => {
   describe('the nauth session gate', () => {
     it('tells the frontend a login is required when nobody is signed in', async () => {
       signedIn = false;
-      const q = new URLSearchParams({
-        client_id: 'partner',
-        response_type: 'code',
-        scope: 'openid',
-        redirect_uri: REDIRECT_URI,
-        state: 's',
-        code_challenge: createHash('sha256').update('v'.repeat(43)).digest('base64url'),
-        code_challenge_method: 'S256',
-      });
+      const uid = await startAuthorization('s');
 
-      let r = await fetch(`${base}${PREFIX}/auth?${q}`, { redirect: 'manual', headers: headers() });
-      capture(r);
-      const uid = (r.headers.get('location') ?? '').split('/').pop() as string;
-
-      r = await fetch(`${base}/bridge/${uid}/state`, { headers: headers() });
+      const r = await fetch(`${base}/bridge/${uid}/state`, { headers: headers() });
       const state = (await r.json()) as Record<string, unknown>;
 
       expect(state.prompt).toBe('login');
@@ -487,24 +528,155 @@ describe('OIDC provider flow', () => {
       expect(state.client).toMatchObject({ clientId: 'partner', clientName: 'Partner App' });
     });
 
-    it('refuses to complete a login with no nauth session', async () => {
+    it('refuses to complete a login with no nauth session, recoverably', async () => {
       signedIn = false;
-      const q = new URLSearchParams({
-        client_id: 'partner',
-        response_type: 'code',
-        scope: 'openid',
-        redirect_uri: REDIRECT_URI,
-        state: 's',
-        code_challenge: createHash('sha256').update('v'.repeat(43)).digest('base64url'),
-        code_challenge_method: 'S256',
-      });
-      let r = await fetch(`${base}${PREFIX}/auth?${q}`, { redirect: 'manual', headers: headers() });
-      capture(r);
-      const uid = (r.headers.get('location') ?? '').split('/').pop() as string;
+      const uid = await startAuthorization('s');
 
-      r = await fetch(`${base}/bridge/${uid}/login`, { method: 'POST', headers: headers() });
-      expect(r.status).toBe(400);
-      await expect(r.json()).resolves.toMatchObject({ error: expect.stringContaining('completed login') });
+      const r = await fetch(`${base}/bridge/${uid}/login`, { method: 'POST', headers: headers() });
+
+      // 401 with the interaction id, not a 500: the frontend has to be able to stash
+      // the request, send the user through login, and come back to it.
+      expect(r.status).toBe(401);
+      await expect(r.json()).resolves.toMatchObject({
+        code: 'OIDC_LOGIN_REQUIRED',
+        details: { uid, reason: 'no_session' },
+      });
+    });
+
+    it('reports an unknown interaction as not found rather than as a server fault', async () => {
+      const r = await fetch(`${base}/bridge/never-existed/state`, { headers: headers() });
+
+      expect(r.status).toBe(404);
+      await expect(r.json()).resolves.toMatchObject({ code: 'OIDC_INTERACTION_NOT_FOUND' });
+    });
+
+    it('answers the same way when an expired interaction is aborted', async () => {
+      // Every route here has to agree: a request that is no longer pending is a 404,
+      // never a 500. Abort resolves the interaction rather than reading it, so it is
+      // the one that could easily drift.
+      const r = await fetch(`${base}/bridge/never-existed/abort`, { method: 'POST', headers: headers() });
+
+      expect(r.status).toBe(404);
+      await expect(r.json()).resolves.toMatchObject({ code: 'OIDC_INTERACTION_NOT_FOUND' });
+    });
+
+    it('asks for a fresh login when the session lapses while the consent screen is open', async () => {
+      const uid = await startAuthorization('state-lapse', 'openid email');
+
+      let r = await fetch(`${base}/bridge/${uid}/login`, { method: 'POST', headers: headers() });
+      capture(r);
+      const { redirectTo } = (await r.json()) as { redirectTo: string };
+
+      r = await fetch(redirectTo, { redirect: 'manual', headers: headers() });
+      capture(r);
+      const consentUid = (r.headers.get('location') ?? '').split('/').pop() as string;
+
+      // The user reads the consent screen for longer than their session lasts.
+      signedIn = false;
+
+      r = await fetch(`${base}/bridge/${consentUid}/confirm`, { method: 'POST', headers: headers() });
+
+      expect(r.status).toBe(401);
+      await expect(r.json()).resolves.toMatchObject({
+        code: 'OIDC_LOGIN_REQUIRED',
+        details: { uid: consentUid },
+      });
+    });
+
+    it('returns access_denied to the client when the account is disabled mid-flow', async () => {
+      const uid = await startAuthorization('state-disabled', 'openid email');
+
+      let r = await fetch(`${base}/bridge/${uid}/login`, { method: 'POST', headers: headers() });
+      capture(r);
+      let { redirectTo } = (await r.json()) as { redirectTo: string };
+
+      r = await fetch(redirectTo, { redirect: 'manual', headers: headers() });
+      capture(r);
+      const consentUid = (r.headers.get('location') ?? '').split('/').pop() as string;
+
+      // An administrator disables the account while the consent screen is open. This is
+      // not recoverable by logging in again, so the relying party is told outright.
+      accountActive = false;
+
+      r = await fetch(`${base}/bridge/${consentUid}/confirm`, { method: 'POST', headers: headers() });
+      capture(r);
+      expect(r.status).toBe(200);
+      ({ redirectTo } = (await r.json()) as { redirectTo: string });
+
+      r = await fetch(redirectTo, { redirect: 'manual', headers: headers() });
+      const loc = new URL(r.headers.get('location') as string);
+      expect(loc.searchParams.get('error')).toBe('access_denied');
+      expect(loc.searchParams.get('code')).toBeNull();
+    });
+  });
+
+  describe('the audit trail', () => {
+    it('records which relying party a completed login was released to', async () => {
+      const verifier = randomBytes(32).toString('base64url');
+      await getCode(verifier, 'openid email');
+
+      const [completed] = auditedAs(AuthAuditEventType.OIDC_LOGIN_COMPLETED);
+      expect(completed).toBeDefined();
+      // The point of the event: the ordinary LOGIN_SUCCESS cannot say which third-party
+      // application the user was signed into, because at that moment nothing knew.
+      expect(completed.metadata).toMatchObject({
+        clientId: 'partner',
+        requestedScopes: ['openid', 'email'],
+      });
+      expect(completed.metadata?.interactionUid).toEqual(expect.any(String));
+    });
+
+    it('records the scopes the user actually granted', async () => {
+      const verifier = randomBytes(32).toString('base64url');
+      await getCode(verifier, 'openid email profile');
+
+      const [granted] = auditedAs(AuthAuditEventType.OIDC_CONSENT_GRANTED);
+      expect(granted).toBeDefined();
+      expect(granted.metadata).toMatchObject({ clientId: 'partner' });
+      expect(granted.metadata?.grantedScopes).toEqual(expect.arrayContaining(['openid', 'email']));
+    });
+
+    it('records a refusal', async () => {
+      const uid = await startAuthorization('state-audit-deny', 'openid email');
+
+      let r = await fetch(`${base}/bridge/${uid}/login`, { method: 'POST', headers: headers() });
+      capture(r);
+      const { redirectTo } = (await r.json()) as { redirectTo: string };
+
+      r = await fetch(redirectTo, { redirect: 'manual', headers: headers() });
+      capture(r);
+      const consentUid = (r.headers.get('location') ?? '').split('/').pop() as string;
+
+      r = await fetch(`${base}/bridge/${consentUid}/deny`, { method: 'POST', headers: headers() });
+      capture(r);
+
+      const [denied] = auditedAs(AuthAuditEventType.OIDC_CONSENT_DENIED);
+      expect(denied).toBeDefined();
+      expect(denied.metadata).toMatchObject({ clientId: 'partner' });
+    });
+
+    it('records an account that may not be vouched for', async () => {
+      const uid = await startAuthorization('state-audit-denied');
+      accountActive = false;
+
+      const r = await fetch(`${base}/bridge/${uid}/login`, { method: 'POST', headers: headers() });
+      capture(r);
+
+      const [denied] = auditedAs(AuthAuditEventType.OIDC_ACCESS_DENIED);
+      expect(denied).toBeDefined();
+      expect(denied.metadata).toMatchObject({ clientId: 'partner', reason: 'account_disabled' });
+    });
+
+    it('records nothing when a login is merely required', async () => {
+      signedIn = false;
+      const uid = await startAuthorization('state-audit-anon');
+
+      await fetch(`${base}/bridge/${uid}/state`, { headers: headers() });
+      await fetch(`${base}/bridge/${uid}/login`, { method: 'POST', headers: headers() });
+
+      // Nothing was decided and no user was resolved, so there is nothing to record —
+      // the user has simply not logged in yet.
+      expect(auditLog).toEqual([]);
     });
   });
 

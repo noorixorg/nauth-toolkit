@@ -1,7 +1,7 @@
 {
   "name": "@nauth-toolkit/client-angular",
   "version": "0.3.3",
-  "description": "Angular SDK for nauth-toolkit — services, guards, interceptors",
+  "description": "Angular SDK for nauth-toolkit \u2014 services, guards, interceptors",
   "keywords": [
     "nauth",
     "authentication",
@@ -22,7 +22,9 @@
   },
   "publishConfig": {
     "access": "public",
-    "tag": "latest"
+    "tag": "latest",
+    "directory": "dist",
+    "linkDirectory": true
   },
   "peerDependencies": {
     "@angular/common": ">=17.0.0",
@@ -41,6 +43,7 @@
     "@angular/platform-browser": "^17.3.12",
     "@angular/platform-browser-dynamic": "^17.3.12",
     "@angular/router": "^17.3.12",
+    "@nauth-toolkit/client": "workspace:*",
     "@types/jest": "^29.5.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",

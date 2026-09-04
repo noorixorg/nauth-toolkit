@@ -10,5 +10,5 @@
   },
   "include": ["src/**/*", "nestjs/**/*"],
   "exclude": ["node_modules", "dist", "**/*.spec.ts"],
-  "references": [{ "path": "../core" }]
+  "references": [{ "path": "../core" }, { "path": "../nestjs" }]
 }

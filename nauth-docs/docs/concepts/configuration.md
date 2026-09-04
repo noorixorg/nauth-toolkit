@@ -1177,6 +1177,24 @@ apiKeys: {
 | `ipRestrictions.requireForNewKeys` | `false` | Require an allowlist on every new key |
 | `ipRestrictions.maxIpsPerKey` | `20` | Max allowlist entries per key |
 
+## OpenID Connect Provider {#oidc-provider}
+
+The [OpenID Connect provider](/docs/guides/oauth-provider/how-oauth-provider-works) is **not** configured through `NAuthConfig`. It is a separate package with its own options object, passed to `OIDCProviderModule.forRoot()` alongside `AuthModule.forRoot()`:
+
+```typescript title="src/config/oidc.config.ts"
+import type { OIDCProviderModuleOptions } from '@nauth-toolkit/oidc-provider/nestjs';
+
+export const oidcConfig: OIDCProviderModuleOptions = {
+  issuer: 'https://auth.example.com',   // an origin, never a path
+  pathPrefix: '/oidc',
+  interactionUrl: (uid) => `https://auth.example.com/interaction/${uid}`,
+  cookieKeys: [process.env.OIDC_COOKIE_SECRET!],
+  clients: [/* ... */],
+};
+```
+
+It reuses your existing `StorageAdapter` and user repository, so there is nothing to add to `NAuthConfig` and no new tables. See [`NAuthOIDCOptions`](/docs/api/oidc-provider/create-provider#options) for the full reference.
+
 ## Complete Example
 
 Here's a production-ready configuration:
@@ -1342,3 +1360,4 @@ export const authConfig: NAuthModuleConfig = {
 - **[Challenge System](/docs/concepts/challenge-system)** - Understanding verification flows
 - **[Storage](/docs/concepts/storage)** - Database and transient storage
 - **[Error Handling](/docs/concepts/error-handling)** - Exception handling patterns
+- **[OIDC Provider](/docs/guides/oauth-provider/setup)** - Configuring the identity provider
