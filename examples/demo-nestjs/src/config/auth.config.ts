@@ -407,7 +407,10 @@ export const authConfig: NAuthModuleConfig = {
   lockout: { enabled: false, maxAttempts: 5, duration: 300, resetOnSuccess: true },
 
   recaptcha: {
-    enabled: false,
+    // Driven by env so one image can run with reCAPTCHA on or off. docker-compose
+    // passes RECAPTCHA_ENABLED; hardcoding false here silently ignored it and left a
+    // deployed demo unprotected while the frontend still fetched tokens.
+    enabled: process.env.RECAPTCHA_ENABLED === 'true',
     provider: new RecaptchaEnterpriseProvider({
       projectId: process.env.RECAPTCHA_ENTERPRISE_PROJECT_ID || '',
       apiKey: process.env.RECAPTCHA_ENTERPRISE_API_KEY!, // API key (AIza...), NOT site key
