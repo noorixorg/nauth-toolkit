@@ -289,7 +289,10 @@ async function main() {
           console.log(`  SKIP ${pkg.name} (already published)`);
           success++;
         } else {
+          // Print the reason. A partial publish that scrolls past as a bare "FAIL" is
+          // how a release ends up half on the registry.
           console.log(`  FAIL ${pkg.name}`);
+          if (errMsg.trim()) console.log(`       ${errMsg.trim().split('\n').slice(-3).join('\n       ')}`);
           failed++;
         }
       }
@@ -318,7 +321,14 @@ async function main() {
   console.log(
     `\nPublished: ${success}${failed > 0 ? ` | Failed: ${failed}` : ''} | Version: ${newVersion} | Tag: ${TAG}\n`,
   );
-  if (failed > 0) process.exit(1);
+  if (failed > 0) {
+    console.error(
+      `!!! ${failed} package(s) did NOT publish. The release is incomplete — do not tag, merge or\n` +
+        `!!! announce it. Re-run to retry only what is missing:\n` +
+        `!!!   node scripts/publish.js ${TAG} --skip-version-bump\n`,
+    );
+    process.exit(1);
+  }
 }
 
 main();

@@ -3,6 +3,10 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./",
+    // Keep the build cache out of dist/. rootDir is the package root here (both src/
+    // and nestjs/ are compiled), so tsc would otherwise drop a ~500 kB
+    // tsconfig.tsbuildinfo inside dist/ and `files: ["dist"]` would publish it.
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
     "composite": true,
     "declaration": true,
     "declarationMap": true,
