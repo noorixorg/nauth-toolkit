@@ -61,6 +61,45 @@ signup: {
 
 See [Configuration](/docs/concepts/configuration) for the full reference.
 
+## These routes ship with the toolkit
+
+Every endpoint in this guide is mounted for you. If you only need the standard behaviour, add a
+`routes` block and skip straight to [Frontend Integration](#frontend-integration):
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS" default>
+
+```typescript title="src/config/auth.config.ts"
+routes: [{ prefix: 'auth' }],
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript title="src/index.ts"
+const authRouter = express.Router();
+registerNAuthExpressRoutes(authRouter, nauth);
+app.use('/auth', authRouter);
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript title="src/index.ts"
+await fastify.register(
+  async (scope) => registerNAuthFastifyRoutes(scope, nauth),
+  { prefix: '/auth' },
+);
+```
+
+</TabItem>
+</Tabs>
+
+The sections below show each endpoint's request and response shape, and the hand-written form.
+You need the hand-written form only for routes you `exclude` in order to customise — the code is
+written for a file you create, not one the starters ship. Each section names the route key to
+exclude.
+
 ## How the Challenge System Works
 
 Before diving into routes, understand the pattern every auth endpoint follows. Instead of separate endpoints for each verification type, nauth-toolkit uses a **single challenge/response loop**:
@@ -98,12 +137,14 @@ This means you only need **one** challenge-handling endpoint for email verificat
 
 ## Signup
 
+Shipped as `signup`. To replace it with your own, `exclude: ['signup']` — see [Authentication Routes](/docs/guides/routes#by-key).
+
 Creates a new user account. With `verificationMethod: 'email'`, the response always contains a `VERIFY_EMAIL` challenge instead of tokens.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS" default>
 
-```typescript title="src/auth/auth.controller.ts"
+```typescript title="src/auth/auth.controller.ts (your own file)"
 import { Controller, Post, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService, SignupDTO, AuthResponseDTO, AuthGuard, Public } from '@nauth-toolkit/nestjs';
 
@@ -126,7 +167,7 @@ export class AuthController {
 </TabItem>
 <TabItem value="express" label="Express">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
 import { NAuthInstance, ExpressMiddlewareType } from '@nauth-toolkit/core';
 
@@ -151,7 +192,7 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 import { FastifyInstance } from 'fastify';
 import { NAuthInstance } from '@nauth-toolkit/core';
 
@@ -204,12 +245,14 @@ The `session` token is short-lived and scoped to this verification flow. Store i
 
 ## Respond to Challenge
 
+Shipped as `respondChallenge`. To replace it with your own, `exclude: ['respondChallenge']` — see [Authentication Routes](/docs/guides/routes#by-key).
+
 This is the **single unified endpoint** that handles all challenge types. The `type` field tells nauth-toolkit what you're responding to.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS" default>
 
-```typescript title="src/auth/auth.controller.ts"
+```typescript title="src/auth/auth.controller.ts (your own file)"
 import { RespondChallengeDTO } from '@nauth-toolkit/nestjs';
 
 // Inside AuthController class:
@@ -225,7 +268,7 @@ async respondToChallenge(@Body() dto: RespondChallengeDTO): Promise<AuthResponse
 </TabItem>
 <TabItem value="express" label="Express">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 router.post('/respond-challenge', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.json(await authService.respondToChallenge(req.body));
@@ -238,7 +281,7 @@ router.post('/respond-challenge', nauth.helpers.public(), async (req: Request, r
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 fastify.post(
   '/respond-challenge',
   { preHandler: nauth.helpers.public() as any },
@@ -336,12 +379,14 @@ After submitting the phone number, the backend sends an SMS and returns the same
 
 ## Resend Code
 
+Shipped as `resendCode`. To replace it with your own, `exclude: ['resendCode']` — see [Authentication Routes](/docs/guides/routes#by-key).
+
 Users may not receive the verification email in time, or the code may expire. This endpoint resends the code for the current challenge session.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS" default>
 
-```typescript title="src/auth/auth.controller.ts"
+```typescript title="src/auth/auth.controller.ts (your own file)"
 import { ResendCodeDTO, ResendCodeResponseDTO } from '@nauth-toolkit/nestjs';
 
 // Inside AuthController class:
@@ -357,7 +402,7 @@ async resendCode(@Body() dto: ResendCodeDTO): Promise<ResendCodeResponseDTO> {
 </TabItem>
 <TabItem value="express" label="Express">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 router.post('/challenge/resend', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.json(await authService.resendCode(req.body));
@@ -370,7 +415,7 @@ router.post('/challenge/resend', nauth.helpers.public(), async (req: Request, re
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 fastify.post(
   '/challenge/resend',
   { preHandler: nauth.helpers.public() as any },
@@ -405,12 +450,14 @@ Resend is rate-limited by `signup.emailVerification.resendDelay` (default: 60 se
 
 ## Login
 
+Shipped as `login`. To replace it with your own, `exclude: ['login']` — see [Authentication Routes](/docs/guides/routes#by-key).
+
 Authenticates a user with identifier (email, username, or phone) and password. Returns tokens directly, or a challenge if email verification is pending or MFA is required.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS" default>
 
-```typescript title="src/auth/auth.controller.ts"
+```typescript title="src/auth/auth.controller.ts (your own file)"
 import { LoginDTO } from '@nauth-toolkit/nestjs';
 
 // Inside AuthController class:
@@ -426,7 +473,7 @@ async login(@Body() dto: LoginDTO): Promise<AuthResponseDTO> {
 </TabItem>
 <TabItem value="express" label="Express">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 router.post('/login', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
   try {
     res.json(await authService.login(req.body));
@@ -439,7 +486,7 @@ router.post('/login', nauth.helpers.public(), async (req: Request, res: Response
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 fastify.post(
   '/login',
   { preHandler: nauth.helpers.public() as any },
@@ -481,12 +528,14 @@ If `lockout.enabled: true`, failed login attempts from the same IP are tracked. 
 
 ## Refresh Token
 
+Shipped as `refresh`. To replace it with your own, `exclude: ['refresh']` — see [Authentication Routes](/docs/guides/routes#by-key).
+
 Issues a new access token using a valid refresh token. The refresh token itself is rotated on every use (a new refresh token is returned). Old refresh tokens are invalidated.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS" default>
 
-```typescript title="src/auth/auth.controller.ts"
+```typescript title="src/auth/auth.controller.ts (your own file)"
 import { Req } from '@nestjs/common';
 import { RefreshTokenDTO, TokenResponse } from '@nauth-toolkit/nestjs';
 import type { Request } from 'express';
@@ -506,7 +555,7 @@ async refresh(@Body() dto: RefreshTokenDTO, @Req() req: Request): Promise<TokenR
 </TabItem>
 <TabItem value="express" label="Express">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 router.post('/refresh', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
   try {
     // Cookies mode: fall back to cookie if body token is absent or empty
@@ -521,7 +570,7 @@ router.post('/refresh', nauth.helpers.public(), async (req: Request, res: Respon
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 fastify.post(
   '/refresh',
   { preHandler: nauth.helpers.public() as any },
@@ -562,12 +611,14 @@ If `jwt.refreshToken.reuseDetection: true` (recommended), using an already-rotat
 
 ## Logout
 
+Shipped as `logout`. To replace it with your own, `exclude: ['logout']` — see [Authentication Routes](/docs/guides/routes#by-key).
+
 Ends the current session and clears authentication cookies. Uses GET to avoid CSRF issues for session destruction.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS" default>
 
-```typescript title="src/auth/auth.controller.ts"
+```typescript title="src/auth/auth.controller.ts (your own file)"
 import { Get, Query } from '@nestjs/common';
 import { LogoutDTO, LogoutResponseDTO } from '@nauth-toolkit/nestjs';
 
@@ -583,7 +634,7 @@ async logout(@Query() dto: LogoutDTO): Promise<LogoutResponseDTO> {
 </TabItem>
 <TabItem value="express" label="Express">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 // csrf: false — GET requests don't need CSRF protection
 router.get(
   '/logout',
@@ -601,7 +652,7 @@ router.get(
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 fastify.get(
   '/logout',
   { preHandler: nauth.helpers.requireAuth({ csrf: false }) as any },
@@ -642,6 +693,8 @@ The `sub` (user ID) is extracted automatically from the JWT in the request. You 
 
 ## Forgot Password
 
+Shipped as `forgotPassword`. To replace it with your own, `exclude: ['forgotPassword']` — see [Authentication Routes](/docs/guides/routes#by-key).
+
 Two-step password reset flow: request a code, then confirm with the code and new password.
 
 ### Step 1: Request reset code
@@ -649,7 +702,7 @@ Two-step password reset flow: request a code, then confirm with the code and new
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS" default>
 
-```typescript title="src/auth/auth.controller.ts"
+```typescript title="src/auth/auth.controller.ts (your own file)"
 import { ForgotPasswordDTO, ForgotPasswordResponseDTO } from '@nauth-toolkit/nestjs';
 
 // Inside AuthController class:
@@ -667,7 +720,7 @@ async forgotPassword(@Body() dto: ForgotPasswordDTO): Promise<ForgotPasswordResp
 </TabItem>
 <TabItem value="express" label="Express">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 router.post('/forgot-password', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
   try {
     // baseUrl used by toolkit to construct the reset link in the email
@@ -681,7 +734,7 @@ router.post('/forgot-password', nauth.helpers.public(), async (req: Request, res
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 fastify.post(
   '/forgot-password',
   { preHandler: nauth.helpers.public() as any },
@@ -725,7 +778,7 @@ The response is always the same regardless of whether the account exists. This p
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS" default>
 
-```typescript title="src/auth/auth.controller.ts"
+```typescript title="src/auth/auth.controller.ts (your own file)"
 import { ConfirmForgotPasswordDTO, ConfirmForgotPasswordResponseDTO } from '@nauth-toolkit/nestjs';
 
 // Inside AuthController class:
@@ -741,7 +794,7 @@ async confirmForgotPassword(@Body() dto: ConfirmForgotPasswordDTO): Promise<Conf
 </TabItem>
 <TabItem value="express" label="Express">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 router.post(
   '/forgot-password/confirm',
   nauth.helpers.public(),
@@ -758,7 +811,7 @@ router.post(
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 fastify.post(
   '/forgot-password/confirm',
   { preHandler: nauth.helpers.public() as any },
@@ -785,12 +838,14 @@ The new password is validated against your [`password`](/docs/concepts/configura
 
 ## Change Password
 
+Shipped as `changePassword`. To replace it with your own, `exclude: ['changePassword']` — see [Authentication Routes](/docs/guides/routes#by-key).
+
 Allows an authenticated user to change their current password. Requires the old password for verification.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS" default>
 
-```typescript title="src/auth/auth.controller.ts"
+```typescript title="src/auth/auth.controller.ts (your own file)"
 import { ChangePasswordDTO, ChangePasswordResponseDTO } from '@nauth-toolkit/nestjs';
 
 // Inside AuthController class (no @Public — requires valid JWT):
@@ -805,7 +860,7 @@ async changePassword(@Body() dto: ChangePasswordDTO): Promise<ChangePasswordResp
 </TabItem>
 <TabItem value="express" label="Express">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 router.post(
   '/change-password',
   nauth.helpers.requireAuth(),
@@ -822,7 +877,7 @@ router.post(
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 fastify.post(
   '/change-password',
   { preHandler: nauth.helpers.requireAuth() as any },
@@ -848,12 +903,14 @@ If `password.historyCount` is configured (e.g., `5`), the new password cannot ma
 
 ## Get Profile
 
+Shipped as `profile`. To replace it with your own, `exclude: ['profile']` — see [Authentication Routes](/docs/guides/routes#by-key).
+
 Returns the authenticated user's profile.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS" default>
 
-```typescript title="src/auth/auth.controller.ts"
+```typescript title="src/auth/auth.controller.ts (your own file)"
 import { CurrentUser, IUser, UserResponseDTO } from '@nauth-toolkit/nestjs';
 
 // Inside AuthController class (no @Public — requires valid JWT):
@@ -869,7 +926,7 @@ async getProfile(@CurrentUser() user: IUser): Promise<UserResponseDTO> {
 </TabItem>
 <TabItem value="express" label="Express">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 import { IUser, UserResponseDTO } from '@nauth-toolkit/core';
 
 router.get('/profile', nauth.helpers.requireAuth(), (_req: Request, res: Response, next: NextFunction) => {
@@ -885,7 +942,7 @@ router.get('/profile', nauth.helpers.requireAuth(), (_req: Request, res: Respons
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
-```typescript title="src/routes/auth.routes.ts"
+```typescript title="src/routes/auth.routes.ts (your own file)"
 fastify.get(
   '/profile',
   { preHandler: nauth.helpers.requireAuth() as any },
@@ -1036,7 +1093,7 @@ For reference, here is the complete NestJS controller with all basic auth routes
 <details>
 <summary>Full auth.controller.ts</summary>
 
-```typescript title="src/auth/auth.controller.ts"
+```typescript title="src/auth/auth.controller.ts (your own file)"
 import {
   Controller,
   Post,

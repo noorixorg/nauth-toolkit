@@ -29,6 +29,7 @@
 
 import { DataSource } from 'typeorm';
 import { NAuthConfig } from './interfaces/config.interface';
+import { IAuthorizationProvider } from './interfaces/authorization-provider.interface';
 import { NAuthLogger } from './utils/nauth-logger';
 import { NAuthException } from './exceptions/nauth.exception';
 import { AuthErrorCode } from './enums/error-codes.enum';
@@ -78,6 +79,32 @@ export interface NAuthOptions {
    * @default ExpressAdapter
    */
   adapter?: NAuthAdapter;
+
+  /**
+   * Decides whether privileged operations may proceed.
+   *
+   * The toolkit authenticates but defines no role model, so administrative operations
+   * delegate the decision here. Omit it and `AdminAuthService` behaves exactly as in
+   * every previous release — it trusts its caller.
+   *
+   * Supply one and every privileged method consults it, however it was reached: a
+   * shipped route, a hand-written controller, or a script. Work with no authenticated
+   * caller must be wrapped in `runAsSystem()`, which bypasses the provider explicitly.
+   *
+   * @example
+   * ```typescript
+   * const nauth = await NAuth.create({
+   *   config, dataSource,
+   *   authorization: {
+   *     // Look authority up in your own store. Never in `user.metadata` — that column
+   *     // is caller-writable through signup and the self-service profile update.
+   *     authorize: async ({ actor }) =>
+   *       ({ allow: Boolean(actor) && (await roles.isAdmin(actor.sub)), reason: 'Requires the admin role' }),
+   *   },
+   * });
+   * ```
+   */
+  authorization?: IAuthorizationProvider;
 }
 
 /**
@@ -201,7 +228,15 @@ export class NAuth {
     // ========================================================================
     const emailProvider = config.emailProvider;
     const smsProvider = config.smsProvider;
-    const services: NAuthServices = initServices(config, repos, storage, logger, emailProvider, smsProvider);
+    const services: NAuthServices = initServices(
+      config,
+      repos,
+      storage,
+      logger,
+      emailProvider,
+      smsProvider,
+      options.authorization,
+    );
 
     // ========================================================================
     // 3. Initialize Auth Flow State Machine

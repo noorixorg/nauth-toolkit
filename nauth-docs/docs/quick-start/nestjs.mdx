@@ -66,7 +66,7 @@ These are installed automatically by npm, pnpm, bun, and Yarn 2+. Only Yarn 1.x 
 **Optional (for specific features):**
 
 - `qrcode` (^1.5.3) — MFA TOTP QR code generation
-- `@simplewebauthn/server` (^10.0.0) — MFA Passkey/WebAuthn
+- `@simplewebauthn/server` (^13.2.2) — MFA Passkey/WebAuthn
 - `redis` (^4.6.0 || ^5.0.0) — Redis storage adapter
 - `@maxmind/geoip2-node` (^4.0.0 || ^5.0.0 || ^6.0.0) — IP geolocation
 
@@ -77,6 +77,7 @@ These are installed automatically by npm, pnpm, bun, and Yarn 2+. Only Yarn 1.x 
 Create the auth configuration file:
 
 ```typescript title="src/config/auth.config.ts"
+import { Logger } from '@nestjs/common';
 import { NAuthModuleConfig, createDatabaseStorageAdapter } from '@nauth-toolkit/nestjs';
 import { ConsoleEmailProvider } from '@nauth-toolkit/email-console';
 import { ConsoleSMSProvider } from '@nauth-toolkit/sms-console';
@@ -85,7 +86,7 @@ export const authConfig: NAuthModuleConfig = {
   jwt: {
     algorithm: 'HS256',
     accessToken: {
-      secret: process.env.JWT_SECRET!,
+      secret: process.env.JWT_SECRET as string,
       expiresIn: '15m',
     },
     refreshToken: {
@@ -166,7 +167,6 @@ import { AuthModule } from '@nauth-toolkit/nestjs';
 import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
 // For MySQL: import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-mysql';
 import { authConfig } from './config/auth.config';
-import { AuthController } from './auth/auth.controller';
 
 @Module({
   imports: [
@@ -180,35 +180,69 @@ import { AuthController } from './auth/auth.controller';
       // Storage entities are required when using DatabaseStorageAdapter.
       // If you use RedisStorageAdapter instead, you can omit getNAuthTransientStorageEntities().
       entities: [...getNAuthEntities(), ...getNAuthTransientStorageEntities()],
-      synchronize: false, // nauth runs its own migration on startup
+      synchronize: false, // nauth-toolkit runs its own migrations on startup
     }),
     AuthModule.forRoot(authConfig),
   ],
-  controllers: [AuthController],
 })
 export class AppModule {}
 ```
 
 ---
 
-## Auth Controller
+## Auth Routes
 
-Apply [`AuthGuard`](/docs/api/nestjs/guards/auth-guard) at the class level so all routes are protected by default. Use [`@Public()`](/docs/api/nestjs/decorators/public) to opt out on routes that don't require authentication.
+Add a `routes` block to your config. `AuthModule.forRoot()` mounts every shipped endpoint —
+sign-up, sign-in, refresh, challenges, profile, MFA, social linking, sessions and device trust —
+so there is no controller to write.
+
+```typescript title="src/config/auth.config.ts"
+export const authConfig: NAuthModuleConfig = {
+  // ...jwt, providers, and the rest of the Configuration section
+  routes: [{ prefix: 'auth' }],
+};
+```
+
+That serves the paths the [frontend SDK](/docs/frontend-sdk/overview) expects by default, so no
+endpoint overrides are needed on the client.
+
+### Two ways to get routes
+
+Mounting is optional. Everything the toolkit does is available either way — the shipped routes
+are thin wrappers over the same services you would call yourself.
+
+| | Mount them | Write them |
+| --- | --- | --- |
+| Setup | `routes: [{ prefix: 'auth' }]` | Omit `routes`, declare controllers |
+| Endpoints | Every shipped route for the features you enabled | Only the ones you write |
+| Customising | `exclude` a key, write that one | Full control everywhere |
+| Keeping up | New endpoints arrive with upgrades | You add them yourself |
+
+<Tabs groupId="routes-approach">
+<TabItem value="mount" label="Mount them" default>
+
+The `routes` block above is all there is. `AuthModule.forRoot()` registers the controllers.
+
+</TabItem>
+<TabItem value="write" label="Write your own">
+
+Leave `routes` out of the config entirely — no endpoints are registered — and declare a
+controller. Apply [`AuthGuard`](/docs/api/nestjs/guards/auth-guard) at class level so routes are
+protected by default, and [`@Public()`](/docs/api/nestjs/decorators/public) to opt out.
 
 ```typescript title="src/auth/auth.controller.ts"
-import { Controller, Post, Get, Body, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import {
   AuthService,
   SignupDTO,
   LoginDTO,
-  LogoutDTO,
-  LogoutResponseDTO,
+  AuthResponseDTO,
   UserResponseDTO,
   AuthGuard,
   CurrentUser,
   Public,
+  IUser,
 } from '@nauth-toolkit/nestjs';
-import type { AuthResponseDTO, IUser } from '@nauth-toolkit/nestjs';
 
 @UseGuards(AuthGuard)
 @Controller('auth')
@@ -219,20 +253,14 @@ export class AuthController {
   @Post('signup')
   @HttpCode(HttpStatus.CREATED)
   async signup(@Body() dto: SignupDTO): Promise<AuthResponseDTO> {
-    return await this.authService.signup(dto);
+    return this.authService.signup(dto);
   }
 
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDTO): Promise<AuthResponseDTO> {
-    return await this.authService.login(dto);
-  }
-
-  @Get('logout')
-  @HttpCode(HttpStatus.OK)
-  async logout(@Query() dto: LogoutDTO): Promise<LogoutResponseDTO> {
-    return await this.authService.logout(dto);
+    return this.authService.login(dto);
   }
 
   @Get('profile')
@@ -241,6 +269,76 @@ export class AuthController {
   }
 }
 ```
+
+```typescript title="src/app.module.ts"
+@Module({
+  imports: [/* ... */ AuthModule.forRoot(authConfig)],
+  controllers: [AuthController],
+})
+export class AppModule {}
+```
+
+[Basic Auth Flows](/docs/guides/basic-auth) covers every endpoint in this form — request shapes,
+responses and the challenge loop.
+
+</TabItem>
+</Tabs>
+
+### Serving web and mobile from one backend
+
+`groups` selects which bundles to mount — [Route Groups](/docs/api/core/routes/groups) lists what each one contains.
+
+Mount the same routes twice, differing only in how tokens travel. This needs
+`tokenDelivery.method: 'hybrid'`; the toolkit refuses at startup otherwise.
+
+```typescript title="src/config/auth.config.ts"
+tokenDelivery: { method: 'hybrid' },
+routes: [
+  // Web: httpOnly cookies, CSRF.
+  { prefix: 'auth', delivery: 'cookies' },
+  // Native and mobile clients: tokens in the response body, no CSRF.
+  { prefix: 'mobile/auth', delivery: 'json', groups: ['core', 'profile', 'mfa', 'social', 'device'] },
+],
+```
+
+### Customising one route
+
+Exclude its key and write only that route. Everything else stays mounted.
+
+```typescript title="src/config/auth.config.ts"
+routes: [{ prefix: 'auth', exclude: ['login'] }],
+```
+
+```typescript title="src/auth/login.controller.ts"
+import { Controller, Post, Body, HttpCode } from '@nestjs/common';
+import { AuthService, LoginDTO, AuthResponseDTO, Public } from '@nauth-toolkit/nestjs';
+
+@Controller('auth')
+export class LoginController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @Post('login')
+  @HttpCode(200)
+  async login(@Body() dto: LoginDTO): Promise<AuthResponseDTO> {
+    // your own logic here, then delegate
+    return this.authService.login(dto);
+  }
+}
+```
+
+Register it in `controllers` as usual. An unknown key in `exclude` throws at startup, so a typo
+cannot silently leave the shipped route in place.
+
+:::note[Administrative routes are opt-in]
+The `admin` group is never mounted by default, and mounting it requires an authorization
+provider — the toolkit ships no role model. See [Authorization](/docs/concepts/authorization).
+:::
+
+:::warning[Keep the exception filter]
+`NAuthHttpExceptionFilter` from the Bootstrap step maps toolkit errors to their HTTP status
+codes. Without it, validation failures on the mounted routes surface as `500` instead of `400`.
+:::
 
 ---
 
@@ -338,7 +436,7 @@ Now connect a frontend to this backend:
 
 ## What's Next
 
-- [NestJS Sample App](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/demo-nestjs) — Full working example with hooks, email templates, Google OAuth, and TOTP MFA
+- [NestJS Starter App](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-nestjs) — The code this guide is based on, with hooks, custom email templates, Google OAuth, and MFA
 - [Configuration](/docs/concepts/configuration) — Full configuration reference with all available options
 - [Challenge System](/docs/concepts/challenge-system) — Understand multi-step authentication flows (MFA, verification)
 - [Authentication Routes](/docs/guides/routes) — Complete route implementations for all auth flows

@@ -489,6 +489,7 @@ export const mfaConfigSchema = z.object({
 
 export const tokenDeliveryConfigSchema = z.object({
   method: z.enum(['json', 'cookies', 'hybrid']).optional(),
+  strictOverrides: z.boolean().optional(), // Throw (rather than warn) on a route override that contradicts `method`
   cookieNamePrefix: z.string().optional(), // Prefix for all cookie names (default: 'nauth_')
   cookieOptions: z
     .object({

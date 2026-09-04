@@ -52,7 +52,7 @@ export const authConfig: NAuthConfig = {
   // DatabaseStorageAdapter stores transient state (rate limits, sessions, locks)
   // in the same PostgreSQL database — no Redis required.
   // NAuth.create() injects the DataSource repositories automatically.
-  // For multi-server production deployments, use createRedisStorageAdapter() instead.
+  // For multi-server production deployments, use RedisStorageAdapter from @nauth-toolkit/storage-redis instead.
   storageAdapter: new DatabaseStorageAdapter(null, null),
 
   jwt: {
@@ -68,7 +68,13 @@ export const authConfig: NAuthConfig = {
     },
   },
   logger: {
-    instance: new Logger('NAuth'),
+    instance: {
+      log: (msg: string) => console.log(`[NAuth] ${msg}`),
+      error: (msg: string, trace?: string) => console.error(`[NAuth ERROR] ${msg}`, trace || ''),
+      warn: (msg: string) => console.warn(`[NAuth WARN] ${msg}`),
+      debug: (msg: string) => console.debug(`[NAuth DEBUG] ${msg}`),
+      verbose: (msg: string) => console.log(`[NAuth VERBOSE] ${msg}`),
+    },
     enablePiiRedaction: true, // Redact emails, IPs, tokens
   },
 
@@ -121,13 +127,10 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { DataSource } from 'typeorm';
-import { NAuth, ExpressAdapter, ExpressMiddlewareType, NAuthInstance } from '@nauth-toolkit/core';
+import { NAuth, ExpressAdapter, ExpressMiddlewareType, registerNAuthExpressRoutes } from '@nauth-toolkit/core';
 import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
 import { authConfig } from './config/auth.config';
-import { createAuthRoutes } from './routes/auth.routes';
 import { errorHandler } from './utils/error-handler';
-
-type TypedNAuth = NAuthInstance<ExpressMiddlewareType, express.RequestHandler>;
 
 async function main(): Promise<void> {
   // ── Database ──────────────────────────────────────────────────────────────────
@@ -186,7 +189,9 @@ async function main(): Promise<void> {
 
   // ── Routes ────────────────────────────────────────────────────────────────────
 
-  app.use('/auth', createAuthRoutes(nauth as TypedNAuth));
+  const authRouter = express.Router();
+  registerNAuthExpressRoutes(authRouter, nauth);
+  app.use('/auth', authRouter);
 
   // ── Error Handler (MUST BE LAST) ──────────────────────────────────────────────
   app.use(errorHandler);
@@ -209,17 +214,53 @@ main().catch((error) => {
 
 ## Auth Routes
 
-Use `nauth.helpers.public()` to mark routes that don't require authentication, and `nauth.helpers.requireAuth()` to enforce it. Call `nauth.helpers.getCurrentUser()` inside protected handlers to retrieve the validated user from the request context — no need to parse tokens manually.
+The `registerNAuthExpressRoutes()` call in the Bootstrap step registers every shipped endpoint
+on a router you own — sign-up, sign-in, refresh, challenges, profile, MFA, social linking,
+sessions and device trust. There is no routes file to write.
+
+The router is mounted by you, so the paths land wherever you `app.use()` it. These match the
+paths the [frontend SDK](/docs/frontend-sdk/overview) expects by default.
+
+### Two ways to get routes
+
+Mounting is optional. Everything the toolkit does is available either way — the shipped routes
+are thin wrappers over the same services you would call yourself.
+
+| | Mount them | Write them |
+| --- | --- | --- |
+| Setup | One `registerNAuthExpressRoutes()` call | A routes file you own |
+| Endpoints | Every shipped route for the features you enabled | Only the ones you write |
+| Customising | `exclude` a key, write that one | Full control everywhere |
+| Keeping up | New endpoints arrive with upgrades | You add them yourself |
+
+<Tabs groupId="routes-approach">
+<TabItem value="mount" label="Mount them" default>
+
+The three lines in the Bootstrap step are all there is:
+
+```typescript title="src/index.ts"
+const authRouter = express.Router();
+registerNAuthExpressRoutes(authRouter, nauth);
+app.use('/auth', authRouter);
+```
+
+</TabItem>
+<TabItem value="write" label="Write your own">
+
+Skip `registerNAuthExpressRoutes()` entirely and build the router yourself.
+`nauth.helpers.public()` marks a route as not requiring authentication;
+`nauth.helpers.requireAuth()` enforces it, and `nauth.helpers.getCurrentUser()` returns the
+validated user inside a protected handler.
 
 ```typescript title="src/routes/auth.routes.ts"
 import { Router, Request, Response, NextFunction, RequestHandler } from 'express';
-import { NAuthInstance, ExpressMiddlewareType, IUser, UserResponseDTO } from '@nauth-toolkit/core';
+import { NAuthInstance, ExpressMiddlewareType, UserResponseDTO, IUser } from '@nauth-toolkit/core';
 
-export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, RequestHandler>): Router {
+export function createAuthRoutes(
+  nauth: NAuthInstance<ExpressMiddlewareType, RequestHandler>,
+): Router {
   const router = Router();
   const { authService } = nauth;
-
-  // ── Primary Auth Flow ────────────────────────────────────────────────────────
 
   router.post('/signup', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -237,100 +278,81 @@ export function createAuthRoutes(nauth: NAuthInstance<ExpressMiddlewareType, Req
     }
   });
 
-  router.post('/respond-challenge', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
+  router.get('/profile', nauth.helpers.requireAuth(), async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(await authService.respondToChallenge(req.body));
+      res.json(UserResponseDTO.fromEntity(nauth.helpers.getCurrentUser() as IUser));
     } catch (err) {
       next(err);
     }
   });
-
-  router.post('/refresh', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      // Cookies mode: fall back to cookie if body token is absent or empty
-      const token = req.body?.refreshToken?.trim() || req.cookies?.['nauth_refresh_token'];
-      res.json(await authService.refreshToken({ refreshToken: token }));
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  // ── Logout ───────────────────────────────────────────────────────────────────
-  // GET avoids CSRF issues for session destruction; csrf: false bypasses the CSRF check
-
-  router.get(
-    '/logout',
-    nauth.helpers.requireAuth({ csrf: false }),
-    async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        res.json(await authService.logout(req.query));
-      } catch (err) {
-        next(err);
-      }
-    },
-  );
-
-  // ── User Profile ─────────────────────────────────────────────────────────────
-
-  router.get('/profile', nauth.helpers.requireAuth(), (_req: Request, res: Response, next: NextFunction) => {
-    try {
-      const user = nauth.helpers.getCurrentUser() as IUser;
-      res.json(UserResponseDTO.fromEntity(user));
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  router.put('/profile', nauth.helpers.requireAuth(), async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      res.json(await authService.updateUserAttributes(req.body));
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  router.post(
-    '/change-password',
-    nauth.helpers.requireAuth(),
-    async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        res.json(await authService.changePassword(req.body));
-      } catch (err) {
-        next(err);
-      }
-    },
-  );
-
-  // ── Account Recovery ─────────────────────────────────────────────────────────
-
-  router.post('/forgot-password', nauth.helpers.public(), async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      res.json(
-        await authService.forgotPassword({
-          ...req.body,
-          baseUrl: process.env.FRONTEND_BASE_URL || 'http://localhost:5173',
-        }),
-      );
-    } catch (err) {
-      next(err);
-    }
-  });
-
-  router.post(
-    '/forgot-password/confirm',
-    nauth.helpers.public(),
-    async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        res.json(await authService.confirmForgotPassword(req.body));
-      } catch (err) {
-        next(err);
-      }
-    },
-  );
 
   return router;
 }
 ```
+
+```typescript title="src/index.ts"
+app.use('/auth', createAuthRoutes(nauth));
+```
+
+[Basic Auth Flows](/docs/guides/basic-auth) covers every endpoint in this form.
+
+</TabItem>
+</Tabs>
+
+### Serving web and mobile from one backend
+
+`groups` selects which bundles to mount — [Route Groups](/docs/api/core/routes/groups) lists what each one contains.
+
+Register the same routes on a second router, differing only in how tokens travel. This needs
+`tokenDelivery.method: 'hybrid'`; the toolkit refuses at startup otherwise.
+
+```typescript title="src/index.ts"
+// Web: httpOnly cookies, CSRF.
+const webRouter = express.Router();
+registerNAuthExpressRoutes(webRouter, nauth, { delivery: 'cookies' });
+app.use('/auth', webRouter);
+
+// Native and mobile clients: tokens in the response body, no CSRF.
+const mobileRouter = express.Router();
+registerNAuthExpressRoutes(mobileRouter, nauth, {
+  delivery: 'json',
+  groups: ['core', 'profile', 'mfa', 'social', 'device'],
+});
+app.use('/mobile/auth', mobileRouter);
+```
+
+### Customising one route
+
+Exclude its key and write only that route with `nauth.helpers`. Everything else stays mounted.
+
+```typescript title="src/index.ts"
+import type { RequestHandler } from 'express';
+
+registerNAuthExpressRoutes(authRouter, nauth, { delivery: 'cookies', exclude: ['login'] });
+
+authRouter.post('/login', nauth.helpers.public() as RequestHandler, async (req, res, next) => {
+  try {
+    // your own logic here, then delegate
+    res.json(await nauth.authService.login(req.body));
+  } catch (err) {
+    next(err);
+  }
+});
+```
+
+`NAuth.create()` returns `NAuthInstance<unknown, unknown>`, so the helpers need a cast to
+your framework's handler type — or type the instance at creation, as the "Write your own"
+tab above does.
+
+`nauth.helpers.public()` marks a route as not requiring authentication;
+`nauth.helpers.requireAuth()` enforces it, and `nauth.helpers.getCurrentUser()` returns the
+validated user inside a protected handler. An unknown key in `exclude` throws at startup, so a
+typo cannot silently leave the shipped route in place.
+
+:::note[Administrative routes are opt-in]
+The `admin` group is never mounted by default, and mounting it requires an authorization
+provider — the toolkit ships no role model. See [Authorization](/docs/concepts/authorization).
+:::
 
 ---
 
@@ -379,8 +401,9 @@ DB_DATABASE=myapp
 JWT_SECRET=your-access-token-secret-min-32-chars
 JWT_REFRESH_SECRET=your-refresh-token-secret-min-32-chars
 
-# Cookie settings (for production)
-COOKIE_SECURE=true
+# Cookies — lax + insecure is correct for HTTP localhost.
+# For HTTPS cross-site production set COOKIE_SECURE=true and COOKIE_SAME_SITE=none.
+COOKIE_SECURE=false
 COOKIE_SAME_SITE=lax
 ```
 
@@ -399,7 +422,7 @@ curl -c cookies.txt -X POST http://localhost:3000/auth/signup \
 # Login
 curl -c cookies.txt -X POST http://localhost:3000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "user@example.com", "password": "MyPassword1!"}'
+  -d '{"identifier": "user@example.com", "password": "MyPassword1!"}'
 
 # Profile (cookies are sent automatically by curl with -b)
 curl -b cookies.txt http://localhost:3000/auth/profile
@@ -476,7 +499,7 @@ This quick start covers the essential routes. For complete implementations inclu
 
 ## What's Next
 
-- [Express Sample App](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-express) — Full working example with Google OAuth, TOTP MFA, and complete route implementations
+- [Express Starter App](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-express) — The code this guide is based on, with Google OAuth and MFA
 - [Configuration](/docs/concepts/configuration) — Full configuration reference with all available options
 - [Challenge System](/docs/concepts/challenge-system) — Understand multi-step authentication flows (MFA, verification)
 - [Authentication Routes](/docs/guides/routes) — Complete route implementations for all auth flows

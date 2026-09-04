@@ -63,6 +63,15 @@ export { GeoLocationService } from './services/geo-location.service';
 export { AuthAuditService } from './services/auth-audit.service';
 
 /**
+ * Authorization enforcement for privileged operations.
+ *
+ * Consumers implement `IAuthorizationProvider` (exported from `./interfaces`); this is
+ * the service that applies it, and is wired up automatically by `NAuth.create()`.
+ */
+export { AuthorizationService } from './services/authorization.service';
+export type { AuthorizeOptions } from './services/authorization.service';
+
+/**
  * CSRF Protection Service
  */
 export { CsrfService } from './services/csrf.service';
@@ -140,6 +149,12 @@ export * from './platform/interfaces';
 
 // Adapters
 export * from './adapters';
+
+/**
+ * Shipped auth routes — the manifest, mount options and resolution shared by the
+ * NestJS, Express and Fastify mounts.
+ */
+export * from './routes';
 
 // Storage Factories
 export * from './adapters/storage.factory';

@@ -20,6 +20,7 @@ sidebar_label: Overview
 
 ## Providers
 
+- [IAuthorizationProvider](./authorization-provider) - Decides who may perform admin operations
 - [EmailProvider](./email-provider) - Contract for sending emails
 - [SMSProvider](./sms-provider) - Contract for sending SMS messages (templates supported)
 - [StorageAdapter](./storage-adapter) - Shared state adapter (rate limits, locks, token reuse)

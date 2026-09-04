@@ -18,12 +18,10 @@ import {
 import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
 
 import { authConfig } from './config/auth.config';
-import { createAuthRoutes, createMobileAuthRoutes } from './routes/auth.routes';
-import { createSocialRoutes } from './routes/social.routes';
+import { registerNAuthExpressRoutes } from '@nauth-toolkit/core';
 import { errorHandler } from './utils/error-handler';
 
 // NAuthInstance typed for Express — makes helpers return express.RequestHandler directly
-type TypedNAuth = NAuthInstance<ExpressMiddlewareType, express.RequestHandler>;
 
 async function main(): Promise<void> {
   console.log('Starting Express Authentication Server...');
@@ -87,12 +85,25 @@ async function main(): Promise<void> {
   app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
   // ── Routes ────────────────────────────────────────────────────────────────────
+  //
+  // Mounted from the toolkit's route manifest rather than hand-written. Both bundles
+  // serve the same handlers; only the token transport differs, which is what
+  // `tokenDelivery.method: 'hybrid'` makes possible.
+  //
+  // To customise one route, exclude its key and register your own:
+  //   registerNAuthExpressRoutes(webRouter, nauth, { delivery: 'cookies', exclude: ['login'] });
+  //   webRouter.post('/login', nauth.helpers.public(), myLoginHandler);
 
-  const typedNauth = nauth as TypedNAuth;
+  const webRouter = express.Router();
+  registerNAuthExpressRoutes(webRouter, nauth, { delivery: 'cookies' });
+  app.use('/auth', webRouter);
 
-  app.use('/auth', createAuthRoutes(typedNauth));
-  app.use('/mobile/auth', createMobileAuthRoutes(typedNauth));
-  app.use('/auth/social', createSocialRoutes(typedNauth, nauth.socialRedirect!));
+  const mobileRouter = express.Router();
+  registerNAuthExpressRoutes(mobileRouter, nauth, {
+    delivery: 'json',
+    groups: ['core', 'profile', 'mfa', 'social', 'device'],
+  });
+  app.use('/mobile/auth', mobileRouter);
 
   // ── Error Handler (MUST BE LAST) ──────────────────────────────────────────────
   app.use(errorHandler);

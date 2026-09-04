@@ -12,3 +12,5 @@ export type { InteractionStateDTO, InteractionRedirectDTO } from '../src/interac
 export { OIDCSessionTerminator } from '../src/session-termination';
 export { createOIDCRateLimiter } from '../src/rate-limit';
 export type { OIDCRateLimitConfig } from '../src/rate-limit';
+export { OIDCSelfMountService, NAUTH_OIDC_MOUNT_OPTIONS } from './self-mount.service';
+export type { OIDCSelfMountOptions } from './self-mount.service';

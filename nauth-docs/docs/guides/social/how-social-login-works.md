@@ -116,7 +116,7 @@ Parameters can be set as defaults in config (`oauthParams`) or per-request from 
 
 ## Shared Routes
 
-All providers use the same route structure. The `SocialRedirectHandler` handles the logic — your routes just delegate to it. In Express/Fastify, access it via `nauth.socialRedirect` (returned by `NAuth.create()`). In NestJS, inject it via the constructor.
+All providers use the same route structure, and the `social` route group mounts it for you. Behind those routes `SocialRedirectHandler` does the work; if you exclude a route to write your own, delegate to it the same way — via `nauth.socialRedirect` on Express/Fastify (returned by `NAuth.create()`), or constructor injection on NestJS.
 
 | Endpoint | Method | Auth | Purpose |
 | --- | --- | --- | --- |

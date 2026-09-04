@@ -4,11 +4,13 @@ import type { Repository } from 'typeorm';
 import type { BaseUser, StorageAdapter } from '@nauth-toolkit/core';
 import { AuthAuditService, IdpSessionGate } from '@nauth-toolkit/core/internal';
 import { createNAuthOIDCProvider } from '../src/create-provider';
+import { createOIDCRateLimiter, type OIDCRateLimitConfig } from '../src/rate-limit';
 import { OIDCInteractionBridge } from '../src/interaction-bridge';
 import { OIDCSessionTerminator } from '../src/session-termination';
 import type { NAuthOIDCOptions } from '../src/config.types';
 import { NAUTH_OIDC_BRIDGE, NAUTH_OIDC_PROVIDER, NAUTH_OIDC_SESSIONS } from './tokens';
 import { createOIDCInteractionController, DEFAULT_INTERACTION_PATH } from './oidc-interaction.controller';
+import { OIDCSelfMountService, NAUTH_OIDC_MOUNT_OPTIONS, type OIDCSelfMountOptions } from './self-mount.service';
 
 export { NAUTH_OIDC_BRIDGE, NAUTH_OIDC_PROVIDER, NAUTH_OIDC_SESSIONS };
 
@@ -47,28 +49,60 @@ export interface OIDCInteractionRouteOptions {
 export type OIDCProviderModuleOptions = Omit<NAuthOIDCOptions, 'storage' | 'userRepository'> & {
   /** How the interaction routes are registered. */
   interaction?: OIDCInteractionRouteOptions;
+
+  /**
+   * How the provider's own protocol endpoints are attached to the HTTP server.
+   *
+   * By default the module mounts them itself during initialisation, so `main.ts` needs
+   * no OpenID Connect code at all. Set `enabled: false` only if you must control the
+   * ordering yourself.
+   */
+  mount?: {
+    /** @default true */
+    enabled?: boolean;
+  };
+
+  /**
+   * Rate limits for the provider's endpoints, applied ahead of it.
+   *
+   * `oidc-provider` ships none, and these endpoints sit outside nauth's guard chain, so
+   * nothing else covers them — `POST /token` is otherwise an unauthenticated
+   * brute-force surface against client secrets and authorization codes.
+   *
+   * The limiter is built here from the configured storage adapter, so this is plain
+   * configuration rather than a constructed middleware.
+   *
+   * @example
+   * ```typescript
+   * rateLimit: {
+   *   authorize: { max: 60, windowSeconds: 60 },
+   *   token: { max: 60, windowSeconds: 60 },
+   *   introspection: { max: 600, windowSeconds: 60 },
+   * }
+   * ```
+   */
+  rateLimit?: OIDCRateLimitConfig;
 };
 
 /**
  * Registers an OpenID Connect provider alongside `AuthModule`.
  *
- * The provider itself is *not* mounted by this module — it owns raw HTTP and must be
- * attached to the underlying platform adapter in `main.ts`, before the body parsers.
- * See `mountOIDCProviderNest`. What this module contributes is the configured
- * provider instance and the interaction bridge, both injectable into your own
- * controllers.
+ * The module contributes three things, and needs nothing from `main.ts`:
  *
- * The interaction routes the consent screen talks to *are* registered here, as an
- * ordinary Nest controller at `oidc/interaction/:uid`. Set `interaction.enabled` to
- * false to supply your own, or `interaction.path` to move them.
+ * 1. **The provider's protocol endpoints**, attached to the HTTP server during module
+ *    initialisation. They own raw HTTP and deliberately sit outside nauth's guard,
+ *    interceptor and pipe chain — and outside any global prefix, so discovery stays at
+ *    the origin root where the issuer advertises it. See `OIDCSelfMountService` for the
+ *    ordering this depends on; set `mount.enabled` to false to attach them yourself.
+ * 2. **The interaction routes** the consent screen talks to, as an ordinary Nest
+ *    controller at `oidc/interaction/:uid`. Set `interaction.enabled` to false to
+ *    supply your own, or `interaction.path` to move them.
+ * 3. **The provider instance and interaction bridge**, injectable into your own code.
  *
  * @example
  * ```typescript
- * // app.module.ts
+ * // app.module.ts — that is the whole integration
  * imports: [AuthModule.forRoot(authConfig), OIDCProviderModule.forRoot(oidcConfig)]
- *
- * // main.ts — after create(), before app.use(json())
- * mountOIDCProviderNest(app, app.get(NAUTH_OIDC_PROVIDER));
  * ```
  */
 @Module({})
@@ -80,7 +114,10 @@ export class OIDCProviderModule {
    * @returns A dynamic module exporting the provider and its interaction bridge
    */
   static forRoot(options: OIDCProviderModuleOptions): DynamicModule {
-    const { interaction, ...providerOptions } = options;
+    // Module-level concerns are stripped here: everything remaining is spread into the
+    // provider's own configuration, which would reject keys it does not recognise.
+    const { interaction, mount, rateLimit, ...providerOptions } = options;
+    const pathPrefix = providerOptions.pathPrefix ?? '/oidc';
 
     const providerFactory: NestProvider = {
       provide: NAUTH_OIDC_PROVIDER,
@@ -109,10 +146,26 @@ export class OIDCProviderModule {
         ? []
         : [createOIDCInteractionController(interaction?.path ?? DEFAULT_INTERACTION_PATH)];
 
+    // The provider attaches itself to the HTTP server during module initialisation, so
+    // nothing about OpenID Connect needs to appear in main.ts. Opt out to attach it
+    // yourself - see OIDCSelfMountService for the ordering constraints that entails.
+    const mountOptionsProvider: NestProvider = {
+      provide: NAUTH_OIDC_MOUNT_OPTIONS,
+      // Built from DI so the limiter can reach the configured storage adapter, which is
+      // why rate limiting is expressed as configuration rather than a middleware.
+      useFactory: (storage: StorageAdapter): OIDCSelfMountOptions => ({
+        pathPrefix,
+        rateLimiter: rateLimit ? createOIDCRateLimiter(storage, rateLimit, { pathPrefix }) : undefined,
+      }),
+      inject: ['STORAGE_ADAPTER'],
+    };
+
+    const selfMounts = options.mount?.enabled === false ? [] : [OIDCSelfMountService];
+
     return {
       module: OIDCProviderModule,
       controllers,
-      providers: [providerFactory, bridgeFactory, terminatorFactory],
+      providers: [providerFactory, bridgeFactory, terminatorFactory, mountOptionsProvider, ...selfMounts],
       exports: [NAUTH_OIDC_PROVIDER, NAUTH_OIDC_BRIDGE, NAUTH_OIDC_SESSIONS],
     };
   }

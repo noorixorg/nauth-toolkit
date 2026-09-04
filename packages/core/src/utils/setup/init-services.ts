@@ -57,6 +57,8 @@ import {
   BaseTrustedDevice,
   BaseApiKey,
 } from '../../entities';
+import { AuthorizationService } from '../../services/authorization.service';
+import { IAuthorizationProvider } from '../../interfaces/authorization-provider.interface';
 
 /**
  * Service container returned by initServices()
@@ -76,6 +78,8 @@ export interface NAuthServices {
   authChallengeHelperService: AuthChallengeHelperService;
   authService: AuthService;
   adminAuthService: AdminAuthService;
+  /** Applies the consumer's authorization provider to privileged operations. */
+  authorizationService: AuthorizationService;
   socialProviderRegistry: SocialProviderRegistry;
   socialAuthService: SocialAuthService;
   hookRegistry: HookRegistryService;
@@ -140,6 +144,7 @@ export function initServices(
   logger: NAuthLogger,
   emailProvider: unknown,
   smsProvider?: unknown,
+  authorizationProvider?: IAuthorizationProvider,
 ): NAuthServices {
   // ============================================================================
   // 1. Core Services (No Dependencies)
@@ -150,13 +155,29 @@ export function initServices(
   const clientInfoService = new ClientInfoService();
   const hookRegistry = new HookRegistryService(logger);
 
+  // Constructed first because every privileged service depends on it. Its audit
+  // recorder is resolved lazily, since the audit service is built below.
+  // Explicit annotations: the thunk below closes over `auditService`, which is itself
+  // constructed with this service, so inference would otherwise be circular.
+  const authorizationService: AuthorizationService = new AuthorizationService(
+    authorizationProvider,
+    logger,
+    () => auditService,
+  );
+
   // ============================================================================
   // 2. Audit Service (Conditional)
   // ============================================================================
 
-  const auditService =
+  const auditService: AuthAuditService | undefined =
     config.auditLogs?.enabled !== false
-      ? new AuthAuditService(repositories.authAuditRepository, repositories.userRepository, logger, clientInfoService)
+      ? new AuthAuditService(
+          repositories.authAuditRepository,
+          repositories.userRepository,
+          logger,
+          clientInfoService,
+          authorizationService,
+        )
       : undefined;
 
   // ============================================================================
@@ -309,7 +330,14 @@ export function initServices(
 
   const apiKeyService =
     config.apiKeys?.enabled && repositories.apiKeyRepository
-      ? new ApiKeyService(repositories.apiKeyRepository, repositories.userRepository, config, logger, auditService)
+      ? new ApiKeyService(
+          repositories.apiKeyRepository,
+          repositories.userRepository,
+          config,
+          logger,
+          auditService,
+          authorizationService,
+        )
       : undefined;
 
   // ============================================================================
@@ -392,6 +420,7 @@ export function initServices(
     auditService,
     clientInfoService,
     hookRegistry,
+    authorizationService,
   );
 
   // ============================================================================
@@ -467,6 +496,7 @@ export function initServices(
     repositories.challengeSessionRepository,
     repositories.authAuditRepository,
     repositories.trustedDeviceRepository || undefined,
+    authorizationService,
   );
 
   // ============================================================================
@@ -513,6 +543,7 @@ export function initServices(
     authChallengeHelperService,
     authService,
     adminAuthService,
+    authorizationService,
     socialProviderRegistry,
     socialAuthService,
     hookRegistry,

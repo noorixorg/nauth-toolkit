@@ -25,8 +25,11 @@ import {
   NAuthResponseInterceptorHandler,
   NAuthRouteHandler,
   MiddlewareOptions,
+  RawHttpHandler,
+  RawMountPredicate,
 } from '../platform/interfaces';
 import { ContextStorage } from '../utils/context-storage';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 
 // Symbol for storing context on request (avoids property name collisions)
 const NAUTH_CONTEXT_STORE = Symbol.for('nauth.contextStore');
@@ -43,6 +46,51 @@ const NAUTH_ATTRIBUTES = Symbol.for('nauth.attributes');
  */
 export class FastifyAdapter implements NAuthAdapter {
   public readonly name = 'FastifyAdapter';
+
+  /**
+   * Claim raw HTTP for matching paths.
+   *
+   * Registered as an `onRequest` hook, which is the earliest point Fastify offers and,
+   * unlike Express, runs *before* body parsing — so a protocol handler receives an
+   * unconsumed stream and keeps its own request size limit.
+   *
+   * Two Fastify specifics this relies on:
+   *
+   * - The hook must be added at **root scope**. Fastify encapsulates hooks registered
+   *   inside a plugin, where they fire only for routes in that plugin — which silently
+   *   misses paths that match no route at all, such as `/.well-known/*`.
+   * - `reply.hijack()` detaches Fastify's own serialisation and 404 handling, after
+   *   which the handler owns the socket. Nothing further may be sent through `reply`.
+   *
+   * @param app - The root Fastify instance
+   * @param predicate - Receives the query-stripped path; return true to claim the request
+   * @param handler - Owns the raw Node objects and must end the response
+   * @throws {Error} When `app` has no `addHook()` method
+   */
+  public mountRaw(app: unknown, predicate: RawMountPredicate, handler: RawHttpHandler): void {
+    const target = app as FastifyInstanceLike | undefined;
+
+    if (!target || typeof target.addHook !== 'function') {
+      throw new Error(
+        'FastifyAdapter.mountRaw() expects a Fastify instance with an addHook() method. ' +
+          'Pass the root instance, not an encapsulated plugin scope.',
+      );
+    }
+
+    target.addHook('onRequest', (request: FastifyRawRequest, reply: FastifyRawReply, done: () => void): void => {
+      const path = (request.url || '').split('?')[0];
+
+      if (!predicate(path)) {
+        done();
+        return;
+      }
+
+      // Take the socket, then hand the underlying Node objects over. `done` is
+      // deliberately not called - the handler is responsible for the response now.
+      reply.hijack();
+      handler(request.raw, reply.raw);
+    });
+  }
 
   /**
    * Register a middleware handler as Fastify hook
@@ -376,9 +424,50 @@ interface FastifyReplyWithCookies extends FastifyReply {
   clearCookie?(name: string, options?: Record<string, unknown>): this;
 }
 
+/** The slice of a root Fastify instance `mountRaw` needs. */
+interface FastifyInstanceLike {
+  addHook(
+    event: 'onRequest',
+    handler: (request: FastifyRawRequest, reply: FastifyRawReply, done: () => void) => void,
+  ): unknown;
+}
+
+/** A Fastify request as seen by `mountRaw`, exposing the Node object underneath. */
+interface FastifyRawRequest {
+  url: string;
+  raw: IncomingMessage;
+}
+
+/** A Fastify reply as seen by `mountRaw`, exposing the Node object underneath. */
+interface FastifyRawReply {
+  raw: ServerResponse;
+  hijack(): void;
+}
+
 type FastifyHook = (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
 type FastifyOnSendHook = (request: FastifyRequest, reply: FastifyReply, payload: unknown) => Promise<unknown>;
 type FastifyRouteHandler = (request: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
+
+// ============================================================================
+// Type Exports for Consumer Applications
+// ============================================================================
+
+/**
+ * Fastify preHandler hook type for use with route registration.
+ *
+ * The counterpart to `ExpressMiddlewareType`. Consumer apps should type
+ * `nauth.middleware.*` and `nauth.helpers.*` with this rather than redeclaring it:
+ *
+ * ```typescript
+ * const nauth: NAuthInstance<FastifyMiddlewareType, FastifyMiddlewareType> = await NAuth.create(...);
+ * fastify.post('/auth/login', { preHandler: [nauth.helpers.public()] }, handler);
+ * ```
+ *
+ * Deliberately expressed in terms of `unknown` so consumers are not coupled to this
+ * package's internal Fastify shims, and so it stays assignable to Fastify's own
+ * `preHandlerHookHandler` without importing Fastify here.
+ */
+export type FastifyMiddlewareType = (request: unknown, reply: unknown) => Promise<void>;
 
 // ============================================================================
 // NOTE

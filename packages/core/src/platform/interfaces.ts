@@ -10,6 +10,8 @@
  * - Handlers assume context is available and focus purely on business logic
  */
 
+import type { IncomingMessage, ServerResponse } from 'node:http';
+
 // ============================================================================
 // Request Interface
 // ============================================================================
@@ -248,6 +250,21 @@ export type NAuthResponseInterceptorHandler = (
 export type NAuthRouteHandler<T = unknown> = (req: NAuthRequest, res: NAuthResponse) => Promise<T> | T;
 
 /**
+ * Handler that owns raw Node HTTP objects.
+ *
+ * Receives the underlying `IncomingMessage`/`ServerResponse` with no framework wrapping
+ * and is responsible for ending the response itself. Nothing downstream runs afterwards.
+ */
+export type RawHttpHandler = (req: IncomingMessage, res: ServerResponse) => void;
+
+/**
+ * Decides whether a request path belongs to a raw mount.
+ *
+ * @param path - Request path with any query string already stripped
+ */
+export type RawMountPredicate = (path: string) => boolean;
+
+/**
  * Platform Adapter Interface
  *
  * Implemented by framework-specific adapters (ExpressAdapter, FastifyAdapter, etc.).
@@ -303,6 +320,38 @@ export interface NAuthAdapter {
    * @returns Framework-specific wrapped handler
    */
   wrapRouteHandler<T>(handler: NAuthRouteHandler<T>): unknown;
+
+  /**
+   * Claim raw HTTP for matching paths, ahead of the framework's own routing.
+   *
+   * For protocol endpoints that must own the request and response outright — currently
+   * the OpenID Connect provider, whose handler is Koa's and can never pass a request on.
+   * Such endpoints sit outside NAuth's middleware chain entirely: no context, no guards,
+   * no token delivery, and no framework path rewriting (so an OIDC issuer stays at the
+   * origin root even under a global prefix).
+   *
+   * The application object is passed in rather than held by the adapter because adapters
+   * are stateless — they translate shapes, they do not own the server.
+   *
+   * **Optional.** `NAuthAdapter` is a public extension point, so a custom adapter written
+   * before this method existed stays valid. Callers must check for it and fail with a
+   * clear message rather than assuming it is present.
+   *
+   * @param app - The framework application (Express app, Fastify instance) to attach to
+   * @param predicate - Receives the query-stripped path; return true to claim the request
+   * @param handler - Owns the raw Node objects and must end the response
+   * @throws {Error} When `app` is not the shape this adapter can attach to
+   *
+   * @example
+   * ```typescript
+   * adapter.mountRaw?.(
+   *   app,
+   *   (path) => path.startsWith('/oidc/') || path.startsWith('/.well-known/'),
+   *   (req, res) => provider.callback()(req, res),
+   * );
+   * ```
+   */
+  mountRaw?(app: unknown, predicate: RawMountPredicate, handler: RawHttpHandler): void;
 
   /**
    * Get the adapter name for logging/debugging

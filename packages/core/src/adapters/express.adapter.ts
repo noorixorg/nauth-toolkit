@@ -24,8 +24,11 @@ import {
   NAuthResponseInterceptorHandler,
   NAuthRouteHandler,
   MiddlewareOptions,
+  RawHttpHandler,
+  RawMountPredicate,
 } from '../platform/interfaces';
 import { ContextStorage } from '../utils/context-storage';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 
 // ============================================================================
 // Express Adapter
@@ -38,6 +41,48 @@ import { ContextStorage } from '../utils/context-storage';
  */
 export class ExpressAdapter implements NAuthAdapter {
   public readonly name = 'ExpressAdapter';
+
+  /**
+   * Claim raw HTTP for matching paths.
+   *
+   * Registered as ordinary Express middleware, so it runs in registration order. Two
+   * consequences worth knowing, both load-bearing for the OpenID Connect provider:
+   *
+   * - Express does no path rewriting here, unlike `app.use('/prefix', ...)`. A provider
+   *   whose routes carry their prefix already sees the full path, and discovery stays at
+   *   the origin root even when the host framework applies a global prefix.
+   * - Register before any body parser to leave the request stream intact. Mounted after
+   *   one, the body arrives pre-parsed and the upstream parser's size limit applies
+   *   instead of the protocol handler's own.
+   *
+   * @param app - The Express application
+   * @param predicate - Receives the query-stripped path; return true to claim the request
+   * @param handler - Owns the raw Node objects and must end the response
+   * @throws {Error} When `app` has no `use()` method
+   */
+  public mountRaw(app: unknown, predicate: RawMountPredicate, handler: RawHttpHandler): void {
+    const target = app as ExpressAppLike | undefined;
+
+    if (!target || typeof target.use !== 'function') {
+      throw new Error(
+        'ExpressAdapter.mountRaw() expects an Express application with a use() method. ' +
+          'Pass the Express app itself (or, under NestJS, app.getHttpAdapter().getInstance()).',
+      );
+    }
+
+    target.use((req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction): void => {
+      const path = (req.path || req.url || '').split('?')[0];
+
+      if (!predicate(path)) {
+        next();
+        return;
+      }
+
+      // Express request and response objects are IncomingMessage/ServerResponse
+      // subclasses, so they hand straight over. The handler owns the response.
+      handler(req as unknown as IncomingMessage, res as unknown as ServerResponse);
+    });
+  }
 
   /**
    * Register a middleware handler
@@ -370,6 +415,11 @@ type ExpressNextFunction = (err?: unknown) => void;
  * Express middleware signature
  */
 type ExpressMiddleware = (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => void | Promise<void>;
+
+/** The slice of an Express application `mountRaw` needs. */
+interface ExpressAppLike {
+  use(handler: (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => void): unknown;
+}
 
 // ============================================================================
 // Type Exports for Consumer Applications

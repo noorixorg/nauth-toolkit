@@ -318,4 +318,75 @@ describe('TokenDeliveryHandler', () => {
       expect(mockResponse.setCookie).not.toHaveBeenCalled();
     });
   });
+
+  describe('route override conflicts', () => {
+    const body = { accessToken: 'token-123', refreshToken: 'refresh-456', user: { sub: 'user-1' } };
+
+    /** Build a handler whose config conflicts with the override the route will ask for. */
+    const setup = (
+      method: 'json' | 'cookies' | 'hybrid',
+      override: 'json' | 'cookies',
+      strictOverrides?: boolean,
+    ): void => {
+      mockConfig.tokenDelivery = { ...mockConfig.tokenDelivery, method, strictOverrides };
+      mockRequest.attributes['nauthTokenDelivery'] = override;
+      handler = new TokenDeliveryHandler(mockConfig, mockLogger);
+    };
+
+    it('should warn and honour a JSON override under cookies mode by default', async () => {
+      setup('cookies', 'json');
+
+      const result = await handler.handleResponse(mockRequest, mockResponse, body);
+
+      // Honoured: tokens stay in the body and no cookies are set.
+      expect(result).toEqual(body);
+      expect(mockResponse.setCookie).not.toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('tokenDelivery.method'));
+    });
+
+    it('should warn and honour a cookie override under json mode by default', async () => {
+      setup('json', 'cookies');
+
+      const result = await handler.handleResponse(mockRequest, mockResponse, body);
+
+      expect(mockResponse.setCookie).toHaveBeenCalled();
+      expect(result).not.toHaveProperty('accessToken');
+      expect(mockLogger.warn).toHaveBeenCalled();
+    });
+
+    it('should throw when strictOverrides is enabled', async () => {
+      setup('cookies', 'json', true);
+
+      await expect(handler.handleResponse(mockRequest, mockResponse, body)).rejects.toMatchObject({
+        code: 'AUTH_BEARER_NOT_ALLOWED',
+      });
+    });
+
+    it('should throw COOKIES_NOT_ALLOWED for the mirrored conflict', async () => {
+      setup('json', 'cookies', true);
+
+      await expect(handler.handleResponse(mockRequest, mockResponse, body)).rejects.toMatchObject({
+        code: 'AUTH_COOKIES_NOT_ALLOWED',
+      });
+    });
+
+    it('should accept either override under hybrid mode without warning', async () => {
+      for (const override of ['json', 'cookies'] as const) {
+        mockLogger.warn.mockClear();
+        setup('hybrid', override, true);
+
+        await handler.handleResponse(mockRequest, mockResponse, body);
+
+        expect(mockLogger.warn).not.toHaveBeenCalled();
+      }
+    });
+
+    it('should not warn when the override agrees with the configured method', async () => {
+      setup('cookies', 'cookies', true);
+
+      await handler.handleResponse(mockRequest, mockResponse, body);
+
+      expect(mockLogger.warn).not.toHaveBeenCalled();
+    });
+  });
 });

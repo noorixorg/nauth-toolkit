@@ -626,8 +626,8 @@ importers:
         specifier: ^4.0.0 || ^5.0.0 || ^6.0.0
         version: 6.3.4
       '@nauth-toolkit/recaptcha':
-        specifier: ^0.3.3
-        version: 0.3.3(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))
+        specifier: ^0.4.0
+        version: 0.4.0(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))
       argon2:
         specifier: ^0.40.0
         version: 0.40.3
@@ -3656,7 +3656,7 @@ packages:
     peerDependencies:
       '@angular/common': '>=17.0.0'
       '@angular/core': '>=17.0.0'
-      '@nauth-toolkit/client': ^0.3.3
+      '@nauth-toolkit/client': ^0.4.0
       rxjs: ^7.0.0 || ^8.0.0
 
   '@nauth-toolkit/client@0.2.6':
@@ -3695,8 +3695,8 @@ packages:
       '@nauth-toolkit/core': workspace:*
       qrcode: ^1.5.3
 
-  '@nauth-toolkit/recaptcha@0.3.3':
-    resolution: {integrity: sha512-U5rAFCxva7gRLTUZjzKT40cNz6tBE5Sk2krItJHauFjq5MjosklVsjJ2Cl/1GpAH2Wcc62z6V3wcRPJ0WD39Ag==}
+  '@nauth-toolkit/recaptcha@0.4.0':
+    resolution: {integrity: sha512-Nk7inFpQakY6qxHuUCvRo8HpTqgpV7sEfMzxUOhQ5kIpLaKkGOVk/9ggvu52TLFRn4VPvZxDTum9pwjjvBpn4A==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
       '@nauth-toolkit/core': workspace:*
@@ -13393,7 +13393,7 @@ snapshots:
       '@nauth-toolkit/core': link:packages/core
       qrcode: 1.5.4
 
-  '@nauth-toolkit/recaptcha@0.3.3(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))':
+  '@nauth-toolkit/recaptcha@0.4.0(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))':
     optionalDependencies:
       '@nestjs/common': 11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
 

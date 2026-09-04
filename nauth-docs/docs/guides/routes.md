@@ -11,31 +11,126 @@ import TabItem from '@theme/TabItem';
 
 # Authentication Routes
 
-This is not an exhaustive and complete guide but shows how to implement the most common authentication endpoints with DTO validation, error handling, and multi-step authentication flows.
+The toolkit ships every auth endpoint as a mountable bundle. Mount it and you write no
+controllers; exclude a key and write only the route you want to change.
 
-:::warning[Accuracy and Adaptation]
-The examples on this page may not compile or run accurately if directly copied. Please use this to build your own flows. Don't assume input validation and do your input santisation, and application specific logic where possible.
+The rest of this page documents each endpoint's request and response shape, and shows the
+hand-written form for when you need to override one.
+
+| | |
+| --- | --- |
+| Full route table | [Shipped Routes](/docs/api/core/routes/overview) |
+| Framework integration | [NestJS](/docs/api/nestjs/overview) · [Express](/docs/api/express/overview) · [Fastify](/docs/api/fastify/overview) |
+
+:::tip[Sample apps]
+`examples/starter-nestjs`, `examples/starter-express` and `examples/starter-fastify` all mount
+the shipped routes. `examples/demo-nestjs` hand-writes its controllers, as a reference for
+overriding.
 :::
 
-For framework-specific integration details, see:
+## Mounting the shipped routes
 
-- [NestJS Integration](/docs/api/nestjs/overview) - Guards, decorators, modules
-- [Express Integration](/docs/api/express/overview) - Middleware, helpers
-- [Fastify Integration](/docs/api/fastify/overview) - Hooks, context wrapping
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS" default>
 
-## Overview
+```typescript title="src/config/auth.config.ts"
+export const authConfig: NAuthModuleConfig = {
+  routes: [{ prefix: 'auth' }],
+};
+```
 
-nauth-toolkit provides a comprehensive set of authentication endpoints that support:
+`AuthModule.forRoot()` builds the controllers. No `controllers` array needed.
 
-- **Primary authentication flows** - Signup, login, challenge responses, token refresh, logout
-- **Password management** - Change password, forgot password, password reset
-- **Multi-factor authentication** - MFA setup, verification, device management
-- **Social authentication** - OAuth flows, account linking
-- **OpenID Connect interaction** - Login and consent bridge, when you are a provider yourself
-- **Session management** - Device trust, session revocation
-- **Audit logging** - Authentication history
+</TabItem>
+<TabItem value="express" label="Express">
 
-All endpoints use [DTOs](/docs/api/core/dto/overview) for request validation and return structured responses. The [Challenge System](/docs/concepts/challenge-system) handles multi-step authentication flows automatically.
+```typescript title="src/index.ts"
+const authRouter = express.Router();
+registerNAuthExpressRoutes(authRouter, nauth);
+app.use('/auth', authRouter);
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript title="src/index.ts"
+await fastify.register(
+  async (scope) => registerNAuthFastifyRoutes(scope, nauth),
+  { prefix: '/auth' },
+);
+```
+
+</TabItem>
+</Tabs>
+
+## Choosing which routes to mount
+
+### By group
+
+`groups` selects bundles. The `admin` and `apiKeysAdmin` groups are never mounted by default.
+[Route Groups](/docs/api/core/routes/groups) lists every route in each one.
+
+```typescript
+{ prefix: 'auth', groups: ['core', 'profile'] }
+```
+
+### By key
+
+`exclude` drops individual routes. It serves two different purposes.
+
+**Override** — replace a route with your own:
+
+```typescript
+{ prefix: 'auth', exclude: ['login'] }
+```
+
+Then declare just that route (see the sections below for the hand-written form).
+
+**Suppress** — never expose a capability at all:
+
+```typescript
+{ prefix: 'admin', groups: ['admin'], exclude: ['adminSetPassword', 'adminDeleteUser'] }
+```
+
+:::warning[`exclude` removes the endpoint, not the capability]
+`AdminAuthService.setPassword` is still a public method, still callable from a controller you
+write, a script, or a background job. If the intent is *"nobody may do this, however they reach
+it"*, deny the action in your authorization provider as well:
+
+```typescript
+if (action === 'admin.user.setPassword') {
+  return { allow: false, reason: 'Password changes go through the email reset flow' };
+}
+```
+
+The service then refuses regardless of caller. See [Authorization](/docs/concepts/authorization).
+:::
+
+An unknown key in `exclude` throws at mount time, so a typo cannot silently re-expose a route you
+meant to suppress.
+
+### Web and mobile from one backend
+
+Mount the same routes twice, differing only in transport. Requires
+`tokenDelivery.method: 'hybrid'` — the toolkit refuses at startup otherwise.
+
+```typescript
+routes: [
+  { prefix: 'auth', delivery: 'cookies' },
+  { prefix: 'mobile/auth', delivery: 'json', groups: ['core', 'social'] },
+]
+```
+
+See [Token Management](/docs/concepts/token-management) for what each mode changes.
+
+## Writing your own
+
+Everything below shows the request and response shape of each endpoint, and the hand-written
+form. You need this only for routes you `exclude`.
+
+All endpoints use [DTOs](/docs/api/core/dto/overview) for request validation and return
+structured responses. The [Challenge System](/docs/concepts/challenge-system) handles multi-step
+authentication flows automatically.
 
 ## Primary Authentication Flow
 

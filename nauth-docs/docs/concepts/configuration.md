@@ -190,6 +190,8 @@ These are the top-level keys you can provide in `NAuthConfig` / `NAuthModuleConf
 | [`lockout`](#password-security) | No | IP-based failed-login lockout. |
 | [`security`](#password-security) | No | CSRF protection and sensitive data masking in challenge responses. |
 | [`tokenDelivery`](#token-delivery) | No | How tokens reach clients: `json` (response body), `cookies` (httpOnly), or `hybrid`. Default: `json`. |
+| [`routes`](#shipped-routes) | No | Mount the shipped auth endpoints instead of writing controllers. Omit to register none. |
+| [`authorization`](#authorization) | No | Provider deciding who may perform admin operations. Required to mount admin routes. |
 | [`session`](#session-configuration) | No | Session concurrency limits and hard maximum lifetime. |
 | [`emailProvider`](#email-provider) | No* | Email provider instance. Required when email verification or MFA email is enabled. |
 | [`email`](#email-provider) | No | Email branding (`globalVariables`) and custom HTML/text templates. |
@@ -869,6 +871,55 @@ tokenDelivery: {
 :::tip[Common pairing]
 Short cookie TTL (`7d`) for web and long json TTL (`90d`) for mobile gives browsers tight blast-radius while letting native apps stay signed in for months without re-authentication.
 :::
+
+## Shipped Routes {/* #shipped-routes */}
+
+Mount the toolkit's auth endpoints rather than hand-writing controllers. Omit `routes` entirely
+and no endpoints are registered — the behaviour of every release before this option existed.
+
+```typescript
+routes: [
+  { prefix: 'auth', delivery: 'cookies' },
+  { prefix: 'mobile/auth', delivery: 'json', groups: ['core', 'social'] },
+],
+```
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `adminGuards` | `GuardLike[]` | `[]` | Guards applied only to `access: 'admin'` routes. |
+| `delivery` | `'json' \| 'cookies'` | inherit | Forces one transport. Requires `tokenDelivery.method: 'hybrid'` unless it matches the configured method. |
+| `enabled` | `boolean` | `true` | Set false to mount nothing. |
+| `exclude` | `NAuthRouteKey[]` | `[]` | Routes to leave out. An unknown key throws at startup. |
+| `groups` | `NAuthRouteGroup[]` | all but `admin`, `apiKeysAdmin` | Which bundles to mount. |
+| `guards` | `GuardLike[]` | `[]` | Guards applied to every route in the bundle. |
+| `prefix` | `string` | `'auth'` | Path prefix. On Fastify the prefix comes from `register()` instead. |
+| `routeGuards` | `Partial<Record<NAuthRouteKey, GuardLike[]>>` | `{}` | Guards for named routes. |
+
+Passing two bundles with different `delivery` values requires `tokenDelivery.method: 'hybrid'`;
+the toolkit throws at startup rather than failing on the first request. The message names the
+offending bundle by its `prefix` when you supplied one — on Fastify the prefix belongs to
+`register()`, so it identifies the bundle by its delivery mode instead.
+
+See [Route Groups](/docs/api/core/routes/groups) for what each group contains,
+[Shipped Routes](/docs/api/core/routes/overview) for the full route table, and
+[Authentication Routes](/docs/guides/routes) for the guide.
+
+## Authorization {/* #authorization */}
+
+Decides who may perform administrative operations. The toolkit authenticates but ships no role
+model, so without a provider `AdminAuthService` trusts its caller and the `admin` route group
+refuses to mount.
+
+```typescript
+// NestJS — a class, so it can inject its own dependencies
+AuthModule.forRoot({ ...authConfig, authorization: RoleAuthorizer })
+
+// Express / Fastify — an instance, alongside dataSource
+NAuth.create({ config, dataSource, adapter, authorization: new RoleAuthorizer() })
+```
+
+Enforcement lives in the services, so the same policy covers a shipped route, a controller you
+write, and a script. See [Authorization](/docs/concepts/authorization).
 
 ## Session Configuration {/* #session-configuration */}
 Manage user sessions and concurrency.

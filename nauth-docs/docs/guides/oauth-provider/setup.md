@@ -169,97 +169,81 @@ Type the config object as `NAuthOIDCOptions` (from `@nauth-toolkit/oidc-provider
 </TabItem>
 </Tabs>
 
-## Step 4 — Mount it, first
+## Step 4 — Mounting
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS" default>
 
+Nothing to do. `OIDCProviderModule.forRoot()` attaches the provider during module
+initialisation, so `main.ts` needs no OpenID Connect code at all:
+
 ```typescript title="src/main.ts"
-import { NestFactory } from '@nestjs/core';
-import { ExpressAdapter } from '@nestjs/platform-express';
-import cookieParser from 'cookie-parser';
-import {
-  NAUTH_OIDC_PROVIDER,
-  createOIDCRateLimiter,
-  mountOIDCProviderNest,
-} from '@nauth-toolkit/oidc-provider/nestjs';
-import { AppModule } from './app.module';
-import { oidcConfig } from './config/oidc.config';
-
-async function bootstrap() {
+async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, new ExpressAdapter());
-
-  // Rate limit ahead of the provider — see Step 6.
-  app.use(
-    createOIDCRateLimiter(
-      app.get('STORAGE_ADAPTER'),
-      { authorize: { max: 60, windowSeconds: 60 }, token: { max: 60, windowSeconds: 60 } },
-      { pathPrefix: oidcConfig.pathPrefix },
-    ),
-  );
-
-  mountOIDCProviderNest(app, app.get(NAUTH_OIDC_PROVIDER), { pathPrefix: oidcConfig.pathPrefix });
-
   app.use(cookieParser());
+  app.useGlobalFilters(new NAuthHttpExceptionFilter());
+  app.useGlobalPipes(new NAuthValidationPipe());
   app.setGlobalPrefix('api');
-
   await app.listen(3000);
 }
-
-bootstrap();
 ```
 
-`mountOIDCProviderNest` attaches to the Express instance, not Nest's router, so `setGlobalPrefix('api')` does not apply to the provider's endpoints. **NestJS does not need `bodyParser: false`.**
+The provider is attached to the platform instance rather than Nest's router, so
+`setGlobalPrefix('api')` does not apply to its endpoints — they sit at the origin root exactly
+where the discovery document advertises them. The mount inspects the running driver and picks
+the matching mechanism, so the Fastify driver works the same way.
+
+:::note[One caveat on Express]
+Nest registers its body parser before modules initialise, so the provider sees an
+already-parsed body on `POST /oidc/token`. `oidc-provider` falls back to `req.body`, so this
+works — but the request-size limit becomes Nest's rather than the provider's. The Fastify driver
+does not share this caveat; its `onRequest` hook runs before body parsing.
+:::
+
+Set `mount: { enabled: false }` and use
+[`mountOIDCProviderNest`](/docs/api/oidc-provider/mounting) if you need to control the ordering
+yourself.
 
 </TabItem>
 <TabItem value="express" label="Express">
 
 ```typescript title="src/main.ts"
-import express from 'express';
 import { createOIDCRateLimiter, mountOIDCProviderExpress } from '@nauth-toolkit/oidc-provider';
-import { provider } from './oidc';
 
 const app = express();
 
+// Rate limit ahead of the provider — see Step 6.
 app.use(createOIDCRateLimiter(nauth.storage, { token: { max: 60, windowSeconds: 60 } }));
 mountOIDCProviderExpress(app, provider, { pathPrefix: '/oidc' });
 
+// Body parsers come after, so the provider keeps its own request-size limit.
 app.use(express.json());
 ```
-
-`mountOIDCProviderExpress` hands the request over **without URL rewriting**. `app.use('/oidc', provider.callback())` — the recipe in the upstream README — strips the prefix and breaks every URL the provider generates.
 
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
 ```typescript title="src/main.ts"
-import http from 'node:http';
-import Fastify from 'fastify';
 import { isProviderPath } from '@nauth-toolkit/oidc-provider';
-import { provider } from './oidc';
 
 const callback = provider.callback();
 
-const fastify = Fastify({
-  serverFactory: (handler) =>
-    http.createServer((req, res) => {
-      if (isProviderPath(req, '/oidc')) {
-        callback(req, res);
-        return;
-      }
-      handler(req, res);
-    }),
+fastify.addHook('onRequest', (request, reply, done) => {
+  if (isProviderPath({ url: request.url }, '/oidc')) {
+    reply.hijack();
+    callback(request.raw, reply.raw);
+    return;
+  }
+  done();
 });
 ```
 
-`serverFactory` puts the provider ahead of Fastify, and `isProviderPath` decides what reaches it. Rate limit by calling `createOIDCRateLimiter(...)` in the same place, before `callback`.
+Register the hook at **root scope** — Fastify hooks are encapsulated, and one registered inside
+`fastify.register()` would silently miss `/.well-known/*`. `reply.hijack()` hands the socket to
+the provider, so do not call `done()` afterwards.
 
 </TabItem>
 </Tabs>
-
-:::note[Mount before the body parsers]
-`oidc-provider` reads the raw request stream for `POST /token`. It falls back to a pre-parsed `req.body`, so it works either way, but mounting first avoids a startup warning and keeps the provider's own 56 KB request limit rather than deferring to the upstream parser's.
-:::
 
 ## Step 5 — The interaction routes
 
@@ -285,7 +269,30 @@ Express and Fastify have no shipped controller. Wire the four routes to [`OIDCIn
 
 ## Step 6 — Rate limit the provider
 
-`oidc-provider` ships no rate limiting, and the mount sits outside nauth-toolkit's guard chain, so nothing else covers these paths. `POST /token` is an unauthenticated brute-force surface against client secrets and authorization codes.
+`oidc-provider` ships no rate limiting, and the provider sits outside nauth-toolkit's guard
+chain, so nothing else covers these paths. `POST /token` is an unauthenticated brute-force
+surface against client secrets and authorization codes.
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS" default>
+
+Configuration, not middleware — the limiter is built from your storage adapter and registered
+ahead of the provider automatically:
+
+```typescript title="src/config/oidc.config.ts"
+export const oidcConfig: OIDCProviderModuleOptions = {
+  issuer: ORIGIN,
+  pathPrefix: '/oidc',
+  rateLimit: {
+    authorize: { max: 60, windowSeconds: 60 },
+    token: { max: 60, windowSeconds: 60 },
+    introspection: { max: 600, windowSeconds: 60 },
+  },
+};
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
 
 ```typescript title="src/main.ts"
 app.use(
@@ -301,7 +308,27 @@ app.use(
 );
 ```
 
-Limits are counted per source IP in your storage adapter, so they hold across instances. Endpoints you do not list are unlimited, and a rejected request gets a `429` with `Retry-After`. See [`createOIDCRateLimiter`](/docs/api/oidc-provider/rate-limiter).
+Register it immediately before `mountOIDCProviderExpress`.
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript title="src/main.ts"
+const limiter = createOIDCRateLimiter(nauth.storage, { token: { max: 60, windowSeconds: 60 } }, { pathPrefix: '/oidc' });
+
+fastify.addHook('onRequest', (request, reply, done) => {
+  if (!isProviderPath({ url: request.url }, '/oidc')) return done();
+  reply.hijack();
+  limiter(request.raw, reply.raw, () => callback(request.raw, reply.raw));
+});
+```
+
+</TabItem>
+</Tabs>
+
+Limits are counted per source IP in your storage adapter, so they hold across instances.
+Endpoints you do not list are unlimited, and a rejected request gets a `429` with `Retry-After`.
+See [`createOIDCRateLimiter`](/docs/api/oidc-provider/rate-limiter).
 
 ## Checkpoint
 

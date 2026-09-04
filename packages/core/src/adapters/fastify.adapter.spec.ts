@@ -124,4 +124,94 @@ describe('FastifyAdapter', () => {
       expect(routeHandler).toHaveBeenCalled();
     });
   });
+
+  describe('mountRaw', () => {
+    /** Captures what the adapter registers, standing in for a root Fastify instance. */
+    const createInstance = (): {
+      addHook: jest.Mock;
+      dispatch: (request: unknown, reply: unknown, done: () => void) => void;
+    } => {
+      const hooks: Array<(request: unknown, reply: unknown, done: () => void) => void> = [];
+      const addHook = jest.fn((_event: string, handler: (request: unknown, reply: unknown, done: () => void) => void) => {
+        hooks.push(handler);
+      });
+      return {
+        addHook,
+        dispatch: (request, reply, done): void => {
+          hooks.forEach((hook) => hook(request, reply, done));
+        },
+      };
+    };
+
+    const createReply = (): { raw: Record<string, unknown>; hijack: jest.Mock } => ({
+      raw: { setHeader: jest.fn(), end: jest.fn() },
+      hijack: jest.fn(),
+    });
+
+    it('should register on onRequest, which runs before body parsing', () => {
+      const instance = createInstance();
+
+      adapter.mountRaw(instance, () => true, jest.fn());
+
+      // onRequest is the only hook early enough to leave the request stream intact.
+      expect(instance.addHook).toHaveBeenCalledWith('onRequest', expect.any(Function));
+    });
+
+    it('should hijack the reply and hand over raw Node objects on a match', () => {
+      const instance = createInstance();
+      const handler = jest.fn();
+      const reply = createReply();
+      const request = { url: '/oidc/token', raw: { method: 'POST' } };
+      const done = jest.fn();
+
+      adapter.mountRaw(instance, (path) => path.startsWith('/oidc/'), handler);
+      instance.dispatch(request, reply, done);
+
+      expect(reply.hijack).toHaveBeenCalledTimes(1);
+      expect(handler).toHaveBeenCalledWith(request.raw, reply.raw);
+      // done() must not run - the handler owns the socket from here.
+      expect(done).not.toHaveBeenCalled();
+    });
+
+    it('should claim paths that match no route, such as discovery', () => {
+      const instance = createInstance();
+      const handler = jest.fn();
+      const done = jest.fn();
+
+      adapter.mountRaw(instance, (path) => path.startsWith('/.well-known/'), handler);
+      instance.dispatch({ url: '/.well-known/openid-configuration', raw: {} }, createReply(), done);
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(done).not.toHaveBeenCalled();
+    });
+
+    it('should call done and leave the reply alone for non-matching requests', () => {
+      const instance = createInstance();
+      const handler = jest.fn();
+      const reply = createReply();
+      const done = jest.fn();
+
+      adapter.mountRaw(instance, (path) => path.startsWith('/oidc/'), handler);
+      instance.dispatch({ url: '/auth/login', raw: {} }, reply, done);
+
+      expect(handler).not.toHaveBeenCalled();
+      expect(reply.hijack).not.toHaveBeenCalled();
+      expect(done).toHaveBeenCalledTimes(1);
+    });
+
+    it('should strip the query string before testing the predicate', () => {
+      const instance = createInstance();
+      const predicate = jest.fn().mockReturnValue(false);
+
+      adapter.mountRaw(instance, predicate, jest.fn());
+      instance.dispatch({ url: '/oidc/auth?client_id=demo', raw: {} }, createReply(), jest.fn());
+
+      expect(predicate).toHaveBeenCalledWith('/oidc/auth');
+    });
+
+    it('should throw a helpful error when the instance cannot be attached to', () => {
+      expect(() => adapter.mountRaw({}, () => true, jest.fn())).toThrow(/addHook\(\) method/);
+      expect(() => adapter.mountRaw(undefined, () => true, jest.fn())).toThrow(/addHook\(\) method/);
+    });
+  });
 });

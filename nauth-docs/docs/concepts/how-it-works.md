@@ -12,7 +12,7 @@ import FeatureCard from '@site/src/components/FeatureCard';
 
 # How It Works
 
-nauth-toolkit lives inside your backend. You configure it once — it gives you services you call from your routes. No separate process, no external API, no SDK calls over the network.
+nauth-toolkit lives inside your backend. You configure it once and it mounts the auth endpoints for you, over services you can also call directly. No separate process, no external API, no SDK calls over the network.
 
 ## Where It Lives
 
@@ -21,7 +21,7 @@ graph TB
     FE(["React · Angular · NextJS"])
 
     subgraph BE["Your Node.js Backend"]
-        Routes["Your Routes"]
+        Routes["Mounted auth routes"]
         NAuth["AuthService · MFAService · SocialAuthService"]
         Routes <-->|call| NAuth
     end
@@ -32,10 +32,12 @@ graph TB
     NAuth -->|"reads & writes"| DB
 ```
 
-Your routes call nauth services. nauth reads and writes to your database. Your frontend talks to your backend as normal — nothing in the middle.
+The mounted routes call nauth services — and so does any route you write yourself. nauth reads and writes to your database. Your frontend talks to your backend as normal — nothing in the middle.
 
-:::warning[Authentication only — not authorization]
-nauth-toolkit verifies identity and issues tokens. It does **not** check permissions, roles, or access control. Authorization is your responsibility — use your own guards, policies, or an RBAC library on top.
+:::warning[Authentication first — authorization is pluggable]
+nauth-toolkit verifies identity and issues tokens. It defines no roles or permissions of its own, so application-level access control stays yours.
+
+For its **own** administrative operations it ships a contract: supply an [`IAuthorizationProvider`](/docs/concepts/authorization) and every privileged service method consults it. Without one, admin routes refuse to mount.
 :::
 
 ## What You Configure
@@ -62,89 +64,56 @@ Two things, once, at startup:
 
 ## What You Write
 
-### Backend — thin route handlers
+### Backend — configuration, not controllers
 
-You define endpoints that map to nauth service calls. Your route handlers are thin — nauth handles everything behind the service call (password hashing, JWT issuance, session management, rate limiting, audit logging):
+The auth endpoints ship with the toolkit. You add a `routes` block, and nauth mounts sign-up,
+sign-in, refresh, challenges, profile, MFA, social linking, sessions and device trust — handling
+password hashing, JWT issuance, session management, rate limiting and audit logging behind each
+one.
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
 
-```typescript
-@Post('signup')
-@Public()
-async signup(@Body() body: SignupDTO): Promise<AuthResponseDTO> {
-  return this.authService.signup(body);
-}
-
-@Post('login')
-@Public()
-async login(@Body() body: LoginDTO): Promise<AuthResponseDTO> {
-  return this.authService.login(body);
-}
-
-@Get('profile')
-@UseGuards(AuthGuard)
-profile(@CurrentUser() user: NAuthUser): NAuthUser {
-  return user;
-}
+```typescript title="src/config/auth.config.ts"
+routes: [{ prefix: 'auth' }],
 ```
 
 </TabItem>
 <TabItem value="express" label="Express">
 
-```typescript
-router.post('/signup', nauth.helpers.public(), async (req, res, next) => {
-  try {
-    res.status(201).json(await authService.signup(req.body));
-  } catch (err) { next(err); }
-});
-
-router.post('/login', nauth.helpers.public(), async (req, res, next) => {
-  try {
-    res.json(await authService.login(req.body));
-  } catch (err) { next(err); }
-});
-
-router.get('/profile', nauth.helpers.requireAuth(), (_req, res, next) => {
-  try {
-    res.json(nauth.helpers.getCurrentUser());
-  } catch (err) { next(err); }
-});
+```typescript title="src/index.ts"
+const authRouter = express.Router();
+registerNAuthExpressRoutes(authRouter, nauth);
+app.use('/auth', authRouter);
 ```
 
 </TabItem>
 <TabItem value="fastify" label="Fastify">
 
-```typescript
-fastify.post('/auth/signup',
-  { preHandler: [nauth.helpers.public()] },
-  nauth.adapter.wrapRouteHandler(async (req, res) => {
-    res.status(201).json(await authService.signup(req.body));
-  })
-);
-
-fastify.post('/auth/login',
-  { preHandler: [nauth.helpers.public()] },
-  nauth.adapter.wrapRouteHandler(async (req, res) => {
-    res.json(await authService.login(req.body));
-  })
-);
-
-fastify.get('/auth/profile',
-  { preHandler: [nauth.helpers.requireAuth()] },
-  nauth.adapter.wrapRouteHandler(async (_req, res) => {
-    res.json(nauth.helpers.getCurrentUser());
-  })
+```typescript title="src/index.ts"
+await fastify.register(
+  async (scope) => registerNAuthFastifyRoutes(scope, nauth),
+  { prefix: '/auth' },
 );
 ```
 
 </TabItem>
 </Tabs>
 
-You choose which endpoints to expose. The same `authService.signup()` and `authService.login()` calls work identically across all three frameworks.
+You write a route handler only when you want to change one. Exclude its key and declare just
+that route, delegating to the same service the shipped route would have called:
 
-| Service | What you get |
-|---------|-------------|
+```typescript
+routes: [{ prefix: 'auth', exclude: ['login'] }],
+```
+
+See [Authentication Routes](/docs/guides/routes) for mounting, overriding and surface reduction,
+and [Shipped Routes](/docs/api/core/routes/overview) for the full table.
+
+### The services behind those routes
+
+| Service | Responsibility |
+| --- | --- |
 | [`AuthService`](/docs/api/core/services/auth-service) | Signup, login, logout, password reset, token refresh, email/phone verification |
 | [`MFAService`](/docs/api/core/services/mfa-service) | Enroll and verify TOTP, SMS, email, and passkey methods |
 | [`SocialAuthService`](/docs/api/core/services/social-auth-service) | Google, Apple, Facebook — redirect flows and native mobile token verification |
@@ -174,7 +143,7 @@ Challenges can chain: signup may require email verification → then MFA setup �
 
 ## Request Processing Pipeline
 
-Every request passes through a fixed handler chain before reaching your route. The order is the same across all frameworks — only the registration mechanism differs:
+Every request passes through a fixed handler chain before reaching the route handler — whether that is a mounted route or one you wrote. The order is the same across all frameworks; only the registration mechanism differs:
 
 ```mermaid
 graph LR
@@ -182,7 +151,7 @@ graph LR
     CI["ClientInfoHandler"]
     CSRF["CsrfHandler"]
     AUTH["AuthHandler"]
-    ROUTE["Your Route Handler"]
+    ROUTE["Route Handler"]
     TD["TokenDeliveryHandler"]
     RES(["Response"])
 

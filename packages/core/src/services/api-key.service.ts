@@ -1,4 +1,5 @@
 import { Repository } from 'typeorm';
+import { AuthorizationService } from './authorization.service';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { BaseApiKey } from '../entities/api-key.entity';
 import { BaseUser } from '../entities/user.entity';
@@ -61,6 +62,7 @@ export class ApiKeyService {
     private readonly config: NAuthConfig,
     private readonly logger: NAuthLogger,
     private readonly auditService?: InternalAuthAuditService,
+    private readonly authorizationService?: AuthorizationService,
   ) {
     this.logger?.log?.('ApiKeyService initialized');
   }
@@ -134,6 +136,7 @@ export class ApiKeyService {
    * @throws {NAuthException} USER_NOT_FOUND, or any API_KEY_* creation error
    */
   async adminCreateKey(dto: AdminCreateApiKeyDTO): Promise<CreateApiKeyResponseDTO> {
+    await this.authorizationService?.authorize('admin.apiKey.create', { targetSub: dto.sub });
     dto = await ensureValidatedDto(AdminCreateApiKeyDTO, dto);
     const userId = await this.resolveUserIdBySub(dto.sub);
     return this.createForUser(userId, dto, true);
@@ -145,6 +148,7 @@ export class ApiKeyService {
    * @throws {NAuthException} USER_NOT_FOUND
    */
   async adminListKeys(dto: AdminManageApiKeyDTO): Promise<ListApiKeysResponseDTO> {
+    await this.authorizationService?.authorize('admin.apiKey.list', { targetSub: dto.sub });
     dto = await ensureValidatedDto(AdminManageApiKeyDTO, dto);
     const userId = await this.resolveUserIdBySub(dto.sub);
     return this.listForUser(userId);
@@ -156,6 +160,7 @@ export class ApiKeyService {
    * @throws {NAuthException} USER_NOT_FOUND, API_KEY_NOT_FOUND, VALIDATION_FAILED
    */
   async adminUpdateKey(dto: AdminUpdateApiKeyDTO): Promise<ApiKeyResponseDTO> {
+    await this.authorizationService?.authorize('admin.apiKey.update', { targetSub: dto.sub });
     dto = await ensureValidatedDto(AdminUpdateApiKeyDTO, dto);
     const userId = await this.resolveUserIdBySub(dto.sub);
     return this.updateForUser(userId, dto.keyId, dto.name, dto.allowedIps);
@@ -167,6 +172,7 @@ export class ApiKeyService {
    * @throws {NAuthException} USER_NOT_FOUND, API_KEY_NOT_FOUND, VALIDATION_FAILED
    */
   async adminRevokeKey(dto: AdminManageApiKeyDTO): Promise<RevokeApiKeyResponseDTO> {
+    await this.authorizationService?.authorize('admin.apiKey.revoke', { targetSub: dto.sub });
     dto = await ensureValidatedDto(AdminManageApiKeyDTO, dto);
     const keyId = this.requireKeyId(dto.keyId);
     const userId = await this.resolveUserIdBySub(dto.sub);
@@ -179,6 +185,7 @@ export class ApiKeyService {
    * @throws {NAuthException} USER_NOT_FOUND, API_KEY_NOT_FOUND, VALIDATION_FAILED
    */
   async adminDeleteKey(dto: AdminManageApiKeyDTO): Promise<DeleteApiKeyResponseDTO> {
+    await this.authorizationService?.authorize('admin.apiKey.delete', { targetSub: dto.sub });
     dto = await ensureValidatedDto(AdminManageApiKeyDTO, dto);
     const keyId = this.requireKeyId(dto.keyId);
     const userId = await this.resolveUserIdBySub(dto.sub);

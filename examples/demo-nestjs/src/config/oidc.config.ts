@@ -36,6 +36,15 @@ export const oidcConfig: OIDCProviderModuleOptions = {
 
   interactionUrl: (uid: string) => `${FRONTEND}/interaction/${uid}`,
 
+  // oidc-provider ships no rate limiting, and these endpoints sit outside nauth's guard
+  // chain, so nothing else covers them. POST /token is otherwise an unauthenticated
+  // brute-force surface against client secrets and authorization codes.
+  rateLimit: {
+    authorize: { max: 60, windowSeconds: 60 },
+    token: { max: 60, windowSeconds: 60 },
+    introspection: { max: 600, windowSeconds: 60 },
+  },
+
   // Signs the provider's own cookies. Unrelated to nauth's JWT secrets, and rotated
   // by prepending a new key while keeping a short history.
   cookieKeys: [process.env.OIDC_COOKIE_SECRET ?? 'demo-oidc-cookie-secret-change-me'],

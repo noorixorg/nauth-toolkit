@@ -122,6 +122,28 @@ export const authConfig: NAuthModuleConfig = {
     },
   },
 
+  // Mount the routes the toolkit ships instead of hand-writing controllers. Both
+  // bundles serve the same handlers; only the token transport differs, which is what
+  // `tokenDelivery.method: 'hybrid'` above makes possible.
+  //
+  // Exclude a key and write that one route yourself when you need custom behaviour:
+  //   { prefix: 'auth', exclude: ['login'] }
+  routes: [
+    // Web: httpOnly cookies, CSRF, reCAPTCHA.
+    { prefix: 'auth', delivery: 'cookies' },
+
+    // Mobile and native clients: tokens in the response body, no CSRF.
+    {
+      prefix: 'mobile/auth',
+      delivery: 'json',
+      groups: ['core', 'profile', 'mfa', 'social', 'device'],
+    },
+
+    // Administration, on its own prefix so it can be firewalled off separately.
+    // Refused at startup unless `authorization` is configured (see RoleAuthorizer).
+    { prefix: 'admin', groups: ['admin'] },
+  ],
+
   security: {
     maskSensitiveData: true,
     csrf: {

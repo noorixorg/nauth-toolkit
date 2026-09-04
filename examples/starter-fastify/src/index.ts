@@ -10,20 +10,13 @@ import Fastify from 'fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCors from '@fastify/cors';
 import { DataSource } from 'typeorm';
-import {
-  NAuth,
-  FastifyAdapter,
-  NAuthInstance,
-} from '@nauth-toolkit/core';
+import { NAuth, FastifyAdapter, FastifyMiddlewareType } from '@nauth-toolkit/core';
 import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
 
 import { authConfig } from './config/auth.config';
-import { registerAuthRoutes, registerMobileAuthRoutes } from './routes/auth.routes';
-import { registerSocialRoutes } from './routes/social.routes';
+import { registerNAuthFastifyRoutes } from '@nauth-toolkit/core';
 import { errorHandler } from './utils/error-handler';
 
-type FastifyPreHandler = (request: unknown, reply: unknown) => Promise<void>;
-type TypedNAuth = NAuthInstance<FastifyPreHandler, FastifyPreHandler>;
 
 async function main(): Promise<void> {
   console.log('Starting Fastify Authentication Server...');
@@ -68,9 +61,9 @@ async function main(): Promise<void> {
 
   // ── NAuth Hooks (ORDER MATTERS) ───────────────────────────────────────────────
   // preHandler: clientInfo MUST BE FIRST (initializes AsyncLocalStorage)
-  fastify.addHook('preHandler', nauth.middleware.clientInfo as FastifyPreHandler);
-  fastify.addHook('preHandler', nauth.middleware.csrf as FastifyPreHandler);
-  fastify.addHook('preHandler', nauth.middleware.auth as FastifyPreHandler);
+  fastify.addHook('preHandler', nauth.middleware.clientInfo as FastifyMiddlewareType);
+  fastify.addHook('preHandler', nauth.middleware.csrf as FastifyMiddlewareType);
+  fastify.addHook('preHandler', nauth.middleware.auth as FastifyMiddlewareType);
   // tokenDelivery is a response interceptor — use onSend
   fastify.addHook(
     'onSend',
@@ -85,11 +78,24 @@ async function main(): Promise<void> {
 
   // ── Routes ────────────────────────────────────────────────────────────────────
 
-  const typedNauth = nauth as TypedNAuth;
+  // Mounted from the toolkit's route manifest rather than hand-written. Registering
+  // inside an encapsulated scope is how Fastify applies a prefix; both bundles serve
+  // the same handlers and differ only in token transport.
+  //
+  // To customise one route, exclude its key and register your own in the same scope.
+  await fastify.register(
+    async (scope) => registerNAuthFastifyRoutes(scope, nauth, { delivery: 'cookies' }),
+    { prefix: '/auth' },
+  );
 
-  await registerAuthRoutes(fastify, typedNauth);
-  await registerMobileAuthRoutes(fastify, typedNauth);
-  await registerSocialRoutes(fastify, typedNauth, nauth.socialRedirect!);
+  await fastify.register(
+    async (scope) =>
+      registerNAuthFastifyRoutes(scope, nauth, {
+        delivery: 'json',
+        groups: ['core', 'profile', 'mfa', 'social', 'device'],
+      }),
+    { prefix: '/mobile/auth' },
+  );
 
   // ── Error Handler (MUST BE LAST) ──────────────────────────────────────────────
   fastify.setErrorHandler(errorHandler);

@@ -2507,6 +2507,27 @@ export interface TokenDeliveryConfig {
   method?: 'json' | 'cookies' | 'hybrid';
 
   /**
+   * Reject per-route delivery overrides that contradict `method`.
+   *
+   * A route can override delivery — `nauth.helpers.tokenDelivery('json')` on
+   * Express/Fastify, `@TokenDelivery('json')` on NestJS. An override only makes sense
+   * when `method` permits both transports, i.e. `'hybrid'`. Asking for JSON under
+   * `method: 'cookies'` means a route quietly opting out of httpOnly cookies, which is
+   * usually a mistake and occasionally a vulnerability.
+   *
+   * - `false` (default): the conflict is logged as a warning and the override is honoured.
+   * - `true`: the conflict throws `BEARER_NOT_ALLOWED` / `COOKIES_NOT_ALLOWED`.
+   *
+   * Defaults to `false` so that upgrading cannot break a running application. NestJS
+   * has always thrown here regardless of this flag; setting it to `true` aligns
+   * Express and Fastify with that behaviour, and it is the recommended setting for new
+   * applications. A future major release will make `true` the default.
+   *
+   * @default false
+   */
+  strictOverrides?: boolean;
+
+  /**
    * Cookie name prefix for all authentication cookies
    *
    * All cookie names are prefixed with this value to avoid conflicts with other cookies.

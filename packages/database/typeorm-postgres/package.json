@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/database-typeorm-postgres",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "PostgreSQL storage adapter for nauth-toolkit via TypeORM",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.4.0",
+    "@nauth-toolkit/core": "^0.5.0",
     "typeorm": "^0.3.20",
     "pg": "^8.0.0"
   },

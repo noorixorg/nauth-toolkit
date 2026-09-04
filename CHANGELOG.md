@@ -5,6 +5,23 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-09-04
+
+### Added
+
+- **Mountable auth routes** — every auth endpoint now ships as a route bundle you mount instead of hand-writing controllers. One manifest serves NestJS, Express and Fastify; mount it twice to serve cookies to the web and JSON to mobile from one backend. `exclude` drops individual routes so you write only the ones you customise. This also reaches fifteen endpoints that previously existed as services with no route anywhere. See [the guide](https://nauth.dev/docs/guides/routes).
+- **Authorization provider** — administrative operations now delegate to an `IAuthorizationProvider` you supply, enforced inside the services so one policy covers shipped routes, your own controllers and scripts alike. Denials are audited. Without a provider, behaviour is unchanged and the admin route group refuses to mount. See [the guide](https://nauth.dev/docs/concepts/authorization).
+- **`runAsSystem()`** — wraps trusted work with no authenticated caller (seeds, migrations, scheduled jobs) so it bypasses the authorization provider explicitly rather than by accident.
+- **OpenID Connect mounts itself** — `OIDCProviderModule` attaches the provider during module initialisation, so `main.ts` needs no OpenID Connect code. The mount selects its attach mechanism from the running HTTP driver, so the Fastify driver is supported alongside Express.
+
+### Security
+
+- **Do not derive authority from `user.metadata`.** That column is caller-writable through `POST /auth/signup` and `PUT /auth/profile`, so a user could grant themselves any role stored there. Authorization providers must read authority from a store the user cannot write. This is documented on the [authorization guide](https://nauth.dev/docs/concepts/authorization) and the shipped examples follow it.
+
+### Changed
+
+- Two route bundles requesting different token deliveries now fail at startup with a message naming the offending bundle, rather than on the first request.
+
 ## [0.4.0] - 2026-09-04
 
 ### Added

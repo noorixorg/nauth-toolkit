@@ -27,6 +27,14 @@ export * from '@nauth-toolkit/core';
 export { AuthModule, NAuthModuleConfig } from './auth.module';
 
 /**
+ * Generated controller for the shipped auth routes.
+ *
+ * `AuthModule.forRoot({ routes })` builds these for you; call it directly only when
+ * registering the controller in your own module.
+ */
+export { createNAuthRoutesController } from './controllers/auth-routes.controller.factory';
+
+/**
  * NestJS Guards - Route protection and authentication
  */
 export { AuthGuard } from './guards/auth.guard';

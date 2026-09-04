@@ -1,7 +1,7 @@
 ---
 sidebar_position: 3
 title: React
-description: Connect a React frontend to nauth-toolkit using the client SDK
+description: 'Connect React to nauth-toolkit with @nauth-toolkit/client: NAuthClient config, auto-refresh HttpAdapter, AuthContext and useAuth, ProtectedRoute, login/signup/dashboard pages, OAuth callback'
 keywords: [quick-start, react, frontend, sdk, authentication]
 image: /img/api-social-card.png
 ---
@@ -18,11 +18,11 @@ A complete working example is available at [github.com/noorixorg/nauth-toolkit/t
 See nauth-toolkit in action at **[demo.nauth.dev](https://demo.nauth.dev)** — a working demo app showcasing signup, login, MFA, social auth, and session management.
 :::
 
-:::info[No React-specific SDK]
+:::note[No React-specific SDK]
 There is no React-specific SDK package. `@nauth-toolkit/client` supports all auth operations and works in any JS environment, but requires a bit more manual wiring than the Angular SDK — you'll set up a React Context, a token-refresh adapter, and a protected route component yourself. This guide provides the complete, production-ready patterns for all of these.
 :::
 
-:::info[Backend Required]
+:::note[Backend Required]
 This guide assumes you have a running nauth-toolkit backend. Complete the [NestJS](/docs/quick-start/nestjs) or [Express](/docs/quick-start/express) quick start first.
 :::
 
@@ -58,17 +58,16 @@ src/
 ├── hooks/
 │   └── useAuth.ts           # useAuth hook
 ├── components/
-│   ├── GoogleIcon.tsx       # Google logo for OAuth button
 │   └── ProtectedRoute.tsx   # Route guard
 ├── pages/
 │   ├── LoginPage.tsx
 │   ├── SignupPage.tsx
-│   ├── ChallengePage.tsx
-│   ├── MfaSetupPage.tsx
 │   ├── DashboardPage.tsx
 │   └── OAuthCallbackPage.tsx
 └── App.tsx                  # Routes
 ```
+
+The sample app adds `ChallengePage.tsx` and `MfaSetupPage.tsx` for verification and MFA flows — see [Challenge Handling](#challenge-handling) below.
 
 ---
 
@@ -448,8 +447,6 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
-import { ChallengePage } from './pages/ChallengePage';
-import { MfaSetupPage } from './pages/MfaSetupPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 
@@ -459,8 +456,6 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
-        <Route path="/auth/challenge" element={<ChallengePage />} />
-        <Route path="/auth/mfa-setup" element={<MfaSetupPage />} />
         <Route path="/auth/callback" element={<OAuthCallbackPage />} />
         <Route
           path="/dashboard"
@@ -932,7 +927,14 @@ Start both servers and open your React app in the browser:
 
 ## Challenge Handling
 
-If you enable email or phone verification (`verificationMethod: 'email'`), login and signup return a `challengeName` instead of tokens. You'll need a `/auth/challenge` route to collect the verification code and call `respondToChallenge()`. See the [Challenge System](/docs/concepts/challenge-system) guide for complete patterns.
+If you enable email or phone verification (`verificationMethod: 'email'`) or MFA, login and signup return a `challengeName` instead of tokens, and the pages above navigate to `/auth/challenge`. Copy [`ChallengePage.tsx`](https://github.com/noorixorg/nauth-toolkit/blob/main/examples/starter-react/src/pages/ChallengePage.tsx) and [`MfaSetupPage.tsx`](https://github.com/noorixorg/nauth-toolkit/blob/main/examples/starter-react/src/pages/MfaSetupPage.tsx) from the sample app and add their routes:
+
+```tsx title="src/App.tsx"
+<Route path="/auth/challenge" element={<ChallengePage />} />
+<Route path="/auth/mfa-setup" element={<MfaSetupPage />} />
+```
+
+See the [Challenge System](/docs/concepts/challenge-system) guide for how the flow works.
 
 ---
 

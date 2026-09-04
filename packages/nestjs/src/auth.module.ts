@@ -7,6 +7,7 @@ import {
   OnApplicationBootstrap,
   OnApplicationShutdown,
   Optional,
+  Type,
 } from '@nestjs/common';
 import { APP_INTERCEPTOR, APP_GUARD, ModuleRef } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -48,9 +49,17 @@ import {
   SMSTemplateEngine,
   SMSTemplateEngineImpl,
   SocialRedirectHandler,
+  AuthorizationService,
+  assertMountsCompatible,
+  normalizeMounts,
+  resolveMount,
+  type IAuthorizationProvider,
   type IMFAProviderService,
   type ISocialAuthProviderService,
+  type NAuthRouteMountOptions,
+  type ResolvedRouteMount,
 } from '@nauth-toolkit/core';
+import { createNAuthRoutesController } from './controllers/auth-routes.controller.factory';
 
 // Internal API imports (for framework adapter use only)
 import {
@@ -289,6 +298,37 @@ export interface NAuthModuleConfig extends NAuthConfig {
    * ```
    */
   entities?: Function[];
+
+  /**
+   * Mount the shipped auth routes instead of hand-writing controllers.
+   *
+   * Omit it and no controllers are registered, exactly as in previous releases. Pass an
+   * array to mount the same routes more than once — cookies for the web, JSON for
+   * mobile — which requires `tokenDelivery.method: 'hybrid'`.
+   *
+   * @example
+   * ```typescript
+   * AuthModule.forRoot({
+   *   ...authConfig,
+   *   routes: [
+   *     { prefix: 'auth', delivery: 'cookies' },
+   *     { prefix: 'mobile/auth', delivery: 'json', groups: ['core', 'social'] },
+   *     { prefix: 'admin', groups: ['admin'], guards: ['ADMIN_GUARD'] },
+   *   ],
+   * })
+   * ```
+   */
+  routes?: NAuthRouteMountOptions | readonly NAuthRouteMountOptions[];
+
+  /**
+   * Decides whether privileged operations may proceed.
+   *
+   * A class (registered as a provider, so it can use dependency injection) or a ready
+   * instance. Required whenever an `admin` route group is mounted: the toolkit ships no
+   * role model, so without one those endpoints would be reachable by any authenticated
+   * caller.
+   */
+  authorization?: Type<IAuthorizationProvider> | IAuthorizationProvider;
 }
 
 /**
@@ -325,13 +365,56 @@ export class AuthModule {
     // Determine entities - use provided or discover from DataSource
     const entities = config.entities || [];
 
+    // ========================================================================
+    // Shipped route bundles
+    // ========================================================================
+    // Resolved here, synchronously, so a misconfigured bundle fails at startup rather
+    // than at the first request. There is no forRootAsync in this package, which is
+    // what makes that possible - revisit this if one is ever added.
+    const mounts = normalizeMounts(config.routes);
+    assertMountsCompatible(config, mounts);
+
+    const authorizationIsClass = typeof config.authorization === 'function';
+    const controllers = mounts
+      .map((options) =>
+        resolveMount(options, {
+          config,
+          // Conditional services follow the same feature flags the providers below use.
+          services: {
+            mfaService: config.mfa?.enabled !== false ? ({} as never) : undefined,
+            socialAuthService: {} as never,
+            auditService: config.auditLogs?.enabled !== false ? ({} as never) : undefined,
+            apiKeyService: config.apiKeys?.enabled ? ({} as never) : undefined,
+            socialRedirect: {} as never,
+          },
+          authorizationConfigured: config.authorization !== undefined,
+        }),
+      )
+      .filter((mount): mount is ResolvedRouteMount => mount !== undefined)
+      .map((mount) => createNAuthRoutesController(mount));
+
     return {
       module: AuthModule,
+      controllers,
       imports: [
         // TypeORM entities - only if provided (otherwise entities from forRoot() are used)
         ...(entities.length > 0 ? [TypeOrmModule.forFeature(entities)] : []),
       ],
       providers: [
+        // Consumer-supplied authorization for privileged operations. Registered as a
+        // provider when given as a class so it can inject its own dependencies.
+        ...(authorizationIsClass ? [config.authorization as Type<IAuthorizationProvider>] : []),
+        {
+          provide: AuthorizationService,
+          useFactory: (moduleRef: ModuleRef): AuthorizationService => {
+            const provider = authorizationIsClass
+              ? moduleRef.get(config.authorization as Type<IAuthorizationProvider>, { strict: false })
+              : (config.authorization as IAuthorizationProvider | undefined);
+            return new AuthorizationService(provider, nauthLogger);
+          },
+          inject: [ModuleRef],
+        },
+
         // Auto-run nauth-toolkit migrations on startup (no consumer burden)
         nauthMigrationsBootstrapProvider,
 

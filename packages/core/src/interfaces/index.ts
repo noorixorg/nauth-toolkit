@@ -1,3 +1,4 @@
+export * from './authorization-provider.interface';
 export * from './config.interface';
 export * from './entities.interface';
 export * from './hooks.interface';

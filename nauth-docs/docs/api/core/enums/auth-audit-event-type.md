@@ -151,6 +151,7 @@ import { AuthAuditEventType } from '@nauth-toolkit/core';
 | Value                 | Description                                                   |
 | --------------------- | ------------------------------------------------------------- |
 | `SUSPICIOUS_ACTIVITY` | Suspicious activity detected (token reuse, impossible travel) |
+| `AUTHORIZATION_DENIED` | A privileged operation was refused by the configured [authorization provider](/docs/concepts/authorization). Metadata carries the attempted action, the acting user and the target |
 
 ## API Key Events
 

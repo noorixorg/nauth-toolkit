@@ -60,16 +60,93 @@ Build a complete admin panel for user management. By the end of this guide you w
 Admin routes are fully implemented in the [nauth example apps](https://github.com/noorixorg/nauth-toolkit) — see the Express and Fastify examples for admin routes, and the Angular example for `admin.component.ts`.
 :::
 
-:::warning[Authorization is your responsibility]
-nauth-toolkit is an **authentication** framework — it does not handle authorization or permissions. All admin endpoints below use `requireAuth()` to verify the caller has a valid JWT, but **you must add your own authorization layer** on top (role checks, permission guards, RBAC, etc.) to ensure only admins can access these routes.
+:::danger[Admin operations require an authorization provider]
+nauth-toolkit **authenticates** but ships no role model, so it cannot decide who is an admin.
+`requireAuth()` only proves the caller has a valid JWT — on its own, that makes every endpoint
+below reachable by **any signed-in user**.
+
+Supply an [`IAuthorizationProvider`](/docs/concepts/authorization). It is enforced inside the
+services, so it protects a controller you write and a background script just as it protects the
+shipped routes. Mounting the `admin` route group without one is refused at startup.
 :::
 
 ## Prerequisites
 
 - [Basic Auth Flows](/docs/guides/basic-auth) are working (signup, login, challenge endpoints)
-- You have an authorization strategy for protecting admin routes (role-based, permission-based, etc.)
+- An [authorization provider](/docs/concepts/authorization) is configured
 
-## Step 1: Add Backend Routes
+## Exposing the admin API: pick one approach
+
+There are two ways to get the admin endpoints onto your app. **Choose one** — you do not need both.
+
+| Approach | Use it when |
+| --- | --- |
+| [Option A: Mount the shipped routes](#option-a-mount-the-shipped-routes) | Default. The endpoints ship with the toolkit — mount them and they are live. |
+| [Option B: Write the routes yourself](#option-b-write-the-routes-yourself) | You need custom paths, extra guards, or a different response shape. |
+
+Both call the same services, so every operation documented in the rest of this guide behaves
+identically either way.
+
+## Option A: Mount the shipped routes
+
+The admin endpoints ship with the toolkit. Mount them on their own prefix so the surface can be
+firewalled off separately from your public auth routes.
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS" default>
+
+```typescript title="src/config/auth.config.ts"
+routes: [
+  { prefix: 'auth' },
+  { prefix: 'admin', groups: ['admin'] },
+],
+```
+
+```typescript title="src/auth/auth.module.ts"
+AuthModule.forRoot({ ...authConfig, authorization: RoleAuthorizer })
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript title="src/index.ts"
+const adminRouter = express.Router();
+registerNAuthExpressRoutes(adminRouter, nauth, { groups: ['admin'] });
+app.use('/admin', adminRouter);
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript title="src/index.ts"
+await fastify.register(
+  async (scope) => registerNAuthFastifyRoutes(scope, nauth, { groups: ['admin'] }),
+  { prefix: '/admin' },
+);
+```
+
+</TabItem>
+</Tabs>
+
+[Route Groups](/docs/api/core/routes/groups#admin) lists every route the `admin` group
+contains. Drop individual endpoints you do not want exposed:
+
+```typescript
+{ prefix: 'admin', groups: ['admin'], exclude: ['adminSetPassword', 'adminDeleteUser'] }
+```
+
+:::note[Paths differ from the hand-written examples in Option B]
+The shipped `admin` bundle mounts on its own prefix, so its paths are `/admin/users/:sub`. The
+hand-written examples in Option B nest under `/auth/admin/*`, matching `examples/demo-nestjs`.
+Both work — the shipped bundle keeps admin separable at the network layer. See
+[Shipped Routes](/docs/api/core/routes/overview) for the full table.
+:::
+
+API keys cannot reach the shipped admin routes at all: every one sets `apiKey: 'deny'`, which the guard enforces before the handler runs. The `viaApiKey` flag on the authorization context is for admin routes you write yourself and mark `allowApiKey`.
+
+## Option B: Write the routes yourself
+
+Skip this section if you mounted the shipped routes in Option A.
 
 The admin API uses two services from nauth-toolkit:
 - **`adminAuthService`** — user CRUD, passwords, sessions
@@ -507,7 +584,7 @@ fastify.get('/auth/admin/audit/history', { preHandler: [nauth.helpers.requireAut
 </TabItem>
 </Tabs>
 
-## Step 2: User Management
+## Step 1: User Management
 
 ### Create a user
 
@@ -780,7 +857,7 @@ POST /auth/admin/users/:sub/enable
 }
 ```
 
-## Step 3: Password Management
+## Step 2: Password Management
 
 ### Set password directly
 
@@ -868,7 +945,7 @@ POST /auth/admin/users/:sub/force-password-change
 }
 ```
 
-## Step 4: Session Management
+## Step 3: Session Management
 
 ### Get user sessions
 
@@ -927,7 +1004,7 @@ POST /auth/admin/users/:sub/logout-all
 }
 ```
 
-## Step 5: Admin MFA Management
+## Step 4: Admin MFA Management
 
 ### Get MFA status
 
@@ -1034,7 +1111,7 @@ POST /auth/admin/mfa/exemption
 }
 ```
 
-## Step 6: Frontend SDK
+## Step 5: Frontend SDK
 
 The frontend SDK provides `client.admin.*` methods that call the admin endpoints above. This works with any frontend framework.
 

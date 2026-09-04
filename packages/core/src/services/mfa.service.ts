@@ -1,4 +1,5 @@
 import { Repository } from 'typeorm';
+import { AuthorizationService } from './authorization.service';
 import { BaseMFADevice, BaseUser } from '../entities';
 import { IUser, IMFADevice } from '../interfaces/entities.interface';
 import { IMFAProviderService } from '../interfaces/mfa-provider.interface';
@@ -461,6 +462,7 @@ export class MFAService {
     private readonly auditService?: AuthAuditService,
     private readonly clientInfoService?: ClientInfoService,
     private readonly hookRegistry?: HookRegistryService,
+    private readonly authorizationService?: AuthorizationService,
   ) {}
 
   /**
@@ -762,6 +764,7 @@ export class MFAService {
    * @returns Response DTO with complete MFA status
    */
   async adminGetMfaStatus(dto: AdminGetMFAStatusDTO): Promise<GetMFAStatusResponseDTO> {
+    await this.authorizationService?.authorize('admin.mfa.readStatus', { targetSub: dto.sub });
     dto = await ensureValidatedDto(AdminGetMFAStatusDTO, dto);
     return await this.getMfaStatusBySub(dto.sub);
   }
@@ -783,6 +786,7 @@ export class MFAService {
    * ```
    */
   async adminGetUserDevices(dto: AdminGetUserDevicesDTO): Promise<GetUserDevicesResponseDTO> {
+    await this.authorizationService?.authorize('admin.mfa.listDevices', { targetSub: dto.sub });
     dto = await ensureValidatedDto(AdminGetUserDevicesDTO, dto);
 
     // Find user by sub
@@ -867,6 +871,8 @@ export class MFAService {
    * ```
    */
   async adminRemoveDevice(dto: AdminRemoveDeviceDTO): Promise<RemoveDeviceResponseDTO> {
+    // The DTO identifies the device, not its owner; the target user is resolved below.
+    await this.authorizationService?.authorize('admin.mfa.removeDevice');
     dto = await ensureValidatedDto(AdminRemoveDeviceDTO, dto);
 
     const deviceEntity = await this.mfaDeviceRepository.findOne({
@@ -915,6 +921,7 @@ export class MFAService {
    * ```
    */
   async adminSetPreferredDevice(dto: AdminSetPreferredDeviceDTO): Promise<AdminSetPreferredDeviceResponseDTO> {
+    await this.authorizationService?.authorize('admin.mfa.setPreferred', { targetSub: dto.sub });
     dto = await ensureValidatedDto(AdminSetPreferredDeviceDTO, dto);
 
     // Get target user
@@ -1060,6 +1067,7 @@ export class MFAService {
    * ```
    */
   async setMFAExemption(dto: SetMFAExemptionDTO): Promise<SetMFAExemptionResponseDTO> {
+    await this.authorizationService?.authorize('admin.mfa.setExemption', { targetSub: dto.sub });
     dto = await ensureValidatedDto(SetMFAExemptionDTO, dto);
 
     // ============================================================================

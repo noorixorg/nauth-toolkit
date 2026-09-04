@@ -374,6 +374,15 @@ export enum AuthAuditEventType {
    */
   SUSPICIOUS_ACTIVITY = 'SUSPICIOUS_ACTIVITY',
 
+  /**
+   * A privileged operation was refused by the configured authorization provider.
+   *
+   * Recorded with the attempted action, the acting user and the target. Denials are
+   * worth auditing in their own right: a run of them against admin actions is what a
+   * privilege-escalation attempt looks like.
+   */
+  AUTHORIZATION_DENIED = 'AUTHORIZATION_DENIED',
+
   // ============================================================================
   // API Key Events
   // ============================================================================

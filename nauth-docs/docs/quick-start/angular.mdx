@@ -1,7 +1,7 @@
 ---
 sidebar_position: 2
 title: Angular
-description: Connect an Angular frontend to nauth-toolkit using the Angular SDK
+description: 'Connect Angular to nauth-toolkit with @nauth-toolkit/client-angular: NAUTH_CLIENT_CONFIG, authInterceptor, authGuard, and AuthService login/signup/getProfile/logout'
 keywords: [quick-start, angular, frontend, sdk, authentication]
 image: /img/api-social-card.png
 ---
@@ -21,13 +21,13 @@ A complete working example is available at [github.com/noorixorg/nauth-toolkit/t
 See the Angular + NestJS stack in action at **[demo.nauth.dev](https://demo.nauth.dev)** — signup, login, MFA, social auth, and session management working end-to-end.
 :::
 
-:::info[Backend Required]
+:::note[Backend Required]
 This guide assumes you have a running nauth-toolkit backend. If you haven't set one up yet, complete the [NestJS](/docs/quick-start/nestjs) quick start first.
 :::
 
 ## Prerequisites
 
-- Angular 15+ (standalone components) **or** Angular 13+ (NgModule)
+- Angular 17+ (standalone components or NgModule)
 - A running nauth-toolkit backend at `http://localhost:3000`
 
 ---
@@ -42,12 +42,12 @@ npm install @nauth-toolkit/client @nauth-toolkit/client-angular
 
 ## Bootstrap
 
-The two Angular application styles configure nauth differently.
+The two Angular application styles register nauth-toolkit differently.
 
 <Tabs groupId="ng-style">
 <TabItem value="standalone" label="Standalone (v15+)" default>
 
-Register nauth providers in `app.config.ts`. `AngularHttpAdapter` wires the SDK to Angular's `HttpClient`, and `authInterceptor` automatically attaches access tokens and handles silent refresh on every outgoing request.
+Register the nauth-toolkit providers in `app.config.ts`. `AngularHttpAdapter` wires the SDK to Angular's `HttpClient`, and `authInterceptor` automatically attaches access tokens and handles silent refresh on every outgoing request.
 
 ```typescript title="src/main.ts"
 import { bootstrapApplication } from '@angular/platform-browser';
@@ -100,11 +100,7 @@ This guide uses `tokenDelivery: 'json'` without CSRF protection — the recommen
 </TabItem>
 <TabItem value="ngmodule" label="NgModule (traditional)">
 
-Import `NAuthModule.forRoot()` in your root `AppModule`. It registers the HTTP interceptor and all providers automatically.
-
-:::note[baseUrl in NgModule]
-In `NAuthModule.forRoot()`, `baseUrl` is the full auth base URL — include the `/auth` path prefix directly (e.g., `http://localhost:3000/auth`).
-:::
+Import `NAuthModule.forRoot()` in your root `AppModule`. It takes the same config as the standalone setup and registers the HTTP interceptor and all providers automatically.
 
 ```typescript title="src/main.ts"
 import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
@@ -133,8 +129,8 @@ import { routes } from './app-routing.module';
     FormsModule,
     RouterModule.forRoot(routes),
     NAuthModule.forRoot({
-      // Include /auth in the baseUrl — no authPathPrefix in NgModule mode
-      baseUrl: 'http://localhost:3000/auth',
+      baseUrl: 'http://localhost:3000',
+      authPathPrefix: '/auth',
       tokenDelivery: 'json',
       redirects: {
         loginSuccess: '/dashboard',
@@ -345,7 +341,7 @@ export class SignupComponent {
 
 ### Protected Dashboard
 
-The dashboard is protected by the route guard. Load the profile via `getClient().getProfile()` and call `logout()` to end the session.
+The dashboard is protected by the route guard. Load the profile with `AuthService.getProfile()` and call `logout()` to end the session.
 
 ```typescript title="src/app/dashboard/dashboard.component.ts"
 import { Component, OnInit, signal } from '@angular/core';

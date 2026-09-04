@@ -1,7 +1,7 @@
 ---
 sidebar_position: 3
 title: Fastify
-description: Add authentication to a Fastify application with nauth-toolkit
+description: 'Set up nauth-toolkit with Fastify: install packages, initialize nauth-toolkit, register hooks, mount the shipped auth routes with error handling, and verify with curl'
 keywords: [quick-start, fastify, setup, installation, authentication]
 image: /img/api-social-card.png
 ---
@@ -52,7 +52,7 @@ export const authConfig: NAuthConfig = {
   // DatabaseStorageAdapter stores transient state (rate limits, sessions, locks)
   // in the same PostgreSQL database — no Redis required.
   // NAuth.create() injects the DataSource repositories automatically.
-  // For multi-server production deployments, use createRedisStorageAdapter() instead.
+  // For multi-server production deployments, use RedisStorageAdapter from @nauth-toolkit/storage-redis instead.
   storageAdapter: new DatabaseStorageAdapter(null, null),
 
   jwt: {
@@ -68,7 +68,13 @@ export const authConfig: NAuthConfig = {
     },
   },
   logger: {
-    instance: new Logger('NAuth'),
+    instance: {
+      log: (msg: string) => console.log(`[NAuth] ${msg}`),
+      error: (msg: string, trace?: string) => console.error(`[NAuth ERROR] ${msg}`, trace || ''),
+      warn: (msg: string) => console.warn(`[NAuth WARN] ${msg}`),
+      debug: (msg: string) => console.debug(`[NAuth DEBUG] ${msg}`),
+      verbose: (msg: string) => console.log(`[NAuth VERBOSE] ${msg}`),
+    },
     enablePiiRedaction: true, // Redact emails, IPs, tokens
   },
   password: {
@@ -122,14 +128,10 @@ import Fastify from 'fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCors from '@fastify/cors';
 import { DataSource } from 'typeorm';
-import { NAuth, FastifyAdapter, NAuthInstance } from '@nauth-toolkit/core';
+import { NAuth, FastifyAdapter, FastifyMiddlewareType, registerNAuthFastifyRoutes } from '@nauth-toolkit/core';
 import { getNAuthEntities, getNAuthTransientStorageEntities } from '@nauth-toolkit/database-typeorm-postgres';
 import { authConfig } from './config/auth.config';
-import { registerAuthRoutes } from './routes/auth.routes';
 import { errorHandler } from './utils/error-handler';
-
-type FastifyPreHandler = (request: unknown, reply: unknown) => Promise<void>;
-type TypedNAuth = NAuthInstance<FastifyPreHandler, FastifyPreHandler>;
 
 async function main(): Promise<void> {
   // ── Database ─────────────────────────────────────────────────────────────────
@@ -172,9 +174,9 @@ async function main(): Promise<void> {
   });
 
   // ── NAuth Hooks (ORDER MATTERS) ───────────────────────────────────────────────
-  fastify.addHook('preHandler', nauth.middleware.clientInfo as FastifyPreHandler); // MUST BE FIRST — initializes AsyncLocalStorage
-  fastify.addHook('preHandler', nauth.middleware.csrf as FastifyPreHandler); // CSRF validation
-  fastify.addHook('preHandler', nauth.middleware.auth as FastifyPreHandler); // JWT validation (sets user on context)
+  fastify.addHook('preHandler', nauth.middleware.clientInfo as FastifyMiddlewareType); // MUST BE FIRST — initializes AsyncLocalStorage
+  fastify.addHook('preHandler', nauth.middleware.csrf as FastifyMiddlewareType); // CSRF validation
+  fastify.addHook('preHandler', nauth.middleware.auth as FastifyMiddlewareType); // JWT validation (sets user on context)
   // tokenDelivery is a response interceptor — use onSend, not preHandler
   fastify.addHook(
     'onSend',
@@ -189,7 +191,7 @@ async function main(): Promise<void> {
 
   // ── Routes ────────────────────────────────────────────────────────────────────
 
-  await registerAuthRoutes(fastify, nauth as TypedNAuth);
+  await fastify.register(async (scope) => registerNAuthFastifyRoutes(scope, nauth), { prefix: '/auth' });
 
   // ── Error Handler (MUST BE LAST) ──────────────────────────────────────────────
   fastify.setErrorHandler(errorHandler);
@@ -211,123 +213,138 @@ main().catch((error) => {
 
 ## Auth Routes
 
-Fastify routes use two nauth-specific patterns:
+The `registerNAuthFastifyRoutes()` call in the Bootstrap step registers every shipped endpoint
+— sign-up, sign-in, refresh, challenges, profile, MFA, social linking, sessions and device
+trust. There is no routes file to write.
 
-- **`{ preHandler: [nauth.helpers.public()] }`** — passes a helper directly in the route options object
-- **`nauth.adapter.wrapRouteHandler(async (req, res) => { ... })`** — wraps your handler so the nauth request/response abstraction (`req.body`, `req.query`, `req.cookies`, `res.json()`) maps correctly to Fastify's native request/reply objects
+Fastify takes the prefix in `register()`, not in the mount options — registering inside an
+encapsulated scope is how the prefix is applied. These paths match what the
+[frontend SDK](/docs/frontend-sdk/overview) expects by default.
+
+### Two ways to get routes
+
+Mounting is optional. Everything the toolkit does is available either way — the shipped routes
+are thin wrappers over the same services you would call yourself.
+
+| | Mount them | Write them |
+| --- | --- | --- |
+| Setup | One `registerNAuthFastifyRoutes()` call | A routes file you own |
+| Endpoints | Every shipped route for the features you enabled | Only the ones you write |
+| Customising | `exclude` a key, write that one | Full control everywhere |
+| Keeping up | New endpoints arrive with upgrades | You add them yourself |
+
+<Tabs groupId="routes-approach">
+<TabItem value="mount" label="Mount them" default>
+
+The one `register()` call in the Bootstrap step is all there is:
+
+```typescript title="src/index.ts"
+await fastify.register(
+  async (scope) => registerNAuthFastifyRoutes(scope, nauth),
+  { prefix: '/auth' },
+);
+```
+
+</TabItem>
+<TabItem value="write" label="Write your own">
+
+Skip `registerNAuthFastifyRoutes()` entirely and declare the routes yourself. Wrap each handler
+in `nauth.adapter.wrapRouteHandler()` so the request context is restored — Fastify runs handlers
+outside the hook chain that established it.
 
 ```typescript title="src/routes/auth.routes.ts"
 import { FastifyInstance } from 'fastify';
-import { NAuthInstance, IUser, UserResponseDTO } from '@nauth-toolkit/core';
+import { NAuthInstance, FastifyMiddlewareType, UserResponseDTO, IUser } from '@nauth-toolkit/core';
 
-type FastifyPreHandler = (request: unknown, reply: unknown) => Promise<void>;
-type TypedNAuth = NAuthInstance<FastifyPreHandler, FastifyPreHandler>;
+type TypedNAuth = NAuthInstance<FastifyMiddlewareType, FastifyMiddlewareType>;
 
 export async function registerAuthRoutes(fastify: FastifyInstance, nauth: TypedNAuth): Promise<void> {
   const { authService } = nauth;
-
-  // ── Primary Auth Flow ────────────────────────────────────────────────────────
 
   fastify.post(
     '/auth/signup',
     { preHandler: [nauth.helpers.public()] },
     nauth.adapter.wrapRouteHandler(async (req, res) => {
-      res.status(201).json(await authService.signup(req.body as any));
-    }) as any,
+      res.status(201).json(await authService.signup(req.body as never));
+    }) as never,
   );
 
   fastify.post(
     '/auth/login',
     { preHandler: [nauth.helpers.public()] },
     nauth.adapter.wrapRouteHandler(async (req, res) => {
-      res.json(await authService.login(req.body as any));
-    }) as any,
+      res.json(await authService.login(req.body as never));
+    }) as never,
   );
-
-  fastify.post(
-    '/auth/respond-challenge',
-    { preHandler: [nauth.helpers.public()] },
-    nauth.adapter.wrapRouteHandler(async (req, res) => {
-      res.json(await authService.respondToChallenge(req.body as any));
-    }) as any,
-  );
-
-  fastify.post(
-    '/auth/refresh',
-    { preHandler: [nauth.helpers.public()] },
-    nauth.adapter.wrapRouteHandler(async (req, res) => {
-      // Cookies mode: fall back to cookie if body token is absent or empty
-      const token =
-        (req.body as { refreshToken?: string })?.refreshToken?.trim() || req.cookies?.['nauth_refresh_token'];
-      res.json(await authService.refreshToken({ refreshToken: token }));
-    }) as any,
-  );
-
-  // ── Logout ───────────────────────────────────────────────────────────────────
-  // GET avoids CSRF issues for session destruction; csrf: false bypasses the CSRF check
-
-  fastify.get(
-    '/auth/logout',
-    { preHandler: [nauth.helpers.requireAuth({ csrf: false })] },
-    nauth.adapter.wrapRouteHandler(async (req, res) => {
-      res.json(await authService.logout(req.query as any));
-    }) as any,
-  );
-
-  // ── User Profile ─────────────────────────────────────────────────────────────
 
   fastify.get(
     '/auth/profile',
     { preHandler: [nauth.helpers.requireAuth()] },
     nauth.adapter.wrapRouteHandler(async (_req, res) => {
-      const user = nauth.helpers.getCurrentUser() as IUser;
-      res.json(UserResponseDTO.fromEntity(user));
-    }) as any,
-  );
-
-  fastify.put(
-    '/auth/profile',
-    { preHandler: [nauth.helpers.requireAuth()] },
-    nauth.adapter.wrapRouteHandler(async (req, res) => {
-      res.json(await authService.updateUserAttributes(req.body as any));
-    }) as any,
-  );
-
-  fastify.post(
-    '/auth/change-password',
-    { preHandler: [nauth.helpers.requireAuth()] },
-    nauth.adapter.wrapRouteHandler(async (req, res) => {
-      res.json(await authService.changePassword(req.body as any));
-    }) as any,
-  );
-
-  // ── Account Recovery ─────────────────────────────────────────────────────────
-
-  fastify.post(
-    '/auth/forgot-password',
-    { preHandler: [nauth.helpers.public()] },
-    nauth.adapter.wrapRouteHandler(async (req, res) => {
-      res.json(
-        await authService.forgotPassword({
-          ...(req.body as object),
-          baseUrl: process.env.FRONTEND_BASE_URL || 'http://localhost:5173',
-        } as any),
-      );
-    }) as any,
-  );
-
-  fastify.post(
-    '/auth/forgot-password/confirm',
-    { preHandler: [nauth.helpers.public()] },
-    nauth.adapter.wrapRouteHandler(async (req, res) => {
-      res.json(await authService.confirmForgotPassword(req.body as any));
-    }) as any,
+      res.json(UserResponseDTO.fromEntity(nauth.helpers.getCurrentUser() as IUser));
+    }) as never,
   );
 }
 ```
 
-:::note[Route paths vs Express]
-Unlike Express (where routes are mounted under a prefix with `app.use('/auth', router)`), Fastify routes are registered on the root instance with the full path included (e.g., `/auth/signup`). This is why `registerAuthRoutes` registers `/auth/signup` directly rather than just `/signup`.
+The casts are why the mounted routes exist: `wrapRouteHandler()` returns a framework-neutral
+handler that Fastify's generic signatures do not accept directly. `registerNAuthFastifyRoutes()`
+owns that conversion internally.
+
+[Basic Auth Flows](/docs/guides/basic-auth) covers every endpoint in this form.
+
+</TabItem>
+</Tabs>
+
+### Serving web and mobile from one backend
+
+`groups` selects which bundles to mount — [Route Groups](/docs/api/core/routes/groups) lists what each one contains.
+
+Register the same routes in a second scope, differing only in how tokens travel. This needs
+`tokenDelivery.method: 'hybrid'`; the toolkit refuses at startup otherwise.
+
+```typescript title="src/index.ts"
+// Web: httpOnly cookies, CSRF.
+await fastify.register(
+  async (scope) => registerNAuthFastifyRoutes(scope, nauth, { delivery: 'cookies' }),
+  { prefix: '/auth' },
+);
+
+// Native and mobile clients: tokens in the response body, no CSRF.
+await fastify.register(
+  async (scope) =>
+    registerNAuthFastifyRoutes(scope, nauth, {
+      delivery: 'json',
+      groups: ['core', 'profile', 'mfa', 'social', 'device'],
+    }),
+  { prefix: '/mobile/auth' },
+);
+```
+
+### Customising one route
+
+Exclude its key and declare only that route in the same scope. Everything else stays mounted.
+
+```typescript title="src/index.ts"
+await fastify.register(async (scope) => {
+  registerNAuthFastifyRoutes(scope, nauth, { delivery: 'cookies', exclude: ['login'] });
+
+  scope.post('/login', { preHandler: [nauth.helpers.public() as never] }, async (request, reply) => {
+    // your own logic here, then delegate
+    return reply.send(await nauth.authService.login(request.body as never));
+  });
+}, { prefix: '/auth' });
+```
+
+`nauth.helpers.public()` marks a route as not requiring authentication;
+`nauth.helpers.requireAuth()` enforces it, and `nauth.helpers.getCurrentUser()` returns the
+validated user inside a protected handler. The cast is needed because `NAuth.create()` returns
+`NAuthInstance<unknown, unknown>` — the same reason the mounted routes exist. An unknown key in
+`exclude` throws at startup, so a typo cannot silently leave the shipped route in place.
+
+:::note[Administrative routes are opt-in]
+The `admin` group is never mounted by default, and mounting it requires an authorization
+provider — the toolkit ships no role model. See [Authorization](/docs/concepts/authorization).
 :::
 
 ---
@@ -384,8 +401,9 @@ DB_DATABASE=myapp
 JWT_SECRET=your-access-token-secret-min-32-chars
 JWT_REFRESH_SECRET=your-refresh-token-secret-min-32-chars
 
-# Cookie settings (for production)
-COOKIE_SECURE=true
+# Cookies — lax + insecure is correct for HTTP localhost.
+# For HTTPS cross-site production set COOKIE_SECURE=true and COOKIE_SAME_SITE=none.
+COOKIE_SECURE=false
 COOKIE_SAME_SITE=lax
 ```
 
@@ -404,13 +422,13 @@ curl -c cookies.txt -X POST http://localhost:3000/auth/signup \
 # Login
 curl -c cookies.txt -X POST http://localhost:3000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "user@example.com", "password": "MyPassword1!"}'
+  -d '{"identifier": "user@example.com", "password": "MyPassword1!"}'
 
 # Profile (cookies are sent automatically by curl with -b)
 curl -b cookies.txt http://localhost:3000/auth/profile
 ```
 
-With `tokenDelivery: 'cookies'`, auth tokens are set as `httpOnly` cookies. The profile endpoint is protected — requests without a valid session cookie return `401`.
+With `tokenDelivery: { method: 'cookies' }`, auth tokens are set as `httpOnly` cookies. The profile endpoint is protected — requests without a valid session cookie return `401`.
 
 ---
 
@@ -481,7 +499,7 @@ This quick start covers the essential routes. For complete implementations inclu
 
 ## What's Next
 
-- [Fastify Sample App](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-fastify) — Full working example with Google OAuth, TOTP MFA, and complete route implementations
+- [Fastify Starter App](https://github.com/noorixorg/nauth-toolkit/tree/main/examples/starter-fastify) — The code this guide is based on, with Google OAuth and MFA
 - [Configuration](/docs/concepts/configuration) — Full configuration reference with all available options
 - [Challenge System](/docs/concepts/challenge-system) — Understand multi-step authentication flows (MFA, verification)
 - [Authentication Routes](/docs/guides/routes) — Complete route implementations for all auth flows

@@ -16,51 +16,36 @@ Endpoint paths configuration for the client SDK. Override these if your backend 
 
 ```typescript
 interface NAuthEndpoints {
-  // Authentication
   login: string;
   signup: string;
   logout: string;
   logoutAll: string;
   refresh: string;
-
-  // Challenge Flow
   respondChallenge: string;
   resendCode: string;
   getSetupData: string;
   getChallengeData: string;
-
-  // User Profile
   profile: string;
-  updateProfile: string;
   changePassword: string;
-  requestPasswordChange: string;
   forgotPassword: string;
   confirmForgotPassword: string;
   confirmAdminResetPassword: string;
-
-  // MFA Management
   mfaStatus: string;
   mfaDevices: string;
   mfaSetupData: string;
   mfaVerifySetup: string;
-  mfaRemove: string;
   mfaPreferred: string;
   mfaBackupCodes: string;
-
-  // Social Authentication
-  socialRedirectStart: string;
-  socialExchange: string;
   socialLinked: string;
   socialLink: string;
   socialUnlink: string;
   socialVerify: string;
-
-  // Device Trust
+  socialRedirectStart: string;
+  socialExchange: string;
   trustDevice: string;
   isTrustedDevice: string;
-
-  // Audit
   auditHistory: string;
+  updateProfile: string;
 }
 ```
 
@@ -78,9 +63,7 @@ interface NAuthEndpoints {
   getSetupData: '/challenge/setup-data',
   getChallengeData: '/challenge/challenge-data',
   profile: '/profile',
-  updateProfile: '/profile',
   changePassword: '/change-password',
-  requestPasswordChange: '/request-password-change',
   forgotPassword: '/forgot-password',
   confirmForgotPassword: '/forgot-password/confirm',
   confirmAdminResetPassword: '/reset-password/confirm',
@@ -88,8 +71,7 @@ interface NAuthEndpoints {
   mfaDevices: '/mfa/devices',
   mfaSetupData: '/mfa/setup-data',
   mfaVerifySetup: '/mfa/verify-setup',
-  mfaRemove: '/mfa/method',
-  mfaPreferred: '/mfa/preferred-method',
+  mfaPreferred: '/mfa/devices/:deviceId/preferred',
   mfaBackupCodes: '/mfa/backup-codes/generate',
   socialLinked: '/social/linked',
   socialLink: '/social/link',
@@ -100,6 +82,7 @@ interface NAuthEndpoints {
   trustDevice: '/trust-device',
   isTrustedDevice: '/is-trusted-device',
   auditHistory: '/audit/history',
+  updateProfile: '/profile',
 }
 ```
 
@@ -127,3 +110,9 @@ const client = new NAuthClient({
 ## Related Types
 
 - [`NAuthClientConfig`](../nauth-client-config) - Client configuration interface
+
+:::warning[Two endpoints have no backend route]
+`mfaBackupCodes` (`/mfa/backup-codes/generate`) is declared here but `MFAService` has no
+backup-code generation method — calling it returns `404`. There is also no key for removing an
+MFA device; the client derives that path from `mfaDevices`.
+:::

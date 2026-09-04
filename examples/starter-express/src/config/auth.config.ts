@@ -102,8 +102,10 @@ export const authConfig: NAuthConfig = {
     },
   },
 
+  // 'hybrid' so the cookie bundle and the JSON bundle can both be mounted (see
+  // `routes` below). Under 'cookies' the toolkit refuses the JSON bundle at startup.
   tokenDelivery: {
-    method: 'cookies',
+    method: 'hybrid',
     cookieOptions: {
       // On localhost (HTTP) use lax + insecure. For production HTTPS cross-site
       // deployments set COOKIE_SECURE=true, COOKIE_SAME_SITE=none, COOKIE_DOMAIN=.yourdomain.com

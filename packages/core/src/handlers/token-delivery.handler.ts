@@ -13,6 +13,8 @@ import {
   NAuthLogger,
 } from '../index';
 import { NAuthRequest, NAuthResponse, NAuthCookieOptions } from '../platform/interfaces';
+import { NAuthException } from '../exceptions/nauth.exception';
+import { AuthErrorCode } from '../enums/error-codes.enum';
 
 export class TokenDeliveryHandler {
   constructor(
@@ -66,12 +68,22 @@ export class TokenDeliveryHandler {
     return body;
   }
 
+  /**
+   * Resolve the delivery mode for this request.
+   *
+   * Precedence: route override, then hybrid origin policy, then the global method.
+   *
+   * A route override that contradicts a non-hybrid `method` is reported through
+   * {@link assertOverrideAllowed} before being honoured.
+   */
   private resolveDeliveryMode(req: NAuthRequest): 'json' | 'cookies' {
     const method = this.config.tokenDelivery?.method || 'json';
 
     // Route override
-    if (req.attributes['nauthTokenDelivery']) {
-      return req.attributes['nauthTokenDelivery'];
+    const routeMode = req.attributes['nauthTokenDelivery'];
+    if (routeMode) {
+      this.assertOverrideAllowed(routeMode, method);
+      return routeMode;
     }
 
     // Hybrid mode
@@ -80,6 +92,48 @@ export class TokenDeliveryHandler {
     }
 
     return method === 'cookies' ? 'cookies' : 'json';
+  }
+
+  /**
+   * Report a route override that the configured delivery method does not permit.
+   *
+   * Overrides only make sense under `method: 'hybrid'`, where both transports are live.
+   * Asking for JSON under `'cookies'` is a route opting out of httpOnly cookies, and
+   * asking for cookies under `'json'` is a route enabling a transport the application
+   * disabled — both are usually mistakes.
+   *
+   * Warns by default and throws only when `tokenDelivery.strictOverrides` is set, so
+   * that upgrading cannot break a running application. The NestJS adapter has always
+   * thrown here; `strictOverrides: true` brings Express and Fastify into line.
+   *
+   * @param routeMode - The mode the route asked for
+   * @param method - The configured delivery method
+   * @throws {NAuthException} When `strictOverrides` is enabled and the modes conflict
+   */
+  private assertOverrideAllowed(routeMode: 'json' | 'cookies', method: 'json' | 'cookies' | 'hybrid'): void {
+    let code: AuthErrorCode | undefined;
+    let message: string | undefined;
+
+    if (routeMode === 'cookies' && method === 'json') {
+      code = AuthErrorCode.COOKIES_NOT_ALLOWED;
+      message = "Route-level cookie delivery requested, but tokenDelivery.method is 'json' (cookies disabled)";
+    } else if (routeMode === 'json' && method === 'cookies') {
+      code = AuthErrorCode.BEARER_NOT_ALLOWED;
+      message =
+        "Route-level JSON delivery requested, but tokenDelivery.method is 'cookies' (JSON/Bearer tokens disabled)";
+    }
+
+    if (!code || !message) return;
+
+    if (this.config.tokenDelivery?.strictOverrides) {
+      throw new NAuthException(code, message);
+    }
+
+    this.logger?.warn?.(
+      `${message}. The override is being honoured for backwards compatibility. ` +
+        "Set tokenDelivery.method to 'hybrid' to serve both transports, or " +
+        'tokenDelivery.strictOverrides to true to reject this.',
+    );
   }
 
   private setTokenCookies(

@@ -25,6 +25,7 @@ import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { AdminSignupDTO, AdminSignupResponseDTO } from '../dto/admin-signup.dto';
 import { AdminSignupSocialDTO, AdminSignupSocialResponseDTO } from '../dto/admin-signup-social.dto';
 import { DeleteUserDTO, DeleteUserResponseDTO } from '../dto/delete-user.dto';
+import { AuthorizationService } from './authorization.service';
 import { GetUsersDTO, GetUsersResponseDTO } from '../dto/get-users.dto';
 import { DisableUserDTO, DisableUserResponseDTO } from '../dto/disable-user.dto';
 import { EnableUserDTO, EnableUserResponseDTO } from '../dto/enable-user.dto';
@@ -101,6 +102,7 @@ export class AdminAuthService {
     private readonly challengeSessionRepository?: Repository<BaseChallengeSession>,
     private readonly authAuditRepository?: Repository<BaseAuthAudit>,
     private readonly trustedDeviceRepository?: Repository<BaseTrustedDevice>,
+    private readonly authorizationService?: AuthorizationService,
   ) {
     this.helpers = new AuthServiceInternalHelpers(
       userRepository,
@@ -152,6 +154,7 @@ export class AdminAuthService {
    * ```
    */
   async deleteUser(dto: DeleteUserDTO): Promise<DeleteUserResponseDTO> {
+    await this.authorizationService?.authorize('admin.user.delete', { targetSub: dto.sub });
     return await this.userService.deleteUser(dto);
   }
 
@@ -168,6 +171,7 @@ export class AdminAuthService {
    * ```
    */
   async getUsers(dto: GetUsersDTO): Promise<GetUsersResponseDTO> {
+    await this.authorizationService?.authorize('admin.user.list');
     return await this.userService.getUsers(dto);
   }
 
@@ -184,6 +188,7 @@ export class AdminAuthService {
    * ```
    */
   async disableUser(dto: DisableUserDTO): Promise<DisableUserResponseDTO> {
+    await this.authorizationService?.authorize('admin.user.disable', { targetSub: dto.sub });
     return await this.userService.disableUser(dto);
   }
 
@@ -200,6 +205,7 @@ export class AdminAuthService {
    * ```
    */
   async enableUser(dto: EnableUserDTO): Promise<EnableUserResponseDTO> {
+    await this.authorizationService?.authorize('admin.user.enable', { targetSub: dto.sub });
     return await this.userService.enableUser(dto);
   }
 
@@ -216,6 +222,7 @@ export class AdminAuthService {
    * ```
    */
   async getUserById(dto: GetUserByIdDTO): Promise<UserResponseDTO | null> {
+    await this.authorizationService?.authorize('admin.user.read', { targetSub: dto.sub });
     return await this.userService.getUserById(dto);
   }
 
@@ -232,6 +239,7 @@ export class AdminAuthService {
    * ```
    */
   async getUserByEmail(dto: GetUserByEmailDTO): Promise<UserResponseDTO | null> {
+    await this.authorizationService?.authorize('admin.user.read');
     return await this.userService.getUserByEmail(dto);
   }
 
@@ -248,6 +256,7 @@ export class AdminAuthService {
    * ```
    */
   async setMustChangePassword(dto: SetMustChangePasswordDTO): Promise<SetMustChangePasswordResponseDTO> {
+    await this.authorizationService?.authorize('admin.user.forcePasswordChange', { targetSub: dto.sub });
     return await this.userService.setMustChangePassword(dto);
   }
 
@@ -264,6 +273,7 @@ export class AdminAuthService {
    * ```
    */
   async updateVerifiedStatus(dto: UpdateVerifiedStatusRequestDTO): Promise<UserResponseDTO> {
+    await this.authorizationService?.authorize('admin.user.updateVerifiedStatus', { targetSub: dto.sub });
     return await this.userService.updateVerifiedStatus(dto);
   }
 
@@ -280,6 +290,7 @@ export class AdminAuthService {
    * ```
    */
   async signup(dto: AdminSignupDTO): Promise<AdminSignupResponseDTO> {
+    await this.authorizationService?.authorize('admin.user.create');
     dto = await ensureValidatedDto(AdminSignupDTO, dto);
 
     const clientInfo = this.clientInfoService.get();
@@ -463,6 +474,7 @@ export class AdminAuthService {
    * ```
    */
   async signupSocial(dto: AdminSignupSocialDTO): Promise<AdminSignupSocialResponseDTO> {
+    await this.authorizationService?.authorize('admin.user.createSocial');
     dto = await ensureValidatedDto(AdminSignupSocialDTO, dto);
 
     const clientInfo = this.clientInfoService.get();
@@ -664,6 +676,7 @@ export class AdminAuthService {
    * ```
    */
   async logoutAll(dto: AdminLogoutAllDTO): Promise<LogoutAllResponseDTO> {
+    await this.authorizationService?.authorize('admin.session.revokeAll', { targetSub: dto.sub });
     dto = await ensureValidatedDto(AdminLogoutAllDTO, dto);
 
     const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
@@ -746,6 +759,7 @@ export class AdminAuthService {
    * ```
    */
   async getUserSessions(dto: GetUserSessionsDTO): Promise<GetUserSessionsResponseDTO> {
+    await this.authorizationService?.authorize('admin.session.list', { targetSub: dto.sub });
     dto = await ensureValidatedDto(GetUserSessionsDTO, dto);
 
     const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
@@ -812,6 +826,7 @@ export class AdminAuthService {
    * ```
    */
   async revokeUserSession(dto: AdminRevokeSessionDTO): Promise<LogoutSessionResponseDTO> {
+    await this.authorizationService?.authorize('admin.session.revoke', { targetSub: dto.sub });
     dto = await ensureValidatedDto(AdminRevokeSessionDTO, dto);
 
     const user = (await this.userRepository.findOne({ where: { sub: dto.sub } })) as IUser | null;
@@ -887,6 +902,7 @@ export class AdminAuthService {
    * ```
    */
   async updateUserAttributes(dto: AdminUpdateUserAttributesDTO): Promise<UserResponseDTO> {
+    await this.authorizationService?.authorize('admin.user.update', { targetSub: dto.sub });
     return await this.userService.updateUserAttributes(dto);
   }
 
@@ -903,6 +919,7 @@ export class AdminAuthService {
    * ```
    */
   async resetPassword(dto: AdminResetPasswordDTO): Promise<AdminResetPasswordResponseDTO> {
+    await this.authorizationService?.authorize('admin.user.resetPassword', { targetSub: dto.sub });
     dto = await ensureValidatedDto(AdminResetPasswordDTO, dto);
 
     this.logger?.log?.(`Admin password reset requested for sub: ${dto.sub}`);
@@ -1038,6 +1055,7 @@ export class AdminAuthService {
    * ```
    */
   async setPassword(dto: AdminSetPasswordDTO): Promise<AdminSetPasswordResponseDTO> {
+    await this.authorizationService?.authorize('admin.user.setPassword', { targetSub: dto.sub });
     dto = await ensureValidatedDto(AdminSetPasswordDTO, dto);
 
     this.logger?.log?.(`Admin password reset requested for sub: ${dto.sub}`);

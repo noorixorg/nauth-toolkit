@@ -753,8 +753,9 @@ export default function Home() {
                 </li>
               </ul>
               <div className="bootstraps-note">
-                Your routes stay thin — call <code>authService.signup(dto)</code>, get a result. You configure what
-                routes to expose and add custom logic as needed.
+                The routes ship with it — add <code>{"routes: [{ prefix: 'auth' }]"}</code> and every endpoint above
+                is live. Exclude a key to write that one yourself, calling the same <code>authService</code>
+                underneath.
               </div>
             </div>
           </div>

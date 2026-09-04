@@ -163,4 +163,79 @@ describe('ExpressAdapter', () => {
       expect(routeHandler).toHaveBeenCalled();
     });
   });
+
+  describe('mountRaw', () => {
+    /** Captures what the adapter registers, standing in for an Express app. */
+    const createApp = (): { use: jest.Mock; dispatch: (req: unknown, res: unknown) => void } => {
+      const registered: Array<(req: unknown, res: unknown, next: () => void) => void> = [];
+      const use = jest.fn((handler: (req: unknown, res: unknown, next: () => void) => void) => {
+        registered.push(handler);
+      });
+      return {
+        use,
+        dispatch: (req, res): void => {
+          registered.forEach((handler) => handler(req, res, mockNext));
+        },
+      };
+    };
+
+    it('should hand matching requests to the handler and not call next', () => {
+      const app = createApp();
+      const handler = jest.fn();
+
+      adapter.mountRaw(app, (path) => path.startsWith('/oidc/'), handler);
+      app.dispatch({ path: '/oidc/token', url: '/oidc/token' }, mockRes);
+
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(mockNext).not.toHaveBeenCalled();
+    });
+
+    it('should pass the raw request and response straight through', () => {
+      const app = createApp();
+      const handler = jest.fn();
+      const req = { path: '/oidc/auth', url: '/oidc/auth' };
+
+      adapter.mountRaw(app, () => true, handler);
+      app.dispatch(req, mockRes);
+
+      expect(handler).toHaveBeenCalledWith(req, mockRes);
+    });
+
+    it('should call next for non-matching requests', () => {
+      const app = createApp();
+      const handler = jest.fn();
+
+      adapter.mountRaw(app, (path) => path.startsWith('/oidc/'), handler);
+      app.dispatch({ path: '/auth/login', url: '/auth/login' }, mockRes);
+
+      expect(handler).not.toHaveBeenCalled();
+      expect(mockNext).toHaveBeenCalled();
+    });
+
+    it('should strip the query string before testing the predicate', () => {
+      const app = createApp();
+      const predicate = jest.fn().mockReturnValue(true);
+
+      adapter.mountRaw(app, predicate, jest.fn());
+      app.dispatch({ url: '/oidc/auth?client_id=demo&scope=openid' }, mockRes);
+
+      expect(predicate).toHaveBeenCalledWith('/oidc/auth');
+    });
+
+    it('should register without a path prefix so the provider sees the full path', () => {
+      const app = createApp();
+
+      adapter.mountRaw(app, () => true, jest.fn());
+
+      // A single-argument use() is what keeps Express from rewriting req.url. Mounting
+      // as use('/oidc', ...) would strip the prefix and break every generated issuer URL.
+      expect(app.use).toHaveBeenCalledTimes(1);
+      expect(app.use.mock.calls[0]).toHaveLength(1);
+    });
+
+    it('should throw a helpful error when the app cannot be attached to', () => {
+      expect(() => adapter.mountRaw({}, () => true, jest.fn())).toThrow(/use\(\) method/);
+      expect(() => adapter.mountRaw(undefined, () => true, jest.fn())).toThrow(/use\(\) method/);
+    });
+  });
 });

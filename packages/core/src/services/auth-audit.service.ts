@@ -1,4 +1,5 @@
 import { Repository } from 'typeorm';
+import { AuthorizationService } from './authorization.service';
 import { BaseAuthAudit, BaseUser } from '../entities';
 import { IAuthAudit, IUser } from '../interfaces/entities.interface';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
@@ -84,6 +85,7 @@ export class AuthAuditService {
     protected readonly userRepository: Repository<BaseUser>,
     protected readonly logger: NAuthLogger,
     protected readonly clientInfoService?: ClientInfoService,
+    protected readonly authorizationService?: AuthorizationService,
   ) {}
 
   // ============================================================================
@@ -113,6 +115,15 @@ export class AuthAuditService {
    */
   async getUserAuthHistory(request: AdminGetUserAuthHistoryDTO): Promise<GetUserAuthHistoryResponseDTO> {
     request = await ensureValidatedDto(AdminGetUserAuthHistoryDTO, request);
+
+    // Shared by two callers: AuthService.getUserAuthHistory forces `sub` to the current
+    // user for the self-service route, while the admin route passes an arbitrary one.
+    // Authorizing unconditionally would break self-service, so the boundary is whether
+    // the caller is reading someone else's history.
+    const caller = ContextStorage.get<IUser>('CURRENT_USER');
+    if (!caller || request.sub !== caller.sub) {
+      await this.authorizationService?.authorize('admin.audit.read', { targetSub: request.sub });
+    }
     // Resolve sub to userId
     const user = (await this.userRepository.findOne({ where: { sub: request.sub } })) as IUser | null;
     if (!user) {
@@ -180,6 +191,7 @@ export class AuthAuditService {
    * ```
    */
   async getEventsByType(request: GetEventsByTypeDTO): Promise<GetEventsByTypeResponseDTO> {
+    await this.authorizationService?.authorize('admin.audit.read');
     request = await ensureValidatedDto(GetEventsByTypeDTO, request);
     const page = request.page || 1;
     const limit = request.limit || 50;
@@ -232,6 +244,7 @@ export class AuthAuditService {
    * ```
    */
   async getSuspiciousActivity(request: GetSuspiciousActivityDTO): Promise<GetSuspiciousActivityResponseDTO> {
+    await this.authorizationService?.authorize('admin.audit.read');
     request = await ensureValidatedDto(GetSuspiciousActivityDTO, request);
     const limit = request.limit || 100;
 
@@ -280,6 +293,7 @@ export class AuthAuditService {
    * ```
    */
   async getRiskAssessmentHistory(request: GetRiskAssessmentHistoryDTO): Promise<GetRiskAssessmentHistoryResponseDTO> {
+    await this.authorizationService?.authorize('admin.audit.read');
     request = await ensureValidatedDto(GetRiskAssessmentHistoryDTO, request);
     const limit = request.limit || 100;
 
