@@ -203,7 +203,9 @@ export const authConfig: NAuthModuleConfig = {
       licenseKey: process.env.MAXMIND_LICENSE_KEY,
       accountId: parseInt(process.env.MAXMIND_ACCOUNT_ID || '0', 10),
       dbPath: './maxmind',
-      autoDownloadOnStartup: false,
+      // The image ships an empty maxmind/ directory, so the databases are fetched on
+      // first boot. Downloads are serialized across instances by the toolkit.
+      autoDownloadOnStartup: process.env.MAXMIND_AUTO_DOWNLOAD !== 'false',
       editions: ['GeoLite2-City', 'GeoLite2-Country'],
     },
   },
