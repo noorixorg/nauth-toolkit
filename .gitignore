@@ -12,9 +12,14 @@ packages/*/src/**/*.js
 packages/*/src/**/*.js.map
 
 # Environment
+# Any .env variant — including backups like .env.backup-YYYYMMDD, which have leaked
+# real credentials into this public repo before. Templates are re-included below.
 .env
+.env.*
 .env.local
 .env.*.local
+!.env.example
+!**/.env.example
 
 # Docker environment files (examples folder)
 examples/.env
