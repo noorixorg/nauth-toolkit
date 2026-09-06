@@ -1,7 +1,7 @@
 {
   "name": "nauth-toolkit",
   "version": "0.1.0",
-  "description": "Embedded authentication library for Node.js \u2014 NestJS, Express, Fastify",
+  "description": "Embedded authentication library for Node.js — NestJS, Express, Fastify",
   "homepage": "https://nauth.dev",
   "private": true,
   "packageManager": "pnpm@10.30.2",
@@ -10,7 +10,8 @@
       "@nauth-toolkit/core": "workspace:*",
       "@nauth-toolkit/nestjs": "workspace:*",
       "@nauth-toolkit/database-typeorm-postgres": "workspace:*",
-      "@nauth-toolkit/database-typeorm-mysql": "workspace:*"
+      "@nauth-toolkit/database-typeorm-mysql": "workspace:*",
+      "@nauth-toolkit/recaptcha": "workspace:*"
     },
     "onlyBuiltDependencies": [
       "argon2",

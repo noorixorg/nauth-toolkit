@@ -9,6 +9,7 @@ overrides:
   '@nauth-toolkit/nestjs': workspace:*
   '@nauth-toolkit/database-typeorm-postgres': workspace:*
   '@nauth-toolkit/database-typeorm-mysql': workspace:*
+  '@nauth-toolkit/recaptcha': workspace:*
 
 importers:
 
@@ -626,8 +627,8 @@ importers:
         specifier: ^4.0.0 || ^5.0.0 || ^6.0.0
         version: 6.3.4
       '@nauth-toolkit/recaptcha':
-        specifier: ^0.6.0
-        version: 0.6.0(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))
+        specifier: workspace:*
+        version: link:../recaptcha
       argon2:
         specifier: ^0.40.0
         version: 0.40.3
@@ -3546,7 +3547,7 @@ packages:
     peerDependencies:
       '@angular/common': '>=17.0.0'
       '@angular/core': '>=17.0.0'
-      '@nauth-toolkit/client': ^0.6.0
+      '@nauth-toolkit/client': ^0.6.1
       rxjs: ^7.0.0 || ^8.0.0
 
   '@nauth-toolkit/client@0.2.6':
@@ -3584,16 +3585,6 @@ packages:
     peerDependencies:
       '@nauth-toolkit/core': workspace:*
       qrcode: ^1.5.3
-
-  '@nauth-toolkit/recaptcha@0.6.0':
-    resolution: {integrity: sha512-IQJ+ua0PT7u1uKxbp5FTbBVJEaGgod9i95V8uq4u/N38jTzBHADHhm7FtPey8X8iKKlxonSj7hseZSWq/XOClg==}
-    engines: {node: '>=22.0.0'}
-    peerDependencies:
-      '@nauth-toolkit/core': workspace:*
-      '@nestjs/common': ^9 || ^10 || ^11
-    peerDependenciesMeta:
-      '@nestjs/common':
-        optional: true
 
   '@nauth-toolkit/sms-aws-sns@0.2.6':
     resolution: {integrity: sha512-zPqlqj3qJ08iieJ/HEVTppaNKNR9JcVraK+SNVtDRzWpkI+lq8rk9heXzlmRutWIoqPzjzUkotsenpV1UjZXbw==}
@@ -12953,10 +12944,6 @@ snapshots:
     dependencies:
       '@nauth-toolkit/core': link:packages/core
       qrcode: 1.5.4
-
-  '@nauth-toolkit/recaptcha@0.6.0(@nestjs/common@11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2))':
-    optionalDependencies:
-      '@nestjs/common': 11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
 
   '@nauth-toolkit/sms-aws-sns@0.2.6(@nauth-toolkit/core@packages+core)':
     dependencies:
