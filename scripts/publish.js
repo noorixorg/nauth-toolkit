@@ -258,6 +258,19 @@ async function main() {
     }
   }
 
+  // Reconcile the lockfile with the versions just written.
+  //
+  // Bumping a workspace package also rewrites the ranges its siblings declare for it
+  // (core's `@nauth-toolkit/recaptcha` peer, for one), which leaves pnpm-lock.yaml
+  // stale. CI installs with --frozen-lockfile, so without this every release commit
+  // lands red, and a fresh clone cannot install at all.
+  if (DRY_RUN) {
+    console.log('\n[DRY RUN] Would refresh pnpm-lock.yaml...\n');
+  } else {
+    console.log('\nRefreshing lockfile...\n');
+    execSync('pnpm install --lockfile-only', { stdio: 'inherit', cwd: path.join(__dirname, '..') });
+  }
+
   // Build
   if (DRY_RUN) {
     console.log('\n[DRY RUN] Would build packages...\n');

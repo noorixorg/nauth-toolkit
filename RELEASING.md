@@ -108,6 +108,11 @@ node scripts/publish.js latest            # patch bump (0.3.3 -> 0.3.4)
 node scripts/publish.js latest --minor    # minor bump (0.3.3 -> 0.4.0)
 ```
 
+The script refreshes `pnpm-lock.yaml` after bumping. Bumping a workspace package also
+rewrites the ranges its siblings declare for it, and CI installs with
+`--frozen-lockfile`, so a release that skipped this would land red and a fresh clone
+could not install. Commit the refreshed lockfile along with the version bumps.
+
 Use `--minor` when the release adds public API — a new package, a new exported
 namespace, new enum members. The changelog heading must match the resulting version or
 the script refuses to publish.
