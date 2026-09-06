@@ -500,12 +500,17 @@ export class SessionService {
 
   /**
    * Find all active sessions for a user
+   *
+   * Expired sessions are excluded as well as revoked ones: nothing prunes expired rows,
+   * so a session-management list built from this would otherwise grow without bound and
+   * offer the user dead sessions to sign out of.
+   *
    * @param userId - Internal user ID (integer)
    * @returns Array of active sessions
    */
   async findUserSessions(userId: number): Promise<ISession[]> {
     return (await this.sessionRepository.find({
-      where: { userId, isRevoked: false },
+      where: { userId, isRevoked: false, expiresAt: MoreThan(new Date()) },
       order: { createdAt: 'DESC' },
     })) as unknown as ISession[];
   }
@@ -720,8 +725,13 @@ export class SessionService {
    * @returns Number of sessions revoked
    */
   async revokeAllUserSessions(userId: number, reason?: string): Promise<number> {
-    // Get sessions before revoking for audit logging
-    const sessions = await this.findUserSessions(userId);
+    // Get sessions before revoking for audit logging. Deliberately not findUserSessions:
+    // the update below revokes expired rows too, and the audit trail should account for
+    // every row it touches.
+    const sessions = (await this.sessionRepository.find({
+      where: { userId, isRevoked: false },
+      order: { createdAt: 'DESC' },
+    })) as unknown as ISession[];
 
     const result = await this.sessionRepository.update(
       { userId, isRevoked: false },
@@ -918,7 +928,7 @@ export class SessionService {
    */
   async countUserSessions(userId: number): Promise<number> {
     return await this.sessionRepository.count({
-      where: { userId, isRevoked: false },
+      where: { userId, isRevoked: false, expiresAt: MoreThan(new Date()) },
     });
   }
 

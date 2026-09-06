@@ -67,3 +67,38 @@ export interface CreateApiKeyResult {
   /** Sanitized metadata for the created key */
   apiKey: ApiKeyInfo;
 }
+
+/**
+ * Response from listing API keys.
+ */
+export interface ListApiKeysResponse {
+  /** Sanitized metadata for each key; never contains plaintext */
+  apiKeys: ApiKeyInfo[];
+}
+
+/**
+ * Response from revoking an API key.
+ */
+export interface RevokeApiKeyResponse {
+  /** Whether the key was revoked */
+  success: boolean;
+}
+
+/**
+ * Response from permanently deleting an API key.
+ */
+export interface DeleteApiKeyResponse {
+  /** Whether the key was deleted */
+  success: boolean;
+}
+
+/**
+ * Request body for creating an API key on behalf of another user (admin).
+ *
+ * Administrative creation bypasses the `allowUserCreation` setting but still enforces
+ * per-user key limits, expiry rules, and IP restrictions.
+ */
+export interface AdminCreateApiKeyRequest extends CreateApiKeyRequest {
+  /** Target user's external identifier (UUID v4) */
+  sub: string;
+}

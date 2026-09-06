@@ -1,6 +1,6 @@
 ---
 title: Shipped Routes
-description: "Route manifest reference: NAuthRouteMountOptions (prefix, groups, exclude, delivery, guards), route groups, all 72 route keys, and the mount functions for NestJS, Express and Fastify"
+description: "Route manifest reference: NAuthRouteMountOptions (prefix, groups, exclude, delivery, guards), route groups, all 79 route keys, and the mount functions for NestJS, Express and Fastify"
 keywords: [routes, mount, manifest, endpoints, exclude, groups, controllers]
 image: /img/api-social-card.png
 ---
@@ -123,8 +123,8 @@ Fastify takes the prefix in `register()`, not in the mount options.
 ## Self-service routes
 
 Paths are relative to the bundle prefix. Where a route has a client-SDK counterpart, its key
-matches the corresponding `defaultEndpoints` key — several shipped routes have no SDK key, and
-the SDK's `mfaBackupCodes` has no route (see [NAuthEndpoints](/docs/frontend-sdk/api/types/nauth-endpoints)).
+matches the corresponding `defaultEndpoints` key — a few shipped routes have no SDK key
+(see [NAuthEndpoints](/docs/frontend-sdk/api/types/nauth-endpoints)).
 
 | Key | Group | Method | Path | Access |
 | --- | --- | --- | --- | --- |
@@ -147,6 +147,7 @@ the SDK's `mfaBackupCodes` has no route (see [NAuthEndpoints](/docs/frontend-sdk
 | `mfaAvailableMethods` | mfa | GET | `mfa/available-methods` | authenticated |
 | `mfaSetupData` | mfa | POST | `mfa/setup-data` | authenticated |
 | `mfaVerifySetup` | mfa | POST | `mfa/verify-setup` | authenticated |
+| `mfaBackupCodes` | mfa | POST | `mfa/backup-codes/generate` | authenticated |
 | `mfaDevices` | mfa | GET | `mfa/devices` | authenticated |
 | `mfaPreferred` | mfa | POST | `mfa/devices/:deviceId/preferred` | authenticated |
 | `mfaRemoveDevice` | mfa | DELETE | `mfa/devices/:deviceId` | authenticated |
@@ -164,6 +165,9 @@ the SDK's `mfaBackupCodes` has no route (see [NAuthEndpoints](/docs/frontend-sdk
 | `logoutSession` | device | DELETE | `sessions/:sessionId` | authenticated |
 | `trustDevice` | device | POST | `trust-device` | authenticated |
 | `isTrustedDevice` | device | GET | `is-trusted-device` | authenticated |
+| `trustedDevices` | device | GET | `trusted-devices` | authenticated |
+| `revokeAllTrustedDevices` | device | DELETE | `trusted-devices` | authenticated |
+| `revokeTrustedDevice` | device | DELETE | `trusted-devices/:deviceId` | authenticated |
 | `auditHistory` | audit | GET | `audit/history` | authenticated |
 | `apiKeyCreate` | apiKeys | POST | `api-keys` | authenticated |
 | `apiKeyList` | apiKeys | GET | `api-keys` | authenticated |
@@ -188,6 +192,9 @@ the SDK's `mfaBackupCodes` has no route (see [NAuthEndpoints](/docs/frontend-sdk
 | `adminEnableUser` | admin | POST | `users/:sub/enable` | admin |
 | `adminForcePasswordChange` | admin | POST | `users/:sub/force-password-change` | admin |
 | `adminUpdateVerifiedStatus` | admin | POST | `users/:sub/verified-status` | admin |
+| `adminGetUserTrustedDevices` | admin | GET | `users/:sub/trusted-devices` | admin |
+| `adminRevokeAllUserTrustedDevices` | admin | DELETE | `users/:sub/trusted-devices` | admin |
+| `adminRevokeUserTrustedDevice` | admin | DELETE | `users/:sub/trusted-devices/:deviceId` | admin |
 | `adminGetUserSessions` | admin | GET | `users/:sub/sessions` | admin |
 | `adminRevokeUserSession` | admin | DELETE | `users/:sub/sessions/:sessionId` | admin |
 | `adminLogoutAll` | admin | POST | `users/:sub/logout-all` | admin |

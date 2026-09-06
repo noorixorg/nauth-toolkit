@@ -255,6 +255,32 @@ export class TrustedDeviceService {
   }
 
   /**
+   * Revoke one trusted device by its record id
+   *
+   * The device list deliberately never exposes token hashes, so a management UI can only
+   * identify a device by id - this is the revoke path that pairs with it. The delete is
+   * scoped by `userId` as well as `id`, so one user cannot revoke another's device.
+   *
+   * @param deviceId - Trusted device record id
+   * @param userId - Internal user ID that must own the device
+   * @returns Whether a device was deleted
+   */
+  async revokeTrustedDeviceById(deviceId: number, userId: number): Promise<boolean> {
+    if (!this.trustedDeviceRepository) {
+      return false;
+    }
+
+    const result = await this.trustedDeviceRepository.delete({ id: deviceId, userId });
+    const deleted = typeof result.affected === 'number' ? result.affected > 0 : false;
+
+    if (deleted) {
+      this.logger?.debug?.(`Revoked trusted device ${deviceId} for user ${userId}`);
+    }
+
+    return deleted;
+  }
+
+  /**
    * Get user's trusted devices
    *
    * Returns list of trusted devices for management UI.

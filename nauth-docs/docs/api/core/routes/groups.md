@@ -88,6 +88,7 @@ routes are dropped from the mount otherwise.
 | `mfaAvailableMethods` | GET | `mfa/available-methods` | authenticated |
 | `mfaSetupData` | POST | `mfa/setup-data` | authenticated |
 | `mfaVerifySetup` | POST | `mfa/verify-setup` | authenticated |
+| `mfaBackupCodes` | POST | `mfa/backup-codes/generate` | authenticated |
 | `mfaDevices` | GET | `mfa/devices` | authenticated |
 | `mfaPreferred` | POST | `mfa/devices/:deviceId/preferred` | authenticated |
 | `mfaRemoveDevice` | DELETE | `mfa/devices/:deviceId` | authenticated |
@@ -131,6 +132,9 @@ form when name scopes are requested.
 | `logoutSession` | DELETE | `sessions/:sessionId` | authenticated |
 | `trustDevice` | POST | `trust-device` | authenticated |
 | `isTrustedDevice` | GET | `is-trusted-device` | authenticated |
+| `trustedDevices` | GET | `trusted-devices` | authenticated |
+| `revokeAllTrustedDevices` | DELETE | `trusted-devices` | authenticated |
+| `revokeTrustedDevice` | DELETE | `trusted-devices/:deviceId` | authenticated |
 
 ## audit
 
@@ -181,6 +185,9 @@ Mount it on its own prefix so the surface can be firewalled off separately:
 | `adminEnableUser` | POST | `users/:sub/enable` | admin |
 | `adminForcePasswordChange` | POST | `users/:sub/force-password-change` | admin |
 | `adminUpdateVerifiedStatus` | POST | `users/:sub/verified-status` | admin |
+| `adminGetUserTrustedDevices` | GET | `users/:sub/trusted-devices` | admin |
+| `adminRevokeAllUserTrustedDevices` | DELETE | `users/:sub/trusted-devices` | admin |
+| `adminRevokeUserTrustedDevice` | DELETE | `users/:sub/trusted-devices/:deviceId` | admin |
 | `adminGetUserSessions` | GET | `users/:sub/sessions` | admin |
 | `adminRevokeUserSession` | DELETE | `users/:sub/sessions/:sessionId` | admin |
 | `adminLogoutAll` | POST | `users/:sub/logout-all` | admin |
@@ -218,6 +225,9 @@ APIKEYS| Key | Method | Path | Access |
 | `adminEnableUser` | POST | `users/:sub/enable` | admin |
 | `adminForcePasswordChange` | POST | `users/:sub/force-password-change` | admin |
 | `adminUpdateVerifiedStatus` | POST | `users/:sub/verified-status` | admin |
+| `adminGetUserTrustedDevices` | GET | `users/:sub/trusted-devices` | admin |
+| `adminRevokeAllUserTrustedDevices` | DELETE | `users/:sub/trusted-devices` | admin |
+| `adminRevokeUserTrustedDevice` | DELETE | `users/:sub/trusted-devices/:deviceId` | admin |
 | `adminGetUserSessions` | GET | `users/:sub/sessions` | admin |
 | `adminRevokeUserSession` | DELETE | `users/:sub/sessions/:sessionId` | admin |
 | `adminLogoutAll` | POST | `users/:sub/logout-all` | admin |

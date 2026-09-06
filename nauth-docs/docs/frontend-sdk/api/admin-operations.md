@@ -159,6 +159,93 @@ const user = await client.admin.getUser('a21b654c-2746-4168-acee-c175083a65cd');
 
 ---
 
+### getUserByEmail()
+
+Resolve a user by email address.
+
+```typescript
+async getUserByEmail(params: GetUserByEmailRequest): Promise<AuthUser>
+```
+
+**Parameters**
+
+| Parameter                     | Type      | Description                                                      |
+| ----------------------------- | --------- | ---------------------------------------------------------------- |
+| `params.email`                | `string`  | Email address to look up                                          |
+| `params.requireEmailVerified` | `boolean` | Optional. Only match accounts whose email is already verified     |
+
+**Returns**
+
+- [`AuthUser`](./types/auth-user) - User object
+
+**Example**
+
+```typescript
+const user = await client.admin.getUserByEmail({ email: 'user@example.com' });
+```
+
+:::note
+An account's email can change, and without `requireEmailVerified` an unverified address matches too. Prefer `sub` wherever you already hold one.
+:::
+
+---
+
+### updateUser()
+
+Update a user's profile attributes. Omitted fields are left unchanged.
+
+```typescript
+async updateUser(sub: string, attributes: UpdateProfileRequest): Promise<AuthUser>
+```
+
+**Parameters**
+
+| Parameter    | Type                   | Description             |
+| ------------ | ---------------------- | ----------------------- |
+| `sub`        | `string`               | Target user UUID        |
+| `attributes` | `UpdateProfileRequest` | Attributes to change    |
+
+**Returns**
+
+- [`AuthUser`](./types/auth-user) - Updated user
+
+**Example**
+
+```typescript
+const user = await client.admin.updateUser(sub, { firstName: 'Ada', lastName: 'Lovelace' });
+```
+
+---
+
+### updateVerifiedStatus()
+
+Set a user's email/phone verified flags directly, without the user completing a verification challenge.
+
+```typescript
+async updateVerifiedStatus(sub: string, status: UpdateVerifiedStatusRequest): Promise<AuthUser>
+```
+
+**Parameters**
+
+| Parameter                | Type      | Description                                        |
+| ------------------------ | --------- | -------------------------------------------------- |
+| `sub`                    | `string`  | Target user UUID                                    |
+| `status.isEmailVerified` | `boolean` | Optional. Mark the email verified or unverified     |
+| `status.isPhoneVerified` | `boolean` | Optional. Mark the phone verified or unverified     |
+
+**Returns**
+
+- [`AuthUser`](./types/auth-user) - Updated user
+
+**Example**
+
+```typescript
+// Migrating accounts whose email a previous system already verified
+await client.admin.updateVerifiedStatus(sub, { isEmailVerified: true });
+```
+
+---
+
 ### deleteUser()
 
 Delete user with cascade cleanup.
@@ -359,6 +446,38 @@ console.log('Active sessions:', result.sessions);
 
 ---
 
+### revokeUserSession()
+
+Revoke one specific session of a user, leaving their other sessions alone.
+
+```typescript
+async revokeUserSession(sub: string, sessionId: string): Promise<{ success: boolean }>
+```
+
+**Parameters**
+
+| Parameter   | Type     | Description        |
+| ----------- | -------- | ------------------ |
+| `sub`       | `string` | Target user UUID   |
+| `sessionId` | `string` | Session to revoke  |
+
+**Returns**
+
+- `{ success: boolean }`
+
+**Example**
+
+```typescript
+const { sessions } = await client.admin.getUserSessions(sub);
+await client.admin.revokeUserSession(sub, sessions[0].sessionId);
+```
+
+:::note
+To end every session at once use [`logoutAllSessions()`](#logoutallsessions).
+:::
+
+---
+
 ### logoutAllSessions()
 
 Logout all sessions for a user (admin-initiated).
@@ -386,6 +505,93 @@ async logoutAllSessions(sub: string, forgetDevices?: boolean): Promise<{ revoked
 const result = await client.admin.logoutAllSessions('user-uuid', true);
 console.log(`Revoked ${result.revokedCount} sessions`);
 ```
+
+---
+
+## Trusted Device Management
+
+Trusted devices are the devices allowed to skip MFA for a user. For the caller's own devices use [`client.listTrustedDevices()`](./nauth-client#listtrusteddevices).
+
+### getUserTrustedDevices()
+
+List a user's trusted devices. Expired devices are filtered out server-side.
+
+```typescript
+async getUserTrustedDevices(sub: string): Promise<ListTrustedDevicesResponse>
+```
+
+**Parameters**
+
+| Parameter | Type     | Description      |
+| --------- | -------- | ---------------- |
+| `sub`     | `string` | Target user UUID |
+
+**Returns**
+
+- `ListTrustedDevicesResponse` - `{ trustedDevices: TrustedDeviceInfo[] }`
+
+**Example**
+
+```typescript
+const { trustedDevices } = await client.admin.getUserTrustedDevices(sub);
+```
+
+---
+
+### revokeUserTrustedDevice()
+
+Revoke one of a user's trusted devices, leaving their others alone.
+
+```typescript
+async revokeUserTrustedDevice(sub: string, deviceId: number): Promise<RevokeTrustedDeviceResponse>
+```
+
+**Parameters**
+
+| Parameter  | Type     | Description                                                   |
+| ---------- | -------- | ------------------------------------------------------------- |
+| `sub`      | `string` | Target user UUID                                               |
+| `deviceId` | `number` | Device record id, from [`getUserTrustedDevices()`](#getusertrusteddevices) |
+
+**Returns**
+
+- `RevokeTrustedDeviceResponse` - `{ success: boolean }`
+
+**Example**
+
+```typescript
+await client.admin.revokeUserTrustedDevice(sub, 7);
+```
+
+---
+
+### revokeAllUserTrustedDevices()
+
+Revoke every trusted device belonging to a user.
+
+```typescript
+async revokeAllUserTrustedDevices(sub: string): Promise<RevokeAllTrustedDevicesResponse>
+```
+
+**Parameters**
+
+| Parameter | Type     | Description      |
+| --------- | -------- | ---------------- |
+| `sub`     | `string` | Target user UUID |
+
+**Returns**
+
+- `RevokeAllTrustedDevicesResponse` - `{ revokedCount: number }`
+
+**Example**
+
+```typescript
+const { revokedCount } = await client.admin.revokeAllUserTrustedDevices(sub);
+```
+
+:::note
+This removes MFA bypass only; it does not sign the user out. Use [`logoutAllSessions()`](#logoutallsessions) for that.
+:::
 
 ---
 
@@ -588,6 +794,237 @@ const history = await client.admin.getAuditHistory({
   limit: 50,
   eventType: 'LOGIN_SUCCESS',
 });
+```
+
+---
+
+### getEventsByType()
+
+Fetch audit events of a single type, across all users.
+
+```typescript
+async getEventsByType(params: GetEventsByTypeRequest): Promise<AuditHistoryResponse>
+```
+
+**Parameters**
+
+| Parameter           | Type               | Description                          |
+| ------------------- | ------------------ | ------------------------------------ |
+| `params.eventType`  | `string`           | Event type to filter on              |
+| `params.page`       | `number`           | Optional. Page number (1-indexed)    |
+| `params.limit`      | `number`           | Optional. Records per page           |
+| `params.startDate`  | `string \| Date`   | Optional. Window start               |
+| `params.endDate`    | `string \| Date`   | Optional. Window end                 |
+
+**Returns**
+
+- [`AuditHistoryResponse`](./types/audit-history-response) - Paginated events
+
+**Example**
+
+```typescript
+const failures = await client.admin.getEventsByType({ eventType: 'LOGIN_FAILED', limit: 50 });
+```
+
+---
+
+### getSuspiciousActivity()
+
+Fetch events the risk engine flagged as suspicious.
+
+```typescript
+async getSuspiciousActivity(params?: GetSuspiciousActivityRequest): Promise<AuditHistoryResponse>
+```
+
+**Parameters**
+
+| Parameter      | Type     | Description                                            |
+| -------------- | -------- | ------------------------------------------------------ |
+| `params.sub`   | `string` | Optional. Restrict to one user; omit to search all      |
+| `params.limit` | `number` | Optional. Maximum events to return                      |
+
+**Returns**
+
+- [`AuditHistoryResponse`](./types/audit-history-response) - Flagged events
+
+**Example**
+
+```typescript
+const flagged = await client.admin.getSuspiciousActivity({ limit: 100 });
+```
+
+---
+
+### getRiskAssessmentHistory()
+
+Fetch a user's risk assessment history.
+
+```typescript
+async getRiskAssessmentHistory(params: GetRiskAssessmentHistoryRequest): Promise<AuditHistoryResponse>
+```
+
+**Parameters**
+
+| Parameter      | Type     | Description                        |
+| -------------- | -------- | ---------------------------------- |
+| `params.sub`   | `string` | Target user UUID                   |
+| `params.limit` | `number` | Optional. Maximum results          |
+
+**Returns**
+
+- [`AuditHistoryResponse`](./types/audit-history-response) - Recorded assessments
+
+**Example**
+
+```typescript
+const history = await client.admin.getRiskAssessmentHistory({ sub, limit: 20 });
+```
+
+---
+
+## API Key Management
+
+Administrative key operations act on a target user identified by `sub`. For the caller's own keys use [`client.apiKeys`](./nauth-client#apikeys).
+
+### createApiKey()
+
+Create an API key on behalf of a user. Bypasses the server's `allowUserCreation` setting, but still enforces per-user limits, expiry rules, and IP restrictions.
+
+```typescript
+async createApiKey(request: AdminCreateApiKeyRequest): Promise<CreateApiKeyResult>
+```
+
+**Parameters**
+
+| Parameter               | Type               | Description                                            |
+| ----------------------- | ------------------ | ------------------------------------------------------ |
+| `request.sub`           | `string`           | Target user UUID                                        |
+| `request.expiresInDays` | `number \| null`   | Expiry in days, or `null` for never (when permitted)    |
+| `request.name`          | `string`           | Optional. Label                                         |
+| `request.allowedIps`    | `string[]`         | Optional. IP / CIDR allowlist                           |
+
+**Returns**
+
+- `CreateApiKeyResult` - `{ key: string; apiKey: ApiKeyInfo }`
+
+**Example**
+
+```typescript
+const { key } = await client.admin.createApiKey({ sub, expiresInDays: 90 });
+// `key` is plaintext and shown only once
+```
+
+:::warning
+The plaintext key is returned exactly once. The server stores only a hash, so a key not captured here cannot be recovered.
+:::
+
+---
+
+### listApiKeys()
+
+List a user's API keys.
+
+```typescript
+async listApiKeys(sub: string): Promise<ListApiKeysResponse>
+```
+
+**Parameters**
+
+| Parameter | Type     | Description      |
+| --------- | -------- | ---------------- |
+| `sub`     | `string` | Target user UUID |
+
+**Returns**
+
+- `ListApiKeysResponse` - `{ apiKeys: ApiKeyInfo[] }`, never containing plaintext
+
+**Example**
+
+```typescript
+const { apiKeys } = await client.admin.listApiKeys(sub);
+```
+
+---
+
+### updateApiKey()
+
+Update the label and/or IP allowlist of a user's key. The secret and expiry are immutable.
+
+```typescript
+async updateApiKey(sub: string, keyId: string, updates: UpdateApiKeyRequest): Promise<ApiKeyInfo>
+```
+
+**Parameters**
+
+| Parameter            | Type       | Description                                  |
+| -------------------- | ---------- | -------------------------------------------- |
+| `sub`                | `string`   | Target user UUID                              |
+| `keyId`              | `string`   | Key to update                                 |
+| `updates.name`       | `string`   | Optional. New label                           |
+| `updates.allowedIps` | `string[]` | Optional. Replacement allowlist (empty clears) |
+
+**Returns**
+
+- `ApiKeyInfo` - Updated key metadata
+
+**Example**
+
+```typescript
+await client.admin.updateApiKey(sub, keyId, { allowedIps: ['203.0.113.5'] });
+```
+
+---
+
+### revokeApiKey()
+
+Revoke a user's key, leaving it in place but unusable.
+
+```typescript
+async revokeApiKey(sub: string, keyId: string): Promise<RevokeApiKeyResponse>
+```
+
+**Parameters**
+
+| Parameter | Type     | Description      |
+| --------- | -------- | ---------------- |
+| `sub`     | `string` | Target user UUID |
+| `keyId`   | `string` | Key to revoke    |
+
+**Returns**
+
+- `RevokeApiKeyResponse` - `{ success: boolean }`
+
+**Example**
+
+```typescript
+await client.admin.revokeApiKey(sub, keyId);
+```
+
+---
+
+### deleteApiKey()
+
+Permanently delete a user's key.
+
+```typescript
+async deleteApiKey(sub: string, keyId: string): Promise<DeleteApiKeyResponse>
+```
+
+**Parameters**
+
+| Parameter | Type     | Description      |
+| --------- | -------- | ---------------- |
+| `sub`     | `string` | Target user UUID |
+| `keyId`   | `string` | Key to delete    |
+
+**Returns**
+
+- `DeleteApiKeyResponse` - `{ success: boolean }`
+
+**Example**
+
+```typescript
+await client.admin.deleteApiKey(sub, keyId);
 ```
 
 ---

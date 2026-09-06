@@ -2433,4 +2433,164 @@ describe('NAuthClient', () => {
       expect(body.recaptchaToken).toBeUndefined();
     });
   });
+
+  describe('Sessions', () => {
+    it('lists the caller own sessions', async () => {
+      const client = new NAuthClient(baseConfig);
+      getFetchMock().mockResolvedValue({
+        ...createMockResponse({ ok: true, status: 200, body: { sessions: [{ sessionId: 's1' }] } }),
+      });
+
+      const result = await client.listSessions();
+
+      expect(result.sessions).toHaveLength(1);
+      const [url, init] = getFetchMock().mock.calls[0];
+      expect(String(url)).toBe('https://api.example.com/auth/sessions');
+      expect(init?.method).toBe('GET');
+    });
+
+    it('revokes a single session and reports whether it was the current one', async () => {
+      const client = new NAuthClient(baseConfig);
+      getFetchMock().mockResolvedValue({
+        ...createMockResponse({ ok: true, status: 200, body: { success: true, wasCurrentSession: true } }),
+      });
+
+      const result = await client.revokeSession('s1');
+
+      expect(result.wasCurrentSession).toBe(true);
+      const [url, init] = getFetchMock().mock.calls[0];
+      expect(String(url)).toBe('https://api.example.com/auth/sessions/s1');
+      expect(init?.method).toBe('DELETE');
+    });
+
+    it('encodes a session id containing URL-significant characters', async () => {
+      const client = new NAuthClient(baseConfig);
+      getFetchMock().mockResolvedValue({
+        ...createMockResponse({ ok: true, status: 200, body: { success: true, wasCurrentSession: false } }),
+      });
+
+      await client.revokeSession('a/b');
+
+      expect(String(getFetchMock().mock.calls[0][0])).toBe('https://api.example.com/auth/sessions/a%2Fb');
+    });
+  });
+
+  describe('Social account password', () => {
+    it('checks whether a first password can be set, sending no identifier', async () => {
+      const client = new NAuthClient(baseConfig);
+      getFetchMock().mockResolvedValue({
+        ...createMockResponse({ ok: true, status: 200, body: { canSetPassword: true } }),
+      });
+
+      const result = await client.canSetPassword();
+
+      expect(result.canSetPassword).toBe(true);
+      const [url, init] = getFetchMock().mock.calls[0];
+      expect(String(url)).toBe('https://api.example.com/auth/social/can-set-password');
+      expect(init?.method).toBe('GET');
+    });
+
+    it('sets a first password using the caller own context', async () => {
+      const client = new NAuthClient(baseConfig);
+      getFetchMock().mockResolvedValue({
+        ...createMockResponse({ ok: true, status: 200, body: { message: 'Password set successfully' } }),
+      });
+
+      const result = await client.setPasswordForSocialUser('new-password');
+
+      expect(result.message).toBe('Password set successfully');
+      const [url, init] = getFetchMock().mock.calls[0];
+      expect(String(url)).toBe('https://api.example.com/auth/social/set-password');
+      expect(JSON.parse(String(init?.body))).toEqual({ password: 'new-password' });
+    });
+  });
+
+  describe('MFA enrolment inputs', () => {
+    it('lists the methods the deployment permits', async () => {
+      const client = new NAuthClient(baseConfig);
+      getFetchMock().mockResolvedValue({
+        ...createMockResponse({ ok: true, status: 200, body: { availableMethods: ['totp', 'sms'] } }),
+      });
+
+      const result = await client.getAvailableMfaMethods();
+
+      expect(result.availableMethods).toEqual(['totp', 'sms']);
+      expect(String(getFetchMock().mock.calls[0][0])).toBe('https://api.example.com/auth/mfa/available-methods');
+    });
+
+    it('omits setupData entirely when none is supplied', async () => {
+      const client = new NAuthClient(baseConfig);
+      getFetchMock().mockResolvedValue({
+        ...createMockResponse({ ok: true, status: 200, body: { setupData: {} } }),
+      });
+
+      await client.setupMfaDevice('totp');
+
+      expect(JSON.parse(String(getFetchMock().mock.calls[0][1]?.body))).toEqual({ methodName: 'totp' });
+    });
+
+    it('carries setupData so a phone not yet on the account can be enrolled', async () => {
+      const client = new NAuthClient(baseConfig);
+      getFetchMock().mockResolvedValue({
+        ...createMockResponse({ ok: true, status: 200, body: { setupData: { maskedPhone: '+1***4567' } } }),
+      });
+
+      await client.setupMfaDevice('sms', { phoneNumber: '+15551234567', deviceName: 'Work phone' });
+
+      expect(JSON.parse(String(getFetchMock().mock.calls[0][1]?.body))).toEqual({
+        methodName: 'sms',
+        setupData: { phoneNumber: '+15551234567', deviceName: 'Work phone' },
+      });
+    });
+  });
+
+
+  describe('Trusted devices', () => {
+    it('lists the caller own trusted devices', async () => {
+      const client = new NAuthClient(baseConfig);
+      getFetchMock().mockResolvedValue({
+        ...createMockResponse({
+          ok: true,
+          status: 200,
+          body: { trustedDevices: [{ id: 7, deviceName: 'Work laptop' }] },
+        }),
+      });
+
+      const result = await client.listTrustedDevices();
+
+      expect(result.trustedDevices).toHaveLength(1);
+      const [url, init] = getFetchMock().mock.calls[0];
+      expect(String(url)).toBe('https://api.example.com/auth/trusted-devices');
+      expect(init?.method).toBe('GET');
+    });
+
+    it('revokes one trusted device by id', async () => {
+      const client = new NAuthClient(baseConfig);
+      getFetchMock().mockResolvedValue({
+        ...createMockResponse({ ok: true, status: 200, body: { success: true } }),
+      });
+
+      const result = await client.revokeTrustedDevice(7);
+
+      expect(result.success).toBe(true);
+      const [url, init] = getFetchMock().mock.calls[0];
+      expect(String(url)).toBe('https://api.example.com/auth/trusted-devices/7');
+      expect(init?.method).toBe('DELETE');
+    });
+
+    it('revokes every trusted device against the collection path', async () => {
+      const client = new NAuthClient(baseConfig);
+      getFetchMock().mockResolvedValue({
+        ...createMockResponse({ ok: true, status: 200, body: { revokedCount: 3 } }),
+      });
+
+      const result = await client.revokeAllTrustedDevices();
+
+      expect(result.revokedCount).toBe(3);
+      const [url, init] = getFetchMock().mock.calls[0];
+      expect(String(url)).toBe('https://api.example.com/auth/trusted-devices');
+      expect(init?.method).toBe('DELETE');
+    });
+  });
+
 });

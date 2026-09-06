@@ -444,11 +444,17 @@ describe('MFAService', () => {
       mockUserRepository.findOne = jest.fn().mockResolvedValue(mockUser);
     });
 
+    const asCurrentUser = <T>(fn: () => Promise<T>): Promise<T> =>
+      ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser as IUser);
+        return fn();
+      });
+
     it('should return only allowed methods', async () => {
       service.registerProvider(mockProvider1);
       service.registerProvider(mockProvider2);
 
-      const methods = await service.getAvailableMethods({ sub: mockUser.sub! });
+      const methods = await asCurrentUser(() => service.getAvailableMethods());
 
       expect(methods.availableMethods).toContain('totp');
       expect(methods.availableMethods).toContain('sms');
@@ -462,15 +468,23 @@ describe('MFAService', () => {
 
       service.registerProvider(restrictedProvider);
 
-      const methods = await service.getAvailableMethods({ sub: mockUser.sub! });
+      const methods = await asCurrentUser(() => service.getAvailableMethods());
 
       expect(methods.availableMethods).not.toContain('totp');
     });
 
     it('should return empty array when no providers registered', async () => {
-      const methods = await service.getAvailableMethods({ sub: mockUser.sub! });
+      const methods = await asCurrentUser(() => service.getAvailableMethods());
 
       expect(methods).toEqual({ availableMethods: [] });
+    });
+
+    it('should throw FORBIDDEN when there is no authenticated user', async () => {
+      service.registerProvider(mockProvider1);
+
+      await expect(service.getAvailableMethods()).rejects.toMatchObject({
+        code: AuthErrorCode.FORBIDDEN,
+      });
     });
   });
 

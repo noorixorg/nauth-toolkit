@@ -1,4 +1,4 @@
-import { IsString, IsUUID, MaxLength, MinLength, IsOptional, IsObject, ValidateIf, IsIn } from 'class-validator';
+import { IsString, MaxLength, MinLength, IsOptional, IsObject, ValidateIf, IsIn } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 /**
@@ -155,32 +155,6 @@ export class UnlinkSocialAccountResponseDTO {
 }
 
 /**
- * DTO for checking if user can set password
- *
- * Security:
- * - User sub validated as UUID v4
- */
-export class CanSetPasswordDTO {
-  /**
-   * User identifier (UUID v4)
-   *
-   * Validation:
-   * - Must be valid UUID v4 format
-   *
-   * Sanitization:
-   * - Trimmed and lowercased
-   */
-  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim().toLowerCase();
-    }
-    return value;
-  })
-  sub!: string;
-}
-
-/**
  * Response DTO for canSetPassword
  */
 export class CanSetPasswordResponseDTO {
@@ -193,29 +167,12 @@ export class CanSetPasswordResponseDTO {
 /**
  * DTO for setting password for social-only user
  *
+ * The account acted on is always the caller's own, resolved from request context.
+ *
  * Security:
- * - User sub validated as UUID v4
  * - Password validated for strength (delegated to AuthService)
  */
 export class SetPasswordForSocialUserDTO {
-  /**
-   * User identifier (UUID v4)
-   *
-   * Validation:
-   * - Must be valid UUID v4 format
-   *
-   * Sanitization:
-   * - Trimmed and lowercased
-   */
-  @IsUUID('4', { message: 'User sub must be a valid UUID v4 format' })
-  @Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim().toLowerCase();
-    }
-    return value;
-  })
-  sub!: string;
-
   /**
    * New password
    *

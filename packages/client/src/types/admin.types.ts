@@ -716,3 +716,61 @@ export interface AdminAuditHistoryRequest {
    */
   eventStatus?: string;
 }
+
+/**
+ * Request for resolving a user by email address.
+ */
+export interface GetUserByEmailRequest {
+  /** Email address to look up */
+  email: string;
+  /** When true, only match accounts whose email is already verified */
+  requireEmailVerified?: boolean;
+}
+
+/**
+ * Request for setting a user's verified flags.
+ *
+ * Omitted flags are left unchanged, so a caller can set one without disturbing the other.
+ */
+export interface UpdateVerifiedStatusRequest {
+  /** Mark the email address verified or unverified */
+  isEmailVerified?: boolean;
+  /** Mark the phone number verified or unverified */
+  isPhoneVerified?: boolean;
+}
+
+/**
+ * Request for fetching audit events of a single type.
+ */
+export interface GetEventsByTypeRequest {
+  /** Event type to filter on */
+  eventType: string;
+  /** Page number (1-indexed) */
+  page?: number;
+  /** Records per page */
+  limit?: number;
+  /** Only include events at or after this instant */
+  startDate?: string | Date;
+  /** Only include events at or before this instant */
+  endDate?: string | Date;
+}
+
+/**
+ * Request for fetching events flagged as suspicious.
+ */
+export interface GetSuspiciousActivityRequest {
+  /** Restrict to a single user; omit to search across all users */
+  sub?: string;
+  /** Maximum number of events to return */
+  limit?: number;
+}
+
+/**
+ * Request for fetching a user's risk assessment history.
+ */
+export interface GetRiskAssessmentHistoryRequest {
+  /** Target user's external identifier (UUID v4) */
+  sub: string;
+  /** Maximum number of assessments to return */
+  limit?: number;
+}

@@ -664,10 +664,21 @@ describe('SessionService', () => {
       const result = await service.findUserSessions(123);
 
       expect(mockSessionRepository.find).toHaveBeenCalledWith({
-        where: { userId: 123, isRevoked: false },
+        where: { userId: 123, isRevoked: false, expiresAt: expect.anything() },
         order: { createdAt: 'DESC' },
       });
       expect(result).toEqual(sessions);
+    });
+
+    it('should exclude expired sessions so the list is not flooded with dead ones', async () => {
+      mockSessionRepository.find.mockResolvedValue([]);
+
+      await service.findUserSessions(123);
+
+      const where = mockSessionRepository.find.mock.calls[0][0]?.where as unknown as Record<string, unknown>;
+      expect(where.isRevoked).toBe(false);
+      // MoreThan(now) - a bare `isRevoked: false` query would return expired sessions too
+      expect(where.expiresAt).toBeDefined();
     });
 
     it('should return empty array if no sessions found', async () => {
@@ -1261,7 +1272,7 @@ describe('SessionService', () => {
       const count = await service.countUserSessions(123);
 
       expect(mockSessionRepository.count).toHaveBeenCalledWith({
-        where: { userId: 123, isRevoked: false },
+        where: { userId: 123, isRevoked: false, expiresAt: expect.anything() },
       });
       expect(count).toBe(3);
     });

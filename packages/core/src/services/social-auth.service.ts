@@ -17,7 +17,6 @@ import {
   GetLinkedAccountsResponseDTO,
   UnlinkSocialAccountDTO,
   UnlinkSocialAccountResponseDTO,
-  CanSetPasswordDTO,
   CanSetPasswordResponseDTO,
   SetPasswordForSocialUserDTO,
   SetPasswordForSocialUserResponseDTO,
@@ -250,10 +249,13 @@ export class SocialAuthService {
    * }
    * ```
    */
-  async canSetPassword(dto: CanSetPasswordDTO): Promise<CanSetPasswordResponseDTO> {
-    dto = await ensureValidatedDto(CanSetPasswordDTO, dto);
-    const { sub } = dto;
-    const user = (await this.userRepository.findOne({ where: { sub } })) as IUser | null;
+  async canSetPassword(): Promise<CanSetPasswordResponseDTO> {
+    const currentUser = ContextStorage.get<IUser>('CURRENT_USER');
+    if (!currentUser) {
+      throw new NAuthException(AuthErrorCode.FORBIDDEN, 'Authentication required');
+    }
+
+    const user = (await this.userRepository.findOne({ where: { sub: currentUser.sub } })) as IUser | null;
     if (!user) {
       return { canSetPassword: false };
     }
@@ -278,8 +280,13 @@ export class SocialAuthService {
    */
   async setPasswordForSocialUser(dto: SetPasswordForSocialUserDTO): Promise<SetPasswordForSocialUserResponseDTO> {
     dto = await ensureValidatedDto(SetPasswordForSocialUserDTO, dto);
-    const { sub, password } = dto;
-    const user = await this.userRepository.findOne({ where: { sub } });
+    const { password } = dto;
+    const currentUser = ContextStorage.get<IUser>('CURRENT_USER');
+    if (!currentUser) {
+      throw new NAuthException(AuthErrorCode.FORBIDDEN, 'Authentication required');
+    }
+
+    const user = await this.userRepository.findOne({ where: { sub: currentUser.sub } });
     if (!user) {
       throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
     }
@@ -298,11 +305,6 @@ export class SocialAuthService {
         'AuthService is not available. This is a configuration error.',
       );
     }
-    const currentUser = ContextStorage.get<IUser>('CURRENT_USER');
-    if (!currentUser || currentUser.sub !== sub) {
-      throw new NAuthException(AuthErrorCode.FORBIDDEN, 'Forbidden');
-    }
-
     const changePasswordDto = new ChangePasswordDTO();
     changePasswordDto.oldPassword = ''; // Social-only users don't have a password
     changePasswordDto.newPassword = password;

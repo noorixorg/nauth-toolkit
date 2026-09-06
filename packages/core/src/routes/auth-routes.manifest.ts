@@ -20,6 +20,7 @@ import { RefreshTokenDTO } from '../dto/refresh-token.dto';
 import { LogoutDTO } from '../dto/logout.dto';
 import { LogoutAllDTO } from '../dto/logout-all.dto';
 import { LogoutSessionDTO } from '../dto/logout-session.dto';
+import { RevokeTrustedDeviceDTO } from '../dto/trusted-device.dto';
 import { RespondChallengeDTO } from '../dto/respond-challenge.dto';
 import { ResendCodeDTO } from '../dto/resend-code.dto';
 import { GetSetupDataDTO } from '../dto/get-setup-data.dto';
@@ -30,8 +31,8 @@ import { ForgotPasswordDTO } from '../dto/forgot-password.dto';
 import { ConfirmForgotPasswordDTO } from '../dto/confirm-forgot-password.dto';
 import { ConfirmAdminResetPasswordDTO } from '../dto/admin-reset-password.dto';
 import { GetUserAuthHistoryDTO } from '../dto/get-user-auth-history.dto';
-import { GetAvailableMethodsDTO } from '../dto/get-available-methods.dto';
 import { SetupMFADTO } from '../dto/setup-mfa.dto';
+import { VerifyMFASetupResponseDTO } from '../dto/verify-mfa-setup-response.dto';
 import { RemoveDeviceDTO } from '../dto/remove-device.dto';
 import { SetPreferredDeviceDTO } from '../dto/set-preferred-device.dto';
 import { GetUserDevicesDTO } from '../dto/get-user-devices.dto';
@@ -40,7 +41,6 @@ import {
   LinkSocialAccountDTO,
   GetLinkedAccountsDTO,
   UnlinkSocialAccountDTO,
-  CanSetPasswordDTO,
   SetPasswordForSocialUserDTO,
   VerifyTokenDTO,
   SocialExchangeDTO,
@@ -300,10 +300,9 @@ export const AUTH_ROUTES_MANIFEST: readonly AnyNAuthRouteDefinition[] = [
     path: 'mfa/available-methods',
     access: 'authenticated',
     status: 200,
-    source: 'query',
-    dto: GetAvailableMethodsDTO,
+    source: 'none',
     requires: 'mfaService',
-    handler: ({ dto, services }) => required(services.mfaService, 'MFAService').getAvailableMethods(dto),
+    handler: ({ services }) => required(services.mfaService, 'MFAService').getAvailableMethods(),
   }),
   defineRoute({
     key: 'mfaSetupData',
@@ -327,7 +326,26 @@ export const AUTH_ROUTES_MANIFEST: readonly AnyNAuthRouteDefinition[] = [
     source: 'body',
     dto: SetupMFADTO,
     requires: 'mfaService',
-    handler: ({ dto, services }) => required(services.mfaService, 'MFAService').setup(dto),
+    // Completes the enrolment `mfa/setup-data` began, returning the new device id.
+    // Not `setup()` - that starts an enrolment, so calling it here would loop the
+    // caller back to the beginning and no device could ever be created.
+    handler: async ({ dto, services }): Promise<VerifyMFASetupResponseDTO> => {
+      const provider = required(services.mfaService, 'MFAService').getProvider(dto.methodName);
+      const deviceId = await provider.verifySetup(dto.setupData);
+      // Backup codes are issued separately and deliberately not returned here.
+      return { deviceId };
+    },
+  }),
+  defineRoute({
+    key: 'mfaBackupCodes',
+    group: 'mfa',
+    method: 'POST',
+    path: 'mfa/backup-codes/generate',
+    access: 'authenticated',
+    status: 200,
+    source: 'none',
+    requires: 'mfaService',
+    handler: ({ services }) => required(services.mfaService, 'MFAService').generateBackupCodes(),
   }),
   // Literal path declared before the parametric sibling below.
   defineRoute({
@@ -413,10 +431,9 @@ export const AUTH_ROUTES_MANIFEST: readonly AnyNAuthRouteDefinition[] = [
     path: 'social/can-set-password',
     access: 'authenticated',
     status: 200,
-    source: 'query',
-    dto: CanSetPasswordDTO,
+    source: 'none',
     requires: 'socialAuthService',
-    handler: ({ dto, services }) => required(services.socialAuthService, 'SocialAuthService').canSetPassword(dto),
+    handler: ({ services }) => required(services.socialAuthService, 'SocialAuthService').canSetPassword(),
   }),
   defineRoute({
     key: 'socialSetPassword',
@@ -557,6 +574,38 @@ export const AUTH_ROUTES_MANIFEST: readonly AnyNAuthRouteDefinition[] = [
     status: 200,
     source: 'none',
     handler: ({ services }) => services.authService.isTrustedDevice(),
+  }),
+  defineRoute({
+    key: 'trustedDevices',
+    group: 'device',
+    method: 'GET',
+    path: 'trusted-devices',
+    access: 'authenticated',
+    status: 200,
+    source: 'none',
+    handler: ({ services }) => services.authService.listTrustedDevices(),
+  }),
+  // Literal path declared before the parametric sibling below.
+  defineRoute({
+    key: 'revokeAllTrustedDevices',
+    group: 'device',
+    method: 'DELETE',
+    path: 'trusted-devices',
+    access: 'authenticated',
+    status: 200,
+    source: 'none',
+    handler: ({ services }) => services.authService.revokeAllTrustedDevices(),
+  }),
+  defineRoute({
+    key: 'revokeTrustedDevice',
+    group: 'device',
+    method: 'DELETE',
+    path: 'trusted-devices/:deviceId',
+    access: 'authenticated',
+    status: 200,
+    source: 'params',
+    dto: RevokeTrustedDeviceDTO,
+    handler: ({ dto, services }) => services.authService.revokeTrustedDevice(dto),
   }),
 
   // ==========================================================================

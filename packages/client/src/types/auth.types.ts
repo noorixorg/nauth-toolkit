@@ -199,3 +199,95 @@ export interface ForceChangePasswordResponse extends BaseChallengeResponse {
 }
 
 // MFAMethod and MFAChallengeMethod are imported from mfa.types
+
+/**
+ * Response from revoking a single session.
+ */
+export interface LogoutSessionResponse {
+  /** Whether the session was revoked */
+  success: boolean;
+  /**
+   * Whether the revoked session was the one making the request.
+   *
+   * When true the caller has just signed itself out, so the local auth state should be
+   * cleared rather than left pointing at a session the server no longer honours.
+   */
+  wasCurrentSession: boolean;
+}
+
+/**
+ * Response from checking whether the current user may set a first password.
+ */
+export interface CanSetPasswordResponse {
+  /** True for a social-only account that has no password yet */
+  canSetPassword: boolean;
+}
+
+/**
+ * Response from setting a first password on a social-only account.
+ */
+export interface SetPasswordResponse {
+  /** Human-readable confirmation message */
+  message: string;
+}
+
+/**
+ * Response listing the MFA methods this deployment permits.
+ */
+export interface AvailableMfaMethodsResponse {
+  /**
+   * Method names that are registered and allowed by configuration, whether or not the
+   * caller has enrolled them.
+   */
+  availableMethods: string[];
+}
+
+/**
+ * A trusted device that may skip MFA, without any token material.
+ */
+export interface TrustedDeviceInfo {
+  /** Record id. Identifies the device when revoking it. */
+  id: number;
+  /** Client-supplied device identifier, when the client sends one. */
+  deviceId?: string | null;
+  /** Human-readable device label. */
+  deviceName?: string | null;
+  /** Device form factor (e.g. `mobile`, `desktop`). */
+  deviceType?: string | null;
+  /** IP address the device was trusted from. */
+  ipAddress?: string | null;
+  /** Operating system reported by the device. */
+  platform?: string | null;
+  /** Browser reported by the device. */
+  browser?: string | null;
+  /** ISO timestamp at which the trust expires. */
+  trustedUntil: string | Date;
+  /** ISO timestamp of last use, or null if unused since being trusted. */
+  lastUsedAt?: string | Date | null;
+  /** ISO timestamp at which the device was trusted. */
+  createdAt: string | Date;
+}
+
+/**
+ * Response listing trusted devices.
+ */
+export interface ListTrustedDevicesResponse {
+  /** Unexpired trusted devices, most recently used first. */
+  trustedDevices: TrustedDeviceInfo[];
+}
+
+/**
+ * Response from revoking a single trusted device.
+ */
+export interface RevokeTrustedDeviceResponse {
+  /** Whether a matching device was found and revoked. */
+  success: boolean;
+}
+
+/**
+ * Response from revoking every trusted device.
+ */
+export interface RevokeAllTrustedDevicesResponse {
+  /** How many devices were revoked. */
+  revokedCount: number;
+}

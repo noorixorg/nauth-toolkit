@@ -60,19 +60,27 @@ Auto-injected by framework. No manual instantiation required.
 
 ### canSetPassword()
 
-Check if user can set a password (social-only users can set passwords).
+Check whether the current user can set a first password. True for a social-only account that has no password yet.
 
 ```typescript
-async canSetPassword(dto: CanSetPasswordDTO): Promise<CanSetPasswordResponseDTO>
+async canSetPassword(): Promise<CanSetPasswordResponseDTO>
 ```
 
 **Parameters**
 
-- `dto` - [`CanSetPasswordDTO`](../dto/can-set-password-dto)
+None. The account checked is the caller's own, resolved from the authenticated request context.
 
 **Returns**
 
 - [`CanSetPasswordResponseDTO`](../dto/can-set-password-response-dto)
+
+**Errors**
+
+| Code        | When                              | Details |
+| ----------- | --------------------------------- | ------- |
+| `FORBIDDEN` | No authenticated user in context  | -       |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
 
 **Example**
 
@@ -80,10 +88,7 @@ async canSetPassword(dto: CanSetPasswordDTO): Promise<CanSetPasswordResponseDTO>
 <TabItem value="nestjs" label="NestJS">
 
 ```typescript
-import { CanSetPasswordDTO } from '@nauth-toolkit/nestjs';
-
-const dto: CanSetPasswordDTO = { userId: user.sub };
-const result = await this.socialAuthService.canSetPassword(dto);
+const result = await this.socialAuthService.canSetPassword();
 if (result.canSetPassword) {
   // Show password setup form
 }
@@ -93,10 +98,7 @@ if (result.canSetPassword) {
 <TabItem value="express" label="Express">
 
 ```typescript
-import { CanSetPasswordDTO } from '@nauth-toolkit/core';
-
-const dto: CanSetPasswordDTO = { userId: user.sub };
-const result = await nauth.socialAuthService.canSetPassword(dto);
+const result = await nauth.socialAuthService.canSetPassword();
 if (result.canSetPassword) {
   // Show password setup form
 }
@@ -106,10 +108,7 @@ if (result.canSetPassword) {
 <TabItem value="fastify" label="Fastify">
 
 ```typescript
-import { CanSetPasswordDTO } from '@nauth-toolkit/core';
-
-const dto: CanSetPasswordDTO = { userId: user.sub };
-const result = await nauth.socialAuthService.canSetPassword(dto);
+const result = await nauth.socialAuthService.canSetPassword();
 if (result.canSetPassword) {
   // Show password setup form
 }
@@ -151,9 +150,8 @@ async getLinkedAccounts(dto: GetLinkedAccountsDTO): Promise<GetLinkedAccountsRes
 import { GetLinkedAccountsDTO } from '@nauth-toolkit/nestjs';
 
 @Get('social/linked')
-async getLinked(@CurrentUser() user: IUser) {
-  const dto: GetLinkedAccountsDTO = { userId: user.sub };
-  const accounts = await this.socialAuthService.getLinkedAccounts(dto);
+async getLinked() {
+  const accounts = await this.socialAuthService.getLinkedAccounts({});
   return accounts.accounts;
 }
 ```
@@ -229,11 +227,8 @@ async linkSocialAccount(dto: LinkSocialAccountDTO): Promise<LinkSocialAccountRes
 import { LinkSocialAccountDTO } from '@nauth-toolkit/nestjs';
 
 @Post('social/link')
-async link(@CurrentUser() user: IUser, @Body() body: { provider: string; code: string; state: string }) {
-  const dto: LinkSocialAccountDTO = {
-    userId: user.sub,
-    ...body,
-  };
+async link(@Body() body: { provider: string; code: string; state: string }) {
+  const dto: LinkSocialAccountDTO = { ...body };
   return await this.socialAuthService.linkSocialAccount(dto);
 }
 ```
@@ -330,7 +325,7 @@ const providers = nauth.socialAuthService.listAvailableProviders();
 
 ### setPasswordForSocialUser()
 
-Set password for social-only user.
+Give the current user's social-only account its first password.
 
 ```typescript
 async setPasswordForSocialUser(dto: SetPasswordForSocialUserDTO): Promise<SetPasswordForSocialUserResponseDTO>
@@ -340,17 +335,26 @@ async setPasswordForSocialUser(dto: SetPasswordForSocialUserDTO): Promise<SetPas
 
 - `dto` - [`SetPasswordForSocialUserDTO`](../dto/set-password-for-social-user-dto)
 
+The account is the caller's own, resolved from the authenticated request context; the DTO carries only the new password.
+
 **Returns**
 
 - [`SetPasswordForSocialUserResponseDTO`](../dto/set-password-for-social-user-response-dto)
 
 **Errors**
 
-| Code                | When                      | Details                 |
-| ------------------- | ------------------------- | ----------------------- |
-| `NOT_FOUND`         | User not found            | `{ userId?: string }`   |
-| `VALIDATION_FAILED` | User already has password | `{ field: 'password' }` |
-| `WEAK_PASSWORD`     | Password policy violation | `{ errors: string[] }`  |
+| Code                | When                              | Details                 |
+| ------------------- | --------------------------------- | ----------------------- |
+| `FORBIDDEN`         | No authenticated user in context  | -                       |
+| `NOT_FOUND`         | User not found                    | -                       |
+| `VALIDATION_FAILED` | User already has password         | `{ field: 'password' }` |
+| `WEAK_PASSWORD`     | Password policy violation         | `{ errors: string[] }`  |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+:::note
+An account that already has a password must use [`AuthService.changePassword()`](./auth-service#changepassword), which verifies the existing one.
+:::
 
 **Example**
 
@@ -360,10 +364,7 @@ async setPasswordForSocialUser(dto: SetPasswordForSocialUserDTO): Promise<SetPas
 ```typescript
 import { SetPasswordForSocialUserDTO } from '@nauth-toolkit/nestjs';
 
-const dto: SetPasswordForSocialUserDTO = {
-  userId: user.sub,
-  password: 'newpassword',
-};
+const dto: SetPasswordForSocialUserDTO = { password: 'newpassword' };
 await this.socialAuthService.setPasswordForSocialUser(dto);
 ```
 
@@ -373,10 +374,7 @@ await this.socialAuthService.setPasswordForSocialUser(dto);
 ```typescript
 import { SetPasswordForSocialUserDTO } from '@nauth-toolkit/core';
 
-const dto: SetPasswordForSocialUserDTO = {
-  userId: user.sub,
-  password: 'newpassword',
-};
+const dto: SetPasswordForSocialUserDTO = { password: 'newpassword' };
 await nauth.socialAuthService.setPasswordForSocialUser(dto);
 ```
 
@@ -386,10 +384,7 @@ await nauth.socialAuthService.setPasswordForSocialUser(dto);
 ```typescript
 import { SetPasswordForSocialUserDTO } from '@nauth-toolkit/core';
 
-const dto: SetPasswordForSocialUserDTO = {
-  userId: user.sub,
-  password: 'newpassword',
-};
+const dto: SetPasswordForSocialUserDTO = { password: 'newpassword' };
 await nauth.socialAuthService.setPasswordForSocialUser(dto);
 ```
 
@@ -428,11 +423,8 @@ async unlinkSocialAccount(dto: UnlinkSocialAccountDTO): Promise<UnlinkSocialAcco
 import { UnlinkSocialAccountDTO } from '@nauth-toolkit/nestjs';
 
 @Post('social/unlink')
-async unlink(@CurrentUser() user: IUser, @Body() body: { provider: string }) {
-  const dto: UnlinkSocialAccountDTO = {
-    userId: user.sub,
-    provider: body.provider,
-  };
+async unlink(@Body() body: { provider: string }) {
+  const dto: UnlinkSocialAccountDTO = { provider: body.provider };
   await this.socialAuthService.unlinkSocialAccount(dto);
   return { success: true };
 }

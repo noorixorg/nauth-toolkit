@@ -29,6 +29,18 @@ import { NAuthAdminEndpoints } from '@nauth-toolkit/client';
 | `getMfaDevices`         | `string` | GET endpoint for MFA devices (supports `:sub` path parameter)    |
 | `getUser`               | `string` | GET endpoint for retrieving a user (supports `:sub` path parameter) |
 | `getUserSessions`       | `string` | GET endpoint for user sessions (supports `:sub` path parameter) |
+| `getUserByEmail`        | `string` | GET endpoint resolving a user by email address                   |
+| `updateUser`            | `string` | PUT endpoint for user attributes (supports `:sub` path parameter) |
+| `updateVerifiedStatus`  | `string` | POST endpoint for email/phone verified flags (supports `:sub`)   |
+| `revokeUserSession`     | `string` | DELETE endpoint for one session (supports `:sub` and `:sessionId`) |
+| `trustedDevices`        | `string` | GET/DELETE endpoint for a user's trusted devices (supports `:sub`) |
+| `trustedDevice`         | `string` | DELETE endpoint for one trusted device (supports `:sub`, `:deviceId`) |
+| `getEventsByType`       | `string` | GET endpoint for audit events of one type                        |
+| `getSuspiciousActivity` | `string` | GET endpoint for events flagged as suspicious                    |
+| `getRiskAssessmentHistory` | `string` | GET endpoint for a user's risk assessment history             |
+| `apiKeys`               | `string` | POST/GET endpoint for creating and listing a user's API keys     |
+| `apiKey`                | `string` | PATCH/DELETE endpoint for one key (supports `:keyId`)            |
+| `apiKeyRevoke`          | `string` | POST endpoint revoking one key (supports `:keyId`)               |
 | `getUsers`              | `string` | GET endpoint for querying users                                  |
 | `logoutAll`             | `string` | POST endpoint for logging out all sessions (supports `:sub` path parameter) |
 | `removeMfaDeviceById`   | `string` | DELETE endpoint for removing single MFA device by ID         |
@@ -52,6 +64,18 @@ import { NAuthAdminEndpoints } from '@nauth-toolkit/client';
 | `getMfaDevices`         | `/users/:sub/mfa/devices`             |
 | `getUser`               | `/users/:sub`                         |
 | `getUserSessions`       | `/users/:sub/sessions`                |
+| `getUserByEmail`        | `/users/by-email`                     |
+| `updateUser`            | `/users/:sub`                         |
+| `updateVerifiedStatus`  | `/users/:sub/verified-status`         |
+| `revokeUserSession`     | `/users/:sub/sessions/:sessionId`     |
+| `trustedDevices`        | `/users/:sub/trusted-devices`         |
+| `trustedDevice`         | `/users/:sub/trusted-devices/:deviceId` |
+| `getEventsByType`       | `/audit/events`                       |
+| `getSuspiciousActivity` | `/audit/suspicious`                   |
+| `getRiskAssessmentHistory` | `/audit/risk`                      |
+| `apiKeys`               | `/api-keys`                           |
+| `apiKey`                | `/api-keys/:keyId`                    |
+| `apiKeyRevoke`          | `/api-keys/:keyId/revoke`             |
 | `getUsers`              | `/users`                              |
 | `logoutAll`             | `/users/:sub/logout-all`                      |
 | `removeMfaDeviceById`   | `/mfa/devices/:deviceId`                      |

@@ -149,6 +149,31 @@ describe('route manifest', () => {
     }
   });
 
+  it('completes an MFA enrolment rather than restarting it', () => {
+    // Regression: mfaVerifySetup shipped calling MFAService.setup(), the same call
+    // mfaSetupData makes. That begins an enrolment, so the route could never finish
+    // one - the caller looped back to the start and no device was ever created.
+    const setupData = ALL_ROUTES_MANIFEST.find((r) => r.key === 'mfaSetupData');
+    const verifySetup = ALL_ROUTES_MANIFEST.find((r) => r.key === 'mfaVerifySetup');
+
+    const body = (r?: { handler: unknown }): string => String((r as { handler: unknown }).handler);
+    expect(body(verifySetup)).toContain('verifySetup');
+    expect(body(verifySetup)).not.toBe(body(setupData));
+  });
+
+  it('gives distinct routes distinct handlers', () => {
+    // Two routes doing literally the same thing is how the mfaVerifySetup bug looked.
+    // The social callback pair is the one legitimate case: GET and POST differ only in
+    // where the provider puts the payload.
+    const byBody = new Map<string, string[]>();
+    for (const route of ALL_ROUTES_MANIFEST) {
+      const body = String(route.handler).replace(/\s+/g, ' ');
+      byBody.set(body, [...(byBody.get(body) ?? []), route.key]);
+    }
+    const shared = [...byBody.values()].filter((keys) => keys.length > 1).map((keys) => keys.sort().join('+'));
+    expect(shared).toEqual(['socialCallback+socialCallbackPost']);
+  });
+
   it('names a real service field in every `requires`', () => {
     const valid = new Set(['mfaService', 'socialAuthService', 'auditService', 'apiKeyService', 'socialRedirect']);
     for (const route of ALL_ROUTES_MANIFEST) {

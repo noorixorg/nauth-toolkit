@@ -65,6 +65,7 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [RefreshTokenDTO](./refresh-token-dto)                | Token refresh request           | Refresh token                                  |
 | [SignupDTO](./signup-dto)                             | User registration request       | Email, password, optional username/phone       |
 | [TrustDeviceResponseDTO](./trust-device-response-dto) | Device trust response           | Device trust token                             |
+| [Trusted Device DTOs](./trusted-device-dto) | List and revoke trusted devices | Device records, revocation results             |
 | [IsTrustedDeviceResponseDTO](./is-trusted-device-response-dto) | Trusted device check response | Whether current device is trusted              |
 
 ## Session Management DTOs
@@ -171,7 +172,8 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [AdminGetUserDevicesDTO](./admin-get-user-devices-dto)             | Admin get user MFA devices         | Target user sub                     |
 | [AdminRemoveDeviceDTO](./admin-remove-device-dto)                  | Admin remove MFA device by ID      | Device ID                           |
 | [AdminSetPreferredDeviceDTO](./admin-set-preferred-device-dto)     | Admin set preferred MFA device     | User sub and device ID              |
-| [GetAvailableMethodsDTO](./get-available-methods-dto)              | Get available MFA methods          | User sub                            |
+| [GenerateBackupCodesResponseDTO](./generate-backup-codes-response-dto) | Backup codes response          | Plaintext recovery codes            |
+| [GetAvailableMethodsResponseDTO](./get-available-methods-response-dto) | Available MFA methods response | Allowed method names                |
 | [GetMFAStatusResponseDTO](./get-mfa-status-dto)                    | MFA status response                | Status fields                       |
 | [GetSetupDataDTO](./get-setup-data-dto)                            | Get MFA setup data                 | Challenge session and method        |
 | [GetSetupDataResponseDTO](./get-setup-data-response-dto)           | Setup data response                | Provider-specific setup data        |
@@ -186,13 +188,12 @@ All DTOs are automatically validated by framework adapters. No manual validation
 
 | DTO                                                                                | Description                       | Documentation              |
 | ---------------------------------------------------------------------------------- | --------------------------------- | -------------------------- |
-| [CanSetPasswordDTO](./can-set-password-dto)                                        | Check if password can be set      | User sub                   |
 | [CanSetPasswordResponseDTO](./can-set-password-response-dto)                       | Can set password response         | Boolean flag               |
 | [GetLinkedAccountsDTO](./get-linked-accounts-dto)                                  | Get linked accounts               | User sub                   |
 | [GetLinkedAccountsResponseDTO](./get-linked-accounts-response-dto)                 | Linked accounts response          | Array of linked providers  |
 | [LinkSocialAccountDTO](./link-social-account-dto)                                  | Link social account               | Provider, code, state      |
 | [LinkSocialAccountResponseDTO](./link-social-account-response-dto)                 | Link account response             | Success confirmation       |
-| [SetPasswordForSocialUserDTO](./set-password-for-social-user-dto)                  | Set password for social user      | User sub and new password  |
+| [SetPasswordForSocialUserDTO](./set-password-for-social-user-dto)                  | Set password for social user      | New password               |
 | [SetPasswordForSocialUserResponseDTO](./set-password-for-social-user-response-dto) | Set password response             | Success confirmation       |
 | [SocialCallbackFormDTO](./social-callback-form-dto)                                | OAuth callback form data (POST)   | Apple form_post callbacks  |
 | [SocialCallbackQueryDTO](./social-callback-query-dto)                              | OAuth callback query params (GET) | Google, Facebook callbacks |

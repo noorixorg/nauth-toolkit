@@ -569,6 +569,62 @@ fastify.get(
 
 ---
 
+### getUserTrustedDevices()
+
+List a user's trusted devices — those allowed to skip MFA for that user.
+
+```typescript
+async getUserTrustedDevices(dto: AdminManageTrustedDevicesDTO): Promise<ListTrustedDevicesResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminManageTrustedDevicesDTO`](../dto/trusted-device-dto)
+
+**Returns**
+
+- [`ListTrustedDevicesResponseDTO`](../dto/trusted-device-dto) - `{ trustedDevices: TrustedDeviceResponseDTO[] }`
+
+**Authorization**
+
+Requires `admin.trustedDevice.list`.
+
+**Errors**
+
+| Code        | When                     | Details |
+| ----------- | ------------------------ | ------- |
+| `NOT_FOUND` | Target user not found    | -       |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+const { trustedDevices } = await this.adminAuthService.getUserTrustedDevices({ sub });
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+const { trustedDevices } = await nauth.adminAuthService.getUserTrustedDevices({ sub });
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+const { trustedDevices } = await nauth.adminAuthService.getUserTrustedDevices({ sub });
+```
+
+</TabItem>
+</Tabs>
+
+---
+
 ### getUsers()
 
 Get paginated list of users with advanced filtering. Supports pagination, boolean filters, exact match filters, date filters with operators (gt, gte, lt, lte, eq), and flexible sorting.
@@ -817,6 +873,66 @@ Please ensure you implement Admin authorization as required. This method does no
 
 ---
 
+### revokeAllUserTrustedDevices()
+
+Revoke every trusted device belonging to a user. Each must then satisfy MFA again.
+
+```typescript
+async revokeAllUserTrustedDevices(dto: AdminManageTrustedDevicesDTO): Promise<RevokeAllTrustedDevicesResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminManageTrustedDevicesDTO`](../dto/trusted-device-dto)
+
+**Returns**
+
+- [`RevokeAllTrustedDevicesResponseDTO`](../dto/trusted-device-dto) - `{ revokedCount: number }`
+
+**Authorization**
+
+Requires `admin.trustedDevice.revokeAll`.
+
+**Errors**
+
+| Code        | When                  | Details |
+| ----------- | --------------------- | ------- |
+| `NOT_FOUND` | Target user not found | -       |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+:::note
+This removes MFA bypass only; it does not sign the user out. Use [`logoutAll()`](#logoutall) for that.
+:::
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+const { revokedCount } = await this.adminAuthService.revokeAllUserTrustedDevices({ sub });
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+const { revokedCount } = await nauth.adminAuthService.revokeAllUserTrustedDevices({ sub });
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+const { revokedCount } = await nauth.adminAuthService.revokeAllUserTrustedDevices({ sub });
+```
+
+</TabItem>
+</Tabs>
+
+---
+
 ### revokeUserSession()
 
 Logout from a specific session by session ID. Validates session ownership for security. Automatically clears cookies if logging out the current session.
@@ -894,6 +1010,64 @@ fastify.delete(
     });
   }),
 );
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+### revokeUserTrustedDevice()
+
+Revoke one of a user's trusted devices, leaving their others alone.
+
+```typescript
+async revokeUserTrustedDevice(dto: AdminRevokeTrustedDeviceDTO): Promise<RevokeTrustedDeviceResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`AdminRevokeTrustedDeviceDTO`](../dto/trusted-device-dto)
+
+The lookup is scoped to the named user, so a device id belonging to somebody else does not match.
+
+**Returns**
+
+- [`RevokeTrustedDeviceResponseDTO`](../dto/trusted-device-dto) - `{ success: boolean }`
+
+**Authorization**
+
+Requires `admin.trustedDevice.revoke`.
+
+**Errors**
+
+| Code        | When                                                 | Details |
+| ----------- | ---------------------------------------------------- | ------- |
+| `NOT_FOUND` | Target user not found, or device is not theirs       | -       |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+await this.adminAuthService.revokeUserTrustedDevice({ sub, deviceId: 7 });
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+await nauth.adminAuthService.revokeUserTrustedDevice({ sub, deviceId: 7 });
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+await nauth.adminAuthService.revokeUserTrustedDevice({ sub, deviceId: 7 });
 ```
 
 </TabItem>

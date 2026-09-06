@@ -421,7 +421,7 @@ describe('SocialAuthService', () => {
     it('should return true for social-only user (no password hash)', async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
 
-      const result = await service.canSetPassword({ sub: mockUserSub });
+      const result = await runAs(mockUser, () => service.canSetPassword());
 
       expect(result.canSetPassword).toBe(true);
     });
@@ -429,7 +429,7 @@ describe('SocialAuthService', () => {
     it('should return false for user with password', async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUserWithPassword as any);
 
-      const result = await service.canSetPassword({ sub: mockUserSub });
+      const result = await runAs(mockUser, () => service.canSetPassword());
 
       expect(result.canSetPassword).toBe(false);
     });
@@ -437,9 +437,21 @@ describe('SocialAuthService', () => {
     it('should return false when user not found', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
-      const result = await service.canSetPassword({ sub: mockOtherUserSub });
+      const result = await runAs(mockUser, () => service.canSetPassword());
 
       expect(result.canSetPassword).toBe(false);
+    });
+
+    it('should only ever look up the caller, never a caller-supplied sub', async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+
+      await runAs(mockUser, () => service.canSetPassword());
+
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: mockUserSub } });
+    });
+
+    it('should throw FORBIDDEN when there is no authenticated user', async () => {
+      await expect(service.canSetPassword()).rejects.toMatchObject({ code: AuthErrorCode.FORBIDDEN });
     });
   });
 
@@ -452,9 +464,7 @@ describe('SocialAuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser as any);
       mockAuthService.changePassword.mockResolvedValue({ success: true });
 
-      const result = await runAs(mockUser, () =>
-        service.setPasswordForSocialUser({ sub: mockUserSub, password: 'newpassword' }),
-      );
+      const result = await runAs(mockUser, () => service.setPasswordForSocialUser({ password: 'newpassword' }));
 
       expect(result).toEqual({ message: 'Password set successfully' });
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { sub: mockUserSub } });
@@ -466,14 +476,11 @@ describe('SocialAuthService', () => {
       );
     });
 
-    it('should throw NAuthException when sub does not match current user', async () => {
-      const otherUser = { ...mockUser, sub: mockOtherUserSub };
-      mockUserRepository.findOne.mockResolvedValue(otherUser as any);
+    it('should throw NAuthException when there is no authenticated user', async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
 
       try {
-        await runAs(mockUser, () =>
-          service.setPasswordForSocialUser({ sub: mockOtherUserSub, password: 'newpassword' }),
-        );
+        await service.setPasswordForSocialUser({ password: 'newpassword' });
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -485,9 +492,7 @@ describe('SocialAuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await runAs(mockUser, () =>
-          service.setPasswordForSocialUser({ sub: mockOtherUserSub, password: 'newpassword' }),
-        );
+        await runAs(mockUser, () => service.setPasswordForSocialUser({ password: 'newpassword' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -500,7 +505,7 @@ describe('SocialAuthService', () => {
       mockAuthService.changePassword.mockRejectedValue(new Error('Database error'));
 
       try {
-        await runAs(mockUser, () => service.setPasswordForSocialUser({ sub: mockUserSub, password: 'newpassword' }));
+        await runAs(mockUser, () => service.setPasswordForSocialUser({ password: 'newpassword' }));
         fail('Should have thrown Error');
       } catch (error) {
         expect(error).toBeInstanceOf(Error);

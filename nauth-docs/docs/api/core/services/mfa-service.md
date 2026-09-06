@@ -221,42 +221,104 @@ async adminSetPreferredDevice(@Param() dto: AdminSetPreferredDeviceDTO): Promise
 
 ---
 
-### getAvailableMethods()
+### generateBackupCodes()
 
-Get available MFA methods for a user. Returns all registered and allowed methods that can be set up.
+Issue a fresh set of single-use recovery codes for the current user, replacing any set they already held.
 
 ```typescript
-async getAvailableMethods(dto: GetAvailableMethodsDTO): Promise<GetAvailableMethodsResponseDTO>
+async generateBackupCodes(): Promise<GenerateBackupCodesResponseDTO>
 ```
 
 **Parameters**
 
-- `dto` - [`GetAvailableMethodsDTO`](../dto/get-available-methods-dto)
+None. The caller is resolved from the authenticated request context.
 
 **Returns**
 
-- [`GetAvailableMethodsResponseDTO`](../dto/get-available-methods-dto) - `{ availableMethods: string[] }`
+- [`GenerateBackupCodesResponseDTO`](../dto/generate-backup-codes-response-dto) - `{ codes: string[] }`
 
 **Errors**
 
-| Code                | When                 | Details                                          |
-| ------------------- | -------------------- | ------------------------------------------------ |
-| `VALIDATION_FAILED` | DTO validation fails | `{ validationErrors: Record<string, string[]> }` |
-| `NOT_FOUND`         | User not found       | `undefined`                                      |
+| Code                | When                                                         | Details |
+| ------------------- | ------------------------------------------------------------ | ------- |
+| `FORBIDDEN`         | No authenticated user in context                             | -       |
+| `VALIDATION_FAILED` | Backup codes disabled, or no provider registered to supply them | -       |
 
 Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
 
-**VALIDATION_FAILED details**
+:::warning
+The plaintext codes are returned once and stored only as hashes. Show them to the user immediately; they cannot be retrieved again.
+:::
 
-When DTO validation fails, `details` includes:
+Requires `mfa.backup.enabled` in configuration and at least one registered MFA provider.
 
-```json
-{
-  "validationErrors": {
-    "sub": ["User sub must be a valid UUID v4 format"]
-  }
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Post('mfa/backup-codes/generate')
+async generateCodes() {
+  return await this.mfaService.generateBackupCodes();
 }
 ```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.post('/mfa/backup-codes/generate', requireAuth(), async (req, res) => {
+  const result = await nauth.mfaService.generateBackupCodes();
+  res.json(result);
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.post(
+  '/mfa/backup-codes/generate',
+  { preHandler: nauth.helpers.requireAuth() },
+  nauth.adapter.wrapRouteHandler(async () => {
+    return nauth.mfaService.generateBackupCodes();
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+### getAvailableMethods()
+
+List the MFA methods this deployment permits. Returns every method registered as a provider and allowed by configuration, whether or not the caller has enrolled it.
+
+```typescript
+async getAvailableMethods(): Promise<GetAvailableMethodsResponseDTO>
+```
+
+**Parameters**
+
+None. The caller is resolved from the authenticated request context.
+
+**Returns**
+
+- [`GetAvailableMethodsResponseDTO`](../dto/get-available-methods-response-dto) - `{ availableMethods: string[] }`
+
+**Errors**
+
+| Code        | When                             | Details |
+| ----------- | -------------------------------- | ------- |
+| `FORBIDDEN` | No authenticated user in context | -       |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+:::note
+The result is derived from configuration, so it is the same for every user. Use [`getUserDevices()`](#getuserdevices) for what a particular user has actually enrolled.
+:::
 
 **Example**
 
@@ -265,8 +327,8 @@ When DTO validation fails, `details` includes:
 
 ```typescript
 @Get('mfa/methods')
-async getMethods(@CurrentUser() user: IUser) {
-  return await this.mfaService.getAvailableMethods({ sub: user.sub });
+async getMethods() {
+  return await this.mfaService.getAvailableMethods();
 }
 ```
 
@@ -275,7 +337,7 @@ async getMethods(@CurrentUser() user: IUser) {
 
 ```typescript
 app.get('/mfa/methods', requireAuth(), async (req, res) => {
-  const result = await nauth.mfaService.getAvailableMethods({ sub: req.user.sub });
+  const result = await nauth.mfaService.getAvailableMethods();
   res.json(result);
 });
 ```
@@ -288,8 +350,7 @@ fastify.get(
   '/mfa/methods',
   { preHandler: nauth.helpers.requireAuth() },
   nauth.adapter.wrapRouteHandler(async () => {
-    const user = nauth.helpers.getCurrentUser();
-    return nauth.mfaService.getAvailableMethods({ sub: user.sub });
+    return nauth.mfaService.getAvailableMethods();
   }),
 );
 ```

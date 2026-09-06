@@ -63,6 +63,8 @@ export * from './get-user-sessions-response.dto';
 export * from './logout-session.dto';
 export * from './logout-session-response.dto';
 export * from './verify-mfa-setup-response.dto';
+export * from './generate-backup-codes-response.dto';
+export * from './trusted-device.dto';
 export * from './admin-revoke-session.dto';
 export * from './set-must-change-password.dto';
 export * from './set-must-change-password-response.dto';

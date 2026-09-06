@@ -68,6 +68,13 @@ import { ForgotPasswordDTO, ForgotPasswordResponseDTO } from '../dto/forgot-pass
 import { ConfirmForgotPasswordDTO, ConfirmForgotPasswordResponseDTO } from '../dto/confirm-forgot-password.dto';
 import { TrustDeviceResponseDTO } from '../dto/trust-device-response.dto';
 import { IsTrustedDeviceResponseDTO } from '../dto/is-trusted-device-response.dto';
+import {
+  ListTrustedDevicesResponseDTO,
+  RevokeAllTrustedDevicesResponseDTO,
+  RevokeTrustedDeviceDTO,
+  RevokeTrustedDeviceResponseDTO,
+  TrustedDeviceResponseDTO,
+} from '../dto/trusted-device.dto';
 import { ResendVerificationEmailDTO, SendVerificationEmailDTO } from '../dto/verify-email.dto';
 import { SendVerificationSMSDTO, ResendVerificationSMSDTO } from '../dto/verify-phone.dto';
 import { GetUserAuthHistoryDTO } from '../dto/get-user-auth-history.dto';
@@ -1654,6 +1661,150 @@ export class AuthService {
 
     const isTrusted = await this.trustedDeviceService.isDeviceTrusted(deviceToken, userId);
     return { trusted: isTrusted };
+  }
+
+  /**
+   * List the current user's trusted devices.
+   *
+   * Expired devices are filtered out, so the result is the set of devices that can
+   * currently skip MFA - the set worth showing on a "trusted devices" screen.
+   *
+   * @returns The caller's unexpired trusted devices, most recently used first
+   * @throws {NAuthException} FORBIDDEN when not authenticated, NOT_FOUND when the user is gone
+   *
+   * @example
+   * ```typescript
+   * const { trustedDevices } = await authService.listTrustedDevices();
+   * ```
+   */
+  async listTrustedDevices(): Promise<ListTrustedDevicesResponseDTO> {
+    const user = await this.getCurrentUserRecordOrThrow();
+
+    if (!this.trustedDeviceService) {
+      return { trustedDevices: [] };
+    }
+
+    const devices = await this.trustedDeviceService.getUserTrustedDevices(user.id);
+    return { trustedDevices: devices as unknown as TrustedDeviceResponseDTO[] };
+  }
+
+  /**
+   * Revoke one of the current user's trusted devices.
+   *
+   * The device must belong to the caller; the lookup is scoped to them, so an id
+   * belonging to somebody else simply does not match.
+   *
+   * @param dto - Request DTO carrying the device record id
+   * @returns Whether a matching device was revoked
+   * @throws {NAuthException} FORBIDDEN when not authenticated, NOT_FOUND when the device
+   *   does not exist or is not the caller's
+   *
+   * @example
+   * ```typescript
+   * await authService.revokeTrustedDevice({ deviceId: 12 });
+   * ```
+   */
+  async revokeTrustedDevice(dto: RevokeTrustedDeviceDTO): Promise<RevokeTrustedDeviceResponseDTO> {
+    dto = await ensureValidatedDto(RevokeTrustedDeviceDTO, dto);
+    const user = await this.getCurrentUserRecordOrThrow();
+
+    if (!this.trustedDeviceService) {
+      throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Trusted device service not available');
+    }
+
+    const revoked = await this.trustedDeviceService.revokeTrustedDeviceById(dto.deviceId, user.id);
+    if (!revoked) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'Trusted device not found');
+    }
+
+    await this.recordTrustedDeviceRevocation(user.id, `Trusted device ${dto.deviceId} revoked by user`, {
+      reason: 'user_revoked_device',
+      deviceId: dto.deviceId,
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Revoke every trusted device belonging to the current user.
+   *
+   * Every device must then satisfy MFA again on its next sign-in. Use it for the
+   * "sign out everywhere / forget all devices" action.
+   *
+   * @returns How many devices were revoked
+   * @throws {NAuthException} FORBIDDEN when not authenticated, NOT_FOUND when the user is gone
+   *
+   * @example
+   * ```typescript
+   * const { revokedCount } = await authService.revokeAllTrustedDevices();
+   * ```
+   */
+  async revokeAllTrustedDevices(): Promise<RevokeAllTrustedDevicesResponseDTO> {
+    const user = await this.getCurrentUserRecordOrThrow();
+
+    if (!this.trustedDeviceService) {
+      return { revokedCount: 0 };
+    }
+
+    const result = await this.trustedDeviceService.revokeAllTrustedDevices(user.id);
+
+    if (result.revokedCount > 0) {
+      await this.recordTrustedDeviceRevocation(
+        user.id,
+        `All trusted devices revoked by user (${result.revokedCount} device(s))`,
+        { reason: 'user_revoked_all_devices', revokedCount: result.revokedCount, devices: result.devices },
+      );
+    }
+
+    return { revokedCount: result.revokedCount };
+  }
+
+  /**
+   * Resolve the authenticated caller's persisted user record.
+   *
+   * @returns The caller's user entity
+   * @throws {NAuthException} FORBIDDEN when unauthenticated, NOT_FOUND when the record is gone
+   */
+  private async getCurrentUserRecordOrThrow(): Promise<IUser> {
+    const currentUser = this.getCurrentUserOrThrow();
+    const user = (await this.userRepository.findOne({ where: { sub: currentUser.sub } })) as IUser | null;
+    if (!user) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+    return user;
+  }
+
+  /**
+   * Record a DEVICE_UNTRUSTED audit event, best-effort.
+   *
+   * Auditing must never fail the revocation that triggered it - the device is already
+   * gone by this point, so a failure here is logged and swallowed.
+   *
+   * @param userId - Internal user id the devices belonged to
+   * @param description - Human-readable summary for the audit trail
+   * @param metadata - Structured detail about what was revoked
+   */
+  private async recordTrustedDeviceRevocation(
+    userId: number,
+    description: string,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    if (!this.auditService) {
+      return;
+    }
+
+    try {
+      await this.auditService.recordEvent({
+        userId,
+        eventType: AuthAuditEventType.DEVICE_UNTRUSTED,
+        eventStatus: 'SUCCESS',
+        description,
+        metadata,
+      });
+    } catch (auditError) {
+      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to record DEVICE_UNTRUSTED audit event: ${errorMessage}`, { error: auditError });
+    }
   }
 
   /**

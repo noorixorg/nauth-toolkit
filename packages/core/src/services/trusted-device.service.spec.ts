@@ -425,6 +425,34 @@ describe('TrustedDeviceService', () => {
     });
   });
 
+  describe('revokeTrustedDeviceById', () => {
+    it('should revoke a device by id scoped to the owning user', async () => {
+      mockRepository.delete.mockResolvedValue({ affected: 1 } as any);
+
+      const result = await service.revokeTrustedDeviceById(42, 1);
+
+      expect(result).toBe(true);
+      // Scoped by userId as well as id, so another user's device id cannot match
+      expect(mockRepository.delete).toHaveBeenCalledWith({ id: 42, userId: 1 });
+    });
+
+    it('should report false when no device matched', async () => {
+      mockRepository.delete.mockResolvedValue({ affected: 0 } as any);
+
+      const result = await service.revokeTrustedDeviceById(42, 1);
+
+      expect(result).toBe(false);
+    });
+
+    it('should report false when repository not available', async () => {
+      const serviceWithoutRepo = new TrustedDeviceService(mockConfig as NAuthConfig, mockLogger, undefined);
+
+      const result = await serviceWithoutRepo.revokeTrustedDeviceById(42, 1);
+
+      expect(result).toBe(false);
+    });
+  });
+
   // ============================================================================
   // getUserTrustedDevices() Method
   // ============================================================================

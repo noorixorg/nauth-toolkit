@@ -36,16 +36,23 @@ interface NAuthEndpoints {
   mfaVerifySetup: string;
   mfaPreferred: string;
   mfaBackupCodes: string;
+  mfaAvailableMethods: string;
   socialLinked: string;
   socialLink: string;
   socialUnlink: string;
   socialVerify: string;
   socialRedirectStart: string;
   socialExchange: string;
+  socialCanSetPassword: string;
+  socialSetPassword: string;
   trustDevice: string;
   isTrustedDevice: string;
   auditHistory: string;
   updateProfile: string;
+  sessions: string;
+  logoutSession: string;
+  trustedDevices: string;
+  trustedDevice: string;
 }
 ```
 
@@ -73,16 +80,23 @@ interface NAuthEndpoints {
   mfaVerifySetup: '/mfa/verify-setup',
   mfaPreferred: '/mfa/devices/:deviceId/preferred',
   mfaBackupCodes: '/mfa/backup-codes/generate',
+  mfaAvailableMethods: '/mfa/available-methods',
   socialLinked: '/social/linked',
   socialLink: '/social/link',
   socialUnlink: '/social/unlink',
   socialVerify: '/social/:provider/verify',
   socialRedirectStart: '/social/:provider/redirect',
   socialExchange: '/social/exchange',
+  socialCanSetPassword: '/social/can-set-password',
+  socialSetPassword: '/social/set-password',
   trustDevice: '/trust-device',
   isTrustedDevice: '/is-trusted-device',
   auditHistory: '/audit/history',
   updateProfile: '/profile',
+  sessions: '/sessions',
+  logoutSession: '/sessions/:sessionId',
+  trustedDevices: '/trusted-devices',
+  trustedDevice: '/trusted-devices/:deviceId',
 }
 ```
 
@@ -111,8 +125,7 @@ const client = new NAuthClient({
 
 - [`NAuthClientConfig`](../nauth-client-config) - Client configuration interface
 
-:::warning[Two endpoints have no backend route]
-`mfaBackupCodes` (`/mfa/backup-codes/generate`) is declared here but `MFAService` has no
-backup-code generation method — calling it returns `404`. There is also no key for removing an
-MFA device; the client derives that path from `mfaDevices`.
+:::note[No key for MFA device removal]
+There is no endpoint key for removing an MFA device; the client derives that path from
+`mfaDevices`.
 :::

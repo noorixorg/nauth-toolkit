@@ -582,6 +582,72 @@ const result = await authService.isTrustedDevice();
 
 ---
 
+### listTrustedDevices()
+
+List the current user's trusted devices — those allowed to skip MFA.
+
+```typescript
+async listTrustedDevices(): Promise<ListTrustedDevicesResponseDTO>
+```
+
+**Parameters**
+
+None. The caller is resolved from the authenticated request context.
+
+**Returns**
+
+- [`ListTrustedDevicesResponseDTO`](../dto/trusted-device-dto) - `{ trustedDevices: TrustedDeviceResponseDTO[] }`
+
+**Errors**
+
+| Code        | When                             | Details |
+| ----------- | -------------------------------- | ------- |
+| `FORBIDDEN` | No authenticated user in context | -       |
+| `NOT_FOUND` | The user record no longer exists | -       |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+:::note
+Expired devices are filtered out, so the result is what can currently skip MFA rather than every device ever trusted.
+:::
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Get('trusted-devices')
+async listDevices() {
+  return await this.authService.listTrustedDevices();
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.get('/trusted-devices', requireAuth(), async (req, res) => {
+  res.json(await nauth.authService.listTrustedDevices());
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.get(
+  '/trusted-devices',
+  { preHandler: nauth.helpers.requireAuth() },
+  nauth.adapter.wrapRouteHandler(async () => nauth.authService.listTrustedDevices()),
+);
+```
+
+</TabItem>
+</Tabs>
+
+---
+
 ### login()
 
 Authenticate user with email, username, or phone. Returns tokens on success or challenge information when verification/MFA is required. Response body format varies by `tokenDelivery.method` configuration.
@@ -1225,6 +1291,138 @@ const dto = Object.assign(new RespondChallengeDTO(), {
 });
 const result = await authService.respondToChallenge(dto);
 ```
+
+---
+
+### revokeAllTrustedDevices()
+
+Revoke every trusted device belonging to the current user.
+
+```typescript
+async revokeAllTrustedDevices(): Promise<RevokeAllTrustedDevicesResponseDTO>
+```
+
+**Parameters**
+
+None. The caller is resolved from the authenticated request context.
+
+**Returns**
+
+- [`RevokeAllTrustedDevicesResponseDTO`](../dto/trusted-device-dto) - `{ revokedCount: number }`
+
+**Errors**
+
+| Code        | When                             | Details |
+| ----------- | -------------------------------- | ------- |
+| `FORBIDDEN` | No authenticated user in context | -       |
+| `NOT_FOUND` | The user record no longer exists | -       |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+:::note
+This does not sign anyone out — it only removes MFA bypass. Use [`logoutAll()`](#logoutall) to end sessions.
+:::
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Delete('trusted-devices')
+async revokeAllDevices() {
+  return await this.authService.revokeAllTrustedDevices();
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.delete('/trusted-devices', requireAuth(), async (req, res) => {
+  res.json(await nauth.authService.revokeAllTrustedDevices());
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.delete(
+  '/trusted-devices',
+  { preHandler: nauth.helpers.requireAuth() },
+  nauth.adapter.wrapRouteHandler(async () => nauth.authService.revokeAllTrustedDevices()),
+);
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+### revokeTrustedDevice()
+
+Revoke one of the current user's trusted devices. That device must satisfy MFA again on its next sign-in.
+
+```typescript
+async revokeTrustedDevice(dto: RevokeTrustedDeviceDTO): Promise<RevokeTrustedDeviceResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`RevokeTrustedDeviceDTO`](../dto/trusted-device-dto)
+
+The lookup is scoped to the caller, so an id belonging to another user simply does not match.
+
+**Returns**
+
+- [`RevokeTrustedDeviceResponseDTO`](../dto/trusted-device-dto) - `{ success: boolean }`
+
+**Errors**
+
+| Code        | When                                              | Details |
+| ----------- | ------------------------------------------------- | ------- |
+| `FORBIDDEN` | No authenticated user in context                  | -       |
+| `NOT_FOUND` | Device does not exist, or is not the caller's own | -       |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Delete('trusted-devices/:deviceId')
+async revokeDevice(@Param('deviceId') deviceId: number) {
+  return await this.authService.revokeTrustedDevice({ deviceId });
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+app.delete('/trusted-devices/:deviceId', requireAuth(), async (req, res) => {
+  res.json(await nauth.authService.revokeTrustedDevice({ deviceId: Number(req.params.deviceId) }));
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+fastify.delete(
+  '/trusted-devices/:deviceId',
+  { preHandler: nauth.helpers.requireAuth() },
+  nauth.adapter.wrapRouteHandler(async (request) =>
+    nauth.authService.revokeTrustedDevice({ deviceId: Number((request.params as { deviceId: string }).deviceId) }),
+  ),
+);
+```
+
+</TabItem>
+</Tabs>
 
 ---
 

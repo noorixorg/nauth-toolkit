@@ -398,6 +398,9 @@ describe('AuthService', () => {
       isDeviceTrusted: jest.fn().mockResolvedValue(false),
       createTrustedDevice: jest.fn().mockResolvedValue('device-token-123'),
       revokeTrustedDevice: jest.fn().mockResolvedValue(undefined),
+      revokeTrustedDeviceById: jest.fn().mockResolvedValue(true),
+      getUserTrustedDevices: jest.fn().mockResolvedValue([]),
+      revokeAllTrustedDevices: jest.fn().mockResolvedValue({ revokedCount: 0, devices: [] }),
     } as any;
 
     mockMfaService = {
@@ -6081,4 +6084,83 @@ describe('AuthService', () => {
       expect(mockUserRepository.save).not.toHaveBeenCalled();
     });
   });
+
+  // ============================================================================
+  // Trusted device management (self-service)
+  // ============================================================================
+
+  describe('listTrustedDevices', () => {
+    it('should return the caller own trusted devices', async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      (mockTrustedDeviceService.getUserTrustedDevices as jest.Mock).mockResolvedValue([
+        { id: 7, deviceName: 'Work laptop', trustedUntil: new Date(), createdAt: new Date() },
+      ]);
+
+      const result = await runWithCurrentUser(mockUser, () => service.listTrustedDevices());
+
+      expect(result.trustedDevices).toHaveLength(1);
+      expect(mockTrustedDeviceService.getUserTrustedDevices).toHaveBeenCalledWith(mockUser.id);
+    });
+
+    it('should throw FORBIDDEN when unauthenticated', async () => {
+      await expect(service.listTrustedDevices()).rejects.toMatchObject({ code: AuthErrorCode.FORBIDDEN });
+    });
+  });
+
+  describe('revokeTrustedDevice', () => {
+    it('should revoke a device scoped to the caller', async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      (mockTrustedDeviceService.revokeTrustedDeviceById as jest.Mock).mockResolvedValue(true);
+
+      const result = await runWithCurrentUser(mockUser, () => service.revokeTrustedDevice({ deviceId: 7 }));
+
+      expect(result).toEqual({ success: true });
+      expect(mockTrustedDeviceService.revokeTrustedDeviceById).toHaveBeenCalledWith(7, mockUser.id);
+    });
+
+    it('should throw NOT_FOUND when the device is not the caller own', async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      (mockTrustedDeviceService.revokeTrustedDeviceById as jest.Mock).mockResolvedValue(false);
+
+      await expect(runWithCurrentUser(mockUser, () => service.revokeTrustedDevice({ deviceId: 7 }))).rejects.toMatchObject(
+        { code: AuthErrorCode.NOT_FOUND },
+      );
+    });
+
+    it('should throw FORBIDDEN when unauthenticated', async () => {
+      await expect(service.revokeTrustedDevice({ deviceId: 7 })).rejects.toMatchObject({
+        code: AuthErrorCode.FORBIDDEN,
+      });
+    });
+  });
+
+  describe('revokeAllTrustedDevices', () => {
+    it('should revoke every device and report the count', async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      (mockTrustedDeviceService.revokeAllTrustedDevices as jest.Mock).mockResolvedValue({
+        revokedCount: 3,
+        devices: [],
+      });
+
+      const result = await runWithCurrentUser(mockUser, () => service.revokeAllTrustedDevices());
+
+      expect(result).toEqual({ revokedCount: 3 });
+      expect(mockTrustedDeviceService.revokeAllTrustedDevices).toHaveBeenCalledWith(mockUser.id);
+    });
+
+    it('should not record an audit event when nothing was revoked', async () => {
+      mockUserRepository.findOne.mockResolvedValue(mockUser as any);
+      (mockTrustedDeviceService.revokeAllTrustedDevices as jest.Mock).mockResolvedValue({
+        revokedCount: 0,
+        devices: [],
+      });
+      (mockAuditService.recordEvent as jest.Mock).mockClear();
+
+      const result = await runWithCurrentUser(mockUser, () => service.revokeAllTrustedDevices());
+
+      expect(result).toEqual({ revokedCount: 0 });
+      expect(mockAuditService.recordEvent).not.toHaveBeenCalled();
+    });
+  });
+
 });

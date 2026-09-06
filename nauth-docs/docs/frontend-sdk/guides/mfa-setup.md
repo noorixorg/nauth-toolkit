@@ -423,6 +423,34 @@ const result = await client.verifyMfaSetup(
 // result: { deviceId: 3 }
 ```
 
+#### Enrolling SMS or email for an account with no destination on file
+
+`setupMfaDevice()` takes an optional second argument carrying method-specific enrolment
+input. A password-only or social account adding SMS has no phone on record, so the number
+must be supplied — without it the server answers `PHONE_REQUIRED`:
+
+```typescript
+const result = await client.setupMfaDevice('sms', {
+  phoneNumber: '+15551234567', // E.164
+  deviceName: 'Work phone',
+});
+
+if (result.setupData.autoCompleted) {
+  // That number was already verified on the account — nothing more to do
+  // result.setupData: { deviceId, autoCompleted: true }
+} else {
+  // A code was sent; result.setupData: { maskedPhone: '+1***4567' }
+  await client.verifyMfaSetup('sms', { code: '123456' }, 'Work phone');
+}
+```
+
+Which methods you can offer at all comes from the server:
+
+```typescript
+const { availableMethods } = await client.getAvailableMfaMethods();
+// ['totp', 'sms', 'passkey']
+```
+
 ### Remove a Single MFA Device
 
 ```typescript

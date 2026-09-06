@@ -30,6 +30,7 @@ import { AdminSetPasswordDTO } from '../dto/admin-set-password.dto';
 import { AdminResetPasswordDTO } from '../dto/admin-reset-password.dto';
 import { GetUserSessionsDTO } from '../dto/get-user-sessions.dto';
 import { AdminRevokeSessionDTO } from '../dto/admin-revoke-session.dto';
+import { AdminManageTrustedDevicesDTO, AdminRevokeTrustedDeviceDTO } from '../dto/trusted-device.dto';
 import { AdminLogoutAllDTO } from '../dto/admin-logout-all.dto';
 import { AdminGetMFAStatusDTO } from '../dto/admin-get-mfa-status.dto';
 import { AdminGetUserDevicesDTO } from '../dto/get-user-devices.dto';
@@ -245,6 +246,50 @@ export const ADMIN_ROUTES_MANIFEST: readonly AnyNAuthRouteDefinition[] = [
     dto: UpdateVerifiedStatusRequestDTO,
     apiKey: 'deny',
     handler: ({ dto, services }) => services.adminAuthService.updateVerifiedStatus(dto),
+  }),
+
+  // ==========================================================================
+  // Trusted devices
+  // ==========================================================================
+  defineRoute({
+    key: 'adminGetUserTrustedDevices',
+    group: 'admin',
+    method: 'GET',
+    path: 'users/:sub/trusted-devices',
+    access: 'admin',
+    action: 'admin.trustedDevice.list',
+    status: 200,
+    source: 'params',
+    dto: AdminManageTrustedDevicesDTO,
+    apiKey: 'deny',
+    handler: ({ dto, services }) => services.adminAuthService.getUserTrustedDevices(dto),
+  }),
+  // Literal path declared before the parametric sibling below.
+  defineRoute({
+    key: 'adminRevokeAllUserTrustedDevices',
+    group: 'admin',
+    method: 'DELETE',
+    path: 'users/:sub/trusted-devices',
+    access: 'admin',
+    action: 'admin.trustedDevice.revokeAll',
+    status: 200,
+    source: 'params',
+    dto: AdminManageTrustedDevicesDTO,
+    apiKey: 'deny',
+    handler: ({ dto, services }) => services.adminAuthService.revokeAllUserTrustedDevices(dto),
+  }),
+  defineRoute({
+    key: 'adminRevokeUserTrustedDevice',
+    group: 'admin',
+    method: 'DELETE',
+    path: 'users/:sub/trusted-devices/:deviceId',
+    access: 'admin',
+    action: 'admin.trustedDevice.revoke',
+    status: 200,
+    source: 'params',
+    dto: AdminRevokeTrustedDeviceDTO,
+    apiKey: 'deny',
+    handler: ({ dto, services }) => services.adminAuthService.revokeUserTrustedDevice(dto),
   }),
 
   // ==========================================================================

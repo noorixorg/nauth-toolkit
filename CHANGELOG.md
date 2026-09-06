@@ -5,6 +5,33 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-09-06
+
+### Added
+
+- **Trusted device management** — users can list the devices that skip MFA on their account and revoke them individually or all at once; administrators can do the same for any user. Previously a device could be trusted but never reviewed or untrusted. See [the guide](https://nauth.dev/docs/features/mfa).
+- **The frontend SDK now covers every shipped route.** Around eighteen methods were missing, so integrators were hand-building `fetch` calls against endpoints the backend already served — session listing and single-session sign-out, setting a first password on a social-only account, listing permitted MFA methods, admin user lookup by email, attribute and verified-status updates, single-session revocation, audit queries, and administrative API keys.
+- **Backup code generation is reachable over HTTP.** `client.generateBackupCodes()` shipped in the SDK but no route served it, so it returned `404`. Requires `mfa.backup.enabled`.
+- **`setupMfaDevice()` accepts enrolment data.** Pass `{ phoneNumber }` or `{ emailAddress }` to enrol a destination the account does not already hold; without it the server answers `PHONE_REQUIRED`. Previously there was no way to add a first phone number through the SDK.
+
+### Security
+
+- **Three self-service operations no longer accept a caller-supplied user id.** `canSetPassword` had no ownership check, so any authenticated user could learn whether an arbitrary account was passwordless. All three now act on the authenticated caller.
+
+### Fixed
+
+- **Session lists no longer include expired sessions.** Nothing prunes expired rows, so a "signed-in devices" screen grew without bound and offered dead sessions to sign out of. Affects both the user's own list and the administrative one.
+- **Dependency security updates** — `handlebars` (critical), `axios` and the AWS SDK's XML parser, across the email, SMS and social packages.
+
+### Breaking Changes
+
+Only direct consumers of the core services and DTOs are affected; the mounted routes and the client SDK are unchanged.
+
+- `MFAService.getAvailableMethods(dto)` → `getAvailableMethods()`
+- `SocialAuthService.canSetPassword(dto)` → `canSetPassword()`
+- `SetPasswordForSocialUserDTO` no longer has `sub` — send only `password`
+- `CanSetPasswordDTO` and `GetAvailableMethodsDTO` are removed; both held only `sub`, which is now taken from the authenticated context
+
 ## [0.5.0] - 2026-09-04
 
 ### Added

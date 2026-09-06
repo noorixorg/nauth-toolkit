@@ -18,8 +18,8 @@ import { ensureValidatedDto, ensureValidatedDtoSync } from '../utils/dto-validat
 import { isUUID } from 'class-validator';
 import { ContextStorage } from '../utils/context-storage';
 import {
-  GetAvailableMethodsDTO,
   GetAvailableMethodsResponseDTO,
+  GenerateBackupCodesResponseDTO,
   GetChallengeDataDTO,
   GetChallengeDataResponseDTO,
   AdminGetMFAStatusDTO,
@@ -113,10 +113,8 @@ export class MFAService {
     const enabled = userEntity.mfaEnabled || false;
 
     // Get available methods (all registered & allowed methods)
-    const availableMethodsResult = await this.getAvailableMethods({ sub });
-
-    // Add 'backup' to available methods if backup codes are enabled in config
-    const finalAvailableMethods = [...availableMethodsResult.availableMethods];
+    // Config-derived, so the already-resolved target user is not re-resolved here.
+    const finalAvailableMethods = this.listAllowedMethods();
     if (this.config?.mfa?.backup?.enabled) {
       if (!finalAvailableMethods.includes(MFAMethod.BACKUP)) {
         finalAvailableMethods.push(MFAMethod.BACKUP);
@@ -605,38 +603,67 @@ export class MFAService {
    * This returns ALL methods that can be set up, not just ones the user has configured.
    * Use getUserDevices() to check which methods the user has actually set up.
    *
-   * @param dto - Request DTO with user sub
    * @returns Response DTO with array of available method names
    *
    * @example
    * ```typescript
-   * const result = await this.mfaService.getAvailableMethods({ sub: user.sub });
+   * const result = await this.mfaService.getAvailableMethods();
    * // Returns: { availableMethods: ['totp', 'sms', 'passkey'] }
    * ```
    */
-  async getAvailableMethods(dto: GetAvailableMethodsDTO): Promise<GetAvailableMethodsResponseDTO> {
-    dto = await ensureValidatedDto(GetAvailableMethodsDTO, dto);
-    // Look up user by sub to validate user exists
-    const userEntity = await this.userRepository.findOne({ where: { sub: dto.sub } });
-    if (!userEntity) {
-      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+  async getAvailableMethods(): Promise<GetAvailableMethodsResponseDTO> {
+    this.getCurrentUserOrThrow();
+
+    return {
+      availableMethods: this.listAllowedMethods(),
+    };
+  }
+
+  /**
+   * Issue a fresh set of backup codes for the current user.
+   *
+   * Replaces any codes the user already held. Backup codes are not owned by any one
+   * provider - every provider extends `BaseMFAProviderService`, which holds the shared
+   * implementation - so this borrows whichever provider is registered.
+   *
+   * @returns The new plaintext codes, returned once and stored only as hashes
+   * @throws {NAuthException} VALIDATION_FAILED when backup codes are disabled or no
+   *   provider is registered to supply the implementation
+   */
+  async generateBackupCodes(): Promise<GenerateBackupCodesResponseDTO> {
+    this.getCurrentUserOrThrow();
+
+    if (!this.config?.mfa?.backup?.enabled) {
+      throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Backup codes are not enabled');
     }
 
+    const provider = Array.from(this.providers.values()).find((candidate) => !!candidate.generateBackupCodes);
+    if (!provider?.generateBackupCodes) {
+      throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Backup code generation not available');
+    }
+
+    return { codes: await provider.generateBackupCodes() };
+  }
+
+  /**
+   * Methods registered as providers and permitted by configuration.
+   *
+   * Derived from configuration alone, so it is the same for every user - callers that
+   * have already resolved a target user use this directly rather than re-resolving one.
+   *
+   * @returns Allowed method names, whether or not any user has set them up
+   */
+  private listAllowedMethods(): string[] {
     const available: string[] = [];
 
     for (const [methodName, provider] of this.providers.entries()) {
-      // Check if method is allowed by configuration
       if (!provider.isMethodAllowed()) {
         continue;
       }
-
-      // Return all allowed methods (whether user has set them up or not)
       available.push(methodName);
     }
 
-    return {
-      availableMethods: available,
-    };
+    return available;
   }
 
   /**

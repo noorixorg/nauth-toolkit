@@ -225,6 +225,9 @@ compile error.
 | `admin.session.list` | List another user's active sessions | [`AdminAuthService.getUserSessions()`](/docs/api/core/services/admin-auth-service#getusersessions) |
 | `admin.session.revoke` | Revoke one of another user's sessions | [`AdminAuthService.revokeUserSession()`](/docs/api/core/services/admin-auth-service#revokeusersession) |
 | `admin.session.revokeAll` | Revoke every session belonging to another user | [`AdminAuthService.logoutAll()`](/docs/api/core/services/admin-auth-service#logoutall) |
+| `admin.trustedDevice.list` | List another user's trusted devices | [`AdminAuthService.getUserTrustedDevices()`](/docs/api/core/services/admin-auth-service#getusertrusteddevices) |
+| `admin.trustedDevice.revoke` | Revoke one of another user's trusted devices | [`AdminAuthService.revokeUserTrustedDevice()`](/docs/api/core/services/admin-auth-service#revokeusertrusteddevice) |
+| `admin.trustedDevice.revokeAll` | Revoke every trusted device belonging to another user | [`AdminAuthService.revokeAllUserTrustedDevices()`](/docs/api/core/services/admin-auth-service#revokeallusertrusteddevices) |
 | `admin.mfa.readStatus` | Read another user's MFA enrolment status | [`MFAService.adminGetMfaStatus()`](/docs/api/core/services/mfa-service#admingetmfastatus) |
 | `admin.mfa.listDevices` | List another user's MFA devices | [`MFAService.adminGetUserDevices()`](/docs/api/core/services/mfa-service#admingetuserdevices) |
 | `admin.mfa.removeDevice` | Remove one of another user's MFA devices | [`MFAService.adminRemoveDevice()`](/docs/api/core/services/mfa-service#adminremovedevice) |

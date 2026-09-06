@@ -16,10 +16,29 @@ import type {
   AdminResetPasswordResponse,
   GetUserSessionsResponse,
   AdminAuditHistoryRequest,
+  GetUserByEmailRequest,
+  UpdateVerifiedStatusRequest,
+  GetEventsByTypeRequest,
+  GetSuspiciousActivityRequest,
+  GetRiskAssessmentHistoryRequest,
 } from '../types/admin.types';
-import type { AuthUser } from '../types/user.types';
+import type { AuthUser, UpdateProfileRequest } from '../types/user.types';
+import type {
+  AdminCreateApiKeyRequest,
+  ApiKeyInfo,
+  CreateApiKeyResult,
+  DeleteApiKeyResponse,
+  ListApiKeysResponse,
+  RevokeApiKeyResponse,
+  UpdateApiKeyRequest,
+} from '../types/api-key.types';
 import type { MFAStatus, RemoveMFADeviceResponse, GetMFADevicesResponse } from '../types/mfa.types';
 import type { AuditHistoryResponse } from '../types/audit.types';
+import type {
+  ListTrustedDevicesResponse,
+  RevokeAllTrustedDevicesResponse,
+  RevokeTrustedDeviceResponse,
+} from '../types/auth.types';
 
 const hasWindow = (): boolean =>
   typeof globalThis !== 'undefined' && typeof (globalThis as { window?: unknown }).window !== 'undefined';
@@ -476,6 +495,208 @@ export class AdminOperations {
     return this.get<AuditHistoryResponse>(`${path}${queryString}`);
   }
 
+  /**
+   * Resolve a user by email address.
+   *
+   * Email is not necessarily a stable identifier - an account's address can be changed,
+   * and with `requireEmailVerified` unset an unverified address matches too - so prefer
+   * `sub` wherever the caller already holds one.
+   *
+   * @param params - Email to look up, and whether to require a verified address
+   * @returns The matching user
+   */
+  async getUserByEmail(params: GetUserByEmailRequest): Promise<AuthUser> {
+    const path = this.buildAdminUrl(this.adminEndpoints.getUserByEmail);
+    const queryString = this.buildQueryString(params as unknown as Record<string, unknown>);
+    return this.get<AuthUser>(`${path}${queryString}`);
+  }
+
+  /**
+   * Update a user's profile attributes.
+   *
+   * @param sub - Target user's external identifier
+   * @param attributes - Attributes to change; omitted fields are left as they are
+   * @returns The updated user
+   */
+  async updateUser(sub: string, attributes: UpdateProfileRequest): Promise<AuthUser> {
+    const path = this.buildAdminUrl(this.adminEndpoints.updateUser, { sub });
+    return this.put<AuthUser>(path, attributes);
+  }
+
+  /**
+   * Set a user's email/phone verified flags directly.
+   *
+   * Marks contact details verified without the user completing a verification challenge -
+   * for accounts migrated from a system that already verified them, or verified out of
+   * band. Omitted flags are left unchanged.
+   *
+   * @param sub - Target user's external identifier
+   * @param status - Flags to set
+   * @returns The updated user
+   */
+  async updateVerifiedStatus(sub: string, status: UpdateVerifiedStatusRequest): Promise<AuthUser> {
+    const path = this.buildAdminUrl(this.adminEndpoints.updateVerifiedStatus, { sub });
+    return this.post<AuthUser>(path, status);
+  }
+
+  /**
+   * Revoke one specific session of a user.
+   *
+   * Signs that one device out and leaves the user's other sessions alone; to end every
+   * session use {@link logoutAllSessions}.
+   *
+   * @param sub - Target user's external identifier
+   * @param sessionId - Session to revoke
+   * @returns Whether the session was revoked
+   */
+  async revokeUserSession(sub: string, sessionId: string): Promise<{ success: boolean }> {
+    const path = this.buildAdminUrl(this.adminEndpoints.revokeUserSession, { sub, sessionId });
+    return this.delete<{ success: boolean }>(path);
+  }
+
+  /**
+   * List a user's trusted devices.
+   *
+   * These are the devices allowed to skip MFA for that user. Expired devices are
+   * filtered out server-side.
+   *
+   * @param sub - Target user's external identifier
+   * @returns The user's unexpired trusted devices, most recently used first
+   */
+  async getUserTrustedDevices(sub: string): Promise<ListTrustedDevicesResponse> {
+    const path = this.buildAdminUrl(this.adminEndpoints.trustedDevices, { sub });
+    return this.get<ListTrustedDevicesResponse>(path);
+  }
+
+  /**
+   * Revoke one of a user's trusted devices.
+   *
+   * That device must satisfy MFA again on its next sign-in; the user's other devices
+   * are left alone.
+   *
+   * @param sub - Target user's external identifier
+   * @param deviceId - Trusted device record id, from {@link getUserTrustedDevices}
+   * @returns Whether a matching device was revoked
+   */
+  async revokeUserTrustedDevice(sub: string, deviceId: number): Promise<RevokeTrustedDeviceResponse> {
+    const path = this.buildAdminUrl(this.adminEndpoints.trustedDevice, { sub, deviceId: String(deviceId) });
+    return this.delete<RevokeTrustedDeviceResponse>(path);
+  }
+
+  /**
+   * Revoke every trusted device belonging to a user.
+   *
+   * Each of their devices must then satisfy MFA again. This does not sign them out —
+   * use {@link logoutAllSessions} for that.
+   *
+   * @param sub - Target user's external identifier
+   * @returns How many devices were revoked
+   */
+  async revokeAllUserTrustedDevices(sub: string): Promise<RevokeAllTrustedDevicesResponse> {
+    const path = this.buildAdminUrl(this.adminEndpoints.trustedDevices, { sub });
+    return this.delete<RevokeAllTrustedDevicesResponse>(path);
+  }
+
+  /**
+   * Fetch audit events of a single type, across all users.
+   *
+   * @param params - Event type to filter on, plus paging and an optional date window
+   * @returns Paginated matching events
+   */
+  async getEventsByType(params: GetEventsByTypeRequest): Promise<AuditHistoryResponse> {
+    const path = this.buildAdminUrl(this.adminEndpoints.getEventsByType);
+    const queryString = this.buildQueryString(params as unknown as Record<string, unknown>);
+    return this.get<AuditHistoryResponse>(`${path}${queryString}`);
+  }
+
+  /**
+   * Fetch events the risk engine flagged as suspicious.
+   *
+   * @param params - Optional user to restrict to, and a result cap
+   * @returns The flagged events
+   */
+  async getSuspiciousActivity(params: GetSuspiciousActivityRequest = {}): Promise<AuditHistoryResponse> {
+    const path = this.buildAdminUrl(this.adminEndpoints.getSuspiciousActivity);
+    const queryString = this.buildQueryString(params as unknown as Record<string, unknown>);
+    return this.get<AuditHistoryResponse>(`${path}${queryString}`);
+  }
+
+  /**
+   * Fetch a user's risk assessment history.
+   *
+   * @param params - Target user, and a result cap
+   * @returns The user's recorded risk assessments
+   */
+  async getRiskAssessmentHistory(params: GetRiskAssessmentHistoryRequest): Promise<AuditHistoryResponse> {
+    const path = this.buildAdminUrl(this.adminEndpoints.getRiskAssessmentHistory);
+    const queryString = this.buildQueryString(params as unknown as Record<string, unknown>);
+    return this.get<AuditHistoryResponse>(`${path}${queryString}`);
+  }
+
+  /**
+   * Create an API key on behalf of a user.
+   *
+   * Bypasses the server's `allowUserCreation` setting - which governs users creating
+   * their own keys - but still enforces per-user limits, expiry rules, and IP
+   * restrictions. The plaintext key is returned exactly once.
+   *
+   * @param request - Target user plus label, expiry, and optional IP allowlist
+   * @returns The plaintext key and its sanitized metadata
+   */
+  async createApiKey(request: AdminCreateApiKeyRequest): Promise<CreateApiKeyResult> {
+    const path = this.buildAdminUrl(this.adminEndpoints.apiKeys);
+    return this.post<CreateApiKeyResult>(path, request);
+  }
+
+  /**
+   * List a user's API keys.
+   *
+   * @param sub - Target user's external identifier
+   * @returns Sanitized key metadata; never includes plaintext keys
+   */
+  async listApiKeys(sub: string): Promise<ListApiKeysResponse> {
+    const path = this.buildAdminUrl(this.adminEndpoints.apiKeys);
+    const queryString = this.buildQueryString({ sub });
+    return this.get<ListApiKeysResponse>(`${path}${queryString}`);
+  }
+
+  /**
+   * Update the label and/or IP allowlist of a user's API key.
+   *
+   * @param sub - Target user's external identifier
+   * @param keyId - Key to update
+   * @param updates - New label and/or replacement IP allowlist
+   * @returns The key's updated metadata
+   */
+  async updateApiKey(sub: string, keyId: string, updates: UpdateApiKeyRequest): Promise<ApiKeyInfo> {
+    const path = this.buildAdminUrl(this.adminEndpoints.apiKey, { keyId });
+    return this.patch<ApiKeyInfo>(path, { sub, ...updates });
+  }
+
+  /**
+   * Revoke a user's API key, leaving it in place but unusable.
+   *
+   * @param sub - Target user's external identifier
+   * @param keyId - Key to revoke
+   * @returns Whether the key was revoked
+   */
+  async revokeApiKey(sub: string, keyId: string): Promise<RevokeApiKeyResponse> {
+    const path = this.buildAdminUrl(this.adminEndpoints.apiKeyRevoke, { keyId });
+    return this.post<RevokeApiKeyResponse>(path, { sub });
+  }
+
+  /**
+   * Permanently delete a user's API key.
+   *
+   * @param sub - Target user's external identifier
+   * @param keyId - Key to delete
+   * @returns Whether the key was deleted
+   */
+  async deleteApiKey(sub: string, keyId: string): Promise<DeleteApiKeyResponse> {
+    const path = this.buildAdminUrl(this.adminEndpoints.apiKey, { keyId });
+    return this.delete<DeleteApiKeyResponse>(path, { sub });
+  }
+
   // ============================================================================
   // Private Helper Methods
   // ============================================================================
@@ -706,13 +927,67 @@ export class AdminOperations {
   }
 
   /**
-   * Execute DELETE request
+   * Execute PUT request
    *
    * @param path - Full URL path
+   * @param body - Request body
    * @returns Response data
    * @private
    */
-  private async delete<T>(path: string): Promise<T> {
+  private async put<T>(path: string, body: unknown): Promise<T> {
+    const headers = await this.buildHeaders(true, 'PUT');
+    const credentials = this.config.tokenDelivery === 'cookies' ? 'include' : 'omit';
+
+    try {
+      const response = await this.config.httpAdapter.request<T>({
+        method: 'PUT',
+        url: path,
+        headers,
+        body,
+        credentials,
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Execute PATCH request
+   *
+   * @param path - Full URL path
+   * @param body - Request body
+   * @returns Response data
+   * @private
+   */
+  private async patch<T>(path: string, body: unknown): Promise<T> {
+    const headers = await this.buildHeaders(true, 'PATCH');
+    const credentials = this.config.tokenDelivery === 'cookies' ? 'include' : 'omit';
+
+    try {
+      const response = await this.config.httpAdapter.request<T>({
+        method: 'PATCH',
+        url: path,
+        headers,
+        body,
+        credentials,
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Execute DELETE request
+   *
+   * @param path - Full URL path
+   * @param body - Optional request body, for routes that identify their target from the
+   *   body as well as the path
+   * @returns Response data
+   * @private
+   */
+  private async delete<T>(path: string, body?: unknown): Promise<T> {
     const headers = await this.buildHeaders(true, 'DELETE');
     const credentials = this.config.tokenDelivery === 'cookies' ? 'include' : 'omit';
 
@@ -721,6 +996,7 @@ export class AdminOperations {
         method: 'DELETE',
         url: path,
         headers,
+        ...(body === undefined ? {} : { body }),
         credentials,
       });
       return response.data;

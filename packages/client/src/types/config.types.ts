@@ -118,16 +118,27 @@ export interface NAuthEndpoints {
   mfaVerifySetup: string;
   mfaPreferred: string;
   mfaBackupCodes: string;
+  mfaAvailableMethods: string;
   socialLinked: string;
   socialLink: string;
   socialUnlink: string;
   socialVerify: string;
   socialRedirectStart: string;
   socialExchange: string;
+  socialCanSetPassword: string;
+  socialSetPassword: string;
   trustDevice: string;
   isTrustedDevice: string;
   auditHistory: string;
   updateProfile: string;
+  /** GET /sessions - the caller's own sessions */
+  sessions: string;
+  /** DELETE /sessions/:sessionId - revoke one of the caller's own sessions */
+  logoutSession: string;
+  /** GET + DELETE /trusted-devices - list, or revoke all of, the caller's trusted devices */
+  trustedDevices: string;
+  /** DELETE /trusted-devices/:deviceId - revoke one of the caller's trusted devices */
+  trustedDevice: string;
 }
 
 /**
@@ -142,6 +153,12 @@ export interface NAuthAdminEndpoints {
   getUsers: string;
   /** GET /users/:sub - Get user by sub */
   getUser: string;
+  /** GET /users/by-email - Resolve a user by email address */
+  getUserByEmail: string;
+  /** PUT /users/:sub - Update a user's attributes */
+  updateUser: string;
+  /** POST /users/:sub/verified-status - Set email/phone verified flags */
+  updateVerifiedStatus: string;
   /** DELETE /users/:sub - Delete user */
   deleteUser: string;
   /** POST /users/:sub/disable - Disable user account */
@@ -156,6 +173,12 @@ export interface NAuthAdminEndpoints {
   resetPasswordInitiate: string;
   /** GET /users/:sub/sessions - Get user sessions */
   getUserSessions: string;
+  /** DELETE /users/:sub/sessions/:sessionId - Revoke one session of a user */
+  revokeUserSession: string;
+  /** GET + DELETE /users/:sub/trusted-devices - List, or revoke all of, a user's trusted devices */
+  trustedDevices: string;
+  /** DELETE /users/:sub/trusted-devices/:deviceId - Revoke one trusted device of a user */
+  trustedDevice: string;
   /** POST /users/:sub/logout-all - Logout all sessions */
   logoutAll: string;
   /** GET /users/:sub/mfa/status - Get MFA status */
@@ -170,6 +193,18 @@ export interface NAuthAdminEndpoints {
   setMfaExemption: string;
   /** GET /audit/history - Get audit history */
   getAuditHistory: string;
+  /** GET /audit/events - Get audit events filtered by event type */
+  getEventsByType: string;
+  /** GET /audit/suspicious - Get events flagged as suspicious */
+  getSuspiciousActivity: string;
+  /** GET /audit/risk - Get a user's risk assessment history */
+  getRiskAssessmentHistory: string;
+  /** POST + GET /api-keys - Create and list API keys on behalf of a user */
+  apiKeys: string;
+  /** PATCH + DELETE /api-keys/:keyId - Update and delete a user's API key */
+  apiKey: string;
+  /** POST /api-keys/:keyId/revoke - Revoke a user's API key */
+  apiKeyRevoke: string;
 }
 
 /**

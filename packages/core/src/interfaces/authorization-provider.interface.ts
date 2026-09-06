@@ -73,6 +73,12 @@ export type AuthAction =
   | 'admin.session.revoke'
   /** Revoke every session belonging to another user. */
   | 'admin.session.revokeAll'
+  /** List another user's trusted devices. */
+  | 'admin.trustedDevice.list'
+  /** Revoke one of another user's trusted devices. */
+  | 'admin.trustedDevice.revoke'
+  /** Revoke every trusted device belonging to another user. */
+  | 'admin.trustedDevice.revokeAll'
   /** Read another user's MFA enrolment status. */
   | 'admin.mfa.readStatus'
   /** List another user's MFA devices. */

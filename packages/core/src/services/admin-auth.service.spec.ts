@@ -11,6 +11,7 @@ import { NAuthLogger } from '../utils/nauth-logger';
 import { BaseUser, BaseLoginAttempt, BaseMFADevice } from '../entities';
 import { NAuthConfig } from '../interfaces/config.interface';
 import { AccountLockoutStorageService } from '../storage/account-lockout-storage.service';
+import { AuthErrorCode } from '../enums/error-codes.enum';
 
 describe('AdminAuthService', () => {
   it('should initialize successfully with required dependencies', () => {
@@ -131,4 +132,100 @@ describe('AdminAuthService', () => {
       expect(source).not.toContain('authorizationService');
     });
   });
+
+  describe('trusted device management', () => {
+    /**
+     * Build a service with a stubbed trusted-device service and user repository, so the
+     * tests exercise targeting and authorization rather than persistence.
+     */
+    const buildService = (
+      trustedDeviceService: Record<string, jest.Mock>,
+      authorize: jest.Mock = jest.fn().mockResolvedValue(undefined),
+    ): AdminAuthService => {
+      const userRepository = {
+        findOne: jest.fn().mockResolvedValue({ id: 5, sub: 'target-sub' }),
+      } as unknown as Repository<BaseUser>;
+
+      return new AdminAuthService(
+        userRepository,
+        {} as Repository<BaseLoginAttempt>,
+        {} as PasswordService,
+        {} as SessionService,
+        {} as ChallengeService,
+        {} as AuthChallengeHelperService,
+        {} as EmailVerificationService,
+        {} as ClientInfoService,
+        {} as AccountLockoutStorageService,
+        {} as NAuthConfig,
+        { log: jest.fn(), error: jest.fn() } as unknown as NAuthLogger,
+        {} as HookRegistryService,
+        undefined,
+        undefined,
+        {} as Repository<BaseMFADevice>,
+        trustedDeviceService as never,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        { authorize } as never,
+      );
+    };
+
+    const validSub = 'a21b654c-2746-4168-acee-c175083a65cd';
+
+    it('lists a target user devices and authorizes with the target', async () => {
+      const authorize = jest.fn().mockResolvedValue(undefined);
+      const getUserTrustedDevices = jest.fn().mockResolvedValue([{ id: 1 }]);
+      const service = buildService({ getUserTrustedDevices }, authorize);
+
+      const result = await service.getUserTrustedDevices({ sub: validSub });
+
+      expect(result.trustedDevices).toHaveLength(1);
+      expect(getUserTrustedDevices).toHaveBeenCalledWith(5);
+      expect(authorize).toHaveBeenCalledWith('admin.trustedDevice.list', { targetSub: validSub });
+    });
+
+    it('revokes one device scoped to the target user', async () => {
+      const revokeTrustedDeviceById = jest.fn().mockResolvedValue(true);
+      const service = buildService({ revokeTrustedDeviceById });
+
+      const result = await service.revokeUserTrustedDevice({ sub: validSub, deviceId: 9 });
+
+      expect(result).toEqual({ success: true });
+      expect(revokeTrustedDeviceById).toHaveBeenCalledWith(9, 5);
+    });
+
+    it('throws NOT_FOUND when the device does not belong to the target user', async () => {
+      const revokeTrustedDeviceById = jest.fn().mockResolvedValue(false);
+      const service = buildService({ revokeTrustedDeviceById });
+
+      await expect(service.revokeUserTrustedDevice({ sub: validSub, deviceId: 9 })).rejects.toMatchObject({
+        code: AuthErrorCode.NOT_FOUND,
+      });
+    });
+
+    it('revokes every device and reports the count', async () => {
+      const revokeAllTrustedDevices = jest.fn().mockResolvedValue({ revokedCount: 4, devices: [] });
+      const service = buildService({ revokeAllTrustedDevices });
+
+      const result = await service.revokeAllUserTrustedDevices({ sub: validSub });
+
+      expect(result).toEqual({ revokedCount: 4 });
+      expect(revokeAllTrustedDevices).toHaveBeenCalledWith(5);
+    });
+
+    it('does not touch devices when authorization denies', async () => {
+      const authorize = jest.fn().mockRejectedValue(new Error('FORBIDDEN'));
+      const revokeAllTrustedDevices = jest.fn();
+      const service = buildService({ revokeAllTrustedDevices }, authorize);
+
+      await expect(service.revokeAllUserTrustedDevices({ sub: validSub })).rejects.toThrow('FORBIDDEN');
+      expect(revokeAllTrustedDevices).not.toHaveBeenCalled();
+    });
+  });
+
 });

@@ -50,6 +50,29 @@ Some methods require additional backend features to be enabled:
 - **Audit methods** (`getAuditHistory`): require audit logging enabled. See [Backend Configuration](/docs/concepts/configuration).
 :::
 
+### canSetPassword()
+
+Check whether the current user can set a first password. True for a social-only account that has no password yet.
+
+```typescript
+async canSetPassword(): Promise<CanSetPasswordResponse>
+```
+
+**Returns**
+
+- `CanSetPasswordResponse` - `{ canSetPassword: boolean }`
+
+**Example**
+
+```typescript
+const { canSetPassword } = await client.canSetPassword();
+if (canSetPassword) {
+  // Offer "set a password"; otherwise offer changePassword()
+}
+```
+
+---
+
 ### changePassword()
 
 Change user password (requires current password).
@@ -293,6 +316,31 @@ console.log(`Found ${suspicious.total} suspicious events`);
 ```
 
 See [`AuditHistoryResponse`](./types/audit-history-response) and [`AuthAuditEvent`](./types/auth-audit-event) for details.
+
+---
+
+### getAvailableMfaMethods()
+
+List the MFA methods this deployment permits, for building an enrolment picker.
+
+```typescript
+async getAvailableMfaMethods(): Promise<AvailableMfaMethodsResponse>
+```
+
+**Returns**
+
+- `AvailableMfaMethodsResponse` - `{ availableMethods: string[] }`
+
+**Example**
+
+```typescript
+const { availableMethods } = await client.getAvailableMfaMethods();
+// ['totp', 'sms', 'passkey']
+```
+
+:::note
+Reflects what the server allows, not what the user has enrolled — use [`getMfaDevices()`](#getmfadevices) for that.
+:::
 
 ---
 
@@ -605,6 +653,60 @@ async linkSocialAccount(
 const params = new URLSearchParams(window.location.search);
 await client.linkSocialAccount('google', params.get('code')!, params.get('state')!);
 ```
+
+---
+
+### listSessions()
+
+List the caller's own active sessions.
+
+```typescript
+async listSessions(): Promise<GetUserSessionsResponse>
+```
+
+**Returns**
+
+- [`GetUserSessionsResponse`](./types/get-user-sessions-response) - `{ sessions: UserSessionInfo[] }`
+
+**Example**
+
+```typescript
+const { sessions } = await client.listSessions();
+sessions.forEach((s) => console.log(s.deviceName, s.lastActivityAt));
+```
+
+Only live sessions are returned — revoked and expired ones are filtered out server-side, so the list stays the set of devices the user can actually sign out. Each entry carries `isCurrent`, marking the session making the request.
+
+Pair with [`revokeSession()`](#revokesession) to build a "signed-in devices" screen:
+
+```typescript
+const { sessions } = await client.listSessions();
+const other = sessions.filter((s) => !s.isCurrent);
+await Promise.all(other.map((s) => client.revokeSession(s.sessionId)));
+```
+
+---
+
+### listTrustedDevices()
+
+List the caller's own trusted devices — those allowed to skip MFA.
+
+```typescript
+async listTrustedDevices(): Promise<ListTrustedDevicesResponse>
+```
+
+**Returns**
+
+- `ListTrustedDevicesResponse` - `{ trustedDevices: TrustedDeviceInfo[] }`
+
+**Example**
+
+```typescript
+const { trustedDevices } = await client.listTrustedDevices();
+trustedDevices.forEach((d) => console.log(d.deviceName, d.trustedUntil));
+```
+
+Expired devices are filtered out server-side, so the list is what can currently skip MFA. Pair with [`revokeTrustedDevice()`](#revoketrusteddevice) to build a "trusted devices" screen.
 
 ---
 
@@ -1075,6 +1177,63 @@ const result = await client.respondToChallenge({
 
 ---
 
+### revokeAllTrustedDevices()
+
+Revoke every trusted device belonging to the caller.
+
+```typescript
+async revokeAllTrustedDevices(): Promise<RevokeAllTrustedDevicesResponse>
+```
+
+**Returns**
+
+- `RevokeAllTrustedDevicesResponse` - `{ revokedCount: number }`
+
+**Example**
+
+```typescript
+const { revokedCount } = await client.revokeAllTrustedDevices();
+```
+
+:::note
+This removes MFA bypass only — it does not sign anyone out. Use [`logoutAll()`](#logoutall) to end sessions.
+:::
+
+---
+
+### revokeSession()
+
+Revoke one of the caller's own sessions, signing that device out.
+
+```typescript
+async revokeSession(sessionId: string): Promise<LogoutSessionResponse>
+```
+
+**Parameters**
+
+| Parameter   | Type     | Description         |
+| ----------- | -------- | ------------------- |
+| `sessionId` | `string` | Session to revoke   |
+
+**Returns**
+
+- `LogoutSessionResponse` - `{ success: boolean; wasCurrentSession: boolean }`
+
+**Example**
+
+```typescript
+const result = await client.revokeSession(sessionId);
+if (result.wasCurrentSession) {
+  await client.clearLocalAuthState();
+}
+```
+
+:::note
+Revoking every session at once is [`logoutAll()`](#logoutall).
+:::
+
+---
+
 ### setPreferredMfaDevice()
 
 Set a specific MFA device as preferred.
@@ -1108,19 +1267,79 @@ await client.setPreferredMfaDevice(devices[0].id);
 
 ---
 
+### revokeTrustedDevice()
+
+Revoke one of the caller's own trusted devices. That device must satisfy MFA again on its next sign-in.
+
+```typescript
+async revokeTrustedDevice(deviceId: number): Promise<RevokeTrustedDeviceResponse>
+```
+
+**Parameters**
+
+| Parameter  | Type     | Description                                              |
+| ---------- | -------- | -------------------------------------------------------- |
+| `deviceId` | `number` | Device record id, from [`listTrustedDevices()`](#listtrusteddevices) |
+
+**Returns**
+
+- `RevokeTrustedDeviceResponse` - `{ success: boolean }`
+
+**Example**
+
+```typescript
+await client.revokeTrustedDevice(7);
+```
+
+---
+
+### setPasswordForSocialUser()
+
+Give a social-only account its first password.
+
+```typescript
+async setPasswordForSocialUser(newPassword: string): Promise<SetPasswordResponse>
+```
+
+**Parameters**
+
+| Parameter     | Type     | Description                                      |
+| ------------- | -------- | ------------------------------------------------ |
+| `newPassword` | `string` | Password to set, subject to the server's policy  |
+
+**Returns**
+
+- `SetPasswordResponse` - `{ message: string }`
+
+**Example**
+
+```typescript
+const { canSetPassword } = await client.canSetPassword();
+if (canSetPassword) {
+  await client.setPasswordForSocialUser('new-password');
+}
+```
+
+:::note
+An account that already has a password must use [`changePassword()`](#changepassword), which verifies the existing one.
+:::
+
+---
+
 ### setupMfaDevice()
 
 Initiate MFA device setup for authenticated users (outside challenge flow).
 
 ```typescript
-async setupMfaDevice(method: string): Promise<GetSetupDataResponse>
+async setupMfaDevice(method: string, setupData?: Record<string, unknown>): Promise<GetSetupDataResponse>
 ```
 
 **Parameters**
 
-| Parameter | Type                              | Description                                            |
-| --------- | --------------------------------- | ------------------------------------------------------ |
-| `method`  | [`MFAMethod`](./types/mfa-method) | MFA method (`'totp'`, `'sms'`, `'email'`, `'passkey'`) |
+| Parameter   | Type                              | Description                                                                                                                                                        |
+| ----------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `method`    | [`MFAMethod`](./types/mfa-method) | MFA method (`'totp'`, `'sms'`, `'email'`, `'passkey'`)                                                                                                             |
+| `setupData` | `Record<string, unknown>`         | Optional. Method-specific enrolment input: `phoneNumber` (E.164) for SMS, `emailAddress` for email, plus optional `deviceName`. Required when the account has no verified destination on file. |
 
 **Returns**
 
@@ -1132,6 +1351,17 @@ async setupMfaDevice(method: string): Promise<GetSetupDataResponse>
 const setupData = await client.setupMfaDevice('totp');
 console.log('QR Code:', setupData.setupData.qrCode);
 console.log('Secret:', setupData.setupData.secret);
+```
+
+Enrolling a destination the account does not already hold — a password-only or social account adding SMS, for instance — requires passing it, otherwise the server answers `PHONE_REQUIRED`:
+
+```typescript
+const result = await client.setupMfaDevice('sms', {
+  phoneNumber: '+15551234567',
+  deviceName: 'Work phone',
+});
+// { setupData: { maskedPhone: '+1***4567' } }
+// or { setupData: { deviceId, autoCompleted: true } } if already verified on the account
 ```
 
 ---
@@ -1364,6 +1594,32 @@ if (client.admin) {
 ```
 
 **See [AdminOperations](./admin-operations) for complete API documentation.**
+
+---
+
+## API Keys
+
+### apiKeys
+
+API-key management for the caller's own keys. Always available; calls the key endpoints your backend mounts (default base path `{baseUrl}/api-keys`).
+
+```typescript
+public readonly apiKeys: ApiKeyOperations
+```
+
+**Access**
+
+```typescript
+const { key } = await client.apiKeys.create({ expiresInDays: 90, allowedIps: ['203.0.113.0/24'] });
+// `key` is plaintext and shown only once
+
+const keys = await client.apiKeys.list();
+await client.apiKeys.update(keyId, { allowedIps: ['203.0.113.5'] });
+await client.apiKeys.revoke(keyId);
+await client.apiKeys.remove(keyId);
+```
+
+**See the [API keys guide](/docs/guides/api-keys) for the full flow.** To manage another user's keys, use [`client.admin`](./admin-operations#api-key-management).
 
 ---
 

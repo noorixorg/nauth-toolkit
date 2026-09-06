@@ -87,6 +87,7 @@ export type NAuthSelfRouteKey =
   | 'mfaVerifySetup'
   | 'mfaPreferred'
   | 'mfaRemoveDevice'
+  | 'mfaBackupCodes'
   // social
   | 'socialLinked'
   | 'socialLink'
@@ -103,6 +104,9 @@ export type NAuthSelfRouteKey =
   | 'isTrustedDevice'
   | 'sessions'
   | 'logoutSession'
+  | 'trustedDevices'
+  | 'revokeTrustedDevice'
+  | 'revokeAllTrustedDevices'
   // audit
   | 'auditHistory'
   // api keys
@@ -127,6 +131,9 @@ export type NAuthAdminRouteKey =
   | 'adminUpdateUser'
   | 'adminSetPassword'
   | 'adminResetPasswordInitiate'
+  | 'adminGetUserTrustedDevices'
+  | 'adminRevokeUserTrustedDevice'
+  | 'adminRevokeAllUserTrustedDevices'
   | 'adminGetUserSessions'
   | 'adminRevokeUserSession'
   | 'adminLogoutAll'

@@ -20,6 +20,13 @@ import {
   TokenResponse,
   MFACodeResponse,
   MFAPasskeyResponse,
+  LogoutSessionResponse,
+  CanSetPasswordResponse,
+  SetPasswordResponse,
+  AvailableMfaMethodsResponse,
+  ListTrustedDevicesResponse,
+  RevokeTrustedDeviceResponse,
+  RevokeAllTrustedDevicesResponse,
 } from '../types/auth.types';
 import { NAuthClientConfig } from '../types/config.types';
 import {
@@ -30,6 +37,7 @@ import {
   RemoveMFADeviceResponse,
 } from '../types/mfa.types';
 import { AuditHistoryResponse } from '../types/audit.types';
+import { GetUserSessionsResponse } from '../types/admin.types';
 import { LinkedAccountsResponse, SocialLoginOptions, SocialVerifyRequest, SocialProvider } from '../types/social.types';
 import {
   AuthUser,
@@ -779,18 +787,29 @@ export class NAuthClient {
    * - Passkey: WebAuthn registration options
    *
    * @param method - MFA method to set up
+   * @param setupData - Method-specific enrolment input. SMS and email enrolment need a
+   *   destination (`{ phoneNumber }` in E.164, or `{ emailAddress }`) whenever the account
+   *   does not already hold a verified one; without it the server answers `PHONE_REQUIRED`
+   *   or `EMAIL_REQUIRED`. Pass `deviceName` to label the device.
    * @returns Promise of setup data response
    *
    * @example
    * ```typescript
    * const result = await client.setupMfaDevice('totp');
    * console.log('QR Code:', result.setupData.qrCode);
+   *
+   * // Enrolling a phone the account does not have on file yet
+   * await client.setupMfaDevice('sms', { phoneNumber: '+15551234567', deviceName: 'Work phone' });
    * ```
    */
-  async setupMfaDevice(method: string): Promise<GetSetupDataResponse> {
+  async setupMfaDevice(method: string, setupData?: Record<string, unknown>): Promise<GetSetupDataResponse> {
     // Backend expects `methodName` (SetupMFADTO). We keep the public SDK method name `method`
     // for ergonomics, but serialize as `methodName` to match the API contract.
-    return this.post<GetSetupDataResponse>(this.config.endpoints.mfaSetupData, { methodName: method }, true);
+    return this.post<GetSetupDataResponse>(
+      this.config.endpoints.mfaSetupData,
+      setupData ? { methodName: method, setupData } : { methodName: method },
+      true,
+    );
   }
 
   /**
@@ -917,6 +936,91 @@ export class NAuthClient {
   async generateBackupCodes(): Promise<string[]> {
     const result = await this.post<{ codes: string[] }>(this.config.endpoints.mfaBackupCodes, {}, true);
     return result.codes;
+  }
+
+  /**
+   * List the MFA methods this deployment permits.
+   *
+   * Reflects what the server has registered and enabled, not what the caller has
+   * enrolled - use {@link getMfaDevices} for that. Enrolment screens use this to decide
+   * which options to offer.
+   *
+   * @returns The allowed method names
+   */
+  async getAvailableMfaMethods(): Promise<AvailableMfaMethodsResponse> {
+    return this.get<AvailableMfaMethodsResponse>(this.config.endpoints.mfaAvailableMethods, true);
+  }
+
+  /**
+   * ============================================================================
+   * Sessions
+   * ============================================================================
+   */
+
+  /**
+   * List the caller's own active sessions.
+   *
+   * @returns The caller's sessions, one entry per active device/session
+   */
+  async listSessions(): Promise<GetUserSessionsResponse> {
+    return this.get<GetUserSessionsResponse>(this.config.endpoints.sessions, true);
+  }
+
+  /**
+   * Revoke one of the caller's own sessions.
+   *
+   * Revoking the session that is making the request signs the caller out; the response's
+   * `wasCurrentSession` reports that, so the caller can clear local auth state.
+   *
+   * @param sessionId - Session to revoke
+   * @returns Whether the session was revoked, and whether it was the caller's own
+   */
+  async revokeSession(sessionId: string): Promise<LogoutSessionResponse> {
+    const path = this.config.endpoints.logoutSession.replace(':sessionId', encodeURIComponent(sessionId));
+    return this.delete<LogoutSessionResponse>(path, true);
+  }
+
+  /**
+   * ============================================================================
+   * Trusted Devices
+   * ============================================================================
+   */
+
+  /**
+   * List the caller's own trusted devices.
+   *
+   * These are the devices allowed to skip MFA. Expired devices are filtered out
+   * server-side, so the list is what can currently be used and is worth showing.
+   *
+   * @returns The caller's unexpired trusted devices, most recently used first
+   */
+  async listTrustedDevices(): Promise<ListTrustedDevicesResponse> {
+    return this.get<ListTrustedDevicesResponse>(this.config.endpoints.trustedDevices, true);
+  }
+
+  /**
+   * Revoke one of the caller's own trusted devices.
+   *
+   * That device must satisfy MFA again on its next sign-in.
+   *
+   * @param deviceId - Trusted device record id, from {@link listTrustedDevices}
+   * @returns Whether a matching device was revoked
+   */
+  async revokeTrustedDevice(deviceId: number): Promise<RevokeTrustedDeviceResponse> {
+    const path = this.config.endpoints.trustedDevice.replace(':deviceId', encodeURIComponent(String(deviceId)));
+    return this.delete<RevokeTrustedDeviceResponse>(path, true);
+  }
+
+  /**
+   * Revoke every trusted device belonging to the caller.
+   *
+   * Every device must then satisfy MFA again. This does not sign anyone out — use
+   * {@link logoutAll} for that.
+   *
+   * @returns How many devices were revoked
+   */
+  async revokeAllTrustedDevices(): Promise<RevokeAllTrustedDevicesResponse> {
+    return this.delete<RevokeAllTrustedDevicesResponse>(this.config.endpoints.trustedDevices, true);
   }
 
   /**
@@ -1103,6 +1207,31 @@ export class NAuthClient {
    */
   async unlinkSocialAccount(provider: string): Promise<{ message: string }> {
     return this.post<{ message: string }>(this.config.endpoints.socialUnlink, { provider }, true);
+  }
+
+  /**
+   * Check whether the caller may set a first password.
+   *
+   * True for a social-only account that has no password yet. Use it to decide whether to
+   * offer "set a password" (this call) or "change password" ({@link changePassword}).
+   *
+   * @returns Whether the caller can set a first password
+   */
+  async canSetPassword(): Promise<CanSetPasswordResponse> {
+    return this.get<CanSetPasswordResponse>(this.config.endpoints.socialCanSetPassword, true);
+  }
+
+  /**
+   * Give a social-only account its first password.
+   *
+   * Only valid while {@link canSetPassword} is true; an account that already has one must
+   * use {@link changePassword}, which verifies the existing password.
+   *
+   * @param newPassword - Password to set, subject to the server's password policy
+   * @returns Confirmation message
+   */
+  async setPasswordForSocialUser(newPassword: string): Promise<SetPasswordResponse> {
+    return this.post<SetPasswordResponse>(this.config.endpoints.socialSetPassword, { password: newPassword }, true);
   }
 
   /**

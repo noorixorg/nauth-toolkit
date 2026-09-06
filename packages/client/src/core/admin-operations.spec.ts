@@ -1,5 +1,5 @@
 import { AdminOperations } from './admin-operations';
-import { ResolvedNAuthClientConfig } from './config';
+import { ResolvedNAuthClientConfig, defaultEndpoints, defaultAdminEndpoints } from './config';
 import { HttpAdapter, HttpRequest, HttpResponse } from './http-adapter';
 import { NAuthStorageAdapter } from '../types/config.types';
 import { NAuthClientError } from './errors';
@@ -91,60 +91,10 @@ const createTestConfig = (
     },
     headers: {},
     timeout: 30000,
-    endpoints: {
-      login: '/login',
-      signup: '/signup',
-      logout: '/logout',
-      logoutAll: '/logout/all',
-      refresh: '/refresh',
-      respondChallenge: '/respond-challenge',
-      resendCode: '/challenge/resend',
-      getSetupData: '/challenge/setup-data',
-      getChallengeData: '/challenge/challenge-data',
-      profile: '/profile',
-      changePassword: '/change-password',
-      forgotPassword: '/forgot-password',
-      confirmForgotPassword: '/forgot-password/confirm',
-      confirmAdminResetPassword: '/reset-password/confirm',
-      mfaStatus: '/mfa/status',
-      mfaDevices: '/mfa/devices',
-      mfaSetupData: '/mfa/setup-data',
-      mfaVerifySetup: '/mfa/verify-setup',
-      mfaPreferred: '/mfa/preferred-method',
-      mfaBackupCodes: '/mfa/backup-codes/generate',
-      socialLinked: '/social/linked',
-      socialLink: '/social/link',
-      socialUnlink: '/social/unlink',
-      socialVerify: '/social/:provider/verify',
-      socialRedirectStart: '/social/:provider/redirect',
-      socialExchange: '/social/exchange',
-      trustDevice: '/trust-device',
-      isTrustedDevice: '/is-trusted-device',
-      auditHistory: '/audit/history',
-      updateProfile: '/profile',
-    },
+    endpoints: { ...defaultEndpoints },
     admin: {
       pathPrefix: '/admin',
-      endpoints: {
-        signup: '/signup',
-        signupSocial: '/signup-social',
-        getUsers: '/users',
-        getUser: '/users/:sub',
-        deleteUser: '/users/:sub',
-        disableUser: '/users/:sub/disable',
-        enableUser: '/users/:sub/enable',
-        forcePasswordChange: '/users/:sub/force-password-change',
-        setPassword: '/set-password',
-        resetPasswordInitiate: '/reset-password/initiate',
-        getUserSessions: '/users/:sub/sessions',
-        logoutAll: '/users/:sub/logout-all',
-        getMfaStatus: '/users/:sub/mfa/status',
-        getMfaDevices: '/users/:sub/mfa/devices',
-        removeMfaDeviceById: '/mfa/devices/:deviceId',
-        setPreferredMfaDevice: '/users/:sub/mfa/devices/:deviceId/preferred',
-        setMfaExemption: '/mfa/exemption',
-        getAuditHistory: '/audit/history',
-      },
+      endpoints: { ...defaultAdminEndpoints },
       headers: {},
     },
     ...overrides,
@@ -982,4 +932,196 @@ describe('AdminOperations', () => {
       }
     });
   });
+
+  describe('User lookup and attribute updates', () => {
+    it('should resolve a user by email via query string', async () => {
+      httpAdapter.setResponse({ sub: 'test-uuid', email: 'user@example.com' });
+
+      const result = await adminOps.getUserByEmail({ email: 'user@example.com' });
+
+      expect(result.sub).toBe('test-uuid');
+      const [request] = httpAdapter.getRequests();
+      expect(request.method).toBe('GET');
+      expect(request.url).toContain('/admin/users/by-email');
+      expect(request.url).toContain('email=user%40example.com');
+    });
+
+    it('should pass requireEmailVerified through to the query', async () => {
+      httpAdapter.setResponse({ sub: 'test-uuid' });
+
+      await adminOps.getUserByEmail({ email: 'user@example.com', requireEmailVerified: true });
+
+      expect(httpAdapter.getRequests()[0].url).toContain('requireEmailVerified=true');
+    });
+
+    it('should update user attributes with PUT', async () => {
+      httpAdapter.setResponse({ sub: 'test-uuid', firstName: 'Ada' });
+
+      const result = await adminOps.updateUser('test-uuid', { firstName: 'Ada' });
+
+      expect(result.sub).toBe('test-uuid');
+      const [request] = httpAdapter.getRequests();
+      expect(request.method).toBe('PUT');
+      expect(request.url).toContain('/admin/users/test-uuid');
+      expect(request.body).toEqual({ firstName: 'Ada' });
+    });
+
+    it('should set verified status without disturbing omitted flags', async () => {
+      httpAdapter.setResponse({ sub: 'test-uuid', isEmailVerified: true });
+
+      await adminOps.updateVerifiedStatus('test-uuid', { isEmailVerified: true });
+
+      const [request] = httpAdapter.getRequests();
+      expect(request.method).toBe('POST');
+      expect(request.url).toContain('/admin/users/test-uuid/verified-status');
+      expect(request.body).toEqual({ isEmailVerified: true });
+    });
+  });
+
+  describe('Single session revocation', () => {
+    it('should revoke one session by sub and sessionId', async () => {
+      httpAdapter.setResponse({ success: true });
+
+      const result = await adminOps.revokeUserSession('test-uuid', 'session-9');
+
+      expect(result.success).toBe(true);
+      const [request] = httpAdapter.getRequests();
+      expect(request.method).toBe('DELETE');
+      expect(request.url).toContain('/admin/users/test-uuid/sessions/session-9');
+    });
+
+    it('should encode identifiers that contain URL-significant characters', async () => {
+      httpAdapter.setResponse({ success: true });
+
+      await adminOps.revokeUserSession('a/b', 'c d');
+
+      expect(httpAdapter.getRequests()[0].url).toContain('/admin/users/a%2Fb/sessions/c%20d');
+    });
+  });
+
+  describe('Audit queries', () => {
+    it('should fetch events by type', async () => {
+      httpAdapter.setResponse({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
+
+      await adminOps.getEventsByType({ eventType: 'LOGIN_FAILED', limit: 50 });
+
+      const [request] = httpAdapter.getRequests();
+      expect(request.url).toContain('/admin/audit/events');
+      expect(request.url).toContain('eventType=LOGIN_FAILED');
+      expect(request.url).toContain('limit=50');
+    });
+
+    it('should fetch suspicious activity with no params', async () => {
+      httpAdapter.setResponse({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
+
+      await adminOps.getSuspiciousActivity();
+
+      expect(httpAdapter.getRequests()[0].url).toContain('/admin/audit/suspicious');
+    });
+
+    it('should fetch risk assessment history for a user', async () => {
+      httpAdapter.setResponse({ data: [], total: 0, page: 1, limit: 20, totalPages: 0 });
+
+      await adminOps.getRiskAssessmentHistory({ sub: 'test-uuid', limit: 5 });
+
+      const [request] = httpAdapter.getRequests();
+      expect(request.url).toContain('/admin/audit/risk');
+      expect(request.url).toContain('sub=test-uuid');
+    });
+  });
+
+  describe('API key management', () => {
+    it('should create a key on behalf of a user', async () => {
+      httpAdapter.setResponse({ key: 'plaintext', apiKey: { keyId: 'k1' } });
+
+      const result = await adminOps.createApiKey({ sub: 'test-uuid', expiresInDays: 90 });
+
+      expect(result.key).toBe('plaintext');
+      const [request] = httpAdapter.getRequests();
+      expect(request.method).toBe('POST');
+      expect(request.url).toContain('/admin/api-keys');
+      expect(request.body).toEqual({ sub: 'test-uuid', expiresInDays: 90 });
+    });
+
+    it('should list a user keys by sub', async () => {
+      httpAdapter.setResponse({ apiKeys: [] });
+
+      await adminOps.listApiKeys('test-uuid');
+
+      const [request] = httpAdapter.getRequests();
+      expect(request.method).toBe('GET');
+      expect(request.url).toContain('sub=test-uuid');
+    });
+
+    it('should send sub in the body when updating a key', async () => {
+      httpAdapter.setResponse({ keyId: 'k1' });
+
+      await adminOps.updateApiKey('test-uuid', 'k1', { name: 'CI' });
+
+      const [request] = httpAdapter.getRequests();
+      expect(request.method).toBe('PATCH');
+      expect(request.url).toContain('/admin/api-keys/k1');
+      expect(request.body).toEqual({ sub: 'test-uuid', name: 'CI' });
+    });
+
+    it('should send sub in the body when revoking a key', async () => {
+      httpAdapter.setResponse({ success: true });
+
+      await adminOps.revokeApiKey('test-uuid', 'k1');
+
+      const [request] = httpAdapter.getRequests();
+      expect(request.method).toBe('POST');
+      expect(request.url).toContain('/admin/api-keys/k1/revoke');
+      expect(request.body).toEqual({ sub: 'test-uuid' });
+    });
+
+    it('should send sub in the body when deleting a key, since the route reads params+body', async () => {
+      httpAdapter.setResponse({ success: true });
+
+      await adminOps.deleteApiKey('test-uuid', 'k1');
+
+      const [request] = httpAdapter.getRequests();
+      expect(request.method).toBe('DELETE');
+      expect(request.url).toContain('/admin/api-keys/k1');
+      expect(request.body).toEqual({ sub: 'test-uuid' });
+    });
+  });
+
+
+  describe('Trusted device management', () => {
+    it('lists a user trusted devices', async () => {
+      httpAdapter.setResponse({ trustedDevices: [{ id: 7 }] });
+
+      const result = await adminOps.getUserTrustedDevices('test-uuid');
+
+      expect(result.trustedDevices).toHaveLength(1);
+      const [request] = httpAdapter.getRequests();
+      expect(request.method).toBe('GET');
+      expect(request.url).toContain('/admin/users/test-uuid/trusted-devices');
+    });
+
+    it('revokes one trusted device of a user', async () => {
+      httpAdapter.setResponse({ success: true });
+
+      const result = await adminOps.revokeUserTrustedDevice('test-uuid', 7);
+
+      expect(result.success).toBe(true);
+      const [request] = httpAdapter.getRequests();
+      expect(request.method).toBe('DELETE');
+      expect(request.url).toContain('/admin/users/test-uuid/trusted-devices/7');
+    });
+
+    it('revokes every trusted device of a user against the collection path', async () => {
+      httpAdapter.setResponse({ revokedCount: 4 });
+
+      const result = await adminOps.revokeAllUserTrustedDevices('test-uuid');
+
+      expect(result.revokedCount).toBe(4);
+      const [request] = httpAdapter.getRequests();
+      expect(request.method).toBe('DELETE');
+      expect(request.url).toContain('/admin/users/test-uuid/trusted-devices');
+      expect(request.url).not.toContain('/trusted-devices/');
+    });
+  });
+
 });

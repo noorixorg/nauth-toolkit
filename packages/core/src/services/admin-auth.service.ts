@@ -60,6 +60,14 @@ import { SocialAuthService } from './social-auth.service';
 import { AuthServiceInternalHelpers } from './auth-service-internal-helpers';
 import { UserService } from './user.service';
 import { AdminUpdateUserAttributesDTO } from '../dto/admin-update-user-attributes.dto';
+import {
+  AdminManageTrustedDevicesDTO,
+  AdminRevokeTrustedDeviceDTO,
+  ListTrustedDevicesResponseDTO,
+  RevokeAllTrustedDevicesResponseDTO,
+  RevokeTrustedDeviceResponseDTO,
+  TrustedDeviceResponseDTO,
+} from '../dto/trusted-device.dto';
 
 /**
  * Administrative authentication service
@@ -887,6 +895,166 @@ export class AdminAuthService {
       success: true,
       wasCurrentSession,
     };
+  }
+
+  /**
+   * List a user's trusted devices (admin)
+   *
+   * Expired devices are filtered out, so this is the set that can currently skip MFA.
+   *
+   * @param dto - Request DTO carrying the target user's sub
+   * @returns The user's unexpired trusted devices, most recently used first
+   * @throws {NAuthException} NOT_FOUND when the user does not exist
+   *
+   * @example
+   * ```typescript
+   * const { trustedDevices } = await adminAuthService.getUserTrustedDevices({ sub });
+   * ```
+   */
+  async getUserTrustedDevices(dto: AdminManageTrustedDevicesDTO): Promise<ListTrustedDevicesResponseDTO> {
+    await this.authorizationService?.authorize('admin.trustedDevice.list', { targetSub: dto.sub });
+    dto = await ensureValidatedDto(AdminManageTrustedDevicesDTO, dto);
+
+    const user = await this.getUserBySubOrThrow(dto.sub);
+
+    if (!this.trustedDeviceService) {
+      return { trustedDevices: [] };
+    }
+
+    const devices = await this.trustedDeviceService.getUserTrustedDevices(user.id);
+    return { trustedDevices: devices as unknown as TrustedDeviceResponseDTO[] };
+  }
+
+  /**
+   * Revoke one of a user's trusted devices (admin)
+   *
+   * The device must belong to the named user; the lookup is scoped to them, so an id
+   * belonging to somebody else does not match.
+   *
+   * @param dto - Request DTO carrying the target user's sub and the device record id
+   * @returns Whether a matching device was revoked
+   * @throws {NAuthException} NOT_FOUND when the user or device does not exist
+   *
+   * @example
+   * ```typescript
+   * await adminAuthService.revokeUserTrustedDevice({ sub, deviceId: 12 });
+   * ```
+   */
+  async revokeUserTrustedDevice(dto: AdminRevokeTrustedDeviceDTO): Promise<RevokeTrustedDeviceResponseDTO> {
+    await this.authorizationService?.authorize('admin.trustedDevice.revoke', { targetSub: dto.sub });
+    dto = await ensureValidatedDto(AdminRevokeTrustedDeviceDTO, dto);
+
+    const user = await this.getUserBySubOrThrow(dto.sub);
+
+    if (!this.trustedDeviceService) {
+      throw new NAuthException(AuthErrorCode.INTERNAL_ERROR, 'Trusted device service not available');
+    }
+
+    const revoked = await this.trustedDeviceService.revokeTrustedDeviceById(dto.deviceId, user.id);
+    if (!revoked) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'Trusted device not found');
+    }
+
+    await this.recordAdminDeviceUntrusted(user.id, `Trusted device ${dto.deviceId} revoked by admin`, {
+      reason: 'admin_revoked_device',
+      deviceId: dto.deviceId,
+      initiatedBy: 'admin',
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Revoke every trusted device belonging to a user (admin)
+   *
+   * Each of the user's devices must then satisfy MFA again on its next sign-in.
+   *
+   * @param dto - Request DTO carrying the target user's sub
+   * @returns How many devices were revoked
+   * @throws {NAuthException} NOT_FOUND when the user does not exist
+   *
+   * @example
+   * ```typescript
+   * const { revokedCount } = await adminAuthService.revokeAllUserTrustedDevices({ sub });
+   * ```
+   */
+  async revokeAllUserTrustedDevices(dto: AdminManageTrustedDevicesDTO): Promise<RevokeAllTrustedDevicesResponseDTO> {
+    await this.authorizationService?.authorize('admin.trustedDevice.revokeAll', { targetSub: dto.sub });
+    dto = await ensureValidatedDto(AdminManageTrustedDevicesDTO, dto);
+
+    const user = await this.getUserBySubOrThrow(dto.sub);
+
+    if (!this.trustedDeviceService) {
+      return { revokedCount: 0 };
+    }
+
+    const result = await this.trustedDeviceService.revokeAllTrustedDevices(user.id);
+
+    if (result.revokedCount > 0) {
+      await this.recordAdminDeviceUntrusted(
+        user.id,
+        `All trusted devices revoked by admin (${result.revokedCount} device(s))`,
+        {
+          reason: 'admin_revoked_all_devices',
+          revokedCount: result.revokedCount,
+          devices: result.devices,
+          initiatedBy: 'admin',
+        },
+      );
+    }
+
+    return { revokedCount: result.revokedCount };
+  }
+
+  /**
+   * Resolve a target user by sub.
+   *
+   * @param sub - Target user's external identifier
+   * @returns The user entity
+   * @throws {NAuthException} NOT_FOUND when no such user exists
+   */
+  private async getUserBySubOrThrow(sub: string): Promise<IUser> {
+    const user = (await this.userRepository.findOne({ where: { sub } })) as IUser | null;
+    if (!user) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+    return user;
+  }
+
+  /**
+   * Record a DEVICE_UNTRUSTED audit event for an admin action, best-effort.
+   *
+   * The device is already gone by this point, so an audit failure is logged rather than
+   * propagated to the caller.
+   *
+   * @param userId - Internal user id the devices belonged to
+   * @param description - Human-readable summary for the audit trail
+   * @param metadata - Structured detail about what was revoked
+   */
+  private async recordAdminDeviceUntrusted(
+    userId: number,
+    description: string,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    if (!this.auditService) {
+      return;
+    }
+
+    try {
+      await this.auditService.recordEvent({
+        userId,
+        eventType: AuthAuditEventType.DEVICE_UNTRUSTED,
+        eventStatus: 'SUCCESS',
+        description,
+        metadata,
+      });
+    } catch (auditError) {
+      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to record DEVICE_UNTRUSTED audit event: ${errorMessage}`, {
+        error: auditError,
+        userId,
+      });
+    }
   }
 
   /**
