@@ -35,13 +35,13 @@ export class LoginAttempt extends BaseLoginAttempt {
   @Column({ type: 'text', nullable: true })
   declare userAgent?: string | null;
 
-  @Column({ type: 'tinyint', width: 1 })
+  @Column({ type: 'boolean' })
   declare success: boolean;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   declare failureReason?: string | null;
 
-  @Column({ type: 'tinyint', width: 1, default: 0 })
+  @Column({ type: 'boolean', default: false })
   declare mfaRequired: boolean;
 
   @Column({ type: 'json', nullable: true })

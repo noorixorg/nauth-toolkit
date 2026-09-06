@@ -5,6 +5,14 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.1] - 2026-09-06
+
+### Fixed
+
+- **MySQL: boolean fields came back as numbers.** Boolean columns were declared `tinyint` rather than `boolean`, and TypeORM only converts the stored 1/0 back into a real boolean for the latter. Responses leaked `"isActive": 1` where the API contract promises a boolean, and any strict comparison against such a field silently failed. Postgres was unaffected throughout, which is why it went unnoticed. The stored schema is identical either way, so **no migration is required**.
+
+  Most visibly, an MFA device's `isPreferred` was false on every device even immediately after setting a preference, so a device list could not show which method was preferred. Also restores the forced-password-change challenge, which is gated on `mustChangePassword` and so never triggered on MySQL, and administrative MFA-exemption checks.
+
 ## [0.6.0] - 2026-09-06
 
 ### Added

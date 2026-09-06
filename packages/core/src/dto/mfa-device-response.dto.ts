@@ -69,8 +69,11 @@ export class MFADeviceResponseDTO {
     dto.id = device.id;
     dto.type = device.type;
     dto.name = device.name;
-    dto.isPreferred = device.isPrimary === true;
-    dto.isActive = device.isActive;
+    // Coerced rather than compared or passed through: a driver that hands back 1/0 for a
+    // boolean column would otherwise make `isPreferred` permanently false and leak a
+    // number out of a field this DTO declares as a boolean.
+    dto.isPreferred = !!device.isPrimary;
+    dto.isActive = !!device.isActive;
     dto.createdAt = device.createdAt;
     return dto;
   }

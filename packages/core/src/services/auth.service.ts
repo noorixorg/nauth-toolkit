@@ -912,7 +912,7 @@ export class AuthService {
       let mfaBypassed = false;
       let mfaBypassReason: 'trusted_device' | 'mfa_exempt' | null = null;
       const userEntityDebug = user as unknown as Record<string, unknown>;
-      const userMfaExempt = userEntityDebug.mfaExempt === true || userEntityDebug.mfaExempt === 'true';
+      const userMfaExempt = !!userEntityDebug.mfaExempt && userEntityDebug.mfaExempt !== 'false';
       if (userMfaExempt) {
         mfaBypassed = true;
         mfaBypassReason = 'mfa_exempt';
@@ -989,7 +989,7 @@ export class AuthService {
 
     // Check if user is exempt from MFA
     const userEntityDebug = user as unknown as Record<string, unknown>;
-    const userMfaExempt = userEntityDebug.mfaExempt === true || userEntityDebug.mfaExempt === 'true';
+    const userMfaExempt = !!userEntityDebug.mfaExempt && userEntityDebug.mfaExempt !== 'false';
 
     // Determine if MFA was bypassed
     // MFA is bypassed if:

@@ -33,7 +33,7 @@ export class ChallengeSession extends BaseChallengeSession {
   @Column({ type: 'timestamp', precision: 6 })
   declare expiresAt: Date;
 
-  @Column({ type: 'tinyint', width: 1, default: 0 })
+  @Column({ type: 'boolean', default: false })
   declare isCompleted: boolean;
 
   @Column({ type: 'timestamp', precision: 6, nullable: true })

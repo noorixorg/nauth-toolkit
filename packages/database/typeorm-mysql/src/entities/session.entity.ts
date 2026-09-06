@@ -98,7 +98,7 @@ export class Session extends BaseSession {
   @Column({ type: 'varchar', length: 50, nullable: true })
   declare authMethod?: string | null;
 
-  @Column({ type: 'tinyint', width: 1, default: 0 })
+  @Column({ type: 'boolean', default: false })
   declare isTrustedDevice: boolean;
 
   @Column({ type: 'timestamp', precision: 6 })
@@ -107,7 +107,7 @@ export class Session extends BaseSession {
   @Column({ type: 'timestamp', precision: 6, nullable: true })
   declare lastActivityAt?: Date | null;
 
-  @Column({ type: 'tinyint', width: 1, default: 0 })
+  @Column({ type: 'boolean', default: false })
   declare isRevoked: boolean;
 
   @Column({ type: 'timestamp', precision: 6, nullable: true })

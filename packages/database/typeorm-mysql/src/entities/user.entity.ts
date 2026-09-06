@@ -75,19 +75,19 @@ export class User extends BaseUser {
   @Column({ type: 'json', nullable: true })
   declare passwordHistory: string[] | null;
 
-  @Column({ type: 'tinyint', width: 1, default: 0 })
+  @Column({ type: 'boolean', default: false })
   declare mustChangePassword: boolean;
 
-  @Column({ type: 'tinyint', width: 1, default: 0 })
+  @Column({ type: 'boolean', default: false })
   declare isEmailVerified: boolean;
 
-  @Column({ type: 'tinyint', width: 1, default: 0 })
+  @Column({ type: 'boolean', default: false })
   declare isPhoneVerified: boolean;
 
-  @Column({ type: 'tinyint', width: 1, default: 1 })
+  @Column({ type: 'boolean', default: true })
   declare isActive: boolean;
 
-  @Column({ type: 'tinyint', width: 1, default: 0 })
+  @Column({ type: 'boolean', default: false })
   declare isLocked: boolean;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
@@ -111,7 +111,7 @@ export class User extends BaseUser {
   @Column({ type: 'varchar', length: 45, nullable: true })
   declare lastLoginIp: string | null;
 
-  @Column({ type: 'tinyint', width: 1, default: 0 })
+  @Column({ type: 'boolean', default: false })
   declare mfaEnabled: boolean;
 
   @Column({ type: 'json', nullable: true })
@@ -129,7 +129,7 @@ export class User extends BaseUser {
   @Column({ type: 'varchar', length: 20, nullable: true })
   declare preferredMfaMethod: string | null;
 
-  @Column({ type: 'tinyint', width: 1, default: 0 })
+  @Column({ type: 'boolean', default: false })
   declare mfaExempt?: boolean;
 
   @Column({ type: 'varchar', length: 500, nullable: true })
@@ -141,7 +141,7 @@ export class User extends BaseUser {
   @Column({ type: 'varchar', length: 255, nullable: true })
   declare mfaExemptGrantedBy?: string | null;
 
-  @Column({ type: 'tinyint', width: 1, default: 0 })
+  @Column({ type: 'boolean', default: false })
   declare hasSocialAuth: boolean;
 
   @Column({ type: 'json', nullable: true })

@@ -53,7 +53,7 @@ export class AuthAudit extends BaseAuthAudit {
   @Column({ type: 'json', nullable: true })
   declare riskFactors?: string[] | null;
 
-  @Column({ type: 'tinyint', width: 1, nullable: true })
+  @Column({ type: 'boolean', nullable: true })
   declare adaptiveMfaTriggered?: boolean | null;
 
   @Column({ type: 'varchar', length: 45, nullable: true })

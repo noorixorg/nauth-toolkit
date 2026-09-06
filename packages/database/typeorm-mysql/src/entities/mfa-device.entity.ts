@@ -62,10 +62,10 @@ export class MFADevice extends BaseMFADevice {
   @Column({ type: 'json', nullable: true })
   declare transports?: string[] | null;
 
-  @Column({ type: 'tinyint', width: 1, default: 1 })
+  @Column({ type: 'boolean', default: true })
   declare isActive: boolean;
 
-  @Column({ type: 'tinyint', width: 1, default: 0 })
+  @Column({ type: 'boolean', default: false })
   declare isPrimary: boolean;
 
   @Column({ type: 'timestamp', precision: 6, nullable: true })

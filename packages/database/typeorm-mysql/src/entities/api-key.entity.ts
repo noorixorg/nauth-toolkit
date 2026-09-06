@@ -59,7 +59,7 @@ export class ApiKey extends BaseApiKey {
   @Column({ type: 'timestamp', precision: 6, nullable: true })
   declare expiresAt?: Date | null;
 
-  @Column({ type: 'tinyint', width: 1, default: 1 })
+  @Column({ type: 'boolean', default: true })
   declare isActive: boolean;
 
   @Column({ type: 'timestamp', precision: 6, nullable: true })
@@ -68,7 +68,7 @@ export class ApiKey extends BaseApiKey {
   @Column({ type: 'varchar', length: 255, nullable: true })
   declare revokeReason?: string | null;
 
-  @Column({ type: 'tinyint', width: 1, default: 0 })
+  @Column({ type: 'boolean', default: false })
   declare createdByAdmin: boolean;
 
   @Column({ type: 'timestamp', precision: 6, nullable: true })

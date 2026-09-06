@@ -1119,7 +1119,7 @@ export class MFAService {
 
     // If revoking exemption and MFA is required, check if user needs to set up MFA
     // Note: This is just for logging - actual MFA setup requirement is checked by state machine on next login
-    if (!dto.exempt && userEntity.mfaExempt === true && !userEntity.mfaEnabled) {
+    if (!dto.exempt && userEntity.mfaExempt && !userEntity.mfaEnabled) {
       this.logger?.warn?.(`MFA exemption revoked for user ${targetSub} - MFA setup will be required on next login`);
     }
 

@@ -93,7 +93,7 @@ export const Rules = {
    * @returns True if user must change password
    */
   mustChangePassword: (context: AuthFlowContext): boolean => {
-    return context.user.mustChangePassword === true;
+    return !!context.user.mustChangePassword;
   },
 
   /**

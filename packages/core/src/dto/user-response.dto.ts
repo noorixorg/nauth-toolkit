@@ -125,12 +125,14 @@ export class UserResponseDTO {
     dto.firstName = user.firstName;
     dto.lastName = user.lastName;
     dto.phone = user.phone;
-    dto.isEmailVerified = user.isEmailVerified;
-    dto.isPhoneVerified = user.isPhoneVerified;
-    dto.isActive = user.isActive;
-    dto.isLocked = user.isLocked;
-    dto.mfaEnabled = user.mfaEnabled;
-    dto.mfaExempt = !!(user.mfaExempt === true || (user.mfaExempt as unknown) === 1);
+    // Coerced rather than passed through: a driver that hands back 1/0 for a boolean
+    // column would otherwise leak a number out of fields this DTO declares as booleans.
+    dto.isEmailVerified = !!user.isEmailVerified;
+    dto.isPhoneVerified = !!user.isPhoneVerified;
+    dto.isActive = !!user.isActive;
+    dto.isLocked = !!user.isLocked;
+    dto.mfaEnabled = !!user.mfaEnabled;
+    dto.mfaExempt = !!user.mfaExempt;
     dto.socialProviders = user.socialProviders;
     dto.hasPasswordHash = !!user.passwordHash; // Check if password exists
     dto.createdAt = user.createdAt;
