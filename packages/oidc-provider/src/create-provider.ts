@@ -1,5 +1,6 @@
 import type Provider from 'oidc-provider';
 import type { Configuration } from 'oidc-provider';
+import { loadESM } from './load-esm';
 import { createOIDCStorageAdapter } from './storage.adapter';
 import { createFindAccount } from './find-account';
 import type { NAuthOIDCOptions } from './config.types';
@@ -38,19 +39,29 @@ const ROUTE_NAMES = [
  *
  * Node supports `require(esm)` unflagged from ^20.19 and ^22.12, and the package has
  * no top-level await, so the synchronous path works on every currently supported
- * runtime. The dynamic-import fallback covers Node 22.0–22.11, and is built through
- * `Function` so TypeScript does not rewrite it back into a `require` — the same
- * technique `JwtService` already uses for the ESM-only `jose`.
+ * runtime. `loadESM` covers Node 22.0–22.11, and any host whose `require` refuses ESM
+ * regardless of the runtime — Jest's does, so tests always take that path.
  */
 export async function loadProviderCtor(): Promise<ProviderCtor> {
   try {
-    const mod = require('oidc-provider') as { default?: ProviderCtor } & ProviderCtor;
-    return (mod.default ?? mod) as ProviderCtor;
+    return unwrapProviderCtor(require('oidc-provider'));
   } catch {
-    const nativeImport = new Function('m', 'return import(m)') as (m: string) => Promise<unknown>;
-    const mod = (await nativeImport('oidc-provider')) as { default?: ProviderCtor } & ProviderCtor;
-    return (mod.default ?? mod) as ProviderCtor;
+    return unwrapProviderCtor(await loadESM('oidc-provider'));
   }
+}
+
+/**
+ * Take the constructor out of a module namespace, however it was loaded.
+ *
+ * `require(esm)` and `import()` agree on the shape here, but a CommonJS interop layer
+ * in between may not, so the default export is unwrapped when present.
+ *
+ * @param mod - The loaded `oidc-provider` module namespace
+ * @returns The `Provider` constructor
+ */
+function unwrapProviderCtor(mod: unknown): ProviderCtor {
+  const namespace = mod as { default?: ProviderCtor } & ProviderCtor;
+  return (namespace.default ?? namespace) as ProviderCtor;
 }
 
 /**

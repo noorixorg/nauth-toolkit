@@ -17,6 +17,7 @@ import type { Repository } from 'typeorm';
 import { MemoryStorageAdapter, ContextStorage, type BaseUser, type NAuthConfig } from '@nauth-toolkit/core';
 import { IdpSessionGate } from '@nauth-toolkit/core/internal';
 import { createNAuthOIDCProvider } from './create-provider';
+import { loadESM } from './load-esm';
 import { OIDCInteractionBridge } from './interaction-bridge';
 import { isProviderPath } from './mount/express';
 
@@ -27,12 +28,13 @@ let client: OpenIdClient;
 /**
  * Load the ESM-only client from this CommonJS test runtime.
  *
- * Built through `Function` so TypeScript does not rewrite the dynamic import back
- * into a `require`, which is the same technique the provider loader uses.
+ * Shares `loadESM` with the provider loader rather than repeating a `Function`-wrapped
+ * dynamic import here — see that function for why a second, byte-identical copy of that
+ * source in this package made whichever spec ran second fail against a torn-down
+ * environment.
  */
-async function loadOpenIdClient(): Promise<OpenIdClient> {
-  const nativeImport = new Function('m', 'return import(m)') as (m: string) => Promise<unknown>;
-  return (await nativeImport('openid-client')) as OpenIdClient;
+function loadOpenIdClient(): Promise<OpenIdClient> {
+  return loadESM<OpenIdClient>('openid-client');
 }
 
 const PREFIX = '/oidc';
