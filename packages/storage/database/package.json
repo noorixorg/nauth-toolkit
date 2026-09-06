@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/storage-database",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Database-backed session storage for nauth-toolkit",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.5.0",
+    "@nauth-toolkit/core": "^0.6.0",
     "typeorm": "^0.3.0"
   },
   "devDependencies": {

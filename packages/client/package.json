@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/client",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Frontend authentication SDK for nauth-toolkit — framework-agnostic TypeScript",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
