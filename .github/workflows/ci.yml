@@ -34,6 +34,14 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
 
+      # `client-angular` publishes from `dist` and sets `linkDirectory`, so pnpm links
+      # that directory into the workspace apps that depend on it. It does not exist
+      # before the first build, and pnpm resolves links before any lifecycle script
+      # runs, so install fails on a clean checkout unless the directory is already
+      # there. The build overwrites it moments later.
+      - name: Create client-angular link target
+        run: mkdir -p packages/client-angular/dist
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
