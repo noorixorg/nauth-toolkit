@@ -667,12 +667,12 @@ async login(dto: LoginDTO): Promise<AuthResponseDTO>
   - **Success (Cookies mode)**: Contains `user`, `authMethod`, `trusted`, `deviceToken` (if trusted). Tokens are delivered via httpOnly cookies only.
   - **Challenge**: Contains `challengeName`, `session`, `challengeParameters`, `sub` (same format regardless of tokenDelivery method)
   - **Blocked**: Throws exception (no response body)
+  - **MFA grace period**: Any of the above shapes also carries [`mfaGracePeriod`](../dto/auth-response-dto#mfagraceperiodinfo) while MFA setup is pending but not yet enforced
 
 **Response Variations by Token Delivery Mode**
 
 | Mode                                            | Success Response Body                                                                                                  | Challenge Response Body                                    | Notes                                                                       |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------- |
-
 | **JSON** (`tokenDelivery.method: 'json'`)       | `{ accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt, user, authMethod, trusted?, deviceToken? }` | `{ challengeName, session, challengeParameters, sub }` | Tokens present in response body; client must store securely                 |
 | **Cookies** (`tokenDelivery.method: 'cookies'`) | `{ user, authMethod, trusted?, deviceToken? }` (tokens removed)                                                        | `{ challengeName, session, challengeParameters, sub }` | Tokens NOT in body (httpOnly cookies only); client reads via secure context |
 | **Hybrid** (`tokenDelivery.method: 'hybrid'`)   | Depends on `hybridPolicy`: web=cookies, mobile=json                                                                    | `{ challengeName, session, challengeParameters, sub }` | Policy-driven: web clients get cookies, mobile/API gets JSON tokens         |
@@ -1203,6 +1203,7 @@ async respondToChallenge(dto: RespondChallengeDTO): Promise<AuthResponseDTO>
   - **Success (JSON mode)**: Contains `accessToken`, `refreshToken`, `accessTokenExpiresAt`, `refreshTokenExpiresAt`, `user`, `authMethod`, `trusted`, `deviceToken` (if trusted)
   - **Success (Cookies mode)**: Contains `user`, `authMethod`, `trusted`, `deviceToken` (if trusted). Tokens are delivered via httpOnly cookies only.
   - **Challenge**: Contains `challengeName`, `session`, `challengeParameters`, `sub` (same format regardless of tokenDelivery method)
+  - **MFA grace period**: Any of the above shapes also carries [`mfaGracePeriod`](../dto/auth-response-dto#mfagraceperiodinfo) while MFA setup is pending but not yet enforced
 
 **Response Variations by Token Delivery Mode**
 
@@ -1444,6 +1445,7 @@ async signup(dto: SignupDTO): Promise<AuthResponseDTO>
   - **Success (JSON mode)**: Contains `accessToken`, `refreshToken`, `accessTokenExpiresAt`, `refreshTokenExpiresAt`, `user`, `authMethod`, `trusted`, `deviceToken` (if trusted)
   - **Success (Cookies mode)**: Contains `user`, `authMethod`, `trusted`, `deviceToken` (if trusted). Tokens are delivered via httpOnly cookies only.
   - **Challenge**: Contains `challengeName`, `session`, `challengeParameters`, `sub` (same format regardless of tokenDelivery method)
+  - **MFA grace period**: Any of the above shapes also carries [`mfaGracePeriod`](../dto/auth-response-dto#mfagraceperiodinfo) while MFA setup is pending but not yet enforced
 
 **Response Variations by Token Delivery Mode**
 

@@ -1017,6 +1017,9 @@ mfa: {
   enabled: true,
   enforcement: 'OPTIONAL',  // 'OPTIONAL' | 'REQUIRED' | 'ADAPTIVE'
   gracePeriod: 7,           // Days before REQUIRED enforcement kicks in
+  grace: {
+    skipForSignup: false,   // Skip the MFA setup challenge during signup only
+  },
   requireForSocialLogin: false,
 
   allowedMethods: [
@@ -1072,6 +1075,31 @@ mfa: {
   },
 },
 ```
+
+### Grace period
+
+Under `REQUIRED` and `ADAPTIVE` enforcement, users who have not enrolled MFA are challenged with `MFA_SETUP_REQUIRED`. These options control when that challenge starts.
+
+| Option | Description | Default |
+| --- | --- | --- |
+| `gracePeriod` | Days from account creation during which an un-enrolled user can still authenticate. `0` enforces setup immediately. | `7` |
+| `grace.skipForSignup` | Skip the `MFA_SETUP_REQUIRED` challenge for the signup flow only, so signup stays frictionless. Enforcement resumes on the user's **next login**. Honoured even when `gracePeriod` is `0`. | `false` |
+
+While setup is pending but not yet enforced, every auth response — challenges included — carries [`mfaGracePeriod`](/docs/api/core/dto/auth-response-dto#mfagraceperiodinfo), so a client can offer an optional setup flow right after signup instead of waiting for a later login to force it.
+
+```typescript
+// No day-based grace, but signup is never blocked by an MFA wall
+mfa: {
+  enabled: true,
+  enforcement: 'REQUIRED',
+  gracePeriod: 0,
+  grace: { skipForSignup: true },
+},
+```
+
+:::note
+`grace.skipForSignup` covers the signup request and the email/phone verification challenges it issues — the whole onboarding flow, including social signup. It does not affect login.
+:::
 
 ## Geolocation {/* #geolocation */}
 Configure IP geolocation for adaptive MFA.

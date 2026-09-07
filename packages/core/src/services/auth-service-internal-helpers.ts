@@ -154,6 +154,8 @@ export class AuthServiceInternalHelpers {
     const authMethod = (challengeSession.metadata?.authMethod as string) || 'password';
     const authProvider = challengeSession.metadata?.authProvider as string | undefined;
     const isSocialLogin = authMethod === 'social';
+    // Completing a signup-issued verification is still part of the signup flow
+    const isSignup = challengeSession.metadata?.isSignup === true;
 
     // Check for next challenges
     const response = await this.challengeHelper.determineAuthResponse({
@@ -163,6 +165,7 @@ export class AuthServiceInternalHelpers {
       isSocialLogin,
       skipMFAVerification: false,
       authProvider,
+      isSignup,
     });
 
     if (response.challengeName) {
@@ -270,6 +273,7 @@ export class AuthServiceInternalHelpers {
       // Preserve auth context from original challenge session
       const authMethod = (challengeSession.metadata?.authMethod as string) || 'password';
       const authProvider = challengeSession.metadata?.authProvider as string | undefined;
+      const isSignupFlow = challengeSession.metadata?.isSignup === true;
 
       // Return same challenge with updated phone in parameters
       // Skip auto-send since SMS was already sent above during phone collection
@@ -280,6 +284,7 @@ export class AuthServiceInternalHelpers {
         authMethod as 'password' | 'social',
         authProvider,
         true, // skipAutoSend = true (SMS already sent during phone collection)
+        isSignupFlow, // Preserve signup origin across the collection step
       );
 
       // Include SMS error in challenge parameters if SMS failed
@@ -334,6 +339,8 @@ export class AuthServiceInternalHelpers {
       const authMethod = (challengeSession.metadata?.authMethod as string) || 'password';
       const authProvider = challengeSession.metadata?.authProvider as string | undefined;
       const isSocialLogin = authMethod === 'social';
+      // Completing a signup-issued verification is still part of the signup flow
+      const isSignup = challengeSession.metadata?.isSignup === true;
 
       // Check for next challenges
       const response = await this.challengeHelper.determineAuthResponse({
@@ -343,6 +350,7 @@ export class AuthServiceInternalHelpers {
         isSocialLogin,
         skipMFAVerification: false,
         authProvider,
+        isSignup,
       });
 
       if (response.challengeName) {

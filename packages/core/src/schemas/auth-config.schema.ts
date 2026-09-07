@@ -467,10 +467,21 @@ export const adaptiveMFAConfigSchema = z.object({
   suspiciousActivityWindow: z.number().optional(),
 });
 
+/**
+ * MFA grace behaviour schema
+ *
+ * Options that refine when a pending MFA setup is enforced.
+ * `skipForSignup` applies even when `gracePeriod` is 0.
+ */
+export const mfaGraceConfigSchema = z.object({
+  skipForSignup: z.boolean().optional(),
+});
+
 export const mfaConfigSchema = z.object({
   enabled: z.boolean().optional(),
   enforcement: z.enum(['OPTIONAL', 'REQUIRED', 'ADAPTIVE']).optional(),
   gracePeriod: z.number().optional(),
+  grace: mfaGraceConfigSchema.optional(),
   allowedMethods: z.array(z.enum(['totp', 'sms', 'email', 'passkey'])).optional(),
   requireForSocialLogin: z.boolean().optional(),
   rememberDevices: z.enum(['always', 'user_opt_in', 'never']).optional(),

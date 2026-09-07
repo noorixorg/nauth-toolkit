@@ -21,6 +21,7 @@ import { AuthFlowStateMachineService } from './auth-flow-state-machine.service';
 import { AuthFlowContextBuilder } from './auth-flow-context-builder.service';
 import { AuthFlowState, AuthFlowContext } from './auth-flow-state-machine.types';
 import { ContextStorage } from '../utils/context-storage';
+import { buildMfaGracePeriodInfo } from '../utils/mfa-grace-period';
 
 /**
  * ContextStorage key used by AuthService to pass a pre-resolved refresh
@@ -80,6 +81,8 @@ export class AuthChallengeHelperService {
    * @param config - Auth configuration
    * @param authMethod - Authentication method ('password' or 'social')
    * @param authProvider - Provider name for social auth (e.g., 'google', 'facebook')
+   * @param skipAutoSend - Skip auto-sending the verification code (already sent by the caller)
+   * @param isSignup - Whether this challenge belongs to a signup flow
    * @returns Challenge response DTO
    *
    * @example
@@ -100,6 +103,7 @@ export class AuthChallengeHelperService {
     authMethod: 'password' | 'social' = 'password',
     authProvider?: string,
     skipAutoSend?: boolean,
+    isSignup?: boolean,
   ): Promise<AuthResponseDTO> {
     // Client info (ipAddress, userAgent) automatically extracted from ClientInfoService
     // Note: ClientInfoService is used transparently by ChallengeService and AuditService
@@ -119,6 +123,9 @@ export class AuthChallengeHelperService {
       phone: user.phone,
       authMethod, // Store auth method for challenge completion flow
       authProvider, // Store provider for social auth (e.g., 'google', 'facebook')
+      // Carry the signup origin so completing this challenge still counts as part of
+      // the signup flow (needed by mfa.grace.skipForSignup)
+      isSignup: isSignup || undefined,
     });
 
     // ============================================================================
@@ -763,6 +770,7 @@ export class AuthChallengeHelperService {
    * @param params.isSocialLogin - Whether this is a social login (OAuth) authentication (optional)
    * @param params.skipMFAVerification - Skip MFA verification flag (optional)
    * @param params.authProvider - Social auth provider name (optional)
+   * @param params.isSignup - Whether this belongs to a signup flow (optional)
    * @returns Auth response (either challenge or success)
    *
    * @example
@@ -782,11 +790,20 @@ export class AuthChallengeHelperService {
     isSocialLogin?: boolean;
     skipMFAVerification?: boolean;
     authProvider?: string;
+    isSignup?: boolean;
   }): Promise<AuthResponseDTO> {
-    const { user, config, deviceToken, isSocialLogin = false, skipMFAVerification = false, authProvider } = params;
+    const {
+      user,
+      config,
+      deviceToken,
+      isSocialLogin = false,
+      skipMFAVerification = false,
+      authProvider,
+      isSignup = false,
+    } = params;
 
     this.logger?.debug?.(
-      `[ChallengeHelper] determineAuthResponse called for user ${user.sub} (isSocialLogin=${isSocialLogin}, skipMFA=${skipMFAVerification}, deviceToken=${deviceToken ? 'present' : 'none'})`,
+      `[ChallengeHelper] determineAuthResponse called for user ${user.sub} (isSocialLogin=${isSocialLogin}, skipMFA=${skipMFAVerification}, isSignup=${isSignup}, deviceToken=${deviceToken ? 'present' : 'none'})`,
     );
 
     // Build context with pre-computed values
@@ -797,6 +814,7 @@ export class AuthChallengeHelperService {
       authProvider,
       deviceToken,
       skipMFAVerification,
+      isSignup,
     });
 
     // Evaluate state using state machine
@@ -814,6 +832,22 @@ export class AuthChallengeHelperService {
 
     // Convert state to response
     const response = await this.stateToResponse(state, stateDefinition, context, metadata);
+
+    // ============================================================================
+    // MFA Grace Period
+    // ============================================================================
+    // Attached to every response shape (challenge and success) so clients learn that
+    // MFA setup is due in the future at the earliest possible point - typically the
+    // signup response - and can offer an optional setup flow before enforcement bites.
+    // Returns undefined unless the user is genuinely inside a grace period for a
+    // pending MFA setup, so responses are unchanged for everyone else.
+    const mfaGracePeriod = buildMfaGracePeriodInfo(user, config, { isSignup });
+    if (mfaGracePeriod) {
+      response.mfaGracePeriod = mfaGracePeriod;
+      this.logger?.debug?.(
+        `[ChallengeHelper] MFA grace period active for user ${user.sub}: ends ${mfaGracePeriod.endsAt} (${mfaGracePeriod.daysRemaining}d, enforcement=${mfaGracePeriod.enforcement})`,
+      );
+    }
 
     this.logger?.debug?.(
       `[ChallengeHelper] State ${state} → Challenge: ${response.challengeName || 'SUCCESS'} for user ${user.sub}`,
@@ -874,6 +908,8 @@ export class AuthChallengeHelperService {
         context.config,
         authMethod,
         context.authProvider,
+        undefined,
+        context.isSignup,
       );
     }
 

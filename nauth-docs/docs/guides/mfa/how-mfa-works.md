@@ -54,6 +54,9 @@ mfa: {
 
   // Grace period for REQUIRED enforcement (days before enforcement kicks in)
   gracePeriod: 7,
+  grace: {
+    skipForSignup: false,            // Skip the setup challenge during signup only
+  },
 
   // Skip MFA for social login users
   requireForSocialLogin: false,
@@ -92,6 +95,56 @@ See [Configuration > MFA](/docs/concepts/configuration#multi-factor-authenticati
 **REQUIRED enforcement** prompts users to set up MFA after login. During the grace period (`gracePeriod` days), users can log in without MFA. After the grace period, login is blocked until MFA is configured.
 
 **ADAPTIVE enforcement** has the same setup requirement as `REQUIRED` — users must enroll MFA (subject to the same grace period). The difference is what happens after enrollment: instead of always challenging, the risk engine evaluates each login and only triggers MFA when risk is elevated. See [Adaptive MFA](#adaptive-mfa) below.
+
+### Grace period
+
+While a user is inside the grace period, they authenticate normally and every auth response carries [`mfaGracePeriod`](/docs/api/core/dto/auth-response-dto#mfagraceperiodinfo) — on challenge responses too, so the signup response already tells the frontend that setup is coming:
+
+```json
+{
+  "challengeName": "VERIFY_EMAIL",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
+  "sub": "b32c765d-3857-5279-bdff-d286194b76de",
+  "mfaGracePeriod": {
+    "active": true,
+    "endsAt": "2025-02-01T00:00:00.000Z",
+    "daysRemaining": 7,
+    "enforcement": "REQUIRED"
+  }
+}
+```
+
+Use it to run an optional MFA setup flow as soon as signup completes, or to show a countdown banner. Once the grace expires the field disappears and login returns `MFA_SETUP_REQUIRED` instead.
+
+**Frictionless signup with immediate enforcement.** Setting `gracePeriod: 0` blocks signup on MFA setup, which is often too much friction at the front door. `grace.skipForSignup` skips the setup challenge for the signup flow only — the user finishes onboarding with tokens, and their very next login is challenged:
+
+```typescript title="src/config/auth.config.ts"
+mfa: {
+  enabled: true,
+  enforcement: 'REQUIRED',
+  gracePeriod: 0,
+  grace: { skipForSignup: true },
+},
+```
+
+The signup response then reports the deadline explicitly:
+
+```json
+{
+  "mfaGracePeriod": {
+    "active": true,
+    "daysRemaining": 0,
+    "enforcement": "REQUIRED",
+    "requiredAtNextLogin": true
+  }
+}
+```
+
+:::tip
+`requiredAtNextLogin: true` is the cue to prompt for MFA setup immediately rather than showing a dismissible reminder — the user cannot log in again without completing it.
+:::
+
+The skip covers the signup request and the email/phone verification challenges it issues (social signup included), so it survives a multi-step onboarding. It never applies to login.
 
 ## How MFA Works
 

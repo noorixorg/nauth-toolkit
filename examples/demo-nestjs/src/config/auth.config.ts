@@ -91,8 +91,13 @@ export const authConfig: NAuthModuleConfig = {
   },
   mfa: {
     enabled: true,
-    enforcement: 'ADAPTIVE',
-    gracePeriod: 2,
+    // Overridable per-run so the E2E suite can exercise each enforcement/grace combination
+    // without editing this file: MFA_ENFORCEMENT / MFA_GRACE_PERIOD / MFA_GRACE_SKIP_FOR_SIGNUP
+    enforcement: (process.env.MFA_ENFORCEMENT as 'OPTIONAL' | 'REQUIRED' | 'ADAPTIVE') || 'ADAPTIVE',
+    gracePeriod: process.env.MFA_GRACE_PERIOD !== undefined ? parseInt(process.env.MFA_GRACE_PERIOD, 10) : 2,
+    grace: {
+      skipForSignup: process.env.MFA_GRACE_SKIP_FOR_SIGNUP === 'true',
+    },
     requireForSocialLogin: false,
     allowedMethods: [MFAMethod.SMS, MFAMethod.EMAIL, MFAMethod.TOTP, MFAMethod.PASSKEY],
     issuer: 'Nauth App',

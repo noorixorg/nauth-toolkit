@@ -220,6 +220,69 @@ describe('AuthFlowContextBuilder', () => {
       expect(context.computed.isEmailVerificationRequired).toBe(false); // Social users have pre-verified email
     });
 
+    describe('MFA setup requirement', () => {
+      const enforcedConfig = (mfa: Partial<NonNullable<NAuthConfig['mfa']>>): NAuthConfig =>
+        ({
+          ...mockConfig,
+          mfa: { ...mockConfig.mfa, enabled: true, enforcement: 'REQUIRED', ...mfa },
+        }) as NAuthConfig;
+
+      // Old enough that no day-based grace period could still be open
+      const oldUser: IUser = { ...mockUser, createdAt: new Date('2020-01-01') };
+
+      it('requires MFA setup when the grace period has expired', async () => {
+        const context = await service.build({ user: oldUser, config: enforcedConfig({ gracePeriod: 7 }) });
+
+        expect(context.computed.isMFASetupRequired).toBe(true);
+      });
+
+      it('does not require MFA setup while the grace period is open', async () => {
+        const context = await service.build({
+          user: { ...mockUser, createdAt: new Date() },
+          config: enforcedConfig({ gracePeriod: 7 }),
+        });
+
+        expect(context.computed.isMFASetupRequired).toBe(false);
+      });
+
+      it('requires MFA setup immediately when gracePeriod is 0', async () => {
+        const context = await service.build({ user: oldUser, config: enforcedConfig({ gracePeriod: 0 }) });
+
+        expect(context.computed.isMFASetupRequired).toBe(true);
+      });
+
+      it('skips MFA setup during signup when grace.skipForSignup is enabled', async () => {
+        const context = await service.build({
+          user: oldUser,
+          config: enforcedConfig({ gracePeriod: 0, grace: { skipForSignup: true } }),
+          isSignup: true,
+        });
+
+        expect(context.isSignup).toBe(true);
+        expect(context.computed.isMFASetupRequired).toBe(false);
+      });
+
+      it('requires MFA setup on the next login after a skipped signup', async () => {
+        const context = await service.build({
+          user: oldUser,
+          config: enforcedConfig({ gracePeriod: 0, grace: { skipForSignup: true } }),
+          isSignup: false,
+        });
+
+        expect(context.computed.isMFASetupRequired).toBe(true);
+      });
+
+      it('does not skip signup MFA setup when grace.skipForSignup is off', async () => {
+        const context = await service.build({
+          user: oldUser,
+          config: enforcedConfig({ gracePeriod: 0 }),
+          isSignup: true,
+        });
+
+        expect(context.computed.isMFASetupRequired).toBe(true);
+      });
+    });
+
     it('should work without optional services', async () => {
       const serviceWithoutServices = new AuthFlowContextBuilder(undefined, undefined, undefined, mockLogger);
 

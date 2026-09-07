@@ -122,6 +122,14 @@ export interface AuthFlowContext {
   skipMFAVerification?: boolean;
 
   /**
+   * Whether this evaluation belongs to a signup flow
+   *
+   * True for the signup request itself and for the email/phone verification challenges
+   * it issues. Used by `mfa.grace.skipForSignup` to keep signup frictionless.
+   */
+  isSignup?: boolean;
+
+  /**
    * Pre-computed values for rule evaluation
    * These are calculated once at the beginning of the flow to optimize performance.
    */

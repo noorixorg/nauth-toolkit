@@ -3234,4 +3234,220 @@ describe('AuthChallengeHelperService', () => {
       });
     });
   });
+
+  // ============================================================================
+  // MFA Grace Period in responses
+  // ============================================================================
+
+  describe('determineAuthResponse - MFA grace period', () => {
+    /**
+     * Build a service instance wired with the standard mocks
+     */
+    const makeService = (): AuthChallengeHelperService =>
+      new AuthChallengeHelperService(
+        mockChallengeService,
+        mockJwtService,
+        mockSessionService,
+        mockMFADeviceRepository,
+        mockLogger,
+        mockStateMachine,
+        mockContextBuilder,
+        mockClientInfoService,
+        mockEmailVerificationService,
+      );
+
+    /**
+     * Point the mocked state machine at a challenge state
+     */
+    const mockChallengeState = (state: AuthFlowState, challenge: AuthChallenge): void => {
+      mockStateMachine.evaluateState.mockResolvedValue(state);
+      mockStateMachine.getStateDefinition.mockReturnValue({ state, priority: 2, condition: () => true, challenge });
+      mockStateMachine.buildMetadata.mockReturnValue({});
+      mockChallengeService.createChallengeSession.mockResolvedValue(
+        createMockChallengeSession('grace-session', challenge),
+      );
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockClientInfoService.get.mockReturnValue({
+        ipAddress: '1.2.3.4',
+        userAgent: 'test-agent',
+        deviceToken: undefined,
+      } as any);
+      mockEmailVerificationService.sendVerificationEmail.mockResolvedValue({ tokenId: 1 } as any);
+    });
+
+    it('attaches grace period info to a signup challenge response', async () => {
+      const user = { ...mockUser, isEmailVerified: false, mfaEnabled: false, createdAt: new Date() } as IUser;
+      const config = {
+        ...mockConfig,
+        signup: { verificationMethod: 'email' as const },
+        mfa: { enabled: true, enforcement: 'REQUIRED' as const, gracePeriod: 7 },
+      } as NAuthConfig;
+
+      mockContextBuilder.build.mockResolvedValue({
+        user,
+        config,
+        authMethod: 'password',
+        isSignup: true,
+        computed: {
+          isEmailVerificationRequired: true,
+          isPhoneVerificationRequired: false,
+          isPhoneCollectionNeeded: false,
+          isMFAExempt: false,
+          isMFASetupRequired: false,
+          isMFAVerificationRequired: false,
+          isDeviceTrusted: false,
+          isGracePeriodActive: true,
+          isBlocked: false,
+        },
+      } as AuthFlowContext);
+      mockChallengeState(AuthFlowState.PENDING_EMAIL_VERIFICATION, AuthChallenge.VERIFY_EMAIL);
+
+      const result = await makeService().determineAuthResponse({ user, config, isSignup: true });
+
+      expect(result.challengeName).toBe(AuthChallenge.VERIFY_EMAIL);
+      expect(result.mfaGracePeriod).toEqual({
+        active: true,
+        endsAt: expect.any(String),
+        daysRemaining: 7,
+        enforcement: 'REQUIRED',
+      });
+    });
+
+    it('records the signup origin on the challenge session so completion keeps the skip', async () => {
+      const user = { ...mockUser, isEmailVerified: false, createdAt: new Date() } as IUser;
+      const config = { ...mockConfig, signup: { verificationMethod: 'email' as const } } as NAuthConfig;
+
+      mockContextBuilder.build.mockResolvedValue({
+        user,
+        config,
+        authMethod: 'password',
+        isSignup: true,
+        computed: {
+          isEmailVerificationRequired: true,
+          isPhoneVerificationRequired: false,
+          isPhoneCollectionNeeded: false,
+          isMFAExempt: false,
+          isMFASetupRequired: false,
+          isMFAVerificationRequired: false,
+          isDeviceTrusted: false,
+          isGracePeriodActive: false,
+          isBlocked: false,
+        },
+      } as AuthFlowContext);
+      mockChallengeState(AuthFlowState.PENDING_EMAIL_VERIFICATION, AuthChallenge.VERIFY_EMAIL);
+
+      await makeService().determineAuthResponse({ user, config, isSignup: true });
+
+      expect(mockChallengeService.createChallengeSession).toHaveBeenCalledWith(
+        user,
+        AuthChallenge.VERIFY_EMAIL,
+        expect.objectContaining({ isSignup: true }),
+      );
+    });
+
+    it('omits grace period info when enforcement is OPTIONAL', async () => {
+      const user = { ...mockUser, isEmailVerified: false, createdAt: new Date() } as IUser;
+      const config = {
+        ...mockConfig,
+        signup: { verificationMethod: 'email' as const },
+        mfa: { enabled: true, enforcement: 'OPTIONAL' as const, gracePeriod: 7 },
+      } as NAuthConfig;
+
+      mockContextBuilder.build.mockResolvedValue({
+        user,
+        config,
+        authMethod: 'password',
+        computed: {
+          isEmailVerificationRequired: true,
+          isPhoneVerificationRequired: false,
+          isPhoneCollectionNeeded: false,
+          isMFAExempt: false,
+          isMFASetupRequired: false,
+          isMFAVerificationRequired: false,
+          isDeviceTrusted: false,
+          isGracePeriodActive: false,
+          isBlocked: false,
+        },
+      } as AuthFlowContext);
+      mockChallengeState(AuthFlowState.PENDING_EMAIL_VERIFICATION, AuthChallenge.VERIFY_EMAIL);
+
+      const result = await makeService().determineAuthResponse({ user, config });
+
+      expect(result.mfaGracePeriod).toBeUndefined();
+    });
+
+    it('reports requiredAtNextLogin on a frictionless signup with gracePeriod 0', async () => {
+      const user = {
+        ...mockUser,
+        isEmailVerified: true,
+        mfaEnabled: false,
+        createdAt: new Date('2020-01-01'),
+      } as IUser;
+      const config = {
+        ...mockConfig,
+        signup: { verificationMethod: 'none' as const },
+        mfa: {
+          enabled: true,
+          enforcement: 'REQUIRED' as const,
+          gracePeriod: 0,
+          grace: { skipForSignup: true },
+        },
+      } as NAuthConfig;
+
+      mockContextBuilder.build.mockResolvedValue({
+        user,
+        config,
+        authMethod: 'password',
+        isSignup: true,
+        computed: {
+          isEmailVerificationRequired: false,
+          isPhoneVerificationRequired: false,
+          isPhoneCollectionNeeded: false,
+          isMFAExempt: false,
+          isMFASetupRequired: false,
+          isMFAVerificationRequired: false,
+          isDeviceTrusted: false,
+          isGracePeriodActive: false,
+          isBlocked: false,
+        },
+      } as AuthFlowContext);
+
+      mockStateMachine.evaluateState.mockResolvedValue(AuthFlowState.AUTHENTICATED);
+      mockStateMachine.getStateDefinition.mockReturnValue({
+        state: AuthFlowState.AUTHENTICATED,
+        priority: 9,
+        condition: () => true,
+      });
+      mockStateMachine.buildMetadata.mockReturnValue(undefined);
+      mockJwtService.generateTokenFamily.mockReturnValue('family-grace');
+      mockJwtService.generateTokenPair.mockResolvedValue({
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        expiresIn: 900,
+      } as any);
+      mockJwtService.hashToken.mockReturnValue('token-hash');
+      mockSessionService.createSession.mockResolvedValue({ id: 1 } as any);
+      mockJwtService.validateAccessToken.mockResolvedValue({
+        valid: true,
+        payload: { exp: Math.floor(Date.now() / 1000) + 900 } as any,
+      });
+      mockJwtService.validateRefreshToken.mockResolvedValue({
+        valid: true,
+        payload: { exp: Math.floor(Date.now() / 1000) + 2592000 } as any,
+      });
+
+      const result = await makeService().determineAuthResponse({ user, config, isSignup: true });
+
+      expect(result.accessToken).toBe('access-token');
+      expect(result.mfaGracePeriod).toEqual({
+        active: true,
+        daysRemaining: 0,
+        enforcement: 'REQUIRED',
+        requiredAtNextLogin: true,
+      });
+    });
+  });
 });

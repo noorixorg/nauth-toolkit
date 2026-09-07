@@ -59,6 +59,67 @@ export interface AuthResponseUser {
 }
 
 /**
+ * MFA grace period information returned in authentication responses
+ *
+ * Present only while MFA setup is *pending but not yet demanded* — MFA is enabled with
+ * `REQUIRED` or `ADAPTIVE` enforcement, the user has neither set up MFA nor been exempted,
+ * and either:
+ * - the day-based `mfa.gracePeriod` window is still open, or
+ * - the setup challenge was skipped for this signup via `mfa.grace.skipForSignup`, in which
+ *   case `requiredAtNextLogin` is `true`.
+ *
+ * Clients can use this to offer an optional MFA setup flow (for example right after
+ * signup) before enforcement makes setup mandatory.
+ *
+ * Once the grace ends, this field is absent and the flow instead returns
+ * the `MFA_SETUP_REQUIRED` challenge.
+ */
+export interface MfaGracePeriodInfo {
+  /**
+   * Always true when this object is present
+   *
+   * The field is omitted entirely when no grace period applies, so `active` acts as
+   * a discriminator for clients that keep a nullable copy of the payload.
+   */
+  active: boolean;
+
+  /**
+   * Timestamp at which the grace period ends and MFA setup becomes mandatory
+   * ISO 8601 string
+   *
+   * Absent when the grace lasts only for the signup flow itself
+   * (`mfa.grace.skipForSignup` with `gracePeriod: 0`) — see `requiredAtNextLogin`.
+   *
+   * @example "2025-02-01T00:00:00.000Z"
+   */
+  endsAt?: string;
+
+  /**
+   * Whole days remaining before the grace period ends
+   *
+   * Rounded up, so a partial final day reports as `1`.
+   * `0` when the grace covers only the signup flow.
+   *
+   * @example 7
+   */
+  daysRemaining: number;
+
+  /**
+   * MFA enforcement policy that will apply once the grace period ends
+   */
+  enforcement: 'REQUIRED' | 'ADAPTIVE';
+
+  /**
+   * Whether MFA setup will be demanded on the user's very next login
+   *
+   * True when the setup challenge was suppressed purely to keep signup frictionless
+   * (`mfa.grace.skipForSignup` with no day-based grace left). The client should strongly
+   * encourage setting up MFA now, because the next login will block on it.
+   */
+  requiredAtNextLogin?: boolean;
+}
+
+/**
  * Unified Authentication Response DTO
  *
  * Used for ALL authentication operations:
@@ -234,6 +295,27 @@ export class AuthResponseDTO {
    * @example "a21b654c-2746-4168-acee-c175083a65cd"
    */
   sub?: string;
+
+  /**
+   * MFA grace period status
+   *
+   * Present on both challenge and success responses whenever the user is inside an
+   * active grace period for a pending MFA setup. Absent otherwise.
+   *
+   * Typical use: after signup, the client sees this field and can offer an optional
+   * MFA setup flow instead of waiting for enforcement to force it on a later login.
+   *
+   * @example
+   * ```typescript
+   * {
+   *   active: true,
+   *   endsAt: '2025-02-01T00:00:00.000Z',
+   *   daysRemaining: 7,
+   *   enforcement: 'REQUIRED'
+   * }
+   * ```
+   */
+  mfaGracePeriod?: MfaGracePeriodInfo;
 }
 
 /**

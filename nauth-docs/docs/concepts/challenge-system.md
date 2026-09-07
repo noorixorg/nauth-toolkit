@@ -261,15 +261,18 @@ Issued during login when **MFA enforcement is enabled** and the user is required
 **When you’ll see it:**
 
 - `mfa.enabled = true`
-- `mfa.enforcement = 'REQUIRED'` (and the grace period has expired or is disabled)
+- `mfa.enforcement = 'REQUIRED'` or `'ADAPTIVE'` (and the grace period has expired or is disabled)
 
 **User Action**: Take the user through MFA setup (e.g., TOTP QR code, SMS enrollment, passkey registration).
 
 **Next Step**: Complete MFA setup, then call the challenge completion endpoint to finish the login.
 
+**Before it appears:** while setup is still pending but not yet enforced, responses carry [`mfaGracePeriod`](/docs/api/core/dto/auth-response-dto#mfagraceperiodinfo) instead of this challenge — including the signup response, so a client can run an optional setup flow early. Setting `mfa.grace.skipForSignup` also defers this challenge past signup so onboarding is never blocked by it.
+
 Related:
 
 - [Configuration → MFA](/docs/concepts/configuration#multi-factor-authentication)
+- [Configuration → Grace period](/docs/concepts/configuration#grace-period)
 - [MFAService API](/docs/api/core/services/mfa-service)
 
 ### 5. `FORCE_CHANGE_PASSWORD`

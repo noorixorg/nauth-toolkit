@@ -26,6 +26,7 @@ import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { RiskFactor } from '../enums/risk-factor.enum';
 import { MFAService } from './mfa.service';
 import { ContextStorage } from '../utils/context-storage';
+import { calculateMfaGracePeriodWindow, MfaGracePeriodWindow } from '../utils/mfa-grace-period';
 import { resolveRefreshExpiresIn } from '../utils/token-delivery-policy';
 import type { NAuthRequest } from '../platform/interfaces';
 import { SignupDTO } from '../dto/signup.dto';
@@ -452,6 +453,8 @@ export class AuthService {
       user: savedUser,
       config: this.config,
       deviceToken: clientInfo.deviceToken,
+      // Marks the whole signup flow so mfa.grace.skipForSignup can defer MFA setup
+      isSignup: true,
     });
 
     if (response.challengeName) {
@@ -3183,6 +3186,20 @@ export class AuthService {
       throw new NAuthException(AuthErrorCode.PASSWORD_RESET_CODE_INVALID, 'Invalid password reset code');
     }
 
+    // ============================================================================
+    // SECURITY: prove possession of the reset code BEFORE any account-state-dependent
+    // branch runs.
+    // ============================================================================
+    // `updateUserPassword` validates the new password against policy and the user's
+    // password history. Those checks return account-specific errors (WEAK_PASSWORD,
+    // PASSWORD_REUSED). If they ran before the code was verified, an unauthenticated
+    // caller who only knows the victim's identifier could submit a junk code with a
+    // guessed password and read the differing error as an oracle for the victim's
+    // password history. Gating on the code first closes that oracle. The code is still
+    // consumed (marked used) atomically in `beforePersist`, so a legitimate user whose
+    // password fails validation keeps the same code to retry — behaviour is unchanged.
+    await this.passwordResetService.verifyValidCode(user, dto.code);
+
     const { sessionsRevoked: _sessionsRevoked } = await this.helpers.updateUserPassword(
       {
         user,
@@ -3225,34 +3242,9 @@ export class AuthService {
    * Calculate grace period status for a user.
    *
    * @param user - User to check
-   * @returns Grace period status with isActive flag and endsAt date
+   * @returns Grace period window (delegates to the shared `calculateMfaGracePeriodWindow` helper)
    */
-  private calculateGracePeriodForUser(user: IUser): { isActive: boolean; endsAt?: Date } {
-    const gracePeriod = this.config.mfa?.gracePeriod ?? 7;
-
-    // No grace period
-    if (gracePeriod === 0) {
-      return { isActive: false };
-    }
-
-    // Access createdAt from user interface
-    const userWithDates = user as IUser & { createdAt: Date };
-    const createdAt = userWithDates.createdAt;
-
-    if (!createdAt) {
-      // No creation date - grace period not active
-      return { isActive: false };
-    }
-
-    const gracePeriodEnd = new Date(createdAt);
-    gracePeriodEnd.setDate(gracePeriodEnd.getDate() + gracePeriod);
-
-    const now = new Date();
-    const isActive = now < gracePeriodEnd;
-
-    return {
-      isActive,
-      endsAt: isActive ? gracePeriodEnd : undefined,
-    };
+  private calculateGracePeriodForUser(user: IUser): MfaGracePeriodWindow {
+    return calculateMfaGracePeriodWindow(user, this.config);
   }
 }

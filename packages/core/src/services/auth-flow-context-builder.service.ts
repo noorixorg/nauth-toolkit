@@ -5,6 +5,13 @@ import { AdaptiveMFADecisionService } from './adaptive-mfa-decision.service';
 import { ClientInfoService } from './client-info.service';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { AuthFlowContext } from './auth-flow-state-machine.types';
+import {
+  calculateMfaGracePeriodWindow,
+  DEFAULT_MFA_GRACE_PERIOD_DAYS,
+  isMfaExempt,
+  MfaGracePeriodWindow,
+  shouldSkipMfaSetupForSignup,
+} from '../utils/mfa-grace-period';
 
 /**
  * Authentication Flow Context Builder
@@ -41,6 +48,7 @@ export class AuthFlowContextBuilder {
    * @param params.authProvider - Social auth provider name (e.g., 'google', 'apple')
    * @param params.deviceToken - Device token for trusted device check
    * @param params.skipMFAVerification - Skip MFA verification flag
+   * @param params.isSignup - Whether this evaluation belongs to a signup flow
    * @returns Authentication flow context with computed values
    *
    * @example
@@ -60,8 +68,9 @@ export class AuthFlowContextBuilder {
     authProvider?: string;
     deviceToken?: string;
     skipMFAVerification?: boolean;
+    isSignup?: boolean;
   }): Promise<AuthFlowContext> {
-    const { user, config, authMethod, authProvider, deviceToken, skipMFAVerification } = params;
+    const { user, config, authMethod, authProvider, deviceToken, skipMFAVerification, isSignup } = params;
 
     this.logger?.debug?.(
       `[ContextBuilder] Building context for user ${user.sub} (authMethod=${authMethod || 'password'}, mfaEnabled=${user.mfaEnabled}, mfaExempt=${user.mfaExempt || false})`,
@@ -75,7 +84,7 @@ export class AuthFlowContextBuilder {
     const isPhoneVerificationRequired = this.isPhoneVerificationRequired(user, config, authMethod);
     const isPhoneCollectionNeeded = this.isPhoneCollectionNeeded(user, config, authMethod);
     const isMFAExempt = this.checkMFAExempt(user);
-    const isMFASetupRequired = this.isMFASetupRequired(user, config, authMethod);
+    const isMFASetupRequired = this.isMFASetupRequired(user, config, authMethod, isSignup);
     const isDeviceTrusted = await this.checkDeviceTrust(user, deviceToken, config);
     const gracePeriodData = this.calculateGracePeriod(user, config);
     const blockData = await this.checkBlocked(user);
@@ -123,6 +132,7 @@ export class AuthFlowContextBuilder {
       authProvider,
       deviceToken,
       skipMFAVerification,
+      isSignup,
       computed,
     };
   }
@@ -239,9 +249,7 @@ export class AuthFlowContextBuilder {
    * @returns True if user is exempt from MFA
    */
   private checkMFAExempt(user: IUser): boolean {
-    const mfaExempt = user.mfaExempt;
-    // Handle different database representations (boolean true, MySQL tinyint 1, etc.)
-    return mfaExempt === true || (mfaExempt as unknown) === 1;
+    return isMfaExempt(user);
   }
 
   /**
@@ -250,9 +258,15 @@ export class AuthFlowContextBuilder {
    * @param user - User to check
    * @param config - Auth configuration
    * @param authMethod - Authentication method
+   * @param isSignup - Whether this evaluation belongs to a signup flow
    * @returns True if MFA setup is required
    */
-  private isMFASetupRequired(user: IUser, config: NAuthConfig, authMethod?: 'password' | 'social'): boolean {
+  private isMFASetupRequired(
+    user: IUser,
+    config: NAuthConfig,
+    authMethod?: 'password' | 'social',
+    isSignup?: boolean,
+  ): boolean {
     // Check exemption first
     if (this.checkMFAExempt(user)) {
       return false;
@@ -280,8 +294,14 @@ export class AuthFlowContextBuilder {
       return false;
     }
 
+    // Frictionless signup: setup is deferred to the next login.
+    // WHY: checked before the grace period so it applies even when gracePeriod is 0.
+    if (shouldSkipMfaSetupForSignup(config, isSignup)) {
+      return false;
+    }
+
     // REQUIRED or ADAPTIVE: Check grace period
-    const gracePeriod = config.mfa.gracePeriod ?? 7;
+    const gracePeriod = config.mfa.gracePeriod ?? DEFAULT_MFA_GRACE_PERIOD_DAYS;
     const gracePeriodData = this.calculateGracePeriod(user, config);
 
     // If grace period is 0, MFA setup is required immediately
@@ -331,35 +351,10 @@ export class AuthFlowContextBuilder {
    *
    * @param user - User to check
    * @param config - Auth configuration
-   * @returns Grace period status
+   * @returns Grace period window (delegates to the shared `calculateMfaGracePeriodWindow` helper)
    */
-  private calculateGracePeriod(user: IUser, config: NAuthConfig): { isActive: boolean; endsAt?: Date } {
-    const gracePeriod = config.mfa?.gracePeriod ?? 7;
-
-    // No grace period
-    if (gracePeriod === 0) {
-      return { isActive: false };
-    }
-
-    // Access createdAt from user interface
-    const userWithDates = user as IUser & { createdAt: Date };
-    const createdAt = userWithDates.createdAt;
-
-    if (!createdAt) {
-      // No creation date - grace period not active
-      return { isActive: false };
-    }
-
-    const gracePeriodEnd = new Date(createdAt);
-    gracePeriodEnd.setDate(gracePeriodEnd.getDate() + gracePeriod);
-
-    const now = new Date();
-    const isActive = now < gracePeriodEnd;
-
-    return {
-      isActive,
-      endsAt: isActive ? gracePeriodEnd : undefined,
-    };
+  private calculateGracePeriod(user: IUser, config: NAuthConfig): MfaGracePeriodWindow {
+    return calculateMfaGracePeriodWindow(user, config);
   }
 
   /**

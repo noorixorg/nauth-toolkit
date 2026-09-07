@@ -13,4 +13,5 @@ export * from './run-as-system';
 export * from './token-delivery-policy';
 export * from './password-generator';
 export * from './dto-validator';
+export * from './mfa-grace-period';
 // user-agent-parser removed - functionality moved to ClientInfoService.parseUserAgent()

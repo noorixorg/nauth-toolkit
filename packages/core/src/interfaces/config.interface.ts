@@ -1864,6 +1864,35 @@ export interface AppleSocialProviderConfig extends Omit<SocialProviderConfig, 'c
  * Configure MFA enforcement and allowed methods for your application.
  * Supports TOTP (authenticator apps), SMS, Email, and Passkeys (WebAuthn).
  */
+/**
+ * MFA Grace Configuration
+ *
+ * Fine-grained control over when a pending MFA setup is enforced, layered on top of
+ * the day-based `gracePeriod`.
+ */
+export interface MFAGraceConfig {
+  /**
+   * Skip the `MFA_SETUP_REQUIRED` challenge during the signup flow
+   *
+   * Keeps signup frictionless: the user receives tokens at the end of signup even when
+   * MFA setup would otherwise be mandatory. Enforcement resumes on their **next login**,
+   * where the `MFA_SETUP_REQUIRED` challenge is issued immediately.
+   *
+   * Honoured even when `gracePeriod` is `0`, which is its main use: no day-based grace,
+   * but no MFA wall standing between the user and their first successful signup.
+   *
+   * The signup flow covers the signup request itself plus any email/phone verification
+   * challenges issued by it. Every other entry point (login, social login) is unaffected.
+   *
+   * When this skip is applied, the signup response carries
+   * `mfaGracePeriod.requiredAtNextLogin: true` so the client can offer an optional
+   * setup flow straight away.
+   *
+   * @default false
+   */
+  skipForSignup?: boolean;
+}
+
 export interface MFAConfig {
   /**
    * Enable MFA system
@@ -1890,6 +1919,27 @@ export interface MFAConfig {
    * @default 7
    */
   gracePeriod?: number;
+
+  /**
+   * Additional grace behaviour for pending MFA setup
+   *
+   * These options refine *when* the `MFA_SETUP_REQUIRED` challenge is issued.
+   * They apply on top of `gracePeriod`, and `skipForSignup` is honoured even when
+   * `gracePeriod` is `0`.
+   *
+   * @example
+   * ```typescript
+   * mfa: {
+   *   enabled: true,
+   *   enforcement: 'REQUIRED',
+   *   gracePeriod: 0,          // No day-based grace
+   *   grace: {
+   *     skipForSignup: true,   // ...but keep signup frictionless
+   *   },
+   * }
+   * ```
+   */
+  grace?: MFAGraceConfig;
 
   /**
    * Allowed MFA methods

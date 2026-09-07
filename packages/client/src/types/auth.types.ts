@@ -15,6 +15,32 @@ export enum AuthChallenge {
  */
 import { MFAMethod, MFAChallengeMethod } from './mfa.types';
 
+/**
+ * MFA grace period information returned in auth responses.
+ *
+ * Present only while MFA setup is pending but not yet being demanded - MFA is enforced
+ * (`REQUIRED` or `ADAPTIVE`), the user has not set it up, and either the grace window is
+ * still open or setup was skipped to keep signup frictionless.
+ *
+ * Typical use: after signup, offer an optional MFA setup flow instead of waiting for a
+ * later login to force it.
+ */
+export interface MfaGracePeriod {
+  /** Always true when this object is present. */
+  active: boolean;
+  /**
+   * ISO 8601 timestamp at which MFA setup becomes mandatory.
+   * Absent when the grace covers only the signup flow - see `requiredAtNextLogin`.
+   */
+  endsAt?: string;
+  /** Whole days remaining (rounded up); `0` when the grace covers only the signup flow. */
+  daysRemaining: number;
+  /** Enforcement policy that applies once the grace period ends. */
+  enforcement: 'REQUIRED' | 'ADAPTIVE';
+  /** True when the very next login will demand MFA setup. */
+  requiredAtNextLogin?: boolean;
+}
+
 export interface AuthResponse {
   user?: AuthUserSummary;
   accessToken?: string;
@@ -37,6 +63,13 @@ export interface AuthResponse {
   session?: string;
   challengeParameters?: Record<string, unknown>;
   sub?: string;
+  /**
+   * MFA grace period status.
+   *
+   * Present on challenge and success responses alike whenever MFA setup is pending
+   * within a grace period. Absent otherwise.
+   */
+  mfaGracePeriod?: MfaGracePeriod;
 }
 
 /**

@@ -54,6 +54,7 @@ import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { generateSecurePassword } from '../utils/password-generator';
 import { ensureValidatedDto } from '../utils/dto-validator';
+import { calculateMfaGracePeriodWindow, MfaGracePeriodWindow } from '../utils/mfa-grace-period';
 import { HookRegistryService } from './hook-registry.service';
 import { PasswordResetService } from './password-reset.service';
 import { SocialAuthService } from './social-auth.service';
@@ -1275,34 +1276,9 @@ export class AdminAuthService {
    * Calculate grace period status for a user.
    *
    * @param user - User to check
-   * @returns Grace period status with isActive flag and endsAt date
+   * @returns Grace period window (delegates to the shared `calculateMfaGracePeriodWindow` helper)
    */
-  private calculateGracePeriodForUser(user: IUser): { isActive: boolean; endsAt?: Date } {
-    const gracePeriod = this.config.mfa?.gracePeriod ?? 7;
-
-    // No grace period
-    if (gracePeriod === 0) {
-      return { isActive: false };
-    }
-
-    // Access createdAt from user interface
-    const userWithDates = user as IUser & { createdAt: Date };
-    const createdAt = userWithDates.createdAt;
-
-    if (!createdAt) {
-      // No creation date - grace period not active
-      return { isActive: false };
-    }
-
-    const gracePeriodEnd = new Date(createdAt);
-    gracePeriodEnd.setDate(gracePeriodEnd.getDate() + gracePeriod);
-
-    const now = new Date();
-    const isActive = now < gracePeriodEnd;
-
-    return {
-      isActive,
-      endsAt: isActive ? gracePeriodEnd : undefined,
-    };
+  private calculateGracePeriodForUser(user: IUser): MfaGracePeriodWindow {
+    return calculateMfaGracePeriodWindow(user, this.config);
   }
 }

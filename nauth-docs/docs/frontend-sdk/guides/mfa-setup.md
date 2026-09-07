@@ -210,6 +210,24 @@ if (response.challengeName === 'MFA_SETUP_REQUIRED') {
 }
 ```
 
+### Optional Setup During the Grace Period
+
+Before enforcement starts, responses carry [`mfaGracePeriod`](../api/types/auth-response#mfagraceperiod) instead of the challenge — on the signup response too, so you can run an optional setup flow the moment signup completes rather than waiting for a later login to force it.
+
+```typescript
+const response = await client.signup({ email, password });
+
+if (response.mfaGracePeriod?.requiredAtNextLogin) {
+  // Backend is configured with grace.skipForSignup: the next login WILL be blocked
+  // on setup, so prompt now rather than showing a dismissible reminder.
+  navigateToMfaSetupPage(response);
+} else if (response.mfaGracePeriod) {
+  showMfaReminder(response.mfaGracePeriod.daysRemaining);
+}
+```
+
+Setup itself uses the self-service flow in [MFA Management](#mfa-management-authenticated-user) — the user already holds tokens, so there is no challenge session to respond to.
+
 ### Setting Up TOTP
 
 **Complete Flow:**

@@ -25,6 +25,15 @@ import { AuthErrorCode } from '../enums/error-codes.enum';
 import { ensureValidatedDto } from '../utils/dto-validator';
 
 /**
+ * Request-scoped context key holding the id of a user created during THIS social request.
+ *
+ * Lets `createAuthResponse` tell a first-time social signup apart from a returning login
+ * without changing the `findOrCreateUser` extension point, so `mfa.grace.skipForSignup`
+ * treats social signup the same as password signup.
+ */
+const SOCIAL_SIGNUP_USER_ID = 'SOCIAL_SIGNUP_USER_ID';
+
+/**
  * Base Social Auth Provider Service
  *
  * Abstract base class that provides common functionality for all social auth providers.
@@ -536,6 +545,13 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     const savedUser = (await this.userRepository.save(user)) as unknown as IUser;
     this.logger?.log?.(`Social user created: ${email} (sub: ${savedUser.sub})`);
 
+    // Flag this request as a signup so the auth response can defer MFA setup when
+    // mfa.grace.skipForSignup is enabled. Guarded because direct unit-test invocation
+    // runs without a ContextStorage context.
+    if (ContextStorage.getStore()) {
+      ContextStorage.set(SOCIAL_SIGNUP_USER_ID, savedUser.id);
+    }
+
     // ============================================================================
     // Audit: Record account creation for social signup
     // ============================================================================
@@ -686,6 +702,9 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     // ============================================================================
     // Check for Required Challenges BEFORE creating session
     // ============================================================================
+    // A user created earlier in this same request is a social signup, not a login
+    const isSignup = ContextStorage.get<number>(SOCIAL_SIGNUP_USER_ID) === user.id;
+
     const response = await this.challengeHelper.determineAuthResponse({
       user,
       config: this.config,
@@ -693,6 +712,7 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
       isSocialLogin: true,
       skipMFAVerification: false,
       authProvider: this.providerName.toLowerCase(), // e.g., 'google', 'facebook', 'apple'
+      isSignup,
     });
 
     if (response.challengeName) {

@@ -239,6 +239,10 @@ export async function registerAuthRoutes(fastify: FastifyInstance, nauth: NAuthI
 
 The `session` token is short-lived and scoped to this verification flow. Store it in your frontend state — you will need it for the next step.
 
+:::note[MFA setup coming later]
+When MFA enforcement is on but the user is still inside the grace period, this response also carries [`mfaGracePeriod`](/docs/api/core/dto/auth-response-dto#mfagraceperiodinfo). Use it to offer an optional MFA setup flow once signup completes, before enforcement makes it mandatory. See [Configuration → Grace period](/docs/concepts/configuration#grace-period).
+:::
+
 :::note[Email masking]
 `codeDeliveryDestination` shows a masked email by default (`j***@example.com`). To return the full email (development only), set `security.maskSensitiveData: false` in your config.
 :::
@@ -518,6 +522,7 @@ The `identifier` field accepts email, username, or phone depending on your [`log
 | Email not verified                         | `{ challengeName: 'VERIFY_EMAIL', session, challengeParameters }`       |
 | MFA required                               | `{ challengeName: 'MFA_REQUIRED', session, challengeParameters }`       |
 | MFA setup required (enforcement: REQUIRED) | `{ challengeName: 'MFA_SETUP_REQUIRED', session, challengeParameters }` |
+| MFA setup pending, still in grace period   | Normal success or challenge body, plus `{ mfaGracePeriod }`             |
 | Password expired                           | `{ challengeName: 'FORCE_CHANGE_PASSWORD', session }`                   |
 
 All challenge responses are handled by the same `/auth/respond-challenge` endpoint documented above.

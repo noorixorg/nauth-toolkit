@@ -54,6 +54,7 @@ import { AuthResponseDTO } from '@nauth-toolkit/core';
 | `session`                | `string`                  | Conditional | Challenge session token (UUID v4). Present when challenge required. |
 | `challengeParameters`    | `Record<string, unknown>` | Conditional | Challenge-specific parameters. Present when challenge required.  |
 | `sub`                    | `string`                  | Conditional | User identifier (UUID v4). Present in both success and challenge responses. |
+| `mfaGracePeriod`         | [`MfaGracePeriodInfo`](#mfagraceperiodinfo) | Conditional | MFA grace period status. Present in both success and challenge responses while MFA setup is pending but not yet enforced. |
 
 
 ## Example
@@ -97,9 +98,30 @@ import { AuthResponseDTO } from '@nauth-toolkit/core';
 }
 ```
 
+**Signup Inside an MFA Grace Period:**
+
+```json
+{
+  "challengeName": "VERIFY_EMAIL",
+  "session": "a21b654c-2746-4168-acee-c175083a65cd",
+  "challengeParameters": {
+    "email": "user@example.com",
+    "codeDeliveryDestination": "u***@example.com"
+  },
+  "sub": "b32c765d-3857-5279-bdff-d286194b76de",
+  "mfaGracePeriod": {
+    "active": true,
+    "endsAt": "2025-02-01T00:00:00.000Z",
+    "daysRemaining": 7,
+    "enforcement": "REQUIRED"
+  }
+}
+```
+
 ## Related Types
 
 - [`AuthResponseUser`](../interfaces/auth-response-user) - User property interface
+- [`MfaGracePeriodInfo`](#mfagraceperiodinfo) - MFA grace period property interface
 - [`TokenResponse`](#tokenresponse) - Token refresh response interface
 - [`toAuthResponseUser()`](#toauthresponseuser) - Conversion utility function
 
@@ -108,6 +130,56 @@ import { AuthResponseDTO } from '@nauth-toolkit/core';
 - [AuthService.login()](../services/auth-service#login)
 - [AuthService.signup()](../services/auth-service#signup)
 - [AuthService.respondToChallenge()](../services/auth-service#respondtochallenge)
+
+---
+
+## MfaGracePeriodInfo
+
+Interface describing an MFA setup that is pending but not yet enforced. Attached to `AuthResponseDTO.mfaGracePeriod` on **both** challenge and success responses, so a client learns at signup that MFA setup is coming and can offer an optional setup flow before enforcement makes it mandatory.
+
+```typescript
+import { MfaGracePeriodInfo } from '@nauth-toolkit/core';
+```
+
+The field is present only when all of the following hold:
+
+- `mfa.enabled` is `true` and `mfa.enforcement` is `REQUIRED` or `ADAPTIVE`
+- The user has not enrolled MFA and is not exempt (`mfaExempt`)
+- Either the `mfa.gracePeriod` window is still open, or the setup challenge was skipped for this signup via [`mfa.grace.skipForSignup`](/docs/concepts/configuration#multi-factor-authentication)
+
+Once the grace ends, the field is absent and the flow returns the `MFA_SETUP_REQUIRED` challenge instead.
+
+| Property               | Type                        | Required | Description                                                                                       |
+| ---------------------- | --------------------------- | -------- | ------------------------------------------------------------------------------------------------- |
+| `active`               | `boolean`                   | Yes      | Always `true` when the object is present. Acts as a discriminator for clients holding a nullable copy. |
+| `daysRemaining`        | `number`                    | Yes      | Whole days left, rounded up. `0` when the grace covers only the signup flow.                       |
+| `endsAt`               | `string`                    | No       | ISO 8601 timestamp when MFA setup becomes mandatory. Absent when the grace covers only the signup flow. |
+| `enforcement`          | `'REQUIRED' \| 'ADAPTIVE'`  | Yes      | Enforcement policy that applies once the grace period ends.                                        |
+| `requiredAtNextLogin`  | `boolean`                   | No       | `true` when the user's very next login will be challenged with `MFA_SETUP_REQUIRED`.               |
+
+**Example (day-based grace window):**
+
+```json
+{
+  "active": true,
+  "endsAt": "2025-02-01T00:00:00.000Z",
+  "daysRemaining": 7,
+  "enforcement": "REQUIRED"
+}
+```
+
+**Example (frictionless signup, `gracePeriod: 0` with `grace.skipForSignup`):**
+
+```json
+{
+  "active": true,
+  "daysRemaining": 0,
+  "enforcement": "REQUIRED",
+  "requiredAtNextLogin": true
+}
+```
+
+**Used By:** [AuthService.signup()](../services/auth-service#signup), [AuthService.login()](../services/auth-service#login), [AuthService.respondToChallenge()](../services/auth-service#respondtochallenge)
 
 ---
 
