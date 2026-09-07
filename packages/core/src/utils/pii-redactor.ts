@@ -52,10 +52,13 @@ export class PiiRedactor {
    * @private
    */
   private isSensitiveKey(key: string): boolean {
-    const normalized = key.toLowerCase().replace(/[_-]/g, '');
+    const lowered = key.toLowerCase();
+    const normalized = lowered.replace(/[_-]/g, '');
     return (
       SENSITIVE_KEY_SUFFIXES.some((suffix) => normalized.endsWith(suffix)) ||
-      this.options.customRedactionFields.includes(key.toLowerCase())
+      // Both sides lowered: the shipped defaults are camelCase (`creditCard`,
+      // `bankAccount`), so comparing a lowered key against a raw field would miss them.
+      this.options.customRedactionFields.some((field) => field.toLowerCase() === lowered)
     );
   }
 
@@ -138,13 +141,8 @@ export class PiiRedactor {
       redacted.ipAddress = this.redactIpAddress(redacted.ipAddress);
     }
 
-    // Redact custom fields
-    for (const field of this.options.customRedactionFields) {
-      if (field in redacted) {
-        redacted[field] = '[REDACTED]';
-      }
-    }
-
+    // Custom fields are handled by isSensitiveKey below, which also reaches nested
+    // objects — a separate top-level pass here would only duplicate it.
     // Recursively redact object values
     for (const [key, value] of Object.entries(redacted)) {
       if (this.isSensitiveKey(key)) {

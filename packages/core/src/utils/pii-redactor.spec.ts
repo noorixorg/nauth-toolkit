@@ -95,6 +95,22 @@ describe('PiiRedactor', () => {
       expect(redacted?.userId).toBe('123');
     });
 
+    it('should redact camelCase custom fields, and reach nested ones', () => {
+      // The shipped defaults are camelCase, so matching must lower BOTH sides —
+      // comparing a lowered key against a raw field name silently misses them.
+      redactor = new PiiRedactor({ customRedactionFields: ['ssn', 'creditCard'] });
+
+      const redacted = redactor.redactMetadata({
+        userId: '123',
+        creditCard: '4111-1111-1111-1111',
+        payment: { creditCard: '4111-1111-1111-1111' },
+      });
+
+      expect(redacted?.creditCard).toBe('[REDACTED]');
+      expect(redacted?.payment).toEqual({ creditCard: '[REDACTED]' });
+      expect(redacted?.userId).toBe('123');
+    });
+
     it('should handle nested objects', () => {
       const metadata = {
         user: {
