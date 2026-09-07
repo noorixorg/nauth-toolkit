@@ -108,6 +108,10 @@ export const authConfig: NAuthModuleConfig = {
       rateLimitMax: 1000,
       rateLimitWindow: 60,
       maxAttempts: 100,
+      // Server-controlled base URL for the reset link in the email. The shipped
+      // forgot-password route uses THIS (never a request-body value), so the link can't be
+      // pointed at an attacker host. Your frontend owns the route; only `?code=` is appended.
+      baseUrl: `${process.env.FRONTEND_BASE_URL || 'http://localhost:4200'}/auth/reset-password`,
     },
   },
 

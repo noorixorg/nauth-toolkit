@@ -49,7 +49,8 @@ import { UserUpdateDTO } from '@nauth-toolkit/core';
 | `phone`              | `string`                  | No       | Phone number. E.164 format (e.g., +14155552671). Max 20 characters. Whitespace removed. |
 | `metadata`           | `Record<string, unknown>` | No       | Custom metadata fields. Merged with existing metadata. Set key to `null` to delete.     |
 | `preferredMfaMethod` | `MFADeviceMethod`         | No       | Preferred MFA method. Must be: totp, sms, email, passkey. Max 50 characters.            |
-| `retainVerification` | `boolean`                 | No       | Retain verification status when updating email/phone. Default: false.                   |
+
+> `retainVerification` is **not** part of this base DTO. It is an administrator-only field defined on [AdminUpdateUserAttributesDto](./admin-update-user-attributes-dto). Self-service email/phone changes always reset the corresponding verification flag.
 
 ## Metadata Behavior
 
@@ -70,8 +71,7 @@ The `metadata` field supports merge and delete operations:
   "lastName": "Doe",
   "email": "john@example.com",
   "phone": "+14155552671",
-  "preferredMfaMethod": "totp",
-  "retainVerification": false
+  "preferredMfaMethod": "totp"
 }
 ```
 

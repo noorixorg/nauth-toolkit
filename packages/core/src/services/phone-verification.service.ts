@@ -203,8 +203,10 @@ export class PhoneVerificationService {
 
     const saved = (await this.verificationTokenRepo.save(verificationToken)) as unknown as IVerificationToken;
 
+    // SECURITY: never log the code — it is a live second factor / OTP. Log only correlation
+    // identifiers so logs remain useful without exposing the secret to anyone with log access.
     this.logger?.log?.(
-      `SMS token created: sub=${sub}, tokenId=${saved.id}, code=${code}, codeType=${typeof code}, userId=${user.id}, usedAt=${saved.usedAt || 'null'}`,
+      `SMS token created: sub=${sub}, tokenId=${saved.id}, userId=${user.id}, usedAt=${saved.usedAt || 'null'}`,
     );
 
     // Calculate expiry minutes for template variables
@@ -570,9 +572,8 @@ export class PhoneVerificationService {
     // Ensure code is a string (database stores as varchar/string)
     // TypeORM may receive code as number from JSON, so convert to string for query
     const codeString = String(code);
-    this.logger?.log?.(
-      `Looking for verification token: sub=${sub}, code=${codeString}, codeType=${typeof code}, userId=${user.id}`,
-    );
+    // SECURITY: never log the submitted code — it is a live OTP. Log correlation ids only.
+    this.logger?.debug?.(`Looking for verification token: sub=${sub}, userId=${user.id}`);
     // If challengeSessionId is provided, ensure token belongs to specific session
     const whereClause = {
       userId: user.id,
@@ -925,7 +926,9 @@ export class PhoneVerificationService {
     const codeLength = this.config.signup?.phoneVerification?.codeLength || 6;
     const min = Math.pow(10, codeLength - 1);
     const max = Math.pow(10, codeLength) - 1;
-    return Math.floor(min + Math.random() * (max - min + 1)).toString();
+    // crypto.randomInt (CSPRNG) over the inclusive [min, max] range (max + 1 exclusive).
+    // Math.random() is a non-crypto PRNG whose state leaks, making OTPs predictable.
+    return crypto.randomInt(min, max + 1).toString();
   }
 
   /**

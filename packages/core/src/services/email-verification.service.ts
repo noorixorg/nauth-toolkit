@@ -928,7 +928,9 @@ export class EmailVerificationService {
    * @returns 6-digit numeric code
    */
   private generateCode(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    // crypto.randomInt (CSPRNG) over [100000, 999999]. Math.random() is a non-crypto
+    // PRNG whose state is recoverable from observed codes, making future codes predictable.
+    return crypto.randomInt(100000, 1000000).toString();
   }
 
   /**

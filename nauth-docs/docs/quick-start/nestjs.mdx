@@ -141,6 +141,13 @@ import { AppModule } from './app.module';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, new ExpressAdapter());
 
+  // Trust proxy — so req.ip is the real client behind a reverse proxy / load balancer
+  // (see the admonition below). Skip when nothing proxies you.
+  if (process.env.TRUST_PROXY && process.env.TRUST_PROXY !== 'false') {
+    const tp = process.env.TRUST_PROXY;
+    app.getHttpAdapter().getInstance().set('trust proxy', /^\d+$/.test(tp) ? parseInt(tp, 10) : tp);
+  }
+
   // Required for cookie-based token delivery
   app.use(cookieParser());
 
@@ -159,6 +166,17 @@ async function bootstrap(): Promise<void> {
 }
 bootstrap();
 ```
+
+:::warning Configure `trust proxy` behind a proxy or load balancer
+nauth-toolkit keys IP-based account lockout, geolocation, and audit on `req.ip`. `req.ip` is only correct when Express's `trust proxy` matches your topology; otherwise every client collapses to the proxy's IP, and — worse, if you trust too broadly — a forged `X-Forwarded-For` can spoof the IP.
+
+- **One reverse proxy** (Caddy/Nginx on dev/staging): `TRUST_PROXY=1`.
+- **AWS ELB/ALB (ECS, Copilot) or other private-network load balancers**: `TRUST_PROXY=uniquelocal` — trusts loopback + private ranges, so the first public hop from the right (the real client) wins regardless of how many private hops (LB, sidecar) precede it. A specific CIDR such as `10.0.0.0/8` also works.
+- **No proxy**: leave `TRUST_PROXY` unset — `req.ip` is the socket peer (fail-closed) and forwarding headers are ignored.
+- **Never** set it to `true` (trust-all) — that re-enables `X-Forwarded-For` spoofing.
+
+Ensure the app is only reachable *through* the proxy (network isolation/security groups); a hop count like `1` assumes exactly that many proxies always sit in front.
+:::
 
 ```typescript title="src/app.module.ts"
 import { Module } from '@nestjs/common';

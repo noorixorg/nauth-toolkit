@@ -152,7 +152,16 @@ export const AUTH_ROUTES_MANIFEST: readonly AnyNAuthRouteDefinition[] = [
     status: 200,
     source: 'body',
     dto: ForgotPasswordDTO,
-    handler: ({ dto, services }) => services.authService.forgotPassword(dto),
+    // SECURITY: derive the reset-link base URL from server config ONLY. The public route
+    // must never honour a body-supplied `baseUrl`, or an attacker could trigger a reset for
+    // a victim and have the genuine email link to an attacker host (carrying the reset code).
+    // Consumers needing a dynamic, server-computed link write their own controller and pass
+    // `baseUrl` to AuthService.forgotPassword directly (see ForgotPasswordDTO.baseUrl).
+    handler: ({ dto, services, config }) =>
+      services.authService.forgotPassword({
+        identifier: dto.identifier,
+        baseUrl: config.password?.passwordReset?.baseUrl,
+      }),
   }),
   defineRoute({
     key: 'confirmForgotPassword',

@@ -19,7 +19,7 @@
  * ```
  */
 
-import { IsUUID } from 'class-validator';
+import { IsUUID, IsOptional, IsBoolean } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { UserUpdateDTO } from './user-update.dto';
 
@@ -48,4 +48,35 @@ export class AdminUpdateUserAttributesDTO extends UserUpdateDTO {
     return value;
   })
   sub!: string;
+
+  /**
+   * Optional flag to retain verification status when updating email/phone.
+   *
+   * ADMIN-ONLY: this flag intentionally lives on the admin DTO and not on the shared
+   * base, because keeping an email/phone flagged verified while changing it is a
+   * privileged action. See the note in {@link UserUpdateDTO}.
+   *
+   * When true:
+   * - Email verification status is preserved when email is updated
+   * - Phone verification status is preserved when phone is updated
+   * - Useful when verification was done externally or outside nauth-toolkit
+   *
+   * When false or undefined (default):
+   * - Email verification is reset to false when email is updated
+   * - Phone verification is reset to false when phone is updated
+   * - User must re-verify the new email/phone
+   *
+   * @example
+   * ```typescript
+   * // Admin updates a user's email but keeps verification (external verification)
+   * await adminAuthService.updateUserAttributes({
+   *   sub: 'user-uuid',
+   *   email: 'new@example.com',
+   *   retainVerification: true,
+   * });
+   * ```
+   */
+  @IsOptional()
+  @IsBoolean({ message: 'retainVerification must be a boolean' })
+  retainVerification?: boolean;
 }

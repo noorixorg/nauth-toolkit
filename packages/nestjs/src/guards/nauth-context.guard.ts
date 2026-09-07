@@ -2,7 +2,6 @@ import { Injectable, CanActivate, ExecutionContext, Inject, Optional } from '@ne
 import {
   ContextStorage,
   IClientInfo,
-  extractClientIp,
   ClientInfoService,
   NAuthConfig,
   getDeviceTokenCookieName,
@@ -94,6 +93,7 @@ export class NAuthContextGuard implements CanActivate {
       cookies?: Record<string, unknown>;
       body?: Record<string, unknown>;
       ip?: string;
+      socket?: { remoteAddress?: string };
     };
 
     const headers = req.headers || {};
@@ -112,8 +112,16 @@ export class NAuthContextGuard implements CanActivate {
       (typeof deviceTokenHeader === 'string' ? deviceTokenHeader : undefined) ||
       (deviceTokenHeader ? String(deviceTokenHeader) : undefined);
 
-    // Extract IP address
-    const ipAddress = extractClientIp(req);
+    // Extract IP address.
+    // SECURITY: use the framework-resolved `req.ip`, which honours the app's Express
+    // `trust proxy` (or Fastify `trustProxy`) configuration, and fall back to the socket
+    // peer. We deliberately do NOT parse `X-Forwarded-For` (or CDN headers) ourselves:
+    // those are client-settable, and trusting them unconditionally lets an attacker forge
+    // the IP that keys IP-based account lockout, rate signals, geolocation and audit.
+    // Apps behind a proxy/load balancer MUST configure trust proxy so `req.ip` resolves the
+    // real client; unconfigured, `req.ip` is the socket peer (fail-closed). This mirrors the
+    // core Express/Fastify ClientInfoHandler.
+    const ipAddress = this.resolveClientIp(req);
 
     const originHeader = headers['origin'];
     const origin = typeof originHeader === 'string' ? originHeader : undefined;
@@ -156,6 +164,26 @@ export class NAuthContextGuard implements CanActivate {
     // Store in AsyncLocalStorage context
     ContextStorage.set('CLIENT_INFO', clientInfo);
     ContextStorage.set('HTTP_RESPONSE', response);
+  }
+
+  /**
+   * Resolve the client IP from the framework-resolved `req.ip`, falling back to the socket
+   * peer address.
+   *
+   * `req.ip` reflects the app's `trust proxy` (Express) / `trustProxy` (Fastify) setting, so
+   * forwarding headers are only honoured for hops the operator has explicitly trusted. This
+   * is the correct, spoof-resistant source; raw `X-Forwarded-For` parsing is intentionally
+   * avoided (see {@link extractAndStoreClientInfo}).
+   *
+   * @param req - Raw request (Express or Fastify)
+   * @returns The resolved client IP, IPv6 localhost normalised to `127.0.0.1`
+   */
+  private resolveClientIp(req: { ip?: string; socket?: { remoteAddress?: string } }): string {
+    const raw = req.ip || req.socket?.remoteAddress || '0.0.0.0';
+    if (raw === '::1' || raw === '::ffff:127.0.0.1') {
+      return '127.0.0.1';
+    }
+    return raw.replace(/^::ffff:/, '');
   }
 }
 

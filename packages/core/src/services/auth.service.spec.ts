@@ -3362,7 +3362,40 @@ describe('AuthService', () => {
         );
       });
 
-      it('should retain verification status when retainVerification is true', async () => {
+      it('should NOT retain verification on self-service even if retainVerification is smuggled in the body', async () => {
+        // SECURITY (finding #6): retainVerification is admin-only. A self-service caller
+        // must never be able to change their email/phone and keep it flagged verified,
+        // even by injecting the field into the raw request body. Self-service always resets.
+        const verifiedUser = { ...mockUser, isEmailVerified: true, isPhoneVerified: true };
+        mockUserRepository.findOne.mockReset();
+        mockUserRepository.findOne
+          .mockResolvedValueOnce(verifiedUser as any) // Initial lookup by sub
+          .mockResolvedValueOnce(null) // Email uniqueness check
+          .mockResolvedValueOnce(null) // Phone uniqueness check
+          .mockResolvedValueOnce({ ...verifiedUser, email: 'newemail@example.com', phone: '+1987654321' } as any); // Final fetch by id
+        mockMfaDeviceRepository.find.mockResolvedValue([]);
+
+        const dto = createUpdateUserAttributesDto(mockUser.sub, {
+          email: 'newemail@example.com',
+          phone: '+1987654321',
+        });
+        // Simulate a crafted request body carrying the admin-only flag.
+        (dto as unknown as { retainVerification?: boolean }).retainVerification = true;
+
+        await runUpdateUserAttributes(dto);
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          mockUser.id,
+          (expect as any).objectContaining({
+            email: 'newemail@example.com',
+            phone: '+1987654321',
+            isEmailVerified: false,
+            isPhoneVerified: false,
+          }),
+        );
+      });
+
+      it('should reset verification when self-service email/phone changes', async () => {
         const verifiedUser = { ...mockUser, isEmailVerified: true, isPhoneVerified: true };
         mockUserRepository.findOne.mockReset();
         mockUserRepository.findOne
@@ -3376,36 +3409,6 @@ describe('AuthService', () => {
           createUpdateUserAttributesDto(mockUser.sub, {
             email: 'newemail@example.com',
             phone: '+1987654321',
-            retainVerification: true,
-          }),
-        );
-
-        expect(mockUserRepository.update).toHaveBeenCalledWith(
-          mockUser.id,
-          (expect as any).objectContaining({
-            email: 'newemail@example.com',
-            phone: '+1987654321',
-            isEmailVerified: true,
-            isPhoneVerified: true,
-          }),
-        );
-      });
-
-      it('should preserve unverified status when retainVerification is true', async () => {
-        const unverifiedUser = { ...mockUser, isEmailVerified: false, isPhoneVerified: false };
-        mockUserRepository.findOne.mockReset();
-        mockUserRepository.findOne
-          .mockResolvedValueOnce(unverifiedUser as any) // Initial lookup by sub
-          .mockResolvedValueOnce(null) // Email uniqueness check
-          .mockResolvedValueOnce(null) // Phone uniqueness check
-          .mockResolvedValueOnce({ ...unverifiedUser, email: 'newemail@example.com', phone: '+1987654321' } as any); // Final fetch by id
-        mockMfaDeviceRepository.find.mockResolvedValue([]);
-
-        await runUpdateUserAttributes(
-          createUpdateUserAttributesDto(mockUser.sub, {
-            email: 'newemail@example.com',
-            phone: '+1987654321',
-            retainVerification: true,
           }),
         );
 
@@ -3771,7 +3774,7 @@ describe('AuthService', () => {
         expect(mockMfaDeviceRepository.find).not.toHaveBeenCalled();
       });
 
-      it('should deactivate SMS MFA devices when phone changes even if retainVerification is true', async () => {
+      it('should deactivate SMS MFA devices when phone changes on self-service update', async () => {
         const oldPhone = '+1234567890';
         const userWithPhone = { ...mockUser, phone: oldPhone, isPhoneVerified: true };
         mockUserRepository.findOne.mockReset();
@@ -3784,16 +3787,14 @@ describe('AuthService', () => {
           .mockResolvedValueOnce([] as any); // Check for remaining active devices
         mockMfaDeviceRepository.update.mockResolvedValue({ affected: 1 } as any);
 
-        await runUpdateUserAttributes(
-          createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321', retainVerification: true }),
-        );
+        await runUpdateUserAttributes(createUpdateUserAttributesDto(mockUser.sub, { phone: '+1987654321' }));
 
-        // Should preserve verification status
+        // Self-service phone change always resets verification (retainVerification is admin-only).
         expect(mockUserRepository.update).toHaveBeenCalledWith(
           mockUser.id,
           (expect as any).objectContaining({
             phone: '+1987654321',
-            isPhoneVerified: true, // Preserved because retainVerification is true
+            isPhoneVerified: false,
           }),
         );
 

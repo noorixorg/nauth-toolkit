@@ -1046,6 +1046,7 @@ export class AuthModule {
             challengeSessionRepository?: Repository<BaseChallengeSession>,
             authAuditRepository?: Repository<BaseAuthAudit>,
             trustedDeviceRepository?: Repository<BaseTrustedDevice>,
+            authorizationService?: AuthorizationService,
           ) => {
             return new AdminAuthService(
               userRepository,
@@ -1072,6 +1073,7 @@ export class AuthModule {
               challengeSessionRepository,
               authAuditRepository,
               trustedDeviceRepository,
+              authorizationService,
             );
           },
           inject: [
@@ -1099,6 +1101,10 @@ export class AuthModule {
             { token: 'ChallengeSessionRepository', optional: true },
             { token: 'AuthAuditRepository', optional: true },
             { token: 'TrustedDeviceRepository', optional: true },
+            // Consumer authorization policy for admin operations. Non-optional: the
+            // AuthorizationService provider is always registered, so a missing binding
+            // is a wiring bug that must fail at startup, never degrade to allow-all.
+            AuthorizationService,
           ],
         },
         {
@@ -1256,6 +1262,7 @@ export class AuthModule {
             auditService?: InternalAuthAuditService,
             clientInfoService?: ClientInfoService,
             hookRegistry?: HookRegistryService,
+            authorizationService?: AuthorizationService,
           ) => {
             return new MFAService(
               mfaDeviceRepository,
@@ -1266,6 +1273,7 @@ export class AuthModule {
               auditService,
               clientInfoService,
               hookRegistry,
+              authorizationService,
             );
           },
           inject: [
@@ -1277,6 +1285,8 @@ export class AuthModule {
             { token: InternalAuthAuditService, optional: true },
             { token: ClientInfoService, optional: true },
             { token: HookRegistryService, optional: true },
+            // Non-optional: enforces the admin MFA operations (exemption, device removal).
+            AuthorizationService,
           ],
         },
         {
@@ -1843,6 +1853,7 @@ export class AuthModule {
                   nauthConfig: NAuthConfig,
                   logger: NAuthLogger,
                   auditService?: InternalAuthAuditService,
+                  authorizationService?: AuthorizationService,
                 ) => {
                   if (!apiKeyRepository) {
                     throw new NAuthException(
@@ -1851,7 +1862,14 @@ export class AuthModule {
                         'Ensure getNAuthEntities() (which now includes ApiKey) is registered with TypeORM and the migration has run.',
                     );
                   }
-                  return new ApiKeyService(apiKeyRepository, userRepository, nauthConfig, logger, auditService);
+                  return new ApiKeyService(
+                    apiKeyRepository,
+                    userRepository,
+                    nauthConfig,
+                    logger,
+                    auditService,
+                    authorizationService,
+                  );
                 },
                 inject: [
                   'ApiKeyRepository',
@@ -1859,6 +1877,8 @@ export class AuthModule {
                   'NAUTH_CONFIG',
                   'NAUTH_LOGGER',
                   { token: InternalAuthAuditService, optional: true },
+                  // Non-optional: enforces admin API-key operations (adminCreateKey, etc.).
+                  AuthorizationService,
                 ],
               },
             ]

@@ -1232,6 +1232,25 @@ export interface PasswordConfig {
      * @default 3
      */
     maxAttempts?: number;
+
+    /**
+     * Base URL for password-reset links (server-controlled).
+     *
+     * When set, the shipped forgot-password route includes a clickable reset link in the
+     * email/SMS, formed as `${baseUrl}?code=${code}`. The consumer app owns the route; only
+     * the `code` query parameter is appended.
+     *
+     * SECURITY: this is the ONLY source of the reset-link base URL for the shipped route —
+     * it is never taken from the request body, so a caller cannot point a victim's reset
+     * link at an attacker host. (A custom controller may still pass a server-computed
+     * `baseUrl` to `AuthService.forgotPassword` directly; see `ForgotPasswordDTO.baseUrl`.)
+     *
+     * If unset, the email/SMS carries the code only (no link).
+     *
+     * @example "https://myapp.com/reset-password"
+     * @example "http://localhost:4200/auth/reset-password"
+     */
+    baseUrl?: string;
   };
 
   /**

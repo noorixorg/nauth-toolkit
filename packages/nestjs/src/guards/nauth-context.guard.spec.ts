@@ -87,6 +87,20 @@ describe('NAuthContextGuard', () => {
       expect(clientInfo?.userAgent).toBe('Mozilla/5.0');
     });
 
+    it('should ignore a forged X-Forwarded-For and use the framework-resolved req.ip', async () => {
+      // SECURITY (finding #7): the client IP must come from req.ip (which honours the app's
+      // `trust proxy` config), never from raw client-settable forwarding headers. Otherwise an
+      // attacker forges the IP that keys account lockout, geolocation and audit.
+      mockRequest.headers['x-forwarded-for'] = '9.9.9.9';
+      mockRequest.headers['cf-connecting-ip'] = '8.8.8.8';
+      mockRequest.headers['x-real-ip'] = '7.7.7.7';
+
+      await guard.canActivate(mockExecutionContext);
+
+      const clientInfo = getNAuthContextStore(mockRequest)?.get('CLIENT_INFO') as any;
+      expect(clientInfo?.ipAddress).toBe('1.2.3.4'); // req.ip, not any forged header
+    });
+
     it('should populate geolocation when service available', async () => {
       await guard.canActivate(mockExecutionContext);
       expect(mockGeoLocationService.getIpGeolocation).toHaveBeenCalledWith('1.2.3.4');

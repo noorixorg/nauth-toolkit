@@ -729,6 +729,7 @@ Controls the forgot-password flow (code delivery is handled by your configured e
 | `rateLimitMax`  | Maximum reset requests per time window. Prevents abuse.        | 3       |
 | `rateLimitWindow` | Time window for rate limiting (seconds).                     | 3600 (1 hour) |
 | `maxAttempts`   | Maximum code verification attempts per code. Prevents brute force. | 3  |
+| `baseUrl`       | Server-controlled base URL for the reset link (`${baseUrl}?code=…`). The shipped forgot-password route uses **only** this — never a request-body value — so a reset link can't be pointed at an attacker host. Omit to send the code with no link. | _(none)_ |
 
 ```typescript
 password: {
@@ -739,9 +740,14 @@ password: {
     rateLimitMax: 3,
     rateLimitWindow: 3600,
     maxAttempts: 3,
+    baseUrl: 'https://myapp.com/auth/reset-password', // optional; your frontend route
   },
 },
 ```
+
+:::warning Reset-link base URL is server-controlled
+The public `POST /auth/forgot-password` route intentionally ignores any `baseUrl` in the request body and builds the reset link from `password.passwordReset.baseUrl`. If you need a dynamic, per-user link (e.g. embedding the email), write your own controller that narrows the request body to `identifier` and passes a server-computed `baseUrl` to `AuthService.forgotPassword` — never forward a client-supplied one.
+:::
 
 ### Admin Password Reset Options
 

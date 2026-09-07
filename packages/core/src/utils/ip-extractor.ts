@@ -1,37 +1,31 @@
 /**
  * IP Address Extractor
  *
- * Extracts the real client IP address from requests, handling:
- * - Direct connections
- * - Reverse proxies (Nginx, Apache)
- * - Load balancers (AWS ALB/NLB, GCP, Azure)
- * - CDNs (Cloudflare, Fastly, Akamai)
+ * Reads a client IP from proxy/CDN forwarding headers (`X-Forwarded-For`, `CF-Connecting-IP`,
+ * `X-Real-IP`, …), falling back to `req.ip` / `req.socket.remoteAddress`.
  *
- * **Priority Order:**
- * 1. X-Forwarded-For (standard proxy header)
- * 2. CF-Connecting-IP (Cloudflare)
- * 3. X-Real-IP (Nginx proxy)
- * 4. X-Client-IP (Apache, other proxies)
- * 5. Fastly-Client-IP (Fastly CDN)
- * 6. Akamai-Origin-Hop (Akamai CDN)
- * 7. req.ip (NestJS/Express default)
- * 8. req.socket.remoteAddress (fallback)
+ * !!! SECURITY WARNING — DO NOT use the result for security decisions !!!
  *
- * **Security:**
- * - Handles multiple proxies (takes leftmost IP)
- * - Validates IP format
- * - Filters private/internal IPs (optional)
- * - Prevents IP spoofing
+ * Every forwarding header this reads is **client-settable**. Unless `trustedProxies` is set
+ * AND enforced, this returns whatever the caller put in the header, so it CANNOT be trusted
+ * for anything an attacker benefits from forging: IP-based account lockout, rate limiting,
+ * geolocation trust, or audit provenance. (Note: `trustedProxies` is accepted for forward
+ * compatibility but is **not currently enforced** by this function — see below.)
+ *
+ * For a spoof-resistant client IP, use the framework-resolved `req.ip` with a correctly
+ * configured `trust proxy` (Express) / `trustProxy` (Fastify), which only honours forwarding
+ * headers for hops the operator has explicitly trusted and otherwise falls back to the socket
+ * peer. That is what the toolkit's own request handlers and guards do.
+ *
+ * This helper remains only for callers that must read a *best-effort, untrusted* forwarded IP
+ * for non-security purposes (e.g. display/logging behind a proxy you already trust at the
+ * network layer).
  *
  * @example
  * ```typescript
- * import { extractClientIp } from '@nauth-toolkit/core/utils';
- *
- * @Post('login')
- * async login(@Req() req: Request) {
- *   const ipAddress = extractClientIp(req);
- *   logger.debug('Client IP:', ipAddress); // Real client IP
- * }
+ * // NON-SECURITY, best-effort only:
+ * const forwardedIp = extractClientIp(req);
+ * logger.debug('Reported client IP (untrusted):', forwardedIp);
  * ```
  */
 
@@ -48,8 +42,12 @@ export interface IpExtractorOptions {
   filterPrivateIps?: boolean;
 
   /**
-   * List of trusted proxy IP addresses or CIDR ranges
-   * If specified, only accepts X-Forwarded-For from these proxies
+   * List of trusted proxy IP addresses or CIDR ranges.
+   *
+   * NOTE: currently accepted for forward compatibility but **not enforced** by
+   * {@link extractClientIp}. Do not rely on this to restrict which peers may set
+   * forwarding headers — configure your framework's `trust proxy` / `trustProxy` and read
+   * `req.ip` instead.
    */
   trustedProxies?: string[];
 

@@ -140,7 +140,7 @@ Use **template type keys** for `customTemplates` and **suppress keys** for `emai
 |---|---|---|
 | `verification` | `code`, `link`, `expiryMinutes` | `link` only present when `signup.emailVerification.baseUrl` is configured |
 | `mfaEmailCode` | `code`, `expiryMinutes` | |
-| `passwordReset` | `code`, `link`, `expiryMinutes` | `link` only present when `baseUrl` is provided in the `forgotPassword` request |
+| `passwordReset` | `code`, `link`, `expiryMinutes` | `link` only present when `password.passwordReset.baseUrl` is configured (the shipped route ignores any request-body `baseUrl`) |
 | `adminPasswordReset` | `code`, `link`, `expiryMinutes` | `link` only present when `baseUrl` is provided |
 | `welcome` | (none) | Uses global variables only |
 | `accountLockout` | `reason`, `durationMinutes`, `lockType`, `lockDuration`, `lockedUntil`, `ipAddress`, `failedAttempts` | `lockType` is `'temporary'` or `'permanent'` |
@@ -158,7 +158,7 @@ Use **template type keys** for `customTemplates` and **suppress keys** for `emai
 
 #### Password reset: code + optional link
 
-The password reset flow always sends a `code`. The `link` is only included when `baseUrl` is provided in the request. Your template should handle both scenarios:
+The password reset flow always sends a `code`. The `link` is only included when a base URL is configured — `password.passwordReset.baseUrl` for the shipped forgot-password route (the route never takes a base URL from the request body, for security), or a server-computed `baseUrl` passed to `AuthService.forgotPassword` from your own controller. Your template should handle both scenarios:
 
 ```handlebars
 {{#if link}}

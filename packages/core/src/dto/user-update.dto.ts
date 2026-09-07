@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, MaxLength, IsOptional, Matches, IsBoolean, IsEnum } from 'class-validator';
+import { IsEmail, IsString, MinLength, MaxLength, IsOptional, Matches, IsEnum } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { MFADeviceMethod, MFAMethod } from '../enums/mfa-method.enum';
 
@@ -206,29 +206,10 @@ export class UserUpdateDTO {
   @MaxLength(50, { message: 'Preferred MFA method must not exceed 50 characters' })
   preferredMfaMethod?: MFADeviceMethod;
 
-  /**
-   * Optional flag to retain verification status when updating email/phone
-   *
-   * When true:
-   * - Email verification status is preserved when email is updated
-   * - Phone verification status is preserved when phone is updated
-   * - Useful when verification was done externally or outside nauth-toolkit
-   *
-   * When false or undefined (default):
-   * - Email verification is reset to false when email is updated
-   * - Phone verification is reset to false when phone is updated
-   * - User must re-verify the new email/phone
-   *
-   * @example
-   * ```typescript
-   * // Update email but keep verification status (external verification)
-   * await authService.updateUserAttributes(userId, {
-   *   email: 'new@example.com',
-   *   retainVerification: true
-   * });
-   * ```
-   */
-  @IsOptional()
-  @IsBoolean({ message: 'retainVerification must be a boolean' })
-  retainVerification?: boolean;
+  // NOTE: `retainVerification` deliberately lives ONLY on AdminUpdateUserAttributesDTO,
+  // never on this shared base. Preserving verification while changing an email/phone is a
+  // privileged action: a self-service user must not be able to set an address they do not
+  // own and keep it flagged verified. Self-service email/phone changes always reset the
+  // corresponding verification flag (see UserService.updateUserAttributes). Do not add it
+  // here.
 }

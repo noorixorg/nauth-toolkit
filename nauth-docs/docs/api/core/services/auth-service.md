@@ -1534,8 +1534,9 @@ Update user profile information (firstName, lastName, username, email, phone, me
 
 **Important behaviors:**
 
-- When `email` changes: Email verification is reset (unless `retainVerification: true`), and all Email MFA devices are deleted
-- When `phone` changes: Phone verification is reset (unless `retainVerification: true`), and all SMS MFA devices are deleted
+- When `email` changes: Email verification is always reset and the user must re-verify, and all Email MFA devices are deleted
+- When `phone` changes: Phone verification is always reset and the user must re-verify, and all SMS MFA devices are deleted
+- Retaining verification across a change is an administrator-only capability (`retainVerification` on [AdminAuthService.updateUserAttributes](./admin-auth-service)); it is not available on this self-service method
 - If deleted MFA devices were the only active methods, MFA is automatically disabled
 - Metadata is merged with existing metadata (set key to `null` to delete)
 
@@ -1619,7 +1620,6 @@ If the deleted device(s) were the only MFA method(s), MFA is **disabled** for th
 
 **Best Practices**
 
-- Set `retainVerification: true` only when transferring between trusted systems
 - Notify users when their MFA devices are removed due to profile changes
 - Guide users through MFA setup after email/phone changes if MFA is required
 

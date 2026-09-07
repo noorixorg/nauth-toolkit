@@ -440,6 +440,62 @@ export class PasswordResetService {
     codeOrToken: string,
     tokenType: 'email' | 'phone' | 'password_reset' | 'admin_password_reset' = 'password_reset',
   ): Promise<void> {
+    const tokenEntity = await this.assertValidCode(user, codeOrToken, tokenType);
+
+    // ============================================================================
+    // Mark as used
+    // ============================================================================
+    tokenEntity.usedAt = new Date();
+    await this.verificationTokenRepo.save(tokenEntity);
+  }
+
+  /**
+   * Verify a verification code or token WITHOUT consuming it.
+   *
+   * Runs exactly the same validation as {@link consumeValidCode} (existence, expiry,
+   * match, and attempt tracking) but does not mark the token used, so the caller may
+   * run further checks and consume it later.
+   *
+   * SECURITY: Callers that perform account-state-dependent work after obtaining a reset
+   * code (e.g. password-history reuse checks) MUST gate that work behind this method
+   * first. Otherwise the differing error response leaks account state — such as whether
+   * a guessed password is in the victim's history — to an unauthenticated caller who
+   * only knows the identifier. See `AuthService.confirmForgotPassword`.
+   *
+   * @param user - Target user
+   * @param codeOrToken - Verification code (short) or token (long)
+   * @param tokenType - Token type ('password_reset' | 'admin_password_reset')
+   * @returns void on success
+   * @throws {NAuthException} PASSWORD_RESET_CODE_INVALID when code/token is invalid
+   * @throws {NAuthException} PASSWORD_RESET_CODE_EXPIRED when token expired
+   * @throws {NAuthException} PASSWORD_RESET_MAX_ATTEMPTS when max attempts exceeded (code only)
+   */
+  async verifyValidCode(
+    user: IUser,
+    codeOrToken: string,
+    tokenType: 'email' | 'phone' | 'password_reset' | 'admin_password_reset' = 'password_reset',
+  ): Promise<void> {
+    await this.assertValidCode(user, codeOrToken, tokenType);
+  }
+
+  /**
+   * Validate a verification code or token and return its entity, without marking it used.
+   *
+   * Shared core of {@link consumeValidCode} and {@link verifyValidCode}: existence,
+   * expiry, code/token match, and attempt tracking (codes only). Increments the attempt
+   * counter on a code mismatch, exactly as before the split.
+   *
+   * @param user - Target user
+   * @param codeOrToken - Verification code (short) or token (long)
+   * @param tokenType - Token type
+   * @returns The validated (still-unused) verification token entity
+   * @throws {NAuthException} On invalid/expired code or exceeded attempts
+   */
+  private async assertValidCode(
+    user: IUser,
+    codeOrToken: string,
+    tokenType: 'email' | 'phone' | 'password_reset' | 'admin_password_reset',
+  ): Promise<BaseVerificationToken> {
     // ============================================================================
     // Detect if input is token (long hex) or code (short numeric)
     // ============================================================================
@@ -503,11 +559,7 @@ export class PasswordResetService {
       }
     }
 
-    // ============================================================================
-    // Mark as used
-    // ============================================================================
-    tokenEntity.usedAt = new Date();
-    await this.verificationTokenRepo.save(tokenEntity);
+    return tokenEntity;
   }
 
   // ============================================================================
@@ -518,7 +570,9 @@ export class PasswordResetService {
     const digits = '0123456789';
     let out = '';
     for (let i = 0; i < length; i += 1) {
-      out += digits[Math.floor(Math.random() * digits.length)];
+      // crypto.randomInt (CSPRNG, rejection-sampled) — a reset code must not be
+      // predictable from prior codes the way Math.random()'s state allows.
+      out += digits[crypto.randomInt(0, digits.length)];
     }
     return out;
   }

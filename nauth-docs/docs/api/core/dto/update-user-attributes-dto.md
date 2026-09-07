@@ -49,7 +49,8 @@ import { UpdateUserAttributesDTO, UserResponseDto } from '@nauth-toolkit/core';
 | `phone`               | `string`  | No       | Phone number. E.164 format.                                                                      |
 | `metadata`            | `object`  | No       | Custom metadata. Merged with existing metadata. Set key to `null` to delete.                     |
 | `preferredMfaMethod`  | `string`  | No       | Preferred MFA method. One of: `totp`, `sms`, `email`, `passkey`.                                 |
-| `retainVerification`  | `boolean` | No       | Whether to retain email/phone verification status when updating email/phone. Default: false.      |
+
+Changing `email` or `phone` here always resets the corresponding verification flag and triggers re-verification. Retaining verification across a change is an administrator-only capability — see [AdminUpdateUserAttributesDto](./admin-update-user-attributes-dto)'s `retainVerification`.
 
 ## UserResponseDto (Response)
 

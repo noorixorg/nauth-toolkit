@@ -48,19 +48,21 @@ export class ForgotPasswordDTO {
   identifier!: string;
 
   /**
-   * Base URL for building reset link
+   * Base URL for building the reset link — **server-trusted, not for public request bodies.**
    *
-   * Validation:
-   * - Must be valid URL with http:// or https://
-   * - Supports localhost URLs (e.g., http://localhost:4200)
-   * - Max 2048 characters
-   * - Optional
+   * SECURITY: The shipped `POST /forgot-password` route **ignores** this field and instead
+   * derives the base URL from `config.password.passwordReset.baseUrl`. This prevents an
+   * attacker from triggering a victim's reset and having the genuine email link to an
+   * attacker host (which would carry the reset code). Do NOT re-expose this field on a public
+   * route.
    *
-   * Sanitization:
-   * - Trimmed
+   * It remains on the DTO for **trusted server-side callers**: a custom controller may compute
+   * a base URL from its own config (optionally per-user, e.g. embedding the email) and pass it
+   * to `AuthService.forgotPassword` directly. In that path the value is honoured because it
+   * never came from the untrusted request body. The final link is `${baseUrl}?code=${code}`.
    *
-   * WHY: Allows consumer apps to build custom reset UI (e.g., myapp.com/reset-password?token=xxx)
-   * Like email verification and admin reset, supports both code AND link delivery
+   * Validation (when provided by a trusted caller):
+   * - Must be a valid http/https URL (localhost allowed), max 2048 chars, trimmed.
    *
    * @example "https://myapp.com/reset-password"
    * @example "http://localhost:4200"

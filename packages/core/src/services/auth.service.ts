@@ -2987,7 +2987,16 @@ export class AuthService {
    */
   async updateUserAttributes(dto: UpdateUserAttributesDTO): Promise<UserResponseDTO> {
     const currentUser = this.getCurrentUserOrThrow();
-    const adminDto = Object.assign(new AdminUpdateUserAttributesDTO(), { sub: currentUser.sub, ...dto });
+    // SECURITY: force `retainVerification: false` on the self-service path, after the
+    // spread, so a caller cannot smuggle it through the request body. `retainVerification`
+    // is admin-only; a self-service email/phone change must always reset the corresponding
+    // verification flag, otherwise a user could claim an address they do not own and keep
+    // it flagged verified (privilege escalation via verified-email trust).
+    const adminDto = Object.assign(new AdminUpdateUserAttributesDTO(), {
+      sub: currentUser.sub,
+      ...dto,
+      retainVerification: false,
+    });
     return await this.userService.updateUserAttributes(adminDto);
   }
 

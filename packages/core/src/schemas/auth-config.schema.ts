@@ -182,6 +182,22 @@ export const passwordConfigSchema = z.object({
       rateLimitMax: z.number().optional(),
       rateLimitWindow: z.number().optional(),
       maxAttempts: z.number().optional(),
+      baseUrl: z
+        .string()
+        .max(2048)
+        .refine(
+          (val) => {
+            if (!val) return true; // Optional
+            try {
+              const url = new URL(val);
+              return ['http:', 'https:'].includes(url.protocol);
+            } catch {
+              return false;
+            }
+          },
+          { message: 'baseUrl must be a valid HTTP or HTTPS URL (localhost URLs are allowed)' },
+        )
+        .optional(),
     })
     .optional(),
 });

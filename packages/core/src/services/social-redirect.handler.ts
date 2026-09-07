@@ -349,12 +349,24 @@ export class SocialRedirectHandler {
     const originAllowlist = this.config.social?.redirect?.allowedReturnToOrigins || [];
 
     if (!allowAbsolute) {
-      if (!returnTo.startsWith('/')) {
+      // Must be a path-relative returnTo that stays on the frontend origin. A value like
+      // "//attacker.com" (or the backslash variant "/\attacker.com" that browsers normalise
+      // to "//") also starts with "/", yet resolves to a *different* origin because it is
+      // protocol-relative. Returning that would 302 the browser off-origin carrying the
+      // exchange token, which mints a full session — so reject anything that is not a single
+      // leading-slash path AND does not resolve back to the frontend's own origin.
+      const isPathRelative = returnTo.startsWith('/') && !returnTo.startsWith('//') && !returnTo.startsWith('/\\');
+      if (!isPathRelative) {
         throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'returnTo must be a relative path', {
           field: 'returnTo',
         });
       }
       const u = new URL(returnTo, frontendBaseUrl);
+      if (u.origin !== new URL(frontendBaseUrl).origin) {
+        throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'returnTo must stay on the frontend origin', {
+          field: 'returnTo',
+        });
+      }
       u.hash = '';
       return u.toString();
     }

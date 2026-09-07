@@ -64,7 +64,7 @@ Request a password reset code for an account. Optionally includes a base URL to 
 | Property | Type | Required | Description |
 | -------- | ---- | -------- | ----------- |
 | `identifier` | `string` | Yes | Account identifier (email/username/phone). 1-255 chars. Trimmed. Lowercased if email (contains `@`). |
-| `baseUrl` | `string` | No | Base URL for building reset link (e.g., `https://myapp.com/reset-password`). Must be valid URL with http:// or https://. Max 2048 chars. Trimmed. When provided, both code and link are sent. |
+| `baseUrl` | `string` | No | **Server-trusted; ignored on the public route.** The shipped `POST /auth/forgot-password` route builds the reset link from `password.passwordReset.baseUrl` and ignores any `baseUrl` in the request body (so it can't be pointed at an attacker host). This field is honoured only when a trusted server-side caller passes it to `AuthService.forgotPassword` directly (e.g. a custom controller computing a per-user link). Valid http/https URL, max 2048 chars. |
 
 ## ForgotPasswordResponseDTO
 
@@ -114,12 +114,11 @@ Response for a confirmed password reset.
 
 ```json
 {
-  "identifier": "user@example.com",
-  "baseUrl": "https://myapp.com/reset-password"
+  "identifier": "user@example.com"
 }
 ```
 
-When `baseUrl` is provided, the system generates a reset link as `${baseUrl}?code=<code>` and sends both the code and the link to the user. The code is always sent (mandatory), while the link is optional and only included when `baseUrl` is provided.
+The reset link is built as `${baseUrl}?code=<code>`, where `baseUrl` comes from `password.passwordReset.baseUrl` (server config) for the shipped route — the request body cannot set it. The code is always sent; the link is included only when a base URL is configured (or passed by a trusted server-side caller).
 
 **Confirm Reset:**
 
