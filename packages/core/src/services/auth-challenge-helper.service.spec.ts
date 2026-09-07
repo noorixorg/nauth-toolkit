@@ -3268,6 +3268,35 @@ describe('AuthChallengeHelperService', () => {
       );
     };
 
+    /**
+     * Point the mocked state machine at AUTHENTICATED and stub token issuance
+     */
+    const mockAuthenticatedState = (): void => {
+      mockStateMachine.evaluateState.mockResolvedValue(AuthFlowState.AUTHENTICATED);
+      mockStateMachine.getStateDefinition.mockReturnValue({
+        state: AuthFlowState.AUTHENTICATED,
+        priority: 9,
+        condition: () => true,
+      });
+      mockStateMachine.buildMetadata.mockReturnValue(undefined);
+      mockJwtService.generateTokenFamily.mockReturnValue('family-grace');
+      mockJwtService.generateTokenPair.mockResolvedValue({
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        expiresIn: 900,
+      } as any);
+      mockJwtService.hashToken.mockReturnValue('token-hash');
+      mockSessionService.createSession.mockResolvedValue({ id: 1 } as any);
+      mockJwtService.validateAccessToken.mockResolvedValue({
+        valid: true,
+        payload: { exp: Math.floor(Date.now() / 1000) + 900 } as any,
+      });
+      mockJwtService.validateRefreshToken.mockResolvedValue({
+        valid: true,
+        payload: { exp: Math.floor(Date.now() / 1000) + 2592000 } as any,
+      });
+    };
+
     beforeEach(() => {
       jest.clearAllMocks();
       mockClientInfoService.get.mockReturnValue({
@@ -3377,6 +3406,90 @@ describe('AuthChallengeHelperService', () => {
       const result = await makeService().determineAuthResponse({ user, config });
 
       expect(result.mfaGracePeriod).toBeUndefined();
+    });
+
+    it('omits grace period info for a social login exempted by requireForSocialLogin', async () => {
+      const user = { ...mockUser, isEmailVerified: true, mfaEnabled: false, createdAt: new Date() } as IUser;
+      const config = {
+        ...mockConfig,
+        signup: { verificationMethod: 'none' as const },
+        mfa: { enabled: true, enforcement: 'REQUIRED' as const, gracePeriod: 7, requireForSocialLogin: false },
+      } as NAuthConfig;
+
+      mockContextBuilder.build.mockResolvedValue({
+        user,
+        config,
+        authMethod: 'social',
+        authProvider: 'google',
+        isSignup: true,
+        computed: {
+          isEmailVerificationRequired: false,
+          isPhoneVerificationRequired: false,
+          isPhoneCollectionNeeded: false,
+          isMFAExempt: false,
+          isMFASetupRequired: false,
+          isMFAVerificationRequired: false,
+          isDeviceTrusted: false,
+          isGracePeriodActive: true,
+          isBlocked: false,
+        },
+      } as AuthFlowContext);
+      mockAuthenticatedState();
+
+      const result = await makeService().determineAuthResponse({
+        user,
+        config,
+        isSocialLogin: true,
+        isSignup: true,
+        authProvider: 'google',
+      });
+
+      // MFA setup will never be demanded for this user, so there is no deadline to report
+      expect(result.mfaGracePeriod).toBeUndefined();
+    });
+
+    it('reports grace period info for a social login when requireForSocialLogin is true', async () => {
+      const user = { ...mockUser, isEmailVerified: true, mfaEnabled: false, createdAt: new Date() } as IUser;
+      const config = {
+        ...mockConfig,
+        signup: { verificationMethod: 'none' as const },
+        mfa: { enabled: true, enforcement: 'REQUIRED' as const, gracePeriod: 7, requireForSocialLogin: true },
+      } as NAuthConfig;
+
+      mockContextBuilder.build.mockResolvedValue({
+        user,
+        config,
+        authMethod: 'social',
+        authProvider: 'google',
+        isSignup: true,
+        computed: {
+          isEmailVerificationRequired: false,
+          isPhoneVerificationRequired: false,
+          isPhoneCollectionNeeded: false,
+          isMFAExempt: false,
+          isMFASetupRequired: false,
+          isMFAVerificationRequired: false,
+          isDeviceTrusted: false,
+          isGracePeriodActive: true,
+          isBlocked: false,
+        },
+      } as AuthFlowContext);
+      mockAuthenticatedState();
+
+      const result = await makeService().determineAuthResponse({
+        user,
+        config,
+        isSocialLogin: true,
+        isSignup: true,
+        authProvider: 'google',
+      });
+
+      expect(result.mfaGracePeriod).toEqual({
+        active: true,
+        endsAt: expect.any(String),
+        daysRemaining: 7,
+        enforcement: 'REQUIRED',
+      });
     });
 
     it('reports requiredAtNextLogin on a frictionless signup with gracePeriod 0', async () => {

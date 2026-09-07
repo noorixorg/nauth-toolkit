@@ -198,5 +198,72 @@ describe('mfa-grace-period', () => {
         expect(buildMfaGracePeriodInfo(makeUser({ mfaExempt: true }), skipConfig, { isSignup: true })).toBeUndefined();
       });
     });
+
+    describe('social logins', () => {
+      const socialExemptConfig = makeConfig({
+        enabled: true,
+        enforcement: 'REQUIRED',
+        gracePeriod: 7,
+        requireForSocialLogin: false,
+      });
+
+      const socialEnforcedConfig = makeConfig({
+        enabled: true,
+        enforcement: 'REQUIRED',
+        gracePeriod: 7,
+        requireForSocialLogin: true,
+      });
+
+      it('returns undefined for a social login when requireForSocialLogin is false', () => {
+        // Setup is never demanded for these users, so announcing a deadline would send
+        // the client chasing a setup flow that is never enforced
+        expect(buildMfaGracePeriodInfo(makeUser(), socialExemptConfig, { authMethod: 'social' })).toBeUndefined();
+        expect(
+          buildMfaGracePeriodInfo(makeUser(), socialExemptConfig, { authMethod: 'social', isSignup: true }),
+        ).toBeUndefined();
+      });
+
+      it('still reports the window for password logins when social is exempted', () => {
+        expect(buildMfaGracePeriodInfo(makeUser(), socialExemptConfig, { authMethod: 'password' })?.active).toBe(true);
+      });
+
+      it('reports the window for a social login when requireForSocialLogin is true', () => {
+        const result = buildMfaGracePeriodInfo(makeUser({ createdAt: daysAgo(2) }), socialEnforcedConfig, {
+          authMethod: 'social',
+        });
+
+        expect(result).toEqual({
+          active: true,
+          endsAt: expect.any(String),
+          daysRemaining: 5,
+          enforcement: 'REQUIRED',
+        });
+      });
+
+      it('reports requiredAtNextLogin for an enforced social signup with gracePeriod 0', () => {
+        const result = buildMfaGracePeriodInfo(
+          makeUser(),
+          makeConfig({
+            enabled: true,
+            enforcement: 'REQUIRED',
+            gracePeriod: 0,
+            requireForSocialLogin: true,
+            grace: { skipForSignup: true },
+          }),
+          { authMethod: 'social', isSignup: true },
+        );
+
+        expect(result).toEqual({
+          active: true,
+          daysRemaining: 0,
+          enforcement: 'REQUIRED',
+          requiredAtNextLogin: true,
+        });
+      });
+
+      it('treats an unspecified authMethod as password', () => {
+        expect(buildMfaGracePeriodInfo(makeUser(), socialExemptConfig)?.active).toBe(true);
+      });
+    });
   });
 });

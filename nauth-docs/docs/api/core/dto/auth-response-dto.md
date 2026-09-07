@@ -145,7 +145,8 @@ The field is present only when all of the following hold:
 
 - `mfa.enabled` is `true` and `mfa.enforcement` is `REQUIRED` or `ADAPTIVE`
 - The user has not enrolled MFA and is not exempt (`mfaExempt`)
-- Either the `mfa.gracePeriod` window is still open, or the setup challenge was skipped for this signup via [`mfa.grace.skipForSignup`](/docs/concepts/configuration#multi-factor-authentication)
+- The request is not a social login exempted by `mfa.requireForSocialLogin: false`
+- Either the `mfa.gracePeriod` window is still open, or the setup challenge was skipped for this signup via [`mfa.grace.skipForSignup`](/docs/concepts/configuration#grace-period)
 
 Once the grace ends, the field is absent and the flow returns the `MFA_SETUP_REQUIRED` challenge instead.
 

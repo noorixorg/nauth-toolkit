@@ -47,6 +47,7 @@ type AuthBody = {
   challengeName?: string;
   session?: string;
   accessToken?: string;
+  user?: { sub: string; email: string };
   sub?: string;
   mfaGracePeriod?: MfaGracePeriod;
 };
@@ -215,10 +216,12 @@ test.describe('MFA grace period @mfa-grace', () => {
     });
     expect(phoneStep.ok()).toBe(true);
 
-    // Signup completes with tokens - no MFA wall
+    // Signup completes authenticated - no MFA wall.
+    // `user` is the delivery-mode-agnostic success marker: in cookies mode the token
+    // fields are stripped from the body and set as httpOnly cookies instead.
     const phoneBody = await body(phoneStep);
     expect(phoneBody.challengeName).toBeUndefined();
-    expect(phoneBody.accessToken).toBeTruthy();
+    expect(phoneBody.user).toBeTruthy();
     expect(phoneBody.mfaGracePeriod).toEqual({
       active: true,
       daysRemaining: 0,
@@ -236,7 +239,7 @@ test.describe('MFA grace period @mfa-grace', () => {
 
     const loginBody = await body(login);
     expect(loginBody.challengeName).toBe('MFA_SETUP_REQUIRED');
-    expect(loginBody.accessToken).toBeUndefined();
+    expect(loginBody.user).toBeUndefined();
     // The grace is spent: nothing left to report
     expect(loginBody.mfaGracePeriod).toBeUndefined();
   });

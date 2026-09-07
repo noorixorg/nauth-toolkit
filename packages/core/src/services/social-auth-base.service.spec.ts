@@ -15,6 +15,7 @@ import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { IUser } from '../interfaces/entities.interface';
 import { ISocialAuthStateStore } from '../interfaces/social-auth-state-store.interface';
+import { ContextStorage } from '../utils/context-storage';
 import type { Repository } from 'typeorm';
 import type { BaseUser } from '../entities';
 
@@ -536,6 +537,83 @@ describe('BaseSocialAuthProviderService', () => {
         expect(error).toBeInstanceOf(NAuthException);
         expect((error as NAuthException).code).toBe(AuthErrorCode.SOCIAL_ACCOUNT_LINKED);
       }
+    });
+  });
+
+  // ============================================================================
+  // MFA grace period: signup vs returning login
+  // ============================================================================
+
+  describe('MFA grace period signup detection', () => {
+    /**
+     * Read the isSignup flag the service passed to the challenge helper
+     */
+    const capturedIsSignup = (): boolean | undefined =>
+      (mockChallengeHelper.determineAuthResponse as jest.Mock).mock.calls[0][0].isSignup;
+
+    beforeEach(() => {
+      mockSocialAuthService.createOrUpdateSocialAccount.mockResolvedValue(undefined);
+    });
+
+    it('marks a first-time social user as a signup', async () => {
+      // No linked social account and no matching email - the user is created in this request
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockUserRepository.create.mockReturnValue(mockUser as any);
+      mockUserRepository.save.mockResolvedValue(mockUser as any);
+
+      await ContextStorage.run(async () => {
+        await service.verifyToken({ idToken: 'id-token', provider: 'google' });
+      });
+
+      expect(capturedIsSignup()).toBe(true);
+      expect(mockChallengeHelper.determineAuthResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ isSocialLogin: true, isSignup: true }),
+      );
+    });
+
+    it('does not mark a returning social login as a signup', async () => {
+      // Existing linked social account - no user is created
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue({ user: mockUser } as any);
+
+      await ContextStorage.run(async () => {
+        await service.verifyToken({ idToken: 'id-token', provider: 'google' });
+      });
+
+      expect(capturedIsSignup()).toBe(false);
+      expect(mockUserRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('does not leak the signup flag to a different user in the same request', async () => {
+      // A user was created earlier in this request, but the response is built for someone
+      // else - the flag must not apply, or that user would skip enforced MFA setup.
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockUserRepository.create.mockReturnValue(mockUser as any);
+      mockUserRepository.save.mockResolvedValue({ ...mockUser, id: 99 } as any);
+
+      await ContextStorage.run(async () => {
+        await service.verifyToken({ idToken: 'id-token', provider: 'google' });
+
+        (mockChallengeHelper.determineAuthResponse as jest.Mock).mockClear();
+        // Different user id than the one created above
+        await (
+          service as unknown as { createAuthResponse: (u: IUser, d: 'web' | 'mobile') => Promise<unknown> }
+        ).createAuthResponse({ ...mockUser, id: 1 } as IUser, 'mobile');
+      });
+
+      expect(capturedIsSignup()).toBe(false);
+    });
+
+    it('falls back to a non-signup flow when no request context is active', async () => {
+      // Direct invocation outside ContextStorage.run() must not throw
+      mockSocialAuthService.findSocialAccountByProvider.mockResolvedValue(null);
+      mockUserRepository.findOne.mockResolvedValue(null);
+      mockUserRepository.create.mockReturnValue(mockUser as any);
+      mockUserRepository.save.mockResolvedValue(mockUser as any);
+
+      await expect(service.verifyToken({ idToken: 'id-token', provider: 'google' })).resolves.toBeDefined();
+      expect(capturedIsSignup()).toBe(false);
     });
   });
 });

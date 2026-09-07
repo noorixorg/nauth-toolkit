@@ -1099,6 +1099,8 @@ mfa: {
 
 :::note
 `grace.skipForSignup` covers the signup request and the email/phone verification challenges it issues — the whole onboarding flow, including social signup. It does not affect login.
+
+Social logins are only subject to any of this when `requireForSocialLogin` is `true`. With the default `false`, social users are never asked to set up MFA and their responses carry no `mfaGracePeriod`.
 :::
 
 ## Geolocation {/* #geolocation */}

@@ -1077,6 +1077,10 @@ export class AuthServiceInternalHelpers {
       // The following are used for messaging/challenge determination when needed
       'user.socialProviders',
       'user.backupCodes',
+      // Required by the MFA grace period calculation in the challenge flow - without it
+      // the window reads as expired and REQUIRED/ADAPTIVE enforcement demands MFA setup
+      // on the very first login, ignoring mfa.gracePeriod entirely.
+      'user.createdAt',
     ]);
 
     return (await queryBuilder.getOne()) as IUser | null;

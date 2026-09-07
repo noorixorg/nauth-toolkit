@@ -146,6 +146,8 @@ The signup response then reports the deadline explicitly:
 
 The skip covers the signup request and the email/phone verification challenges it issues (social signup included), so it survives a multi-step onboarding. It never applies to login.
 
+**Social logins.** Everything above applies to social users only when `requireForSocialLogin: true`. With the default `false` they are exempt from MFA setup entirely, so their responses carry no `mfaGracePeriod` — there is no deadline to report. With it enabled, a first-time social signup is treated exactly like a password signup: it gets the grace window, and `grace.skipForSignup` defers setup to their next login.
+
 ## How MFA Works
 
 ### Login with MFA (already set up)

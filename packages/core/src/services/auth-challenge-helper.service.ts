@@ -841,7 +841,10 @@ export class AuthChallengeHelperService {
     // signup response - and can offer an optional setup flow before enforcement bites.
     // Returns undefined unless the user is genuinely inside a grace period for a
     // pending MFA setup, so responses are unchanged for everyone else.
-    const mfaGracePeriod = buildMfaGracePeriodInfo(user, config, { isSignup });
+    const mfaGracePeriod = buildMfaGracePeriodInfo(user, config, {
+      isSignup,
+      authMethod: isSocialLogin ? 'social' : 'password',
+    });
     if (mfaGracePeriod) {
       response.mfaGracePeriod = mfaGracePeriod;
       this.logger?.debug?.(

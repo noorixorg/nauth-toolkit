@@ -140,7 +140,7 @@ import { MfaGracePeriod } from '@nauth-toolkit/client';
 | `enforcement`         | `'REQUIRED' \| 'ADAPTIVE'` | Enforcement policy that applies once the grace period ends                               |
 | `requiredAtNextLogin` | `boolean`                  | `true` when the next login will be challenged with `MFA_SETUP_REQUIRED`                  |
 
-When the field is absent, there is nothing pending: either MFA is not enforced, the user already enrolled, or the grace has expired and the flow returns `MFA_SETUP_REQUIRED` instead.
+When the field is absent, there is nothing pending: MFA is not enforced, the user already enrolled, the grace expired (the flow returns `MFA_SETUP_REQUIRED` instead), or this is a social login the backend exempts via `mfa.requireForSocialLogin: false`.
 
 ```typescript
 const result = await client.signup({ email, password });

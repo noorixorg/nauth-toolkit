@@ -136,6 +136,8 @@ export function shouldSkipMfaSetupForSignup(config: NAuthConfig, isSignup?: bool
  * @param config - Auth configuration
  * @param options - Flow options
  * @param options.isSignup - Whether the current flow is a signup (or a verification challenge it issued)
+ * @param options.authMethod - How the user authenticated, so social logins exempted by
+ *   `mfa.requireForSocialLogin: false` are not told about a deadline that never arrives
  * @returns Grace period payload, or undefined when no grace period applies
  *
  * @example
@@ -150,7 +152,7 @@ export function shouldSkipMfaSetupForSignup(config: NAuthConfig, isSignup?: bool
 export function buildMfaGracePeriodInfo(
   user: IUser,
   config: NAuthConfig,
-  options?: { isSignup?: boolean },
+  options?: { isSignup?: boolean; authMethod?: 'password' | 'social' },
 ): MfaGracePeriodInfo | undefined {
   // Grace period is an MFA-setup concept - irrelevant when MFA is off
   if (!config.mfa?.enabled) {
@@ -160,6 +162,13 @@ export function buildMfaGracePeriodInfo(
   // OPTIONAL enforcement never requires setup, so there is nothing to grant grace for
   const enforcement = config.mfa.enforcement ?? 'OPTIONAL';
   if (enforcement !== 'REQUIRED' && enforcement !== 'ADAPTIVE') {
+    return undefined;
+  }
+
+  // Social logins exempted from MFA will never be asked to set it up, so announcing a
+  // deadline would send the client chasing a setup flow that is never enforced.
+  // Mirrors the same check in AuthFlowContextBuilder.isMFASetupRequired().
+  if (options?.authMethod === 'social' && config.mfa.requireForSocialLogin === false) {
     return undefined;
   }
 
