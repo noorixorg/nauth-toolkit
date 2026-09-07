@@ -5,6 +5,37 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] - 2026-09-07
+
+### Security
+
+- **Several security fixes across the core, the NestJS adapter and the Angular client. Upgrading to this version is strongly recommended.**
+
+### Upgrade notes
+
+Four things to check before deploying. The first two fail quietly — nothing errors, the behaviour just degrades.
+
+- **Configure trust proxy if you run behind a reverse proxy or load balancer.** The client IP now comes from the framework-resolved `req.ip` rather than a raw `X-Forwarded-For` header. Unconfigured, `req.ip` is the socket peer — so behind a proxy every request appears to come from the proxy's IP, and anything keyed on client IP (account lockout, adaptive-MFA risk and IP-scoped blocks, geolocation, audit) pools all users together. Set Express `trust proxy` / Fastify `trustProxy` to match your topology: `1` behind a single reverse proxy, `uniquelocal` behind AWS ELB/ALB, or an explicit CIDR list. Never `true`. Leave it unset only if nothing proxies you. See [the NestJS quick start](https://nauth.dev/docs/quick-start/nestjs).
+- **Set `password.passwordReset.baseUrl` if you use the shipped forgot-password route.** That route now builds the reset link from server config only and ignores a `baseUrl` in the request body. If your frontend was supplying it, reset emails still carry the code but lose the clickable link until you configure this.
+- **Express/Fastify with `apiKeys.globalAllowlist: true`:** `apiKey: 'deny'` routes are now genuinely closed to API-key callers, so a key that previously reached the API-key management or admin routes gets `403`. Use a session token for those.
+- **Adaptive MFA with `blockedSignIn.scope` set to `device` or `ip`:** block records are stored under a new key. Existing blocks are not carried over; with a `blockDuration` they simply expire, but a permanent block needs re-issuing.
+
+### Changed
+
+- **BREAKING — reCAPTCHA now applies to the shipped `signup` and `login` routes** when `recaptcha.enabled` is `true`. If you mount the shipped route bundles, ship frontend token generation before upgrading or those two routes answer `RECAPTCHA_REQUIRED`. Hand-written controllers using `@RequireRecaptcha()` are unaffected. See [the reCAPTCHA guide](https://nauth.dev/docs/guides/recaptcha).
+- **BREAKING — `retainVerification` is admin-only.** It moved to the admin DTO and is ignored on self-service profile updates. Changing an email or phone always resets its verified status.
+- **BREAKING — the NestJS hook decorators no longer take a `priority` option**, and `HookDecoratorOptions` is no longer exported. It never affected execution order; order hooks via the `NAuthHooksModule.forFeature([...])` array.
+- Log metadata is now redacted by key name — any key ending `token`, `secret`, `password`, `apikey`, `privatekey`, `authorization` or `cookie` is replaced with `[REDACTED]`. Adjust anything that parses those fields out of your logs.
+
+### Added
+
+- **MFA grace period is reported to the frontend.** Auth responses carry `mfaGracePeriod` whenever MFA setup is pending but not yet enforced, on challenge responses as well as success ones — so a signup response can drive an optional setup flow immediately. New `mfa.grace.skipForSignup` keeps onboarding frictionless by deferring the setup challenge to the next login. See [the MFA guide](https://nauth.dev/docs/guides/mfa/how-mfa-works).
+
+### Fixed
+
+- **The MFA grace period was ignored at login.** The login user projection omitted `createdAt`, which the grace period is calculated from, so it read as expired on every login and REQUIRED/ADAPTIVE enforcement demanded setup immediately whatever `mfa.gracePeriod` said. Social logins exempted by `mfa.requireForSocialLogin: false` no longer advertise a deadline they will never enforce.
+- The OIDC provider's ESM loader no longer flakes on shared Jest workers.
+
 ## [0.6.1] - 2026-09-06
 
 ### Fixed
