@@ -58,7 +58,6 @@ npm install @nauth-toolkit/nestjs
 | `@AccountLockedHook()` | After an account is locked |
 | `@SessionsRevokedHook()` | After user sessions are bulk revoked |
 | `@MFAFirstEnabledHook()` | After a user enables MFA for the first time |
-| `HookDecoratorOptions` | Options interface shared by all hook decorators |
 
 ### Hooks Module
 

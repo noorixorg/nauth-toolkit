@@ -23,7 +23,7 @@ The `@MFADeviceRemovedHook()` decorator enables automatic hook registration. Cla
 
 - Automatic hook discovery and registration
 - Full dependency injection support
-- Priority-based execution ordering
+- Executes in `NAuthHooksModule.forFeature()` registration order
 - Non-blocking - errors don't affect removal
 
 ## Usage
@@ -52,18 +52,6 @@ export class MFADeviceRemovedAlertHook implements IMFADeviceRemovedHook {
   }
 }
 ```
-
-### With Priority
-
-```typescript
-@Injectable()
-@MFADeviceRemovedHook({ priority: 1 })
-export class MFADeviceRemovedEmailHook implements IMFADeviceRemovedHook {
-  // Executes first
-}
-```
-
-**Default Priority:** 100
 
 ### Module Registration
 

@@ -47,7 +47,7 @@ import { NAuthConfig } from '@nauth-toolkit/core';
 ## Recent additions
 
 - `recaptcha`: Google reCAPTCHA v2/v3/Enterprise bot protection. Configure `enabled`, `provider`, `minimumScore`. Use `@RequireRecaptcha()` decorator on protected endpoints. See [RecaptchaConfig](./recaptcha-config) and [reCAPTCHA Guide](/docs/guides/recaptcha).
-- `mfa.adaptive.blockedSignIn.scope`: control whether Adaptive MFA blocks apply to the **user**, **device**, or **IP**.
+- `mfa.adaptive.blockedSignIn.scope`: control whether Adaptive MFA blocks apply to the **user**, **device**, or **IP**. `device` and `ip` are identified by client-supplied values, so a request presenting a different one is re-scored rather than blocked; a request presenting none stays blocked. Use `user` when the block must be unconditional.
 - `emailNotifications.suppress.mfaMethodAdded`: opt-in email notification when an **additional MFA method** is added.
 - `signup.emailVerification.baseUrl`: base URL for email verification links. When configured, verification emails include a clickable link with the code (format: `${baseUrl}?code=${code}`). The consumer app handles routing. Supports both development (localhost) and production URLs.
 - `apiKeys`: API key authentication. Configure `enabled`, `allowUserCreation`, `header`, `maxKeysPerUser`, `maxExpiryDays`, `allowIndefinite`, and per-key `ipRestrictions`. Protect routes with the `@AllowApiKey()` / `@DenyApiKey()` decorators. See the [API Keys Guide](/docs/guides/api-keys).

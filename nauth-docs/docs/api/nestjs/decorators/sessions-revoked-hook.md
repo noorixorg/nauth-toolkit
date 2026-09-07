@@ -23,7 +23,7 @@ The `@SessionsRevokedHook()` decorator enables automatic hook registration. Clas
 
 - Automatic hook discovery and registration
 - Full dependency injection support
-- Priority-based execution ordering
+- Executes in `NAuthHooksModule.forFeature()` registration order
 - Non-blocking - errors don't affect revocation
 
 ## Usage
@@ -52,18 +52,6 @@ export class SessionsRevokedAlertHook implements ISessionsRevokedHook {
   }
 }
 ```
-
-### With Priority
-
-```typescript
-@Injectable()
-@SessionsRevokedHook({ priority: 1 })
-export class SessionsRevokedEmailHook implements ISessionsRevokedHook {
-  // Executes first
-}
-```
-
-**Default Priority:** 100
 
 ### Module Registration
 

@@ -264,10 +264,11 @@ export class RiskDetectionService {
         } catch (trustedError) {
           // Non-blocking: If trusted device check fails, continue to session check
           const errorMessage = trustedError instanceof Error ? trustedError.message : 'Unknown error';
+          // deviceToken is a bearer credential that skips MFA — userId alone identifies
+          // the record being looked up, so the token never goes into the log.
           this.logger?.warn?.(`Failed to check trusted device: ${errorMessage}`, {
             error: trustedError,
             userId,
-            deviceToken,
           });
         }
       }
@@ -283,7 +284,7 @@ export class RiskDetectionService {
     } catch (error) {
       // Non-blocking: Log and assume device is new (safer default)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      this.logger?.warn?.(`Failed to check device history: ${errorMessage}`, { error, userId, deviceToken });
+      this.logger?.warn?.(`Failed to check device history: ${errorMessage}`, { error, userId });
       return true; // Assume new device on error (safer for security)
     }
   }

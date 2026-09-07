@@ -23,7 +23,7 @@ The `@PasswordChangedHook()` decorator enables automatic hook registration. Clas
 
 - Automatic hook discovery and registration
 - Full dependency injection support
-- Priority-based execution ordering
+- Executes in `NAuthHooksModule.forFeature()` registration order
 - Non-blocking - errors don't affect password change
 
 ## Usage
@@ -52,18 +52,6 @@ export class PasswordChangedEmailHook implements IPasswordChangedHook {
   }
 }
 ```
-
-### With Priority
-
-```typescript
-@Injectable()
-@PasswordChangedHook({ priority: 1 })
-export class PasswordChangedEmailHook implements IPasswordChangedHook {
-  // Executes first
-}
-```
-
-**Default Priority:** 100
 
 ### Module Registration
 

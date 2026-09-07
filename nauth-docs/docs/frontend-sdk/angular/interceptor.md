@@ -119,7 +119,7 @@ Request C → 401 ─┘
 
 ### Exclude Routes from Interception
 
-The interceptor only adds auth to requests matching your `baseUrl`. External APIs are not affected.
+The interceptor only adds auth to requests whose **origin** matches your `baseUrl`, and whose path sits at or below the `baseUrl` path. External APIs are not affected, and neither is a look-alike host such as `https://api.example.com.attacker.test` — the comparison parses both URLs rather than testing for a substring. A URL that cannot be parsed is never treated as your API.
 
 For additional control, create a wrapper interceptor:
 

@@ -26,7 +26,7 @@ The `@PreSignupHook()` decorator enables automatic hook registration without man
 - Automatic hook discovery and registration
 - No manual registry calls required
 - Full dependency injection support
-- Priority-based execution ordering
+- Executes in `NAuthHooksModule.forFeature()` registration order
 - Type-safe with TypeScript
 
 **When Pre-Signup Hooks Execute:**
@@ -68,32 +68,16 @@ export class DomainValidationHook implements IPreSignupHookProvider {
 }
 ```
 
-### With Priority
+### Execution Order
 
-Control execution order using the `priority` option. Lower priority values execute first:
+Hooks run in the order they are listed in [`NAuthHooksModule.forFeature()`](./nauth-hooks-module). Because a pre-signup hook can block signup, list the cheapest or most restrictive check first:
 
 ```typescript
-import { Injectable } from '@nestjs/common';
-import { PreSignupHook, IPreSignupHookProvider } from '@nauth-toolkit/nestjs';
-
-@Injectable()
-@PreSignupHook({ priority: 1 })  // Executes first
-export class DomainValidationHook implements IPreSignupHookProvider {
-  async execute(userData, signupMethod, providerId, adminSignup) {
-    // Domain validation logic
-  }
-}
-
-@Injectable()
-@PreSignupHook({ priority: 2 })  // Executes second
-export class InviteCodeHook implements IPreSignupHookProvider {
-  async execute(userData, signupMethod, providerId, adminSignup) {
-    // Invite code validation logic
-  }
-}
+NAuthHooksModule.forFeature([
+  DomainValidationHook, // Runs first - rejects before the invite lookup
+  InviteCodeHook, // Runs second
+]);
 ```
-
-**Default Priority:** If not specified, priority defaults to `100`.
 
 ### With Dependency Injection
 

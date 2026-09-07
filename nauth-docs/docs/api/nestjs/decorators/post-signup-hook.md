@@ -28,7 +28,7 @@ The `@PostSignupHook()` decorator enables automatic hook registration without ma
 - Automatic hook discovery and registration
 - No manual registry calls required
 - Full dependency injection support
-- Priority-based execution ordering
+- Executes in `NAuthHooksModule.forFeature()` registration order
 - Non-blocking - errors don't affect signup
 - Type-safe with TypeScript
 
@@ -73,32 +73,16 @@ export class WelcomeEmailHook implements IPostSignupHookProvider {
 }
 ```
 
-### With Priority
+### Execution Order
 
-Control execution order using the `priority` option. Lower priority values execute first:
+Hooks run in the order they are listed in [`NAuthHooksModule.forFeature()`](./nauth-hooks-module):
 
 ```typescript
-import { Injectable } from '@nestjs/common';
-import { PostSignupHook, IPostSignupHookProvider } from '@nauth-toolkit/nestjs';
-
-@Injectable()
-@PostSignupHook({ priority: 1 }) // Executes first
-export class WelcomeEmailHook implements IPostSignupHookProvider {
-  async execute(user, metadata) {
-    // Send welcome email
-  }
-}
-
-@Injectable()
-@PostSignupHook({ priority: 2 }) // Executes second
-export class AnalyticsHook implements IPostSignupHookProvider {
-  async execute(user, metadata) {
-    // Track signup event
-  }
-}
+NAuthHooksModule.forFeature([
+  WelcomeEmailHook, // Runs first
+  AnalyticsHook, // Runs second
+]);
 ```
-
-**Default Priority:** If not specified, priority defaults to `100`.
 
 ### With Dependency Injection
 

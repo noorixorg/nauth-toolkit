@@ -12,7 +12,7 @@
  * import { IPreSignupHookProvider, NAuthException, AuthErrorCode } from '@nauth-toolkit/core';
  *
  * @Injectable()
- * @PreSignupHook({ priority: 1 })
+ * @PreSignupHook()
  * export class DomainValidationHook implements IPreSignupHookProvider {
  *   async execute(userData, signupMethod, providerId, adminSignup) {
  *     const domain = userData.email.split('@')[1];
@@ -49,18 +49,6 @@ export type HookType =
  */
 export interface HookMetadata {
   type: HookType;
-  priority?: number;
-}
-
-/**
- * Options for hook decorators
- */
-export interface HookDecoratorOptions {
-  /**
-   * Execution priority (lower numbers execute first)
-   * Default: 100
-   */
-  priority?: number;
 }
 
 /**
@@ -73,12 +61,10 @@ export interface HookDecoratorOptions {
  *
  * Hooks can block signup by throwing NAuthException with AuthErrorCode.PRESIGNUP_FAILED
  *
- * @param options - Hook configuration options
- *
  * @example
  * ```typescript
  * @Injectable()
- * @PreSignupHook({ priority: 1 })
+ * @PreSignupHook()
  * export class DomainValidationHook implements IPreSignupHookProvider {
  *   async execute(userData, signupMethod, providerId, adminSignup) {
  *     const allowedDomains = ['company.com', 'partner.com'];
@@ -94,10 +80,9 @@ export interface HookDecoratorOptions {
  * }
  * ```
  */
-export function PreSignupHook(options: HookDecoratorOptions = {}): ClassDecorator {
+export function PreSignupHook(): ClassDecorator {
   const metadata: HookMetadata = {
     type: 'preSignup',
-    priority: options.priority ?? 100,
   };
   return SetMetadata(HOOK_METADATA_KEY, metadata);
 }
@@ -114,12 +99,10 @@ export function PreSignupHook(options: HookDecoratorOptions = {}): ClassDecorato
  * These hooks cannot block signup (user is already created) but errors are logged and can be
  * handled by your application.
  *
- * @param options - Hook configuration options
  */
-export function PostSignupHook(options: HookDecoratorOptions = {}): ClassDecorator {
+export function PostSignupHook(): ClassDecorator {
   const metadata: HookMetadata = {
     type: 'postSignup',
-    priority: options.priority ?? 100,
   };
   return SetMetadata(HOOK_METADATA_KEY, metadata);
 }
@@ -136,12 +119,10 @@ export function PostSignupHook(options: HookDecoratorOptions = {}): ClassDecorat
  * These hooks cannot block profile updates (changes are already saved) but errors are logged and can be
  * handled by your application.
  *
- * @param options - Hook configuration options
- *
  * @example
  * ```typescript
  * @Injectable()
- * @UserProfileUpdatedHook({ priority: 1 })
+ * @UserProfileUpdatedHook()
  * export class CrmSyncHook implements IUserProfileUpdatedHook {
  *   constructor(private readonly crmService: CrmService) {}
  *
@@ -157,10 +138,9 @@ export function PostSignupHook(options: HookDecoratorOptions = {}): ClassDecorat
  * }
  * ```
  */
-export function UserProfileUpdatedHook(options: HookDecoratorOptions = {}): ClassDecorator {
+export function UserProfileUpdatedHook(): ClassDecorator {
   const metadata: HookMetadata = {
     type: 'userProfileUpdated',
-    priority: options.priority ?? 100,
   };
   return SetMetadata(HOOK_METADATA_KEY, metadata);
 }
@@ -176,12 +156,10 @@ export function UserProfileUpdatedHook(options: HookDecoratorOptions = {}): Clas
  *
  * These hooks cannot block password changes (password is already updated) but errors are logged.
  *
- * @param options - Hook configuration options
- *
  * @example
  * ```typescript
  * @Injectable()
- * @PasswordChangedHook({ priority: 1 })
+ * @PasswordChangedHook()
  * export class PasswordChangedNotificationHook implements IPasswordChangedHook {
  *   constructor(private readonly emailService: EmailService) {}
  *
@@ -194,10 +172,9 @@ export function UserProfileUpdatedHook(options: HookDecoratorOptions = {}): Clas
  * }
  * ```
  */
-export function PasswordChangedHook(options: HookDecoratorOptions = {}): ClassDecorator {
+export function PasswordChangedHook(): ClassDecorator {
   const metadata: HookMetadata = {
     type: 'passwordChanged',
-    priority: options.priority ?? 100,
   };
   return SetMetadata(HOOK_METADATA_KEY, metadata);
 }
@@ -213,12 +190,10 @@ export function PasswordChangedHook(options: HookDecoratorOptions = {}): ClassDe
  *
  * These hooks cannot block device removal (device is already removed) but errors are logged.
  *
- * @param options - Hook configuration options
- *
  * @example
  * ```typescript
  * @Injectable()
- * @MFADeviceRemovedHook({ priority: 1 })
+ * @MFADeviceRemovedHook()
  * export class MFADeviceRemovedNotificationHook implements IMFADeviceRemovedHook {
  *   constructor(private readonly emailService: EmailService) {}
  *
@@ -232,10 +207,9 @@ export function PasswordChangedHook(options: HookDecoratorOptions = {}): ClassDe
  * }
  * ```
  */
-export function MFADeviceRemovedHook(options: HookDecoratorOptions = {}): ClassDecorator {
+export function MFADeviceRemovedHook(): ClassDecorator {
   const metadata: HookMetadata = {
     type: 'mfaDeviceRemoved',
-    priority: options.priority ?? 100,
   };
   return SetMetadata(HOOK_METADATA_KEY, metadata);
 }
@@ -251,12 +225,10 @@ export function MFADeviceRemovedHook(options: HookDecoratorOptions = {}): ClassD
  *
  * These hooks cannot block authentication (risk decision is already made) but errors are logged.
  *
- * @param options - Hook configuration options
- *
  * @example
  * ```typescript
  * @Injectable()
- * @AdaptiveMFARiskDetectedHook({ priority: 1 })
+ * @AdaptiveMFARiskDetectedHook()
  * export class RiskAlertHook implements IAdaptiveMFARiskDetectedHook {
  *   constructor(private readonly emailService: EmailService) {}
  *
@@ -270,10 +242,9 @@ export function MFADeviceRemovedHook(options: HookDecoratorOptions = {}): ClassD
  * }
  * ```
  */
-export function AdaptiveMFARiskDetectedHook(options: HookDecoratorOptions = {}): ClassDecorator {
+export function AdaptiveMFARiskDetectedHook(): ClassDecorator {
   const metadata: HookMetadata = {
     type: 'adaptiveMfaRiskDetected',
-    priority: options.priority ?? 100,
   };
   return SetMetadata(HOOK_METADATA_KEY, metadata);
 }
@@ -289,12 +260,10 @@ export function AdaptiveMFARiskDetectedHook(options: HookDecoratorOptions = {}):
  *
  * These hooks cannot block status changes (status is already updated) but errors are logged.
  *
- * @param options - Hook configuration options
- *
  * @example
  * ```typescript
  * @Injectable()
- * @AccountStatusChangedHook({ priority: 1 })
+ * @AccountStatusChangedHook()
  * export class AccountStatusNotificationHook implements IAccountStatusChangedHook {
  *   constructor(private readonly emailService: EmailService) {}
  *
@@ -309,10 +278,9 @@ export function AdaptiveMFARiskDetectedHook(options: HookDecoratorOptions = {}):
  * }
  * ```
  */
-export function AccountStatusChangedHook(options: HookDecoratorOptions = {}): ClassDecorator {
+export function AccountStatusChangedHook(): ClassDecorator {
   const metadata: HookMetadata = {
     type: 'accountStatusChanged',
-    priority: options.priority ?? 100,
   };
   return SetMetadata(HOOK_METADATA_KEY, metadata);
 }
@@ -328,12 +296,10 @@ export function AccountStatusChangedHook(options: HookDecoratorOptions = {}): Cl
  *
  * These hooks cannot block email changes (email is already updated) but errors are logged.
  *
- * @param options - Hook configuration options
- *
  * @example
  * ```typescript
  * @Injectable()
- * @EmailChangedHook({ priority: 1 })
+ * @EmailChangedHook()
  * export class EmailChangedNotificationHook implements IEmailChangedHook {
  *   constructor(private readonly emailService: EmailService) {}
  *
@@ -346,10 +312,9 @@ export function AccountStatusChangedHook(options: HookDecoratorOptions = {}): Cl
  * }
  * ```
  */
-export function EmailChangedHook(options: HookDecoratorOptions = {}): ClassDecorator {
+export function EmailChangedHook(): ClassDecorator {
   const metadata: HookMetadata = {
     type: 'emailChanged',
-    priority: options.priority ?? 100,
   };
   return SetMetadata(HOOK_METADATA_KEY, metadata);
 }
@@ -365,12 +330,10 @@ export function EmailChangedHook(options: HookDecoratorOptions = {}): ClassDecor
  *
  * These hooks cannot block lockouts (account is already locked) but errors are logged.
  *
- * @param options - Hook configuration options
- *
  * @example
  * ```typescript
  * @Injectable()
- * @AccountLockedHook({ priority: 1 })
+ * @AccountLockedHook()
  * export class AccountLockedNotificationHook implements IAccountLockedHook {
  *   constructor(private readonly emailService: EmailService) {}
  *
@@ -384,10 +347,9 @@ export function EmailChangedHook(options: HookDecoratorOptions = {}): ClassDecor
  * }
  * ```
  */
-export function AccountLockedHook(options: HookDecoratorOptions = {}): ClassDecorator {
+export function AccountLockedHook(): ClassDecorator {
   const metadata: HookMetadata = {
     type: 'accountLocked',
-    priority: options.priority ?? 100,
   };
   return SetMetadata(HOOK_METADATA_KEY, metadata);
 }
@@ -403,12 +365,10 @@ export function AccountLockedHook(options: HookDecoratorOptions = {}): ClassDeco
  *
  * These hooks cannot block session revocation (sessions are already revoked) but errors are logged.
  *
- * @param options - Hook configuration options
- *
  * @example
  * ```typescript
  * @Injectable()
- * @SessionsRevokedHook({ priority: 1 })
+ * @SessionsRevokedHook()
  * export class SessionsRevokedNotificationHook implements ISessionsRevokedHook {
  *   constructor(private readonly emailService: EmailService) {}
  *
@@ -422,10 +382,9 @@ export function AccountLockedHook(options: HookDecoratorOptions = {}): ClassDeco
  * }
  * ```
  */
-export function SessionsRevokedHook(options: HookDecoratorOptions = {}): ClassDecorator {
+export function SessionsRevokedHook(): ClassDecorator {
   const metadata: HookMetadata = {
     type: 'sessionsRevoked',
-    priority: options.priority ?? 100,
   };
   return SetMetadata(HOOK_METADATA_KEY, metadata);
 }
@@ -441,12 +400,10 @@ export function SessionsRevokedHook(options: HookDecoratorOptions = {}): ClassDe
  *
  * These hooks cannot block MFA enablement (MFA is already enabled) but errors are logged.
  *
- * @param options - Hook configuration options
- *
  * @example
  * ```typescript
  * @Injectable()
- * @MFAFirstEnabledHook({ priority: 1 })
+ * @MFAFirstEnabledHook()
  * export class MFAFirstEnabledNotificationHook implements IMFAFirstEnabledHook {
  *   constructor(private readonly emailService: EmailService) {}
  *
@@ -459,10 +416,9 @@ export function SessionsRevokedHook(options: HookDecoratorOptions = {}): ClassDe
  * }
  * ```
  */
-export function MFAFirstEnabledHook(options: HookDecoratorOptions = {}): ClassDecorator {
+export function MFAFirstEnabledHook(): ClassDecorator {
   const metadata: HookMetadata = {
     type: 'mfaFirstEnabled',
-    priority: options.priority ?? 100,
   };
   return SetMetadata(HOOK_METADATA_KEY, metadata);
 }

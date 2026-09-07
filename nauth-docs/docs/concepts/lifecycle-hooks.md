@@ -85,24 +85,20 @@ sequenceDiagram
 
 ### Execution Order
 
-Hooks execute in **priority order** (lower values first). Multiple hooks with the same priority execute in registration order:
+Hooks execute in registration order. In NestJS that is the order they are listed in `NAuthHooksModule.forFeature()`:
 
 ```typescript
-// NestJS with decorators
-@PasswordChangedHook({ priority: 1 }) // Executes first
-export class EmailNotificationHook implements IPasswordChangedHook {}
+// NestJS - array order is execution order
+NAuthHooksModule.forFeature([
+  EmailNotificationHook, // Executes first
+  AnalyticsHook, // Executes second
+  CrmSyncHook, // Executes last
+]);
 
-@PasswordChangedHook({ priority: 2 }) // Executes second
-export class AnalyticsHook implements IPasswordChangedHook {}
-
-@PasswordChangedHook() // Default priority 100, executes last
-export class CrmSyncHook implements IPasswordChangedHook {}
-
-// Express/Fastify manual registration
+// Express/Fastify - manual registration order
 hookRegistry.registerPasswordChanged(new EmailNotificationHook());
 hookRegistry.registerPasswordChanged(new AnalyticsHook());
 hookRegistry.registerPasswordChanged(new CrmSyncHook());
-// Registration order determines execution order
 ```
 
 ### Error Handling

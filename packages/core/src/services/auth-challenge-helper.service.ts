@@ -980,8 +980,10 @@ export class AuthChallengeHelperService {
           clientInfo.browser,
         );
         isTrusted = true;
+        // The device token is a bearer credential that skips MFA — never log it, not even
+        // truncated. The user's sub already identifies the record for debugging.
         this.logger?.debug?.(
-          `[ChallengeHelper] Auto-created trusted device token for user ${context.user.sub} (rememberDevices='always', no MFA), token=${finalDeviceToken}`,
+          `[ChallengeHelper] Auto-created trusted device token for user ${context.user.sub} (rememberDevices='always', no MFA)`,
         );
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';

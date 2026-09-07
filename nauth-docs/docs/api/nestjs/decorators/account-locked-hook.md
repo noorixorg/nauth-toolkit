@@ -23,7 +23,7 @@ The `@AccountLockedHook()` decorator enables automatic hook registration. Classe
 
 - Automatic hook discovery and registration
 - Full dependency injection support
-- Priority-based execution ordering
+- Executes in `NAuthHooksModule.forFeature()` registration order
 - Non-blocking - errors don't affect lockout
 
 ## Usage
@@ -52,24 +52,6 @@ export class AccountLockedNotificationHook implements IAccountLockedHook {
   }
 }
 ```
-
-### With Priority
-
-```typescript
-@Injectable()
-@AccountLockedHook({ priority: 1 })
-export class AccountLockedEmailHook implements IAccountLockedHook {
-  // Executes first
-}
-
-@Injectable()
-@AccountLockedHook({ priority: 2 })
-export class AccountLockedAuditHook implements IAccountLockedHook {
-  // Executes second
-}
-```
-
-**Default Priority:** 100
 
 ### Module Registration
 

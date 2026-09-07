@@ -1064,6 +1064,12 @@ mfa: {
       // - 'ip': block the suspicious IP
       // - 'device': block the device token
       // - 'user': block the whole user (strongest, highest DoS risk)
+      //
+      // 'ip' and 'device' are identified by values the client supplies, so a caller
+      // presenting a *different* IP or device token is not covered by an existing
+      // block — that request is risk-scored from scratch instead. Presenting none
+      // does not evade it: a request with no device token (or no IP) stays blocked.
+      // Use 'user' where the block must hold regardless of what the client sends.
       scope: 'ip',
       blockDuration: 15, // minutes
       message: 'Sign-in blocked due to suspicious activity. Please try again shortly or contact support.',

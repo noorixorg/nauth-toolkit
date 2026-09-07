@@ -23,7 +23,7 @@ The `@EmailChangedHook()` decorator enables automatic hook registration. Classes
 
 - Automatic hook discovery and registration
 - Full dependency injection support
-- Priority-based execution ordering
+- Executes in `NAuthHooksModule.forFeature()` registration order
 - Non-blocking - errors don't affect email change
 
 ## Usage
@@ -57,18 +57,6 @@ export class EmailChangedNotificationHook implements IEmailChangedHook {
   }
 }
 ```
-
-### With Priority
-
-```typescript
-@Injectable()
-@EmailChangedHook({ priority: 1 })
-export class EmailChangedEmailHook implements IEmailChangedHook {
-  // Executes first
-}
-```
-
-**Default Priority:** 100
 
 ### Module Registration
 

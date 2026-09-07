@@ -23,7 +23,7 @@ The `@MFAFirstEnabledHook()` decorator enables automatic hook registration. Clas
 
 - Automatic hook discovery and registration
 - Full dependency injection support
-- Priority-based execution ordering
+- Executes in `NAuthHooksModule.forFeature()` registration order
 - Non-blocking - errors don't affect enrollment
 
 ## Usage
@@ -51,18 +51,6 @@ export class MFAFirstEnabledConfirmationHook implements IMFAFirstEnabledHook {
   }
 }
 ```
-
-### With Priority
-
-```typescript
-@Injectable()
-@MFAFirstEnabledHook({ priority: 1 })
-export class MFAFirstEnabledEmailHook implements IMFAFirstEnabledHook {
-  // Executes first
-}
-```
-
-**Default Priority:** 100
 
 ### Module Registration
 

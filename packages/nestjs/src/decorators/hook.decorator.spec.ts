@@ -28,38 +28,25 @@ describe('Hook Decorators', () => {
   });
 
   describe('PreSignupHook', () => {
-    it('should set metadata with default priority', () => {
+    it('should set metadata', () => {
       @PreSignupHook()
       class TestHook {}
 
       const metadata = reflector.get(HOOK_METADATA_KEY, TestHook);
       expect(metadata).toEqual({
         type: 'preSignup',
-        priority: 100,
-      });
-    });
-
-    it('should set metadata with custom priority', () => {
-      @PreSignupHook({ priority: 50 })
-      class TestHook {}
-
-      const metadata = reflector.get(HOOK_METADATA_KEY, TestHook);
-      expect(metadata).toEqual({
-        type: 'preSignup',
-        priority: 50,
       });
     });
   });
 
   describe('PostSignupHook', () => {
     it('should set metadata', () => {
-      @PostSignupHook({ priority: 10 })
+      @PostSignupHook()
       class TestHook {}
 
       const metadata = reflector.get(HOOK_METADATA_KEY, TestHook);
       expect(metadata).toEqual({
         type: 'postSignup',
-        priority: 10,
       });
     });
   });
@@ -72,7 +59,6 @@ describe('Hook Decorators', () => {
       const metadata = reflector.get(HOOK_METADATA_KEY, TestHook);
       expect(metadata).toEqual({
         type: 'userProfileUpdated',
-        priority: 100,
       });
     });
   });
@@ -85,7 +71,6 @@ describe('Hook Decorators', () => {
       const metadata = reflector.get(HOOK_METADATA_KEY, TestHook);
       expect(metadata).toEqual({
         type: 'passwordChanged',
-        priority: 100,
       });
     });
   });
@@ -98,7 +83,6 @@ describe('Hook Decorators', () => {
       const metadata = reflector.get(HOOK_METADATA_KEY, TestHook);
       expect(metadata).toEqual({
         type: 'mfaDeviceRemoved',
-        priority: 100,
       });
     });
   });
@@ -111,7 +95,6 @@ describe('Hook Decorators', () => {
       const metadata = reflector.get(HOOK_METADATA_KEY, TestHook);
       expect(metadata).toEqual({
         type: 'adaptiveMfaRiskDetected',
-        priority: 100,
       });
     });
   });
@@ -124,7 +107,6 @@ describe('Hook Decorators', () => {
       const metadata = reflector.get(HOOK_METADATA_KEY, TestHook);
       expect(metadata).toEqual({
         type: 'accountStatusChanged',
-        priority: 100,
       });
     });
   });
@@ -137,7 +119,6 @@ describe('Hook Decorators', () => {
       const metadata = reflector.get(HOOK_METADATA_KEY, TestHook);
       expect(metadata).toEqual({
         type: 'emailChanged',
-        priority: 100,
       });
     });
   });
@@ -150,7 +131,6 @@ describe('Hook Decorators', () => {
       const metadata = reflector.get(HOOK_METADATA_KEY, TestHook);
       expect(metadata).toEqual({
         type: 'accountLocked',
-        priority: 100,
       });
     });
   });
@@ -163,7 +143,6 @@ describe('Hook Decorators', () => {
       const metadata = reflector.get(HOOK_METADATA_KEY, TestHook);
       expect(metadata).toEqual({
         type: 'sessionsRevoked',
-        priority: 100,
       });
     });
   });
@@ -176,7 +155,6 @@ describe('Hook Decorators', () => {
       const metadata = reflector.get(HOOK_METADATA_KEY, TestHook);
       expect(metadata).toEqual({
         type: 'mfaFirstEnabled',
-        priority: 100,
       });
     });
   });

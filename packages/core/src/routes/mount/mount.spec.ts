@@ -17,13 +17,13 @@ import { NAuthRouteKey } from '../route-keys';
 /** Records what a mount registers, standing in for an Express router. */
 const createRouter = (): {
   router: Record<string, jest.Mock>;
-  registered: Array<{ method: string; path: string; chainLength: number }>;
+  registered: Array<{ method: string; path: string; chainLength: number; chain: unknown[] }>;
 } => {
-  const registered: Array<{ method: string; path: string; chainLength: number }> = [];
+  const registered: Array<{ method: string; path: string; chainLength: number; chain: unknown[] }> = [];
   const make =
     (method: string) =>
     (path: string, ...handlers: unknown[]): void => {
-      registered.push({ method, path, chainLength: handlers.length });
+      registered.push({ method, path, chainLength: handlers.length, chain: handlers });
     };
   return {
     router: {
@@ -140,6 +140,27 @@ describe('registerNAuthExpressRoutes', () => {
       registerNAuthExpressRoutes(router as never, instance(), { exclude: ['nope' as NAuthRouteKey] }),
     ).toThrow(/Unknown route key/);
   });
+
+  it('registers the API-key posture marker before requireAuth, so `apiKey: deny` is enforced', () => {
+    const { router, registered } = createRouter();
+
+    registerNAuthExpressRoutes(router as never, instance(), { groups: ['apiKeys'] });
+
+    const denyRoutes = AUTH_ROUTES_MANIFEST.filter((r) => r.group === 'apiKeys' && r.apiKey === 'deny');
+    expect(denyRoutes.length).toBeGreaterThan(0);
+
+    for (const route of denyRoutes) {
+      const entry = registered.find((r) => r.path === `/${route.path}` && r.method === route.method);
+      expect(entry).toBeDefined();
+      const deny = (entry as { chain: unknown[] }).chain.indexOf('denyApiKey');
+      const auth = (entry as { chain: unknown[] }).chain.indexOf('requireAuth');
+      expect(deny).toBeGreaterThanOrEqual(0);
+      expect(auth).toBeGreaterThanOrEqual(0);
+      // requireAuth() is what reads nauthDenyApiKey; registered after the marker it
+      // reads undefined and the deny collapses to apiKeys.globalAllowlist.
+      expect(deny).toBeLessThan(auth);
+    }
+  });
 });
 
 describe('registerNAuthFastifyRoutes', () => {
@@ -165,6 +186,26 @@ describe('registerNAuthFastifyRoutes', () => {
     });
 
     expect(routes.some((r) => r.url === '/login')).toBe(false);
+  });
+
+  it('registers the API-key posture marker before requireAuth, so `apiKey: deny` is enforced', () => {
+    const routes: Array<{ url: string; preHandler: unknown[] }> = [];
+    const fastify = { route: jest.fn((opts: { url: string; preHandler: unknown[] }) => routes.push(opts)) };
+
+    registerNAuthFastifyRoutes(fastify as never, instance() as unknown as FastifyMountInstance, {
+      groups: ['apiKeys'],
+    });
+
+    const denyRoutes = AUTH_ROUTES_MANIFEST.filter((r) => r.group === 'apiKeys' && r.apiKey === 'deny');
+    expect(denyRoutes.length).toBeGreaterThan(0);
+
+    for (const route of denyRoutes) {
+      const entry = routes.find((r) => r.url === `/${route.path}`);
+      expect(entry).toBeDefined();
+      const chain = (entry as { preHandler: unknown[] }).preHandler;
+      expect(chain.indexOf('denyApiKey')).toBeGreaterThanOrEqual(0);
+      expect(chain.indexOf('denyApiKey')).toBeLessThan(chain.indexOf('requireAuth'));
+    }
   });
 });
 

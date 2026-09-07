@@ -563,13 +563,17 @@ export interface NAuthConfig {
    * Protects authentication endpoints from bot attacks using Google reCAPTCHA.
    * Supports v2 (checkbox), v3 (score-based), and Enterprise versions.
    *
-   * When enabled, authentication requests must include a valid reCAPTCHA token.
-   * Token validation is automatically enforced based on `enforceFor` configuration.
+   * **Where it applies.** Enabling this does not protect every endpoint. Validation
+   * runs only where a route is marked as requiring it, and only `signup` and `login`
+   * validate a token at all. The shipped route bundles mark both, so mounting them
+   * with `enabled: true` protects those two endpoints. On hand-written routes, add
+   * `nauth.helpers.requireRecaptcha()` (Express/Fastify) or `@RequireRecaptcha()`
+   * (NestJS) yourself, and pass `recaptchaToken` when calling the services directly.
    *
    * **Important:** Social authentication (OAuth) endpoints are NOT protected by reCAPTCHA.
    * OAuth providers (Google, Apple, Facebook) handle their own bot protection.
    *
-   * @example Web-only protection (recommended)
+   * @example Protect the shipped signup and login routes
    * ```typescript
    * import { RecaptchaV3Provider } from '@nauth-toolkit/recaptcha';
    *
@@ -578,31 +582,17 @@ export interface NAuthConfig {
    *   provider: new RecaptchaV3Provider({
    *     secretKey: process.env.RECAPTCHA_SECRET_KEY!,
    *   }),
-   *   enforceFor: ['cookies'], // Web only, mobile (JSON) exempt
    *   minimumScore: 0.5,
    * }
    * ```
    *
-   * @example All platforms protected
+   * @example Per-action score thresholds
    * ```typescript
    * recaptcha: {
    *   enabled: true,
-   *   provider: new RecaptchaV3Provider({
-   *     secretKey: process.env.RECAPTCHA_SECRET_KEY!,
-   *   }),
-   *   enforceFor: ['cookies', 'json'], // Both web and mobile
+   *   provider: new RecaptchaV3Provider({ secretKey: process.env.RECAPTCHA_SECRET_KEY! }),
    *   minimumScore: 0.5,
-   * }
-   * ```
-   *
-   * @example Optional validation (no enforcement)
-   * ```typescript
-   * recaptcha: {
-   *   enabled: true,
-   *   provider: new RecaptchaV3Provider({
-   *     secretKey: process.env.RECAPTCHA_SECRET_KEY!,
-   *   }),
-   *   enforceFor: [], // Don't require token, but validate if provided
+   *   actionScores: { login: 0.7, signup: 0.5 },
    * }
    * ```
    */
@@ -2342,6 +2332,14 @@ export interface AdaptiveMFAConfig {
      * WARNING: `user` scope can be abused as a denial-of-service vector if attackers
      * can repeatedly trigger high-risk decisions. Prefer `device` or `ip` in most apps.
      *
+     * The narrowing side of that trade-off is worth stating plainly: `device` and `ip`
+     * are identified by values the client supplies, so a caller presenting a *different*
+     * device token or IP is not covered by an existing block — that request is scored
+     * from scratch instead, and the same risk factors block it again. Omitting the
+     * value entirely does not evade the block: a request that presents no device token
+     * (or no IP) cannot claim to be a different device, and stays blocked. Use `user`
+     * where the block must hold regardless of what the client presents.
+     *
      * @default 'user'
      */
     scope?: 'user' | 'device' | 'ip';
@@ -3000,13 +2998,10 @@ export interface GeoLocationConfig {
  *
  * **Security Model:**
  * - Token validation happens server-side only (never trust client)
- * - Configurable enforcement per token delivery mode (cookies vs JSON)
- * - Route-level overrides via decorators (@SkipRecaptcha, @RequireRecaptcha)
+ * - Enforced per route: the shipped `signup` and `login` routes require a token when
+ *   `enabled` is true; hand-written routes opt in with `requireRecaptcha()` /
+ *   `@RequireRecaptcha()`
  * - Automatic exemption for social OAuth endpoints
- *
- * **Token Delivery Modes:**
- * - `cookies`: Web browsers (typically requires reCAPTCHA)
- * - `json`: Mobile apps (typically exempt due to app store vetting)
  *
  * @example Typical web app configuration
  * ```typescript
@@ -3017,7 +3012,6 @@ export interface GeoLocationConfig {
  *   provider: new RecaptchaV3Provider({
  *     secretKey: process.env.RECAPTCHA_SECRET_KEY!,
  *   }),
- *   enforceFor: ['cookies'], // Enforce for web, skip for mobile
  *   minimumScore: 0.5,
  * }
  * ```
@@ -3026,8 +3020,10 @@ export interface RecaptchaConfig {
   /**
    * Enable reCAPTCHA validation
    *
-   * When enabled, authentication endpoints will validate reCAPTCHA tokens
-   * based on `enforceFor` configuration.
+   * When enabled, the shipped `signup` and `login` routes require and validate a
+   * reCAPTCHA token. Other endpoints are unaffected until they opt in with
+   * `requireRecaptcha()` / `@RequireRecaptcha()`; the toolkit validates a token only
+   * in `AuthService.signup()` and `AuthService.login()`.
    *
    * @default false
    */

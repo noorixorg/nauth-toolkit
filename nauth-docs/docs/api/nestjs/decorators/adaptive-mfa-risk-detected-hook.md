@@ -23,7 +23,7 @@ The `@AdaptiveMFARiskDetectedHook()` decorator enables automatic hook registrati
 
 - Automatic hook discovery and registration
 - Full dependency injection support
-- Priority-based execution ordering
+- Executes in `NAuthHooksModule.forFeature()` registration order
 - Non-blocking - errors don't affect authentication
 
 ## Usage
@@ -54,18 +54,6 @@ export class RiskAlertHook implements IAdaptiveMFARiskDetectedHook {
   }
 }
 ```
-
-### With Priority
-
-```typescript
-@Injectable()
-@AdaptiveMFARiskDetectedHook({ priority: 1 })
-export class RiskEmailHook implements IAdaptiveMFARiskDetectedHook {
-  // Executes first
-}
-```
-
-**Default Priority:** 100
 
 ### Module Registration
 

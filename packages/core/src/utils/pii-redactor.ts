@@ -21,8 +21,43 @@ import { LogMetadata, PiiRedactionOptions } from '../interfaces/logger.interface
  * // Output: 'User u***@***.com logged in'
  * ```
  */
+/**
+ * Metadata key endings whose value is a credential, redacted by name.
+ *
+ * Value-pattern rules cannot catch these: a device token is a UUID and an API key is
+ * base64url, so neither trips the JWT, `Bearer`, or 40-char-alphanumeric patterns.
+ * Matching on the key name is what stops a bearer credential reaching the log when a
+ * call site puts one in its metadata. Matching the *ending* covers the qualified forms
+ * the toolkit actually uses — `deviceToken`, `x-csrf-token`, `clientSecret`.
+ */
+const SENSITIVE_KEY_SUFFIXES: readonly string[] = [
+  'apikey',
+  'authorization',
+  'cookie',
+  'password',
+  'passwordhash',
+  'privatekey',
+  'secret',
+  'token',
+];
+
 export class PiiRedactor {
   private options: Required<PiiRedactionOptions>;
+
+  /**
+   * Whether a metadata key names a credential.
+   *
+   * @param key - The metadata key
+   * @returns True when the value must be replaced wholesale
+   * @private
+   */
+  private isSensitiveKey(key: string): boolean {
+    const normalized = key.toLowerCase().replace(/[_-]/g, '');
+    return (
+      SENSITIVE_KEY_SUFFIXES.some((suffix) => normalized.endsWith(suffix)) ||
+      this.options.customRedactionFields.includes(key.toLowerCase())
+    );
+  }
 
   /**
    * Constructor
@@ -112,7 +147,9 @@ export class PiiRedactor {
 
     // Recursively redact object values
     for (const [key, value] of Object.entries(redacted)) {
-      if (typeof value === 'string') {
+      if (this.isSensitiveKey(key)) {
+        redacted[key] = '[REDACTED]';
+      } else if (typeof value === 'string') {
         redacted[key] = this.redactMessage(value);
       } else if (typeof value === 'object' && value !== null && !(value instanceof Error)) {
         // Redact nested objects (but skip Error objects)
@@ -267,8 +304,8 @@ export class PiiRedactor {
       const redacted: Record<string, unknown> = {};
 
       for (const [key, value] of Object.entries(obj)) {
-        // Check if key matches custom redaction fields
-        if (this.options.customRedactionFields.includes(key.toLowerCase())) {
+        // Redact by key name first: a credential's value rarely matches a pattern.
+        if (this.isSensitiveKey(key)) {
           redacted[key] = '[REDACTED]';
         } else if (typeof value === 'string') {
           redacted[key] = this.redactMessage(value);

@@ -85,6 +85,11 @@ export const AUTH_ROUTES_MANIFEST: readonly AnyNAuthRouteDefinition[] = [
     status: 201,
     source: 'body',
     dto: SignupDTO,
+    // Signup and login are the only two service methods that validate a reCAPTCHA
+    // token, and validation is gated on this marker. Without it `recaptcha.enabled`
+    // was inert on the shipped routes: the operator configured bot protection and
+    // got none. Enforcement still requires `config.recaptcha.enabled`.
+    recaptcha: 'require',
     handler: ({ dto, services }) => services.authService.signup(dto),
   }),
   defineRoute({
@@ -96,6 +101,8 @@ export const AUTH_ROUTES_MANIFEST: readonly AnyNAuthRouteDefinition[] = [
     status: 200,
     source: 'body',
     dto: LoginDTO,
+    // See the note on `signup` — required so `recaptcha.enabled` reaches this route.
+    recaptcha: 'require',
     handler: ({ dto, services }) => services.authService.login(dto),
   }),
   defineRoute({

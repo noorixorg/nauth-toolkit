@@ -897,6 +897,137 @@ describe('AdaptiveMFADecisionService', () => {
   });
 
   // ============================================================================
+  // Block scoping — the storage key must not be movable by the caller
+  // ============================================================================
+
+  describe('scoped sign-in blocks', () => {
+    /**
+     * A real key/value store, so a read that computes a different key than the write
+     * genuinely misses. Stubbing `get` to always return the record would hide exactly
+     * the defect these tests exist to catch.
+     */
+    let store: Map<string, string>;
+
+    /** Build the service with a given blockedSignIn scope, backed by `store`. */
+    const scopedService = (scope: 'user' | 'device' | 'ip'): AdaptiveMFADecisionService => {
+      const storage = {
+        get: jest.fn(async (key: string) => store.get(key) ?? null),
+        set: jest.fn(async (key: string, value: string) => {
+          store.set(key, value);
+        }),
+        del: jest.fn(async (key: string) => {
+          store.delete(key);
+        }),
+      } as unknown as StorageAdapter;
+
+      const config = {
+        ...mockConfig,
+        mfa: {
+          ...mockConfig.mfa,
+          adaptive: {
+            ...mockConfig.mfa?.adaptive,
+            blockedSignIn: { scope, blockDuration: 15 },
+          },
+        },
+      };
+
+      return new AdaptiveMFADecisionService(
+        mockRiskDetectionService,
+        mockRiskScoringService,
+        storage,
+        mockClientInfoService,
+        config,
+        mockLogger,
+        mockAuditService,
+        mockHookRegistry as unknown as HookRegistryService,
+      );
+    };
+
+    const payload = { riskScore: 95, riskFactors: [RiskFactor.NEW_DEVICE] } as any;
+
+    beforeEach(() => {
+      store = new Map<string, string>();
+      mockClientInfoService.get.mockReturnValue(mockClientInfo);
+    });
+
+    it('writes every scope to the user-only key', async () => {
+      for (const scope of ['user', 'device', 'ip'] as const) {
+        store.clear();
+        await scopedService(scope).blockUserSignIn(mockUser, payload);
+        expect([...store.keys()]).toEqual(['adaptive_mfa_block:1']);
+      }
+    });
+
+    it('never stores the plaintext device token', async () => {
+      await scopedService('device').blockUserSignIn(mockUser, payload);
+
+      const raw = store.get('adaptive_mfa_block:1') as string;
+      expect(raw).not.toContain('device-123');
+      expect(JSON.parse(raw).deviceTokenHash).toMatch(/^[0-9a-f]{64}$/);
+    });
+
+    it('keeps a device-scoped block in force when the device token is dropped', async () => {
+      const service = scopedService('device');
+      await service.blockUserSignIn(mockUser, payload);
+
+      // The bypass: replay the sign-in with no x-device-token header at all. Under the
+      // old scoped-key scheme this read landed on a different key and found nothing.
+      mockClientInfoService.get.mockReturnValue({ ...mockClientInfo, deviceToken: undefined } as any);
+
+      await expect(service.isUserBlocked(1)).resolves.toMatchObject({ blocked: true });
+    });
+
+    it('keeps an ip-scoped block in force when the IP is unknown', async () => {
+      const service = scopedService('ip');
+      await service.blockUserSignIn(mockUser, payload);
+
+      mockClientInfoService.get.mockReturnValue({ ...mockClientInfo, ipAddress: undefined } as any);
+
+      await expect(service.isUserBlocked(1)).resolves.toMatchObject({ blocked: true });
+    });
+
+    it('still applies a device-scoped block to the same device', async () => {
+      const service = scopedService('device');
+      await service.blockUserSignIn(mockUser, payload);
+
+      await expect(service.isUserBlocked(1)).resolves.toMatchObject({ blocked: true });
+    });
+
+    it('does not apply a device-scoped block to a genuinely different device', async () => {
+      const service = scopedService('device');
+      await service.blockUserSignIn(mockUser, payload);
+
+      // Out of scope by configuration; risk scoring re-evaluates that request instead.
+      mockClientInfoService.get.mockReturnValue({ ...mockClientInfo, deviceToken: 'some-other-device' });
+
+      await expect(service.isUserBlocked(1)).resolves.toMatchObject({ blocked: false });
+    });
+
+    it('applies a user-scoped block whatever the request presents', async () => {
+      const service = scopedService('user');
+      await service.blockUserSignIn(mockUser, payload);
+
+      mockClientInfoService.get.mockReturnValue({ deviceToken: 'other', ipAddress: '10.0.0.1' } as any);
+
+      await expect(service.isUserBlocked(1)).resolves.toMatchObject({ blocked: true });
+    });
+
+    it('clears the block that was written, whatever the scope', async () => {
+      const service = scopedService('ip');
+      await service.blockUserSignIn(mockUser, payload);
+      expect(store.size).toBe(1);
+
+      // An admin unblocking runs in their own request context, with their own IP — the
+      // scoped-key scheme could not address the blocked user's key from there.
+      mockClientInfoService.get.mockReturnValue({ ...mockClientInfo, ipAddress: '203.0.113.9' });
+      await service.clearUserBlock(1);
+
+      expect(store.size).toBe(0);
+      await expect(service.isUserBlocked(1)).resolves.toMatchObject({ blocked: false });
+    });
+  });
+
+  // ============================================================================
   // Service Without Optional Dependencies
   // ============================================================================
 

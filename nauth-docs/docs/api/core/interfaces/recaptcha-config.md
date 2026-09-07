@@ -44,7 +44,7 @@ import { NAuthConfig } from '@nauth-toolkit/core';
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `actionScores` | `Record<string, number>` | No | Per-action minimum score overrides. Falls back to `minimumScore` for unlisted actions. Keys are action names (`login`, `signup`, `password_reset`). |
-| `enabled` | `boolean` | Yes | Enable reCAPTCHA validation. When true, routes marked with `@RequireRecaptcha()` will enforce validation. |
+| `enabled` | `boolean` | Yes | Enable reCAPTCHA validation. When true, the shipped `signup` and `login` routes enforce validation, as do hand-written routes marked with `@RequireRecaptcha()` / `requireRecaptcha()`. Other routes are unaffected. |
 | `minimumScore` | `number` | No | Default minimum score for v3/Enterprise (0.0-1.0). Used when no per-action override exists in `actionScores`. Default: `0.5`. |
 | `provider` | `RecaptchaProvider` | Yes | Provider implementation: `RecaptchaV2Provider`, `RecaptchaV3Provider`, or `RecaptchaEnterpriseProvider`. |
 | `validateOnStartup` | `'warn' \| 'error' \| false` | No | Validate credentials at startup by probing Google's API. `'warn'` (default): log warning on failure. `'error'`: throw and halt startup. `false`: skip validation. |

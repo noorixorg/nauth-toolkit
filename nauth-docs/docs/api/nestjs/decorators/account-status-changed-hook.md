@@ -23,7 +23,7 @@ The `@AccountStatusChangedHook()` decorator enables automatic hook registration.
 
 - Automatic hook discovery and registration
 - Full dependency injection support
-- Priority-based execution ordering
+- Executes in `NAuthHooksModule.forFeature()` registration order
 - Non-blocking - errors don't affect status change
 
 ## Usage
@@ -53,18 +53,6 @@ export class AccountStatusNotificationHook implements IAccountStatusChangedHook 
   }
 }
 ```
-
-### With Priority
-
-```typescript
-@Injectable()
-@AccountStatusChangedHook({ priority: 1 })
-export class AccountStatusEmailHook implements IAccountStatusChangedHook {
-  // Executes first
-}
-```
-
-**Default Priority:** 100
 
 ### Module Registration
 

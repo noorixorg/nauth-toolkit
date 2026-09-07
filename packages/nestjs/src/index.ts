@@ -68,7 +68,6 @@ export {
   AccountLockedHook,
   SessionsRevokedHook,
   MFAFirstEnabledHook,
-  HookDecoratorOptions,
 } from './decorators/hook.decorator';
 
 /**

@@ -79,14 +79,18 @@ function buildChain(
   const { helpers } = instance;
   const chain: unknown[] = [];
 
+  // The API-key posture is a marker that only sets a request attribute; `requireAuth()`
+  // is what reads it, so the markers must be registered BEFORE it. Registered after,
+  // both attributes are still undefined when the check runs and `apiKey: 'deny'` — the
+  // control the admin bundle relies on — silently collapses to `apiKeys.globalAllowlist`.
+  if (route.apiKey === 'deny' && helpers.denyApiKey) chain.push(helpers.denyApiKey());
+  if (route.apiKey === 'allow' && helpers.allowApiKey) chain.push(helpers.allowApiKey());
+
   if (route.access === 'public') {
     chain.push(helpers.public());
   } else {
     chain.push(helpers.requireAuth({ csrf: route.csrf }));
   }
-
-  if (route.apiKey === 'deny' && helpers.denyApiKey) chain.push(helpers.denyApiKey());
-  if (route.apiKey === 'allow' && helpers.allowApiKey) chain.push(helpers.allowApiKey());
 
   const delivery = route.delivery ?? mount.delivery;
   if (delivery) chain.push(helpers.tokenDelivery(delivery));

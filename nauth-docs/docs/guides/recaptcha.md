@@ -14,8 +14,13 @@ Protect login and signup endpoints from bots using Google reCAPTCHA. nauth-toolk
 
 ## Overview
 
-- **Backend**: Optional `@nauth-toolkit/recaptcha` package. Configure provider, `minimumScore`, and optional `actionScores` for v3/Enterprise. Use `@RequireRecaptcha()` decorator on endpoints that need protection.
+- **Backend**: Optional `@nauth-toolkit/recaptcha` package. Configure provider, `minimumScore`, and optional `actionScores` for v3/Enterprise.
+- **Which routes enforce it**: with `enabled: true`, the shipped `signup` and `login` routes enforce automatically. Hand-written routes opt in with `@RequireRecaptcha()` (NestJS) or `nauth.helpers.requireRecaptcha()` (Express/Fastify).
 - **Frontend**: Client sends `recaptchaToken` in login/signup requests. Angular SDK can auto-generate tokens for v3/Enterprise via `RecaptchaService` and `provideRecaptcha()`.
+
+:::warning
+`enabled: true` makes `signup` and `login` **reject requests without a valid token**. If you mount the shipped route bundles, ship the frontend token generation at the same time — otherwise sign-in and registration fail with `RECAPTCHA_REQUIRED`.
+:::
 
 ## Backend Setup
 
@@ -55,7 +60,8 @@ import { RecaptchaEnterpriseProvider } from '@nauth-toolkit/recaptcha';
 })
 export class AppModule {}
 
-// In your controller, mark endpoints that need protection:
+// The shipped `routes` bundles already enforce on signup and login.
+// For your own controllers, mark the endpoints that need protection:
 import { RequireRecaptcha } from '@nauth-toolkit/nestjs';
 
 @Controller('auth')
@@ -196,7 +202,8 @@ export const appConfig: ApplicationConfig = {
 ## Security
 
 - Keep API keys and secret keys server-side only. Only the site key is public.
-- Use `@RequireRecaptcha()` decorator on public endpoints vulnerable to bot attacks (login, signup, password reset).
+- The shipped `signup` and `login` routes enforce automatically once `enabled` is true. Only `AuthService.signup()` and `AuthService.login()` validate a token, so marking any other route has no effect until that route calls one of them.
+- Use the `@RequireRecaptcha()` decorator on your own public endpoints vulnerable to bot attacks.
 - Set `minimumScore` based on your risk tolerance (0.5 is a common default). Use `actionScores` for per-action thresholds.
 - Score checks only apply when the provider returns a score (v3/Enterprise score-based keys). Enterprise checkbox keys skip score validation automatically.
 

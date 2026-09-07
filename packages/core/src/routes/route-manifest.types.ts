@@ -108,7 +108,14 @@ export interface NAuthRouteDefinition<TDto extends object = object, TResponse = 
    */
   readonly dto?: new () => TDto;
 
-  /** Route-level reCAPTCHA posture. Omit to inherit the global configuration. */
+  /**
+   * Route-level reCAPTCHA posture.
+   *
+   * There is no inheritance: validation runs only where the mount sets the `require`
+   * marker, so a route that omits this is never reCAPTCHA-checked, whatever
+   * `config.recaptcha.enabled` says. `require` still defers to that flag — it makes
+   * the route honour the global configuration rather than override it.
+   */
   readonly recaptcha?: 'require' | 'skip';
 
   /**

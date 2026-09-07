@@ -29,20 +29,10 @@ Requires `NAuthHooksModule.forFeature()` to be imported in your module.
 ## Signature
 
 ```typescript
-function UserProfileUpdatedHook(options?: HookDecoratorOptions): ClassDecorator;
+function UserProfileUpdatedHook(): ClassDecorator;
 ```
 
-## Parameters
-
-| Parameter | Type                   | Required | Description                      |
-| --------- | ---------------------- | -------- | -------------------------------- |
-| `options` | `HookDecoratorOptions` | No       | Configuration options (priority) |
-
-### HookDecoratorOptions
-
-| Property   | Type     | Required | Description                                        |
-| ---------- | -------- | -------- | -------------------------------------------------- |
-| `priority` | `number` | No       | Execution priority (lower = earlier). Default: 100 |
+The decorator takes no arguments. Execution order is the order hooks are passed to [`NAuthHooksModule.forFeature()`](./nauth-hooks-module#execution-order).
 
 ## Example
 
@@ -51,7 +41,7 @@ import { Injectable } from '@nestjs/common';
 import { UserProfileUpdatedHook, IUserProfileUpdatedHook, UserProfileUpdatedMetadata } from '@nauth-toolkit/nestjs';
 
 @Injectable()
-@UserProfileUpdatedHook({ priority: 1 })
+@UserProfileUpdatedHook()
 export class CrmSyncHook implements IUserProfileUpdatedHook {
   constructor(private readonly crmService: CrmService) {}
 
@@ -85,7 +75,7 @@ export class AuthModule {}
 ## Hook Execution
 
 - Executes **after** user profile attributes change
-- Runs in priority order (lower priority number = earlier execution)
+- Runs in `NAuthHooksModule.forFeature()` registration order
 - **Non-blocking** - errors are logged but don't affect updates
 - All hooks execute regardless of errors
 

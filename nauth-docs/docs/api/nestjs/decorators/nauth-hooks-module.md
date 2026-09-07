@@ -25,7 +25,7 @@ import { NAuthHooksModule } from '@nauth-toolkit/nestjs';
 
 - Automatic decorator-based hook discovery
 - Feature module support for modular organization
-- Priority-based execution ordering
+- Execution in `forFeature()` registration order
 - Global hook registry integration
 - Type-safe registration
 
@@ -143,7 +143,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 export class AppModule {}
 ```
 
-All hooks from all modules are registered globally and execute in priority order.
+All hooks from all modules are registered globally and execute in registration order.
 
 ### With Hook Dependencies
 
@@ -222,29 +222,21 @@ export class AuthModule {}
 2. **Hook Discovery**: On module init, the module uses `ModuleRef` to discover all providers
 3. **Metadata Check**: For each provider, checks for lifecycle hook decorator metadata
 4. **Registration**: Calls the appropriate `HookRegistryService` registration method based on the hook type
-5. **Execution**: Hooks execute in priority order during the corresponding authentication lifecycle events
+5. **Execution**: Hooks execute in registration order during the corresponding authentication lifecycle events
 
 ## Execution Order
 
-Hooks execute in priority order across all registered modules:
+Within a module, hooks execute in the order they are listed in `forFeature()`:
 
 ```typescript
-// Module 1
-@PreSignupHook({ priority: 1 })
-export class DomainValidation { }
-
-@PreSignupHook({ priority: 3 })
-export class RateLimitCheck { }
-
-// Module 2
-@PreSignupHook({ priority: 2 })
-export class InviteCodeCheck { }
-
-// Execution order:
-// 1. DomainValidation (priority 1)
-// 2. InviteCodeCheck (priority 2)
-// 3. RateLimitCheck (priority 3)
+NAuthHooksModule.forFeature([
+  DomainValidationHook, // 1. Runs first
+  InviteCodeCheckHook, // 2. Runs second
+  RateLimitCheckHook, // 3. Runs third
+]);
 ```
+
+Across modules, hooks are registered in NestJS module initialization order. Keep hooks whose order matters in a single `forFeature()` call.
 
 ## Related APIs
 

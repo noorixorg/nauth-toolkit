@@ -187,6 +187,34 @@ describe('PiiRedactor', () => {
       expect(redacted?.email).toBeNull();
     });
 
+    it('should redact credential-named metadata keys the value patterns miss', () => {
+      // A device token is a UUID and an API key is base64url — neither trips the JWT,
+      // Bearer, or 40-char-alphanumeric value rules, so the key name is the only signal.
+      const redacted = redactor.redactMetadata({
+        userId: '7',
+        deviceToken: '3f1c9a2e-5b40-4d7e-9a11-0c8e2f7b6d34',
+        apiKey: 'k7Qb2Zt9',
+        refresh_token: 'abc',
+        'x-csrf-token': 'zzz',
+      });
+
+      expect(redacted).toEqual({
+        userId: '7',
+        deviceToken: '[REDACTED]',
+        apiKey: '[REDACTED]',
+        refresh_token: '[REDACTED]',
+        'x-csrf-token': '[REDACTED]',
+      });
+    });
+
+    it('should redact credential-named keys nested inside metadata', () => {
+      const redacted = redactor.redactMetadata({
+        context: { userId: '7', deviceToken: '3f1c9a2e-5b40-4d7e-9a11-0c8e2f7b6d34' },
+      });
+
+      expect(redacted).toEqual({ context: { userId: '7', deviceToken: '[REDACTED]' } });
+    });
+
     it('should handle array values in metadata', () => {
       const metadata = {
         emails: ['user1@example.com', 'user2@example.com'],

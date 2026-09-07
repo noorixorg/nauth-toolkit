@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 import { IUser } from '../interfaces/entities.interface';
 import { StorageAdapter } from '../interfaces/storage-adapter.interface';
 import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
@@ -140,25 +142,67 @@ export class AdaptiveMFADecisionService {
   /**
    * Build the storage key for a sign-in block.
    *
-   * Keys are scoped to reduce the blast radius of blocking:
-   * - user: `adaptive_mfa_block:{userId}`
-   * - device: `adaptive_mfa_block:{userId}:device:{deviceToken}`
-   * - ip: `adaptive_mfa_block:{userId}:ip:{ipAddress}`
+   * Always keyed on the user alone. The scope discriminator lives *inside* the record
+   * (see `blockRecordApplies`) rather than in the key, because the key decides whether
+   * the block can be found at all: derived from `deviceToken` or `ipAddress` — values
+   * the client supplies — an attacker evaded a stored block simply by dropping the
+   * `x-device-token` header, which sent the read to a different key.
    *
    * @param userId - Internal user ID
-   * @param clientInfo - Current client context (used for device/ip scoped keys)
    * @returns Storage key
    * @private
    */
-  private buildBlockKey(userId: number, clientInfo?: Pick<ClientInfo, 'ipAddress' | 'deviceToken'>): string {
-    const scope = this.getBlockedSignInScope();
-    if (scope === 'ip' && clientInfo?.ipAddress) {
-      return `adaptive_mfa_block:${userId}:ip:${clientInfo.ipAddress}`;
-    }
-    if (scope === 'device' && clientInfo?.deviceToken) {
-      return `adaptive_mfa_block:${userId}:device:${clientInfo.deviceToken}`;
-    }
+  private buildBlockKey(userId: number): string {
     return `adaptive_mfa_block:${userId}`;
+  }
+
+  /**
+   * Hash a device token for storage.
+   *
+   * The plaintext token is a bearer credential that skips MFA, so only its digest is
+   * ever persisted — matching how `TrustedDeviceService` stores it.
+   *
+   * @param deviceToken - Plaintext device token from the client
+   * @returns Hex-encoded SHA-256 digest
+   * @private
+   */
+  private hashDeviceToken(deviceToken: string): string {
+    return createHash('sha256').update(deviceToken).digest('hex');
+  }
+
+  /**
+   * Whether a stored block applies to the request being evaluated.
+   *
+   * `scope` narrows a block to one device or IP to avoid locking a user out of every
+   * device (see `blockedSignIn.scope`). The discriminator is client-supplied, so the
+   * comparison fails **closed**: a request that presents no device token or no IP
+   * cannot claim to be a different device, and stays blocked. A request presenting a
+   * genuinely different one is not blocked by this record — it is re-scored from
+   * scratch, and the same risk factors block it again.
+   *
+   * @param record - The parsed block record
+   * @param clientInfo - Current client context
+   * @returns True when the block covers this request
+   * @private
+   */
+  private blockRecordApplies(
+    record: { scope?: string; deviceTokenHash?: string; ipAddress?: string },
+    clientInfo?: Pick<ClientInfo, 'ipAddress' | 'deviceToken'>,
+  ): boolean {
+    // No scope recorded: a user-scoped block, or one written before scopes existed.
+    if (record.scope === 'device') {
+      if (!record.deviceTokenHash) return true;
+      if (!clientInfo?.deviceToken) return true;
+      return this.hashDeviceToken(clientInfo.deviceToken) === record.deviceTokenHash;
+    }
+
+    if (record.scope === 'ip') {
+      if (!record.ipAddress) return true;
+      if (!clientInfo?.ipAddress) return true;
+      return clientInfo.ipAddress === record.ipAddress;
+    }
+
+    return true;
   }
 
   /**
@@ -366,8 +410,10 @@ export class AdaptiveMFADecisionService {
   /**
    * Check if user is currently blocked due to high-risk sign-in
    *
-   * Uses storage adapter to check for existing block. Block is stored with
-   * key format: `adaptive_mfa_block:{userId}`.
+   * Reads the single block record at `adaptive_mfa_block:{userId}`, then applies the
+   * record's own `scope` to decide whether it covers this request. Keying on the user
+   * alone is deliberate: a key built from the request's device token or IP could be
+   * moved by the caller, so dropping a header made a stored block unfindable.
    *
    * @param userId - Internal user ID (integer)
    * @returns Block status with expiration and message if blocked
@@ -387,7 +433,7 @@ export class AdaptiveMFADecisionService {
   }> {
     try {
       const clientInfo = this.clientInfoService.get();
-      const blockKey = this.buildBlockKey(userId, clientInfo);
+      const blockKey = this.buildBlockKey(userId);
       const blockData = await this.storageAdapter.get(blockKey);
 
       if (!blockData) {
@@ -417,6 +463,15 @@ export class AdaptiveMFADecisionService {
         return { blocked: false };
       }
 
+      // The record is always found; `scope` decides whether it covers this request.
+      if (!this.blockRecordApplies(parsed, clientInfo)) {
+        this.logger?.warn?.(
+          `Sign-in block on record does not cover this request (scope=${parsed.scope}); ` +
+            `re-scoring from scratch. userId=${userId}`,
+        );
+        return { blocked: false };
+      }
+
       return {
         blocked: true,
         expiresAt,
@@ -438,6 +493,9 @@ export class AdaptiveMFADecisionService {
    * - message (shown to user)
    * - riskScore, riskFactors (for audit)
    * - blockedAt, expiresAt (timestamps)
+   * - scope, and the hashed device token or IP it applies to
+   *
+   * One record per user: a later block for the same user replaces the earlier one.
    *
    * Also calls onSignInBlocked lifecycle hook if configured.
    *
@@ -456,7 +514,8 @@ export class AdaptiveMFADecisionService {
 
     // Store block in storage adapter
     const clientInfo = this.clientInfoService.get();
-    const blockKey = this.buildBlockKey(user.id, clientInfo);
+    const scope = this.getBlockedSignInScope();
+    const blockKey = this.buildBlockKey(user.id);
     const blockData = {
       userId: user.id,
       sub: user.sub,
@@ -465,6 +524,13 @@ export class AdaptiveMFADecisionService {
       riskFactors: payload.riskFactors,
       blockedAt: new Date().toISOString(),
       expiresAt: blockDuration ? new Date(Date.now() + blockDuration * 60 * 1000).toISOString() : undefined,
+      // The scope discriminator travels with the record, never in the key. A device or
+      // IP the client did not supply degrades the record to user scope, which blocks
+      // more rather than less.
+      scope,
+      deviceTokenHash:
+        scope === 'device' && clientInfo.deviceToken ? this.hashDeviceToken(clientInfo.deviceToken) : undefined,
+      ipAddress: scope === 'ip' ? clientInfo.ipAddress : undefined,
     };
 
     const ttl = blockDuration ? blockDuration * 60 : undefined; // Convert to seconds
@@ -492,17 +558,9 @@ export class AdaptiveMFADecisionService {
    */
   async clearUserBlock(userId: number): Promise<void> {
     try {
-      // Always clear the user-scoped key for backwards compatibility.
-      await this.storageAdapter.del(`adaptive_mfa_block:${userId}`);
-
-      // Best-effort clear for scoped keys (depends on current runtime client context).
-      const clientInfo = this.clientInfoService.get();
-      if (clientInfo.ipAddress) {
-        await this.storageAdapter.del(`adaptive_mfa_block:${userId}:ip:${clientInfo.ipAddress}`);
-      }
-      if (clientInfo.deviceToken) {
-        await this.storageAdapter.del(`adaptive_mfa_block:${userId}:device:${clientInfo.deviceToken}`);
-      }
+      // One key per user, so the clear is exact rather than the three speculative
+      // deletes the scoped-key scheme needed.
+      await this.storageAdapter.del(this.buildBlockKey(userId));
       this.logger?.log?.(`User block cleared: userId=${userId}`);
     } catch (error) {
       // Non-blocking: Log error but continue

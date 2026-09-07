@@ -10,7 +10,7 @@ import {
 import { HookRegistryService as InternalHookRegistryService } from '@nauth-toolkit/core/internal';
 
 @Injectable()
-@UserProfileUpdatedHook({ priority: 1 })
+@UserProfileUpdatedHook()
 class TestUserProfileUpdatedHook implements IUserProfileUpdatedHook {
   execute = jest.fn(async (_metadata: UserProfileUpdatedMetadata): Promise<void> => undefined);
 }

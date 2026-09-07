@@ -35,7 +35,7 @@ import {
 } from '@nauth-toolkit/nestjs';
 
 @Injectable()
-@PasswordChangedHook({ priority: 1 })
+@PasswordChangedHook()
 export class PasswordChangedEmailHook implements IPasswordChangedHook {
   constructor(private readonly emailService: EmailService) {}
 
@@ -192,7 +192,7 @@ Leverage framework DI for testability:
 
 ```typescript
 @Injectable()
-@PasswordChangedHook({ priority: 1 })
+@PasswordChangedHook()
 export class PasswordChangedEmailHook implements IPasswordChangedHook {
   constructor(
     private readonly emailService: EmailService,

@@ -86,6 +86,69 @@ function getCsrfToken(cookieName: string): string | null {
 }
 
 /**
+ * Resolve a URL against the document's origin, tolerating SSR and malformed values.
+ *
+ * @param value - An absolute URL, or one relative to the current document
+ * @returns The parsed URL, or null when it cannot be resolved
+ */
+function parseUrl(value: string): URL | null {
+  // Under SSR there is no document to resolve against. A fixed placeholder keeps both
+  // sides of every comparison on the same base, so relative values still match each
+  // other and an absolute one still fails against a different absolute host.
+  const base = typeof location !== 'undefined' && location.href ? location.href : 'http://nauth.invalid/';
+  try {
+    return new URL(value, base);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether a request targets the nauth API this interceptor holds credentials for.
+ *
+ * Compares resolved origins and requires the request path to sit under the API's own
+ * path. A substring test would treat `https://api.example.com.evil.com/collect` and
+ * `https://evil.com/?u=https://api.example.com` as first-party and hand an attacker
+ * the session cookie or bearer token, so the comparison must be structural.
+ *
+ * Fails closed: an unparseable URL is never treated as the API.
+ *
+ * @param requestUrl - The outgoing request's URL
+ * @param baseUrl - The configured API base URL
+ * @returns True only when the request provably targets the API
+ */
+export function isSameApiTarget(requestUrl: string, baseUrl: string): boolean {
+  const base = parseUrl(baseUrl);
+  const target = parseUrl(requestUrl);
+  if (!base || !target) return false;
+  if (target.origin !== base.origin) return false;
+
+  // A bare origin (pathname '/') claims the whole host; otherwise the request must be
+  // at the base path or below it, on a segment boundary — '/apix' is not under '/api'.
+  const basePath = base.pathname.replace(/\/+$/, '');
+  if (basePath === '') return true;
+  return target.pathname === basePath || target.pathname.startsWith(`${basePath}/`);
+}
+
+/**
+ * Whether a request's resolved path ends at the given endpoint path.
+ *
+ * Matches on the parsed pathname so a query string can never satisfy the test, and on
+ * a whole trailing segment so `/relogin` does not count as `/login`.
+ *
+ * @param requestUrl - The outgoing request's URL
+ * @param endpointPath - The endpoint path to test, relative to the API base
+ * @returns True when the request targets that endpoint
+ */
+export function isEndpointPath(requestUrl: string, endpointPath: string): boolean {
+  const target = parseUrl(requestUrl);
+  if (!target) return false;
+  const path = (endpointPath.startsWith('/') ? endpointPath : `/${endpointPath}`).replace(/\/+$/, '');
+  if (path === '') return false;
+  return target.pathname === path || target.pathname.endsWith(path);
+}
+
+/**
  * Build retry request with appropriate auth.
  *
  * In cookies mode: Browser automatically sends updated httpOnly cookies (access/refresh tokens).
@@ -147,11 +210,16 @@ export function createNAuthAuthHttpInterceptor(params: {
   const signupPath = endpoints.signup ?? '/signup';
   const socialExchangePath = endpoints.socialExchange ?? '/social/exchange';
 
-  const isAuthApiRequest = req.url.includes(baseUrl);
+  // Scoped by origin + path, never by substring: `req.url.includes(baseUrl)` treats
+  // `https://api.example.com.evil.com/collect` as the API and leaks the session cookie
+  // or bearer token to an attacker-owned host.
+  const isAuthApiRequest = isSameApiTarget(req.url, baseUrl);
   // Check if request is to refresh endpoint (using effective path with authPathPrefix)
-  const isRefreshEndpoint = req.url.includes(effectiveRefreshPath);
+  const isRefreshEndpoint = isEndpointPath(req.url, effectiveRefreshPath);
   const isPublicEndpoint =
-    req.url.includes(loginPath) || req.url.includes(signupPath) || req.url.includes(socialExchangePath);
+    isEndpointPath(req.url, loginPath) ||
+    isEndpointPath(req.url, signupPath) ||
+    isEndpointPath(req.url, socialExchangePath);
   const shouldIntercept = isAuthApiRequest && !isRefreshEndpoint && !isPublicEndpoint;
 
   // ============================================================================
