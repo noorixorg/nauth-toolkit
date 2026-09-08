@@ -30,8 +30,6 @@ import {
   AccountStatusChangedMetadata,
   IEmailChangedHook,
   EmailChangedMetadata,
-  IAccountLockedHook,
-  AccountLockedMetadata,
   ISessionsRevokedHook,
   SessionsRevokedMetadata,
   IMFAFirstEnabledHook,
@@ -59,7 +57,6 @@ export class HookRegistryService {
   private readonly adaptiveMFARiskDetectedHooks: IAdaptiveMFARiskDetectedHook[] = [];
   private readonly accountStatusChangedHooks: IAccountStatusChangedHook[] = [];
   private readonly emailChangedHooks: IEmailChangedHook[] = [];
-  private readonly accountLockedHooks: IAccountLockedHook[] = [];
   private readonly sessionsRevokedHooks: ISessionsRevokedHook[] = [];
   private readonly mfaFirstEnabledHooks: IMFAFirstEnabledHook[] = [];
   private readonly mfaMethodAddedHooks: IMFAMethodAddedHook[] = [];
@@ -185,19 +182,6 @@ export class HookRegistryService {
   registerEmailChanged(provider: IEmailChangedHook): void {
     this.emailChangedHooks.push(provider);
     this.logger?.debug?.(`[HookRegistry] Registered emailChanged hook: ${provider.constructor.name}`);
-  }
-
-  /**
-   * Register an account locked hook
-   *
-   * Hooks are executed in registration order.
-   * Hook errors are logged but do not block lockout (non-blocking).
-   *
-   * @param provider - Account locked hook instance
-   */
-  registerAccountLocked(provider: IAccountLockedHook): void {
-    this.accountLockedHooks.push(provider);
-    this.logger?.debug?.(`[HookRegistry] Registered accountLocked hook: ${provider.constructor.name}`);
   }
 
   /**
@@ -527,36 +511,6 @@ export class HookRegistryService {
         const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
         this.logger?.error?.(
           `[HookRegistry] emailChanged hook error: ${hook.constructor.name} - ${errorMessage}`,
-          hookError instanceof Error ? { error: hookError } : undefined,
-        );
-      }
-    }
-  }
-
-  /**
-   * Execute all registered account locked hooks
-   *
-   * Hooks are executed sequentially in registration order.
-   * Hook errors are logged but do not stop execution (non-blocking).
-   *
-   * @param metadata - Lockout context with user and lock details
-   *
-   * @internal
-   * @remarks This method is called internally by AuthServiceInternalHelpers
-   */
-  async executeAccountLocked(metadata: AccountLockedMetadata): Promise<void> {
-    if (this.accountLockedHooks.length === 0) {
-      return; // No hooks registered
-    }
-
-    for (const hook of this.accountLockedHooks) {
-      try {
-        await hook.execute(metadata);
-      } catch (hookError: unknown) {
-        // Non-blocking: log error and continue
-        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
-        this.logger?.error?.(
-          `[HookRegistry] accountLocked hook error: ${hook.constructor.name} - ${errorMessage}`,
           hookError instanceof Error ? { error: hookError } : undefined,
         );
       }

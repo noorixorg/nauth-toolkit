@@ -47,7 +47,6 @@ import { EmailProvider } from '@nauth-toolkit/core';
 | `sendPasswordResetEmail(to, token, code, link?, expiryMinutes?)` | `Promise<void>` | Send password reset email. `code` is always sent. `link` is optional (only when `baseUrl` is provided). |
 | `sendAdminPasswordResetEmail(to, code, link?, expiryMinutes?)` | `Promise<void>` | Send admin-initiated password reset code/link |
 | `sendWelcomeEmail(to, name)` | `Promise<void>` | Send welcome message |
-| `sendLockoutEmail?(to, reason, duration)` | `Promise<void>` | (Optional) Account lockout notification |
 | `sendNewDeviceEmail?(to, deviceInfo, location?)` | `Promise<void>` | (Optional) New device login notification |
 | `sendPasswordChangedEmail?(to, context)` | `Promise<void>` | (Optional) Password changed security alert |
 | `sendMFADeviceRemovedEmail?(to, context)` | `Promise<void>` | (Optional) MFA method/device removed security alert |
@@ -58,7 +57,6 @@ import { EmailProvider } from '@nauth-toolkit/core';
 | `sendAccountEnabledEmail?(to, context)` | `Promise<void>` | (Optional) Account enabled notification |
 | `sendEmailChangedAlertEmail?(to, context)` | `Promise<void>` | (Optional) Email changed alert (to old email address) |
 | `sendEmailChangedConfirmationEmail?(to, context)` | `Promise<void>` | (Optional) Email changed confirmation (to new email address) |
-| `sendAccountLockedEmail?(to, context)` | `Promise<void>` | (Optional) Account locked notification |
 | `sendSessionsRevokedEmail?(to, context)` | `Promise<void>` | (Optional) Sessions revoked security alert |
 | `setConfig?(config)` | `void` | Inject config for provider-side suppression logic (e.g., `emailNotifications`) |
 

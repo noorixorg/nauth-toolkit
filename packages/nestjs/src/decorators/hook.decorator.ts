@@ -40,7 +40,6 @@ export type HookType =
   | 'adaptiveMfaRiskDetected'
   | 'accountStatusChanged'
   | 'emailChanged'
-  | 'accountLocked'
   | 'sessionsRevoked'
   | 'mfaFirstEnabled';
 
@@ -315,41 +314,6 @@ export function AccountStatusChangedHook(): ClassDecorator {
 export function EmailChangedHook(): ClassDecorator {
   const metadata: HookMetadata = {
     type: 'emailChanged',
-  };
-  return SetMetadata(HOOK_METADATA_KEY, metadata);
-}
-
-/**
- * Marks a provider as an account locked hook
- *
- * Account locked hooks are executed after an account is locked due to failed login attempts, allowing you to:
- * - Send lockout notification emails
- * - Log lockout events
- * - Trigger security alerts
- * - Provide unlock instructions
- *
- * These hooks cannot block lockouts (account is already locked) but errors are logged.
- *
- * @example
- * ```typescript
- * @Injectable()
- * @AccountLockedHook()
- * export class AccountLockedNotificationHook implements IAccountLockedHook {
- *   constructor(private readonly emailService: EmailService) {}
- *
- *   async execute(metadata: AccountLockedMetadata) {
- *     await this.emailService.sendAccountLockedAlert({
- *       to: metadata.user.email,
- *       reason: metadata.lockoutReason,
- *       unlockTime: metadata.unlockTime,
- *     });
- *   }
- * }
- * ```
- */
-export function AccountLockedHook(): ClassDecorator {
-  const metadata: HookMetadata = {
-    type: 'accountLocked',
   };
   return SetMetadata(HOOK_METADATA_KEY, metadata);
 }

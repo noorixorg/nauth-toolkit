@@ -159,7 +159,6 @@ Security notification emails (password changed, account lockout, new device, etc
     enabled: true,
     suppress: {
       passwordChanged: false,     // Enable password changed alerts
-      accountLockout: false,      // Enable lockout alerts
       newDevice: false,           // Enable new device alerts
       sessionsRevoked: false,     // Enable session revocation alerts
     },

@@ -119,17 +119,6 @@ describe('ConsoleEmailProvider', () => {
     });
   });
 
-  describe('sendLockoutEmail', () => {
-    it('should log lockout email', async () => {
-      await provider.sendLockoutEmail('test@example.com', 'Too many failed attempts', 300);
-
-      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('EMAIL: Account lockout notification'));
-      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('To: test@example.com'));
-      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('Reason: Too many failed attempts'));
-      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('Duration: 5 minutes'));
-    });
-  });
-
   describe('sendNewDeviceEmail', () => {
     it('should log new device email with all info', async () => {
       await provider.sendNewDeviceEmail('test@example.com', {

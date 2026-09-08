@@ -120,13 +120,11 @@ nauth-toolkit records 60+ event types across 12 categories. Every event has a `s
 | Event | Status | When |
 |---|---|---|
 | `ACCOUNT_CREATED` | INFO | New signup |
-| `ACCOUNT_ACTIVATED` | INFO | Account activated |
-| `ACCOUNT_DEACTIVATED` | INFO | Account deactivated |
-| `ACCOUNT_LOCKED` | INFO | Security lockout |
-| `ACCOUNT_UNLOCKED` | INFO | Admin or auto-unlock |
-| `ACCOUNT_DISABLED` | INFO | Admin disabled account |
-| `ACCOUNT_ENABLED` | INFO | Admin enabled account |
+| `ACCOUNT_DISABLED` | INFO | Admin locked the account (`disable`) |
+| `ACCOUNT_ENABLED` | INFO | Admin cleared the lock (`enable`) |
 | `ACCOUNT_DELETED` | INFO | Account deleted |
+
+Account lock and unlock are audited as `ACCOUNT_DISABLED` and `ACCOUNT_ENABLED`, so alert on those. A failed-login lockout is IP-based and produces `LOGIN_FAILED` rows rather than any lock event.
 
 ### Profile Updates
 

@@ -102,6 +102,8 @@ social: {
 
 See [Configuration > Social Login](/docs/concepts/configuration#social-authentication) for the full reference including OAuth parameters, native mobile settings, and advanced options.
 
+For which `callbackUrl` and `frontendBaseUrl` to use on localhost, a shared dev API, or an API subdomain, see the [Environment Cheat Sheet](/docs/guides/environment-cheat-sheet#social-provider-rules).
+
 ### OAuth Parameters
 
 Control provider behavior on a per-request basis:

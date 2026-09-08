@@ -13,7 +13,6 @@ import {
   AdaptiveMFARiskDetectedHook,
   AccountStatusChangedHook,
   EmailChangedHook,
-  AccountLockedHook,
   SessionsRevokedHook,
   MFAFirstEnabledHook,
   HOOK_METADATA_KEY,
@@ -119,18 +118,6 @@ describe('Hook Decorators', () => {
       const metadata = reflector.get(HOOK_METADATA_KEY, TestHook);
       expect(metadata).toEqual({
         type: 'emailChanged',
-      });
-    });
-  });
-
-  describe('AccountLockedHook', () => {
-    it('should set metadata', () => {
-      @AccountLockedHook()
-      class TestHook {}
-
-      const metadata = reflector.get(HOOK_METADATA_KEY, TestHook);
-      expect(metadata).toEqual({
-        type: 'accountLocked',
       });
     });
   });

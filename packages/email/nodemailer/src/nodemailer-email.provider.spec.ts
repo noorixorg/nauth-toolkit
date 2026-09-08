@@ -245,16 +245,6 @@ describe('NodemailerProvider', () => {
     });
   });
 
-  describe('sendLockoutEmail', () => {
-    it('should send lockout email', async () => {
-      const provider = new NodemailerProvider(mockConfig);
-      provider.setLogger(mockLogger);
-      await provider.sendLockoutEmail('user@example.com', 'Too many attempts', 5);
-
-      expect(mockTransporter.sendMail).toHaveBeenCalled();
-    });
-  });
-
   describe('sendNewDeviceEmail', () => {
     it('should send new device email', async () => {
       const provider = new NodemailerProvider(mockConfig);

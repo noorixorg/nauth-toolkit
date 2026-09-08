@@ -3080,6 +3080,9 @@ export class AuthService {
    * Security:
    * - Avoids account enumeration: returns success even when user is not found.
    * - Delivery is best-effort; errors are logged but should not reveal account existence.
+   * - Permanently locked accounts (admin `disableUser`) are skipped without sending, since
+   *   a completed reset would not let them log in. Temporary failed-login lockouts are
+   *   still served, because a reset is the intended recovery path for those.
    *
    * Channel selection (per config.signup.verificationMethod):
    * - 'none': send to email if available; else phone (if available)
@@ -3114,6 +3117,25 @@ export class AuthService {
     const user = await this.helpers.findUserByIdentifier(dto.identifier, this.config.login?.identifierType);
     if (!user) {
       return response; // Non-enumerating
+    }
+
+    // ============================================================================
+    // Permanently locked accounts cannot recover by resetting their password
+    // ============================================================================
+    // `disableUser` sets a permanent lock (lockedUntil === null). Sending a reset code
+    // would let the user complete a reset, be told it succeeded, and still be refused at
+    // login with ACCOUNT_LOCKED — so the reset is skipped entirely.
+    //
+    // Guarding on a null `lockedUntil` keeps a future-dated (temporary) lock eligible for
+    // reset, which is the intended recovery path for one. No toolkit code sets such a lock
+    // today — the failed-login lockout is IP-based and never touches the user row — so this
+    // is equivalent to `isLocked` in practice, and stays correct if that ever changes.
+    //
+    // Non-enumerating: returns the same success response as every other ineligible
+    // account above, so a caller cannot distinguish a locked account from a missing one.
+    if (user.isLocked && user.lockedUntil === null) {
+      this.logger?.warn?.(`Password reset skipped - account permanently locked: ${user.email} (sub: ${user.sub})`);
+      return response;
     }
 
     // ============================================================================
@@ -3176,10 +3198,12 @@ export class AuthService {
    * - Verifies reset code via PasswordResetService
    * - Enforces password policy and history
    * - Revokes all sessions upon successful reset
+   * - Refuses permanently locked accounts with ACCOUNT_LOCKED, checked only after the reset
+   *   code is verified so the lock state is never disclosed to an unauthenticated caller
    *
    * @param dto - Confirm forgot password payload
    * @returns Success response
-   * @throws {NAuthException} PASSWORD_RESET_CODE_INVALID | PASSWORD_RESET_CODE_EXPIRED | PASSWORD_RESET_MAX_ATTEMPTS
+   * @throws {NAuthException} PASSWORD_RESET_CODE_INVALID | PASSWORD_RESET_CODE_EXPIRED | PASSWORD_RESET_MAX_ATTEMPTS | ACCOUNT_LOCKED
    */
   async confirmForgotPassword(dto: ConfirmForgotPasswordDTO): Promise<ConfirmForgotPasswordResponseDTO> {
     // Ensure DTO is validated (supports direct usage without framework validation)
@@ -3208,6 +3232,28 @@ export class AuthService {
     // consumed (marked used) atomically in `beforePersist`, so a legitimate user whose
     // password fails validation keeps the same code to retry — behaviour is unchanged.
     await this.passwordResetService.verifyValidCode(user, dto.code);
+
+    // ============================================================================
+    // Permanently locked accounts: refuse, but only once the code is proven
+    // ============================================================================
+    // Deliberately placed after `verifyValidCode` for the reason given above: checking
+    // it earlier would let an unauthenticated caller who knows only the identifier
+    // submit a junk code and read the lock state out of the differing error, which is
+    // the same oracle that gating on the code closes.
+    //
+    // Once the code is verified the caller has proven control of the delivery channel,
+    // so naming the real reason is safe — and it stops the reset reporting a success
+    // that leaves the user still unable to log in. The code is not consumed here, so it
+    // stays usable until it expires if an admin lifts the lock.
+    if (user.isLocked && user.lockedUntil === null) {
+      this.logger?.warn?.(`Password reset blocked - account permanently locked (sub: ${user.sub})`);
+      throw new NAuthException(AuthErrorCode.ACCOUNT_LOCKED, user.lockReason || 'Account is locked', {
+        lockReason: user.lockReason,
+        lockedAt: user.lockedAt,
+        lockedUntil: user.lockedUntil,
+        isPermanent: true,
+      });
+    }
 
     const { sessionsRevoked: _sessionsRevoked } = await this.helpers.updateUserPassword(
       {

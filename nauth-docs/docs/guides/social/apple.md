@@ -42,7 +42,7 @@ Apple social login is fully implemented in the [nauth example apps](https://gith
 1. Go to **Identifiers > Service IDs** and register a new identifier (e.g., `com.yourapp.services`)
 2. Enable **Sign in with Apple** and configure:
    - **Primary App ID**: Select your App ID from above
-   - **Domains**: Your API domain (e.g., `api.example.com` or `localhost` for dev)
+   - **Domains**: Your API domain (e.g., `api.example.com`). Apple rejects `localhost` and `http://` here, so use an HTTPS tunnel or a deployed dev API for local testing
    - **Return URLs**: `https://api.example.com/auth/social/apple/callback`
 
 **Create a private key**:

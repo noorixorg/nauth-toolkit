@@ -756,6 +756,7 @@ cookieOptions: {
 }
 ```
 
+For the full set of `secure` / `sameSite` / `domain` / CORS values per topology (localhost, same origin, API subdomain, frontend-only dev against a remote API), see the [Environment Cheat Sheet](/docs/guides/environment-cheat-sheet).
 :::
 
 ## Remember Device

@@ -65,7 +65,6 @@ export {
   AdaptiveMFARiskDetectedHook,
   AccountStatusChangedHook,
   EmailChangedHook,
-  AccountLockedHook,
   SessionsRevokedHook,
   MFAFirstEnabledHook,
 } from './decorators/hook.decorator';

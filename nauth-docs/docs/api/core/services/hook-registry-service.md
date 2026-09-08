@@ -54,16 +54,6 @@ Auto-injected by framework adapters. Manual instantiation not recommended.
 
 ## Methods
 
-### executeAccountLocked()
-
-**Internal method.** Executes all registered account locked hooks. Called automatically by AuthServiceInternalHelpers. Errors are logged but don't block lockout.
-
-```typescript
-async executeAccountLocked(metadata: AccountLockedMetadata): Promise<void>
-```
-
----
-
 ### executeAccountStatusChanged()
 
 **Internal method.** Executes all registered account status changed hooks. Called automatically by UserService. Errors are logged but don't block the operation.
@@ -215,66 +205,6 @@ async executeUserProfileUpdated(metadata: UserProfileUpdatedMetadata): Promise<v
 **Parameters**
 
 - `metadata` - [`UserProfileUpdatedMetadata`](../hooks/user-profile-updated-hook#userprofileupdatedmetadata) containing updated user and change details
-
----
-
-### registerAccountLocked()
-
-Register an account locked hook. Hooks execute when an account is locked due to failed login attempts. Non-blocking - errors are logged.
-
-```typescript
-registerAccountLocked(provider: IAccountLockedHook): void
-```
-
-**Parameters**
-
-- `provider` - `IAccountLockedHook`
-
-**Example**
-
-<Tabs groupId="platform">
-<TabItem value="nestjs" label="NestJS">
-
-```typescript
-@Injectable()
-@AccountLockedHook()
-export class LockoutNotificationHook implements IAccountLockedHook {
-  async execute(metadata) {
-    await this.alertService.notifyAdmin('account_locked', { userId: metadata.user.sub });
-  }
-}
-```
-
-</TabItem>
-<TabItem value="express" label="Express">
-
-```typescript
-class LockoutNotificationHook implements IAccountLockedHook {
-  async execute(metadata) {
-    await alertService.notifyAdmin('account_locked', { userId: metadata.user.sub });
-  }
-}
-
-nauth.hookRegistry.registerAccountLocked(new LockoutNotificationHook());
-```
-
-</TabItem>
-<TabItem value="fastify" label="Fastify">
-
-```typescript
-class LockoutNotificationHook implements IAccountLockedHook {
-  async execute(metadata) {
-    await alertService.notifyAdmin('account_locked', { userId: metadata.user.sub });
-  }
-}
-
-nauth.hookRegistry.registerAccountLocked(new LockoutNotificationHook());
-```
-
-</TabItem>
-</Tabs>
-
----
 
 ### registerAccountStatusChanged()
 

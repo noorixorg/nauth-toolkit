@@ -11,8 +11,6 @@ import {
   AccountStatusChangedMetadata,
   IEmailChangedHook,
   EmailChangedMetadata,
-  IAccountLockedHook,
-  AccountLockedMetadata,
   ISessionsRevokedHook,
   SessionsRevokedMetadata,
   IMFAFirstEnabledHook,
@@ -195,21 +193,6 @@ class EmailChangedEmailNotificationHook extends EmailNotificationsBase implement
   }
 }
 
-class AccountLockedEmailNotificationHook extends EmailNotificationsBase implements IAccountLockedHook {
-  async execute(metadata: AccountLockedMetadata): Promise<void> {
-    if (!this.shouldSend('accountLockout')) return;
-    if (!metadata.user.email) return;
-    await this.emailProvider.sendAccountLockedEmail?.(metadata.user.email, {
-      reason: metadata.reason,
-      lockType: metadata.lockType,
-      lockDuration: metadata.lockDuration,
-      lockedUntil: metadata.lockedUntil,
-      ipAddress: metadata.ipAddress,
-      failedAttempts: metadata.failedAttempts,
-    });
-  }
-}
-
 class SessionsRevokedEmailNotificationHook extends EmailNotificationsBase implements ISessionsRevokedHook {
   async execute(metadata: SessionsRevokedMetadata): Promise<void> {
     if (metadata.initiatedBy === 'user') return;
@@ -268,7 +251,6 @@ export function registerBuiltInEmailNotificationHooks(
   hookRegistry.registerAdaptiveMFARiskDetected(new AdaptiveMFARiskEmailNotificationHook(emailProvider, config, logger));
   hookRegistry.registerAccountStatusChanged(new AccountStatusEmailNotificationHook(emailProvider, config, logger));
   hookRegistry.registerEmailChanged(new EmailChangedEmailNotificationHook(emailProvider, config, logger));
-  hookRegistry.registerAccountLocked(new AccountLockedEmailNotificationHook(emailProvider, config, logger));
   hookRegistry.registerSessionsRevoked(new SessionsRevokedEmailNotificationHook(emailProvider, config, logger));
   hookRegistry.registerMFAFirstEnabled(new MFAFirstEnabledEmailNotificationHook(emailProvider, config, logger));
   hookRegistry.registerMFAMethodAdded(new MFAMethodAddedEmailNotificationHook(emailProvider, config, logger));

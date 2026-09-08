@@ -47,11 +47,6 @@ export interface EmailProvider {
   sendWelcomeEmail(to: string, name: string): Promise<void>;
 
   /**
-   * Send account lockout notification
-   */
-  sendLockoutEmail?(to: string, reason: string, duration: number): Promise<void>;
-
-  /**
    * Send new device login notification
    */
   sendNewDeviceEmail?(to: string, deviceInfo: any, location?: any): Promise<void>;
@@ -165,24 +160,6 @@ export interface EmailProvider {
     context: {
       oldEmail?: string;
       timestamp?: string;
-    },
-  ): Promise<void>;
-
-  /**
-   * Send account locked notification
-   *
-   * @param to - Recipient email address
-   * @param context - Lockout context (reason, lockDuration, etc.)
-   */
-  sendAccountLockedEmail?(
-    to: string,
-    context: {
-      reason?: string;
-      lockType?: 'temporary' | 'permanent';
-      lockDuration?: number;
-      lockedUntil?: Date;
-      ipAddress?: string;
-      failedAttempts?: number;
     },
   ): Promise<void>;
 

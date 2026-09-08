@@ -434,7 +434,6 @@ emailNotifications: {
     mfaMethodAdded: false,
     adaptiveMfaRiskDetected: false, // Uses the adaptiveMfaRiskAlert template
     sessionsRevoked: false,
-    accountLockout: false,
     accountDisabled: false,
     accountEnabled: false,
     emailChangedOld: false,       // Alert sent to the old email address

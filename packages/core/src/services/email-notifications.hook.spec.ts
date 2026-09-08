@@ -68,7 +68,6 @@ describe('registerBuiltInEmailNotificationHooks', () => {
       sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
       sendAdminPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
       sendWelcomeEmail: jest.fn().mockResolvedValue(undefined),
-      sendLockoutEmail: jest.fn().mockResolvedValue(undefined),
       sendPasswordChangedEmail: jest.fn().mockResolvedValue(undefined),
       sendMFADeviceRemovedEmail: jest.fn().mockResolvedValue(undefined),
       sendAdaptiveMFARiskAlertEmail: jest.fn().mockResolvedValue(undefined),
@@ -76,7 +75,6 @@ describe('registerBuiltInEmailNotificationHooks', () => {
       sendAccountEnabledEmail: jest.fn().mockResolvedValue(undefined),
       sendEmailChangedAlertEmail: jest.fn().mockResolvedValue(undefined),
       sendEmailChangedConfirmationEmail: jest.fn().mockResolvedValue(undefined),
-      sendAccountLockedEmail: jest.fn().mockResolvedValue(undefined),
       sendSessionsRevokedEmail: jest.fn().mockResolvedValue(undefined),
       sendMFAFirstEnabledEmail: jest.fn().mockResolvedValue(undefined),
       sendMFAMethodAddedEmail: jest.fn().mockResolvedValue(undefined),
@@ -231,7 +229,6 @@ describe('registerBuiltInEmailNotificationHooks', () => {
           accountEnabled: false,
           emailChangedOld: false,
           emailChangedNew: false,
-          accountLockout: false,
           sessionsRevoked: false,
           mfaFirstEnabled: false,
           mfaMethodAdded: false,
@@ -285,14 +282,6 @@ describe('registerBuiltInEmailNotificationHooks', () => {
     });
     expect(emailProvider.sendEmailChangedAlertEmail).toHaveBeenCalledTimes(1);
     expect(emailProvider.sendEmailChangedConfirmationEmail).toHaveBeenCalledTimes(1);
-
-    await hookRegistry.executeAccountLocked({
-      user: baseUser,
-      reason: 'too_many_attempts',
-      lockType: 'temporary',
-      lockDuration: 900,
-    });
-    expect(emailProvider.sendAccountLockedEmail).toHaveBeenCalledTimes(1);
 
     await hookRegistry.executeSessionsRevoked({
       user: baseUser,

@@ -165,24 +165,6 @@ export class ConsoleEmailProvider implements EmailProvider {
   }
 
   /**
-   * Send account lockout notification
-   *
-   * Logs email details to console for debugging.
-   *
-   * @param to - Recipient email address
-   * @param reason - Lockout reason
-   * @param duration - Lockout duration in seconds
-   */
-  async sendLockoutEmail(to: string, reason: string, duration: number): Promise<void> {
-    this.logger.warn('----------------------------------------------');
-    this.logger.warn('EMAIL: Account lockout notification (simulated)');
-    this.logger.warn(`To: ${to}`);
-    this.logger.warn(`Reason: ${reason}`);
-    this.logger.warn(`Duration: ${Math.round(duration / 60)} minutes`);
-    this.logger.warn('----------------------------------------------');
-  }
-
-  /**
    * Send new device login notification
    *
    * Logs email details to console for debugging.

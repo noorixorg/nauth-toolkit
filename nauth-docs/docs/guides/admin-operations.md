@@ -810,7 +810,7 @@ DELETE /auth/admin/users/:sub
 
 ### Disable a user
 
-Locks the account and revokes all active sessions immediately.
+Locks the account permanently and revokes all active sessions immediately. The next login attempt fails with `AUTH_ACCOUNT_LOCKED`.
 
 ```
 POST /auth/admin/users/:sub/disable
@@ -831,14 +831,18 @@ POST /auth/admin/users/:sub/disable
   "success": true,
   "user": {
     "sub": "a1b2c3d4-...",
-    "isLocked": true,
-    "isActive": false
+    "isActive": true,
+    "isLocked": true
   },
   "revokedSessions": 3
 }
 ```
 
+The call writes `isLocked`, `lockReason`, `lockedAt` and `lockedUntil`. It does not change `isActive`, which stays `true`. See [isActive vs isLocked](#isactive-vs-islocked).
+
 ### Enable a user
+
+Clears the lock set by `disable` and resets the stored failed-attempt counter on the user row.
 
 ```
 POST /auth/admin/users/:sub/enable
@@ -851,11 +855,28 @@ POST /auth/admin/users/:sub/enable
   "success": true,
   "user": {
     "sub": "a1b2c3d4-...",
-    "isLocked": false,
-    "isActive": true
+    "isActive": true,
+    "isLocked": false
   }
 }
 ```
+
+### isActive vs isLocked
+
+Both fields appear on every user response and both block login, but only one of them has an API behind it.
+
+| | `isLocked` | `isActive` |
+| --- | --- | --- |
+| Set by | `disable` only | `true` at signup; nothing sets it `false` |
+| Cleared by | `enable` only | Nothing |
+| Login error | `AUTH_ACCOUNT_LOCKED` | `AUTH_ACCOUNT_INACTIVE` |
+| Filterable in list users | Yes | No |
+
+`isLocked` is the one you manage, and `disable` always makes it permanent: it writes `lockedUntil: null`, which never expires and needs `enable` to clear.
+
+The failed-login lockout is a separate mechanism and does not appear on the user row at all. It is keyed by IP address in the storage adapter, and a caller who trips it gets `RATE_LIMIT_LOGIN`, not `AUTH_ACCOUNT_LOCKED`. `enable` therefore does not release it; it expires on its own.
+
+`isActive` is a legacy account-lifecycle flag. It is still enforced at login, but no route, service method or DTO in the toolkit sets it to `false`, so it only ever matters if you write to the column directly from your own code. For ordinary account suspension use `disable`.
 
 ## Step 2: Password Management
 

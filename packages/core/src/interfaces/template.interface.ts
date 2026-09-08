@@ -87,7 +87,6 @@ export enum TemplateType {
   PASSWORD_RESET = 'passwordReset',
   ADMIN_PASSWORD_RESET = 'adminPasswordReset',
   WELCOME = 'welcome',
-  ACCOUNT_LOCKOUT = 'accountLockout',
   NEW_DEVICE = 'newDevice',
   PASSWORD_CHANGED = 'passwordChanged',
   EMAIL_CHANGED = 'emailChanged',
@@ -279,14 +278,6 @@ export interface TemplateRequiredParams {
   [TemplateType.WELCOME]: Record<string, never>; // No required params
 
   /**
-   * Account lockout template required parameters
-   */
-  [TemplateType.ACCOUNT_LOCKOUT]: {
-    reason: string;
-    durationMinutes: number;
-  };
-
-  /**
    * New device template required parameters
    */
   [TemplateType.NEW_DEVICE]: {
@@ -433,7 +424,6 @@ export interface TemplateConfig {
    * Required parameters by template type:
    * - verification: {{code}}, {{link}}, {{expiryMinutes}}
    * - passwordReset: {{link}}, {{expiryMinutes}}
-   * - accountLockout: {{reason}}, {{durationMinutes}}
    * - newDevice: {{deviceName}}, {{timestamp}}
    * - emailChanged: {{userEmail}}
    * - welcome, passwordChanged, mfaEnabled: No required params

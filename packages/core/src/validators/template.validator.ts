@@ -19,7 +19,6 @@ export const TEMPLATE_REQUIRED_PARAMS: Record<TemplateType, string[]> = {
   [TemplateType.PASSWORD_RESET]: ['link', 'expiryMinutes'],
   [TemplateType.ADMIN_PASSWORD_RESET]: ['code', 'link', 'expiryMinutes'],
   [TemplateType.WELCOME]: [],
-  [TemplateType.ACCOUNT_LOCKOUT]: ['reason', 'durationMinutes'],
   [TemplateType.NEW_DEVICE]: ['deviceName', 'timestamp'],
   [TemplateType.PASSWORD_CHANGED]: [],
   [TemplateType.EMAIL_CHANGED]: ['userEmail'],

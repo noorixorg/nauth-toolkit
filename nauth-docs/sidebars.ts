@@ -137,6 +137,7 @@ const sidebars: SidebarsConfig = {
         { type: 'doc', id: 'guides/recaptcha', customProps: { icon: 'fa-light fa-robot' } },
         { type: 'doc', id: 'guides/openapi-dto-schemas', customProps: { icon: 'fa-light fa-brackets-curly' } },
         { type: 'doc', id: 'guides/routes', customProps: { icon: 'fa-light fa-route' } },
+        { type: 'doc', id: 'guides/environment-cheat-sheet', customProps: { icon: 'fa-light fa-cookie-bite' } },
       ],
     },
 
@@ -272,7 +273,6 @@ const sidebars: SidebarsConfig = {
           link: null,
           items: [
             { type: 'doc', id: 'api/nestjs/decorators/nauth-hooks-module' },
-            { type: 'doc', id: 'api/nestjs/decorators/account-locked-hook' },
             { type: 'doc', id: 'api/nestjs/decorators/account-status-changed-hook' },
             { type: 'doc', id: 'api/nestjs/decorators/adaptive-mfa-risk-detected-hook' },
             { type: 'doc', id: 'api/nestjs/decorators/email-changed-hook' },

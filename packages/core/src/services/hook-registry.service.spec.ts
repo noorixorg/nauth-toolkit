@@ -14,7 +14,6 @@ import {
   IAdaptiveMFARiskDetectedHook,
   IAccountStatusChangedHook,
   IEmailChangedHook,
-  IAccountLockedHook,
   ISessionsRevokedHook,
   IMFAFirstEnabledHook,
   IMFAMethodAddedHook,
@@ -25,7 +24,6 @@ import {
   AdaptiveMFARiskDetectedMetadata,
   AccountStatusChangedMetadata,
   EmailChangedMetadata,
-  AccountLockedMetadata,
   SessionsRevokedMetadata,
   MFAFirstEnabledMetadata,
   MFAMethodAddedMetadata,
@@ -76,10 +74,6 @@ class MockAccountStatusChangedHook implements IAccountStatusChangedHook {
 }
 
 class MockEmailChangedHook implements IEmailChangedHook {
-  execute = jest.fn().mockResolvedValue(undefined);
-}
-
-class MockAccountLockedHook implements IAccountLockedHook {
   execute = jest.fn().mockResolvedValue(undefined);
 }
 
@@ -1392,124 +1386,6 @@ describe('HookRegistryService', () => {
         };
 
         await expect(hookRegistry.executeEmailChanged(metadata)).resolves.not.toThrow();
-
-        expect(hook2.execute).toHaveBeenCalled();
-        expect(mockLogger.error).toHaveBeenCalled();
-      });
-    });
-  });
-
-  // ============================================================================
-  // Account Locked Hook Tests
-  // ============================================================================
-
-  describe('Account Locked Hook', () => {
-    const createTestUser = (): IUser => ({
-      id: 1,
-      sub: 'test-sub-123',
-      email: 'test@example.com',
-      username: null,
-      phone: null,
-      firstName: 'John',
-      lastName: 'Doe',
-      passwordHash: 'hashed',
-      passwordChangedAt: null,
-      passwordHistory: null,
-      isEmailVerified: true,
-      isPhoneVerified: false,
-      isActive: true,
-      mustChangePassword: false,
-      isLocked: true,
-      lockReason: 'Too many failed login attempts',
-      lockedAt: new Date(),
-      lockedUntil: new Date(Date.now() + 15 * 60 * 1000),
-      failedLoginAttempts: 5,
-      lastFailedLoginAt: new Date(),
-      lastLoginAt: null,
-      lastLoginIp: null,
-      hasSocialAuth: false,
-      socialProviders: null,
-      mfaEnabled: false,
-      mfaMethods: null,
-      preferredMfaMethod: null,
-      backupCodes: null,
-      metadata: null,
-      deletedAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    describe('registerAccountLocked', () => {
-      it('should register an account locked hook', () => {
-        const hook = new MockAccountLockedHook();
-        hookRegistry.registerAccountLocked(hook);
-
-        expect(mockLogger.debug).toHaveBeenCalledWith(
-          expect.stringContaining('Registered accountLocked hook: MockAccountLockedHook'),
-        );
-      });
-    });
-
-    describe('executeAccountLocked', () => {
-      it('should execute all registered hooks with correct metadata for temporary lock', async () => {
-        const hook1 = new MockAccountLockedHook();
-        const hook2 = new MockAccountLockedHook();
-
-        hookRegistry.registerAccountLocked(hook1);
-        hookRegistry.registerAccountLocked(hook2);
-
-        const testUser = createTestUser();
-        const lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
-        const metadata: AccountLockedMetadata = {
-          user: testUser,
-          reason: 'Too many failed login attempts',
-          lockType: 'temporary',
-          lockDuration: 900,
-          lockedUntil,
-          ipAddress: '203.0.113.0',
-          failedAttempts: 5,
-        };
-
-        await hookRegistry.executeAccountLocked(metadata);
-
-        expect(hook1.execute).toHaveBeenCalledWith(metadata);
-        expect(hook2.execute).toHaveBeenCalledWith(metadata);
-      });
-
-      it('should execute hooks for permanent lock', async () => {
-        const hook = new MockAccountLockedHook();
-        hookRegistry.registerAccountLocked(hook);
-
-        const testUser = createTestUser();
-        const metadata: AccountLockedMetadata = {
-          user: testUser,
-          reason: 'Fraudulent activity detected',
-          lockType: 'permanent',
-          ipAddress: '203.0.113.0',
-        };
-
-        await hookRegistry.executeAccountLocked(metadata);
-
-        expect(hook.execute).toHaveBeenCalledWith(expect.objectContaining({ lockType: 'permanent' }));
-      });
-
-      it('should continue execution when a hook throws', async () => {
-        const hook1 = new MockAccountLockedHook();
-        const hook2 = new MockAccountLockedHook();
-        hook1.execute.mockRejectedValue(new Error('Failed'));
-
-        hookRegistry.registerAccountLocked(hook1);
-        hookRegistry.registerAccountLocked(hook2);
-
-        const testUser = createTestUser();
-        const metadata: AccountLockedMetadata = {
-          user: testUser,
-          reason: 'Too many attempts',
-          lockType: 'temporary',
-          lockDuration: 900,
-        };
-
-        await expect(hookRegistry.executeAccountLocked(metadata)).resolves.not.toThrow();
 
         expect(hook2.execute).toHaveBeenCalled();
         expect(mockLogger.error).toHaveBeenCalled();

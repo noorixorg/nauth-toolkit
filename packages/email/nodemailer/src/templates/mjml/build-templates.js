@@ -17,7 +17,6 @@ const SUBJECTS = {
   'password-reset': 'Password Reset - {{appName}}',
   'admin-password-reset': 'Admin Password Reset - {{appName}}',
   welcome: 'Welcome to {{appName}}!',
-  'account-lockout': 'Account Locked - {{appName}}',
   'new-device': 'New Device Login - {{appName}}',
   'password-changed': 'Password Changed - {{appName}}',
   'email-changed': 'Email Address Changed - {{appName}}',
@@ -38,7 +37,6 @@ const PREVIEW_TEXTS = {
   'password-reset': 'Reset your password to regain access to your account',
   'admin-password-reset': 'An administrator initiated a password reset for your account',
   welcome: 'Welcome! Your account is ready to use',
-  'account-lockout': 'Your account has been temporarily locked for security',
   'new-device': 'We detected a login from a new device',
   'password-changed': 'Your password has been successfully changed',
   'email-changed': 'Your email address has been successfully changed',
@@ -114,26 +112,6 @@ We're excited to have you with us! Your account has been successfully created an
 {{#if supportEmail}}If you have any questions or need assistance, reach out to our support team at {{supportEmail}}.{{/if}}
 
 Happy exploring!`,
-  'account-lockout': `Account Locked
-
-{{#if fullName}}Hi {{fullName}},{{/if}}
-{{#if firstName}}Hi {{firstName}},{{/if}}
-{{#if lastName}}Hi {{lastName}},{{/if}}
-{{#if userName}}Hi {{userName}},{{/if}}
-
-Your account has been temporarily locked for security reasons.
-
-{{#if reason}}Reason: {{reason}}{{/if}}
-{{#if durationMinutes}}Duration: Your account will be automatically unlocked in {{durationMinutes}} minutes.{{/if}}
-
-What happened?
-We detected multiple failed login attempts or suspicious activity on your account.
-
-What should I do?
-- {{#if durationMinutes}}Wait {{durationMinutes}} minutes for automatic unlock{{/if}}
-- If this was you, try logging in again after the lockout period
-- {{#if supportEmail}}If this wasn't you, contact support at {{supportEmail}}{{/if}}
-- Consider changing your password after unlock`,
   'new-device': `New Device Login
 
 {{#if fullName}}Hi {{fullName}},{{/if}}

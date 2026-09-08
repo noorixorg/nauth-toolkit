@@ -37,7 +37,7 @@ import { DisableUserResponse } from '@nauth-toolkit/client';
     "lastName": "Doe",
     "isEmailVerified": true,
     "isPhoneVerified": false,
-    "isActive": false,
+    "isActive": true,
     "isLocked": true,
     "mfaEnabled": false,
     "hasPasswordHash": true,

@@ -39,7 +39,6 @@ import {
   IAdaptiveMFARiskDetectedHook,
   IAccountStatusChangedHook,
   IEmailChangedHook,
-  IAccountLockedHook,
   ISessionsRevokedHook,
   IMFAFirstEnabledHook,
 } from '@nauth-toolkit/core';
@@ -57,7 +56,6 @@ type HookProviderClass =
   | Type<IAdaptiveMFARiskDetectedHook>
   | Type<IAccountStatusChangedHook>
   | Type<IEmailChangedHook>
-  | Type<IAccountLockedHook>
   | Type<ISessionsRevokedHook>
   | Type<IMFAFirstEnabledHook>;
 
@@ -116,8 +114,6 @@ export class NAuthHooksModule implements OnModuleInit {
         hookRegistry.registerAccountStatusChanged(hookInstance as unknown as IAccountStatusChangedHook);
       } else if (metadata.type === 'emailChanged') {
         hookRegistry.registerEmailChanged(hookInstance as unknown as IEmailChangedHook);
-      } else if (metadata.type === 'accountLocked') {
-        hookRegistry.registerAccountLocked(hookInstance as unknown as IAccountLockedHook);
       } else if (metadata.type === 'sessionsRevoked') {
         hookRegistry.registerSessionsRevoked(hookInstance as unknown as ISessionsRevokedHook);
       } else if (metadata.type === 'mfaFirstEnabled') {

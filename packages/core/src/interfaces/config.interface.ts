@@ -520,7 +520,6 @@ export interface NAuthConfig {
    *     accountEnabled: true,
    *     emailChangedOld: true,
    *     emailChangedNew: true,
-   *     accountLockout: true,
    *     sessionsRevoked: true,
    *     mfaFirstEnabled: true,
    *     mfaMethodAdded: true
@@ -541,7 +540,6 @@ export interface NAuthConfig {
    *     accountEnabled: false,             // Enable account enabled notification
    *     emailChangedOld: false,           // Enable email changed alert (old address)
    *     emailChangedNew: false,           // Enable email changed confirmation (new address)
-   *     accountLockout: false,            // Enable account lockout notification
    *     sessionsRevoked: false,           // Enable sessions revoked alert
    *     mfaFirstEnabled: false            // Enable MFA first enabled confirmation
    *   }
@@ -2732,7 +2730,6 @@ export interface ChallengeConfig {
  * - `IAdaptiveMFARiskDetectedHook` for risk detection alerts
  * - `IAccountStatusChangedHook` for account enable/disable notifications
  * - `IEmailChangedHook` for email change alerts (sends TWO emails)
- * - `IAccountLockedHook` for account lockout notifications
  * - `ISessionsRevokedHook` for session revocation alerts
  * - `IMFAFirstEnabledHook` for MFA first enabled confirmation
  */
@@ -2835,15 +2832,6 @@ export interface EmailNotificationsConfig {
      * @default true (DISABLED, opt-in)
      */
     emailChangedNew?: boolean;
-
-    /**
-     * Account lockout notification
-     *
-     * Hook: `IAccountLockedHook`
-     *
-     * @default true (DISABLED, opt-in)
-     */
-    accountLockout?: boolean;
 
     /**
      * Sessions revoked security alert

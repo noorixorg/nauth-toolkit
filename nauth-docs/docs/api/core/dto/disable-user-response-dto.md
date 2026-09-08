@@ -59,7 +59,7 @@ import { DisableUserResponseDTO } from '@nauth-toolkit/core';
     "lastName": "Doe",
     "isEmailVerified": true,
     "isPhoneVerified": false,
-    "isActive": false,
+    "isActive": true,
     "isLocked": true,
     "mfaEnabled": false,
     "mfaExempt": false,

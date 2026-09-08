@@ -145,6 +145,8 @@ fastify.post('/auth/change-password', async (req, reply) => {
 
 Confirm password reset code and set a new password. All user sessions are revoked on successful password reset.
 
+A permanently locked account is rejected with `ACCOUNT_LOCKED` rather than being allowed to complete a reset it could not use. The lock is checked only **after** the reset code is verified, so the lock state is never disclosed to a caller who does not hold the code. The code is not consumed in that case, so it stays usable until it expires if an admin lifts the lock.
+
 ```typescript
 async confirmForgotPassword(dto: ConfirmForgotPasswordDTO): Promise<ConfirmForgotPasswordResponseDTO>
 ```
@@ -169,6 +171,7 @@ Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed b
 | `PASSWORD_RESET_MAX_ATTEMPTS` | Only if `password.passwordReset.maxAttempts` exceeded (default: 3)                             | `undefined`            |
 | `WEAK_PASSWORD`               | Policy violation                                                                               | `{ errors: string[] }` |
 | `PASSWORD_REUSED`             | Only if `password.historyCount` is configured AND password reused                              | `undefined`            |
+| `ACCOUNT_LOCKED`              | Account permanently locked by an admin (`disableUser`)                                         | `{ lockReason: string \| null, lockedAt: Date \| null, lockedUntil: null, isPermanent: true }` |
 
 **SERVICE_UNAVAILABLE details**
 
@@ -262,6 +265,7 @@ async forgotPassword(dto: ForgotPasswordDTO): Promise<ForgotPasswordResponseDTO>
   - User not found
   - Identifier type doesn't match configuration
   - No verified delivery channel available (email/phone) based on `signup.verificationMethod`
+  - The account is **permanently locked** (admin `disableUser`), since a completed reset would still not allow login. Temporary failed-login lockouts are still served, because a reset is the intended recovery path for those.
 
 **Errors**
 

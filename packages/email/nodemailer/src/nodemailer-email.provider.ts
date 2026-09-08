@@ -685,38 +685,6 @@ export class NodemailerProvider implements EmailProvider {
   }
 
   /**
-   * Send account lockout notification
-   *
-   * @param to - Recipient email address
-   * @param reason - Lockout reason
-   * @param duration - Lockout duration in minutes
-   */
-  async sendLockoutEmail(
-    to: string,
-    reason: string,
-    duration: number,
-    variables: TemplateVariables = {},
-  ): Promise<void> {
-    const templateVariables: TemplateVariables = {
-      ...this.globalVariables,
-      userName: to.split('@')[0],
-      userEmail: to,
-      reason,
-      durationMinutes: duration,
-      ...variables,
-    };
-
-    const email = await this.templateEngine.render(TemplateType.ACCOUNT_LOCKOUT, templateVariables);
-
-    await this.sendMail({
-      to,
-      subject: email.subject,
-      html: email.html,
-      text: email.text,
-    });
-  }
-
-  /**
    * Send new device login notification
    *
    * @param to - Recipient email address
@@ -1019,52 +987,6 @@ export class NodemailerProvider implements EmailProvider {
     };
 
     const email = await this.templateEngine.render(TemplateType.EMAIL_CHANGED_NEW, templateVariables);
-
-    await this.sendMail({
-      to,
-      subject: email.subject,
-      html: email.html,
-      text: email.text,
-    });
-  }
-
-  /**
-   * Send account locked notification
-   *
-   * @param to - Recipient email address
-   * @param context - Lockout context
-   * @param variables - Additional template variables
-   */
-  async sendAccountLockedEmail(
-    to: string,
-    context: {
-      reason?: string;
-      lockType?: 'temporary' | 'permanent';
-      lockDuration?: number;
-      lockedUntil?: Date;
-      ipAddress?: string;
-      failedAttempts?: number;
-    } = {},
-    variables: TemplateVariables = {},
-  ): Promise<void> {
-    if (!this.shouldSendEmail('accountLockout')) return;
-
-    const templateVariables: TemplateVariables = {
-      ...this.globalVariables,
-      userName: to.split('@')[0],
-      userEmail: to,
-      reason: context.reason || 'Multiple failed login attempts',
-      lockType: context.lockType || 'temporary',
-      lockDuration: context.lockDuration,
-      durationMinutes: context.lockDuration ? Math.round(context.lockDuration / 60) : undefined,
-      lockedUntil: context.lockedUntil?.toISOString(),
-      ipAddress: context.ipAddress,
-      failedAttempts: context.failedAttempts,
-      timestamp: new Date().toISOString(),
-      ...variables,
-    };
-
-    const email = await this.templateEngine.render(TemplateType.ACCOUNT_LOCKOUT, templateVariables);
 
     await this.sendMail({
       to,

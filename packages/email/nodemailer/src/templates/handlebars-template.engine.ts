@@ -541,7 +541,6 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
       [TemplateType.PASSWORD_RESET]: 'password-reset',
       [TemplateType.ADMIN_PASSWORD_RESET]: 'admin-password-reset',
       [TemplateType.WELCOME]: 'welcome',
-      [TemplateType.ACCOUNT_LOCKOUT]: 'account-lockout',
       [TemplateType.NEW_DEVICE]: 'new-device',
       [TemplateType.PASSWORD_CHANGED]: 'password-changed',
       [TemplateType.EMAIL_CHANGED]: 'email-changed',

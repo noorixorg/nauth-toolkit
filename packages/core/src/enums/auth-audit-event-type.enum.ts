@@ -278,26 +278,6 @@ export enum AuthAuditEventType {
   ACCOUNT_CREATED = 'ACCOUNT_CREATED',
 
   /**
-   * User account activated
-   */
-  ACCOUNT_ACTIVATED = 'ACCOUNT_ACTIVATED',
-
-  /**
-   * User account deactivated
-   */
-  ACCOUNT_DEACTIVATED = 'ACCOUNT_DEACTIVATED',
-
-  /**
-   * User account locked (security measure)
-   */
-  ACCOUNT_LOCKED = 'ACCOUNT_LOCKED',
-
-  /**
-   * User account unlocked (admin action or auto-unlock)
-   */
-  ACCOUNT_UNLOCKED = 'ACCOUNT_UNLOCKED',
-
-  /**
    * User account disabled by admin (permanent lock)
    */
   ACCOUNT_DISABLED = 'ACCOUNT_DISABLED',

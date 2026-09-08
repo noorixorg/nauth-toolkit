@@ -95,26 +95,33 @@ export class BaseUser {
   /**
    * Account active status
    *
-   * Admin-controlled flag for account lifecycle management.
-   * - false = Account deactivated (soft disable, manual toggle)
-   * - true = Account enabled (default for new signups)
+   * Legacy account-lifecycle flag. It is still enforced — `false` blocks login with
+   * `ACCOUNT_INACTIVE`, and is also checked during session validation and by the IdP
+   * session gate — but no route, service method or DTO in the toolkit ever sets it to
+   * `false`. New users are created with `true` and nothing writes it again, so the flag
+   * only takes effect if a consumer updates the column directly.
    *
-   * Use case: Administrative account management, account lifecycle control
+   * For account suspension use {@link isLocked} via the admin `disableUser` /
+   * `enableUser` operations, which is the supported mechanism.
+   *
+   * - true = Account usable (default for new signups)
+   * - false = Login and session validation rejected
    */
   isActive!: boolean;
 
   /**
    * Account lock status
    *
-   * Security lock mechanism for temporary or permanent restrictions.
+   * Administrative suspension. Set by `disableUser` and cleared by `enableUser`.
    * - false = Account unlocked (default)
-   * - true = Account locked (blocks login)
+   * - true = Account locked (blocks login with ACCOUNT_LOCKED)
    *
-   * Lock types:
-   * - Permanent: lockedUntil = null (admin disableUser, requires manual unlock)
-   * - Temporary: lockedUntil = future date (rate limiting, auto-unlocks when expired)
-   *
-   * Use case: Security restrictions, rate limiting, failed login attempts
+   * `disableUser` always writes `lockedUntil: null`, a permanent lock requiring an
+   * explicit `enableUser` to clear. Nothing in the toolkit sets a future `lockedUntil`:
+   * the failed-login lockout is IP-based and lives in the storage adapter
+   * (`AccountLockoutStorageService`), never touching this row. The login path still
+   * honours a future `lockedUntil` as a temporary lock, so the column remains meaningful
+   * if a consumer writes it directly.
    *
    * See also: lockReason, lockedAt, lockedUntil
    */

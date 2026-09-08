@@ -131,8 +131,8 @@ class MyEmailProvider implements EmailProvider {
   }
 
   // Optional notification methods (implement only the ones you need):
-  // sendPasswordChangedEmail?, sendLockoutEmail?, sendNewDeviceEmail?,
-  // sendAccountLockedEmail?, sendSessionsRevokedEmail?, sendMFAFirstEnabledEmail?,
+  // sendPasswordChangedEmail?, sendNewDeviceEmail?,
+  // sendSessionsRevokedEmail?, sendMFAFirstEnabledEmail?,
   // sendMFAMethodAddedEmail?, sendMFADeviceRemovedEmail?, sendAdaptiveMFARiskAlertEmail?,
   // sendAccountDisabledEmail?, sendAccountEnabledEmail?, sendEmailChangedAlertEmail?,
   // sendEmailChangedConfirmationEmail?

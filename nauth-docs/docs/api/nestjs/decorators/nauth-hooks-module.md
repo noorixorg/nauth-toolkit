@@ -41,7 +41,6 @@ import { NAuthHooksModule } from '@nauth-toolkit/nestjs';
 | `@AdaptiveMFARiskDetectedHook` | `adaptiveMfaRiskDetected` | When high-risk signin activity is detected |
 | `@AccountStatusChangedHook` | `accountStatusChanged` | After an account is enabled or disabled |
 | `@EmailChangedHook` | `emailChanged` | After a user's email address is changed |
-| `@AccountLockedHook` | `accountLocked` | After an account is locked due to failed login attempts |
 | `@SessionsRevokedHook` | `sessionsRevoked` | After user sessions are bulk revoked |
 | `@MFAFirstEnabledHook` | `mfaFirstEnabled` | After a user enables MFA for the first time |
 
@@ -248,7 +247,6 @@ Across modules, hooks are registered in NestJS module initialization order. Keep
 - [`@AdaptiveMFARiskDetectedHook()`](./adaptive-mfa-risk-detected-hook) - Adaptive MFA risk detected hook decorator
 - [`@AccountStatusChangedHook()`](./account-status-changed-hook) - Account status changed hook decorator
 - [`@EmailChangedHook()`](./email-changed-hook) - Email changed hook decorator
-- [`@AccountLockedHook()`](./account-locked-hook) - Account locked hook decorator
 - [`@SessionsRevokedHook()`](./sessions-revoked-hook) - Sessions revoked hook decorator
 - [`@MFAFirstEnabledHook()`](./mfa-first-enabled-hook) - MFA first enabled hook decorator
 - [`HookRegistryService`](/docs/api/core/services/hook-registry-service) - Hook registry service

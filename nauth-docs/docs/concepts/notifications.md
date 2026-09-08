@@ -67,7 +67,6 @@ These emails are **suppressed by default**. Enable them individually via `emailN
     enabled: true,
     suppress: {
       passwordChanged: false,     // Enable password changed notifications
-      accountLockout: false,      // Enable lockout notifications
       sessionsRevoked: false,     // Enable session revocation notifications
     },
   },
@@ -77,7 +76,6 @@ These emails are **suppressed by default**. Enable them individually via `emailN
 | Template Type | When Sent | Required Variables |
 |---|---|---|
 | `passwordChanged` | Password successfully changed | (none) |
-| `accountLockout` | Account locked (failed login attempts) | `reason`, `durationMinutes` |
 | `newDevice` | New device detected during login | `deviceName`, `timestamp` |
 | `sessionsRevoked` | All sessions terminated | `revokedCount` |
 | `adaptiveMfaRiskAlert` | Adaptive MFA risk detected with `notifyUser: true` | `riskLevel`, `riskFactors` |
@@ -110,7 +108,6 @@ The `emailNotifications.suppress` keys do **not always match** the `TemplateType
 | `adaptiveMfaRiskDetected` | `adaptiveMfaRiskAlert` |
 | `emailChangedOld` | `emailChangedOld` |
 | `emailChangedNew` | `emailChangedNew` |
-| `accountLockout` | `accountLockout` |
 
 Use **template type keys** for `customTemplates` and **suppress keys** for `emailNotifications.suppress`.
 
@@ -143,7 +140,6 @@ Use **template type keys** for `customTemplates` and **suppress keys** for `emai
 | `passwordReset` | `code`, `link`, `expiryMinutes` | `link` only present when `password.passwordReset.baseUrl` is configured (the shipped route ignores any request-body `baseUrl`) |
 | `adminPasswordReset` | `code`, `link`, `expiryMinutes` | `link` only present when `baseUrl` is provided |
 | `welcome` | (none) | Uses global variables only |
-| `accountLockout` | `reason`, `durationMinutes`, `lockType`, `lockDuration`, `lockedUntil`, `ipAddress`, `failedAttempts` | `lockType` is `'temporary'` or `'permanent'` |
 | `newDevice` | `deviceName`, `deviceType`, `ipAddress`, `location`, `timestamp` | |
 | `passwordChanged` | `changedBy`, `sessionsRevoked`, `timestamp` | `changedBy` is `'user'`, `'admin'`, or `'reset'` |
 | `sessionsRevoked` | `revokedCount`, `reason`, `triggerEvent`, `timestamp` | |

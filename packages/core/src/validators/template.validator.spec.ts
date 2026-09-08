@@ -58,11 +58,6 @@ describe('Template Validator', () => {
       expect(() => validateTemplateParams(TemplateType.ADMIN_PASSWORD_RESET, template)).not.toThrow();
     });
 
-    it('should validate ACCOUNT_LOCKOUT template', () => {
-      const template = '<html>{{reason}} {{durationMinutes}}</html>';
-      expect(() => validateTemplateParams(TemplateType.ACCOUNT_LOCKOUT, template)).not.toThrow();
-    });
-
     it('should validate NEW_DEVICE template', () => {
       const template = '<html>{{deviceName}} {{timestamp}}</html>';
       expect(() => validateTemplateParams(TemplateType.NEW_DEVICE, template)).not.toThrow();
