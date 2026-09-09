@@ -997,6 +997,50 @@ export class NodemailerProvider implements EmailProvider {
   }
 
   /**
+   * Send phone changed security alert
+   *
+   * Addressed to the account email, not to either phone number.
+   *
+   * @param to - Recipient email address
+   * @param context - Phone change context
+   * @param variables - Additional template variables
+   */
+  async sendPhoneChangedEmail(
+    to: string,
+    context: {
+      oldPhone?: string;
+      newPhone?: string;
+      deactivatedMFADevices?: number;
+      mfaDisabled?: boolean;
+      timestamp?: string;
+    } = {},
+    variables: TemplateVariables = {},
+  ): Promise<void> {
+    if (!this.shouldSendEmail('phoneChanged')) return;
+
+    const templateVariables: TemplateVariables = {
+      ...this.globalVariables,
+      userName: to.split('@')[0],
+      userEmail: to,
+      oldPhone: context.oldPhone,
+      newPhone: context.newPhone,
+      deactivatedMFADevices: context.deactivatedMFADevices,
+      mfaDisabled: context.mfaDisabled,
+      timestamp: context.timestamp || new Date().toISOString(),
+      ...variables,
+    };
+
+    const email = await this.templateEngine.render(TemplateType.PHONE_CHANGED, templateVariables);
+
+    await this.sendMail({
+      to,
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+    });
+  }
+
+  /**
    * Send sessions revoked security alert
    *
    * @param to - Recipient email address

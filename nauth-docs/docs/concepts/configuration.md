@@ -438,6 +438,7 @@ emailNotifications: {
     accountEnabled: false,
     emailChangedOld: false,       // Alert sent to the old email address
     emailChangedNew: false,       // Confirmation sent to the new email address
+    phoneChanged: false,          // Alert sent to the account email when the phone changes
     // Note: Code emails (emailVerification, passwordReset, adminPasswordReset)
     // cannot be suppressed and are always sent when enabled: true
   },

@@ -88,6 +88,7 @@ These emails are **suppressed by default**. Enable them individually via `emailN
 | `accountEnabled` | Account re-enabled by admin | (none) |
 | `emailChangedOld` | Email changed (sent to **old** address) | (none) |
 | `emailChangedNew` | Email changed (sent to **new** address) | (none) |
+| `phoneChanged` | Phone number changed (sent to the **account email**) | (none) |
 | `emailChanged` | Email changed (legacy single-email template) | `userEmail` |
 
 #### MFA notification emails
@@ -108,6 +109,7 @@ The `emailNotifications.suppress` keys do **not always match** the `TemplateType
 | `adaptiveMfaRiskDetected` | `adaptiveMfaRiskAlert` |
 | `emailChangedOld` | `emailChangedOld` |
 | `emailChangedNew` | `emailChangedNew` |
+| `phoneChanged` | `phoneChanged` |
 
 Use **template type keys** for `customTemplates` and **suppress keys** for `emailNotifications.suppress`.
 
@@ -148,6 +150,7 @@ Use **template type keys** for `customTemplates` and **suppress keys** for `emai
 | `accountEnabled` | `reason`, `performedBy`, `timestamp` | |
 | `emailChangedOld` | `newEmail`, `deactivatedMFADevices`, `timestamp`, `isOldEmail` | Sent to the **old** email |
 | `emailChangedNew` | `oldEmail`, `timestamp`, `isOldEmail` | Sent to the **new** email |
+| `phoneChanged` | `oldPhone`, `newPhone`, `deactivatedMFADevices`, `mfaDisabled`, `timestamp` | Sent to the account email, never to a phone number |
 | `mfaEnabled` | `firstMethod`, `deviceName`, `timestamp` | |
 | `mfaDeviceRemoved` | `deviceType`, `deviceName`, `removedBy`, `reason`, `remainingDeviceCount` | `removedBy` is `'user'`, `'admin'`, or `'system'` |
 | `mfaMethodAdded` | `method`, `enabledMethods`, `deviceName`, `timestamp` | `enabledMethods` is an array |

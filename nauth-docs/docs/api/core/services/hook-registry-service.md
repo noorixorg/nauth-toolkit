@@ -139,6 +139,16 @@ async executePasswordChanged(metadata: PasswordChangedMetadata): Promise<void>
 
 ---
 
+### executePhoneChanged()
+
+**Internal method.** Executes all registered phone changed hooks. Called automatically by UserService. Errors are logged but don't block the operation.
+
+```typescript
+async executePhoneChanged(metadata: PhoneChangedMetadata): Promise<void>
+```
+
+---
+
 ### executePostSignup()
 
 **Internal method.** Executes all registered post-signup hooks in order. Called automatically by AuthService. Errors are logged but don't block signup.
@@ -672,6 +682,69 @@ class PasswordAuditHook implements IPasswordChangedHook {
 }
 
 nauth.hookRegistry.registerPasswordChanged(new PasswordAuditHook());
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+### registerPhoneChanged()
+
+Register a phone changed hook. Hooks execute after a user's phone number is changed. Non-blocking - errors are logged.
+
+The shipped email notification is addressed to the account email rather than to either phone number, since an attacker who changed the number no longer controls the old one.
+
+```typescript
+registerPhoneChanged(provider: IPhoneChangedHook): void
+```
+
+**Parameters**
+
+- `provider` - `IPhoneChangedHook`
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+@Injectable()
+@PhoneChangedHook()
+export class PhoneChangedAlertHook implements IPhoneChangedHook {
+  async execute(metadata) {
+    await this.alertService.notify(metadata.user.email, {
+      newPhone: metadata.newPhone,
+      removedDevices: metadata.deactivatedMFADevices,
+    });
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+class PhoneChangedAlertHook implements IPhoneChangedHook {
+  async execute(metadata) {
+    await alertService.notify(metadata.user.email, { newPhone: metadata.newPhone });
+  }
+}
+
+nauth.hookRegistry.registerPhoneChanged(new PhoneChangedAlertHook());
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+class PhoneChangedAlertHook implements IPhoneChangedHook {
+  async execute(metadata) {
+    await alertService.notify(metadata.user.email, { newPhone: metadata.newPhone });
+  }
+}
+
+nauth.hookRegistry.registerPhoneChanged(new PhoneChangedAlertHook());
 ```
 
 </TabItem>

@@ -40,6 +40,7 @@ export type HookType =
   | 'adaptiveMfaRiskDetected'
   | 'accountStatusChanged'
   | 'emailChanged'
+  | 'phoneChanged'
   | 'sessionsRevoked'
   | 'mfaFirstEnabled';
 
@@ -314,6 +315,44 @@ export function AccountStatusChangedHook(): ClassDecorator {
 export function EmailChangedHook(): ClassDecorator {
   const metadata: HookMetadata = {
     type: 'emailChanged',
+  };
+  return SetMetadata(HOOK_METADATA_KEY, metadata);
+}
+
+/**
+ * Marks a provider as a phone changed hook
+ *
+ * Phone changed hooks are executed after a user's phone number is changed, allowing you to:
+ * - Alert the account owner that the number changed
+ * - Warn that SMS MFA devices were removed with the old number
+ * - Log phone change events
+ * - Trigger fraud review
+ *
+ * These hooks cannot block phone changes (the phone is already updated) but errors are logged.
+ *
+ * The shipped email notification is addressed to the account email rather than to either
+ * phone number, since an attacker changing the number no longer controls the old one.
+ *
+ * @example
+ * ```typescript
+ * @Injectable()
+ * @PhoneChangedHook()
+ * export class PhoneChangedNotificationHook implements IPhoneChangedHook {
+ *   constructor(private readonly emailService: EmailService) {}
+ *
+ *   async execute(metadata: PhoneChangedMetadata) {
+ *     await this.emailService.sendPhoneChangedAlert({
+ *       to: metadata.user.email,
+ *       newPhone: metadata.newPhone,
+ *       removedDevices: metadata.deactivatedMFADevices,
+ *     });
+ *   }
+ * }
+ * ```
+ */
+export function PhoneChangedHook(): ClassDecorator {
+  const metadata: HookMetadata = {
+    type: 'phoneChanged',
   };
   return SetMetadata(HOOK_METADATA_KEY, metadata);
 }

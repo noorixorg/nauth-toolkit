@@ -98,6 +98,7 @@ export enum TemplateType {
   ACCOUNT_ENABLED = 'accountEnabled',
   EMAIL_CHANGED_OLD = 'emailChangedOld',
   EMAIL_CHANGED_NEW = 'emailChangedNew',
+  PHONE_CHANGED = 'phoneChanged',
   SESSIONS_REVOKED = 'sessionsRevoked',
   /** Email MFA challenge code (separate from signup email verification) */
   MFA_EMAIL_CODE = 'mfaEmailCode',

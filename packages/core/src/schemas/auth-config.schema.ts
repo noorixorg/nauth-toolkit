@@ -602,6 +602,7 @@ export const emailNotificationsConfigSchema = z
         accountEnabled: z.boolean().optional(),
         emailChangedOld: z.boolean().optional(),
         emailChangedNew: z.boolean().optional(),
+        phoneChanged: z.boolean().optional(),
         sessionsRevoked: z.boolean().optional(),
       })
       .optional(),

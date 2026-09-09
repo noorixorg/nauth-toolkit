@@ -164,6 +164,25 @@ export interface EmailProvider {
   ): Promise<void>;
 
   /**
+   * Send phone changed security alert
+   *
+   * Addressed to the account email, not to either phone number.
+   *
+   * @param to - Recipient email address
+   * @param context - Phone change context (newPhone, removed MFA devices, etc.)
+   */
+  sendPhoneChangedEmail?(
+    to: string,
+    context: {
+      oldPhone?: string;
+      newPhone?: string;
+      deactivatedMFADevices?: number;
+      mfaDisabled?: boolean;
+      timestamp?: string;
+    },
+  ): Promise<void>;
+
+  /**
    * Send sessions revoked security alert
    *
    * @param to - Recipient email address

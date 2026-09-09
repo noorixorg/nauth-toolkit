@@ -279,6 +279,7 @@ const sidebars: SidebarsConfig = {
             { type: 'doc', id: 'api/nestjs/decorators/mfa-device-removed-hook' },
             { type: 'doc', id: 'api/nestjs/decorators/mfa-first-enabled-hook' },
             { type: 'doc', id: 'api/nestjs/decorators/password-changed-hook' },
+            { type: 'doc', id: 'api/nestjs/decorators/phone-changed-hook' },
             { type: 'doc', id: 'api/nestjs/decorators/post-signup-hook' },
             { type: 'doc', id: 'api/nestjs/decorators/pre-signup-hook' },
             { type: 'doc', id: 'api/nestjs/decorators/sessions-revoked-hook' },

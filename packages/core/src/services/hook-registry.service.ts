@@ -29,7 +29,9 @@ import {
   IAccountStatusChangedHook,
   AccountStatusChangedMetadata,
   IEmailChangedHook,
+  IPhoneChangedHook,
   EmailChangedMetadata,
+  PhoneChangedMetadata,
   ISessionsRevokedHook,
   SessionsRevokedMetadata,
   IMFAFirstEnabledHook,
@@ -57,6 +59,7 @@ export class HookRegistryService {
   private readonly adaptiveMFARiskDetectedHooks: IAdaptiveMFARiskDetectedHook[] = [];
   private readonly accountStatusChangedHooks: IAccountStatusChangedHook[] = [];
   private readonly emailChangedHooks: IEmailChangedHook[] = [];
+  private readonly phoneChangedHooks: IPhoneChangedHook[] = [];
   private readonly sessionsRevokedHooks: ISessionsRevokedHook[] = [];
   private readonly mfaFirstEnabledHooks: IMFAFirstEnabledHook[] = [];
   private readonly mfaMethodAddedHooks: IMFAMethodAddedHook[] = [];
@@ -182,6 +185,19 @@ export class HookRegistryService {
   registerEmailChanged(provider: IEmailChangedHook): void {
     this.emailChangedHooks.push(provider);
     this.logger?.debug?.(`[HookRegistry] Registered emailChanged hook: ${provider.constructor.name}`);
+  }
+
+  /**
+   * Register a phone changed hook
+   *
+   * Hooks are executed in registration order.
+   * Hook errors are logged but do not block the phone change (non-blocking).
+   *
+   * @param provider - Phone changed hook instance
+   */
+  registerPhoneChanged(provider: IPhoneChangedHook): void {
+    this.phoneChangedHooks.push(provider);
+    this.logger?.debug?.(`[HookRegistry] Registered phoneChanged hook: ${provider.constructor.name}`);
   }
 
   /**
@@ -511,6 +527,36 @@ export class HookRegistryService {
         const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
         this.logger?.error?.(
           `[HookRegistry] emailChanged hook error: ${hook.constructor.name} - ${errorMessage}`,
+          hookError instanceof Error ? { error: hookError } : undefined,
+        );
+      }
+    }
+  }
+
+  /**
+   * Execute all registered phone changed hooks
+   *
+   * Hooks are executed sequentially in registration order.
+   * Hook errors are logged but do not stop execution (non-blocking).
+   *
+   * @param metadata - Phone change context with old and new numbers
+   *
+   * @internal
+   * @remarks This method is called internally by UserService
+   */
+  async executePhoneChanged(metadata: PhoneChangedMetadata): Promise<void> {
+    if (this.phoneChangedHooks.length === 0) {
+      return; // No hooks registered
+    }
+
+    for (const hook of this.phoneChangedHooks) {
+      try {
+        await hook.execute(metadata);
+      } catch (hookError: unknown) {
+        // Non-blocking: log error and continue
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(
+          `[HookRegistry] phoneChanged hook error: ${hook.constructor.name} - ${errorMessage}`,
           hookError instanceof Error ? { error: hookError } : undefined,
         );
       }

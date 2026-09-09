@@ -27,6 +27,7 @@ const SUBJECTS = {
   'account-enabled': 'Account Enabled - {{appName}}',
   'email-changed-old': 'Email Address Changed - {{appName}}',
   'email-changed-new': 'Email Address Updated - {{appName}}',
+  'phone-changed': 'Phone Number Changed - {{appName}}',
   'sessions-revoked': 'Sessions Terminated - {{appName}}',
   'mfa-email-code': 'Your sign-in code - {{appName}}',
 };
@@ -40,6 +41,7 @@ const PREVIEW_TEXTS = {
   'new-device': 'We detected a login from a new device',
   'password-changed': 'Your password has been successfully changed',
   'email-changed': 'Your email address has been successfully changed',
+  'phone-changed': 'The phone number on your account has been changed',
   'mfa-enabled': 'Two-factor authentication has been enabled for your account',
   'mfa-email-code': 'Use this code to complete two-factor authentication',
 };
@@ -112,6 +114,26 @@ We're excited to have you with us! Your account has been successfully created an
 {{#if supportEmail}}If you have any questions or need assistance, reach out to our support team at {{supportEmail}}.{{/if}}
 
 Happy exploring!`,
+  'phone-changed': `Phone Number Changed
+
+{{#if fullName}}Hi {{fullName}},{{/if}}
+{{#if firstName}}Hi {{firstName}},{{/if}}
+{{#if lastName}}Hi {{lastName}},{{/if}}
+{{#if userName}}Hi {{userName}},{{/if}}
+
+The phone number on your account has been changed.
+
+{{#if oldPhone}}Previous number: {{oldPhone}}{{/if}}
+{{#if newPhone}}New number: {{newPhone}}{{/if}}
+{{#if timestamp}}When: {{timestamp}}{{/if}}
+
+{{#if deactivatedMFADevices}}{{#gt deactivatedMFADevices 0}}Because SMS codes were sent to the old number, {{deactivatedMFADevices}} SMS two-factor device(s) were removed with it.{{/gt}}{{/if}}
+{{#if mfaDisabled}}That leaves no two-factor method on your account, so two-factor authentication is now switched off. You will be asked to set it up again next time you sign in.{{/if}}
+
+What should I do?
+If you made this change, no action is required. You may want to set up two-factor authentication again on the new number.
+
+{{#if supportEmail}}If you did not make this change, contact support immediately at {{supportEmail}}. Someone else may control your account, and changing the number removes the second factor that protects it.{{/if}}`,
   'new-device': `New Device Login
 
 {{#if fullName}}Hi {{fullName}},{{/if}}

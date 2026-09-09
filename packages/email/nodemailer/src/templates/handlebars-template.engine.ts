@@ -552,6 +552,7 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
       [TemplateType.ACCOUNT_ENABLED]: 'account-enabled',
       [TemplateType.EMAIL_CHANGED_OLD]: 'email-changed-old',
       [TemplateType.EMAIL_CHANGED_NEW]: 'email-changed-new',
+      [TemplateType.PHONE_CHANGED]: 'phone-changed',
       [TemplateType.SESSIONS_REVOKED]: 'sessions-revoked',
       [TemplateType.MFA_EMAIL_CODE]: 'mfa-email-code',
     };

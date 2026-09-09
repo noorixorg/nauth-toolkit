@@ -414,6 +414,13 @@ export class UserService {
     // Prepare update object
     const updateFields: Partial<IUser> = {};
 
+    // Carried out of the contact-change branches so the emailChanged and phoneChanged
+    // hooks, which fire after the row is persisted, can report what the change cost the
+    // account.
+    let removedEmailDeviceCount = 0;
+    let removedSmsDeviceCount = 0;
+    let mfaDisabledByPhoneChange = false;
+
     // Update basic fields if provided
     if (dto.firstName !== undefined) {
       updateFields.firstName = dto.firstName;
@@ -499,6 +506,8 @@ export class UserService {
                 },
               } as Record<string, unknown>)) as unknown as Array<Record<string, unknown>>;
 
+              removedEmailDeviceCount = emailDevices.length;
+
               // If no active devices remain and user had MFA enabled, disable MFA
               if (allActiveDevices.length === 0 && user.mfaEnabled) {
                 updateFields.mfaEnabled = false;
@@ -511,6 +520,41 @@ export class UserService {
                 this.logger?.log?.(
                   `User ${user.sub} still has ${allActiveDevices.length} active MFA device(s) - MFA remains enabled`,
                 );
+              }
+
+              // ============================================================================
+              // Lifecycle Hook: MFA Device Removed
+              // ============================================================================
+              // The devices are already deleted at this point, so the notification is
+              // truthful even if the surrounding profile update later fails. Without this
+              // call the removal reaches nauth_auth_audit and nowhere else: a session
+              // holder could strip the account's email second factor and the owner would
+              // never be told.
+              if (this.hookRegistry && this.clientInfoService) {
+                try {
+                  const hookClientInfo = this.clientInfoService.get();
+                  await this.hookRegistry.executeMFADeviceRemoved({
+                    user,
+                    deviceType: MFAMethod.EMAIL,
+                    removedBy: 'system',
+                    reason: 'email_changed',
+                    remainingDeviceCount: allActiveDevices.length,
+                    clientInfo: {
+                      ipAddress: hookClientInfo.ipAddress,
+                      userAgent: hookClientInfo.userAgent,
+                      ipCountry: hookClientInfo.ipCountry,
+                      ipCity: hookClientInfo.ipCity,
+                    },
+                  });
+                } catch (hookError) {
+                  // Non-blocking: log and continue
+                  const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+                  this.logger?.error?.(`Failed to execute mfaDeviceRemoved hooks: ${errorMessage}`, {
+                    error: hookError,
+                    userId: user.id,
+                    reason: 'email_changed',
+                  });
+                }
               }
             }
           } catch (error: unknown) {
@@ -599,11 +643,14 @@ export class UserService {
                 },
               } as Record<string, unknown>)) as unknown as Array<Record<string, unknown>>;
 
+              removedSmsDeviceCount = smsDevices.length;
+
               // If no active devices remain and user had MFA enabled, disable MFA
               if (allActiveDevices.length === 0 && user.mfaEnabled) {
                 updateFields.mfaEnabled = false;
                 updateFields.mfaMethods = [];
                 updateFields.preferredMfaMethod = null;
+                mfaDisabledByPhoneChange = true;
                 this.logger?.log?.(
                   `MFA disabled for user ${user.sub} - no active MFA devices remaining after phone change`,
                 );
@@ -611,6 +658,41 @@ export class UserService {
                 this.logger?.log?.(
                   `User ${user.sub} still has ${allActiveDevices.length} active MFA device(s) - MFA remains enabled`,
                 );
+              }
+
+              // ============================================================================
+              // Lifecycle Hook: MFA Device Removed
+              // ============================================================================
+              // The devices are already deleted at this point, so the notification is
+              // truthful even if the surrounding profile update later fails. Without this
+              // call the removal reaches nauth_auth_audit and nowhere else: a session
+              // holder could strip the account's SMS second factor and the owner would
+              // never be told.
+              if (this.hookRegistry && this.clientInfoService) {
+                try {
+                  const hookClientInfo = this.clientInfoService.get();
+                  await this.hookRegistry.executeMFADeviceRemoved({
+                    user,
+                    deviceType: MFAMethod.SMS,
+                    removedBy: 'system',
+                    reason: 'phone_changed',
+                    remainingDeviceCount: allActiveDevices.length,
+                    clientInfo: {
+                      ipAddress: hookClientInfo.ipAddress,
+                      userAgent: hookClientInfo.userAgent,
+                      ipCountry: hookClientInfo.ipCountry,
+                      ipCity: hookClientInfo.ipCity,
+                    },
+                  });
+                } catch (hookError) {
+                  // Non-blocking: log and continue
+                  const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+                  this.logger?.error?.(`Failed to execute mfaDeviceRemoved hooks: ${errorMessage}`, {
+                    error: hookError,
+                    userId: user.id,
+                    reason: 'phone_changed',
+                  });
+                }
               }
             }
           } catch (error: unknown) {
@@ -748,6 +830,7 @@ export class UserService {
               oldEmail: user.email,
               newEmail,
               updateSource: inferredUpdateSource,
+              deactivatedMFADevices: removedEmailDeviceCount,
               clientInfo: {
                 ipAddress: clientInfoForSource.ipAddress,
                 userAgent: clientInfoForSource.userAgent,
@@ -759,6 +842,41 @@ export class UserService {
             // Non-blocking: Log but continue
             const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
             this.logger?.error?.(`Failed to execute emailChanged hooks: ${errorMessage}`, {
+              error: hookError,
+              userId: user.id,
+            });
+          }
+        }
+      }
+
+      const newPhone = updateFields.phone;
+      if (fieldChanges.phone && typeof newPhone === 'string') {
+        // ============================================================================
+        // Lifecycle Hook: Phone Changed
+        // ============================================================================
+        // The shipped notification goes to the account email, not to either number: an
+        // attacker who changed the phone no longer controls the old one, and the new one
+        // is theirs. See PhoneChangedMetadata.
+        if (this.hookRegistry) {
+          try {
+            await this.hookRegistry.executePhoneChanged({
+              user: updatedUser,
+              oldPhone: user.phone ?? null,
+              newPhone,
+              updateSource: inferredUpdateSource,
+              deactivatedMFADevices: removedSmsDeviceCount,
+              mfaDisabled: mfaDisabledByPhoneChange,
+              clientInfo: {
+                ipAddress: clientInfoForSource.ipAddress,
+                userAgent: clientInfoForSource.userAgent,
+                ipCountry: clientInfoForSource.ipCountry,
+                ipCity: clientInfoForSource.ipCity,
+              },
+            });
+          } catch (hookError) {
+            // Non-blocking: Log but continue
+            const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+            this.logger?.error?.(`Failed to execute phoneChanged hooks: ${errorMessage}`, {
               error: hookError,
               userId: user.id,
             });

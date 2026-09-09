@@ -55,6 +55,7 @@ npm install @nauth-toolkit/nestjs
 | `@AdaptiveMFARiskDetectedHook()` | When high-risk signin activity is detected |
 | `@AccountStatusChangedHook()` | After an account is enabled or disabled |
 | `@EmailChangedHook()` | After a user's email address is changed |
+| `@PhoneChangedHook()` | After a user's phone number is changed |
 | `@SessionsRevokedHook()` | After user sessions are bulk revoked |
 | `@MFAFirstEnabledHook()` | After a user enables MFA for the first time |
 

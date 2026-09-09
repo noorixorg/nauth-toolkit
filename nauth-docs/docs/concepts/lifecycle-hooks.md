@@ -73,6 +73,7 @@ sequenceDiagram
 |---|---|---|---|
 | [**accountStatusChanged**](/docs/api/core/hooks/account-status-changed-hook) | After account enable/disable | No | Account disabled notifications, re-enablement confirmations |
 | [**emailChanged**](/docs/api/core/hooks/email-changed-hook) | After email address change | No | Dual notification (old + new email), security alerts |
+| [**phoneChanged**](/docs/api/core/hooks/phone-changed-hook) | After phone number change | No | Alert the account email, flag removed SMS MFA devices |
 | [**sessionsRevoked**](/docs/api/core/hooks/sessions-revoked-hook) | After sessions revoked | No | Security alerts, forced logout notifications |
 
 ## Hook Behavior
@@ -131,6 +132,7 @@ try {
 | `IAdaptiveMFARiskDetectedHook` | Adaptive MFA risk detected hook | [IAdaptiveMFARiskDetectedHook](/docs/api/core/hooks/adaptive-mfa-risk-detected-hook) |
 | `IAccountStatusChangedHook` | Account status changed hook interface | [IAccountStatusChangedHook](/docs/api/core/hooks/account-status-changed-hook) |
 | `IEmailChangedHook` | Email changed hook interface | [IEmailChangedHook](/docs/api/core/hooks/email-changed-hook) |
+| `IPhoneChangedHook` | Phone changed hook interface | [IPhoneChangedHook](/docs/api/core/hooks/phone-changed-hook) |
 | `ISessionsRevokedHook` | Sessions revoked hook interface | [ISessionsRevokedHook](/docs/api/core/hooks/sessions-revoked-hook) |
 
 ### Services
@@ -156,6 +158,7 @@ If you need custom onboarding-completed behavior in NestJS, register an `IOnboar
 | `@AdaptiveMFARiskDetectedHook()` | Adaptive MFA risk detected hook | [@AdaptiveMFARiskDetectedHook()](/docs/api/nestjs/decorators/adaptive-mfa-risk-detected-hook) |
 | `@AccountStatusChangedHook()` | Account status changed hook decorator | [@AccountStatusChangedHook()](/docs/api/nestjs/decorators/account-status-changed-hook) |
 | `@EmailChangedHook()` | Email changed hook decorator | [@EmailChangedHook()](/docs/api/nestjs/decorators/email-changed-hook) |
+| `@PhoneChangedHook()` | Phone changed hook decorator | [@PhoneChangedHook()](/docs/api/nestjs/decorators/phone-changed-hook) |
 | `@SessionsRevokedHook()` | Sessions revoked hook decorator | [@SessionsRevokedHook()](/docs/api/nestjs/decorators/sessions-revoked-hook) |
 | `@UserProfileUpdatedHook()` | User profile updated hook decorator | [@UserProfileUpdatedHook()](/docs/api/nestjs/decorators/user-profile-updated-hook) |
 | `NAuthHooksModule` | Hook registration module | [NAuthHooksModule](/docs/api/nestjs/decorators/nauth-hooks-module) |

@@ -10,7 +10,9 @@ import {
   IAccountStatusChangedHook,
   AccountStatusChangedMetadata,
   IEmailChangedHook,
+  IPhoneChangedHook,
   EmailChangedMetadata,
+  PhoneChangedMetadata,
   ISessionsRevokedHook,
   SessionsRevokedMetadata,
   IMFAFirstEnabledHook,
@@ -193,6 +195,22 @@ class EmailChangedEmailNotificationHook extends EmailNotificationsBase implement
   }
 }
 
+class PhoneChangedEmailNotificationHook extends EmailNotificationsBase implements IPhoneChangedHook {
+  async execute(metadata: PhoneChangedMetadata): Promise<void> {
+    if (!this.shouldSend('phoneChanged')) return;
+    // Deliberately addressed to the account email: a phone change is routine, and the
+    // old number is exactly what an attacker no longer controls.
+    if (!metadata.user.email) return;
+    await this.emailProvider.sendPhoneChangedEmail?.(metadata.user.email, {
+      oldPhone: metadata.oldPhone ?? undefined,
+      newPhone: metadata.newPhone,
+      deactivatedMFADevices: metadata.deactivatedMFADevices,
+      mfaDisabled: metadata.mfaDisabled,
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+
 class SessionsRevokedEmailNotificationHook extends EmailNotificationsBase implements ISessionsRevokedHook {
   async execute(metadata: SessionsRevokedMetadata): Promise<void> {
     if (metadata.initiatedBy === 'user') return;
@@ -251,6 +269,7 @@ export function registerBuiltInEmailNotificationHooks(
   hookRegistry.registerAdaptiveMFARiskDetected(new AdaptiveMFARiskEmailNotificationHook(emailProvider, config, logger));
   hookRegistry.registerAccountStatusChanged(new AccountStatusEmailNotificationHook(emailProvider, config, logger));
   hookRegistry.registerEmailChanged(new EmailChangedEmailNotificationHook(emailProvider, config, logger));
+  hookRegistry.registerPhoneChanged(new PhoneChangedEmailNotificationHook(emailProvider, config, logger));
   hookRegistry.registerSessionsRevoked(new SessionsRevokedEmailNotificationHook(emailProvider, config, logger));
   hookRegistry.registerMFAFirstEnabled(new MFAFirstEnabledEmailNotificationHook(emailProvider, config, logger));
   hookRegistry.registerMFAMethodAdded(new MFAMethodAddedEmailNotificationHook(emailProvider, config, logger));

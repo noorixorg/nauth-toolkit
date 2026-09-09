@@ -786,6 +786,99 @@ export interface IEmailChangedHook {
 }
 
 // ============================================================================
+// Phone Changed Hook
+// ============================================================================
+
+/**
+ * Phone changed metadata
+ *
+ * Provides context about phone number change events.
+ */
+export interface PhoneChangedMetadata {
+  /**
+   * User whose phone number was changed
+   */
+  user: IUser;
+
+  /**
+   * Old phone number (before change), null when the account had none
+   */
+  oldPhone: string | null;
+
+  /**
+   * New phone number (after change)
+   */
+  newPhone: string;
+
+  /**
+   * Source of the phone change
+   */
+  updateSource: UserProfileUpdateSource;
+
+  /**
+   * Number of SMS MFA devices deleted because they were tied to the old number
+   */
+  deactivatedMFADevices?: number;
+
+  /**
+   * True when removing those devices left the account with no MFA at all, so
+   * `mfaEnabled` was turned off. The user will be sent back through MFA setup at
+   * next sign-in if enforcement requires it.
+   */
+  mfaDisabled?: boolean;
+
+  /**
+   * Client information (IP address, user agent, location)
+   */
+  clientInfo?: import('./client-info.interface').ClientInfo;
+}
+
+/**
+ * Phone changed hook interface
+ *
+ * Executes actions after a phone number is changed (non-blocking).
+ * Errors are logged but do not affect the phone change operation.
+ *
+ * @remarks
+ * This hook is triggered when:
+ * - Phone is changed via `updateUserAttributes()`
+ *
+ * The hook is non-blocking. If it throws an error, the error is logged
+ * but the phone has already been changed when the hook is called.
+ *
+ * **The alert goes to the account email, not to either phone number.** A phone
+ * change is routine (people change carriers and jobs), so the stable channel is
+ * the mailbox. Notifying the old number would also fail exactly when it matters,
+ * since an attacker changing the number no longer controls it.
+ *
+ * Use cases:
+ * - Alert the account owner that the number changed
+ * - Warn that SMS MFA devices were removed with it
+ * - Log to audit or fraud systems
+ *
+ * @example
+ * ```typescript
+ * export class PhoneChangedNotificationHook implements IPhoneChangedHook {
+ *   async execute(metadata: PhoneChangedMetadata): Promise<void> {
+ *     const { user, newPhone, deactivatedMFADevices } = metadata;
+ *     await this.emailService.sendPhoneChangedEmail(user.email, {
+ *       newPhone,
+ *       deactivatedMFADevices,
+ *     });
+ *   }
+ * }
+ * ```
+ */
+export interface IPhoneChangedHook {
+  /**
+   * Execute phone changed actions
+   *
+   * @param metadata - Phone change context with old and new numbers
+   */
+  execute(metadata: PhoneChangedMetadata): Promise<void>;
+}
+
+// ============================================================================
 // Sessions Revoked Hook
 // ============================================================================
 

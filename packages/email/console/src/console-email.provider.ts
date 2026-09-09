@@ -264,4 +264,33 @@ export class ConsoleEmailProvider implements EmailProvider {
     if (context.timestamp) this.logger.log(`Timestamp: ${context.timestamp}`);
     this.logger.log('----------------------------------------------');
   }
+
+  /**
+   * Send phone changed security alert
+   *
+   * Logs email details to console for debugging.
+   *
+   * @param to - Recipient email address (the account email, not a phone number)
+   * @param context - Phone change context
+   */
+  async sendPhoneChangedEmail(
+    to: string,
+    context: {
+      oldPhone?: string;
+      newPhone?: string;
+      deactivatedMFADevices?: number;
+      mfaDisabled?: boolean;
+      timestamp?: string;
+    } = {},
+  ): Promise<void> {
+    this.logger.warn('----------------------------------------------');
+    this.logger.warn('EMAIL: Phone number changed (simulated)');
+    this.logger.warn(`To: ${to}`);
+    if (context.oldPhone) this.logger.warn(`Old phone: ${context.oldPhone}`);
+    if (context.newPhone) this.logger.warn(`New phone: ${context.newPhone}`);
+    if (context.deactivatedMFADevices) this.logger.warn(`SMS MFA devices removed: ${context.deactivatedMFADevices}`);
+    if (context.mfaDisabled) this.logger.warn('MFA is now disabled - no factors remain');
+    if (context.timestamp) this.logger.warn(`Timestamp: ${context.timestamp}`);
+    this.logger.warn('----------------------------------------------');
+  }
 }

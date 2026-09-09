@@ -2834,6 +2834,18 @@ export interface EmailNotificationsConfig {
     emailChangedNew?: boolean;
 
     /**
+     * Phone changed security alert
+     *
+     * Sent to the account email when the phone number changes, naming any SMS MFA
+     * devices removed with it.
+     *
+     * Hook: `IPhoneChangedHook`
+     *
+     * @default true (DISABLED, opt-in)
+     */
+    phoneChanged?: boolean;
+
+    /**
      * Sessions revoked security alert
      *
      * Hook: `ISessionsRevokedHook`

@@ -11,10 +11,6 @@ image: /img/api-social-card.png
 
 Class decorator that automatically registers a provider as an MFA first enabled hook. Executes when user enables their first MFA device. Non-blocking - errors are logged but don't affect enrollment.
 
-:::warning[Not in Main Barrel Export]
-`MFAFirstEnabledHook` is not exported from the `@nauth-toolkit/nestjs` main entry point. Register this hook manually using [`HookRegistryService`](/docs/api/core/services/hook-registry-service) instead of the decorator pattern.
-:::
-
 ## Overview
 
 The `@MFAFirstEnabledHook()` decorator enables automatic hook registration. Classes decorated with this decorator are discovered at module initialization and registered with the [`HookRegistryService`](/docs/api/core/services/hook-registry-service).
