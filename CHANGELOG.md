@@ -5,6 +5,25 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.1] - 2026-09-09
+
+### Removed
+
+Unused code that never ran. Neither removal changes behaviour: nothing here was ever reachable.
+
+- **The account-lockout notification.** The hook behind it was never invoked, so no lockout email was ever sent. Removed: `IAccountLockedHook`, `AccountLockedMetadata`, `registerAccountLocked()` / `executeAccountLocked()`, the `@AccountLockedHook()` decorator, `sendLockoutEmail()` and `sendAccountLockedEmail()` on the email provider, `TemplateType.ACCOUNT_LOCKOUT`, and the `emailNotifications.suppress.accountLockout` config key. Delete that key if your config sets it. The failed-login lockout is unaffected — it is IP-based and answers `RATE_LIMIT_LOGIN`.
+- **Four audit event types that were never recorded:** `ACCOUNT_ACTIVATED`, `ACCOUNT_DEACTIVATED`, `ACCOUNT_LOCKED` and `ACCOUNT_UNLOCKED`. Account lock and unlock have always been audited as `ACCOUNT_DISABLED` and `ACCOUNT_ENABLED`.
+
+### Added
+
+- **Phone-change alerts.** Changing a phone number deletes the SMS MFA devices bound to the old one, and switches MFA off entirely when SMS was the last factor. The new `phoneChanged` notification tells the account owner, naming how many devices went and whether MFA is now off. The alert goes to the account **email**, not to either number — an attacker who changed the number no longer controls the old one. Enable with `emailNotifications.suppress.phoneChanged: false`; also available as `IPhoneChangedHook` and the `@PhoneChangedHook()` decorator. See [the notifications guide](https://nauth.dev/docs/concepts/notifications).
+
+### Fixed
+
+- **MFA device removal during a contact change now fires `mfaDeviceRemoved`.** Deleting SMS or email MFA devices as a side effect of a phone or email change only ever reached the audit table, so with the notification enabled the owner still heard nothing. Anyone holding a session could strip an account's second factor silently.
+- **`deactivatedMFADevices` on `EmailChangedMetadata` is now populated.** The field was always declared and never set, so it reached every consumer hook as `undefined`.
+- **Password reset no longer dead-ends on a disabled account.** Requesting a reset sent a code, and confirming it reported success, while login stayed blocked. The request is now skipped (still without revealing that the account exists) and confirmation answers `ACCOUNT_LOCKED`, checked only after the reset code is verified so the lock is never disclosed to someone without it.
+
 ## [0.7.0] - 2026-09-07
 
 ### Security
