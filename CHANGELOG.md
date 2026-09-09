@@ -24,6 +24,12 @@ Unused code that never ran. Neither removal changes behaviour: nothing here was 
 - **`deactivatedMFADevices` on `EmailChangedMetadata` is now populated.** The field was always declared and never set, so it reached every consumer hook as `undefined`.
 - **Password reset no longer dead-ends on a disabled account.** Requesting a reset sent a code, and confirming it reported success, while login stayed blocked. The request is now skipped (still without revealing that the account exists) and confirmation answers `ACCOUNT_LOCKED`, checked only after the reset code is verified so the lock is never disclosed to someone without it.
 
+### Documentation
+
+- **New [Environment Cheat Sheet](https://nauth.dev/docs/guides/environment-cheat-sheet)** — the working `secure` / `sameSite` / `domain`, CORS, CSRF, passkey `rpId` and social callback values for four deployment topologies, plus a symptom-to-cause table.
+- **Corrected `disableUser` documentation.** The API reference showed `"isActive": false` in the disable response; that value is never produced. `disableUser` sets `isLocked` and leaves `isActive` untouched. `isActive` is enforced at login but no route or service method ever writes it — check any code branching on it in that response.
+- **The NestJS hook decorators are exported after all.** Seven decorator pages told readers the decorator was missing from the package entry point and to register hooks manually via `HookRegistryService`. All eleven decorators are exported; `@EmailChangedHook()` and friends work as documented in their own examples.
+
 ## [0.7.0] - 2026-09-07
 
 ### Security
