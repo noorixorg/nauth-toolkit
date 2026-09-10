@@ -2894,99 +2894,156 @@ export interface EmailNotificationsConfig {
  * }
  * ```
  */
+/**
+ * Where the MaxMind database files are fetched from.
+ *
+ * Omitting `download` entirely from the MaxMind config means the toolkit never fetches
+ * anything - it loads whatever `.mmdb` files are already in `dbPath`, and
+ * `updateGeoLocationDatabase()` refuses to run. That is the mode to use when a sidecar,
+ * an init container, `geoipupdate` or a shared volume puts the files there for you.
+ */
+export type MaxMindDownloadSource =
+  /**
+   * MaxMind's own download API.
+   *
+   * Rate-limited per licence key, which is the constraint a large fleet runs into when
+   * every instance downloads on boot.
+   */
+  | {
+      /** Discriminant selecting MaxMind's download API */
+      from: 'maxmind';
+
+      /** MaxMind license key */
+      licenseKey: string;
+
+      /** MaxMind account ID */
+      accountId: number;
+
+      /**
+       * Download during startup rather than waiting for an explicit
+       * `updateGeoLocationDatabase()` call.
+       *
+       * Startup awaits the download, so the instance never serves a request against an
+       * unloaded database. Files already on disk and under 24 hours old are reused, and
+       * a distributed storage adapter serialises instances that boot together.
+       *
+       * @default true
+       */
+      onStartup?: boolean;
+    }
+  /**
+   * Your own HTTPS mirror.
+   *
+   * WHY: a mirror you control has no per-key rate limit, so a large container fleet can
+   * boot without instances losing the race and starting with no geolocation data.
+   */
+  | {
+      /** Discriminant selecting a custom HTTPS source */
+      from: 'url';
+
+      /**
+       * Where to fetch each edition.
+       *
+       * A template containing `{edition}`, substituted per configured edition:
+       * `'https://cdn.example.com/geoip/{edition}.tar.gz'`
+       *
+       * Or an explicit URL per edition, for sources with no shared naming scheme:
+       * `{ 'GeoLite2-City': 'https://...', 'GeoLite2-Country': 'https://...' }`
+       *
+       * **Accepted content:** either a `.tar.gz` in MaxMind's own layout - so a straight
+       * mirror of their archive works unchanged - or a bare `.mmdb`. The format is
+       * detected from the response bytes rather than the URL, so a presigned URL
+       * carrying a query string is fine.
+       *
+       * **Scheme:** `https://` only, or `http://` for a host resolving to loopback.
+       * `s3://` is rejected - the toolkit ships no AWS SDK and does not sign S3
+       * requests, so use the bucket's HTTPS endpoint or a presigned URL.
+       */
+      url: string | Record<string, string>;
+
+      /**
+       * HTTP Basic credentials for {@link url}
+       *
+       * Only for sources that authenticate that way; a presigned URL or a public mirror
+       * needs none.
+       */
+      auth?: {
+        /** Basic auth username */
+        username: string;
+        /** Basic auth password */
+        password: string;
+      };
+
+      /**
+       * Download during startup rather than waiting for an explicit
+       * `updateGeoLocationDatabase()` call.
+       *
+       * @default true
+       */
+      onStartup?: boolean;
+    };
+
 export interface GeoLocationConfig {
   /**
    * MaxMind GeoIP2 configuration
    */
   maxMind?: {
     /**
-     * Directory path where MaxMind .mmdb files are stored or should be downloaded
+     * Directory holding the `.mmdb` files
      *
-     * **Usage Modes:**
-     * 1. **Auto-download mode**: Point to directory, toolkit downloads files
-     * 2. **External management mode**: Point to directory with existing files, toolkit uses them
-     * 3. **Default**: System temp directory (ephemeral, cleared on reboot)
+     * Absolute, or relative to `process.cwd()`. Defaults to `os.tmpdir()/nauth_maxmind`,
+     * which is container-local and cleared on reboot - point it at a persistent or
+     * shared volume if instances should reuse each other's downloads.
      *
-     * **Examples:**
-     *
-     * Auto-download to custom path:
-     * ```typescript
-     * maxMind: {
-     *   dbPath: '/app/data/maxmind',
-     *   licenseKey: '...',
-     *   accountId: 123,
-     *   autoDownloadOnStartup: true
-     * }
-     * ```
-     *
-     * Use existing files (consumer manages downloads):
-     * ```typescript
-     * maxMind: {
-     *   dbPath: '/app/data/maxmind',
-     *   // No licenseKey/accountId needed - toolkit just loads existing files
-     *   skipDownloads: true // Disable all download functionality
-     * }
-     * ```
-     *
-     * Default temp directory (auto-download):
-     * ```typescript
-     * maxMind: {
-     *   licenseKey: '...',
-     *   accountId: 123
-     *   // dbPath defaults to os.tmpdir() + '/nauth_maxmind'
-     * }
-     * ```
-     *
-     * Works on all platforms (Mac, Linux, Windows, Docker, serverless).
+     * @default os.tmpdir() + '/nauth_maxmind'
      */
     dbPath?: string;
 
     /**
-     * Skip all database downloads (consumer manages updates externally)
+     * Which databases to load, and to download when {@link download} is set
      *
-     * If true, toolkit will only load existing .mmdb files from dbPath.
-     * Useful when:
-     * - Using MaxMind's geoipupdate tool
-     * - Managing downloads via external cron jobs
-     * - Databases are pre-installed in containers
-     * - Databases come from shared volumes/NFS
-     *
-     * When true, licenseKey and accountId are not required.
-     * Service will log a warning if no database files are found.
-     *
-     * @default false
-     */
-    skipDownloads?: boolean;
-
-    /**
-     * MaxMind license key (required for downloading databases, not needed if skipDownloads is true)
-     */
-    licenseKey?: string;
-
-    /**
-     * MaxMind account ID (required for downloading databases, not needed if skipDownloads is true)
-     */
-    accountId?: number;
-
-    /**
-     * Auto-download on startup if files don't exist
-     * Default: false
-     *
-     * Safe for clustered deployments: downloads are serialized through a distributed
-     * lock when a Redis or database storage adapter is configured, so instances that
-     * boot in parallel take turns instead of all hammering MaxMind at once.
-     *
-     * Ignored if skipDownloads is true.
-     */
-    autoDownloadOnStartup?: boolean;
-
-    /**
-     * Edition IDs to download
-     * Default: ['GeoLite2-City', 'GeoLite2-Country']
-     *
-     * Ignored if skipDownloads is true.
+     * @default ['GeoLite2-City', 'GeoLite2-Country']
      */
     editions?: string[];
+
+    /**
+     * Where to fetch the databases from
+     *
+     * Omit to load files already present in {@link dbPath} and never fetch anything.
+     *
+     * @example MaxMind's API, downloading at startup
+     * ```typescript
+     * download: { from: 'maxmind', licenseKey: '...', accountId: 123 }
+     * ```
+     *
+     * @example MaxMind's API, but only when your own scheduler calls
+     *   `updateGeoLocationDatabase()`
+     * ```typescript
+     * download: { from: 'maxmind', licenseKey: '...', accountId: 123, onStartup: false }
+     * ```
+     *
+     * @example Your own mirror - no MaxMind credentials involved
+     * ```typescript
+     * download: { from: 'url', url: 'https://cdn.example.com/geoip/{edition}.tar.gz' }
+     * ```
+     */
+    download?: MaxMindDownloadSource;
+
+    /**
+     * Refuse to start when no database could be loaded
+     *
+     * Startup otherwise logs a warning and continues, which leaves every lookup silently
+     * answering `{}` until something reloads the databases. Setting this makes startup
+     * throw instead, so an instance never serves traffic without geolocation data.
+     *
+     * Defaults to `true` for `download.from: 'url'`: mirroring the database yourself is
+     * a deliberate act, and the whole point is that boot should not proceed without it.
+     * The MaxMind API path and disk-only mode default to `false`, matching how they have
+     * always behaved.
+     *
+     * @default true when download.from is 'url', otherwise false
+     */
+    requireDatabaseOnStartup?: boolean;
   };
 }
 

@@ -1121,15 +1121,37 @@ Configure IP geolocation for adaptive MFA.
 ```typescript
 geoLocation: {
   maxMind: {
-    licenseKey: process.env.MAXMIND_LICENSE_KEY,
-    accountId: parseInt(process.env.MAXMIND_ACCOUNT_ID || '0'),
     dbPath: '/app/data/maxmind',   // Optional: defaults to system temp directory
-    autoDownloadOnStartup: true,   // true = download DB files on startup (requires licenseKey + accountId)
     editions: ['GeoLite2-City', 'GeoLite2-Country'],
-    skipDownloads: false,          // true = manage DB files externally (CI/CD pre-download pattern)
+    download: {
+      from: 'maxmind',
+      licenseKey: process.env.MAXMIND_LICENSE_KEY,
+      accountId: Number(process.env.MAXMIND_ACCOUNT_ID),
+      onStartup: true,             // default: fetch during startup
+    },
   },
 },
 ```
+
+Omit `download` entirely to load `.mmdb` files already present in `dbPath` and never fetch anything --- the mode for a sidecar, init container or `geoipupdate`.
+
+Download from your own mirror instead of MaxMind's rate-limited API. No licence key is involved:
+
+```typescript
+geoLocation: {
+  maxMind: {
+    dbPath: '/app/data/maxmind',
+    download: {
+      from: 'url',
+      url: 'https://cdn.example.com/geoip/{edition}.tar.gz',  // or a per-edition object
+      auth: { username: '...', password: '...' },            // optional HTTP Basic
+    },
+    requireDatabaseOnStartup: true,  // default for from: 'url' --- abort startup if nothing loads
+  },
+},
+```
+
+Accepts `.tar.gz` in MaxMind's layout or a bare `.mmdb`, detected from the response bytes. HTTPS only --- `s3://` is rejected, since the toolkit ships no AWS SDK; use a presigned URL or the bucket's HTTPS endpoint. See [Geolocation](/docs/guides/geolocation#downloading-from-your-own-mirror).
 
 ## Audit Logs {/* #audit-logs */}
 Configure audit trail.

@@ -549,15 +549,65 @@ export const challengeConfigSchema = z.object({
 // GeoLocation Configuration Schema
 // ============================================================================
 
+/**
+ * Keys removed when the MaxMind config moved to a discriminated `download` block.
+ *
+ * They are still declared on the schema so a stale config fails with a message naming
+ * its replacement, rather than being silently stripped - which would leave the toolkit
+ * doing the opposite of what the config asked for.
+ */
+const REMOVED_MAXMIND_KEYS: Record<string, string> = {
+  skipDownloads:
+    "geoLocation.maxMind.skipDownloads has been removed. Omit 'download' entirely to load files already on disk.",
+  autoDownloadOnStartup:
+    'geoLocation.maxMind.autoDownloadOnStartup has been removed. Use download.onStartup, which defaults to true.',
+  licenseKey: "geoLocation.maxMind.licenseKey has moved. Use download: { from: 'maxmind', licenseKey, accountId }.",
+  accountId: "geoLocation.maxMind.accountId has moved. Use download: { from: 'maxmind', licenseKey, accountId }.",
+  downloadUrl: "geoLocation.maxMind.downloadUrl has moved. Use download: { from: 'url', url }.",
+  downloadAuth: "geoLocation.maxMind.downloadAuth has moved. Use download: { from: 'url', url, auth }.",
+};
+
+/**
+ * Where the MaxMind databases are fetched from.
+ *
+ * Discriminated on `from`, so credentials are required exactly when MaxMind's API is
+ * selected, and a URL exactly when a mirror is.
+ */
+export const maxMindDownloadSchema = z.discriminatedUnion('from', [
+  z.object({
+    from: z.literal('maxmind'),
+    licenseKey: z.string().min(1),
+    accountId: z.number(),
+    onStartup: z.boolean().optional(),
+  }),
+  z.object({
+    from: z.literal('url'),
+    url: z.union([z.string(), z.record(z.string())]),
+    auth: z
+      .object({
+        username: z.string(),
+        password: z.string(),
+      })
+      .optional(),
+    onStartup: z.boolean().optional(),
+  }),
+]);
+
 export const geoLocationConfigSchema = z.object({
   maxMind: z
     .object({
       dbPath: z.string().optional(),
-      skipDownloads: z.boolean().optional(),
-      licenseKey: z.string().optional(),
-      accountId: z.number().optional(),
-      autoDownloadOnStartup: z.boolean().optional(),
       editions: z.array(z.string()).optional(),
+      download: maxMindDownloadSchema.optional(),
+      requireDatabaseOnStartup: z.boolean().optional(),
+      // Declared so the refinement can name their replacement; z.object() would
+      // otherwise strip them before any refinement runs.
+      skipDownloads: z.unknown().optional(),
+      autoDownloadOnStartup: z.unknown().optional(),
+      licenseKey: z.unknown().optional(),
+      accountId: z.unknown().optional(),
+      downloadUrl: z.unknown().optional(),
+      downloadAuth: z.unknown().optional(),
     })
     .optional(),
 });
@@ -877,13 +927,43 @@ export const authConfigSchema = z
     // ============================================================================
     if (data.geoLocation?.maxMind) {
       const maxMind = data.geoLocation.maxMind;
-      if (!maxMind.skipDownloads && maxMind.autoDownloadOnStartup) {
-        if (!maxMind.licenseKey || !maxMind.accountId) {
+      const editions = maxMind.editions ?? ['GeoLite2-City', 'GeoLite2-Country'];
+
+      // Reject configs written against the pre-`download` shape, naming the replacement.
+      for (const [key, message] of Object.entries(REMOVED_MAXMIND_KEYS)) {
+        if ((maxMind as Record<string, unknown>)[key] !== undefined) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: 'MaxMind licenseKey and accountId are required when autoDownloadOnStartup is enabled',
-            path: ['geoLocation', 'maxMind', 'licenseKey'],
+            message,
+            path: ['geoLocation', 'maxMind', key],
           });
+        }
+      }
+
+      const download = maxMind.download;
+
+      if (download?.from === 'url') {
+        if (typeof download.url === 'string' && !download.url.includes('{edition}') && editions.length > 1) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              `geoLocation.maxMind.download.url must contain the {edition} placeholder when more than one edition ` +
+              `is configured (${editions.join(', ')}), otherwise every edition would download the same file. ` +
+              'Use a per-edition object to give each one its own URL.',
+            path: ['geoLocation', 'maxMind', 'download', 'url'],
+          });
+        }
+
+        if (typeof download.url === 'object') {
+          for (const edition of editions) {
+            if (!download.url[edition]) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: `geoLocation.maxMind.download.url has no entry for configured edition '${edition}'`,
+                path: ['geoLocation', 'maxMind', 'download', 'url'],
+              });
+            }
+          }
         }
       }
     }

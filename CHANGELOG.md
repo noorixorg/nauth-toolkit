@@ -5,6 +5,32 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.3] - 2026-09-10
+
+### Changed
+
+- **Breaking: the `geoLocation.maxMind` config shape.** Where the databases come from is now a single `download` block rather than two overlapping booleans. `skipDownloads`, `autoDownloadOnStartup`, `licenseKey` and `accountId` are gone from the top level, and a stale config fails at startup naming its replacement.
+
+  ```typescript
+  maxMind: {
+    dbPath: '/app/data/maxmind',
+    download: { from: 'maxmind', licenseKey: '...', accountId: 123, onStartup: false },
+  }
+  ```
+
+  Omit `download` entirely to load files already on disk — that replaces `skipDownloads: true`. `onStartup` replaces `autoDownloadOnStartup` and now defaults to **true**, so anything relying on the old default must set it to `false`. See the [geolocation guide](https://nauth.dev/docs/guides/geolocation).
+
+### Added
+
+- **Fetch the GeoIP databases from your own HTTPS mirror** with `download: { from: 'url', url, auth }`, optionally behind HTTP Basic. No MaxMind credentials are involved, which sidesteps the per-key rate limit a large container fleet exhausts when every instance downloads on boot. Accepts MaxMind's `.tar.gz` or a bare `.mmdb`, detected from the response bytes so presigned URLs work. HTTPS only — `s3://` is rejected, since no AWS SDK ships with the toolkit.
+- `requireDatabaseOnStartup` aborts startup when no database could be loaded, instead of serving traffic with every lookup silently empty. On by default for a custom mirror.
+
+### Fixed
+
+- **Geolocation never initialised on Express or Fastify.** `NAuth.create()` never ran the init hook, so the database readers stayed empty and every lookup returned nothing; only NestJS was unaffected. Startup now awaits initialisation, so a boot-time download finishes before the first request is served.
+- Startup no longer reports "No MaxMind database files found" when the files are present but fail to open — it names the real cause instead.
+- Listing an edition the toolkit does not read, such as `GeoLite2-ASN`, now warns rather than silently downloading a file nothing uses.
+
 ## [0.7.2] - 2026-09-10
 
 ### Fixed

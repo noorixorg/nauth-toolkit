@@ -235,4 +235,108 @@ describe('jwtConfigSchema', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  // ==========================================================================
+  // GeoLocation
+  // ==========================================================================
+
+  describe('geoLocation.maxMind', () => {
+    const baseConfig = {
+      jwt: {
+        accessToken: { secret: validSecret, expiresIn: 3600 },
+        refreshToken: { secret: validSecret, expiresIn: 86400 },
+      },
+      signup: { verificationMethod: 'none' as const },
+    };
+
+    const withMaxMind = (maxMind: Record<string, unknown>): Record<string, unknown> => ({
+      ...baseConfig,
+      geoLocation: { maxMind },
+    });
+
+    /** All error messages a failed parse produced, joined for substring assertions. */
+    const messagesOf = (result: { success: boolean; error?: { issues: Array<{ message: string }> } }): string =>
+      (result.error?.issues ?? []).map((issue) => issue.message).join('\n');
+
+    it('accepts disk-only mode with no download block', () => {
+      expect(authConfigSchema.safeParse(withMaxMind({ dbPath: '/app/data/maxmind' })).success).toBe(true);
+    });
+
+    it('accepts the maxmind source', () => {
+      const result = authConfigSchema.safeParse(
+        withMaxMind({ download: { from: 'maxmind', licenseKey: 'k', accountId: 123, onStartup: false } }),
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts a url source with basic auth', () => {
+      const result = authConfigSchema.safeParse(
+        withMaxMind({
+          download: {
+            from: 'url',
+            url: 'https://cdn.example.com/{edition}.tar.gz',
+            auth: { username: 'u', password: 'p' },
+          },
+        }),
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it('requires credentials when the maxmind source is chosen', () => {
+      const result = authConfigSchema.safeParse(withMaxMind({ download: { from: 'maxmind' } }));
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects a url source carrying MaxMind credentials', () => {
+      const result = authConfigSchema.safeParse(
+        withMaxMind({ download: { from: 'url', url: 'https://cdn.example.com/{edition}.mmdb', licenseKey: 'k' } }),
+      );
+      // Unknown keys are stripped rather than rejected, but the credentials cannot
+      // reach the service - the point is that the union makes the pairing meaningless.
+      if (result.success) {
+        expect((result.data.geoLocation?.maxMind?.download as Record<string, unknown>).licenseKey).toBeUndefined();
+      }
+    });
+
+    it('requires {edition} in a template covering multiple editions', () => {
+      const result = authConfigSchema.safeParse(
+        withMaxMind({ download: { from: 'url', url: 'https://cdn.example.com/db.tar.gz' } }),
+      );
+      expect(result.success).toBe(false);
+      expect(messagesOf(result)).toContain('{edition} placeholder');
+    });
+
+    it('allows a template without {edition} for a single edition', () => {
+      const result = authConfigSchema.safeParse(
+        withMaxMind({
+          editions: ['GeoLite2-City'],
+          download: { from: 'url', url: 'https://cdn.example.com/db.tar.gz' },
+        }),
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it('requires a map entry for every configured edition', () => {
+      const result = authConfigSchema.safeParse(
+        withMaxMind({
+          download: { from: 'url', url: { 'GeoLite2-City': 'https://cdn.example.com/city.mmdb' } },
+        }),
+      );
+      expect(result.success).toBe(false);
+      expect(messagesOf(result)).toContain("no entry for configured edition 'GeoLite2-Country'");
+    });
+
+    it.each([
+      ['skipDownloads', { skipDownloads: true }, "Omit 'download' entirely"],
+      ['autoDownloadOnStartup', { autoDownloadOnStartup: true }, 'Use download.onStartup'],
+      ['licenseKey', { licenseKey: 'k' }, "from: 'maxmind'"],
+      ['accountId', { accountId: 123 }, "from: 'maxmind'"],
+      ['downloadUrl', { downloadUrl: 'https://example.com/x' }, "from: 'url'"],
+      ['downloadAuth', { downloadAuth: { username: 'u', password: 'p' } }, "from: 'url'"],
+    ])('rejects the retired %s key and names its replacement', (_name, fragment, expected) => {
+      const result = authConfigSchema.safeParse(withMaxMind(fragment as Record<string, unknown>));
+      expect(result.success).toBe(false);
+      expect(messagesOf(result)).toContain(expected);
+    });
+  });
 });

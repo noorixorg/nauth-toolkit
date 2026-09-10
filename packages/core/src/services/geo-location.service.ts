@@ -43,6 +43,66 @@ type MaxMindModule = {
   };
 };
 
+// ============================================================================
+// Download Helpers
+// ============================================================================
+
+/** Gzip member header, RFC 1952 section 2.3.1. */
+const GZIP_MAGIC = Buffer.from([0x1f, 0x8b]);
+
+/**
+ * MaxMind DB metadata marker, which sits near the END of an .mmdb file rather than at
+ * its start - the format has no leading magic number.
+ *
+ * @see https://maxmind.github.io/MaxMind-DB/
+ */
+const MMDB_METADATA_MARKER = Buffer.from([0xab, 0xcd, 0xef, ...Buffer.from('MaxMind.com')]);
+
+/**
+ * Whether a buffer is a gzip stream.
+ *
+ * @param buffer - Downloaded bytes
+ * @returns True when the gzip header is present
+ */
+function isGzip(buffer: Buffer): boolean {
+  return buffer.length >= 2 && buffer.subarray(0, 2).equals(GZIP_MAGIC);
+}
+
+/**
+ * Whether a buffer is a MaxMind DB file.
+ *
+ * Looks for the metadata marker in the last 128KB, the search window the format's own
+ * spec prescribes.
+ *
+ * @param buffer - Downloaded bytes
+ * @returns True when the metadata marker is present
+ */
+function isMmdb(buffer: Buffer): boolean {
+  const window = buffer.subarray(Math.max(0, buffer.length - 128 * 1024));
+  return window.includes(MMDB_METADATA_MARKER);
+}
+
+/**
+ * Strip credentials and query string from a URL so it is safe to log.
+ *
+ * Presigned URLs carry their signature in the query string, and a URL may embed
+ * userinfo; neither belongs in a log line or an error message.
+ *
+ * @param rawUrl - URL to redact
+ * @returns The origin and path only, or a placeholder when unparseable
+ */
+function redactUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(rawUrl);
+    parsed.search = '';
+    parsed.username = '';
+    parsed.password = '';
+    return parsed.toString();
+  } catch {
+    return '<malformed url>';
+  }
+}
+
 /**
  * GeoLocation Service
  *
@@ -75,6 +135,8 @@ export class GeoLocationService {
   private cityReader: MaxMindReader | null = null;
   private countryReader: MaxMindReader | null = null;
   private readonly defaultEditions = ['GeoLite2-City', 'GeoLite2-Country'];
+  /** Editions the service actually opens a reader for. */
+  private readonly loadableEditions = ['GeoLite2-City', 'GeoLite2-Country'];
   private readonly lockKey = 'maxmind-db-update-lock';
   private readonly lockTtlSeconds = 300; // 5 minutes
   /** How long to wait for another instance holding the download lock. */
@@ -124,10 +186,31 @@ export class GeoLocationService {
   }
 
   /**
+   * Whether startup must fail when no database could be loaded.
+   *
+   * Defaults to true once a custom `downloadUrl` is configured: mirroring the database
+   * yourself is a deliberate act, and booting without it silently answers every lookup
+   * with `{}`. The MaxMind-API path keeps its historical warn-and-continue default so
+   * existing deployments are unaffected.
+   *
+   * @returns True when a missing database should abort startup
+   */
+  private get requireDatabaseOnStartup(): boolean {
+    return this.config?.requireDatabaseOnStartup ?? this.config?.download?.from === 'url';
+  }
+
+  /**
    * Initialize service on module startup
    *
+   * Awaited by `NAuth.create()` and by the NestJS lifecycle, so a download started here
+   * completes before the instance serves traffic. Readers are replaced in place once the
+   * download lands - lookups made after this resolves always see the loaded database.
+   *
    * - Loads database files if they exist
-   * - Optionally downloads databases if autoDownloadOnStartup is enabled
+   * - Downloads them when a `download` source is configured with `onStartup` (default true)
+   * - Throws instead of warning when {@link requireDatabaseOnStartup} applies
+   *
+   * @throws {NAuthException} If no database could be loaded and startup requires one
    */
   async onModuleInit(): Promise<void> {
     if (!this.config) {
@@ -138,7 +221,27 @@ export class GeoLocationService {
     if (!this.maxMindLib) {
       // MaxMind not installed - service disabled
       this.logger?.warn?.('MaxMind GeoIP2 library not available. Install @maxmind/geoip2-node to enable geolocation.');
+      if (this.requireDatabaseOnStartup) {
+        throw new NAuthException(
+          AuthErrorCode.INTERNAL_ERROR,
+          'Geolocation requires the @maxmind/geoip2-node package, which is not installed, and ' +
+            'geoLocation.maxMind.requireDatabaseOnStartup is enabled. Install it, or disable that flag.',
+        );
+      }
       return;
+    }
+
+    // Only City and Country have readers; anything else configured would be downloaded
+    // and then never read, which is worth saying out loud rather than silently wasting
+    // the bandwidth and disk.
+    const unusedEditions = (this.config.editions ?? this.defaultEditions).filter(
+      (edition) => !this.loadableEditions.includes(edition),
+    );
+    if (unusedEditions.length > 0) {
+      this.logger?.warn?.(
+        `geoLocation.maxMind.editions includes ${unusedEditions.join(', ')}, which the toolkit does not read. ` +
+          `Only ${this.loadableEditions.join(' and ')} are used for lookups; the rest are downloaded and ignored.`,
+      );
     }
 
     // Ensure database directory exists
@@ -148,14 +251,33 @@ export class GeoLocationService {
     await this.loadDatabaseFiles();
 
     // Auto-download if enabled and files don't exist (only if downloads not skipped)
-    if (!this.config.skipDownloads && this.config.autoDownloadOnStartup && (!this.cityReader || !this.countryReader)) {
+    const downloadOnStartup = this.config.download ? (this.config.download.onStartup ?? true) : false;
+    if (downloadOnStartup && (!this.cityReader || !this.countryReader)) {
       try {
         await this.updateGeoLocationDatabase();
       } catch (error) {
-        this.logger?.warn?.(
-          `Failed to auto-download MaxMind databases on startup: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        );
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        if (this.requireDatabaseOnStartup) {
+          throw new NAuthException(
+            AuthErrorCode.INTERNAL_ERROR,
+            `Failed to download MaxMind databases on startup: ${message}. Startup was aborted because ` +
+              'geoLocation.maxMind.requireDatabaseOnStartup is enabled; serving without them would answer ' +
+              'every geolocation lookup with no data.',
+          );
+        }
+        this.logger?.warn?.(`Failed to auto-download MaxMind databases on startup: ${message}`);
       }
+    }
+
+    // A download can succeed for one edition and fail for another, and disk-only mode
+    // never downloads at all - so check what actually loaded, not what was tried.
+    if (this.requireDatabaseOnStartup && !this.cityReader && !this.countryReader) {
+      throw new NAuthException(
+        AuthErrorCode.INTERNAL_ERROR,
+        `No MaxMind database could be loaded from ${this.dbPath}, and ` +
+          'geoLocation.maxMind.requireDatabaseOnStartup is enabled. Startup was aborted rather than serving ' +
+          'traffic with geolocation silently unavailable.',
+      );
     }
   }
 
@@ -342,17 +464,11 @@ export class GeoLocationService {
       );
     }
 
-    if (this.config.skipDownloads) {
+    if (!this.config.download) {
       throw new NAuthException(
         AuthErrorCode.VALIDATION_FAILED,
-        'Database downloads are disabled (skipDownloads: true). Use existing files or disable skipDownloads to enable downloads.',
-      );
-    }
-
-    if (!this.config.licenseKey || !this.config.accountId) {
-      throw new NAuthException(
-        AuthErrorCode.VALIDATION_FAILED,
-        'MaxMind licenseKey and accountId are required for database downloads',
+        'No download source is configured. Set geoLocation.maxMind.download to fetch from MaxMind or from your ' +
+          'own mirror; without it the toolkit only loads files already present in dbPath.',
       );
     }
 
@@ -443,15 +559,15 @@ export class GeoLocationService {
       // Download and Update Databases
       // ============================================================================
       const editions = this.config?.editions || this.defaultEditions;
-      const accountId = this.config?.accountId as number;
-      const licenseKey = this.config?.licenseKey as string;
+      const download = this.config?.download;
+      const licenseKey = download?.from === 'maxmind' ? download.licenseKey : '';
 
       let successCount = 0;
       let failureCount = 0;
 
       for (const edition of editions) {
         try {
-          await this.downloadDatabase(edition, accountId, licenseKey);
+          await this.downloadDatabase(edition, licenseKey);
           successCount++;
         } catch (error) {
           failureCount++;
@@ -584,6 +700,10 @@ export class GeoLocationService {
       return;
     }
 
+    // Why each reader failed to open, keyed by file path, so a missing file can be told
+    // apart from an unreadable one.
+    const openFailures = new Map<string, string>();
+
     try {
       // Try to load City database
       const cityDbPath = path.join(this.dbPath, 'GeoLite2-City.mmdb');
@@ -598,6 +718,7 @@ export class GeoLocationService {
         }
       } catch (error) {
         // City database not found or failed to load
+        openFailures.set(cityDbPath, error instanceof Error ? error.message : 'Unknown error');
         this.logger?.debug?.(
           `Failed to load City database: ${error instanceof Error ? error.message : 'Unknown error'}`,
         );
@@ -616,6 +737,7 @@ export class GeoLocationService {
         }
       } catch (error) {
         // Country database not found or failed to load
+        openFailures.set(countryDbPath, error instanceof Error ? error.message : 'Unknown error');
         this.logger?.debug?.(
           `Failed to load Country database: ${error instanceof Error ? error.message : 'Unknown error'}`,
         );
@@ -623,16 +745,34 @@ export class GeoLocationService {
       }
 
       if (!this.cityReader && !this.countryReader) {
-        if (this.config?.skipDownloads) {
+        // Distinguish "the files are not there" from "the files are there and would not
+        // open". Reporting the first when it is really the second sends the reader off
+        // to debug a download that already succeeded.
+        const present: string[] = [];
+        for (const dbFilePath of openFailures.keys()) {
+          try {
+            await fs.access(dbFilePath);
+            present.push(dbFilePath);
+          } catch {
+            // Genuinely absent.
+          }
+        }
+
+        if (present.length > 0) {
+          const detail = present.map((file) => `${path.basename(file)}: ${openFailures.get(file)}`).join('; ');
           this.logger?.warn?.(
-            `No MaxMind database files found in ${this.dbPath}. ` +
-              `Downloads are disabled (skipDownloads: true). ` +
-              `Ensure database files are available in the configured path, or set skipDownloads: false to enable downloads.`,
+            `MaxMind database files exist in ${this.dbPath} but could not be opened (${detail}). ` +
+              `The files may be truncated or corrupt, or @maxmind/geoip2-node may not be resolvable from here.`,
+          );
+        } else if (!this.config?.download) {
+          this.logger?.warn?.(
+            `No MaxMind database files found in ${this.dbPath}, and no download source is configured. ` +
+              `Place the .mmdb files there, or set geoLocation.maxMind.download to fetch them.`,
           );
         } else {
           this.logger?.warn?.(
             `No MaxMind database files found in ${this.dbPath}. ` +
-              `Files will be downloaded when updateGeoLocationDatabase() is called or autoDownloadOnStartup is enabled.`,
+              `They will be fetched on startup, or when updateGeoLocationDatabase() is called.`,
           );
         }
       } else {
@@ -650,6 +790,100 @@ export class GeoLocationService {
   }
 
   /**
+   * Resolve where a given edition should be downloaded from.
+   *
+   * Returns the configured mirror when `downloadUrl` is set, otherwise MaxMind's own
+   * download API.
+   *
+   * @param edition - Edition name (e.g., 'GeoLite2-City')
+   * @param licenseKey - MaxMind license key, used only for the MaxMind API URL
+   * @returns The resolved URL, and whether it came from consumer configuration
+   * @throws {NAuthException} If a configured URL is missing for the edition or uses an unsupported scheme
+   */
+  private resolveDownloadUrl(edition: string, licenseKey: string): { url: string; custom: boolean } {
+    const download = this.config?.download;
+
+    if (download?.from !== 'url') {
+      return {
+        url: `https://download.maxmind.com/app/geoip_download?edition_id=${edition}&license_key=${licenseKey}&suffix=tar.gz`,
+        custom: false,
+      };
+    }
+
+    const url =
+      typeof download.url === 'string' ? download.url.replace(/\{edition\}/g, edition) : download.url[edition];
+
+    if (!url) {
+      throw new NAuthException(
+        AuthErrorCode.VALIDATION_FAILED,
+        `geoLocation.maxMind.download.url has no entry for edition '${edition}'. ` +
+          'Add one, or remove the edition from geoLocation.maxMind.editions.',
+      );
+    }
+
+    this.assertSupportedDownloadUrl(url, edition);
+    return { url, custom: true };
+  }
+
+  /**
+   * Reject download URLs the toolkit cannot fetch.
+   *
+   * Only HTTPS is accepted, plus plain HTTP to loopback for local development. `s3://`
+   * is called out by name because it is the natural thing to reach for and would
+   * otherwise fail with an opaque parse error.
+   *
+   * @param url - Configured URL
+   * @param edition - Edition the URL belongs to, for the error message
+   * @throws {NAuthException} If the scheme is unsupported or the URL is malformed
+   */
+  private assertSupportedDownloadUrl(url: string, edition: string): void {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new NAuthException(
+        AuthErrorCode.VALIDATION_FAILED,
+        `geoLocation.maxMind.downloadUrl for '${edition}' is not a valid URL.`,
+      );
+    }
+
+    if (parsed.protocol === 's3:') {
+      throw new NAuthException(
+        AuthErrorCode.VALIDATION_FAILED,
+        `geoLocation.maxMind.downloadUrl for '${edition}' uses s3://, which is not supported - the toolkit ships ` +
+          "no AWS SDK and does not sign S3 requests. Use the bucket's HTTPS endpoint, a presigned URL, or a CDN " +
+          'in front of it.',
+      );
+    }
+
+    const isLoopback = ['localhost', '127.0.0.1', '[::1]', '::1'].includes(parsed.hostname);
+    if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && isLoopback)) {
+      throw new NAuthException(
+        AuthErrorCode.VALIDATION_FAILED,
+        `geoLocation.maxMind.downloadUrl for '${edition}' must use https:// (got ${parsed.protocol}//). ` +
+          'Plain http:// is accepted only for loopback hosts during local development.',
+      );
+    }
+  }
+
+  /**
+   * Build request headers for a download from the configured mirror.
+   *
+   * @returns Headers including HTTP Basic credentials when configured
+   */
+  private buildDownloadHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+    const auth = this.config?.download?.from === 'url' ? this.config.download.auth : undefined;
+
+    if (auth) {
+      const encoded = Buffer.from(`${auth.username}:${auth.password}`).toString('base64');
+      headers['Authorization'] = `Basic ${encoded}`;
+    }
+
+    return headers;
+  }
+
+  /**
    * Download a MaxMind database file
    *
    * Downloads the specified edition from MaxMind's download API,
@@ -659,25 +893,28 @@ export class GeoLocationService {
    * basic tar parsing to extract the .mmdb file.
    *
    * @param edition - Edition name (e.g., 'GeoLite2-City')
-   * @param accountId - MaxMind account ID
-   * @param licenseKey - MaxMind license key
+   * @param licenseKey - MaxMind license key, unused when a mirror is configured
    */
-  private async downloadDatabase(edition: string, _accountId: number, licenseKey: string): Promise<void> {
-    // MaxMind Download API URL
-    const url = `https://download.maxmind.com/app/geoip_download?edition_id=${edition}&license_key=${licenseKey}&suffix=tar.gz`;
+  private async downloadDatabase(edition: string, licenseKey: string): Promise<void> {
+    const { url, custom } = this.resolveDownloadUrl(edition, licenseKey);
     const tempTarPath = path.join(this.dbPath, `${edition}.tar.gz`);
     const outputPath = path.join(this.dbPath, `${edition}.mmdb`);
 
     try {
       // ============================================================================
-      // Download tar.gz file
+      // Download the archive or database file
       // ============================================================================
-      this.logger?.debug?.(`Downloading MaxMind database ${edition}...`);
+      this.logger?.debug?.(
+        custom
+          ? `Downloading MaxMind database ${edition} from the configured mirror...`
+          : `Downloading MaxMind database ${edition}...`,
+      );
 
       // Wrap fetch in timeout and better error handling
       let response: Response;
       try {
         response = await fetch(url, {
+          headers: custom ? this.buildDownloadHeaders() : undefined,
           // Add timeout to prevent hanging requests
           signal: AbortSignal.timeout(30000), // 30 second timeout
         });
@@ -691,7 +928,7 @@ export class GeoLocationService {
         if (errorCode === 'ENOTFOUND' || errorCode === 'ECONNREFUSED' || errorName === 'AbortError') {
           throw new NAuthException(
             AuthErrorCode.INTERNAL_ERROR,
-            `Network error while downloading MaxMind database ${edition}: ${
+            `Network error while downloading MaxMind database ${edition} from ${redactUrl(url)}: ${
               errorMessage || 'DNS lookup failed or connection refused'
             }. Check your network connection and proxy settings.`,
           );
@@ -700,23 +937,45 @@ export class GeoLocationService {
       }
 
       if (!response.ok) {
-        throw new Error(`MaxMind API returned ${response.status}: ${response.statusText}`);
+        const source = custom ? `Download source ${redactUrl(url)}` : 'MaxMind API';
+        const hint =
+          custom && (response.status === 401 || response.status === 403)
+            ? ' Check geoLocation.maxMind.download.auth, or whether a presigned URL has expired.'
+            : '';
+        throw new Error(`${source} returned ${response.status}: ${response.statusText}.${hint}`);
       }
 
       const buffer = Buffer.from(await response.arrayBuffer());
-      await fs.writeFile(tempTarPath, buffer);
 
       // ============================================================================
-      // Extract .mmdb file from tar.gz
+      // Write out the database
       // ============================================================================
-      // MaxMind tar.gz contains: <edition>_<date>/<edition>.mmdb
-      // We need to decompress gzip, then parse tar to find the .mmdb file
-      await this.extractTarGz(tempTarPath, outputPath, edition);
+      // A mirror may serve either MaxMind's own tar.gz or a bare .mmdb that someone
+      // already unpacked. Detect from the bytes rather than the URL - a presigned URL
+      // carries a query string, so its path extension proves nothing.
+      if (isGzip(buffer)) {
+        await fs.writeFile(tempTarPath, buffer);
 
-      // Clean up temp tar.gz file
-      await fs.unlink(tempTarPath).catch(() => {
-        // Ignore cleanup errors
-      });
+        // MaxMind tar.gz contains: <edition>_<date>/<edition>.mmdb
+        // We need to decompress gzip, then parse tar to find the .mmdb file
+        await this.extractTarGz(tempTarPath, outputPath, edition);
+
+        // Clean up temp tar.gz file
+        await fs.unlink(tempTarPath).catch(() => {
+          // Ignore cleanup errors
+        });
+      } else if (isMmdb(buffer)) {
+        // Write to a temp name and rename, so a half-written file is never loadable.
+        const tempDbPath = `${outputPath}.download`;
+        await fs.writeFile(tempDbPath, buffer);
+        await fs.rename(tempDbPath, outputPath);
+      } else {
+        throw new Error(
+          `Download source ${redactUrl(url)} returned data that is neither a gzip archive nor a MaxMind database ` +
+            `(${buffer.length} bytes). Check that the URL points at a .tar.gz or .mmdb file and not, for example, ` +
+            'an HTML error page.',
+        );
+      }
 
       this.logger?.debug?.(`Successfully downloaded and extracted ${edition}`);
     } catch (error) {

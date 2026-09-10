@@ -29,26 +29,29 @@ yarn add @maxmind/geoip2-node
 
 ## Step 3: Configure
 
+One question drives the whole config: **where do the database files come from?** Answer it with the `download` block, and everything else follows.
+
 ```typescript title="config/auth.config.ts"
 {
   geoLocation: {
     maxMind: {
-      licenseKey: process.env.MAXMIND_LICENSE_KEY,
-      accountId: parseInt(process.env.MAXMIND_ACCOUNT_ID || '0', 10),
-      autoDownloadOnStartup: true,
+      download: {
+        from: 'maxmind',
+        licenseKey: process.env.MAXMIND_LICENSE_KEY,
+        accountId: Number(process.env.MAXMIND_ACCOUNT_ID),
+      },
     },
   },
 }
 ```
 
-For production, manage database files externally and skip downloads:
+Omit `download` entirely and the toolkit fetches nothing --- it loads whatever `.mmdb` files are already in `dbPath`. That is the mode for a sidecar, an init container, `geoipupdate`, or a shared volume:
 
 ```typescript title="config/auth.config.ts"
 {
   geoLocation: {
     maxMind: {
       dbPath: '/app/data/maxmind',
-      skipDownloads: true,
     },
   },
 }
@@ -56,15 +59,106 @@ For production, manage database files externally and skip downloads:
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `licenseKey` | `string` | Required | MaxMind license key for downloading databases |
-| `accountId` | `number` | Required | MaxMind account ID for downloading databases |
-| `dbPath` | `string` | System temp | Directory where .mmdb files are stored |
-| `autoDownloadOnStartup` | `boolean` | `false` | Download databases on server startup |
-| `editions` | `string[]` | `['GeoLite2-City', 'GeoLite2-Country']` | Which MaxMind databases to download |
-| `skipDownloads` | `boolean` | `false` | Skip downloads, use existing files only |
+| `dbPath` | `string` | System temp | Directory holding the `.mmdb` files |
+| `editions` | `string[]` | `['GeoLite2-City', 'GeoLite2-Country']` | Which databases to load and download |
+| `download` | `object` | --- | Where to fetch from. Omit for disk-only |
+| `requireDatabaseOnStartup` | `boolean` | `true` for `from: 'url'`, else `false` | Abort startup when no database could be loaded |
+
+The `download` block takes one of two forms, discriminated on `from`:
+
+| `from: 'maxmind'` | Type | Description |
+|---|---|---|
+| `licenseKey` | `string` | **Required.** MaxMind license key |
+| `accountId` | `number` | **Required.** MaxMind account ID |
+| `onStartup` | `boolean` | Download during startup. Default `true` |
+
+| `from: 'url'` | Type | Description |
+|---|---|---|
+| `url` | `string \| Record<string, string>` | **Required.** A `{edition}` template, or one URL per edition |
+| `auth` | `{ username, password }` | Optional HTTP Basic credentials |
+| `onStartup` | `boolean` | Download during startup. Default `true` |
+
+:::tip[Three modes, no contradictions]
+The shape makes the old `skipDownloads` / `autoDownloadOnStartup` pairing unnecessary --- and its impossible combinations unrepresentable.
+
+| Goal | Config |
+|---|---|
+| Files are put there for me | Omit `download` |
+| Fetch at boot | `download: { from: ..., onStartup: true }` (the default) |
+| Fetch only when my scheduler calls `updateGeoLocationDatabase()` | `download: { from: ..., onStartup: false }` |
+:::
+
+## Downloading from your own mirror
+
+MaxMind rate-limits its download API per licence key. A large fleet where every container downloads on boot burns through that budget, and the instances that lose start with no geolocation data at all.
+
+Point `download.url` at a copy you control and MaxMind is never contacted --- no licence key is involved at all:
+
+```typescript title="config/auth.config.ts"
+{
+  geoLocation: {
+    maxMind: {
+      dbPath: '/app/data/maxmind',
+      download: {
+        from: 'url',
+        url: 'https://cdn.example.com/geoip/{edition}.tar.gz',
+      },
+    },
+  },
+}
+```
+
+`{edition}` is replaced with each entry in `editions`. When your files do not share a naming scheme, give each edition its own URL:
+
+```typescript title="config/auth.config.ts"
+{
+  geoLocation: {
+    maxMind: {
+      download: {
+        from: 'url',
+        url: {
+          'GeoLite2-City': 'https://example.com/city.mmdb?X-Amz-Signature=...',
+          'GeoLite2-Country': 'https://example.com/country.mmdb?X-Amz-Signature=...',
+        },
+      },
+    },
+  },
+}
+```
+
+**What the URL may serve.** Either a `.tar.gz` laid out the way MaxMind ships it --- so a straight mirror of their archive works untouched --- or a bare `.mmdb` someone already unpacked. The toolkit detects which from the response bytes, not the file extension, so a presigned URL carrying a query string is fine.
+
+**Authentication.** Presigned URLs and public mirrors need none. For a source behind HTTP Basic:
+
+```typescript
+download: {
+  from: 'url',
+  url: 'https://artifacts.internal/geoip/{edition}.tar.gz',
+  auth: {
+    username: process.env.GEOIP_MIRROR_USER,
+    password: process.env.GEOIP_MIRROR_PASSWORD,
+  },
+},
+```
+
+:::note[S3 and other object stores]
+`s3://` URLs are rejected. The toolkit ships no AWS SDK and does not sign S3 requests, so use the bucket's HTTPS endpoint, a presigned URL, or a CDN in front of it. Only `https://` is accepted --- plain `http://` works for loopback hosts during local development and nowhere else.
+:::
+
+### Startup blocks until the download finishes
+
+`NAuth.create()` and the NestJS module both await geolocation initialisation, so a startup download completes before the instance serves its first request. There is no window where lookups run against an unloaded database.
+
+With `from: 'url'`, a failure to load any database **aborts startup** rather than logging a warning. Booting anyway would leave every lookup silently answering with no data, which is exactly the failure a mirror is meant to prevent. Override it either way with `requireDatabaseOnStartup`:
+
+```typescript
+requireDatabaseOnStartup: false,  // boot anyway, warn only
+```
+
+The MaxMind API path keeps its original warn-and-continue default. Set `requireDatabaseOnStartup: true` to opt into fail-fast there too.
 
 :::tip[Clustered deployments]
-`autoDownloadOnStartup` is safe when several containers start in parallel. With a distributed storage adapter (Redis or database), instances take turns behind a shared lock instead of all downloading at once, and files already on disk and less than 24 hours old are reused.
+Startup downloads are safe when several containers start in parallel. With a distributed storage adapter (Redis or database), instances take turns behind a shared lock instead of all downloading at once, and files already on disk and less than 24 hours old are reused.
 
 Both storage layouts work: on a shared volume the first instance downloads and the rest load its files; on a container-local `dbPath` (the default) each instance downloads its own copy when its turn comes.
 
@@ -140,7 +234,7 @@ export class GeoUpdateService {
 ```
 
 :::tip
-Use `reloadGeoLocationDatabaseFromDisk()` when files are managed externally. It reloads from disk without downloading, safe to call frequently even with `skipDownloads: true`.
+Use `reloadGeoLocationDatabaseFromDisk()` when files are managed externally. It reloads from disk without downloading, safe to call frequently, and the only update path in disk-only mode.
 :::
 
 ## What Data is Captured

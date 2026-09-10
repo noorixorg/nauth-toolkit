@@ -205,13 +205,16 @@ export const authConfig: NAuthModuleConfig = {
   },
   geoLocation: {
     maxMind: {
-      licenseKey: process.env.MAXMIND_LICENSE_KEY,
-      accountId: parseInt(process.env.MAXMIND_ACCOUNT_ID || '0', 10),
       dbPath: './maxmind',
-      // The image ships an empty maxmind/ directory, so the databases are fetched on
-      // first boot. Downloads are serialized across instances by the toolkit.
-      autoDownloadOnStartup: process.env.MAXMIND_AUTO_DOWNLOAD !== 'false',
       editions: ['GeoLite2-City', 'GeoLite2-Country'],
+      download: {
+        from: 'maxmind',
+        licenseKey: process.env.MAXMIND_LICENSE_KEY || '',
+        accountId: parseInt(process.env.MAXMIND_ACCOUNT_ID || '0', 10),
+        // The image ships an empty maxmind/ directory, so the databases are fetched on
+        // first boot. Downloads are serialized across instances by the toolkit.
+        onStartup: process.env.MAXMIND_AUTO_DOWNLOAD !== 'false',
+      },
     },
   },
   social: {

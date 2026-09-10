@@ -344,6 +344,16 @@ export class NAuth {
     }
 
     // ========================================================================
+    // 4b. Initialize GeoLocation
+    // ========================================================================
+    // Awaited here so a startup download finishes before NAuth.create() resolves.
+    // Without this the readers stay null on Express and Fastify - only NestJS ran
+    // this hook - and every lookup answers with no data.
+    if (services.geoLocationService) {
+      await services.geoLocationService.onModuleInit();
+    }
+
+    // ========================================================================
     // 5. Create Handlers
     // ========================================================================
     const clientInfoHandler = new ClientInfoHandler(

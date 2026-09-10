@@ -183,7 +183,7 @@ Promise that resolves when databases are reloaded
 - Replaces in-memory database readers with newly loaded ones
 - Logs warnings if no database files are found
 - Safe to call repeatedly - if files haven't changed, it just reloads the same data
-- Works with `skipDownloads: true` configuration
+- Works in disk-only mode, where it is the only way to pick up externally managed files
 
 **Errors**
 
@@ -287,14 +287,13 @@ Promise that resolves when databases are downloaded and reloaded
 
 **Behavior**
 
-- Downloads configured editions (default: `GeoLite2-City`, `GeoLite2-Country`) from MaxMind
+- Downloads configured editions (default: `GeoLite2-City`, `GeoLite2-Country`) from the configured `download` source
 - Uses distributed locking (lock key: `maxmind-db-update-lock`, TTL: 5 minutes)
 - If another instance holds the lock, **waits** for it (up to 2 minutes) rather than giving up
 - Reuses `.mmdb` files on disk that are less than 24 hours old instead of re-downloading
 - Automatically reloads in-memory database readers after download
 - Concurrent calls in the same process share a single run
-- Requires `licenseKey` and `accountId` in configuration
-- Throws if `skipDownloads: true`
+- Throws if no `download` source is configured
 
 :::note[Clustered deployments]
 The lock serializes instances rather than silencing them, which keeps both storage layouts correct:
@@ -309,8 +308,7 @@ The lock serializes instances rather than silencing them, which keeps both stora
 | ---- | ---- |
 | `VALIDATION_FAILED` | MaxMind configuration not provided |
 | `VALIDATION_FAILED` | `@maxmind/geoip2-node` peer dependency not installed |
-| `VALIDATION_FAILED` | `skipDownloads: true` is set in configuration |
-| `VALIDATION_FAILED` | `licenseKey` or `accountId` is missing from configuration |
+| `VALIDATION_FAILED` | No `download` source is configured |
 
 **Example**
 
@@ -403,14 +401,14 @@ export const authConfig: NAuthModuleConfig = {
   
   geoLocation: {
     maxMind: {
-      // For managed downloads
-      licenseKey: process.env.MAXMIND_LICENSE_KEY,
-      accountId: parseInt(process.env.MAXMIND_ACCOUNT_ID || '0', 10),
       dbPath: '/app/data/maxmind',
-      
-      // OR for external management
-      dbPath: '/app/data/maxmind',
-      skipDownloads: true,
+
+      // For managed downloads. Omit `download` entirely for external management.
+      download: {
+        from: 'maxmind',
+        licenseKey: process.env.MAXMIND_LICENSE_KEY,
+        accountId: Number(process.env.MAXMIND_ACCOUNT_ID),
+      },
     },
   },
 };
@@ -426,13 +424,15 @@ Best for development and single-server deployments.
 // Config
 geoLocation: {
   maxMind: {
-    licenseKey: process.env.MAXMIND_LICENSE_KEY,
-    accountId: parseInt(process.env.MAXMIND_ACCOUNT_ID || '0', 10),
-    autoDownloadOnStartup: true,
+    download: {
+      from: 'maxmind',
+      licenseKey: process.env.MAXMIND_LICENSE_KEY,
+      accountId: Number(process.env.MAXMIND_ACCOUNT_ID),
+    },
   },
 }
 
-// No additional code needed - databases auto-download on startup
+// No additional code needed - databases download during startup, which waits for them
 ```
 
 ### Pattern 2: Scheduled Updates (Production)
@@ -470,7 +470,7 @@ Best for production with external database management (geoipupdate, CI/CD).
 geoLocation: {
   maxMind: {
     dbPath: '/app/data/maxmind',
-    skipDownloads: true,
+    // No `download` block: the toolkit only loads what is already there.
   },
 }
 
