@@ -138,7 +138,7 @@ const result = await client.admin.getUsers({
 Get user by sub (UUID).
 
 ```typescript
-async getUser(sub: string): Promise<AuthUser>
+async getUser(sub: string): Promise<AuthUser | null>
 ```
 
 **Parameters**
@@ -149,7 +149,7 @@ async getUser(sub: string): Promise<AuthUser>
 
 **Returns**
 
-- [`AuthUser`](./types/auth-user) - User object
+- [`AuthUser`](./types/auth-user) `| null` - The user, or `null` when no account has that sub
 
 **Example**
 
@@ -164,7 +164,7 @@ const user = await client.admin.getUser('a21b654c-2746-4168-acee-c175083a65cd');
 Resolve a user by email address.
 
 ```typescript
-async getUserByEmail(params: GetUserByEmailRequest): Promise<AuthUser>
+async getUserByEmail(params: GetUserByEmailRequest): Promise<AuthUser | null>
 ```
 
 **Parameters**
@@ -176,7 +176,7 @@ async getUserByEmail(params: GetUserByEmailRequest): Promise<AuthUser>
 
 **Returns**
 
-- [`AuthUser`](./types/auth-user) - User object
+- [`AuthUser`](./types/auth-user) `| null` - The matching user, or `null` when no account matches
 
 **Example**
 
@@ -360,30 +360,49 @@ await client.admin.forcePasswordChange('user-uuid');
 
 ### setPassword()
 
-Set password for any user (admin operation).
+Set a user's password outright, without their involvement.
 
 ```typescript
-async setPassword(identifier: string, newPassword: string): Promise<{ success: boolean }>
+async setPassword(
+  sub: string,
+  newPassword: string,
+  options?: AdminSetPasswordOptions
+): Promise<AdminSetPasswordResponse>
 ```
 
 **Parameters**
 
-| Parameter     | Type     | Description                              |
-| ------------- | -------- | ---------------------------------------- |
-| `identifier`  | `string` | User email, username, or phone           |
-| `newPassword` | `string` | New password                             |
+| Parameter                     | Type      | Description                                                          |
+| ----------------------------- | --------- | -------------------------------------------------------------------- |
+| `sub`                         | `string`  | Target user UUID                                                      |
+| `newPassword`                 | `string`  | New password                                                          |
+| `options.mustChangePassword`  | `boolean` | Require a change at next login. Defaults to `true`                    |
+| `options.revokeSessions`      | `boolean` | Revoke the user's active sessions. Defaults to `true`                 |
 
 **Returns**
 
-| Property  | Type      | Description          |
-| --------- | --------- | -------------------- |
-| `success` | `boolean` | Success confirmation |
+| Property             | Type      | Description                                        |
+| -------------------- | --------- | -------------------------------------------------- |
+| `success`            | `boolean` | Success confirmation                                |
+| `mustChangePassword` | `boolean` | Whether the user must change the password next login |
+| `sessionsRevoked`    | `number`  | Number of sessions revoked                          |
 
 **Example**
 
 ```typescript
-await client.admin.setPassword('user@example.com', 'NewSecurePass123!');
+// Temporary password, all sessions revoked
+await client.admin.setPassword('a21b654c-2746-4168-acee-c175083a65cd', 'NewSecurePass123!');
+
+// Permanent password, sessions left alone
+await client.admin.setPassword('a21b654c-2746-4168-acee-c175083a65cd', 'NewSecurePass123!', {
+  mustChangePassword: false,
+  revokeSessions: false,
+});
 ```
+
+:::note
+Both options default to `true`, so the two-argument call already issues a temporary password and signs the user out everywhere — no follow-up [`forcePasswordChange()`](#forcepasswordchange) call is needed.
+:::
 
 ---
 
@@ -451,7 +470,7 @@ console.log('Active sessions:', result.sessions);
 Revoke one specific session of a user, leaving their other sessions alone.
 
 ```typescript
-async revokeUserSession(sub: string, sessionId: string): Promise<{ success: boolean }>
+async revokeUserSession(sub: string, sessionId: string): Promise<LogoutSessionResponse>
 ```
 
 **Parameters**
@@ -463,7 +482,10 @@ async revokeUserSession(sub: string, sessionId: string): Promise<{ success: bool
 
 **Returns**
 
-- `{ success: boolean }`
+| Property           | Type      | Description                                  |
+| ------------------ | --------- | -------------------------------------------- |
+| `success`          | `boolean` | Whether the session was revoked               |
+| `wasCurrentSession`| `boolean` | Whether that session was the caller's own     |
 
 **Example**
 
@@ -742,7 +764,7 @@ async setMfaExemption(
   sub: string,
   exempt: boolean,
   reason?: string
-): Promise<{ message: string }>
+): Promise<SetMfaExemptionResponse>
 ```
 
 **Parameters**
@@ -755,9 +777,11 @@ async setMfaExemption(
 
 **Returns**
 
-| Property  | Type     | Description      |
-| --------- | -------- | ---------------- |
-| `message` | `string` | Success message  |
+| Property             | Type             | Description                                    |
+| -------------------- | ---------------- | ---------------------------------------------- |
+| `mfaExempt`          | `boolean`        | Whether the user is now exempt from MFA         |
+| `mfaExemptReason`    | `string \| null` | Recorded reason, or `null` when not exempt      |
+| `mfaExemptGrantedAt` | `Date \| null`   | When the exemption was granted, or `null`       |
 
 **Example**
 

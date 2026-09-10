@@ -299,7 +299,7 @@ describe('AdminOperations', () => {
 
       const result = await adminOps.getUser('test-uuid');
 
-      expect(result.email).toBe('test@example.com');
+      expect(result?.email).toBe('test@example.com');
       const requests = httpAdapter.getRequests();
       expect(requests[0].url).toContain('test-uuid');
     });
@@ -394,16 +394,33 @@ describe('AdminOperations', () => {
   });
 
   describe('Password Management', () => {
-    it('should set password', async () => {
-      httpAdapter.setResponse({ success: true });
+    it('should set password by sub', async () => {
+      httpAdapter.setResponse({ success: true, mustChangePassword: true, sessionsRevoked: 3 });
 
-      const result = await adminOps.setPassword('user@example.com', 'NewPass123!');
+      const result = await adminOps.setPassword('cb69dfbc-1188-41fc-92ef-bef86e771d9d', 'NewPass123!');
 
-      expect(result.success).toBe(true);
+      expect(result).toEqual({ success: true, mustChangePassword: true, sessionsRevoked: 3 });
       const requests = httpAdapter.getRequests();
+      expect(requests[0].url).toContain('/set-password');
       expect(requests[0].body).toEqual({
-        identifier: 'user@example.com',
+        sub: 'cb69dfbc-1188-41fc-92ef-bef86e771d9d',
         newPassword: 'NewPass123!',
+      });
+    });
+
+    it('should forward set-password options without a second round-trip', async () => {
+      httpAdapter.setResponse({ success: true, mustChangePassword: false, sessionsRevoked: 0 });
+
+      await adminOps.setPassword('cb69dfbc-1188-41fc-92ef-bef86e771d9d', 'NewPass123!', {
+        mustChangePassword: false,
+        revokeSessions: false,
+      });
+
+      expect(httpAdapter.getRequests()[0].body).toEqual({
+        sub: 'cb69dfbc-1188-41fc-92ef-bef86e771d9d',
+        newPassword: 'NewPass123!',
+        mustChangePassword: false,
+        revokeSessions: false,
       });
     });
 
@@ -505,11 +522,17 @@ describe('AdminOperations', () => {
     });
 
     it('should set MFA exemption', async () => {
-      httpAdapter.setResponse({ message: 'Exemption updated' });
+      const grantedAt = new Date().toISOString();
+      httpAdapter.setResponse({
+        mfaExempt: true,
+        mfaExemptReason: 'Service account',
+        mfaExemptGrantedAt: grantedAt,
+      });
 
       const result = await adminOps.setMfaExemption('test-uuid', true, 'Service account');
 
-      expect(result.message).toBe('Exemption updated');
+      expect(result.mfaExempt).toBe(true);
+      expect(result.mfaExemptReason).toBe('Service account');
       const requests = httpAdapter.getRequests();
       expect(requests[0].body).toEqual({
         sub: 'test-uuid',
@@ -939,7 +962,7 @@ describe('AdminOperations', () => {
 
       const result = await adminOps.getUserByEmail({ email: 'user@example.com' });
 
-      expect(result.sub).toBe('test-uuid');
+      expect(result?.sub).toBe('test-uuid');
       const [request] = httpAdapter.getRequests();
       expect(request.method).toBe('GET');
       expect(request.url).toContain('/admin/users/by-email');
@@ -1124,4 +1147,227 @@ describe('AdminOperations', () => {
     });
   });
 
+
+  // ==========================================================================
+  // Wire contract
+  // ==========================================================================
+
+  /**
+   * Pins the exact request shape every admin method puts on the wire, against the
+   * property names of the core DTO that will validate it.
+   *
+   * WHY: the client and the server typecheck independently, so a field-name mismatch
+   * between them is invisible to TypeScript and shows up only as a runtime 400 that
+   * names a field the caller never sent. `setPassword` shipped broken this way - it
+   * posted `identifier` at a DTO declaring `sub`, and `whitelist: true` dropped the
+   * unknown key silently before validation failed on the missing one.
+   *
+   * These expectations are pinned, not derived: `@nauth-toolkit/client` has no
+   * dependency on `@nauth-toolkit/core` and should not gain one. Changing a core admin
+   * DTO therefore will not fail this suite on its own - the `dto` note on each case is
+   * the pointer a reviewer diffs against when a DTO moves.
+   */
+  describe('Wire contract', () => {
+    const SUB = 'cb69dfbc-1188-41fc-92ef-bef86e771d9d';
+    const KEY_ID = '6f1b9a2e-2f2e-4a1e-bc55-9e2f4c1d77aa';
+
+    interface WireCase {
+      /** Client method under test */
+      name: string;
+      /** Core DTO that validates the payload server-side */
+      dto: string;
+      /** Invoke the client method */
+      run: () => Promise<unknown>;
+      /** Expected HTTP method */
+      method: string;
+      /** Expected path, after prefixes and path-param substitution */
+      url: string;
+      /** Expected body property names, or [] for an empty body */
+      bodyKeys?: string[];
+      /** Expected query parameter names */
+      queryKeys?: string[];
+    }
+
+    const cases = (): WireCase[] => [
+      {
+        name: 'setPassword',
+        dto: 'AdminSetPasswordDTO',
+        run: () => adminOps.setPassword(SUB, 'NewPass123!'),
+        method: 'POST',
+        url: 'https://api.example.com/auth/admin/set-password',
+        bodyKeys: ['sub', 'newPassword'],
+      },
+      {
+        name: 'setPassword (with options)',
+        dto: 'AdminSetPasswordDTO',
+        run: () => adminOps.setPassword(SUB, 'NewPass123!', { mustChangePassword: false, revokeSessions: false }),
+        method: 'POST',
+        url: 'https://api.example.com/auth/admin/set-password',
+        bodyKeys: ['sub', 'newPassword', 'mustChangePassword', 'revokeSessions'],
+      },
+      {
+        name: 'initiatePasswordReset',
+        dto: 'AdminResetPasswordDTO',
+        run: () => adminOps.initiatePasswordReset({ sub: SUB, deliveryMethod: 'email' }),
+        method: 'POST',
+        url: 'https://api.example.com/auth/admin/reset-password/initiate',
+        bodyKeys: ['sub', 'deliveryMethod'],
+      },
+      {
+        name: 'forcePasswordChange',
+        dto: 'SetMustChangePasswordDTO',
+        run: () => adminOps.forcePasswordChange(SUB),
+        method: 'POST',
+        url: `https://api.example.com/auth/admin/users/${SUB}/force-password-change`,
+        bodyKeys: [],
+      },
+      {
+        name: 'disableUser',
+        dto: 'DisableUserDTO',
+        run: () => adminOps.disableUser(SUB, 'Account compromised'),
+        method: 'POST',
+        url: `https://api.example.com/auth/admin/users/${SUB}/disable`,
+        bodyKeys: ['reason'],
+      },
+      {
+        name: 'enableUser',
+        dto: 'EnableUserDTO',
+        run: () => adminOps.enableUser(SUB),
+        method: 'POST',
+        url: `https://api.example.com/auth/admin/users/${SUB}/enable`,
+        bodyKeys: [],
+      },
+      {
+        name: 'updateVerifiedStatus',
+        dto: 'UpdateVerifiedStatusRequestDTO',
+        run: () => adminOps.updateVerifiedStatus(SUB, { isEmailVerified: true }),
+        method: 'POST',
+        url: `https://api.example.com/auth/admin/users/${SUB}/verified-status`,
+        bodyKeys: ['isEmailVerified'],
+      },
+      {
+        name: 'logoutAllSessions',
+        dto: 'AdminLogoutAllDTO',
+        run: () => adminOps.logoutAllSessions(SUB, true),
+        method: 'POST',
+        url: `https://api.example.com/auth/admin/users/${SUB}/logout-all`,
+        bodyKeys: ['forgetDevices'],
+      },
+      {
+        name: 'setMfaExemption',
+        dto: 'SetMFAExemptionDTO',
+        run: () => adminOps.setMfaExemption(SUB, true, 'Service account'),
+        method: 'POST',
+        url: 'https://api.example.com/auth/admin/mfa/exemption',
+        bodyKeys: ['sub', 'exempt', 'reason'],
+      },
+      {
+        name: 'setPreferredMfaDevice',
+        dto: 'AdminSetPreferredDeviceDTO',
+        run: () => adminOps.setPreferredMfaDevice(SUB, 3),
+        method: 'POST',
+        url: `https://api.example.com/auth/admin/users/${SUB}/mfa/devices/3/preferred`,
+        bodyKeys: [],
+      },
+      {
+        name: 'removeMfaDeviceById',
+        dto: 'AdminRemoveDeviceDTO',
+        run: () => adminOps.removeMfaDeviceById(3),
+        method: 'DELETE',
+        url: 'https://api.example.com/auth/admin/mfa/devices/3',
+      },
+      {
+        name: 'getUserByEmail',
+        dto: 'GetUserByEmailDTO',
+        run: () => adminOps.getUserByEmail({ email: 'user@example.com', requireEmailVerified: true }),
+        method: 'GET',
+        url: 'https://api.example.com/auth/admin/users/by-email',
+        queryKeys: ['email', 'requireEmailVerified'],
+      },
+      {
+        name: 'getAuditHistory',
+        dto: 'AdminGetUserAuthHistoryDTO',
+        run: () => adminOps.getAuditHistory({ sub: SUB, limit: 10 }),
+        method: 'GET',
+        url: 'https://api.example.com/auth/admin/audit/history',
+        queryKeys: ['sub', 'limit'],
+      },
+      {
+        name: 'getRiskAssessmentHistory',
+        dto: 'GetRiskAssessmentHistoryDTO',
+        run: () => adminOps.getRiskAssessmentHistory({ sub: SUB, limit: 5 }),
+        method: 'GET',
+        url: 'https://api.example.com/auth/admin/audit/risk',
+        queryKeys: ['sub', 'limit'],
+      },
+      {
+        name: 'createApiKey',
+        dto: 'AdminCreateApiKeyDTO',
+        run: () => adminOps.createApiKey({ sub: SUB, name: 'CI', expiresInDays: 30 }),
+        method: 'POST',
+        url: 'https://api.example.com/auth/admin/api-keys',
+        bodyKeys: ['sub', 'name', 'expiresInDays'],
+      },
+      {
+        name: 'listApiKeys',
+        dto: 'AdminManageApiKeyDTO',
+        run: () => adminOps.listApiKeys(SUB),
+        method: 'GET',
+        url: 'https://api.example.com/auth/admin/api-keys',
+        queryKeys: ['sub'],
+      },
+      {
+        name: 'updateApiKey',
+        dto: 'AdminUpdateApiKeyDTO',
+        run: () => adminOps.updateApiKey(SUB, KEY_ID, { name: 'renamed' }),
+        method: 'PATCH',
+        url: `https://api.example.com/auth/admin/api-keys/${KEY_ID}`,
+        bodyKeys: ['sub', 'name'],
+      },
+      {
+        name: 'revokeApiKey',
+        dto: 'AdminManageApiKeyDTO',
+        run: () => adminOps.revokeApiKey(SUB, KEY_ID),
+        method: 'POST',
+        url: `https://api.example.com/auth/admin/api-keys/${KEY_ID}/revoke`,
+        bodyKeys: ['sub'],
+      },
+      {
+        name: 'deleteApiKey',
+        dto: 'AdminManageApiKeyDTO',
+        run: () => adminOps.deleteApiKey(SUB, KEY_ID),
+        method: 'DELETE',
+        url: `https://api.example.com/auth/admin/api-keys/${KEY_ID}`,
+        bodyKeys: ['sub'],
+      },
+    ];
+
+    it.each(cases())('$name sends the shape $dto validates', async (testCase: WireCase) => {
+      httpAdapter.setResponse({});
+
+      await testCase.run();
+
+      const [request] = httpAdapter.getRequests();
+      expect(request.method).toBe(testCase.method);
+
+      const [urlPath, search] = request.url.split('?');
+      expect(urlPath).toBe(testCase.url);
+
+      if (testCase.queryKeys) {
+        expect([...new URLSearchParams(search ?? '').keys()]).toEqual(testCase.queryKeys);
+      } else {
+        expect(search).toBeUndefined();
+      }
+
+      if (testCase.bodyKeys) {
+        // Keys whose value is undefined are dropped by JSON.stringify, so they never
+        // reach the server - compare against what is actually sent.
+        const body = (request.body ?? {}) as Record<string, unknown>;
+        const sentKeys = Object.keys(body).filter((key) => body[key] !== undefined);
+        expect(sentKeys).toEqual(testCase.bodyKeys);
+      } else {
+        expect(request.body).toBeUndefined();
+      }
+    });
+  });
 });

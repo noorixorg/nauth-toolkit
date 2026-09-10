@@ -5,6 +5,23 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.2] - 2026-09-10
+
+### Fixed
+
+- **`client.admin.setPassword()` never worked.** The SDK posted the target user as `identifier` while the route expects `sub`, so every call through the client failed with a 400 naming a field the caller never sent. It now sends `sub`, and accepts `mustChangePassword` / `revokeSessions` so a temporary password no longer needs a second `forcePasswordChange()` call. The server side was always correct — direct HTTP against `POST /admin/set-password` was unaffected.
+
+### Changed
+
+Breaking, and confined to `@nauth-toolkit/client` — no server, route or config change.
+
+- `admin.setPassword(sub, newPassword, options?)` — the first argument is now the target user's `sub` (UUID v4), not an email or username. Returns `{ success, mustChangePassword, sessionsRevoked }`.
+- `admin.setMfaExemption()` returns `{ mfaExempt, mfaExemptReason, mfaExemptGrantedAt }`. The declared `{ message }` was never sent by the server, so code reading `.message` was already getting `undefined`.
+- `admin.getUser()` and `admin.getUserByEmail()` return `AuthUser | null` — both answer `null` on a miss rather than throwing.
+- `admin.revokeUserSession()` returns `LogoutSessionResponse`, which adds `wasCurrentSession`.
+
+See [Admin operations](https://nauth.dev/docs/frontend-sdk/api/admin-operations) for the current signatures.
+
 ## [0.7.1] - 2026-09-09
 
 ### Removed

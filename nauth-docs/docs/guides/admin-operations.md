@@ -1247,8 +1247,14 @@ await auth.admin.enableUser('a1b2c3d4-...');
 ### Password management
 
 ```typescript
-// Set password directly
-await auth.admin.setPassword('john@example.com', 'NewSecurePass123!');
+// Set password directly (temporary, and revokes sessions, by default)
+await auth.admin.setPassword('a1b2c3d4-...', 'NewSecurePass123!');
+
+// Set a permanent password and leave sessions alone
+await auth.admin.setPassword('a1b2c3d4-...', 'NewSecurePass123!', {
+  mustChangePassword: false,
+  revokeSessions: false,
+});
 
 // Initiate password reset (sends email/SMS)
 const { destination } = await auth.admin.initiatePasswordReset({

@@ -14,6 +14,9 @@ import type {
   EnableUserResponse,
   AdminResetPasswordRequest,
   AdminResetPasswordResponse,
+  AdminSetPasswordOptions,
+  AdminSetPasswordResponse,
+  SetMfaExemptionResponse,
   GetUserSessionsResponse,
   AdminAuditHistoryRequest,
   GetUserByEmailRequest,
@@ -36,6 +39,7 @@ import type { MFAStatus, RemoveMFADeviceResponse, GetMFADevicesResponse } from '
 import type { AuditHistoryResponse } from '../types/audit.types';
 import type {
   ListTrustedDevicesResponse,
+  LogoutSessionResponse,
   RevokeAllTrustedDevicesResponse,
   RevokeTrustedDeviceResponse,
 } from '../types/auth.types';
@@ -196,17 +200,17 @@ export class AdminOperations {
    * Get user by sub (UUID)
    *
    * @param sub - User UUID
-   * @returns User object
-   * @throws {NAuthClientError} If user not found
+   * @returns The user, or null when no account has that sub
+   * @throws {NAuthClientError} If the request fails
    *
    * @example
    * ```typescript
    * const user = await client.admin.getUser('a21b654c-2746-4168-acee-c175083a65cd');
    * ```
    */
-  async getUser(sub: string): Promise<AuthUser> {
+  async getUser(sub: string): Promise<AuthUser | null> {
     const path = this.buildAdminUrl(this.adminEndpoints.getUser, { sub });
-    return this.get<AuthUser>(path);
+    return this.get<AuthUser | null>(path);
   }
 
   /**
@@ -289,21 +293,37 @@ export class AdminOperations {
   // ============================================================================
 
   /**
-   * Set password for any user (admin operation)
+   * Set a user's password outright, without their involvement.
    *
-   * @param identifier - User email, username, or phone
+   * Both options default to `true` server-side, so the plain two-argument call issues a
+   * temporary password and signs the user out everywhere. Pass `false` to keep the
+   * password permanent or to leave existing sessions alive.
+   *
+   * @param sub - Target user's external identifier (UUID v4)
    * @param newPassword - New password
-   * @returns Success confirmation
+   * @param options - Whether to force a change at next login, and whether to revoke sessions
+   * @returns Success, the resulting must-change flag, and the number of sessions revoked
    * @throws {NAuthClientError} If operation fails
    *
    * @example
    * ```typescript
-   * await client.admin.setPassword('user@example.com', 'NewSecurePass123!');
+   * // Temporary password, all sessions revoked
+   * await client.admin.setPassword('a21b654c-2746-4168-acee-c175083a65cd', 'NewSecurePass123!');
+   *
+   * // Permanent password, sessions left alone
+   * await client.admin.setPassword('a21b654c-2746-4168-acee-c175083a65cd', 'NewSecurePass123!', {
+   *   mustChangePassword: false,
+   *   revokeSessions: false,
+   * });
    * ```
    */
-  async setPassword(identifier: string, newPassword: string): Promise<{ success: boolean }> {
+  async setPassword(
+    sub: string,
+    newPassword: string,
+    options?: AdminSetPasswordOptions,
+  ): Promise<AdminSetPasswordResponse> {
     const path = this.buildAdminUrl(this.adminEndpoints.setPassword);
-    return this.post<{ success: boolean }>(path, { identifier, newPassword });
+    return this.post<AdminSetPasswordResponse>(path, { sub, newPassword, ...options });
   }
 
   /**
@@ -455,7 +475,7 @@ export class AdminOperations {
    * @param sub - User UUID
    * @param exempt - True to exempt from MFA, false to require
    * @param reason - Optional reason for exemption
-   * @returns Success message
+   * @returns The user's resulting exemption state
    * @throws {NAuthClientError} If operation fails
    *
    * @example
@@ -463,9 +483,9 @@ export class AdminOperations {
    * await client.admin.setMfaExemption('user-uuid', true, 'Service account');
    * ```
    */
-  async setMfaExemption(sub: string, exempt: boolean, reason?: string): Promise<{ message: string }> {
+  async setMfaExemption(sub: string, exempt: boolean, reason?: string): Promise<SetMfaExemptionResponse> {
     const path = this.buildAdminUrl(this.adminEndpoints.setMfaExemption);
-    return this.post<{ message: string }>(path, { sub, exempt, reason });
+    return this.post<SetMfaExemptionResponse>(path, { sub, exempt, reason });
   }
 
   // ============================================================================
@@ -503,12 +523,12 @@ export class AdminOperations {
    * `sub` wherever the caller already holds one.
    *
    * @param params - Email to look up, and whether to require a verified address
-   * @returns The matching user
+   * @returns The matching user, or null when no account matches
    */
-  async getUserByEmail(params: GetUserByEmailRequest): Promise<AuthUser> {
+  async getUserByEmail(params: GetUserByEmailRequest): Promise<AuthUser | null> {
     const path = this.buildAdminUrl(this.adminEndpoints.getUserByEmail);
     const queryString = this.buildQueryString(params as unknown as Record<string, unknown>);
-    return this.get<AuthUser>(`${path}${queryString}`);
+    return this.get<AuthUser | null>(`${path}${queryString}`);
   }
 
   /**
@@ -547,11 +567,11 @@ export class AdminOperations {
    *
    * @param sub - Target user's external identifier
    * @param sessionId - Session to revoke
-   * @returns Whether the session was revoked
+   * @returns Whether the session was revoked, and whether it was the caller's own
    */
-  async revokeUserSession(sub: string, sessionId: string): Promise<{ success: boolean }> {
+  async revokeUserSession(sub: string, sessionId: string): Promise<LogoutSessionResponse> {
     const path = this.buildAdminUrl(this.adminEndpoints.revokeUserSession, { sub, sessionId });
-    return this.delete<{ success: boolean }>(path);
+    return this.delete<LogoutSessionResponse>(path);
   }
 
   /**

@@ -774,3 +774,40 @@ export interface GetRiskAssessmentHistoryRequest {
   /** Maximum number of assessments to return */
   limit?: number;
 }
+
+/**
+ * Options for an admin-set password.
+ *
+ * Both flags default to `true` on the server, so omitting them issues a temporary
+ * password and signs the user out everywhere. Pass `false` to opt out.
+ */
+export interface AdminSetPasswordOptions {
+  /** Require the user to choose a new password at next login. Server default: `true` */
+  mustChangePassword?: boolean;
+  /** Revoke the user's active sessions. Server default: `true` */
+  revokeSessions?: boolean;
+}
+
+/**
+ * Response for an admin-set password.
+ */
+export interface AdminSetPasswordResponse {
+  /** Success indicator */
+  success: boolean;
+  /** Whether the user must change the password at next login */
+  mustChangePassword: boolean;
+  /** Number of sessions revoked */
+  sessionsRevoked: number;
+}
+
+/**
+ * Response for a change to a user's MFA exemption.
+ */
+export interface SetMfaExemptionResponse {
+  /** Whether the user is now exempt from MFA */
+  mfaExempt: boolean;
+  /** Recorded reason for the exemption, or null when not exempt */
+  mfaExemptReason: string | null;
+  /** When the exemption was granted, or null when not exempt */
+  mfaExemptGrantedAt: Date | null;
+}
