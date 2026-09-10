@@ -5,6 +5,21 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.4] - 2026-09-10
+
+### Fixed
+
+- **`POST /auth/social/set-password` returned 500 on every NestJS deployment.** The NestJS module built `SocialAuthService` with a `null` `AuthService` to dodge a circular dependency, and the route's handler needs it — so social-only users could never set a password. Express and Fastify were unaffected. The cycle was phantom: `AuthService` declares a `socialAuthService` parameter it never reads, so the dependency now runs one way and the real instance is injected.
+- **Adaptive MFA: `suspicious_activity` could never clear.** The risk assessment writes its own verdict as a `SUSPICIOUS` audit event, and the next assessment read that back as evidence. One genuinely risky sign-in pinned a user indefinitely, because every later sign-in re-derived the factor from its own previous output and refreshed the lookback window. The assessment's own event type is now excluded.
+- **Adaptive MFA: `new_ip` could never fire.** The current attempt's `LOGIN_ATTEMPT` audit row is written before risk detection runs, and the IP lookup searched every event type — so it always found the row it had just written. The lookup now considers only events marking a completed login.
+- **Adaptive MFA: a partial `riskWeights` silently disabled every other factor.** The config replaced the defaults rather than merging over them, so tuning one weight dropped `impossible_travel`, `new_country` and the rest to zero. `riskLevels` already merged per key; weights now match.
+- **`RiskScoringService.getRiskLevel()` ignored configured thresholds**, returning levels that disagreed with the actions actually taken. It now reads `mfa.adaptive.riskLevels`.
+
+### Changed
+
+- **`suspicious_activity` now records why it fired.** Detection returns `{ reason, detail, windowHours }` — naming the audit row or the failure count — and logs at `warn` instead of leaving operators to guess between a real security event and three mistyped passwords.
+- **Geolocation gaps are no longer silent.** Every location factor is gated on a resolved country, so a failing MaxMind database quietly reduced adaptive MFA to device-only. Startup-independent: a sign-in with no geolocation now warns that `new_country` and `impossible_travel` could not be evaluated.
+
 ## [0.7.3] - 2026-09-10
 
 ### Changed

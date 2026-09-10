@@ -291,6 +291,35 @@ describe('RiskDetectionService', () => {
       expect(factors).toContain(RiskFactor.NEW_IP);
     });
 
+    it('ignores the current attempt\'s own LOGIN_ATTEMPT row when judging the IP', async () => {
+      mockTrustedDeviceService.isDeviceTrusted.mockResolvedValueOnce(false);
+      mockSessionRepository.findOne
+        .mockResolvedValueOnce({ id: 1 } as any) // Device exists
+        .mockResolvedValueOnce({ id: 1 } as any) // Country exists
+        .mockResolvedValueOnce(null) // No previous session for impossible_travel
+        .mockResolvedValueOnce(null); // IP not in sessions
+      mockAuditRepository.findOne.mockResolvedValueOnce(null); // isNewIp: no historical login from this IP
+      mockAuditRepository.findOne.mockResolvedValueOnce(null); // No suspicious activity
+      mockAuditRepository.find.mockResolvedValueOnce([]); // No failed logins
+
+      const factors = await service.detectRiskFactors(mockUser, mockClientInfo);
+
+      expect(factors).toContain(RiskFactor.NEW_IP);
+
+      // WHY: auth.service writes and awaits a LOGIN_ATTEMPT row carrying this IP before
+      // risk detection runs. An unfiltered audit lookup therefore always found the row
+      // it had just written, and new_ip could never fire in any deployment. The lookup
+      // must restrict itself to event types that mark a COMPLETED login.
+      const ipLookups = mockAuditRepository.findOne.mock.calls
+        .map((call) => (call[0] as { where?: Record<string, unknown> })?.where)
+        .filter((where): where is Record<string, unknown> => where?.ipAddress !== undefined);
+
+      expect(ipLookups.length).toBeGreaterThan(0);
+      for (const where of ipLookups) {
+        expect(where.eventType).toBeDefined();
+      }
+    });
+
     it('should not detect new IP when IP seen in sessions', async () => {
       // Trusted device check
       mockTrustedDeviceService.isDeviceTrusted.mockResolvedValueOnce(false);
@@ -1011,7 +1040,12 @@ describe('RiskDetectionService', () => {
       // Note: isNewIp short-circuits when IP found in sessions, so no audit check for IP
       mockAuditRepository.findOne
         .mockResolvedValueOnce(null) // detectImpossibleTravel: no previous login in audit (we already have null from sessions)
-        .mockResolvedValueOnce({ id: 1, eventStatus: 'SUSPICIOUS' } as any); // detectSuspiciousActivity: suspicious events found
+        .mockResolvedValueOnce({
+          id: 1,
+          eventStatus: 'SUSPICIOUS',
+          eventType: 'SUSPICIOUS_ACTIVITY',
+          createdAt: new Date(),
+        } as any); // detectSuspiciousActivity: suspicious events found
       // detectSuspiciousActivity checks failed logins only if suspicious events not found
       // Since we're returning a suspicious event, the find call should NOT happen
       // But we'll mock it anyway to be safe (it won't be called if the code is correct)
@@ -1020,6 +1054,32 @@ describe('RiskDetectionService', () => {
       const factors = await service.detectRiskFactors(mockUser, clientInfoComplete);
 
       expect(factors).toContain(RiskFactor.SUSPICIOUS_ACTIVITY);
+    });
+
+    it('ignores its own ADAPTIVE_MFA_RISK_ASSESSED verdict as evidence', async () => {
+      mockSessionRepository.findOne
+        .mockResolvedValueOnce({ id: 1 } as any) // Device exists
+        .mockResolvedValueOnce({ id: 1 } as any) // Country exists
+        .mockResolvedValueOnce(null); // No previous session
+      mockAuditRepository.findOne.mockResolvedValueOnce(null); // impossible_travel: none
+      // The suspicious-event lookup must exclude ADAPTIVE_MFA_RISK_ASSESSED, so it finds
+      // nothing here even though such a row exists for this user.
+      mockAuditRepository.findOne.mockResolvedValueOnce(null);
+      mockAuditRepository.find.mockResolvedValueOnce([]); // no failed logins
+
+      const factors = await service.detectRiskFactors(mockUser, mockClientInfo);
+
+      expect(factors).not.toContain(RiskFactor.SUSPICIOUS_ACTIVITY);
+
+      // WHY: without the exclusion the factor feeds itself - the assessment writes a
+      // SUSPICIOUS row, the next assessment reads it back, and the window refreshes on
+      // every sign-in so it never ages out.
+      const lookups = mockAuditRepository.findOne.mock.calls
+        .map((call) => (call[0] as { where?: Record<string, unknown> })?.where)
+        .filter((where): where is Record<string, unknown> => where?.eventStatus === 'SUSPICIOUS');
+
+      expect(lookups).toHaveLength(1);
+      expect(lookups[0].eventType).toBeDefined();
     });
 
     it('should detect suspicious_activity when 3+ failed logins in last hour', async () => {

@@ -1129,7 +1129,6 @@ export class AuthModule {
             mfaDeviceRepository?: Repository<BaseMFADevice>,
             trustedDeviceService?: TrustedDeviceService,
             passwordResetService?: PasswordResetService,
-            socialAuthService?: SocialAuthService, // Optional - only available when social auth is configured
             sessionRepository?: Repository<BaseSession>, // Optional - for cascade deletion
             verificationTokenRepository?: Repository<BaseVerificationToken>, // Optional - for cascade deletion
             socialAccountRepository?: Repository<BaseSocialAccount>, // Optional - for cascade deletion
@@ -1157,7 +1156,11 @@ export class AuthModule {
               mfaDeviceRepository,
               trustedDeviceService,
               passwordResetService,
-              socialAuthService,
+              // AuthService declares a socialAuthService parameter it never reads. Passing
+              // undefined breaks the DI cycle that forced SocialAuthService to be built
+              // with a null AuthService - which made POST /auth/social/set-password fail
+              // with "AuthService is not available" on every NestJS deployment.
+              undefined,
               sessionRepository,
               verificationTokenRepository,
               socialAccountRepository,
@@ -1186,7 +1189,6 @@ export class AuthModule {
             { token: 'MFADeviceRepository', optional: true },
             { token: TrustedDeviceService, optional: true },
             { token: PasswordResetService, optional: true },
-            { token: SocialAuthService, optional: true }, // Optional - only available when social auth is configured
             { token: 'SessionRepository', optional: true }, // Optional - for cascade deletion
             { token: 'VerificationTokenRepository', optional: true }, // Optional - for cascade deletion
             { token: 'SocialAccountRepository', optional: true }, // Optional - for cascade deletion
@@ -1296,13 +1298,17 @@ export class AuthModule {
             userRepository: Repository<BaseUser>,
             socialAccountRepository: Repository<BaseSocialAccount>,
             logger: NAuthLogger,
+            authService: AuthService,
             auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
           ) => {
             return new SocialAuthService(
               providerRegistry,
               userRepository,
               socialAccountRepository,
-              null, // Don't inject AuthService to avoid circular dependency
+              // setPasswordForSocialUser() delegates to AuthService.changePassword(), so
+              // this has to be the real instance. No cycle results: AuthService never
+              // reads the socialAuthService parameter it declares.
+              authService,
               logger,
               auditService,
             );
@@ -1312,6 +1318,7 @@ export class AuthModule {
             'UserRepository',
             'SocialAccountRepository',
             'NAUTH_LOGGER',
+            AuthService,
             { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
           ],
         },

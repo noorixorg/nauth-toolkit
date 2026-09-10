@@ -447,7 +447,9 @@ export function initServices(
     repositories.mfaDeviceRepository,
     trustedDeviceService,
     passwordResetService,
-    undefined, // socialAuthService - will be set later
+    // socialAuthService: never passed, and never needed - AuthService declares the
+    // parameter but reads it nowhere. SocialAuthService takes the real AuthService below.
+    undefined,
     repositories.sessionRepository,
     repositories.verificationTokenRepository,
     repositories.socialAccountRepository,

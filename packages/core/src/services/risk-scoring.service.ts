@@ -82,12 +82,18 @@ export class RiskScoringService {
    * @example
    * ```typescript
    * const score = riskScoringService.calculateRiskScore(['new_device', 'new_country']);
-   * // Returns: 45 (20 + 25)
+   * // Returns: 50 (25 + 25)
    * ```
    */
   calculateRiskScore(riskFactors: RiskFactor[]): number {
-    // Get weights from config or use defaults
-    const weights = this.config.mfa?.adaptive?.riskWeights || this.defaultWeights;
+    // Merge over the defaults rather than replacing them.
+    //
+    // Replacing meant a config that tuned one weight silently dropped every other
+    // factor to zero - they resolved to undefined, logged as "unknown", and stopped
+    // contributing. Someone lowering `new_device` would have turned off
+    // impossible_travel detection without any indication. `riskLevels` already merges
+    // per key; this now matches.
+    const weights = { ...this.defaultWeights, ...(this.config.mfa?.adaptive?.riskWeights ?? {}) };
 
     let score = 0;
     for (const factor of riskFactors) {
@@ -122,10 +128,15 @@ export class RiskScoringService {
    * ```
    */
   getRiskLevel(score: number): 'low' | 'medium' | 'high' {
-    if (score <= 20) {
+    // Read the same configured thresholds the decision service applies. Hardcoding
+    // 20/50 here meant a consumer who moved the bands got a level from this method that
+    // disagreed with the action actually taken.
+    const riskLevels = this.config.mfa?.adaptive?.riskLevels;
+
+    if (score <= (riskLevels?.low?.maxScore ?? 20)) {
       return 'low';
     }
-    if (score <= 50) {
+    if (score <= (riskLevels?.medium?.maxScore ?? 50)) {
       return 'medium';
     }
     return 'high';

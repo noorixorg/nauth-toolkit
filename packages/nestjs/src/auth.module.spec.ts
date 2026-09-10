@@ -8,7 +8,7 @@
  */
 
 import { AuthModule } from './auth.module';
-import { NAuthConfig, NAuthException, AuthErrorCode } from '@nauth-toolkit/core';
+import { NAuthConfig, NAuthException, AuthErrorCode, AuthService, SocialAuthService } from '@nauth-toolkit/core';
 
 describe('AuthModule', () => {
   let mockConfig: NAuthConfig;
@@ -82,6 +82,54 @@ describe('AuthModule', () => {
         emailProvider: mockConfig.emailProvider,
       } as NAuthConfig;
       expect(() => AuthModule.forRoot(invalidConfig)).toThrow();
+    });
+  });
+
+  describe('social auth wiring', () => {
+    /** Find a factory provider in the module by the token it provides. */
+    const findProvider = (
+      providers: unknown[],
+      token: unknown,
+    ): { inject?: unknown[]; useFactory?: (...args: unknown[]) => unknown } | undefined =>
+      providers.find(
+        (provider): provider is { provide: unknown; inject?: unknown[] } =>
+          typeof provider === 'object' && provider !== null && (provider as { provide?: unknown }).provide === token,
+      );
+
+    it('injects the real AuthService into SocialAuthService', () => {
+      const module = AuthModule.forRoot({
+        ...mockConfig,
+        social: {
+          redirect: { frontendBaseUrl: 'https://app.example.com' },
+          google: { enabled: true, clientId: 'id', clientSecret: 'secret' },
+        },
+      } as NAuthConfig);
+
+      const socialProvider = findProvider(module.providers ?? [], SocialAuthService);
+
+      expect(socialProvider).toBeDefined();
+      // WHY: SocialAuthService.setPasswordForSocialUser() delegates to
+      // AuthService.changePassword(). Built with null - as it was to dodge a DI cycle -
+      // POST /auth/social/set-password answered 500 "AuthService is not available" on
+      // every NestJS deployment, while Express and Fastify worked.
+      expect(socialProvider?.inject).toContain(AuthService);
+    });
+
+    it('does not inject SocialAuthService back into AuthService', () => {
+      const module = AuthModule.forRoot({
+        ...mockConfig,
+        social: {
+          redirect: { frontendBaseUrl: 'https://app.example.com' },
+          google: { enabled: true, clientId: 'id', clientSecret: 'secret' },
+        },
+      } as NAuthConfig);
+
+      const authProvider = findProvider(module.providers ?? [], AuthService);
+
+      expect(authProvider).toBeDefined();
+      // The reverse edge is what made the cycle. AuthService declares the parameter but
+      // never reads it, so re-adding this would break social set-password again.
+      expect(authProvider?.inject).not.toContain(SocialAuthService);
     });
   });
 });

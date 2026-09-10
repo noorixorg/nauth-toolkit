@@ -201,4 +201,54 @@ describe('RiskScoringService', () => {
       expect(level).toBe('medium');
     });
   });
+
+  // ==========================================================================
+  // Config merging
+  // ==========================================================================
+
+  describe('config merging', () => {
+    /** Build a service whose adaptive config is the given fragment. */
+    const withAdaptive = (adaptive: Record<string, unknown>): RiskScoringService =>
+      new RiskScoringService({ ...mockConfig, mfa: { adaptive } } as any, mockLogger);
+
+    it('merges a partial riskWeights over the defaults instead of replacing them', () => {
+      const service = withAdaptive({ riskWeights: { new_device: 10 } });
+
+      // The overridden weight applies...
+      expect(service.calculateRiskScore([RiskFactor.NEW_DEVICE])).toBe(10);
+      // ...and every factor the config did not mention keeps its default.
+      expect(service.calculateRiskScore([RiskFactor.IMPOSSIBLE_TRAVEL])).toBe(40);
+      expect(service.calculateRiskScore([RiskFactor.NEW_COUNTRY])).toBe(25);
+      expect(service.calculateRiskScore([RiskFactor.SUSPICIOUS_ACTIVITY])).toBe(30);
+    });
+
+    it('does not log unmentioned factors as unknown', () => {
+      const service = withAdaptive({ riskWeights: { new_device: 10 } });
+
+      service.calculateRiskScore([RiskFactor.IMPOSSIBLE_TRAVEL]);
+
+      expect(mockLogger.warn).not.toHaveBeenCalled();
+    });
+
+    it('classifies levels using the configured thresholds', () => {
+      const service = withAdaptive({
+        riskLevels: {
+          low: { maxScore: 40 },
+          medium: { maxScore: 70 },
+          high: { maxScore: 100 },
+        },
+      });
+
+      // Scores that would be medium and high under the defaults.
+      expect(service.getRiskLevel(30)).toBe('low');
+      expect(service.getRiskLevel(60)).toBe('medium');
+      expect(service.getRiskLevel(80)).toBe('high');
+    });
+
+    it('falls back to the default bands when riskLevels is absent', () => {
+      expect(service.getRiskLevel(20)).toBe('low');
+      expect(service.getRiskLevel(50)).toBe('medium');
+      expect(service.getRiskLevel(51)).toBe('high');
+    });
+  });
 });

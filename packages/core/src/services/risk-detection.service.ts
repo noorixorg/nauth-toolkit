@@ -1,4 +1,4 @@
-import { Repository, IsNull, Not, MoreThan } from 'typeorm';
+import { Repository, IsNull, Not, MoreThan, In } from 'typeorm';
 import { IUser, ISession } from '../interfaces/entities.interface';
 import { BaseSession, BaseAuthAudit } from '../entities';
 import { ClientInfo } from '../interfaces/client-info.interface';
@@ -6,6 +6,33 @@ import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { RiskFactor } from '../enums/risk-factor.enum';
+
+/**
+ * Why {@link RiskDetectionService} judged an account's recent activity suspicious.
+ *
+ * `suspicious_activity` carries a heavy default weight, so the evidence behind it is
+ * recorded rather than reduced to a boolean - an operator looking at a blocked sign-in
+ * needs to tell a real security event from three fat-fingered passwords.
+ */
+/**
+ * Audit event types that record a login that actually completed.
+ *
+ * `isNewIp` consults these only. The current request's own `LOGIN_ATTEMPT` row is
+ * written before risk detection runs, so treating every event type as history made the
+ * check self-referential.
+ */
+const HISTORICAL_LOGIN_EVENT_TYPES = [AuthAuditEventType.LOGIN_SUCCESS, AuthAuditEventType.SESSION_CREATED];
+
+export interface SuspiciousActivityEvidence {
+  /** Whether recent activity was judged suspicious */
+  suspicious: boolean;
+  /** Which check fired: a prior suspicious audit event, or repeated login failures */
+  reason?: 'suspicious_event' | 'failed_logins';
+  /** Human-readable evidence, naming the audit row or the failure count */
+  detail?: string;
+  /** The lookback window applied, in hours */
+  windowHours?: number;
+}
 
 /**
  * Risk Detection Service
@@ -146,6 +173,23 @@ export class RiskDetectionService {
       }
 
       // ============================================================================
+      // Geolocation Availability Check
+      // ============================================================================
+      // Every location factor is gated on ipCountry, so when geolocation resolves
+      // nothing they all silently skip and adaptive MFA quietly degrades to
+      // device-only. Say so rather than letting the degradation go unnoticed.
+      if (
+        (enabledTriggers.includes(RiskFactor.NEW_COUNTRY) || enabledTriggers.includes(RiskFactor.IMPOSSIBLE_TRAVEL)) &&
+        !clientInfo.ipCountry
+      ) {
+        this.logger?.warn?.(
+          `No geolocation data for user ${user.sub} (ip=${clientInfo.ipAddress ?? 'unknown'}). ` +
+            `new_country and impossible_travel cannot be evaluated for this sign-in. ` +
+            `Check that the MaxMind database is loaded.`,
+        );
+      }
+
+      // ============================================================================
       // Location Data Completeness Check
       // ============================================================================
       // Add risk factor if location data is incomplete (missing city or coordinates) when country exists
@@ -196,10 +240,15 @@ export class RiskDetectionService {
       // ============================================================================
       // Check suspicious_activity
       if (enabledTriggers.includes(RiskFactor.SUSPICIOUS_ACTIVITY)) {
-        const isSuspicious = await this.detectSuspiciousActivity(user.id);
-        if (isSuspicious) {
+        const suspicious = await this.detectSuspiciousActivity(user.id);
+        if (suspicious.suspicious) {
           factors.push(RiskFactor.SUSPICIOUS_ACTIVITY);
-          this.logger?.debug?.(`Suspicious activity detected for user ${user.sub}`);
+          // Logged at warn, with the evidence: this factor carries the heaviest default
+          // weight after impossible_travel, and without the reason an operator cannot
+          // tell a real security event from a stale one.
+          this.logger?.warn?.(
+            `Suspicious activity detected for user ${user.sub}: ${suspicious.reason} (${suspicious.detail})`,
+          );
         }
       }
 
@@ -385,16 +434,23 @@ export class RiskDetectionService {
         return false; // IP seen in sessions
       }
 
-      // Check audit trail for older data (only if not found in sessions)
+      // Check audit trail for older data (only if not found in sessions).
+      //
+      // Restricted to event types that mark a COMPLETED login. LOGIN_ATTEMPT is written
+      // and awaited for the current request before risk detection runs, so a broader
+      // query always found the row it had just written and `new_ip` could never fire in
+      // any deployment. Filtering positively - rather than excluding LOGIN_ATTEMPT -
+      // keeps that true if another pre-assessment event type is added later.
+      const historicalLogin = { userId, eventType: In(HISTORICAL_LOGIN_EVENT_TYPES) };
       const seenInAudit =
         (await this.auditRepository.findOne({
           select: ['id'],
-          where: { userId, ipAddress: normalizedIp },
+          where: { ...historicalLogin, ipAddress: normalizedIp },
         })) ||
         (normalizedIp !== ipAddress &&
           (await this.auditRepository.findOne({
             select: ['id'],
-            where: { userId, ipAddress },
+            where: { ...historicalLogin, ipAddress },
           })));
 
       return !seenInAudit;
@@ -997,35 +1053,66 @@ export class RiskDetectionService {
    * @returns True if suspicious activity detected
    * @private
    */
-  private async detectSuspiciousActivity(userId: number): Promise<boolean> {
+  private async detectSuspiciousActivity(userId: number): Promise<SuspiciousActivityEvidence> {
     try {
       const windowHours = this.config.mfa?.adaptive?.suspiciousActivityWindow || 1;
-      const oneHourAgo = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+      const windowStart = new Date(Date.now() - windowHours * 60 * 60 * 1000);
 
-      // Check for recent suspicious audit events (existence only)
-      const hasSuspicious = await this.auditRepository.findOne({
-        select: ['id'],
-        where: { userId, eventStatus: 'SUSPICIOUS', createdAt: MoreThan(oneHourAgo) },
+      // Check for recent suspicious audit events.
+      //
+      // ADAPTIVE_MFA_RISK_ASSESSED is excluded deliberately. That row is this
+      // assessment's own OUTPUT, and it is written with eventStatus 'SUSPICIOUS'
+      // whenever the factors include SUSPICIOUS_ACTIVITY. Counting it as evidence made
+      // the factor self-sustaining: one genuinely risky sign-in flagged the user, and
+      // every later sign-in then re-derived the flag from its own previous verdict,
+      // refreshing the window each time so it never aged out.
+      const suspiciousEvent = await this.auditRepository.findOne({
+        select: ['id', 'eventType', 'createdAt'],
+        where: {
+          userId,
+          eventStatus: 'SUSPICIOUS',
+          eventType: Not(AuthAuditEventType.ADAPTIVE_MFA_RISK_ASSESSED),
+          createdAt: MoreThan(windowStart),
+        },
+        order: { createdAt: 'DESC' },
       });
 
-      if (hasSuspicious) {
-        return true;
+      if (suspiciousEvent) {
+        // Build the detail defensively: a malformed row must not throw into the catch
+        // below, which would silently downgrade a real signal to "not suspicious".
+        const occurredAt =
+          suspiciousEvent.createdAt instanceof Date ? suspiciousEvent.createdAt.toISOString() : 'unknown time';
+        return {
+          suspicious: true,
+          reason: 'suspicious_event',
+          detail: `${suspiciousEvent.eventType ?? 'unknown event'} audit event #${suspiciousEvent.id} at ${occurredAt}`,
+          windowHours,
+        };
       }
 
-      // Check for failed login attempts (3+ in last hour) using limited IDs
+      // Check for failed login attempts (3+ in the window) using limited IDs
       const failedLogins = await this.auditRepository.find({
         select: ['id'],
-        where: { userId, eventType: AuthAuditEventType.LOGIN_FAILED, createdAt: MoreThan(oneHourAgo) },
+        where: { userId, eventType: AuthAuditEventType.LOGIN_FAILED, createdAt: MoreThan(windowStart) },
         order: { createdAt: 'DESC' },
         take: 3,
       });
 
-      return failedLogins.length >= 3;
+      if (failedLogins.length >= 3) {
+        return {
+          suspicious: true,
+          reason: 'failed_logins',
+          detail: `${failedLogins.length} failed login attempts in the last ${windowHours}h`,
+          windowHours,
+        };
+      }
+
+      return { suspicious: false };
     } catch (error) {
       // Non-blocking: Log and assume not suspicious (safer default)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.logger?.warn?.(`Failed to detect suspicious activity: ${errorMessage}`, { error, userId });
-      return false; // Assume not suspicious on error
+      return { suspicious: false }; // Assume not suspicious on error
     }
   }
 }

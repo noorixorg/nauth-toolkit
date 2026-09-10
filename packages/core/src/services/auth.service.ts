@@ -148,7 +148,13 @@ export class AuthService {
     private readonly mfaDeviceRepository?: Repository<BaseMFADevice>, // Optional - available when MFA modules are imported
     private readonly trustedDeviceService?: TrustedDeviceService, // Optional - only available when rememberDevices is not 'never'
     private readonly passwordResetService?: PasswordResetService, // Optional - only available when configured by framework adapter
-    private readonly socialAuthService?: SocialAuthService, // Optional - only available when social auth is configured
+    /**
+     * @deprecated Unused. Nothing in this class reads it, and wiring it created a DI
+     * cycle that left SocialAuthService holding a null AuthService on NestJS, breaking
+     * `POST /auth/social/set-password`. The dependency runs one way: SocialAuthService
+     * depends on AuthService. Slated for removal in the next major.
+     */
+    private readonly socialAuthService?: SocialAuthService,
     private readonly sessionRepository?: Repository<BaseSession>, // Optional - for cascade deletion
     private readonly verificationTokenRepository?: Repository<BaseVerificationToken>, // Optional - for cascade deletion
     private readonly socialAccountRepository?: Repository<BaseSocialAccount>, // Optional - for cascade deletion
