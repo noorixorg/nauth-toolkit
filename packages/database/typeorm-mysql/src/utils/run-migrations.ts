@@ -40,6 +40,12 @@ function getMigrationsTableName(config: NAuthConfig): string {
  * This function only reads connection options and never modifies the consumer's DataSource.
  * It supports both connection URL and individual connection parameters.
  *
+ * `ssl` and `socketPath` are copied along with the credentials. The migration DataSource
+ * opens its own mysql2 pool, so anything omitted here is simply absent from that connection:
+ * without `ssl` the migration run would connect unencrypted even though the consumer's own
+ * pool is encrypted (servers that require TLS reject it), and without `socketPath` a
+ * socket-only consumer would fall back to a TCP connection that may not exist.
+ *
  * @param dataSource - Consumer's DataSource instance
  * @returns Connection configuration object
  */
@@ -51,6 +57,8 @@ function extractConnectionConfig(dataSource: DataSource): {
   username?: string;
   password?: string;
   database?: string;
+  socketPath?: string;
+  ssl?: unknown;
   extra?: unknown;
 } {
   const options = dataSource.options;
@@ -61,6 +69,8 @@ function extractConnectionConfig(dataSource: DataSource): {
     username?: string;
     password?: string;
     database?: string;
+    socketPath?: string;
+    ssl?: unknown;
     extra?: unknown;
   };
 
@@ -69,6 +79,7 @@ function extractConnectionConfig(dataSource: DataSource): {
     return {
       type: 'mysql',
       url: opts.url,
+      ssl: opts.ssl,
       extra: opts.extra,
     };
   }
@@ -81,6 +92,8 @@ function extractConnectionConfig(dataSource: DataSource): {
     username: opts.username,
     password: opts.password,
     database: opts.database,
+    socketPath: opts.socketPath,
+    ssl: opts.ssl,
     extra: opts.extra,
   };
 }

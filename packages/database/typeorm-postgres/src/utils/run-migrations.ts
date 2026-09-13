@@ -1,3 +1,4 @@
+import type { TlsOptions } from 'tls';
 import { DataSource } from 'typeorm';
 import type { NAuthConfig, NAuthLogger } from '@nauth-toolkit/core';
 import { migrations } from '../migrations';
@@ -40,6 +41,13 @@ function getMigrationsTableName(config: NAuthConfig): string {
  * This function only reads connection options and never modifies the consumer's DataSource.
  * It supports both connection URL and individual connection parameters.
  *
+ * `ssl` and `schema` are copied along with the credentials. The migration DataSource opens
+ * its own pg pool, so anything omitted here is simply absent from that connection: without
+ * `ssl` the migration run would connect unencrypted even though the consumer's own pool is
+ * encrypted (servers configured to require TLS reject it), and without `schema` the nauth
+ * tables would be created in the default schema while the consumer's DataSource reads them
+ * from its own.
+ *
  * @param dataSource - Consumer's DataSource instance
  * @returns Connection configuration object
  */
@@ -51,6 +59,8 @@ function extractConnectionConfig(dataSource: DataSource): {
   username?: string;
   password?: string;
   database?: string;
+  schema?: string;
+  ssl?: boolean | TlsOptions;
   extra?: unknown;
 } {
   const options = dataSource.options;
@@ -61,6 +71,8 @@ function extractConnectionConfig(dataSource: DataSource): {
     username?: string;
     password?: string;
     database?: string;
+    schema?: string;
+    ssl?: boolean | TlsOptions;
     extra?: unknown;
   };
 
@@ -69,6 +81,8 @@ function extractConnectionConfig(dataSource: DataSource): {
     return {
       type: 'postgres',
       url: opts.url,
+      schema: opts.schema,
+      ssl: opts.ssl,
       extra: opts.extra,
     };
   }
@@ -81,6 +95,8 @@ function extractConnectionConfig(dataSource: DataSource): {
     username: opts.username,
     password: opts.password,
     database: opts.database,
+    schema: opts.schema,
+    ssl: opts.ssl,
     extra: opts.extra,
   };
 }

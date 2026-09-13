@@ -195,7 +195,7 @@ const nauth = await NAuth.create({
 
 ## Migrations
 
-nauth-toolkit owns its own migration table (`<tablePrefix>migrations`, default `nauth_migrations`) and applies pending migrations during `NAuth.create()` / module bootstrap. It uses a dedicated `DataSource` built from your connection settings, so your own migrations are never touched.
+nauth-toolkit owns its own migration table (`<tablePrefix>migrations`, default `nauth_migrations`) and applies pending migrations during `NAuth.create()` / module bootstrap. It uses a dedicated `DataSource` built from your connection settings, so your own migrations are never touched. It copies your credentials along with `schema`, `ssl` and `extra`, so migrations run over the same TLS settings and against the same schema as your own pool.
 
 ### Parallel container starts
 

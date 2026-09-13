@@ -5,6 +5,15 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.5] - 2026-09-13
+
+### Fixed
+
+- **nauth migrations connected to your database without TLS.** The isolated migration `DataSource` copied your credentials but not `ssl`, so on both Postgres and MySQL the schema run opened an unencrypted connection whatever your own pool was configured with — silently, unless the server refuses plaintext, in which case the app failed at boot with an error naming a pool you never created. `ssl` is now carried across in both the individual-parameter and connection-URL forms.
+- **Two more connection options were dropped the same way**: `schema` on Postgres (nauth tables landed in the search-path default while your DataSource read them from your schema) and `socketPath` on MySQL (a socket-only consumer fell back to TCP).
+
+See the [v0.7.5 changelog](https://nauth.dev/changelog/v0.7.5) for detail.
+
 ## [0.7.4] - 2026-09-10
 
 ### Fixed
