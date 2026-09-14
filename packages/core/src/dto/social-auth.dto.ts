@@ -357,7 +357,9 @@ export class VerifyTokenDTO {
     if (typeof value === 'string') return value.trim().toLowerCase();
     return value;
   })
-  @IsIn(['google', 'apple', 'facebook'], { message: 'provider must be one of: google, apple, facebook' })
+  @IsIn(['google', 'apple', 'facebook', 'microsoft'], {
+    message: 'provider must be one of: google, apple, facebook, microsoft',
+  })
   provider!: string;
 
   /**

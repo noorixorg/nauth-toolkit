@@ -92,6 +92,7 @@ const sidebars: SidebarsConfig = {
             { type: 'doc', id: 'guides/social/google', customProps: { icon: 'fa-brands fa-google' } },
             { type: 'doc', id: 'guides/social/apple', customProps: { icon: 'fa-brands fa-apple' } },
             { type: 'doc', id: 'guides/social/facebook', customProps: { icon: 'fa-brands fa-facebook-f' } },
+            { type: 'doc', id: 'guides/social/microsoft', customProps: { icon: 'fa-brands fa-microsoft' } },
           ],
         },
         {

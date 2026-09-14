@@ -403,6 +403,18 @@ export const appleSocialProviderConfigSchema = socialProviderConfigSchema.omit({
   privateKeyPem: z.string().optional(),
 });
 
+/**
+ * Microsoft Entra ID social provider configuration schema
+ *
+ * Adds the tenant selector and the access-gate fields on top of the shared shape.
+ */
+export const microsoftSocialProviderConfigSchema = socialProviderConfigSchema.extend({
+  tenant: z.string().optional(),
+  allowedTenants: z.array(z.string()).optional(),
+  requiredRoles: z.array(z.string()).optional(),
+  requiredGroups: z.array(z.string()).optional(),
+});
+
 export const socialRedirectConfigSchema = z.object({
   frontendBaseUrl: z.string().optional(),
   allowAbsoluteReturnTo: z.boolean().optional(),
@@ -413,6 +425,7 @@ export const socialConfigSchema = z.object({
   google: socialProviderConfigSchema.optional(),
   apple: appleSocialProviderConfigSchema.optional(),
   facebook: socialProviderConfigSchema.optional(),
+  microsoft: microsoftSocialProviderConfigSchema.optional(),
   redirect: socialRedirectConfigSchema.optional(),
 });
 
@@ -860,8 +873,8 @@ export const authConfigSchema = z
     // 11. Social Provider Validation
     // ============================================================================
     let anySocialEnabled = false;
-    ['google', 'apple', 'facebook'].forEach((provider) => {
-      const providerConfig = data.social?.[provider as 'google' | 'apple' | 'facebook'];
+    ['google', 'apple', 'facebook', 'microsoft'].forEach((provider) => {
+      const providerConfig = data.social?.[provider as 'google' | 'apple' | 'facebook' | 'microsoft'];
       if (providerConfig?.enabled) {
         anySocialEnabled = true;
         if (!providerConfig.clientId) {
@@ -896,7 +909,7 @@ export const authConfigSchema = z
             });
           }
         } else {
-          // Google and Facebook require clientSecret
+          // Google, Facebook and Microsoft require clientSecret
           // Type assertion needed because TypeScript doesn't know which provider config type we have
           const standardConfig = providerConfig as { clientSecret?: string };
           if (!standardConfig.clientSecret) {
@@ -904,6 +917,27 @@ export const authConfigSchema = z
               code: z.ZodIssueCode.custom,
               message: `clientSecret is required when ${provider} provider is enabled`,
               path: ['social', provider, 'clientSecret'],
+            });
+          }
+        }
+
+        // Microsoft: catch an unusable tenant at startup rather than on the first login
+        // attempt, and refuse the combination that silently weakens account linking.
+        if (provider === 'microsoft') {
+          const microsoftConfig = providerConfig as {
+            tenant?: string;
+            autoLink?: boolean;
+          };
+          const tenant = microsoftConfig.tenant ?? 'common';
+          const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenant);
+          const isAlias = ['common', 'organizations', 'consumers'].includes(tenant);
+          const isDomain = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)+$/i.test(tenant);
+
+          if (!isGuid && !isAlias && !isDomain) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Invalid Microsoft tenant '${tenant}'. Expected a tenant GUID, a verified domain, or one of: common, organizations, consumers`,
+              path: ['social', 'microsoft', 'tenant'],
             });
           }
         }

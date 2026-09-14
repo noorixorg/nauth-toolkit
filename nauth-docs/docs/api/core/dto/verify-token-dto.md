@@ -1,7 +1,7 @@
 ---
 title: VerifyTokenDTO
-description: Native mobile app token verification DTO with provider-aware validation. Supports Google, Apple, and Facebook (classic + Limited Login).
-keywords: [token, verify, mobile, native, dto, request, google, apple, facebook, ios, android]
+description: Native mobile app token verification DTO with provider-aware validation. Supports Google, Apple, Facebook (classic + Limited Login), and Microsoft.
+keywords: [token, verify, mobile, native, dto, request, google, apple, facebook, microsoft, ios, android]
 
 image: /img/api-social-card.png
 ---
@@ -23,6 +23,7 @@ Supports provider-aware conditional validation:
 - **facebook**:
   - Classic login: requires `accessToken` (when `idToken` not provided)
   - Limited Login (OIDC): requires `idToken` (JWT, when `accessToken` not provided)
+- **microsoft**: requires `idToken`, `accessToken` unused
 
 <Tabs groupId="platform">
 <TabItem value="nestjs" label="NestJS">
@@ -52,7 +53,7 @@ import { VerifyTokenDTO } from '@nauth-toolkit/core';
 
 | Property      | Type                      | Required    | Description                                                                                                           |
 | ------------- | ------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------- |
-| `provider`    | `string`                  | Yes         | Provider name: `'google'`, `'apple'`, or `'facebook'`. Trimmed and lowercased.                                        |
+| `provider`    | `string`                  | Yes         | Provider name: `'google'`, `'apple'`, `'facebook'`, or `'microsoft'`. Trimmed and lowercased.                         |
 | `idToken`     | `string`                  | Conditional | Required for google/apple. Required for facebook Limited Login (when accessToken not provided). Max 10000 characters. |
 | `accessToken` | `string`                  | Conditional | Required for facebook classic login (when idToken not provided). Optional for google. Max 2000 characters.            |
 | `profileData` | `Record<string, unknown>` | No          | Optional profile data from native SDK (e.g., Apple first-time signin). Must be an object.                             |

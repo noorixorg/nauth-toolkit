@@ -1140,6 +1140,37 @@ importers:
         specifier: ^5.5.0
         version: 5.9.3
 
+  packages/social/microsoft:
+    dependencies:
+      '@nauth-toolkit/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@nestjs/common':
+        specifier: ^9 || ^10 || ^11
+        version: 11.1.9(class-transformer@0.5.1)(class-validator@0.14.3)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+    devDependencies:
+      '@types/jest':
+        specifier: ^29.5.0
+        version: 29.5.14
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.2
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@22.20.2)(ts-node@10.9.2(@types/node@22.20.2)(typescript@5.9.3))
+      jose:
+        specifier: ^6.2.11
+        version: 6.2.11
+      ts-jest:
+        specifier: ^29.2.0
+        version: 29.4.6(@babel/core@7.28.5)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.28.5))(esbuild@0.27.1)(jest-util@29.7.0)(jest@29.7.0(@types/node@22.20.2)(ts-node@10.9.2(@types/node@22.20.2)(typescript@5.9.3)))(typescript@5.9.3)
+      ts-json-schema-generator:
+        specifier: ^2.4.0
+        version: 2.4.0
+      typescript:
+        specifier: ^5.5.0
+        version: 5.9.3
+
   packages/storage/database:
     dependencies:
       '@nauth-toolkit/core':

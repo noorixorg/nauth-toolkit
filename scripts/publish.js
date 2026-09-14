@@ -31,6 +31,7 @@ const PUBLISH_ORDER = [
   'social/google',
   'social/apple',
   'social/facebook',
+  'social/microsoft',
   'oidc-provider',
   'nestjs',
 ];

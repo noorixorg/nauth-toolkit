@@ -2,7 +2,7 @@
 title: "How Social Login Works"
 description: "How redirect-first social login works — configuration, shared routes, account linking, and frontend integration"
 sidebar_position: 0
-keywords: [social login, oauth, google, apple, facebook, sso, redirect]
+keywords: [social login, oauth, google, apple, facebook, microsoft, entra, sso, redirect]
 image: /img/api-social-card.png
 ---
 
@@ -20,6 +20,7 @@ Add Google, Apple, or Facebook sign-in to your app. nauth-toolkit uses a **redir
 | [**Google**](/docs/guides/social/google) | `@nauth-toolkit/social-google` | Web OAuth + native mobile token verification |
 | [**Apple**](/docs/guides/social/apple) | `@nauth-toolkit/social-apple` | JWT client secret auto-managed, `form_post` callback |
 | [**Facebook**](/docs/guides/social/facebook) | `@nauth-toolkit/social-facebook` | Standard OAuth 2.0 |
+| [**Microsoft**](/docs/guides/social/microsoft) | `@nauth-toolkit/social-microsoft` | Personal accounts, Microsoft 365 tenant SSO, app-role and group gating |
 
 :::tip[Sample apps]
 Social login is implemented in the [nauth example apps](https://github.com/noorixorg/nauth-toolkit) — see the NestJS, Express, and Fastify examples for social routes, and the React/Angular examples for frontend callback handling.
@@ -415,7 +416,7 @@ Users can manage linked accounts from their security settings:
 | `/auth/social/set-password` | POST | Protected | Set password for social-only user |
 
 :::note[Session auth method]
-After social login, `authMethod` is set to the provider name (e.g., `google`, `apple`, `facebook`) instead of `password`. This is available in the response and stored on the cached user as `sessionAuthMethod`.
+After social login, `authMethod` is set to the provider name (e.g., `google`, `apple`, `facebook`, `microsoft`) instead of `password`. This is available in the response and stored on the cached user as `sessionAuthMethod`.
 :::
 
 ## Challenges After Social Login
@@ -482,6 +483,7 @@ Apple uses POST with `form_post` response mode for callbacks. Ensure your backen
 | `SOCIAL_ACCOUNT_LINKED` | Social account linked to another user | Unlink from other account first |
 | `SOCIAL_ACCOUNT_NOT_FOUND` | Social account not linked to any user | Link the account or sign in differently |
 | `SOCIAL_ACCOUNT_EXISTS` | Provider and provider ID already registered | Use existing account or sign in with that account |
+| `SOCIAL_ACCESS_DENIED` | Authenticated, but a provider access policy refused the account | Ask an administrator for access — retrying will not help |
 | `SIGNUP_DISABLED` | `allowSignup: false` and no matching account | Contact admin or sign up with email |
 | `VALIDATION_FAILED` | Request payload failed validation | Check request parameters |
 

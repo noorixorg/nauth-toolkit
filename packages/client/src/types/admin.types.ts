@@ -143,7 +143,7 @@ export interface AdminSignupSocialRequest {
   /**
    * Social provider name
    */
-  provider: 'google' | 'apple' | 'facebook';
+  provider: 'google' | 'apple' | 'facebook' | 'microsoft';
 
   /**
    * Provider's unique user identifier

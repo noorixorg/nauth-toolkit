@@ -1620,6 +1620,14 @@ export interface SocialConfig {
   facebook?: SocialProviderConfig;
 
   /**
+   * Microsoft Entra ID (Azure AD) configuration
+   *
+   * Serves both personal Microsoft accounts and organisational sign-in against a
+   * Microsoft 365 tenant — which population is admitted depends on `tenant`.
+   */
+  microsoft?: MicrosoftSocialProviderConfig;
+
+  /**
    * Redirect-first social login configuration (web)
    *
    * Used by framework adapters (e.g., NestJS) to perform backend-owned redirects:
@@ -1863,6 +1871,107 @@ export interface AppleSocialProviderConfig extends Omit<SocialProviderConfig, 'c
    * privateKeyPem: '-----BEGIN PRIVATE KEY-----\nMIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQg...\n-----END PRIVATE KEY-----'
    */
   privateKeyPem?: string;
+}
+
+/**
+ * Microsoft Entra ID (Azure AD) social provider configuration
+ *
+ * An Office 365 subscription includes Entra ID as its identity provider, so "sign in
+ * with Microsoft" and "SSO against our Microsoft 365 tenant" are the same OIDC flow
+ * against the same endpoints. Which one you get is decided by `tenant`.
+ *
+ * **Requires an app registration** in the Azure portal (client ID, client secret,
+ * redirect URI). Most enterprises disable user self-consent, so an administrator
+ * usually has to grant consent even for the basic `openid profile email` scopes.
+ * No paid Entra tier is needed — OIDC sign-in works on the free tier bundled with
+ * any Microsoft 365 subscription.
+ *
+ * @example Public sign-in, like any other social provider
+ * ```typescript
+ * microsoft: {
+ *   enabled: true,
+ *   clientId: process.env.MS_CLIENT_ID,
+ *   clientSecret: process.env.MS_CLIENT_SECRET,
+ *   callbackUrl: 'https://myapp.com/auth/social/microsoft/callback',
+ *   tenant: 'common',
+ * }
+ * ```
+ *
+ * @example One organisation's tenant, gated on an app role
+ * ```typescript
+ * microsoft: {
+ *   enabled: true,
+ *   clientId: process.env.MS_CLIENT_ID,
+ *   clientSecret: process.env.MS_CLIENT_SECRET,
+ *   callbackUrl: 'https://myapp.com/auth/social/microsoft/callback',
+ *   tenant: '9f4c2a10-1b3c-4d5e-8f70-2a1b3c4d5e6f',
+ *   requiredRoles: ['nauth.access'],
+ * }
+ * ```
+ */
+export interface MicrosoftSocialProviderConfig extends SocialProviderConfig {
+  /**
+   * Which directory may sign in.
+   *
+   * - `'common'` — work/school accounts from **any** directory *and* personal accounts
+   * - `'organizations'` — work/school accounts from any directory
+   * - `'consumers'` — personal Microsoft accounts only (outlook.com, hotmail.com, live.com)
+   * - a directory GUID or verified domain — that one organisation only
+   *
+   * The app registration's *Supported account types* must match this value, or sign-in
+   * fails with a misleading error from Microsoft.
+   *
+   * Note that `'common'` means everyone, not just consumers: it admits work accounts
+   * from tenants you have never heard of. Pin a GUID whenever the application serves
+   * exactly one organisation.
+   *
+   * @default 'common'
+   */
+  tenant?: string;
+
+  /**
+   * Additional directory ids permitted to sign in.
+   *
+   * Only useful alongside `'common'` or `'organizations'`, where it turns an open
+   * authority into a closed allowlist. Ignored when `tenant` is already a GUID, which
+   * is enforced on its own.
+   *
+   * @example
+   * allowedTenants: ['9f4c2a10-1b3c-4d5e-8f70-2a1b3c4d5e6f']
+   */
+  allowedTenants?: string[];
+
+  /**
+   * App roles required to sign in, matched against the token's `roles` claim.
+   *
+   * A user needs **at least one** of the listed roles. Roles are defined in the app
+   * registration manifest and assigned to users or groups by the tenant administrator.
+   *
+   * Prefer this over `requiredGroups`: the values are names you choose, they are scoped
+   * to your application, and they are not subject to the groups-claim size limit.
+   *
+   * Checked on every sign-in, so revoking a role takes effect at the user's next login.
+   *
+   * @example
+   * requiredRoles: ['nauth.access', 'nauth.admin']
+   */
+  requiredRoles?: string[];
+
+  /**
+   * Security group object ids required to sign in, matched against the `groups` claim.
+   *
+   * A user needs membership of **at least one** listed group. The claim carries GUIDs
+   * rather than names, so these are object ids from the customer's directory.
+   *
+   * Entra omits the groups claim entirely once a user belongs to more than roughly 200
+   * groups, substituting a pointer to Graph. Sign-in is **denied** in that case rather
+   * than treated as "member of nothing". Configure the app registration to emit only
+   * groups assigned to the application to avoid it, or use `requiredRoles` instead.
+   *
+   * @example
+   * requiredGroups: ['0a1b2c3d-4e5f-6071-8293-a4b5c6d7e8f9']
+   */
+  requiredGroups?: string[];
 }
 
 /**

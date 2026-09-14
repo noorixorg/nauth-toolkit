@@ -315,7 +315,7 @@ If the API were at `apidev.example.com` instead, `COOKIE_DOMAIN` becomes `.examp
 | Facebook | Allowed while the app is in development mode | HTTPS only |
 | Apple | Not allowed: no `localhost`, no `http://` | HTTPS on a public domain. API host under Domains, `callbackUrl` under Return URLs |
 
-To test Apple locally, expose the backend through an HTTPS tunnel and set `API_BASE_URL` to the tunnel URL, or use scenario 3 or 4. Setup details: [Google](/docs/guides/social/google), [Apple](/docs/guides/social/apple), [Facebook](/docs/guides/social/facebook).
+To test Apple locally, expose the backend through an HTTPS tunnel and set `API_BASE_URL` to the tunnel URL, or use scenario 3 or 4. Setup details: [Google](/docs/guides/social/google), [Apple](/docs/guides/social/apple), [Facebook](/docs/guides/social/facebook), [Microsoft](/docs/guides/social/microsoft).
 
 ## CSRF specifics
 

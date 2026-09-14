@@ -638,7 +638,7 @@ async linkSocialAccount(
 
 | Parameter  | Type             | Description                                           |
 | ---------- | ---------------- | ----------------------------------------------------- |
-| `provider` | `SocialProvider` | Social provider (`'google'`, `'apple'`, `'facebook'`) |
+| `provider` | `SocialProvider` | Social provider (`'google'`, `'apple'`, `'facebook'`, `'microsoft'`) |
 | `code`     | `string`         | OAuth authorization code from callback                |
 | `state`    | `string`         | OAuth state parameter from callback                   |
 
@@ -761,14 +761,14 @@ if (response.challengeName) {
 Start redirect-first web social login.
 
 ```typescript
-async loginWithSocial(provider: 'google' | 'apple' | 'facebook', options?: SocialLoginOptions): Promise<void>
+async loginWithSocial(provider: 'google' | 'apple' | 'facebook' | 'microsoft', options?: SocialLoginOptions): Promise<void>
 ```
 
 **Parameters**
 
 | Parameter  | Type                                                 | Description                                                                     |
 | ---------- | ---------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `provider` | `'google' \| 'apple' \| 'facebook'`                  | OAuth provider                                                                  |
+| `provider` | `'google' \| 'apple' \| 'facebook' \| 'microsoft'`   | OAuth provider                                                                  |
 | `options`  | [`SocialLoginOptions`](./types/social-login-options) | Redirect options (`returnTo`, `appState`, `action`, `oauthParams`) |
 
 **Returns**
@@ -1447,7 +1447,7 @@ async unlinkSocialAccount(provider: string): Promise<{ message: string }>
 
 | Parameter  | Type             | Description                                                     |
 | ---------- | ---------------- | --------------------------------------------------------------- |
-| `provider` | `SocialProvider` | Social provider to unlink (`'google'`, `'apple'`, `'facebook'`) |
+| `provider` | `SocialProvider` | Social provider to unlink (`'google'`, `'apple'`, `'facebook'`, `'microsoft'`) |
 
 **Returns**
 

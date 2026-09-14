@@ -231,6 +231,9 @@ export function getHttpStatusForErrorCode(code: AuthErrorCode): number {
     return 409;
   if (code === AuthErrorCode.SIGNUP_DISABLED) return 403;
 
+  // Social provider refused an authenticated identity (unlisted tenant, missing role or group)
+  if (code === AuthErrorCode.SOCIAL_ACCESS_DENIED) return 403;
+
   // Validation errors
   if (code.startsWith('VALIDATION_') || code.startsWith('INVALID_')) return 400;
 

@@ -85,6 +85,7 @@ import { NAuthErrorCode } from '@nauth-toolkit/client';
 | `SOCIAL_CONFIG_MISSING`    | Social config missing  |
 | `SOCIAL_EMAIL_REQUIRED`    | Email required         |
 | `SOCIAL_ACCOUNT_NOT_FOUND` | Account not found      |
+| `SOCIAL_ACCESS_DENIED` | Not permitted to use this app |
 
 ### Challenge Errors
 

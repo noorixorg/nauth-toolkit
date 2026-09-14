@@ -303,6 +303,16 @@ export enum AuthErrorCode {
    */
   SOCIAL_ACCOUNT_EXISTS = 'SOCIAL_ACCOUNT_EXISTS',
 
+  /**
+   * Authentication succeeded but the identity is not permitted to use this application
+   *
+   * The provider proved who the user is, and a provider-level access policy then refused
+   * them: an unlisted directory, or a missing app role or group membership. Distinct from
+   * an invalid token — retrying or re-authenticating will not help, an administrator must
+   * grant access.
+   */
+  SOCIAL_ACCESS_DENIED = 'SOCIAL_ACCESS_DENIED',
+
   // ============================================================================
   // Challenge Errors (CHALLENGE_*)
   // ============================================================================

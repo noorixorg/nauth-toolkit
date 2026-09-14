@@ -198,7 +198,7 @@ These are the top-level keys you can provide in `NAuthConfig` / `NAuthModuleConf
 | [`emailNotifications`](#email-notifications-optional) | No | Per-event suppression controls. Optional lifecycle emails are disabled by default. |
 | [`smsProvider`](#sms-provider) | No* | SMS provider instance. Required when phone verification or MFA SMS is enabled. |
 | [`sms`](#sms-templates) | No | SMS template branding and custom message content. |
-| [`social`](#social-authentication) | No | Social OAuth providers (Google, Apple, Facebook) and post-OAuth redirect config. |
+| [`social`](#social-authentication) | No | Social OAuth providers (Google, Apple, Facebook, Microsoft Entra ID) and post-OAuth redirect config. |
 | [`mfa`](#multi-factor-authentication) | No | MFA methods, enforcement mode (OPTIONAL/REQUIRED/ADAPTIVE), and device trust. |
 | [`geoLocation`](#geolocation) | No | MaxMind IP geolocation database. Required for adaptive MFA. |
 | [`auditLogs`](#audit-logs) | No | Audit trail for authentication and security events. Default: enabled. |
@@ -982,8 +982,29 @@ social: {
     autoLink: true,
     allowSignup: true,
   },
+
+  microsoft: {
+    enabled: !!process.env.MS_CLIENT_ID,
+    clientId: process.env.MS_CLIENT_ID,
+    clientSecret: process.env.MS_CLIENT_SECRET,
+    callbackUrl: `${process.env.API_BASE_URL}/auth/social/microsoft/callback`,
+    // 'common' (work + personal) | 'organizations' | 'consumers' | a directory GUID.
+    // Pin a GUID to restrict sign-in to one Microsoft 365 tenant.
+    tenant: process.env.MS_TENANT_ID || 'common',
+    scopes: ['openid', 'email', 'profile'],
+    autoLink: true,
+    allowSignup: true,
+    // Optional access gate, checked on every sign-in:
+    // allowedTenants: ['<directory-guid>'],  // closed allowlist for 'common'/'organizations'
+    // requiredRoles: ['nauth.access'],       // Entra app roles from the `roles` claim
+    // requiredGroups: ['<group-guid>'],      // security group object ids
+  },
 },
 ```
+
+:::note[Microsoft tenant]
+`tenant` decides who can sign in, and must match the app registration's *Supported account types*. `'common'` admits work accounts from any directory as well as personal accounts — pin a GUID when the app serves one organisation. See the [Microsoft Entra ID guide](/docs/guides/social/microsoft).
+:::
 
 ### Social Redirect (`social.redirect`)
 

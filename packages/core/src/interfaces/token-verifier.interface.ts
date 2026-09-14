@@ -134,6 +134,36 @@ export interface ITokenVerifierService {
   verifyFacebookIdToken?(idToken: string, appId: string): Promise<unknown>;
 
   /**
+   * Verify a Microsoft Entra ID token with JWT signature validation
+   *
+   * Fetches Entra's public keys from the JWKS endpoint for the configured tenant and
+   * verifies the signature, then binds the issuer to the token's own `tid` claim.
+   *
+   * That last step matters: with a multi-tenant authority (`common` / `organizations`)
+   * a valid signature only proves that *some* Microsoft directory issued the token.
+   * Checking `iss` against `tid` is what makes `tid` — and therefore any tenant-based
+   * access decision — trustworthy.
+   *
+   * @param idToken - ID token from the Microsoft identity platform
+   * @param clientId - Application client ID(s) for audience validation
+   * @param options - Tenant constraints: the configured tenant and any extra allowlist
+   * @returns Verified user profile data (provider-specific type)
+   * @throws {NAuthException} When the token is invalid, expired, or from a disallowed directory
+   *
+   * @example
+   * ```typescript
+   * const profile = await verifier.verifyMicrosoftToken(idToken, clientId, {
+   *   tenant: '9f4c2a10-1b3c-4d5e-8f70-2a1b3c4d5e6f',
+   * });
+   * ```
+   */
+  verifyMicrosoftToken?(
+    idToken: string,
+    clientId: string | string[],
+    options?: { tenant?: string; allowedTenants?: string[] },
+  ): Promise<unknown>;
+
+  /**
    * Clear cached clients and keys
    *
    * Useful for testing or when configuration changes

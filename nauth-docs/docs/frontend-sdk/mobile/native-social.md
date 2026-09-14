@@ -112,7 +112,7 @@ export class LoginComponent {
     }
   }
 
-  private async nativeLogin(provider: 'google' | 'apple' | 'facebook'): Promise<void> {
+  private async nativeLogin(provider: 'google' | 'apple' | 'facebook' | 'microsoft'): Promise<void> {
     const result = await SocialLogin.login({ provider, options: {} });
     const profile = result.result;
 

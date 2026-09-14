@@ -27,6 +27,7 @@ import { loadNAuthOpenApiSchemas as loadPasskeyMfaSchemas } from '@nauth-toolkit
 import { loadNAuthOpenApiSchemas as loadAppleSocialSchemas } from '@nauth-toolkit/social-apple/openapi';
 import { loadNAuthOpenApiSchemas as loadGoogleSocialSchemas } from '@nauth-toolkit/social-google/openapi';
 import { loadNAuthOpenApiSchemas as loadFacebookSocialSchemas } from '@nauth-toolkit/social-facebook/openapi';
+import { loadNAuthOpenApiSchemas as loadMicrosoftSocialSchemas } from '@nauth-toolkit/social-microsoft/openapi';
 
 export const schemas = {
   ...loadCoreSchemas(),
@@ -37,6 +38,7 @@ export const schemas = {
   ...loadAppleSocialSchemas(),
   ...loadGoogleSocialSchemas(),
   ...loadFacebookSocialSchemas(),
+  ...loadMicrosoftSocialSchemas(),
 };
 ```
 

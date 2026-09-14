@@ -1,7 +1,7 @@
 /**
  * Social provider identifiers.
  */
-export type SocialProvider = 'google' | 'apple' | 'facebook';
+export type SocialProvider = 'google' | 'apple' | 'facebook' | 'microsoft';
 
 /**
  * Options for starting a redirect-first social login flow.

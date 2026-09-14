@@ -50,7 +50,7 @@ import { AdminSignupSocialDTO } from '@nauth-toolkit/core';
 | `mustChangePassword` | `boolean` | No | Force password change on first login. Only relevant if password provided. Default: false. |
 | `password` | `string` | No | Optional password for hybrid social+password accounts. Min 8, max 128 chars. Policy enforced. |
 | `phone` | `string` | No | Phone number in E.164 format (e.g., +14155552671). Max 20 chars. |
-| `provider` | `'google' \| 'apple' \| 'facebook'` | Yes | Social provider name. |
+| `provider` | `'google' \| 'apple' \| 'facebook' \| 'microsoft'` | Yes | Social provider name. |
 | `providerEmail` | `string` | No | Email from provider's OAuth profile. Max 255 chars. Used for audit/debugging. |
 | `providerId` | `string` | Yes | Provider's unique user ID. Max 255 chars. Must be unique per provider. |
 | `socialMetadata` | `Record<string, unknown>` | No | Raw OAuth profile data from provider. Stored for debugging/audit. |

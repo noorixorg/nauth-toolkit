@@ -298,7 +298,10 @@ export class NAuth {
 
     // Build SocialRedirectHandler when any social provider is enabled
     const hasSocial =
-      config.social?.google?.enabled || config.social?.apple?.enabled || config.social?.facebook?.enabled;
+      config.social?.google?.enabled ||
+      config.social?.apple?.enabled ||
+      config.social?.facebook?.enabled ||
+      config.social?.microsoft?.enabled;
     const socialRedirectHandler = hasSocial
       ? new SocialRedirectHandler(config, services.socialProviderRegistry, socialAuthStateStore, storage, logger)
       : undefined;

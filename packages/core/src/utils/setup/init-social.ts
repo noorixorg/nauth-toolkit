@@ -33,6 +33,7 @@ export interface NAuthSocialProviders {
   googleAuth?: ISocialAuthProviderService;
   appleAuth?: ISocialAuthProviderService;
   facebookAuth?: ISocialAuthProviderService;
+  microsoftAuth?: ISocialAuthProviderService;
 }
 
 /**
@@ -104,39 +105,38 @@ export async function initSocialAuth(
       };
 
       const googleModule = await importOptional<GoogleProviderModule>('@nauth-toolkit/social-google' as string);
-      if (!googleModule) {
+      if (googleModule) {
+        // Create token verifier for native mobile token validation
+        const tokenVerifier = new googleModule.TokenVerifierService(config);
+
+        const googleAuth = new googleModule.GoogleSocialAuthService(
+          config,
+          logger,
+          authService,
+          socialAuthService,
+          jwtService,
+          sessionService,
+          challengeHelper,
+          clientInfoService,
+          socialAuthStateStore,
+          userRepository,
+          phoneVerificationService,
+          auditService,
+          trustedDeviceService,
+          hookRegistry,
+          tokenVerifier,
+        );
+
+        providers.googleAuth = googleAuth;
+
+        // Register with registry
+        providerRegistry.registerProvider(googleAuth);
+        logger?.debug?.('Google OAuth provider initialized');
+      } else {
         logger?.warn?.(
           'Google OAuth provider not available. Install @nauth-toolkit/social-google to enable Google authentication.',
         );
-        return providers;
       }
-
-      // Create token verifier for native mobile token validation
-      const tokenVerifier = new googleModule.TokenVerifierService(config);
-
-      const googleAuth = new googleModule.GoogleSocialAuthService(
-        config,
-        logger,
-        authService,
-        socialAuthService,
-        jwtService,
-        sessionService,
-        challengeHelper,
-        clientInfoService,
-        socialAuthStateStore,
-        userRepository,
-        phoneVerificationService,
-        auditService,
-        trustedDeviceService,
-        tokenVerifier,
-        hookRegistry,
-      );
-
-      providers.googleAuth = googleAuth;
-
-      // Register with registry
-      providerRegistry.registerProvider(googleAuth);
-      logger?.debug?.('Google OAuth provider initialized');
     } catch {
       logger?.warn?.(
         'Google OAuth provider not available. Install @nauth-toolkit/social-google to enable Google authentication.',
@@ -155,40 +155,39 @@ export async function initSocialAuth(
       };
 
       const appleModule = await importOptional<AppleProviderModule>('@nauth-toolkit/social-apple' as string);
-      if (!appleModule) {
+      if (appleModule) {
+        // Create token verifier for native mobile token validation
+        const tokenVerifier = new appleModule.TokenVerifierService(config);
+
+        const appleAuth = new appleModule.AppleSocialAuthService(
+          config,
+          logger,
+          authService,
+          socialAuthService,
+          jwtService,
+          sessionService,
+          challengeHelper,
+          clientInfoService,
+          socialAuthStateStore,
+          userRepository,
+          phoneVerificationService,
+          auditService,
+          trustedDeviceService,
+          hookRegistry,
+          tokenVerifier,
+          socialProviderSecretRepository || undefined,
+        );
+
+        providers.appleAuth = appleAuth;
+
+        // Register with registry
+        providerRegistry.registerProvider(appleAuth);
+        logger?.debug?.('Apple Sign-In provider initialized');
+      } else {
         logger?.warn?.(
           'Apple Sign-In provider not available. Install @nauth-toolkit/social-apple to enable Apple authentication.',
         );
-        return providers;
       }
-
-      // Create token verifier for native mobile token validation
-      const tokenVerifier = new appleModule.TokenVerifierService(config);
-
-      const appleAuth = new appleModule.AppleSocialAuthService(
-        config,
-        logger,
-        authService,
-        socialAuthService,
-        jwtService,
-        sessionService,
-        challengeHelper,
-        clientInfoService,
-        socialAuthStateStore,
-        userRepository,
-        phoneVerificationService,
-        auditService,
-        trustedDeviceService,
-        tokenVerifier,
-        socialProviderSecretRepository || undefined,
-        hookRegistry,
-      );
-
-      providers.appleAuth = appleAuth;
-
-      // Register with registry
-      providerRegistry.registerProvider(appleAuth);
-      logger?.debug?.('Apple Sign-In provider initialized');
     } catch {
       logger?.warn?.(
         'Apple Sign-In provider not available. Install @nauth-toolkit/social-apple to enable Apple authentication.',
@@ -207,42 +206,93 @@ export async function initSocialAuth(
       };
 
       const facebookModule = await importOptional<FacebookProviderModule>('@nauth-toolkit/social-facebook' as string);
-      if (!facebookModule) {
+      if (facebookModule) {
+        // Create token verifier for native mobile token validation
+        const tokenVerifier = new facebookModule.TokenVerifierService(config);
+
+        const facebookAuth = new facebookModule.FacebookSocialAuthService(
+          config,
+          logger,
+          authService,
+          socialAuthService,
+          jwtService,
+          sessionService,
+          challengeHelper,
+          clientInfoService,
+          socialAuthStateStore,
+          userRepository,
+          phoneVerificationService,
+          auditService,
+          trustedDeviceService,
+          hookRegistry,
+          tokenVerifier,
+        );
+
+        providers.facebookAuth = facebookAuth;
+
+        // Register with registry
+        providerRegistry.registerProvider(facebookAuth);
+        logger?.debug?.('Facebook OAuth provider initialized');
+      } else {
         logger?.warn?.(
           'Facebook OAuth provider not available. Install @nauth-toolkit/social-facebook to enable Facebook authentication.',
         );
-        return providers;
       }
-
-      // Create token verifier for native mobile token validation
-      const tokenVerifier = new facebookModule.TokenVerifierService(config);
-
-      const facebookAuth = new facebookModule.FacebookSocialAuthService(
-        config,
-        logger,
-        authService,
-        socialAuthService,
-        jwtService,
-        sessionService,
-        challengeHelper,
-        clientInfoService,
-        socialAuthStateStore,
-        userRepository,
-        phoneVerificationService,
-        auditService,
-        trustedDeviceService,
-        tokenVerifier,
-        hookRegistry,
-      );
-
-      providers.facebookAuth = facebookAuth;
-
-      // Register with registry
-      providerRegistry.registerProvider(facebookAuth);
-      logger?.debug?.('Facebook OAuth provider initialized');
     } catch {
       logger?.warn?.(
         'Facebook OAuth provider not available. Install @nauth-toolkit/social-facebook to enable Facebook authentication.',
+      );
+    }
+  }
+
+  // ============================================================================
+  // Microsoft Entra ID Provider
+  // ============================================================================
+  if (config.social?.microsoft?.enabled) {
+    try {
+      type MicrosoftProviderModule = {
+        MicrosoftSocialAuthService: new (...args: unknown[]) => ISocialAuthProviderService;
+        TokenVerifierService: new (config: NAuthConfig) => ITokenVerifierService;
+      };
+
+      const microsoftModule = await importOptional<MicrosoftProviderModule>(
+        '@nauth-toolkit/social-microsoft' as string,
+      );
+      if (microsoftModule) {
+        // Create token verifier for ID token validation (web and native)
+        const tokenVerifier = new microsoftModule.TokenVerifierService(config);
+
+        const microsoftAuth = new microsoftModule.MicrosoftSocialAuthService(
+          config,
+          logger,
+          authService,
+          socialAuthService,
+          jwtService,
+          sessionService,
+          challengeHelper,
+          clientInfoService,
+          socialAuthStateStore,
+          userRepository,
+          phoneVerificationService,
+          auditService,
+          trustedDeviceService,
+          hookRegistry,
+          tokenVerifier,
+        );
+
+        providers.microsoftAuth = microsoftAuth;
+
+        // Register with registry
+        providerRegistry.registerProvider(microsoftAuth);
+        logger?.debug?.('Microsoft Entra ID provider initialized');
+      } else {
+        logger?.warn?.(
+          'Microsoft provider not available. Install @nauth-toolkit/social-microsoft to enable Microsoft authentication.',
+        );
+      }
+    } catch {
+      logger?.warn?.(
+        'Microsoft provider not available. Install @nauth-toolkit/social-microsoft to enable Microsoft authentication.',
       );
     }
   }

@@ -1,7 +1,7 @@
 ---
 title: Social Authentication
-description: Web redirect-first and native mobile social login with Google, Apple, and Facebook
-keywords: [social, oauth, google, apple, facebook, login, mobile, native, capacitor]
+description: Web redirect-first and native mobile social login with Google, Apple, Facebook, and Microsoft
+keywords: [social, oauth, google, apple, facebook, microsoft, login, mobile, native, capacitor]
 image: /img/api-social-card.png
 ---
 
@@ -91,7 +91,7 @@ For Capacitor and React Native apps, use native SDKs to get tokens and verify th
 :::tip[Recommended Plugin]
 **[@capgo/capacitor-social-login](https://github.com/Cap-go/capacitor-social-login)** is the recommended plugin for native social authentication in Capacitor apps. It provides:
 
-- Unified API for Google, Apple, and Facebook
+- Unified API for Google, Apple, Facebook, and Microsoft
 - Works on both iOS and Android
 - Native SDK integration (no web views)
 - TypeScript support

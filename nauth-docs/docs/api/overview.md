@@ -33,7 +33,7 @@ import { AuthService, AuthModule, AuthGuard } from '@nauth-toolkit/nestjs';
 
 - **[AuthService](/docs/api/core/services/auth-service)** - Login, signup, password management, sessions
 - **[MFAService](/docs/api/core/services/mfa-service)** - Multi-factor authentication setup and verification
-- **[SocialAuthService](/docs/api/core/services/social-auth-service)** - Google, Apple, Facebook OAuth
+- **[SocialAuthService](/docs/api/core/services/social-auth-service)** - Google, Apple, Facebook, Microsoft OAuth
 - **[All Services](/docs/api/core/services/overview)** - Complete service list
 
 ### Data Transfer Objects
@@ -144,7 +144,7 @@ import { NAuth, ExpressAdapter, AuthService } from '@nauth-toolkit/core';
 
 - **[AuthService](/docs/api/core/services/auth-service)** - Login, signup, password management, sessions
 - **[MFAService](/docs/api/core/services/mfa-service)** - Multi-factor authentication setup and verification
-- **[SocialAuthService](/docs/api/core/services/social-auth-service)** - Google, Apple, Facebook OAuth
+- **[SocialAuthService](/docs/api/core/services/social-auth-service)** - Google, Apple, Facebook, Microsoft OAuth
 - **[All Services](/docs/api/core/services/overview)** - Complete service list
 
 ### Data Transfer Objects
@@ -275,7 +275,7 @@ import { NAuth, FastifyAdapter, AuthService } from '@nauth-toolkit/core';
 
 - **[AuthService](/docs/api/core/services/auth-service)** - Login, signup, password management, sessions
 - **[MFAService](/docs/api/core/services/mfa-service)** - Multi-factor authentication setup and verification
-- **[SocialAuthService](/docs/api/core/services/social-auth-service)** - Google, Apple, Facebook OAuth
+- **[SocialAuthService](/docs/api/core/services/social-auth-service)** - Google, Apple, Facebook, Microsoft OAuth
 - **[All Services](/docs/api/core/services/overview)** - Complete service list
 
 ### Data Transfer Objects

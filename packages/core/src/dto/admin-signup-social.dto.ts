@@ -206,13 +206,13 @@ export class AdminSignupSocialDTO {
    * Must match one of the supported providers.
    *
    * Validation:
-   * - Must be 'google', 'apple', or 'facebook'
+   * - Must be 'google', 'apple', 'facebook', or 'microsoft'
    * - Required field
    */
-  @IsEnum(['google', 'apple', 'facebook'], {
-    message: 'Provider must be one of: google, apple, facebook',
+  @IsEnum(['google', 'apple', 'facebook', 'microsoft'], {
+    message: 'Provider must be one of: google, apple, facebook, microsoft',
   })
-  provider!: 'google' | 'apple' | 'facebook';
+  provider!: 'google' | 'apple' | 'facebook' | 'microsoft';
 
   /**
    * Provider's email address
