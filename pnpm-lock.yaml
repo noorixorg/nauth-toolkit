@@ -208,6 +208,9 @@ importers:
       '@nauth-toolkit/social-google':
         specifier: workspace:*
         version: link:../../packages/social/google
+      '@nauth-toolkit/social-microsoft':
+        specifier: workspace:*
+        version: link:../../packages/social/microsoft
       '@nauth-toolkit/storage-redis':
         specifier: workspace:*
         version: link:../../packages/storage/redis

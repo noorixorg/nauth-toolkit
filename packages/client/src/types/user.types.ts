@@ -35,6 +35,10 @@ export interface AuthUser {
   sessionAuthMethod?: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
+  /** User's preferred IANA timezone, or null if never set. */
+  timezone?: string | null;
+  /** User's preferred BCP 47 locale, or null if never set. */
+  locale?: string | null;
 }
 
 /**
@@ -45,6 +49,10 @@ export interface UpdateProfileRequest {
   lastName?: string;
   email?: string;
   phone?: string;
+  /** IANA timezone (e.g. 'Europe/Dublin'). */
+  timezone?: string;
+  /** BCP 47 locale (e.g. 'en-GB'). */
+  locale?: string;
 }
 
 /**

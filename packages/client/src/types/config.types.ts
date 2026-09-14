@@ -427,6 +427,19 @@ export interface NAuthClientConfig {
     storageKey?: string;
   };
 
+  /**
+   * Send the browser's timezone and locale when creating an account. Default: true
+   *
+   * The values are read from `Intl` and `navigator.language` and included with signup and
+   * with the social redirect start, so a new user's notification emails are formatted in
+   * their own time from the first message. They are stored as editable preferences, not
+   * as tracking — the user or an admin can change them afterwards.
+   *
+   * Set to false to opt out; an explicitly supplied `timezone`/`locale` always wins over
+   * detection regardless of this setting.
+   */
+  autoDetectLocale?: boolean;
+
   /** Additional headers to include in all requests. */
   headers?: Record<string, string>;
 

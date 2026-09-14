@@ -290,15 +290,37 @@ describe('MicrosoftSocialAuthService', () => {
       expect(profile.verified).toBe(true);
     });
 
-    it('does not trust a work account email without xms_edov', async () => {
-      // Without this, a tenant admin could set a user's email to a domain they do not
-      // own and be auto-linked into the matching local account (nOAuth).
+    it('trusts a work account from a pinned tenant even without xms_edov', async () => {
+      // Pinning a tenant GUID is itself a statement of trust, and the verifier rejects
+      // every other directory. nOAuth needs an attacker-controlled tenant, which a pinned
+      // deployment does not accept — so requiring xms_edov here would only mark real
+      // employees unverified.
       verifyMicrosoftToken.mockResolvedValue(verifiedProfile({ emailDomainOwnerVerified: false }));
-      service = buildService();
+      service = buildService({ tenant: TENANT_GUID });
+
+      const profile = await runCallback(service);
+
+      expect(profile.verified).toBe(true);
+    });
+
+    it('does not trust a work account from an unpinned directory without xms_edov', async () => {
+      // The nOAuth shape: multi-tenant, and the admin of some directory controls the
+      // email claim for their own users.
+      verifyMicrosoftToken.mockResolvedValue(verifiedProfile({ emailDomainOwnerVerified: false }));
+      service = buildService({ tenant: 'common' });
 
       const profile = await runCallback(service);
 
       expect(profile.verified).toBe(false);
+    });
+
+    it('trusts a directory named in allowedTenants', async () => {
+      verifyMicrosoftToken.mockResolvedValue(verifiedProfile({ emailDomainOwnerVerified: false }));
+      service = buildService({ tenant: 'organizations', allowedTenants: [TENANT_GUID] });
+
+      const profile = await runCallback(service);
+
+      expect(profile.verified).toBe(true);
     });
 
     it('trusts a personal account email', async () => {
@@ -447,6 +469,68 @@ describe('MicrosoftSocialAuthService', () => {
         tenant: 'organizations',
         allowedTenants: [TENANT_GUID],
       });
+    });
+  });
+
+  // ==========================================================================
+  // Auto-link suppression (nOAuth)
+  // ==========================================================================
+
+  describe('auto-link suppression', () => {
+    /**
+     * Reporting `verified: false` is not sufficient on its own: the base class links on
+     * `existingUser.isEmailVerified || profile.verified`, so an already-verified local
+     * account is matched by email regardless. These pin the provider-side override that
+     * actually closes it.
+     */
+    const callFindOrCreate = async (
+      svc: MicrosoftSocialAuthService,
+      profile: Partial<OAuthUserProfile>,
+      cfg: Partial<MicrosoftSocialProviderConfig>,
+    ): Promise<MicrosoftSocialProviderConfig> => {
+      const seen: MicrosoftSocialProviderConfig[] = [];
+      const proto = Object.getPrototypeOf(Object.getPrototypeOf(svc)) as {
+        findOrCreateUser: (p: unknown, c: MicrosoftSocialProviderConfig) => Promise<unknown>;
+      };
+      const original = proto.findOrCreateUser;
+      proto.findOrCreateUser = async (_p: unknown, c: MicrosoftSocialProviderConfig) => {
+        seen.push(c);
+        return {} as unknown;
+      };
+      try {
+        await (
+          svc as unknown as {
+            findOrCreateUser(p: unknown, c: unknown): Promise<unknown>;
+          }
+        ).findOrCreateUser(profile, cfg);
+      } finally {
+        proto.findOrCreateUser = original;
+      }
+      return seen[0];
+    };
+
+    it('disables auto-link when the email is unproven', async () => {
+      service = buildService();
+
+      const passed = await callFindOrCreate(service, { id: 'oid-1', verified: false }, { autoLink: true });
+
+      expect(passed.autoLink).toBe(false);
+    });
+
+    it('keeps auto-link when the email is proven', async () => {
+      service = buildService();
+
+      const passed = await callFindOrCreate(service, { id: 'oid-1', verified: true }, { autoLink: true });
+
+      expect(passed.autoLink).toBe(true);
+    });
+
+    it('leaves an explicit autoLink:false alone', async () => {
+      service = buildService();
+
+      const passed = await callFindOrCreate(service, { id: 'oid-1', verified: true }, { autoLink: false });
+
+      expect(passed.autoLink).toBe(false);
     });
   });
 });

@@ -7,7 +7,7 @@ import { TrustedDeviceService } from './trusted-device.service';
 import { JwtService } from './jwt.service';
 import { SessionService } from './session.service';
 import { AuthChallengeHelperService } from './auth-challenge-helper.service';
-import { ContextStorage } from '../utils/context-storage';
+import { ContextStorage, SOCIAL_SIGNUP_PREFERENCES, SocialSignupPreferences } from '../utils/context-storage';
 import { resolveRefreshExpiresIn } from '../utils/token-delivery-policy';
 import type { NAuthRequest } from '../platform/interfaces';
 import { ClientInfoService } from './client-info.service';
@@ -276,6 +276,16 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
         dto.profileData,
       );
 
+      // Publish device-detected preferences for createSocialUser to seed onto a new user.
+      // The native flow has no redirect, so these arrive directly on the DTO rather than
+      // through the state store.
+      if ((dto.timezone || dto.locale) && ContextStorage.getStore()) {
+        ContextStorage.set(SOCIAL_SIGNUP_PREFERENCES, {
+          timezone: dto.timezone,
+          locale: dto.locale,
+        });
+      }
+
       // Find or create user
       const user = await this.findOrCreateUser(profile, providerConfig);
 
@@ -531,6 +541,14 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
     socialProvider?: string,
     profile?: OAuthUserProfile,
   ): Promise<IUser> {
+    // Browser-detected preferences captured at redirect start and round-tripped through
+    // the state store, because the browser is not part of the provider's callback request.
+    // Read only here, so only a brand-new user is ever seeded — a returning social login
+    // and an account link both return before reaching this method.
+    const preferences = ContextStorage.getStore()
+      ? ContextStorage.get<SocialSignupPreferences>(SOCIAL_SIGNUP_PREFERENCES)
+      : undefined;
+
     const user = this.userRepository.create({
       email,
       // ?? not ||: preserve "" from provider (|| would coerce to null)
@@ -540,6 +558,8 @@ export abstract class BaseSocialAuthProviderService implements ISocialAuthProvid
       hasSocialAuth: true,
       socialProviders: socialProvider ? [socialProvider] : null,
       isActive: true,
+      timezone: preferences?.timezone ?? null,
+      locale: preferences?.locale ?? null,
     });
 
     const savedUser = (await this.userRepository.save(user)) as unknown as IUser;

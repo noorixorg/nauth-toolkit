@@ -119,6 +119,7 @@ export class SignupComponent implements OnInit {
   readonly showAppleLogin = environment.showAppleLogin;
   /** Show Facebook signup button (controlled via build-time env flag) */
   readonly showFacebookLogin = environment.showFacebookLogin;
+  readonly showMicrosoftLogin = environment.showMicrosoftLogin;
 
   /**
    * Loading state signal

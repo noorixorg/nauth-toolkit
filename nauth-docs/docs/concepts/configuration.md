@@ -194,7 +194,7 @@ These are the top-level keys you can provide in `NAuthConfig` / `NAuthModuleConf
 | [`authorization`](#authorization) | No | Provider deciding who may perform admin operations. Required to mount admin routes. |
 | [`session`](#session-configuration) | No | Session concurrency limits and hard maximum lifetime. |
 | [`emailProvider`](#email-provider) | No* | Email provider instance. Required when email verification or MFA email is enabled. |
-| [`email`](#email-provider) | No | Email branding (`globalVariables`) and custom HTML/text templates. |
+| [`email`](#email-provider) | No | Email branding (`globalVariables`), custom HTML/text templates, and fallback date formatting (`defaultTimezone`, `defaultLocale`). |
 | [`emailNotifications`](#email-notifications-optional) | No | Per-event suppression controls. Optional lifecycle emails are disabled by default. |
 | [`smsProvider`](#sms-provider) | No* | SMS provider instance. Required when phone verification or MFA SMS is enabled. |
 | [`sms`](#sms-templates) | No | SMS template branding and custom message content. |
@@ -319,6 +319,24 @@ login: {
 ```
 
 ### Email Provider {/* #email-provider */}
+
+#### Date formatting in emails
+
+Notification emails render dates in the recipient's own timezone and locale, taken from
+`user.timezone` / `user.locale`. These two keys are the fallback when a user has never set
+them — useful when your servers run in UTC but your users are concentrated in one region.
+
+```typescript
+email: {
+  defaultTimezone: 'Europe/Dublin', // IANA name; falls back to the host's zone, then UTC
+  defaultLocale: 'en-GB',           // BCP 47 tag; falls back to the host's locale, then en-US
+},
+```
+
+Templates receive the result as `{{timestampFormatted}}`. This controls date *formatting*
+only — it does not translate email body text. See
+[Notifications](/docs/concepts/notifications).
+
 Configure email delivery for verification codes and notifications.
 
 <Tabs>

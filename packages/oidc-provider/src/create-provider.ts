@@ -127,7 +127,7 @@ export async function createNAuthOIDCProvider(options: NAuthOIDCOptions, ctor?: 
     claims: {
       openid: ['sub'],
       email: ['email', 'email_verified'],
-      profile: ['name', 'given_name', 'family_name', 'preferred_username', 'updated_at'],
+      profile: ['name', 'given_name', 'family_name', 'preferred_username', 'updated_at', 'zoneinfo', 'locale'],
       phone: ['phone_number', 'phone_number_verified'],
     },
 

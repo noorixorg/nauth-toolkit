@@ -79,6 +79,7 @@ const createTestConfig = (
     baseUrl: 'https://api.example.com',
     authPathPrefix: '/auth',
     tokenDelivery: 'cookies',
+    autoDetectLocale: false,
     storage,
     httpAdapter,
     csrf: {

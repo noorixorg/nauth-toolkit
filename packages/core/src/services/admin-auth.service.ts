@@ -388,6 +388,8 @@ export class AdminAuthService {
       isPhoneVerified: dto.isPhoneVerified ?? false,
       mustChangePassword: dto.mustChangePassword ?? false,
       isActive: true,
+      timezone: dto.timezone,
+      locale: dto.locale,
       metadata: dto.metadata,
     });
 
@@ -572,6 +574,8 @@ export class AdminAuthService {
       isPhoneVerified: dto.isPhoneVerified ?? false,
       mustChangePassword: dto.mustChangePassword ?? false,
       isActive: true,
+      timezone: dto.timezone,
+      locale: dto.locale,
       metadata: dto.metadata,
       hasSocialAuth: true,
     });

@@ -51,6 +51,8 @@ import { AuthResponseUser } from '@nauth-toolkit/core';
 | `isPhoneVerified` | `boolean`        | No       | Phone verification status.                                                      |
 | `socialProviders` | `string[]`       | No       | Array of linked social providers (e.g., `['google', 'apple']`).                 |
 | `hasPasswordHash` | `boolean`        | No       | Whether user has a password set. Used to determine authentication capabilities. |
+| `locale`          | `string`         | No       | User's preferred BCP 47 locale, when set.                                       |
+| `timezone`        | `string`         | No       | User's preferred IANA timezone, when set.                                       |
 
 ## Used By
 

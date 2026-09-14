@@ -266,6 +266,18 @@
             iconPos="left"
           />
         }
+        @if (showMicrosoftLogin) {
+          <p-button
+            label="Sign up with Facebook"
+            icon="pi pi-microsoft"
+            severity="secondary"
+            [outlined]="true"
+            [disabled]="loading()"
+            (onClick)="onSocialSignup('microsoft')"
+            styleClass="w-full social-button"
+            iconPos="left"
+          />
+        }
       </div>
 
       <!-- Login Link -->

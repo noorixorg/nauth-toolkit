@@ -23,6 +23,7 @@ describe('ChallengeRouter', () => {
     mockConfig = {
       baseUrl: 'https://api.example.com/auth',
       tokenDelivery: 'cookies',
+      autoDetectLocale: false,
       endpoints: {} as unknown as ResolvedNAuthClientConfig['endpoints'],
       storage: mockStorage,
       httpAdapter: {} as unknown as ResolvedNAuthClientConfig['httpAdapter'],

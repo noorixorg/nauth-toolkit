@@ -1,6 +1,6 @@
 {
   "name": "@nauth-toolkit/social-microsoft",
-  "version": "0.7.5",
+  "version": "0.8.0",
   "description": "Microsoft Entra ID (Azure AD) OAuth provider for nauth-toolkit — personal accounts, Microsoft 365 tenants, and organisational SSO",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -46,7 +46,7 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "peerDependencies": {
-    "@nauth-toolkit/core": "^0.7.5",
+    "@nauth-toolkit/core": "^0.8.0",
     "@nestjs/common": "^9 || ^10 || ^11",
     "jose": "^6.0.0"
   },

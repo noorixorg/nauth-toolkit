@@ -46,6 +46,8 @@ import { SignupDTO } from '@nauth-toolkit/core';
 | `firstName` | `string`                  | No       | First name. 1-100 characters. Trimmed.                                                          |
 | `lastName` | `string`                  | No       | Last name. 1-100 characters. Trimmed.                                                           |
 | `metadata` | `Record<string, unknown>` | No       | Custom metadata fields. Validated in service layer.                                           |
+| `locale`   | `string`                  | No       | BCP 47 locale (e.g. `en-GB`). Auto-detected by the frontend SDK. Max 35 characters.           |
+| `timezone` | `string`                  | No       | IANA timezone (e.g. `Europe/Dublin`). Auto-detected by the frontend SDK. Max 64 characters.   |
 | `password` | `string`                  | Yes      | User password. 8-128 characters. Not trimmed.                                                  |
 | `phone`    | `string`                  | No       | Phone number. E.164 format (e.g., +14155552671). Max 20 characters. Whitespace removed.      |
 | `recaptchaToken` | `string`            | No       | reCAPTCHA token from client. Required when reCAPTCHA is enforced. See [reCAPTCHA Guide](/docs/guides/recaptcha). |

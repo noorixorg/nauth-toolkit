@@ -1,4 +1,5 @@
 import { Transform } from 'class-transformer';
+import { IsIanaTimezone, IsBcp47Locale } from '../validators/locale-timezone.validator';
 import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 
 /**
@@ -101,6 +102,32 @@ export class StartSocialRedirectQueryDTO {
   @MaxLength(2000)
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   oauthParams?: string;
+
+  /**
+   * Browser-detected IANA timezone, seeded onto the user if this flow creates one.
+   *
+   * Sent by the frontend SDK at redirect start. Ignored for a returning user or an
+   * account link — an existing preference is never overwritten.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  @IsIanaTimezone()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  timezone?: string;
+
+  /**
+   * Browser-detected BCP 47 locale, seeded onto the user if this flow creates one.
+   *
+   * Sent by the frontend SDK at redirect start. Ignored for a returning user or an
+   * account link.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(35)
+  @IsBcp47Locale()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  locale?: string;
 }
 
 /**

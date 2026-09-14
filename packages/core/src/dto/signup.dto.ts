@@ -1,5 +1,6 @@
 import { IsEmail, IsString, MinLength, MaxLength, IsOptional, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { IsIanaTimezone, IsBcp47Locale } from '../validators/locale-timezone.validator';
 
 /**
  * DTO for user signup with comprehensive validation
@@ -163,6 +164,48 @@ export class SignupDTO {
    */
   @IsOptional()
   metadata?: Record<string, unknown>;
+
+  /**
+   * Optional IANA timezone (e.g. 'Europe/Dublin')
+   *
+   * Normally captured from the browser by the frontend SDK, and changeable later by the
+   * user or an admin. Used to render dates in notification emails in the user's own time.
+   * Falls back to the server default when absent.
+   *
+   * Validation:
+   * - Must be an IANA timezone name this runtime recognises
+   * - Max 64 characters (DB limit)
+   *
+   * Sanitization:
+   * - Trimmed
+   */
+  @IsOptional()
+  @IsString({ message: 'Timezone must be a string' })
+  @MaxLength(64, { message: 'Timezone must not exceed 64 characters' })
+  @IsIanaTimezone({ message: 'Timezone must be a valid IANA name (e.g. Europe/Dublin)' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  timezone?: string;
+
+  /**
+   * Optional BCP 47 locale (e.g. 'en-GB')
+   *
+   * Normally captured from the browser by the frontend SDK, and changeable later by the
+   * user or an admin. Controls date *formatting* in notification emails — it does not
+   * translate message text. Falls back to the server default when absent.
+   *
+   * Validation:
+   * - Must be a structurally valid BCP 47 language tag
+   * - Max 35 characters (RFC 5646 limit)
+   *
+   * Sanitization:
+   * - Trimmed
+   */
+  @IsOptional()
+  @IsString({ message: 'Locale must be a string' })
+  @MaxLength(35, { message: 'Locale must not exceed 35 characters' })
+  @IsBcp47Locale({ message: 'Locale must be a valid BCP 47 tag (e.g. en-GB)' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  locale?: string;
 
   /**
    * Optional reCAPTCHA token

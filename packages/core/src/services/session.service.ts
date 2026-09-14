@@ -396,6 +396,8 @@ export class SessionService {
         'user.username',
         'user.firstName',
         'user.lastName',
+        'user.timezone',
+        'user.locale',
         'user.email',
         'user.phone',
         'user.passwordHash', // used only to compute hasPasswordHash; removed before returning

@@ -6,10 +6,24 @@ const { execSync } = require('child_process');
 const readline = require('readline');
 
 const PACKAGES_DIR = path.join(__dirname, '..', 'packages');
-const TAG = process.argv[2] || 'latest';
-const DRY_RUN = process.argv.includes('--dry-run') || process.argv.includes('-d');
-const SKIP_VERSION_BUMP = process.argv.includes('--skip-version-bump');
-const MINOR_BUMP = process.argv.includes('--minor');
+let TAG = process.argv[2] && !process.argv[2].startsWith('-') ? process.argv[2] : 'latest';
+let DRY_RUN = process.argv.includes('--dry-run') || process.argv.includes('-d');
+let SKIP_VERSION_BUMP = process.argv.includes('--skip-version-bump');
+let MINOR_BUMP = process.argv.includes('--minor');
+
+/** Skip the interactive prompts — for CI, or when you already know the flags. */
+const NON_INTERACTIVE = process.argv.includes('--yes') || process.argv.includes('-y');
+
+/**
+ * Whether to ask rather than rely on flags.
+ *
+ * Prompts only when no release-shaping flag was passed and there is a terminal to prompt
+ * on, so CI and scripted invocations behave exactly as before. The flags remain the
+ * source of truth when present — this just stops the common case depending on
+ * remembering that `--minor` exists.
+ */
+const INTERACTIVE =
+  !NON_INTERACTIVE && !DRY_RUN && !SKIP_VERSION_BUMP && !MINOR_BUMP && Boolean(process.stdin.isTTY);
 
 const PUBLISH_ORDER = [
   'core',
@@ -201,6 +215,62 @@ function confirm(question) {
 }
 
 /**
+ * Prompt for a free-text answer, returning `fallback` when the user just presses enter.
+ */
+function ask(question, fallback = '') {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim() || fallback);
+    });
+  });
+}
+
+/**
+ * Ask what kind of release this is, instead of requiring the caller to recall the flags.
+ *
+ * Sets the module-level options in place. Returns false if the user backs out.
+ */
+async function resolveOptionsInteractively(currentVersion) {
+  const patch = `${currentVersion.split('.')[0]}.${currentVersion.split('.')[1]}.${parseInt(currentVersion.split('.')[2] || 0, 10) + 1}`;
+  const minor = `${currentVersion.split('.')[0]}.${parseInt(currentVersion.split('.')[1] || 0, 10) + 1}.0`;
+
+  console.log(`Current version: ${currentVersion}\n`);
+  console.log('  1) patch  ->', patch, '  bug fixes only');
+  console.log('  2) minor  ->', minor, '  adds public API: a new package, new exports, new enum members');
+  console.log('  3) republish at', currentVersion, ' no version change');
+  console.log('  4) cancel\n');
+
+  const choice = await ask('Release type [1]: ', '1');
+
+  if (choice === '4') return false;
+  if (choice === '2') {
+    MINOR_BUMP = true;
+  } else if (choice === '3') {
+    SKIP_VERSION_BUMP = true;
+  } else if (choice !== '1') {
+    console.log(`\n  Unrecognised choice '${choice}'. Aborting.\n`);
+    return false;
+  }
+
+  const tag = await ask(`npm dist-tag [${TAG}]: `, TAG);
+  TAG = tag;
+
+  DRY_RUN = await confirm('Dry run (no publish, no writes)? (y/N) ');
+
+  const target = SKIP_VERSION_BUMP ? currentVersion : MINOR_BUMP ? minor : patch;
+  console.log('');
+  console.log(`  version : ${currentVersion} -> ${target}${SKIP_VERSION_BUMP ? ' (unchanged)' : ''}`);
+  console.log(`  tag     : ${TAG}`);
+  console.log(`  mode    : ${DRY_RUN ? 'DRY RUN' : 'LIVE PUBLISH'}`);
+  console.log(`  packages: ${PUBLISH_ORDER.length}`);
+  console.log('');
+
+  return await confirm(DRY_RUN ? 'Proceed with dry run? (y/N) ' : 'Publish for real? (y/N) ');
+}
+
+/**
  * Check whether CHANGELOG.md contains an entry for the given version.
  */
 function changelogHasVersion(version) {
@@ -211,12 +281,6 @@ function changelogHasVersion(version) {
 }
 
 async function main() {
-  const flags = [DRY_RUN && 'DRY RUN', SKIP_VERSION_BUMP && 'SKIP VERSION BUMP', MINOR_BUMP && 'MINOR'].filter(
-    Boolean,
-  );
-  const flagStr = flags.length ? ` [${flags.join(', ')}]` : '';
-  console.log(`Publishing nauth-toolkit packages (tag: ${TAG})${flagStr}\n`);
-
   const allPackages = getAllPackages();
   const corePackage = allPackages.find((p) => p.name === '@nauth-toolkit/core');
   if (!corePackage) {
@@ -225,6 +289,21 @@ async function main() {
   }
 
   const currentVersion = corePackage.version;
+
+  if (INTERACTIVE) {
+    const proceed = await resolveOptionsInteractively(currentVersion);
+    if (!proceed) {
+      console.log('\n  Cancelled. Nothing was changed.\n');
+      process.exit(0);
+    }
+    console.log('');
+  }
+
+  const flags = [DRY_RUN && 'DRY RUN', SKIP_VERSION_BUMP && 'SKIP VERSION BUMP', MINOR_BUMP && 'MINOR'].filter(
+    Boolean,
+  );
+  const flagStr = flags.length ? ` [${flags.join(', ')}]` : '';
+  console.log(`Publishing nauth-toolkit packages (tag: ${TAG})${flagStr}\n`);
   const newVersion = SKIP_VERSION_BUMP ? currentVersion : incrementVersion(currentVersion);
 
   if (SKIP_VERSION_BUMP) {

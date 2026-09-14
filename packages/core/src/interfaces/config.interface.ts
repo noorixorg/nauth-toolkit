@@ -1589,6 +1589,33 @@ export interface EmailConfig {
    * ```
    */
   templates?: import('../interfaces/template.interface').TemplateConfig;
+
+  /**
+   * Fallback IANA timezone for dates rendered in emails
+   *
+   * Used when the recipient has no `timezone` of their own. When this is unset too, the
+   * host's timezone is used, and `UTC` as a last resort.
+   *
+   * Set this when your servers run in UTC but your users are concentrated in one region —
+   * it makes dates readable for users who have never set a preference.
+   *
+   * @example
+   * defaultTimezone: 'Europe/Dublin'
+   */
+  defaultTimezone?: string;
+
+  /**
+   * Fallback BCP 47 locale for dates rendered in emails
+   *
+   * Used when the recipient has no `locale` of their own. When this is unset too, the
+   * host's locale is used, and `en-US` as a last resort.
+   *
+   * Controls date *formatting* only — email body text is not translated.
+   *
+   * @example
+   * defaultLocale: 'en-GB'
+   */
+  defaultLocale?: string;
 }
 
 /**

@@ -317,6 +317,8 @@ export class UserService {
         username: true,
         firstName: true,
         lastName: true,
+        timezone: true,
+        locale: true,
         email: true,
         phone: true,
         passwordHash: true, // Needed to compute hasPasswordHash; removed before returning
@@ -430,6 +432,12 @@ export class UserService {
     }
     if (dto.username !== undefined) {
       updateFields.username = dto.username;
+    }
+    if (dto.timezone !== undefined) {
+      updateFields.timezone = dto.timezone;
+    }
+    if (dto.locale !== undefined) {
+      updateFields.locale = dto.locale;
     }
     if (dto.email !== undefined) {
       const oldEmail = user.email;

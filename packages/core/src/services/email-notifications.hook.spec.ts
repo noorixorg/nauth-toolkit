@@ -311,4 +311,69 @@ describe('registerBuiltInEmailNotificationHooks', () => {
     // Sanity: notification hooks must not send code emails
     expect(emailProvider.sendVerificationEmail).not.toHaveBeenCalled();
   });
+
+  describe('localised timestamps', () => {
+    // Historically these payloads carried a raw UTC ISO string and the templates printed
+    // it verbatim. The hook is the only layer that knows both the instant and the
+    // recipient, so it is where localisation has to happen.
+    const suppressNothing = (keys: string[]): NAuthConfig => ({
+      ...baseConfig,
+      emailNotifications: { suppress: Object.fromEntries(keys.map((k) => [k, false])) },
+    });
+
+    it("formats the MFA-device-removed timestamp in the recipient's timezone", async () => {
+      const emailProvider = createEmailProvider();
+      const hookRegistry = new HookRegistryService(logger);
+      registerBuiltInEmailNotificationHooks(hookRegistry, emailProvider, suppressNothing(['mfaDeviceRemoved']));
+
+      await hookRegistry.executeMFADeviceRemoved({
+        user: { ...baseUser, timezone: 'Asia/Karachi', locale: 'en-GB' },
+        deviceType: 'totp',
+        removedBy: 'user',
+        remainingDeviceCount: 0,
+      } as never);
+
+      expect(emailProvider.sendMFADeviceRemovedEmail).toHaveBeenCalledTimes(1);
+      const payload = (emailProvider.sendMFADeviceRemovedEmail as jest.Mock).mock.calls[0][1];
+
+      // This notification carried no date at all before; now it carries both forms.
+      expect(payload.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(payload.timestampFormatted).toBeTruthy();
+      expect(payload.timestampFormatted).not.toEqual(payload.timestamp);
+    });
+
+    it('falls back to the server default when the user has no preferences', async () => {
+      const emailProvider = createEmailProvider();
+      const hookRegistry = new HookRegistryService(logger);
+      const config: NAuthConfig = {
+        ...suppressNothing(['passwordChanged']),
+        email: { defaultTimezone: 'Europe/Dublin', defaultLocale: 'en-GB' },
+      };
+      registerBuiltInEmailNotificationHooks(hookRegistry, emailProvider, config);
+
+      await hookRegistry.executePasswordChanged({
+        user: { ...baseUser, timezone: null, locale: null },
+        changedBy: 'user',
+      } as never);
+
+      const payload = (emailProvider.sendPasswordChangedEmail as jest.Mock).mock.calls[0][1];
+      expect(payload.timestampFormatted).toBeTruthy();
+    });
+
+    it('does not throw when the stored timezone is unusable', async () => {
+      const emailProvider = createEmailProvider();
+      const hookRegistry = new HookRegistryService(logger);
+      registerBuiltInEmailNotificationHooks(hookRegistry, emailProvider, suppressNothing(['passwordChanged']));
+
+      await expect(
+        hookRegistry.executePasswordChanged({
+          user: { ...baseUser, timezone: 'Mars/Olympus', locale: 'zz-ZZ' },
+          changedBy: 'user',
+        } as never),
+      ).resolves.not.toThrow();
+
+      const payload = (emailProvider.sendPasswordChangedEmail as jest.Mock).mock.calls[0][1];
+      expect(payload.timestampFormatted).toBeTruthy();
+    });
+  });
 });

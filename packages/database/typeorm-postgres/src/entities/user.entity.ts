@@ -132,6 +132,12 @@ export class User extends BaseUser {
   @Column({ type: 'simple-array', nullable: true })
   declare socialProviders: string[] | null;
 
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  declare timezone: string | null;
+
+  @Column({ type: 'varchar', length: 35, nullable: true })
+  declare locale: string | null;
+
   @Column({ type: 'jsonb', nullable: true })
   declare metadata: Record<string, unknown> | null;
 

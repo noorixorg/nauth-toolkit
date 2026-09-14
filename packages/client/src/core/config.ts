@@ -20,6 +20,7 @@ export type ResolvedNAuthClientConfig = Omit<
   httpAdapter: HttpAdapter;
   csrf: { cookieName: string; headerName: string };
   deviceTrust: { headerName: string; storageKey: string };
+  autoDetectLocale: boolean;
   headers: Record<string, string>;
   timeout: number;
   admin?: {
@@ -145,6 +146,7 @@ export const resolveConfig = (config: NAuthClientConfig, defaultAdapter: HttpAda
       cookieName: config.csrf?.cookieName ?? 'nauth_csrf_token',
       headerName: config.csrf?.headerName ?? 'x-csrf-token',
     },
+    autoDetectLocale: config.autoDetectLocale ?? true,
     deviceTrust: {
       headerName: config.deviceTrust?.headerName ?? 'X-Device-Token',
       storageKey: config.deviceTrust?.storageKey ?? 'nauth_device_token',

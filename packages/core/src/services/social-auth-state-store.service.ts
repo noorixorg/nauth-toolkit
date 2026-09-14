@@ -109,6 +109,8 @@ export class SocialAuthStateStore implements ISocialAuthStateStore {
       appState: context.appState,
       delivery: context.delivery,
       deviceToken: context.deviceToken,
+      timezone: context.timezone,
+      locale: context.locale,
       action: context.action,
       createdAt: Date.now(),
     } satisfies {
@@ -116,6 +118,8 @@ export class SocialAuthStateStore implements ISocialAuthStateStore {
       appState?: string;
       delivery?: 'cookies' | 'json';
       deviceToken?: string;
+      timezone?: string;
+      locale?: string;
       action: 'login' | 'link';
       createdAt: number;
     });
@@ -148,6 +152,8 @@ export class SocialAuthStateStore implements ISocialAuthStateStore {
       appState: parsed.appState,
       delivery: parsed.delivery,
       deviceToken: parsed.deviceToken,
+      timezone: parsed.timezone,
+      locale: parsed.locale,
       action: parsed.action,
     };
   }
@@ -228,6 +234,8 @@ export class SocialAuthStateStore implements ISocialAuthStateStore {
     appState?: string;
     delivery?: 'cookies' | 'json';
     deviceToken?: string;
+    timezone?: string;
+    locale?: string;
     action: 'login' | 'link';
     createdAt: number;
   } {
@@ -236,6 +244,8 @@ export class SocialAuthStateStore implements ISocialAuthStateStore {
     const appState = obj.appState;
     const delivery = obj.delivery;
     const deviceToken = obj.deviceToken;
+    const timezone = typeof obj.timezone === 'string' ? obj.timezone : undefined;
+    const locale = typeof obj.locale === 'string' ? obj.locale : undefined;
     const action = obj.action;
     const createdAt = obj.createdAt;
 
@@ -257,7 +267,7 @@ export class SocialAuthStateStore implements ISocialAuthStateStore {
     if (deviceToken !== undefined && typeof deviceToken !== 'string') {
       return { returnTo: returnTo.trim(), appState, delivery, action, createdAt };
     }
-    return { returnTo: returnTo.trim(), appState, delivery, deviceToken, action, createdAt };
+    return { returnTo: returnTo.trim(), appState, delivery, deviceToken, timezone, locale, action, createdAt };
   }
 
   private safeParseJsonObject(raw: string, field: string): Record<string, unknown> {

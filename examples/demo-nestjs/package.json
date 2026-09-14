@@ -30,6 +30,7 @@
     "@nauth-toolkit/sms-twilio": "workspace:*",
     "@nauth-toolkit/social-apple": "workspace:*",
     "@nauth-toolkit/social-facebook": "workspace:*",
+    "@nauth-toolkit/social-microsoft": "workspace:*",
     "@nauth-toolkit/social-google": "workspace:*",
     "@nauth-toolkit/storage-redis": "workspace:*",
     "@nestjs/common": "^11.0.0",

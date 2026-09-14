@@ -499,11 +499,17 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
       return values.some((v) => !!v);
     });
 
-    // Format date helper
-    this.handlebars.registerHelper('formatDate', function (date) {
-      if (!date) return '';
-      const d = new Date(date);
-      return d.toLocaleDateString();
+    // Format a date, honouring an optional timezone/locale passed as hash arguments.
+    // Backwards compatible: called with no hash it behaves as before, using the host's
+    // settings. Prefer the pre-formatted `{{timestampFormatted}}` variable in templates —
+    // that one is localised to the actual recipient, which a helper cannot know.
+    this.handlebars.registerHelper('formatDate', function (date: unknown, options?: { hash?: DateHelperHash }) {
+      return formatWithIntl(date, options?.hash, { dateStyle: 'medium' });
+    });
+
+    // Same, including the time of day.
+    this.handlebars.registerHelper('formatDateTime', function (date: unknown, options?: { hash?: DateHelperHash }) {
+      return formatWithIntl(date, options?.hash, { dateStyle: 'medium', timeStyle: 'short' });
     });
   }
 
@@ -578,5 +584,46 @@ export class HandlebarsTemplateEngine implements TemplateEngine {
         console.warn(`Warning: Could not load default template for ${templateType}:`, error);
       }
     });
+  }
+}
+
+/**
+ * Hash arguments accepted by the `formatDate` / `formatDateTime` Handlebars helpers.
+ *
+ * @example
+ * ```handlebars
+ * {{formatDateTime lockedAt timezone="Europe/Dublin" locale="en-GB"}}
+ * ```
+ */
+interface DateHelperHash {
+  timezone?: string;
+  locale?: string;
+}
+
+/**
+ * Shared implementation for the date helpers.
+ *
+ * Total by construction: an unparseable date yields `''`, and an unusable timezone or
+ * locale is dropped rather than thrown, because a template helper must never be able to
+ * fail the sending of a security notification.
+ */
+function formatWithIntl(date: unknown, hash: DateHelperHash | undefined, style: Intl.DateTimeFormatOptions): string {
+  if (date === null || date === undefined || date === '') return '';
+
+  const instant = date instanceof Date ? date : new Date(date as string | number);
+  if (Number.isNaN(instant.getTime())) return '';
+
+  try {
+    return new Intl.DateTimeFormat(hash?.locale || undefined, {
+      ...style,
+      ...(hash?.timezone ? { timeZone: hash.timezone } : {}),
+    }).format(instant);
+  } catch {
+    try {
+      // Retry without the caller's overrides before giving up entirely.
+      return new Intl.DateTimeFormat(undefined, style).format(instant);
+    } catch {
+      return '';
+    }
   }
 }

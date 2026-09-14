@@ -144,6 +144,18 @@
             iconPos="left"
           />
         }
+        @if (showMicrosoftLogin) {
+          <p-button
+            label="Continue with Microsoft"
+            icon="pi pi-microsoft"
+            severity="secondary"
+            [outlined]="true"
+            [disabled]="loading()"
+            (onClick)="onSocialLogin('microsoft')"
+            styleClass="w-full social-button"
+            iconPos="left"
+          />
+        }
       </div>
 
       <!-- Signup Link -->

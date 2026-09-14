@@ -6,6 +6,7 @@ import {
   TemplateEngine,
   NAuthException,
   AuthErrorCode,
+  formatDateTimeForUser,
 } from '@nauth-toolkit/core';
 import { HandlebarsTemplateEngine } from './templates/handlebars-template.engine';
 import * as nodemailer from 'nodemailer';
@@ -268,6 +269,27 @@ export class NodemailerProvider implements EmailProvider {
   private readonly preview: boolean;
   private globalVariables: TemplateVariables = {};
   private config?: import('@nauth-toolkit/core').NAuthConfig;
+
+  /**
+   * Best-effort human-readable rendering of an instant.
+   *
+   * Callers that know the recipient (the built-in notification hooks) pass
+   * `timestampFormatted` already localised to that user. This is the fallback for anyone
+   * calling the provider directly: it can only use the configured server defaults, since
+   * no user is in scope here. Never throws.
+   *
+   * @param supplied - A pre-formatted value from the caller, preferred when present
+   * @param iso - The ISO timestamp to fall back to formatting
+   * @returns A localised string, or the ISO value if formatting is unavailable
+   */
+  private resolveFormattedTimestamp(supplied: string | undefined, iso: string): string {
+    if (supplied) return supplied;
+    try {
+      return formatDateTimeForUser(iso, null, this.config);
+    } catch {
+      return iso;
+    }
+  }
 
   /**
    * Set logger instance (called by AuthModule to inject NAuthLogger)
@@ -695,6 +717,7 @@ export class NodemailerProvider implements EmailProvider {
     deviceInfo: { name?: string; type?: string; ipAddress?: string; location?: string },
     variables: TemplateVariables = {},
   ): Promise<void> {
+    const newDeviceTimestamp = new Date().toISOString();
     const templateVariables: TemplateVariables = {
       ...this.globalVariables,
       userName: to.split('@')[0],
@@ -703,7 +726,8 @@ export class NodemailerProvider implements EmailProvider {
       deviceType: deviceInfo.type || 'Unknown',
       ipAddress: deviceInfo.ipAddress || 'Unknown',
       location: deviceInfo.location || 'Unknown',
-      timestamp: new Date().toISOString(),
+      timestamp: newDeviceTimestamp,
+      timestampFormatted: this.resolveFormattedTimestamp(undefined, newDeviceTimestamp),
       ...variables,
     };
 
@@ -730,6 +754,7 @@ export class NodemailerProvider implements EmailProvider {
       changedBy?: 'user' | 'admin' | 'reset';
       sessionsRevoked?: number;
       timestamp?: string;
+      timestampFormatted?: string;
     } = {},
     variables: TemplateVariables = {},
   ): Promise<void> {
@@ -742,6 +767,10 @@ export class NodemailerProvider implements EmailProvider {
       changedBy: context.changedBy || 'user',
       sessionsRevoked: context.sessionsRevoked,
       timestamp: context.timestamp || new Date().toISOString(),
+      timestampFormatted: this.resolveFormattedTimestamp(
+        context.timestampFormatted,
+        context.timestamp || new Date().toISOString(),
+      ),
       ...variables,
     };
 
@@ -770,11 +799,14 @@ export class NodemailerProvider implements EmailProvider {
       removedBy?: 'user' | 'admin' | 'system';
       reason?: string;
       remainingDeviceCount?: number;
+      timestamp?: string;
+      timestampFormatted?: string;
     } = {},
     variables: TemplateVariables = {},
   ): Promise<void> {
     if (!this.shouldSendEmail('mfaDeviceRemoved')) return;
 
+    const mfaRemovedTimestamp = context.timestamp || new Date().toISOString();
     const templateVariables: TemplateVariables = {
       ...this.globalVariables,
       userName: to.split('@')[0],
@@ -784,7 +816,8 @@ export class NodemailerProvider implements EmailProvider {
       removedBy: context.removedBy || 'user',
       reason: context.reason || 'User request',
       remainingDeviceCount: context.remainingDeviceCount || 0,
-      timestamp: new Date().toISOString(),
+      timestamp: mfaRemovedTimestamp,
+      timestampFormatted: this.resolveFormattedTimestamp(context.timestampFormatted, mfaRemovedTimestamp),
       ...variables,
     };
 
@@ -813,6 +846,7 @@ export class NodemailerProvider implements EmailProvider {
       riskFactors?: string[];
       action?: string;
       timestamp?: string;
+      timestampFormatted?: string;
     } = {},
     variables: TemplateVariables = {},
   ): Promise<void> {
@@ -831,6 +865,10 @@ export class NodemailerProvider implements EmailProvider {
       riskFactors: riskFactorsText,
       action: context.action || 'require_mfa',
       timestamp: context.timestamp || new Date().toISOString(),
+      timestampFormatted: this.resolveFormattedTimestamp(
+        context.timestampFormatted,
+        context.timestamp || new Date().toISOString(),
+      ),
       ...variables,
     };
 
@@ -857,6 +895,7 @@ export class NodemailerProvider implements EmailProvider {
       reason?: string;
       performedBy?: string;
       timestamp?: string;
+      timestampFormatted?: string;
     } = {},
     variables: TemplateVariables = {},
   ): Promise<void> {
@@ -869,6 +908,10 @@ export class NodemailerProvider implements EmailProvider {
       reason: context.reason || 'Administrative action',
       performedBy: context.performedBy || 'Administrator',
       timestamp: context.timestamp || new Date().toISOString(),
+      timestampFormatted: this.resolveFormattedTimestamp(
+        context.timestampFormatted,
+        context.timestamp || new Date().toISOString(),
+      ),
       ...variables,
     };
 
@@ -895,6 +938,7 @@ export class NodemailerProvider implements EmailProvider {
       reason?: string;
       performedBy?: string;
       timestamp?: string;
+      timestampFormatted?: string;
     } = {},
     variables: TemplateVariables = {},
   ): Promise<void> {
@@ -907,6 +951,10 @@ export class NodemailerProvider implements EmailProvider {
       reason: context.reason || 'Administrative action',
       performedBy: context.performedBy || 'Administrator',
       timestamp: context.timestamp || new Date().toISOString(),
+      timestampFormatted: this.resolveFormattedTimestamp(
+        context.timestampFormatted,
+        context.timestamp || new Date().toISOString(),
+      ),
       ...variables,
     };
 
@@ -933,6 +981,7 @@ export class NodemailerProvider implements EmailProvider {
       newEmail?: string;
       deactivatedMFADevices?: number;
       timestamp?: string;
+      timestampFormatted?: string;
     } = {},
     variables: TemplateVariables = {},
   ): Promise<void> {
@@ -945,6 +994,10 @@ export class NodemailerProvider implements EmailProvider {
       newEmail: context.newEmail || 'Unknown',
       deactivatedMFADevices: context.deactivatedMFADevices || 0,
       timestamp: context.timestamp || new Date().toISOString(),
+      timestampFormatted: this.resolveFormattedTimestamp(
+        context.timestampFormatted,
+        context.timestamp || new Date().toISOString(),
+      ),
       isOldEmail: true,
       ...variables,
     };
@@ -971,6 +1024,7 @@ export class NodemailerProvider implements EmailProvider {
     context: {
       oldEmail?: string;
       timestamp?: string;
+      timestampFormatted?: string;
     } = {},
     variables: TemplateVariables = {},
   ): Promise<void> {
@@ -982,6 +1036,10 @@ export class NodemailerProvider implements EmailProvider {
       userEmail: to,
       oldEmail: context.oldEmail || 'Unknown',
       timestamp: context.timestamp || new Date().toISOString(),
+      timestampFormatted: this.resolveFormattedTimestamp(
+        context.timestampFormatted,
+        context.timestamp || new Date().toISOString(),
+      ),
       isOldEmail: false,
       ...variables,
     };
@@ -1013,6 +1071,7 @@ export class NodemailerProvider implements EmailProvider {
       deactivatedMFADevices?: number;
       mfaDisabled?: boolean;
       timestamp?: string;
+      timestampFormatted?: string;
     } = {},
     variables: TemplateVariables = {},
   ): Promise<void> {
@@ -1027,6 +1086,10 @@ export class NodemailerProvider implements EmailProvider {
       deactivatedMFADevices: context.deactivatedMFADevices,
       mfaDisabled: context.mfaDisabled,
       timestamp: context.timestamp || new Date().toISOString(),
+      timestampFormatted: this.resolveFormattedTimestamp(
+        context.timestampFormatted,
+        context.timestamp || new Date().toISOString(),
+      ),
       ...variables,
     };
 
@@ -1054,6 +1117,7 @@ export class NodemailerProvider implements EmailProvider {
       reason?: string;
       triggerEvent?: string;
       timestamp?: string;
+      timestampFormatted?: string;
     } = {},
     variables: TemplateVariables = {},
   ): Promise<void> {
@@ -1067,6 +1131,10 @@ export class NodemailerProvider implements EmailProvider {
       reason: context.reason || 'Security action',
       triggerEvent: context.triggerEvent,
       timestamp: context.timestamp || new Date().toISOString(),
+      timestampFormatted: this.resolveFormattedTimestamp(
+        context.timestampFormatted,
+        context.timestamp || new Date().toISOString(),
+      ),
       ...variables,
     };
 
@@ -1093,6 +1161,7 @@ export class NodemailerProvider implements EmailProvider {
       firstMethod?: string;
       deviceName?: string;
       timestamp?: string;
+      timestampFormatted?: string;
     } = {},
     variables: TemplateVariables = {},
   ): Promise<void> {
@@ -1105,6 +1174,10 @@ export class NodemailerProvider implements EmailProvider {
       firstMethod: context.firstMethod || 'TOTP',
       deviceName: context.deviceName,
       timestamp: context.timestamp || new Date().toISOString(),
+      timestampFormatted: this.resolveFormattedTimestamp(
+        context.timestampFormatted,
+        context.timestamp || new Date().toISOString(),
+      ),
       ...variables,
     };
 
@@ -1132,6 +1205,7 @@ export class NodemailerProvider implements EmailProvider {
       enabledMethods?: string[];
       deviceName?: string;
       timestamp?: string;
+      timestampFormatted?: string;
     } = {},
     variables: TemplateVariables = {},
   ): Promise<void> {
@@ -1145,6 +1219,10 @@ export class NodemailerProvider implements EmailProvider {
       enabledMethods: context.enabledMethods,
       deviceName: context.deviceName,
       timestamp: context.timestamp || new Date().toISOString(),
+      timestampFormatted: this.resolveFormattedTimestamp(
+        context.timestampFormatted,
+        context.timestamp || new Date().toISOString(),
+      ),
       ...variables,
     };
 

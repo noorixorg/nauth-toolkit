@@ -85,6 +85,10 @@ export interface AuthUserSummary {
   isPhoneVerified?: boolean;
   socialProviders?: string[] | null;
   hasPasswordHash?: boolean;
+  /** User's preferred IANA timezone, when set. */
+  timezone?: string;
+  /** User's preferred BCP 47 locale, when set. */
+  locale?: string;
 }
 
 /**
@@ -114,6 +118,10 @@ export interface SignupRequest {
    * - If required by server but not provided, request will fail with RECAPTCHA_REQUIRED error
    */
   recaptchaToken?: string;
+  /** IANA timezone (e.g. 'Europe/Dublin'). Auto-detected from the browser unless supplied. */
+  timezone?: string;
+  /** BCP 47 locale (e.g. 'en-GB'). Auto-detected from the browser unless supplied. */
+  locale?: string;
 }
 
 /**

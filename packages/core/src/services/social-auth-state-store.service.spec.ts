@@ -133,4 +133,67 @@ describe('SocialAuthStateStore', () => {
     const ctx = await store.consumeRedirectContext('state-abc');
     expect(ctx).toBeNull();
   });
+
+  describe('timezone and locale round trip', () => {
+    // The store is not a transparent pass-through: it has a write literal, a read literal
+    // and a field-by-field validator that silently discards anything it does not know
+    // about. A field added to only two of the three vanishes with no error, so the round
+    // trip is asserted directly.
+    it('preserves browser-detected preferences through set -> consume', async () => {
+      const storage = makeStorage();
+      storage.set.mockResolvedValue(undefined);
+
+      const store = new SocialAuthStateStore(storage, undefined, 300);
+      await store.setRedirectContext('state-abc', {
+        returnTo: '/auth/callback',
+        action: 'login',
+        timezone: 'Asia/Karachi',
+        locale: 'en-GB',
+      });
+
+      const [, written] = storage.set.mock.calls[0];
+      storage.get.mockResolvedValue(written as string);
+
+      const ctx = await store.consumeRedirectContext('state-abc');
+
+      expect(ctx?.timezone).toBe('Asia/Karachi');
+      expect(ctx?.locale).toBe('en-GB');
+    });
+
+    it('omits them cleanly when the browser supplied nothing', async () => {
+      const storage = makeStorage();
+      storage.set.mockResolvedValue(undefined);
+
+      const store = new SocialAuthStateStore(storage, undefined, 300);
+      await store.setRedirectContext('state-abc', { returnTo: '/auth/callback', action: 'login' });
+
+      const [, written] = storage.set.mock.calls[0];
+      storage.get.mockResolvedValue(written as string);
+
+      const ctx = await store.consumeRedirectContext('state-abc');
+
+      expect(ctx?.timezone).toBeUndefined();
+      expect(ctx?.locale).toBeUndefined();
+      expect(ctx?.returnTo).toBe('/auth/callback');
+    });
+
+    it('drops a non-string value rather than propagating it', async () => {
+      const storage = makeStorage();
+      const store = new SocialAuthStateStore(storage, undefined, 300);
+      storage.get.mockResolvedValue(
+        JSON.stringify({
+          returnTo: '/auth/callback',
+          action: 'login',
+          timezone: 42,
+          locale: { nope: true },
+          createdAt: Date.now(),
+        }),
+      );
+
+      const ctx = await store.consumeRedirectContext('state-abc');
+
+      expect(ctx?.timezone).toBeUndefined();
+      expect(ctx?.locale).toBeUndefined();
+    });
+  });
 });

@@ -17,5 +17,6 @@ export const environment: Environment = {
   recaptchaEnabled: true,
   showAppleLogin: false,
   showFacebookLogin: false,
+  showMicrosoftLogin: false,
 };
 

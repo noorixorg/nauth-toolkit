@@ -78,6 +78,7 @@ const buildConfig = (
     {
       baseUrl: 'https://api.example.com',
       tokenDelivery: 'cookies',
+      autoDetectLocale: false,
       storage: new MockStorage(),
       ...overrides,
     },

@@ -14,6 +14,7 @@ import {
   PhoneVerificationService,
   BaseUser,
   ISocialAuthStateStore,
+  IUser,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import {
@@ -28,6 +29,7 @@ import {
 import { Repository } from 'typeorm';
 import { MicrosoftOAuthClient } from './microsoft-oauth.client';
 import { TokenVerifierService as MicrosoftTokenVerifierService } from './token-verifier.service';
+import { isTenantGuid } from './entra-tenant';
 import { VerifiedMicrosoftTokenProfile } from './verified-token-profile.interface';
 
 /**
@@ -351,11 +353,12 @@ export class MicrosoftSocialAuthService extends BaseSocialAuthProviderService im
       );
     }
 
-    const emailIsTrustworthy = verified.isPersonalAccount || verified.emailDomainOwnerVerified;
+    const emailIsTrustworthy = this.isEmailTrustworthy(verified);
 
     if (!emailIsTrustworthy) {
       this.logger?.debug?.(
-        `[MicrosoftAuth] Email for oid=${verified.oid} is unverified (no xms_edov claim); auto-linking will be skipped`,
+        `[MicrosoftAuth] Email for oid=${verified.oid} is unproven: the token came from an unpinned directory ` +
+          'and carries no xms_edov claim. The account will be created unverified and not auto-linked.',
       );
     }
 
@@ -371,6 +374,73 @@ export class MicrosoftSocialAuthService extends BaseSocialAuthProviderService im
       verified: emailIsTrustworthy,
       raw: verified.raw,
     };
+  }
+
+  /**
+   * Find or create the local user, refusing to auto-link on an unproven email.
+   *
+   * The base class links a social identity to an existing account when
+   * `existingUser.isEmailVerified || profile.verified` — so reporting `verified: false` is
+   * NOT on its own enough to prevent linking: any already-verified local account is still
+   * matched by email. That is exactly the nOAuth path, because a tenant administrator
+   * controls the `email` claim for users in their own directory and can set it to a domain
+   * they do not own.
+   *
+   * So when the email is unproven, auto-linking is disabled outright for this attempt and a
+   * separate account is created instead. The user can still link deliberately from an
+   * authenticated session, which requires proving they hold the existing account.
+   *
+   * @param profile - Profile built from the verified ID token
+   * @param providerConfig - Microsoft provider configuration
+   * @returns The linked or newly created user
+   * @protected
+   */
+  protected async findOrCreateUser(
+    profile: OAuthUserProfile,
+    providerConfig: MicrosoftSocialProviderConfig,
+  ): Promise<IUser> {
+    if (profile.verified !== true && providerConfig.autoLink !== false) {
+      this.logger?.warn?.(
+        `[MicrosoftAuth] Auto-link suppressed for ${profile.id}: email is not proven (no xms_edov). ` +
+          'A separate account will be created; the user can link deliberately once signed in.',
+      );
+      return await super.findOrCreateUser(profile, { ...providerConfig, autoLink: false });
+    }
+
+    return await super.findOrCreateUser(profile, providerConfig);
+  }
+
+  /**
+   * Whether this token's email can be believed.
+   *
+   * Three independent grounds, any one of which is sufficient:
+   *
+   * 1. **The directory is explicitly trusted** — `tenant` is a GUID, or the token's `tid`
+   *    is in `allowedTenants`. The verifier has already bound `iss` to `tid` and rejected
+   *    any other directory, so the only issuer able to produce this token is one the
+   *    operator named. nOAuth depends on an attacker standing up *their own* tenant, which
+   *    a pinned deployment does not accept — so `xms_edov` adds nothing here.
+   * 2. **`xms_edov`** — Entra confirms the tenant owns the email's domain. This is what
+   *    makes a multi-tenant (`common` / `organizations`) deployment safe.
+   * 3. **A personal Microsoft account** — Microsoft verifies ownership before an address
+   *    can become an account alias.
+   *
+   * Only a work account from an *unpinned* directory with no `xms_edov` is untrusted, and
+   * that is exactly the nOAuth shape.
+   *
+   * @param verified - The verified token profile
+   * @returns True when the email may be marked verified and used for auto-linking
+   */
+  private isEmailTrustworthy(verified: VerifiedMicrosoftTokenProfile): boolean {
+    if (verified.isPersonalAccount) return true;
+    if (verified.emailDomainOwnerVerified) return true;
+
+    const providerConfig = this.getMicrosoftConfig();
+    const tenant = providerConfig?.tenant;
+    if (tenant && isTenantGuid(tenant)) return true;
+
+    const allowed = providerConfig?.allowedTenants ?? [];
+    return allowed.some((t) => t.toLowerCase() === verified.tid.toLowerCase());
   }
 
   /**

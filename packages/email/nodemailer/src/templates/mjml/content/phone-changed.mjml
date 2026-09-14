@@ -32,10 +32,10 @@
 </mj-raw>
 
 <mj-raw>
-  {{#if timestamp}}
+  {{#if timestampFormatted}}
 </mj-raw>
 <mj-text css-class="text-small" padding="0 24px 24px 24px">
-  When: {{timestamp}}
+  When: {{timestampFormatted}}
 </mj-text>
 <mj-raw>
   {{/if}}

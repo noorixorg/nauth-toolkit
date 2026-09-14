@@ -9,7 +9,7 @@ The phone number on your account has been changed.
 
 {{#if oldPhone}}Previous number: {{oldPhone}}{{/if}}
 {{#if newPhone}}New number: {{newPhone}}{{/if}}
-{{#if timestamp}}When: {{timestamp}}{{/if}}
+{{#if timestampFormatted}}When: {{timestampFormatted}}{{/if}}
 
 {{#if deactivatedMFADevices}}{{#gt deactivatedMFADevices 0}}Because SMS codes were sent to the old number, {{deactivatedMFADevices}} SMS two-factor device(s) were removed with it.{{/gt}}{{/if}}
 {{#if mfaDisabled}}That leaves no two-factor method on your account, so two-factor authentication is now switched off. You will be asked to set it up again next time you sign in.{{/if}}

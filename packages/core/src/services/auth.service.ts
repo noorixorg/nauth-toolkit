@@ -341,6 +341,8 @@ export class AuthService {
       isEmailVerified: false, // Always false initially - must be explicitly verified
       isPhoneVerified: false, // Always false initially - must be verified via SMS
       isActive: true, // Always active - challenges control access instead
+      timezone: dto.timezone,
+      locale: dto.locale,
       metadata: dto.metadata,
     });
 

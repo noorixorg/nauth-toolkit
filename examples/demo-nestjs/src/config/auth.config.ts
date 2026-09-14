@@ -255,6 +255,21 @@ export const authConfig: NAuthModuleConfig = {
       autoLink: true, // Auto-link to existing users by verified email (default: true)
       allowSignup: true, // Allow new user creation (default: true)
     },
+    microsoft: {
+      // Entra ID. `tenant` decides who can sign in: a directory GUID pins one
+      // organisation, 'common' admits personal accounts and any work directory.
+      enabled: !!process.env.MS_CLIENT_ID,
+      clientId: process.env.MS_CLIENT_ID,
+      clientSecret: process.env.MS_CLIENT_SECRET,
+      callbackUrl: `${process.env.API_BASE_URL || 'http://localhost:3000'}/auth/social/microsoft/callback`,
+      tenant: process.env.MS_TENANT_ID || 'common',
+      scopes: ['openid', 'email', 'profile'],
+      autoLink: true, // Safe here: the tenant is pinned, and unproven emails are never auto-linked
+      allowSignup: true,
+      // Uncomment to require an Entra app role, checked on every sign-in:
+      // requiredRoles: ['nauth.access'],
+    },
+
     facebook: {
       enabled: !!process.env.FACEBOOK_CLIENT_ID, // Enable Facebook OAuth if client ID is provided
       clientId: process.env.FACEBOOK_CLIENT_ID, // Facebook App ID
@@ -344,7 +359,6 @@ export const authConfig: NAuthModuleConfig = {
       accountEnabled: false, // Enable account enabled notification
       emailChangedOld: false, // Enable email changed alert (sent to old address)
       emailChangedNew: false, // Enable email changed confirmation (sent to new address)
-      accountLockout: false, // Enable account lockout notification
       sessionsRevoked: false, // Enable sessions revoked alert
       mfaFirstEnabled: false, // Enable MFA first enabled confirmation
       // Note: Code emails (emailVerification, passwordReset, adminPasswordReset)

@@ -65,6 +65,8 @@ export const TEMPLATE_OPTIONAL_PARAMS = [
 
   // Timestamps
   'currentYear',
+  'timestamp',
+  'timestampFormatted',
 
   // Security alerts (device-specific)
   'deviceType',
@@ -223,6 +225,7 @@ export function getTemplateParamsHelp(templateType: TemplateType): string {
   help += `  - Branding: {{appName}}, {{companyName}}, {{brandColor}}, {{logoUrl}}\n`;
   help += `  - Support: {{supportEmail}}, {{dashboardUrl}}\n`;
   help += `  - Social: {{facebookUrl}}, {{twitterUrl}}, {{linkedinUrl}}\n`;
+  help += `  - Timestamps: {{timestampFormatted}} (localised), {{timestamp}} (raw ISO)\n`;
   help += `  - Other: {{currentYear}}\n`;
 
   return help;

@@ -323,6 +323,8 @@ export const emailConfigSchema = z
   .object({
     globalVariables: emailGlobalVariablesSchema.optional(),
     templates: templateConfigSchema.optional(),
+    defaultTimezone: z.string().optional(),
+    defaultLocale: z.string().optional(),
   })
   .strict();
 
@@ -921,15 +923,16 @@ export const authConfigSchema = z
           }
         }
 
-        // Microsoft: catch an unusable tenant at startup rather than on the first login
-        // attempt, and refuse the combination that silently weakens account linking.
+        // Microsoft: catch at startup the tenant settings that would otherwise fail — or
+        // silently fail to restrict — only once a real user tried to sign in.
         if (provider === 'microsoft') {
           const microsoftConfig = providerConfig as {
             tenant?: string;
-            autoLink?: boolean;
+            allowedTenants?: string[];
           };
+          const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
           const tenant = microsoftConfig.tenant ?? 'common';
-          const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenant);
+          const isGuid = GUID.test(tenant);
           const isAlias = ['common', 'organizations', 'consumers'].includes(tenant);
           const isDomain = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)+$/i.test(tenant);
 
@@ -938,6 +941,30 @@ export const authConfigSchema = z
               code: z.ZodIssueCode.custom,
               message: `Invalid Microsoft tenant '${tenant}'. Expected a tenant GUID, a verified domain, or one of: common, organizations, consumers`,
               path: ['social', 'microsoft', 'tenant'],
+            });
+          }
+
+          // The `tid` claim is always a GUID, so a non-GUID entry here can never match and
+          // would silently deny every sign-in.
+          for (const [index, entry] of (microsoftConfig.allowedTenants ?? []).entries()) {
+            if (!GUID.test(entry)) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: `allowedTenants[${index}] must be a tenant GUID — the token's tid claim is always a GUID, so '${entry}' would never match`,
+                path: ['social', 'microsoft', 'allowedTenants', index],
+              });
+            }
+          }
+
+          // A domain-form tenant reads as "this one organisation", but it cannot be checked
+          // against `tid` locally. On the web redirect the authority URL constrains it; the
+          // native verify endpoint has no such constraint and would accept any directory.
+          // Require the GUID allowlist so the restriction is actually enforceable.
+          if (isDomain && (microsoftConfig.allowedTenants ?? []).length === 0) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `social.microsoft.tenant '${tenant}' is a domain, which cannot be matched against the token's tid claim. Set allowedTenants to that directory's GUID, or use the GUID as the tenant`,
+              path: ['social', 'microsoft', 'allowedTenants'],
             });
           }
         }

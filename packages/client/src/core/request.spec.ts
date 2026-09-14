@@ -28,6 +28,7 @@ describe('httpRequest', () => {
       baseUrl: 'https://api.example.com',
       headers: {},
       tokenDelivery: 'json',
+      autoDetectLocale: false,
       endpoints: defaultEndpoints,
       httpAdapter: mockHttpAdapter,
       timeout: 30000,

@@ -56,6 +56,16 @@ export interface AuthResponseUser {
    * or is a pure social signup (no password, only social auth)
    */
   hasPasswordHash?: boolean;
+
+  /**
+   * User's preferred IANA timezone, when set
+   */
+  timezone?: string;
+
+  /**
+   * User's preferred BCP 47 locale, when set
+   */
+  locale?: string;
 }
 
 /**
@@ -366,5 +376,7 @@ export function toAuthResponseUser(user: IUser): AuthResponseUser {
     isPhoneVerified: user.isPhoneVerified ?? undefined,
     socialProviders: user.socialProviders && user.socialProviders.length > 0 ? user.socialProviders : undefined,
     hasPasswordHash: !!user.passwordHash,
+    timezone: user.timezone ?? undefined,
+    locale: user.locale ?? undefined,
   };
 }

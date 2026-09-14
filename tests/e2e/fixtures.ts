@@ -668,6 +668,8 @@ export const test = base.extend<TestFixtures>({
       signup: async (
         email: string,
         phone?: string,
+        /** Extra body fields, e.g. the browser-detected `timezone`/`locale` preferences. */
+        extra?: Record<string, unknown>,
       ): Promise<FlowResult<{ challengeName?: string; session?: string }>> => {
         flowState.userEmail = email;
         if (phone) flowState.userPhone = phone;
@@ -680,6 +682,7 @@ export const test = base.extend<TestFixtures>({
             password: flowState.password,
             firstName: flowState.firstName,
             lastName: flowState.lastName,
+            ...extra,
           },
         });
 

@@ -186,3 +186,21 @@ export class ContextStorage {
     return this.als.run(store, callback);
   }
 }
+
+/**
+ * Request-context key holding browser-detected sign-up preferences.
+ *
+ * Set by `SocialRedirectHandler.callback()` from the stored redirect context, and read by
+ * `BaseSocialAuthProviderService.createSocialUser()`. It exists because the browser that
+ * detected these values is not part of the provider's callback request — the same reason
+ * the trusted-device token is round-tripped through the state store.
+ */
+export const SOCIAL_SIGNUP_PREFERENCES = 'SOCIAL_SIGNUP_PREFERENCES';
+
+/**
+ * Shape stored under {@link SOCIAL_SIGNUP_PREFERENCES}.
+ */
+export interface SocialSignupPreferences {
+  timezone?: string;
+  locale?: string;
+}

@@ -59,3 +59,12 @@
   {{/if}}
 </mj-raw>
 
+<mj-raw>
+  {{#if timestampFormatted}}
+</mj-raw>
+<mj-text css-class="text-small" padding="0 24px 24px 24px">
+  When: {{timestampFormatted}}
+</mj-text>
+<mj-raw>
+  {{/if}}
+</mj-raw>

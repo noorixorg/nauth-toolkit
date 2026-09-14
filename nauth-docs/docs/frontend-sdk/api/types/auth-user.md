@@ -35,6 +35,8 @@ import { AuthUser } from '@nauth-toolkit/client';
 | `sessionAuthMethod`  | `string \| null` | How the current session was authenticated (`password`, `google`, `apple`, `facebook`) |
 | `isActive`           | `boolean`        | Whether account is active                                        |
 | `createdAt`          | `Date`           | Account creation timestamp                                       |
+| `timezone`           | `string \| null` | Preferred IANA timezone (e.g. `Europe/Dublin`), or null if unset |
+| `locale`             | `string \| null` | Preferred BCP 47 locale (e.g. `en-GB`), or null if unset         |
 | `updatedAt`          | `Date`           | Last update timestamp                                            |
 
 ## Example

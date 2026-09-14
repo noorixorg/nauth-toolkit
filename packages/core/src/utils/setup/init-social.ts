@@ -290,10 +290,13 @@ export async function initSocialAuth(
           'Microsoft provider not available. Install @nauth-toolkit/social-microsoft to enable Microsoft authentication.',
         );
       }
-    } catch {
-      logger?.warn?.(
-        'Microsoft provider not available. Install @nauth-toolkit/social-microsoft to enable Microsoft authentication.',
-      );
+    } catch (error) {
+      // Distinguish "package absent" from "package present but failed to construct".
+      // Reporting a bad client secret or an invalid tenant as "install the package" sends
+      // operators hunting for a dependency problem while the app boots with Microsoft
+      // silently unregistered.
+      const message = error instanceof Error ? error.message : String(error);
+      logger?.error?.(`Microsoft provider failed to initialize: ${message}`);
     }
   }
 

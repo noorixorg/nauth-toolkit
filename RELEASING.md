@@ -104,6 +104,7 @@ node scripts/publish.js latest --dry-run
 ## 4. Publish (bumps versions, builds, publishes all ~20 packages)
 
 ```bash
+node scripts/publish.js                   # interactive — prompts for bump type, tag, dry-run
 node scripts/publish.js latest            # patch bump (0.3.3 -> 0.3.4)
 node scripts/publish.js latest --minor    # minor bump (0.3.3 -> 0.4.0)
 ```

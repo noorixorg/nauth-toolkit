@@ -66,6 +66,8 @@ export interface IUser {
   mfaExemptGrantedAt?: Date | null;
   mfaExemptGrantedBy?: string | null;
   backupCodes: string[] | null;
+  timezone?: string | null;
+  locale?: string | null;
   metadata: Record<string, unknown> | null;
   createdAt: Date;
   updatedAt: Date;

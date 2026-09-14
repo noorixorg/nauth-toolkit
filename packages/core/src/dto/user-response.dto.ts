@@ -93,6 +93,16 @@ export class UserResponseDTO {
   socialProviders?: string[] | null;
 
   /**
+   * User's preferred IANA timezone (e.g. 'Europe/Dublin'), or null if never set
+   */
+  timezone?: string | null;
+
+  /**
+   * User's preferred BCP 47 locale (e.g. 'en-GB'), or null if never set
+   */
+  locale?: string | null;
+
+  /**
    * Whether this user has a password set
    * Used to determine if user can use password-based authentication
    * or is a pure social signup (no password, only social auth)
@@ -134,6 +144,8 @@ export class UserResponseDTO {
     dto.mfaEnabled = !!user.mfaEnabled;
     dto.mfaExempt = !!user.mfaExempt;
     dto.socialProviders = user.socialProviders;
+    dto.timezone = user.timezone ?? null;
+    dto.locale = user.locale ?? null;
     dto.hasPasswordHash = !!user.passwordHash; // Check if password exists
     dto.createdAt = user.createdAt;
     dto.updatedAt = user.updatedAt;

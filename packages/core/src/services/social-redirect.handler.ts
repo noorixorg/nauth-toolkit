@@ -9,7 +9,7 @@ import { StorageAdapter } from '../interfaces/storage-adapter.interface';
 import { NAuthCookieOptions } from '../platform/interfaces';
 import { SocialProviderRegistry } from '../services/social-provider-registry.service';
 import { CsrfService } from '../services/csrf.service';
-import { ContextStorage } from '../utils/context-storage';
+import { ContextStorage, SOCIAL_SIGNUP_PREFERENCES } from '../utils/context-storage';
 import {
   getAccessTokenCookieName,
   getDeviceTokenCookieName,
@@ -71,7 +71,14 @@ export class SocialRedirectHandler {
    */
   async start(
     provider: string,
-    dto: { returnTo?: string; appState?: string; action?: 'login' | 'link'; oauthParams?: string },
+    dto: {
+      returnTo?: string;
+      appState?: string;
+      action?: 'login' | 'link';
+      oauthParams?: string;
+      timezone?: string;
+      locale?: string;
+    },
   ): Promise<StartSocialRedirectResponseDTO> {
     const normalizedProvider = this.normalizeProvider(provider);
     const returnTo = dto.returnTo || '/auth/callback';
@@ -88,6 +95,8 @@ export class SocialRedirectHandler {
       action,
       delivery,
       deviceToken,
+      timezone: dto.timezone,
+      locale: dto.locale,
     });
 
     let oauthParams: Record<string, string> | undefined;
@@ -149,6 +158,20 @@ export class SocialRedirectHandler {
         existing.deviceToken = ctx.deviceToken;
         ContextStorage.set('CLIENT_INFO', existing);
       }
+    }
+
+    // ============================================================================
+    // Preserve browser-detected timezone/locale across OAuth redirects
+    // ============================================================================
+    // Same problem as the device token above: the browser supplied these when the flow
+    // started and is not part of the provider's callback request. Republished here so
+    // that createSocialUser can seed them onto a brand-new user. Consumed only at user
+    // creation, so a returning login never overwrites a stored preference.
+    if (ctx?.timezone || ctx?.locale) {
+      ContextStorage.set(SOCIAL_SIGNUP_PREFERENCES, {
+        timezone: ctx.timezone,
+        locale: ctx.locale,
+      });
     }
     const frontendBaseUrl = this.getFrontendBaseUrl();
     const frontendUrl = this.buildFrontendRedirectUrl(frontendBaseUrl, ctx?.returnTo || '/auth/callback');

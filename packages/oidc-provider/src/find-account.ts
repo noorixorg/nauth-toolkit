@@ -9,6 +9,10 @@ type ProfileClaims = {
   family_name?: string;
   preferred_username?: string;
   updated_at?: number;
+  /** IANA timezone. nauth stores this as `user.timezone`; OIDC names the claim `zoneinfo`. */
+  zoneinfo?: string;
+  /** BCP 47 locale. */
+  locale?: string;
 };
 
 /**
@@ -77,6 +81,12 @@ export function createFindAccount(
           }
           if (user.username) {
             profile.preferred_username = user.username;
+          }
+          if (user.timezone) {
+            profile.zoneinfo = user.timezone;
+          }
+          if (user.locale) {
+            profile.locale = user.locale;
           }
           if (user.updatedAt) {
             profile.updated_at = Math.floor(new Date(user.updatedAt).getTime() / 1000);

@@ -50,6 +50,7 @@ export class LoginComponent implements OnInit {
   readonly showAppleLogin = environment.showAppleLogin;
   /** Show Facebook login button (controlled via build-time env flag) */
   readonly showFacebookLogin = environment.showFacebookLogin;
+  readonly showMicrosoftLogin = environment.showMicrosoftLogin;
 
   /**
    * Loading state signal

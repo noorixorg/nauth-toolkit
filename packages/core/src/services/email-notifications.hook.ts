@@ -22,6 +22,7 @@ import {
 } from '../interfaces/hooks.interface';
 import type { EmailProvider } from '../interfaces/provider.interface';
 import type { NAuthConfig } from '../interfaces/config.interface';
+import { DateFormatPreferences, formatDateTimeForUser } from '../utils/format-datetime';
 import type { LoggerProvider } from '../interfaces/logger.interface';
 import type { IUser } from '../interfaces/entities.interface';
 import type { HookRegistryService } from './hook-registry.service';
@@ -37,6 +38,21 @@ class EmailNotificationsBase {
     protected readonly config: NAuthConfig,
     protected readonly logger?: LoggerProvider,
   ) {}
+
+  /**
+   * Render an instant in the recipient's timezone and locale.
+   *
+   * Falls back to `email.defaultTimezone`/`defaultLocale`, then the host's settings, then
+   * UTC. Never throws — a notification must not fail because a date could not be
+   * formatted.
+   *
+   * @param user - The recipient, whose stored preferences take precedence
+   * @param date - The instant to render
+   * @returns A localised date-time string, or `''` when there is no usable date
+   */
+  protected formatFor(user: DateFormatPreferences | null | undefined, date: Date | string): string {
+    return formatDateTimeForUser(date, user, this.config);
+  }
 
   /**
    * Decide whether a notification email should be sent.
@@ -120,6 +136,7 @@ class PasswordChangedEmailNotificationHook extends EmailNotificationsBase implem
       changedBy: metadata.changedBy,
       sessionsRevoked: metadata.sessionsRevoked,
       timestamp: new Date().toISOString(),
+      timestampFormatted: this.formatFor(metadata.user, new Date().toISOString()),
     });
   }
 }
@@ -133,6 +150,8 @@ class MFADeviceRemovedEmailNotificationHook extends EmailNotificationsBase imple
       deviceName: metadata.deviceName,
       removedBy: metadata.removedBy,
       reason: metadata.reason,
+      timestamp: new Date().toISOString(),
+      timestampFormatted: this.formatFor(metadata.user, new Date()),
       remainingDeviceCount: metadata.remainingDeviceCount,
     });
   }
@@ -148,6 +167,7 @@ class AdaptiveMFARiskEmailNotificationHook extends EmailNotificationsBase implem
       riskFactors: metadata.riskFactors.map((f) => String(f)),
       action: metadata.action,
       timestamp: metadata.timestamp.toISOString(),
+      timestampFormatted: this.formatFor(metadata.user, metadata.timestamp.toISOString()),
     });
   }
 }
@@ -156,12 +176,14 @@ class AccountStatusEmailNotificationHook extends EmailNotificationsBase implemen
   async execute(metadata: AccountStatusChangedMetadata): Promise<void> {
     if (!metadata.user.email) return;
     const timestamp = new Date().toISOString();
+    const timestampFormatted = this.formatFor(metadata.user, timestamp);
     if (metadata.status === 'disabled') {
       if (!this.shouldSend('accountDisabled')) return;
       await this.emailProvider.sendAccountDisabledEmail?.(metadata.user.email, {
         reason: metadata.reason,
         performedBy: metadata.performedBy,
         timestamp,
+        timestampFormatted,
       });
       return;
     }
@@ -171,6 +193,7 @@ class AccountStatusEmailNotificationHook extends EmailNotificationsBase implemen
         reason: metadata.reason,
         performedBy: metadata.performedBy,
         timestamp,
+        timestampFormatted,
       });
     }
   }
@@ -179,17 +202,20 @@ class AccountStatusEmailNotificationHook extends EmailNotificationsBase implemen
 class EmailChangedEmailNotificationHook extends EmailNotificationsBase implements IEmailChangedHook {
   async execute(metadata: EmailChangedMetadata): Promise<void> {
     const timestamp = new Date().toISOString();
+    const timestampFormatted = this.formatFor(metadata.user, timestamp);
     if (this.shouldSend('emailChangedOld')) {
       await this.emailProvider.sendEmailChangedAlertEmail?.(metadata.oldEmail, {
         newEmail: metadata.newEmail,
         deactivatedMFADevices: metadata.deactivatedMFADevices,
         timestamp,
+        timestampFormatted,
       });
     }
     if (this.shouldSend('emailChangedNew')) {
       await this.emailProvider.sendEmailChangedConfirmationEmail?.(metadata.newEmail, {
         oldEmail: metadata.oldEmail,
         timestamp,
+        timestampFormatted,
       });
     }
   }
@@ -207,6 +233,7 @@ class PhoneChangedEmailNotificationHook extends EmailNotificationsBase implement
       deactivatedMFADevices: metadata.deactivatedMFADevices,
       mfaDisabled: metadata.mfaDisabled,
       timestamp: new Date().toISOString(),
+      timestampFormatted: this.formatFor(metadata.user, new Date().toISOString()),
     });
   }
 }
@@ -221,6 +248,7 @@ class SessionsRevokedEmailNotificationHook extends EmailNotificationsBase implem
       reason: metadata.reason,
       triggerEvent: metadata.triggerEvent,
       timestamp: new Date().toISOString(),
+      timestampFormatted: this.formatFor(metadata.user, new Date().toISOString()),
     });
   }
 }
@@ -233,6 +261,7 @@ class MFAFirstEnabledEmailNotificationHook extends EmailNotificationsBase implem
       firstMethod: String(metadata.firstMethod),
       deviceName: metadata.deviceName,
       timestamp: metadata.enforcedAt.toISOString(),
+      timestampFormatted: this.formatFor(metadata.user, metadata.enforcedAt.toISOString()),
     });
   }
 }
@@ -245,6 +274,7 @@ class MFAMethodAddedEmailNotificationHook extends EmailNotificationsBase impleme
       method: String(metadata.method),
       enabledMethods: metadata.enabledMethods.map((m) => String(m)),
       timestamp: metadata.timestamp.toISOString(),
+      timestampFormatted: this.formatFor(metadata.user, metadata.timestamp.toISOString()),
     });
   }
 }

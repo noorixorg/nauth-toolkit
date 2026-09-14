@@ -227,7 +227,7 @@ export class ProfileComponent implements OnInit {
     const currentUser = this.user();
     if (!currentUser?.socialProviders) return [];
     return currentUser.socialProviders.filter((p): p is SocialProvider => {
-      return p === 'google' || p === 'apple' || p === 'facebook';
+      return p === 'google' || p === 'apple' || p === 'facebook' || p === 'microsoft';
     });
   });
 
@@ -241,7 +241,7 @@ export class ProfileComponent implements OnInit {
     const currentUser = this.user();
     const method = currentUser?.sessionAuthMethod?.toLowerCase();
     if (!method) return null;
-    if (method === 'google' || method === 'apple' || method === 'facebook') {
+    if (method === 'google' || method === 'apple' || method === 'facebook' || method === 'microsoft') {
       return method;
     }
     return null;
@@ -258,6 +258,7 @@ export class ProfileComponent implements OnInit {
       google: 'Google',
       apple: 'Apple',
       facebook: 'Facebook',
+      microsoft: 'Microsoft',
     };
     return names[provider] || provider;
   }
@@ -273,6 +274,7 @@ export class ProfileComponent implements OnInit {
       google: 'pi pi-google',
       apple: 'pi pi-apple',
       facebook: 'pi pi-facebook',
+      microsoft: 'pi pi-microsoft',
     };
     return icons[provider] || 'pi pi-link';
   }

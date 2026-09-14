@@ -15,6 +15,8 @@ Remaining Devices: {{remainingDeviceCount}}
 
 {{#if remainingDeviceCount}}{{#eq remainingDeviceCount 0}}WARNING: You have no MFA devices remaining. Your account may be less secure.{{/eq}}{{/if}}
 
+{{#if timestampFormatted}}When: {{timestampFormatted}}{{/if}}
+
 If you made this change, no further action is required.
 
 {{#if supportEmail}}If you didn't remove this device, please contact support immediately at {{supportEmail}}.{{/if}}

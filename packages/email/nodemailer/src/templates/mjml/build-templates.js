@@ -125,7 +125,7 @@ The phone number on your account has been changed.
 
 {{#if oldPhone}}Previous number: {{oldPhone}}{{/if}}
 {{#if newPhone}}New number: {{newPhone}}{{/if}}
-{{#if timestamp}}When: {{timestamp}}{{/if}}
+{{#if timestampFormatted}}When: {{timestampFormatted}}{{/if}}
 
 {{#if deactivatedMFADevices}}{{#gt deactivatedMFADevices 0}}Because SMS codes were sent to the old number, {{deactivatedMFADevices}} SMS two-factor device(s) were removed with it.{{/gt}}{{/if}}
 {{#if mfaDisabled}}That leaves no two-factor method on your account, so two-factor authentication is now switched off. You will be asked to set it up again next time you sign in.{{/if}}
@@ -147,7 +147,7 @@ We detected a login to your account from a new device.
 {{#if deviceType}}Type: {{deviceType}}{{/if}}
 {{#if ipAddress}}IP Address: {{ipAddress}}{{/if}}
 {{#if location}}Location: {{location}}{{/if}}
-{{#if timestamp}}Time: {{timestamp}}{{/if}}
+{{#if timestampFormatted}}Time: {{timestampFormatted}}{{/if}}
 
 Was this you?
 If you recognize this login, no action is needed.
@@ -165,6 +165,8 @@ If you don't recognize this activity, secure your account immediately:
 {{#if userName}}Hi {{userName}},{{/if}}
 
 Your password has been successfully changed.
+
+{{#if timestampFormatted}}When: {{timestampFormatted}}{{/if}}
 
 If you made this change, no further action is required.
 
@@ -192,7 +194,10 @@ Two-factor authentication has been successfully enabled for your account.
 
 Your account is now more secure. You'll need to provide both your password and a verification code when logging in.
 
-{{#if supportEmail}}If you didn't enable this feature, please contact support immediately at {{supportEmail}}.{{/if}}`,
+{{#if supportEmail}}If you didn't enable this feature, please contact support immediately at {{supportEmail}}.{{/if}}
+
+{{#if timestampFormatted}}When: {{timestampFormatted}}{{/if}}
+`,
   'mfa-email-code': `Your sign-in code
 
 {{#if fullName}}Hi {{fullName}},{{/if}}
@@ -224,6 +229,8 @@ Remaining Devices: {{remainingDeviceCount}}
 
 {{#if remainingDeviceCount}}{{#eq remainingDeviceCount 0}}WARNING: You have no MFA devices remaining. Your account may be less secure.{{/eq}}{{/if}}
 
+{{#if timestampFormatted}}When: {{timestampFormatted}}{{/if}}
+
 If you made this change, no further action is required.
 
 {{#if supportEmail}}If you didn't remove this device, please contact support immediately at {{supportEmail}}.{{/if}}`,
@@ -247,7 +254,10 @@ Our security system detected unusual login characteristics (such as a new device
 Was this you?
 If you recognize this activity, no action is needed. Your account is secure.
 
-{{#if supportEmail}}If you don't recognize this activity, please contact support immediately at {{supportEmail}} and consider changing your password.{{/if}}`,
+{{#if supportEmail}}If you don't recognize this activity, please contact support immediately at {{supportEmail}} and consider changing your password.{{/if}}
+
+{{#if timestampFormatted}}When: {{timestampFormatted}}{{/if}}
+`,
   'account-disabled': `Account Disabled
 
 {{#if fullName}}Hi {{fullName}},{{/if}}
@@ -263,7 +273,10 @@ What does this mean?
 Your account has been disabled and you will not be able to sign in. All active sessions have been terminated.
 
 {{#if supportEmail}}Need Help?
-If you believe this is an error or need assistance, please contact support at {{supportEmail}}.{{/if}}`,
+If you believe this is an error or need assistance, please contact support at {{supportEmail}}.{{/if}}
+
+{{#if timestampFormatted}}When: {{timestampFormatted}}{{/if}}
+`,
   'account-enabled': `Account Enabled
 
 {{#if fullName}}Hi {{fullName}},{{/if}}
@@ -279,7 +292,10 @@ What does this mean?
 Your account has been re-enabled and you can now sign in normally. You may need to reset your password if you don't remember it.
 
 {{#if supportEmail}}Need Help?
-If you have any questions, please contact support at {{supportEmail}}.{{/if}}`,
+If you have any questions, please contact support at {{supportEmail}}.{{/if}}
+
+{{#if timestampFormatted}}When: {{timestampFormatted}}{{/if}}
+`,
   'email-changed-old': `Email Address Changed
 
 {{#if fullName}}Hi {{fullName}},{{/if}}
@@ -299,7 +315,10 @@ If you made this change, no action is required. This is just a security notifica
 
 Future notifications will be sent to the new email address.
 
-{{#if supportEmail}}If you didn't make this change, please contact support immediately at {{supportEmail}}. Your account may be compromised.{{/if}}`,
+{{#if supportEmail}}If you didn't make this change, please contact support immediately at {{supportEmail}}. Your account may be compromised.{{/if}}
+
+{{#if timestampFormatted}}When: {{timestampFormatted}}{{/if}}
+`,
   'email-changed-new': `Email Address Updated
 
 {{#if fullName}}Hi {{fullName}},{{/if}}
@@ -316,7 +335,9 @@ What's next?
 Your email address has been successfully updated. All future notifications will be sent to this email address.
 
 Security Note:
-A security notification was also sent to your previous email address. If you made this change, no further action is required.
+A security notification was also sent to your previous email address. {{#if timestampFormatted}}When: {{timestampFormatted}}{{/if}}
+
+If you made this change, no further action is required.
 
 {{#if supportEmail}}Need Help?
 If you have any questions, please contact support at {{supportEmail}}.{{/if}}`,
@@ -339,7 +360,10 @@ You have been logged out of all devices and browsers. This is a security measure
 What should I do?
 If you made this change (such as changing your password), no action is required. Simply sign in again to create a new session.
 
-{{#if supportEmail}}If you didn't make any changes, please contact support immediately at {{supportEmail}} and change your password.{{/if}}`,
+{{#if supportEmail}}If you didn't make any changes, please contact support immediately at {{supportEmail}} and change your password.{{/if}}
+
+{{#if timestampFormatted}}When: {{timestampFormatted}}{{/if}}
+`,
 };
 
 const MJML_DIR = __dirname;

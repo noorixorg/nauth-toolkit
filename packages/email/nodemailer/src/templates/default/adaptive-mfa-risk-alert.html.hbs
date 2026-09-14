@@ -552,6 +552,18 @@ subject: Security Alert - {{appName}}
     
                 </td>
               </tr>
+            {{/if}}{{#if timestampFormatted}}
+              <tr>
+                <td
+                   align="left" class="text-small" style="font-size:0px;padding:0 24px 24px 24px;word-break:break-word;"
+                >
+                  
+      <div
+         style="font-family:Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;font-size:16px;line-height:24px;text-align:left;color:#374151;"
+      >When: {{timestampFormatted}}</div>
+    
+                </td>
+              </tr>
             {{/if}}
         </tbody>
       </table>

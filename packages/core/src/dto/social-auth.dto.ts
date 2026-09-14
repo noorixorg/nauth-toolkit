@@ -1,5 +1,6 @@
 import { IsString, MaxLength, MinLength, IsOptional, IsObject, ValidateIf, IsIn } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { IsIanaTimezone, IsBcp47Locale } from '../validators/locale-timezone.validator';
 
 /**
  * DTO for linking social account
@@ -419,6 +420,30 @@ export class VerifyTokenDTO {
     return value;
   })
   accessToken?: string;
+
+  /**
+   * Browser/device-detected IANA timezone, seeded onto the user if this call creates one.
+   *
+   * Ignored for a returning user — an existing preference is never overwritten.
+   */
+  @IsOptional()
+  @IsString({ message: 'timezone must be a string' })
+  @MaxLength(64, { message: 'timezone must not exceed 64 characters' })
+  @IsIanaTimezone({ message: 'timezone must be a valid IANA name (e.g. Europe/Dublin)' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  timezone?: string;
+
+  /**
+   * Device-detected BCP 47 locale, seeded onto the user if this call creates one.
+   *
+   * Ignored for a returning user.
+   */
+  @IsOptional()
+  @IsString({ message: 'locale must be a string' })
+  @MaxLength(35, { message: 'locale must not exceed 35 characters' })
+  @IsBcp47Locale({ message: 'locale must be a valid BCP 47 tag (e.g. en-GB)' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  locale?: string;
 
   /**
    * Optional profile data from native SDK

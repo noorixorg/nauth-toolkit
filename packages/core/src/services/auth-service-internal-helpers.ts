@@ -1058,6 +1058,8 @@ export class AuthServiceInternalHelpers {
       'user.email',
       'user.firstName',
       'user.lastName',
+      'user.timezone',
+      'user.locale',
       'user.username',
       'user.phone',
       'user.passwordHash',

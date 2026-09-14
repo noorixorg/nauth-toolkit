@@ -47,7 +47,9 @@ import { UserUpdateDTO } from '@nauth-toolkit/core';
 | `lastName`           | `string`                  | No       | Last name. 1-100 characters. Trimmed.                                                    |
 | `email`              | `string`                  | No       | Email address. Valid email format. Max 255 characters. Trimmed and lowercased.          |
 | `phone`              | `string`                  | No       | Phone number. E.164 format (e.g., +14155552671). Max 20 characters. Whitespace removed. |
+| `locale`             | `string`                  | No       | BCP 47 locale (e.g. `en-GB`). Rejected if not a valid tag. Max 35 characters.           |
 | `metadata`           | `Record<string, unknown>` | No       | Custom metadata fields. Merged with existing metadata. Set key to `null` to delete.     |
+| `timezone`           | `string`                  | No       | IANA timezone (e.g. `Europe/Dublin`). Rejected if unknown to the runtime. Max 64 chars. |
 | `preferredMfaMethod` | `MFADeviceMethod`         | No       | Preferred MFA method. Must be: totp, sms, email, passkey. Max 50 characters.            |
 
 > `retainVerification` is **not** part of this base DTO. It is an administrator-only field defined on [AdminUpdateUserAttributesDto](./admin-update-user-attributes-dto). Self-service email/phone changes always reset the corresponding verification flag.

@@ -5,6 +5,24 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] - 2026-09-14
+
+### Added
+
+- **Microsoft Entra ID provider** (`@nauth-toolkit/social-microsoft`). Covers both populations the Microsoft identity platform serves: personal accounts, and organisational sign-in against a Microsoft 365 tenant. One `tenant` value decides which. Optional access gating on Entra app roles or security groups, enforced on every sign-in rather than only at signup. See the [Microsoft Entra ID guide](https://nauth.dev/docs/guides/social/microsoft).
+- **User `timezone` and `locale`.** Optional preferences captured from the browser by the frontend SDK at signup — including through the social redirect for Google, Apple, Facebook and Microsoft — and changeable afterwards by the user or an admin. Notification emails now render dates in the recipient's own time via a new `{{timestampFormatted}}` template variable, falling back to `email.defaultTimezone` / `email.defaultLocale` and then the server. Adds two nullable columns; the migration runs automatically at startup and leaves existing rows untouched. See [Configuration](https://nauth.dev/docs/concepts/configuration#email-provider).
+
+### Fixed
+
+- **Express and Fastify passed two provider constructor arguments in the wrong order.** `tokenVerifier` landed in the `hookRegistry` slot and vice versa for Google, Apple and Facebook, so lifecycle hooks and native token verification were both wired to the wrong object. The NestJS modules were always correct.
+- **One uninstalled social package disabled the rest.** A missing optional provider returned out of the initialisation routine entirely, so an absent `social-google` silently prevented Apple and Facebook from registering. A genuine construction failure is now reported as an error instead of "install the package".
+
+### Changed
+
+- **The `formatDate` email template helper renders a medium-style date** (`14 Sept 2026`) rather than `toLocaleDateString()`'s short numeric form, and accepts optional `timezone`/`locale` hash arguments. Prefer the new `{{timestampFormatted}}` variable, which is localised to the actual recipient. Only affects custom templates that call the helper.
+
+See the [v0.8.0 changelog](https://nauth.dev/changelog/v0.8.0) for detail.
+
 ## [0.7.5] - 2026-09-13
 
 ### Fixed

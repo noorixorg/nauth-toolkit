@@ -112,6 +112,25 @@ export interface SocialAuthRedirectContext {
   deviceToken?: string;
 
   /**
+   * Browser-detected IANA timezone captured at redirect start time.
+   *
+   * WHY: the same reason as `deviceToken` — the browser is present when the flow starts
+   * but gone by the time the provider calls back, so anything detected client-side has to
+   * be parked server-side to survive the round trip.
+   *
+   * Applied only when the callback creates a NEW user; a returning login or an account
+   * link never overwrites a stored preference.
+   */
+  timezone?: string;
+
+  /**
+   * Browser-detected BCP 47 locale captured at redirect start time.
+   *
+   * See `timezone` for why this is stored here rather than read at callback time.
+   */
+  locale?: string;
+
+  /**
    * Redirect flow action.
    * - `login`: Authenticate user
    * - `link`: Link provider to existing session (future)

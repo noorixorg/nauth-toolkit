@@ -270,8 +270,20 @@ Email templates support the full Handlebars feature set:
   <p>High risk detected!</p>
 {{/if}}
 
-<p>Date: {{formatDate timestamp}}</p>
+<p>Date: {{timestampFormatted}}</p>
 ```
+
+:::tip[Prefer `timestampFormatted`]
+Notification templates receive two forms of the event time: `{{timestamp}}` is the raw
+UTC ISO string, and `{{timestampFormatted}}` is the same instant rendered in the
+**recipient's** timezone and locale. Prefer the formatted one — a Handlebars helper cannot
+know who the email is addressed to, so `{{formatDate timestamp}}` can only use the
+server's settings unless you pass a timezone explicitly.
+
+The recipient's preferences come from `user.timezone` / `user.locale`, falling back to
+`email.defaultTimezone` / `email.defaultLocale`, then the host's settings, then UTC. See
+[Configuration](/docs/concepts/configuration#email-provider).
+:::
 
 | Helper | Description |
 |---|---|
@@ -281,7 +293,16 @@ Email templates support the full Handlebars feature set:
 | `lt` | Less than: `(lt a b)` |
 | `and` | Logical AND: `(and a b)` |
 | `or` | Logical OR: `(or a b)` |
-| `formatDate` | Format date: `{{formatDate timestamp}}` |
+| `formatDate` | Format a date: `{{formatDate timestamp}}`, or `{{formatDate timestamp timezone="Europe/Dublin" locale="en-GB"}}` |
+| `formatDateTime` | Same, including the time of day |
+
+:::warning[`formatDate` output changed]
+`formatDate` previously called `toLocaleDateString()` with no options, giving a
+short numeric date in the server's locale (`14/09/2026`). It now renders a medium-style
+date (`14 Sept 2026`) and accepts optional `timezone`/`locale` hash arguments. If a custom
+template depends on the old numeric form, pass an explicit locale or format the value
+before it reaches the template.
+:::
 
 **Greeting pattern:**
 

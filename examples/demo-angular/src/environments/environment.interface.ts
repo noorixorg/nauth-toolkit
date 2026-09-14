@@ -11,4 +11,5 @@ export interface Environment {
   recaptchaEnabled: boolean;
   showAppleLogin: boolean;
   showFacebookLogin: boolean;
+  showMicrosoftLogin: boolean;
 }

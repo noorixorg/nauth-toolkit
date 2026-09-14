@@ -63,6 +63,7 @@ export interface EmailProvider {
       changedBy?: 'user' | 'admin' | 'reset';
       sessionsRevoked?: number;
       timestamp?: string;
+      timestampFormatted?: string;
     },
   ): Promise<void>;
 
@@ -80,6 +81,8 @@ export interface EmailProvider {
       removedBy?: 'user' | 'admin' | 'system';
       reason?: string;
       remainingDeviceCount?: number;
+      timestamp?: string;
+      timestampFormatted?: string;
     },
   ): Promise<void>;
 
@@ -97,6 +100,7 @@ export interface EmailProvider {
       riskFactors?: string[];
       action?: string;
       timestamp?: string;
+      timestampFormatted?: string;
     },
   ): Promise<void>;
 
@@ -112,6 +116,7 @@ export interface EmailProvider {
       reason?: string;
       performedBy?: string;
       timestamp?: string;
+      timestampFormatted?: string;
     },
   ): Promise<void>;
 
@@ -127,6 +132,7 @@ export interface EmailProvider {
       reason?: string;
       performedBy?: string;
       timestamp?: string;
+      timestampFormatted?: string;
     },
   ): Promise<void>;
 
@@ -144,6 +150,7 @@ export interface EmailProvider {
       newEmail?: string;
       deactivatedMFADevices?: number;
       timestamp?: string;
+      timestampFormatted?: string;
     },
   ): Promise<void>;
 
@@ -160,6 +167,7 @@ export interface EmailProvider {
     context: {
       oldEmail?: string;
       timestamp?: string;
+      timestampFormatted?: string;
     },
   ): Promise<void>;
 
@@ -179,6 +187,7 @@ export interface EmailProvider {
       deactivatedMFADevices?: number;
       mfaDisabled?: boolean;
       timestamp?: string;
+      timestampFormatted?: string;
     },
   ): Promise<void>;
 
@@ -195,6 +204,7 @@ export interface EmailProvider {
       reason?: string;
       triggerEvent?: string;
       timestamp?: string;
+      timestampFormatted?: string;
     },
   ): Promise<void>;
 
@@ -210,6 +220,7 @@ export interface EmailProvider {
       firstMethod?: string;
       deviceName?: string;
       timestamp?: string;
+      timestampFormatted?: string;
     },
   ): Promise<void>;
 
@@ -228,6 +239,7 @@ export interface EmailProvider {
       enabledMethods?: string[];
       deviceName?: string;
       timestamp?: string;
+      timestampFormatted?: string;
     },
   ): Promise<void>;
 

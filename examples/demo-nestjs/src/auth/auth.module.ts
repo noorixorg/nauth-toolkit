@@ -10,6 +10,7 @@ import { AuthModule, NAuthHooksModule } from '@nauth-toolkit/nestjs';
 import { GoogleSocialAuthModule } from '@nauth-toolkit/social-google/nestjs';
 import { AppleSocialAuthModule } from '@nauth-toolkit/social-apple/nestjs';
 import { FacebookSocialAuthModule } from '@nauth-toolkit/social-facebook/nestjs';
+import { MicrosoftSocialAuthModule } from '@nauth-toolkit/social-microsoft/nestjs';
 import { SMSMFAModule } from '@nauth-toolkit/mfa-sms/nestjs';
 import { EmailMFAModule } from '@nauth-toolkit/mfa-email/nestjs';
 import { TOTPMFAModule } from '@nauth-toolkit/mfa-totp/nestjs';
@@ -38,6 +39,7 @@ import { PreSignupDebugHook, PostSignupDebugHook } from './hooks';
     GoogleSocialAuthModule,
     AppleSocialAuthModule,
     FacebookSocialAuthModule,
+    MicrosoftSocialAuthModule,
     SMSMFAModule,
     EmailMFAModule,
     TOTPMFAModule,

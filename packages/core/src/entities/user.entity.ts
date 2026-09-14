@@ -252,6 +252,28 @@ export class BaseUser {
   socialProviders!: string[] | null;
 
   /**
+   * User's preferred IANA timezone (e.g. 'Europe/Dublin', 'Asia/Karachi')
+   *
+   * Captured from the browser at signup by the frontend SDK, and changeable by the user
+   * or an admin. Used to render dates in notification emails in the user's own time.
+   * Falls back to the server default when null.
+   *
+   * @default null
+   */
+  timezone?: string | null;
+
+  /**
+   * User's preferred BCP 47 locale (e.g. 'en-GB', 'ur-PK')
+   *
+   * Captured from the browser at signup by the frontend SDK, and changeable by the user
+   * or an admin. Used to format dates in notification emails. Note this controls
+   * *formatting* only — it does not translate message text.
+   *
+   * @default null
+   */
+  locale?: string | null;
+
+  /**
    * Additional user metadata (JSON)
    * For custom application-specific data
    */
