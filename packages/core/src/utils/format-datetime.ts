@@ -31,6 +31,9 @@ const FALLBACK_TIMEZONE = 'UTC';
 /** Final fallback locale when nothing else resolves. */
 const FALLBACK_LOCALE = 'en-US';
 
+/** Timezone-name style used when `email.timeZoneNameStyle` is not configured. */
+const DEFAULT_TIMEZONE_NAME_STYLE = 'long' as const;
+
 /**
  * Resolve which timezone to format in.
  *
@@ -70,23 +73,46 @@ export function resolveLocale(preferences?: DateFormatPreferences | null, config
   return FALLBACK_LOCALE;
 }
 
+/** How the timezone is named on a formatted date+time — see `EmailConfig.timeZoneNameStyle`. */
+type TimeZoneNameStyle = NonNullable<Required<NAuthConfig>['email']['timeZoneNameStyle']>;
+
+/**
+ * Resolve which timezone-name style to render on dates+times (not on date-only values).
+ *
+ * There is no per-user equivalent of this — unlike timezone/locale, it isn't something an
+ * individual recipient would set, only the app operator.
+ *
+ * @param config - NAuth configuration, for `email.timeZoneNameStyle`
+ * @returns An `Intl.DateTimeFormat` `timeZoneName` value
+ */
+function resolveTimeZoneNameStyle(config?: NAuthConfig): TimeZoneNameStyle {
+  return config?.email?.timeZoneNameStyle ?? DEFAULT_TIMEZONE_NAME_STYLE;
+}
+
 /**
  * Format an instant as a human-readable date and time for a specific user.
  *
  * @param date - The instant to render. A string is parsed; an invalid or missing value yields `''`.
  * @param preferences - The recipient's timezone and locale, if known
  * @param config - NAuth configuration, for the server-side defaults
- * @returns A localised string such as `14 Sept 2026 at 11:22 GMT+1`, or the ISO string if formatting fails
+ * @returns A localised string such as `14 Sept 2026, 04:22 Pacific Daylight Time`, or the ISO string if formatting fails
  *
  * @example
  * ```typescript
- * formatDateTimeForUser(new Date(), { timezone: 'Asia/Karachi', locale: 'en-GB' }, config);
- * // '14 Sept 2026 at 16:22 PKT'
+ * formatDateTimeForUser(new Date(), { timezone: 'America/Los_Angeles', locale: 'en-GB' }, config);
+ * // '14 Sept 2026, 04:22 Pacific Daylight Time'
  * ```
  *
  * @example No preferences — falls back to the server default
  * ```typescript
- * formatDateTimeForUser(new Date(), null, config); // '14 Sept 2026 at 11:22 UTC'
+ * formatDateTimeForUser(new Date(), null, config); // 'Sep 14, 2026, 11:22 AM Coordinated Universal Time'
+ * ```
+ *
+ * @example `email.timeZoneNameStyle: 'short'` — GMT offset instead of the full name
+ * ```typescript
+ * const config = { email: { timeZoneNameStyle: 'short' } };
+ * formatDateTimeForUser(new Date(), { timezone: 'Australia/Sydney' }, config);
+ * // '14 Sept 2026, 9:22 pm GMT+10'
  * ```
  */
 export function formatDateTimeForUser(
@@ -98,9 +124,21 @@ export function formatDateTimeForUser(
   if (!instant) return '';
 
   try {
+    // Named component options (year/month/day/hour/minute), not the `dateStyle`/`timeStyle`
+    // shorthand: `timeZoneName` cannot be combined with those per the Intl.DateTimeFormat
+    // spec. Defaults to `'long'` (see `DEFAULT_TIMEZONE_NAME_STYLE`) — the full zone name,
+    // stable across locales. `'short'` can render a colloquial abbreviation (`AEST`), but
+    // only for a recipient whose own locale "owns" that zone; a mismatched locale falls
+    // back to a bare GMT offset, and there's no forcing a specific abbreviation regardless
+    // of locale (see `EmailConfig.timeZoneNameStyle`). Configurable via
+    // `email.timeZoneNameStyle` for operators who'd rather have the shorter form.
     return new Intl.DateTimeFormat(resolveLocale(preferences, config), {
-      dateStyle: 'medium',
-      timeStyle: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: resolveTimeZoneNameStyle(config),
       timeZone: resolveTimezone(preferences, config),
     }).format(instant);
   } catch {

@@ -281,8 +281,9 @@ know who the email is addressed to, so `{{formatDate timestamp}}` can only use t
 server's settings unless you pass a timezone explicitly.
 
 The recipient's preferences come from `user.timezone` / `user.locale`, falling back to
-`email.defaultTimezone` / `email.defaultLocale`, then the host's settings, then UTC. See
-[Configuration](/docs/concepts/configuration#email-provider).
+`email.defaultTimezone` / `email.defaultLocale`, then the host's settings, then UTC. How the
+timezone itself is named (`Australian Eastern Standard Time` vs. `GMT+10`) is controlled by
+`email.timeZoneNameStyle`. See [Configuration](/docs/concepts/configuration#email-provider).
 :::
 
 | Helper | Description |

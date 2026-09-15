@@ -252,6 +252,21 @@ describe('PasswordResetService', () => {
       const link = mockEmailProvider.sendAdminPasswordResetEmail.mock.calls[0][2] as string;
       expect(link).toContain('source=console&code=');
     });
+
+    it('should always include the user email in the reset link', async () => {
+      // Unlike the self-service flow, the admin already knows the target address (it's
+      // right there on `user`), so the link includes it unconditionally to let the
+      // consumer app prepopulate the identifier field on its reset-password page.
+      const created = { id: 1 } as any;
+      mockVerificationTokenRepo.create.mockReturnValue(created);
+      mockVerificationTokenRepo.save.mockResolvedValue({ id: 1 } as unknown as BaseVerificationToken);
+
+      const baseUrl = 'https://admin.example.com/reset';
+      await service.requestAdminReset(mockUser, 'email', { expiresIn: 3600, baseUrl });
+
+      const link = mockEmailProvider.sendAdminPasswordResetEmail.mock.calls[0][2] as string;
+      expect(link).toContain(`email=${encodeURIComponent(mockUser.email as string)}`);
+    });
   });
 
   describe('consumeValidCode()', () => {

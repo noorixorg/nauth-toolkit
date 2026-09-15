@@ -2306,7 +2306,7 @@ describe('AuthService', () => {
       it('should clear auth cookies when refresh fails with invalid token in cookie delivery modes', async () => {
         mockConfig.tokenDelivery = {
           method: 'cookies',
-          cookieNamePrefix: 'nauth',
+          cookieNamePrefix: 'nauth_',
           cookieOptions: { path: '/', secure: true, sameSite: 'strict' },
         } as any;
 
@@ -2327,6 +2327,34 @@ describe('AuthService', () => {
         expect(clearCookie).toHaveBeenCalledWith('nauth_csrf_token', expect.anything());
       });
 
+      it('should not double the underscore when cookieNamePrefix already ends in one', async () => {
+        // cookieNamePrefix is documented (see config.interface.ts) to already include its
+        // trailing separator, e.g. 'myapp_'. A prior bug built cookie names as
+        // `${prefix}_access_token`, which produced 'myapp__access_token' for any consumer
+        // following that convention, so logout never cleared the cookie it actually set.
+        mockConfig.tokenDelivery = {
+          method: 'cookies',
+          cookieNamePrefix: 'myapp_',
+          cookieOptions: { path: '/', secure: true, sameSite: 'strict' },
+        } as any;
+
+        const clearCookie = jest.fn();
+        mockClientInfoService.getResponse.mockReturnValue({ clearCookie } as any);
+
+        mockJwtService.validateRefreshToken.mockResolvedValue({
+          valid: false,
+          payload: undefined,
+        } as any);
+
+        await expect(service.refreshToken(createRefreshTokenDto('invalid-token'))).rejects.toBeInstanceOf(
+          NAuthException,
+        );
+
+        expect(clearCookie).toHaveBeenCalledWith('myapp_access_token', expect.anything());
+        expect(clearCookie).toHaveBeenCalledWith('myapp_refresh_token', expect.anything());
+        expect(clearCookie).toHaveBeenCalledWith('myapp_csrf_token', expect.anything());
+      });
+
       it('should throw NAuthException if session not found', async () => {
         mockSessionService.findByRefreshToken.mockResolvedValue(null);
         // Race-condition guard: session also not found by ID -- truly gone
@@ -2344,7 +2372,7 @@ describe('AuthService', () => {
       it('should clear auth cookies when refresh fails with session not found in cookie delivery modes', async () => {
         mockConfig.tokenDelivery = {
           method: 'cookies',
-          cookieNamePrefix: 'nauth',
+          cookieNamePrefix: 'nauth_',
           cookieOptions: { path: '/', secure: true, sameSite: 'strict' },
         } as any;
 
@@ -2704,7 +2732,7 @@ describe('AuthService', () => {
         mockClientInfo.sessionId = undefined;
         mockConfig.tokenDelivery = {
           method: 'cookies',
-          cookieNamePrefix: 'nauth',
+          cookieNamePrefix: 'nauth_',
           cookieOptions: { path: '/', secure: true, sameSite: 'strict' },
         } as any;
 

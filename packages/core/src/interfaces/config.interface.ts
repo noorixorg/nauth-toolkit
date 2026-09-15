@@ -1616,6 +1616,34 @@ export interface EmailConfig {
    * defaultLocale: 'en-GB'
    */
   defaultLocale?: string;
+
+  /**
+   * How the timezone is named on dates+times rendered in emails (e.g. `{{timestampFormatted}}`)
+   *
+   * These are the styles `Intl.DateTimeFormat` supports (example output for
+   * `Australia/Sydney`, recipient locale `en-AU`):
+   *
+   * - `'long'` (default) — full zone name: `Australian Eastern Standard Time`
+   * - `'short'` — colloquial abbreviation when the recipient's own locale "owns" the zone
+   *   (`AEST` for `en-AU`), otherwise a generic offset (`GMT+10` for e.g. `en-US`)
+   * - `'shortOffset'` — always a generic offset: `GMT+10`
+   * - `'longOffset'` — generic offset with minutes: `GMT+10:00`
+   * - `'shortGeneric'` — locale-dependent short generic form, e.g. `AET` for `en-AU`
+   * - `'longGeneric'` — full generic name: `Australian Eastern Time`
+   *
+   * `'short'`/`'shortGeneric'` are the closest native option to an abbreviation like
+   * `AEST`, but only for a recipient whose `locale` matches the region their `timezone`
+   * belongs to — there's no way to force a specific abbreviation regardless of locale, and
+   * generally no such abbreviation is unambiguous across regions anyway (`CST` alone means
+   * three different things). `'long'`/`'longOffset'`/`'longGeneric'` render the same text
+   * regardless of locale, so they're the more predictable choice for a mixed audience.
+   *
+   * @default 'long'
+   * @example
+   * timeZoneNameStyle: 'short' // recipient locale 'en-AU': '11 Sept 2026, 1:47 pm AEST'
+   *                            // recipient locale 'en-US': '11 Sept 2026, 1:47 pm GMT+10'
+   */
+  timeZoneNameStyle?: 'long' | 'short' | 'shortOffset' | 'longOffset' | 'shortGeneric' | 'longGeneric';
 }
 
 /**

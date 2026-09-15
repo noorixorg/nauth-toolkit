@@ -194,7 +194,7 @@ These are the top-level keys you can provide in `NAuthConfig` / `NAuthModuleConf
 | [`authorization`](#authorization) | No | Provider deciding who may perform admin operations. Required to mount admin routes. |
 | [`session`](#session-configuration) | No | Session concurrency limits and hard maximum lifetime. |
 | [`emailProvider`](#email-provider) | No* | Email provider instance. Required when email verification or MFA email is enabled. |
-| [`email`](#email-provider) | No | Email branding (`globalVariables`), custom HTML/text templates, and fallback date formatting (`defaultTimezone`, `defaultLocale`). |
+| [`email`](#email-provider) | No | Email branding (`globalVariables`), custom HTML/text templates, and fallback date formatting (`defaultTimezone`, `defaultLocale`, `timeZoneNameStyle`). |
 | [`emailNotifications`](#email-notifications-optional) | No | Per-event suppression controls. Optional lifecycle emails are disabled by default. |
 | [`smsProvider`](#sms-provider) | No* | SMS provider instance. Required when phone verification or MFA SMS is enabled. |
 | [`sms`](#sms-templates) | No | SMS template branding and custom message content. |
@@ -336,6 +336,34 @@ email: {
 Templates receive the result as `{{timestampFormatted}}`. This controls date *formatting*
 only — it does not translate email body text. See
 [Notifications](/docs/concepts/notifications).
+
+By default, `{{timestampFormatted}}` names the timezone in full — e.g.
+`14 Sept 2026, 04:22 Pacific Daylight Time` — rather than an abbreviation like `PDT`.
+`email.timeZoneNameStyle` picks a different style instead:
+
+```typescript
+email: {
+  timeZoneNameStyle: 'short', // default: 'long'
+},
+```
+
+| Style | Example (`Australia/Sydney`, recipient locale `en-AU`) |
+| --- | --- |
+| `'long'` (default) | `Australian Eastern Standard Time` |
+| `'short'` | `AEST` |
+| `'shortOffset'` | `GMT+10` |
+| `'longOffset'` | `GMT+10:00` |
+| `'shortGeneric'` | `AET` |
+| `'longGeneric'` | `Australian Eastern Time` |
+
+`'short'`/`'shortGeneric'` only render a colloquial abbreviation when the recipient's own
+`locale` "owns" their `timezone` — the pairing above (`en-AU` + `Australia/Sydney`) does. A
+mismatched pairing (say, an `en-US` locale with an `Australia/Sydney` timezone) falls back
+to a generic offset instead — `GMT+10`, not `AEST` — because `Intl.DateTimeFormat` has no
+way to force a specific abbreviation regardless of locale, and most abbreviations aren't
+unambiguous across regions anyway (`CST` alone means three different things). `'long'`,
+`'longOffset'`, and `'longGeneric'` render the same text regardless of locale, which is why
+`'long'` is the default: it's the predictable choice for a mixed audience.
 
 Configure email delivery for verification codes and notifications.
 

@@ -354,7 +354,10 @@ export class PasswordResetService {
     // Build reset link if baseUrl provided
     // ============================================================================
     // WHY: Keep consumer apps code-only and consistent. Links include `code=...`.
-    const resetLink = options.baseUrl ? this.buildResetLink(options.baseUrl, code) : undefined;
+    // The admin-initiated flow always includes `email` too: the admin already knows the
+    // target address (it's on `user`), so there's no extra exposure, and it lets the
+    // consumer app prepopulate the identifier field on its reset-password page.
+    const resetLink = options.baseUrl ? this.buildResetLink(options.baseUrl, code, user.email ?? undefined) : undefined;
 
     // ============================================================================
     // Deliver code (and optional link)
@@ -578,21 +581,26 @@ export class PasswordResetService {
   }
 
   /**
-   * Build a reset link by appending the verification code as a query param.
+   * Build a reset link by appending the verification code (and optionally the user's
+   * email) as query params.
    *
    * Handles existing query params and hash fragments safely.
    *
    * @param baseUrl - Base URL provided by the consumer app
    * @param code - Verification code to append
-   * @returns Full reset link with `code` query param
+   * @param email - When provided, also appended as an `email` query param
+   * @returns Full reset link with `code` (and optional `email`) query param
    *
    * @example
    * ```typescript
    * const link = this.buildResetLink('https://app.com/reset?from=admin', '123456');
    * // https://app.com/reset?from=admin&code=123456
+   *
+   * const linkWithEmail = this.buildResetLink('https://app.com/reset', '123456', 'user@example.com');
+   * // https://app.com/reset?code=123456&email=user%40example.com
    * ```
    */
-  private buildResetLink(baseUrl: string, code: string): string {
+  private buildResetLink(baseUrl: string, code: string, email?: string): string {
     // ============================================================================
     // Preserve hash fragments and avoid duplicating separators
     // ============================================================================
@@ -604,7 +612,8 @@ export class PasswordResetService {
     const needsSeparator = !(base.endsWith('?') || base.endsWith('&'));
     const separator = hasQuery ? (needsSeparator ? '&' : '') : '?';
 
-    return `${base}${separator}code=${encodeURIComponent(code)}${hash}`;
+    const emailParam = email ? `&email=${encodeURIComponent(email)}` : '';
+    return `${base}${separator}code=${encodeURIComponent(code)}${emailParam}${hash}`;
   }
 
   private generateToken(): string {

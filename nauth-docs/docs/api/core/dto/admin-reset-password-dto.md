@@ -42,7 +42,7 @@ import { AdminResetPasswordDTO, AdminResetPasswordResponseDTO } from '@nauth-too
 
 | Property         | Type               | Required | Description                                                                                       |
 | ---------------- | ------------------ | -------- | ------------------------------------------------------------------------------------------------- |
-| `baseUrl`        | `string`           | No       | Base URL for building reset link. Valid URL with http:// or https://. Max 2048 chars.            |
+| `baseUrl`        | `string`           | No       | Base URL for building reset link. Valid URL with http:// or https://. Max 2048 chars. The built link always carries `code` and `email` query params (e.g. `?code=123456&email=user%40example.com`) so the consumer app can prepopulate the identifier field. |
 | `codeExpiresIn`  | `number`           | No       | Code expiry in seconds. Min 300 (5 min), max 86400 (24 hours). Default: 3600 (1 hour).           |
 | `deliveryMethod` | `'email' \| 'sms'` | No       | Delivery channel. Default: `'email'`.                                                            |
 | `sub`            | `string`           | Yes      | User sub (UUID v4). Trimmed, lowercased for consistency.                                        |

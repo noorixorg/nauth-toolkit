@@ -5,6 +5,23 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.1] - 2026-09-15
+
+### Added
+
+- **`email.timeZoneNameStyle`** controls how the timezone is named on dates rendered in emails (`{{timestampFormatted}}`): the full zone name (`Australian Eastern Standard Time`, the default), a GMT offset (`GMT+10`), or a colloquial abbreviation when the recipient's locale supports one (`AEST`). See [Configuration](https://nauth.dev/docs/concepts/configuration#email-provider).
+
+### Fixed
+
+- **Notification email timestamps showed no timezone at all** — e.g. `11 Sept 2026, 1:47 pm` with nothing to say whether that's the recipient's time, the server's, or UTC. Every rendered date and time now names the zone, e.g. `11 Sept 2026, 1:47 pm Australian Eastern Standard Time`.
+- **Logout, "forget me", and "forget device" could leave cookies behind under a custom `cookieNamePrefix`.** Following the documented convention of a prefix that already includes its trailing separator (e.g. `myapp_`), the access, refresh, device-token, and default-named CSRF cookies were cleared under a name with an extra underscore that was never actually set (`myapp__access_token`) — so the real cookies persisted in the browser after logout. Sessions were still correctly revoked server-side; this only affected the cookies themselves, and only on Express-based deployments (Fastify was always correct).
+
+### Changed
+
+- **Admin-initiated password reset links now include the user's email** as an `email` query param alongside `code`, so your reset-password page can prepopulate the identifier field instead of asking the user to retype the address the code was sent to. Self-service `forgotPassword` links are unchanged. See [Admin Operations](https://nauth.dev/docs/guides/admin-operations#initiate-password-reset).
+
+See the [v0.8.1 changelog](https://nauth.dev/changelog/v0.8.1) for detail.
+
 ## [0.8.0] - 2026-09-14
 
 ### Added

@@ -325,6 +325,7 @@ export const emailConfigSchema = z
     templates: templateConfigSchema.optional(),
     defaultTimezone: z.string().optional(),
     defaultLocale: z.string().optional(),
+    timeZoneNameStyle: z.enum(['long', 'short', 'shortOffset', 'longOffset', 'shortGeneric', 'longGeneric']).optional(),
   })
   .strict();
 

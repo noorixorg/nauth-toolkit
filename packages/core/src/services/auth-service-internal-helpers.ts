@@ -37,6 +37,12 @@ import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import { ContextStorage } from '../utils/context-storage';
 import { NAuthRequest } from '../platform/interfaces';
+import {
+  getAccessTokenCookieName,
+  getRefreshTokenCookieName,
+  getCsrfTokenCookieName,
+  getDeviceTokenCookieName,
+} from '../utils/cookie-names.util';
 
 /**
  * Internal helper service for AuthService
@@ -1321,11 +1327,10 @@ export class AuthServiceInternalHelpers {
     }
 
     const cookieOptions = this.config.tokenDelivery?.cookieOptions || {};
-    const prefix = this.config.tokenDelivery?.cookieNamePrefix || 'nauth';
 
     // Clear access and refresh tokens
-    response.clearCookie(`${prefix}_access_token`, cookieOptions);
-    response.clearCookie(`${prefix}_refresh_token`, cookieOptions);
+    response.clearCookie(getAccessTokenCookieName(this.config), cookieOptions);
+    response.clearCookie(getRefreshTokenCookieName(this.config), cookieOptions);
 
     // Clear CSRF token cookie (httpOnly: false, so it can be cleared)
     // Use the same cookie options but with httpOnly: false to match how it was set
@@ -1333,12 +1338,11 @@ export class AuthServiceInternalHelpers {
       ...cookieOptions,
       httpOnly: false, // CSRF token cookie is not httpOnly
     };
-    const csrfCookieName = this.config.security?.csrf?.cookieName || `${prefix}_csrf_token`;
-    response.clearCookie(csrfCookieName, csrfCookieOptions);
+    response.clearCookie(getCsrfTokenCookieName(this.config), csrfCookieOptions);
 
     // Clear device token if forgetting device
     if (forgetDevice) {
-      response.clearCookie(`${prefix}_device_token`, cookieOptions);
+      response.clearCookie(getDeviceTokenCookieName(this.config), cookieOptions);
     }
   }
 

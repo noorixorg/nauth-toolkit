@@ -101,6 +101,50 @@ describe('format-datetime', () => {
       expect(() => formatDateTimeForUser(INSTANT, { timezone: 'Nowhere/Nothing', locale: 'zz-ZZ' })).not.toThrow();
       expect(formatDateTimeForUser(INSTANT, { timezone: 'Nowhere/Nothing', locale: 'zz-ZZ' })).toContain('2026');
     });
+
+    it('includes the timezone name, not just a bare date and time', () => {
+      // Regression test: emails used to render "11 Sept 2026, 1:47 pm" with no indication
+      // of which timezone that was in. `Intl` can't produce an abbreviation like "AEST"
+      // (those are ambiguous — "CST" alone means three different things), so the full
+      // zone name is what should appear instead.
+      const sydney = formatDateTimeForUser(INSTANT, { timezone: 'Australia/Sydney', locale: 'en-AU' });
+      expect(sydney).toContain('Australian Eastern Standard Time');
+
+      const utc = formatDateTimeForUser(INSTANT, { timezone: 'UTC', locale: 'en-US' });
+      expect(utc).toContain('Coordinated Universal Time');
+    });
+
+    it('defaults to the long timezone name when email.timeZoneNameStyle is not configured', () => {
+      const result = formatDateTimeForUser(INSTANT, { timezone: 'Australia/Sydney', locale: 'en-AU' }, config());
+      expect(result).toContain('Australian Eastern Standard Time');
+    });
+
+    it('honours email.timeZoneNameStyle when configured', () => {
+      // `short`/`shortGeneric` are locale-dependent: ICU only has a colloquial abbreviation
+      // (`AEST`) when the recipient's own locale "owns" the zone. A locale from elsewhere
+      // formatting the same zone falls back to a generic GMT offset instead — see the
+      // 'falls back to a GMT offset for a locale that does not "own" the zone' case below.
+      const preferences = { timezone: 'Australia/Sydney', locale: 'en-AU' };
+
+      expect(
+        formatDateTimeForUser(INSTANT, preferences, { email: { timeZoneNameStyle: 'short' } } as NAuthConfig),
+      ).toContain('AEST');
+      expect(
+        formatDateTimeForUser(INSTANT, preferences, { email: { timeZoneNameStyle: 'longOffset' } } as NAuthConfig),
+      ).toContain('GMT+10:00');
+      expect(
+        formatDateTimeForUser(INSTANT, preferences, { email: { timeZoneNameStyle: 'shortGeneric' } } as NAuthConfig),
+      ).toContain('AET');
+    });
+
+    it('falls back to a GMT offset for a locale that does not "own" the zone', () => {
+      const result = formatDateTimeForUser(
+        INSTANT,
+        { timezone: 'Australia/Sydney', locale: 'en-US' },
+        { email: { timeZoneNameStyle: 'short' } } as NAuthConfig,
+      );
+      expect(result).toContain('GMT+10');
+    });
   });
 
   describe('formatDateForUser', () => {
