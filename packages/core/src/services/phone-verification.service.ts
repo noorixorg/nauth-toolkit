@@ -14,6 +14,8 @@ import { HookRegistryService } from './hook-registry.service';
 import {
   SendVerificationSMSDTO,
   SendVerificationSMSResponseDTO,
+  SetPhoneAndSendVerificationDTO,
+  SetPhoneAndSendVerificationResponseDTO,
   VerifyPhoneWithCodeDTO,
   VerifyPhoneResponseDTO,
   ResendVerificationSMSDTO,
@@ -262,6 +264,116 @@ export class PhoneVerificationService {
     }
 
     return { tokenId: saved.id };
+  }
+
+  /**
+   * Save a phone number on the user (by `sub`), reset its verification when it changed,
+   * fire the profile/phone-changed hooks, then send the verification SMS.
+   *
+   * This is the single code path behind `VERIFY_PHONE` phone collection and SMS MFA setup
+   * with `setupData.phoneNumber`. Format and uniqueness are checked before anything is
+   * written; a delivery or rate-limit error after the write leaves the new number saved
+   * but unverified, exactly like a phone change through the profile endpoint.
+   *
+   * Note: SMS MFA devices tied to the old number are not touched here (this service has no
+   * device repository). Callers that own devices (the SMS MFA provider, `UserService`)
+   * retire them themselves.
+   *
+   * @param dto - Request DTO containing sub, phone and optional challengeSessionId
+   * @returns Response DTO with verification token ID and whether the phone changed
+   * @throws {NAuthException} INVALID_PHONE_FORMAT | NOT_FOUND | PHONE_EXISTS | ALREADY_VERIFIED | RATE_LIMIT_SMS | RATE_LIMIT_RESEND
+   */
+  async setPhoneAndSendVerification(
+    dto: SetPhoneAndSendVerificationDTO,
+  ): Promise<SetPhoneAndSendVerificationResponseDTO> {
+    dto = await ensureValidatedDto(SetPhoneAndSendVerificationDTO, dto);
+    const { sub, phone, challengeSessionId } = dto;
+
+    // Validate phone format (E.164 format: +[country][number]). Done here rather than with
+    // @Matches so callers get INVALID_PHONE_FORMAT, matching the VERIFY_PHONE challenge.
+    if (!/^\+[1-9]\d{1,14}$/.test(phone)) {
+      throw new NAuthException(
+        AuthErrorCode.INVALID_PHONE_FORMAT,
+        'Invalid phone number format. Use E.164 format (e.g., +1234567890)',
+      );
+    }
+
+    const user = (await this.userRepo.findOne({ where: { sub } })) as IUser | null;
+    if (!user) {
+      throw new NAuthException(AuthErrorCode.NOT_FOUND, 'User not found');
+    }
+
+    const phoneChanged = user.phone !== phone;
+
+    if (phoneChanged) {
+      // Uniqueness: same rule as signup and profile update (signup.allowDuplicatePhones)
+      if (!this.config.signup?.allowDuplicatePhones) {
+        const existing = (await this.userRepo.findOne({ where: { phone } })) as IUser | null;
+        if (existing && existing.sub !== sub) {
+          throw new NAuthException(AuthErrorCode.PHONE_EXISTS, 'Phone number is already registered');
+        }
+      }
+
+      const oldPhone = user.phone ?? null;
+      const wasVerified = Boolean(user.isPhoneVerified);
+
+      await this.userRepo.update({ sub }, { phone, isPhoneVerified: false });
+      this.logger?.log?.(
+        `Phone number ${oldPhone ? 'changed' : 'added'} for user ${sub}: ${this.maskPhone(phone)} (verification reset)`,
+      );
+
+      // ============================================================================
+      // Hooks (non-blocking): userProfileUpdated always; phoneChanged only when a
+      // previous number existed (its notification goes to the account email so the
+      // owner learns a session holder moved the number).
+      // ============================================================================
+      try {
+        const clientInfo = this.clientInfoService.get();
+        const hookClientInfo = {
+          ipAddress: clientInfo.ipAddress,
+          userAgent: clientInfo.userAgent,
+          ipCountry: clientInfo.ipCountry,
+          ipCity: clientInfo.ipCity,
+        };
+        const updatedUser = { ...user, phone, isPhoneVerified: false } as IUser;
+        const changedFields: Array<{ fieldName: string; oldValue: unknown; newValue: unknown }> = [
+          { fieldName: 'phone', oldValue: oldPhone, newValue: phone },
+        ];
+        if (wasVerified) {
+          changedFields.push({ fieldName: 'isPhoneVerified', oldValue: true, newValue: false });
+        }
+        await this.hookRegistry.executeUserProfileUpdated({
+          user: updatedUser,
+          changedFields,
+          updateSource: 'user_request',
+          clientInfo: hookClientInfo,
+        });
+        if (oldPhone) {
+          await this.hookRegistry.executePhoneChanged({
+            user: updatedUser,
+            oldPhone,
+            newPhone: phone,
+            updateSource: 'user_request',
+            clientInfo: hookClientInfo,
+          });
+        }
+      } catch (hookError) {
+        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+        this.logger?.error?.(`Failed to execute phone change hooks: ${errorMessage}`, {
+          error: hookError,
+          userId: user.id,
+        });
+      }
+    }
+
+    const sendDto = Object.assign(new SendVerificationSMSDTO(), {
+      sub,
+      skipAlreadyVerifiedCheck: false,
+      challengeSessionId,
+    });
+    const { tokenId } = await this.sendVerificationSMS(sendDto);
+
+    return { tokenId, phoneChanged };
   }
 
   /**

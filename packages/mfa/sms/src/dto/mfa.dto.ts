@@ -280,10 +280,16 @@ export interface VerifyTOTPSetupDTO {
  */
 export interface SetupSMSMFADTO {
   /**
-   * Phone number in E.164 format
+   * Phone number in E.164 format.
+   *
+   * Optional: when omitted the phone on the account is used. Required when the account has
+   * no phone. When supplied and different from the account phone, the account phone is
+   * replaced, marked unverified, existing SMS MFA devices are removed, and the code is sent
+   * to the new number.
+   *
    * @example '+1234567890'
    */
-  phoneNumber: string;
+  phoneNumber?: string;
 
   /**
    * User-friendly device name
@@ -300,16 +306,16 @@ export interface SetupSMSMFADTO {
  * @example
  * ```typescript
  * {
- *   phoneNumber: '+1234567890',
  *   code: '123456'
  * }
  * ```
  */
 export interface VerifySMSMFASetupDTO {
   /**
-   * Phone number receiving the code
+   * Optional consistency check: must equal the phone on the account when supplied.
+   * The device is always bound to the account phone; use setup() to change the number.
    */
-  phoneNumber: string;
+  phoneNumber?: string;
 
   /**
    * SMS verification code

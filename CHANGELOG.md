@@ -5,6 +5,19 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.2] - 2026-09-26
+
+### Added
+
+- **Supply a phone number during SMS MFA setup.** An account with no phone (email-only signup, social login) can now pick SMS when `MFA_SETUP_REQUIRED` forces setup: the challenge carries `requiresPhoneCollection: 'true'`, the client passes `setupData.phoneNumber` to `challenge/setup-data` (`client.getSetupData(session, 'sms', { phoneNumber })`), and the first code verifies the number. Calling again with a different number changes it, calling again without one resends. The same works for self-service `mfa/setup-data`. Backed by a new `PhoneVerificationService.setPhoneAndSendVerification()` shared with `VERIFY_PHONE` collection. See [SMS MFA](https://nauth.dev/docs/guides/mfa/sms#forced-setup-required-enforcement).
+
+### Fixed
+
+- **`VERIFY_PHONE` phone collection now checks phone uniqueness** (`PHONE_EXISTS`, unless `signup.allowDuplicatePhones`) like signup and profile update already did.
+- **SMS MFA `verifySetup` binds the device to the verified account phone** rather than a client-supplied number, and passes through `VERIFICATION_CODE_EXPIRED` / `VERIFICATION_TOO_MANY_ATTEMPTS` instead of reporting every failure as `VERIFICATION_CODE_INVALID`.
+
+See the [v0.8.2 changelog](https://nauth.dev/changelog/v0.8.2) for detail.
+
 ## [0.8.1] - 2026-09-15
 
 ### Added

@@ -170,6 +170,13 @@ export interface ResendCodeRequest {
 export interface GetSetupDataRequest {
   session: string;
   method: MFAMethod;
+  /**
+   * Optional method-specific setup input.
+   * SMS: `{ phoneNumber?: string, deviceName?: string }` — `phoneNumber` (E.164) is required when the
+   * account has no phone (challenge has `requiresPhoneCollection: 'true'`); a different number replaces
+   * the phone on file. Omit to resend to the phone on file.
+   */
+  setupData?: Record<string, unknown>;
 }
 
 /**

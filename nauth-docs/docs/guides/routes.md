@@ -777,9 +777,12 @@ fastify.post(
 ```json
 {
   "session": "challenge-session-token",
-  "method": "totp"
+  "method": "sms",
+  "setupData": { "phoneNumber": "+14155552671" }
 }
 ```
+
+`setupData` is optional and method-specific. For SMS it carries the phone number when the account has none (the challenge sets `requiresPhoneCollection: "true"`), see [SMS MFA > Forced Setup](/docs/guides/mfa/sms#forced-setup-required-enforcement).
 
 **Response:** [`GetSetupDataResponseDTO`](/docs/api/core/dto/get-setup-data-response-dto) - Provider-specific setup data
 

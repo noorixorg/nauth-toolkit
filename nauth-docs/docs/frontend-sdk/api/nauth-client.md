@@ -503,15 +503,16 @@ async getProfile(): Promise<AuthUser>
 Get MFA setup data during [`MFA_SETUP_REQUIRED`](./types/auth-challenge) challenge.
 
 ```typescript
-async getSetupData(session: string, method: MFAMethod): Promise<GetSetupDataResponse>
+async getSetupData(session: string, method: MFAMethod, setupData?: Record<string, unknown>): Promise<GetSetupDataResponse>
 ```
 
 **Parameters**
 
-| Parameter | Type                              | Description             |
-| --------- | --------------------------------- | ----------------------- |
-| `session` | `string`                          | Challenge session token |
-| `method`  | [`MFAMethod`](./types/mfa-method) | MFA method to set up    |
+| Parameter   | Type                              | Description                                                                                                  |
+| ----------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `session`   | `string`                          | Challenge session token                                                                                      |
+| `method`    | [`MFAMethod`](./types/mfa-method) | MFA method to set up                                                                                         |
+| `setupData` | `Record<string, unknown>`         | Optional method-specific input. SMS: `{ phoneNumber?, deviceName? }`, see below.                             |
 
 **Returns**
 
@@ -519,12 +520,14 @@ async getSetupData(session: string, method: MFAMethod): Promise<GetSetupDataResp
 
 **Setup Data by Method**
 
-| Method    | Structure                                                 |
-| --------- | --------------------------------------------------------- |
-| `totp`    | `{ secret, qrCode, manualEntryKey, issuer, accountName }` |
-| `sms`     | `{ maskedPhone }` or `{ deviceId, autoCompleted: true }`  |
-| `email`   | `{ maskedEmail }` or `{ deviceId, autoCompleted: true }`  |
-| `passkey` | WebAuthn registration options                             |
+| Method    | Input (`setupData`)                 | Response structure                                        |
+| --------- | ----------------------------------- | --------------------------------------------------------- |
+| `totp`    | none                                | `{ secret, qrCode, manualEntryKey, issuer, accountName }` |
+| `sms`     | `{ phoneNumber?, deviceName? }`     | `{ maskedPhone }` or `{ deviceId, autoCompleted: true }`  |
+| `email`   | none                                | `{ maskedEmail }` or `{ deviceId, autoCompleted: true }`  |
+| `passkey` | none                                | WebAuthn registration options                             |
+
+For SMS, `phoneNumber` (E.164) is required when the account has no phone; the challenge then carries `requiresPhoneCollection: 'true'` (see [`requiresPhoneCollection()`](./utilities/challenge-helpers#requiresphonecollection)). The number is saved to the account and verified by the code. Calling again with a different `phoneNumber` changes the number; calling again without `setupData` resends the code. Errors: `PHONE_REQUIRED`, `INVALID_PHONE_FORMAT`, `PHONE_EXISTS`, `RATE_LIMIT_RESEND`.
 
 See [`GetSetupDataResponse`](./types/get-setup-data-response) for details.
 

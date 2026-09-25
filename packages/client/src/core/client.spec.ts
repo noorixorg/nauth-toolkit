@@ -498,6 +498,49 @@ describe('NAuthClient', () => {
     expect((result.setupData as any).secret).toBe('JBSWY3DPEHPK3PXP');
   });
 
+  it('includes setupData in the request body when provided to getSetupData', async () => {
+    const client = new NAuthClient(baseConfig);
+    getFetchMock().mockResolvedValue(
+      createMockResponse({
+        ok: true,
+        status: 200,
+        body: { setupData: { maskedPhone: '+1***2671' } },
+      }),
+    );
+
+    await client.getSetupData('session-123', 'sms', { phoneNumber: '+14155552671' });
+
+    expect(getFetchMock()).toHaveBeenCalled();
+    const callArgs = getFetchMock().mock.calls[0];
+    const fetchOptions = callArgs[1] as RequestInit;
+    const body = JSON.parse(fetchOptions.body as string);
+    expect(body).toEqual({
+      session: 'session-123',
+      method: 'sms',
+      setupData: { phoneNumber: '+14155552671' },
+    });
+  });
+
+  it('omits setupData from the request body when not provided to getSetupData', async () => {
+    const client = new NAuthClient(baseConfig);
+    getFetchMock().mockResolvedValue(
+      createMockResponse({
+        ok: true,
+        status: 200,
+        body: { setupData: { maskedPhone: '+1***2671' } },
+      }),
+    );
+
+    await client.getSetupData('session-123', 'sms');
+
+    expect(getFetchMock()).toHaveBeenCalled();
+    const callArgs = getFetchMock().mock.calls[0];
+    const fetchOptions = callArgs[1] as RequestInit;
+    const body = JSON.parse(fetchOptions.body as string);
+    expect(body).toEqual({ session: 'session-123', method: 'sms' });
+    expect(body).not.toHaveProperty('setupData');
+  });
+
   it('handles getChallengeData', async () => {
     const client = new NAuthClient(baseConfig);
     getFetchMock().mockResolvedValue(

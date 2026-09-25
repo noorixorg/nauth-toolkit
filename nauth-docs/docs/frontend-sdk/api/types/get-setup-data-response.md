@@ -53,8 +53,9 @@ console.log(setupData.setupData.manualEntryKey); // Show manual entry option
 **SMS Setup:**
 
 ```typescript
-const setupData = await client.getSetupData(session, 'sms');
-console.log(setupData.setupData.maskedPhone); // "***-***-7890"
+// Pass { phoneNumber } when the account has no phone (challenge has requiresPhoneCollection: 'true')
+const setupData = await client.getSetupData(session, 'sms', { phoneNumber: '+14155552671' });
+console.log(setupData.setupData.maskedPhone); // "+1***2671" — code sent
 ```
 
 **Angular:**

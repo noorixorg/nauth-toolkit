@@ -546,9 +546,15 @@ async getSetupData(dto: GetSetupDataDTO): Promise<GetSetupDataResponseDTO>
 | `CHALLENGE_EXPIRED`           | Challenge session expired                                                                              | `undefined`                                                     |
 | `CHALLENGE_ALREADY_COMPLETED` | Challenge session already completed                                                                    | `undefined`                                                     |
 | `CHALLENGE_MAX_ATTEMPTS`      | Maximum challenge attempts exceeded                                                                    | `undefined`                                                     |
-| `PHONE_REQUIRED`              | SMS method requires phone number                                                                       | `undefined`                                                     |
+| `PHONE_REQUIRED`              | SMS: no phone on file and no `setupData.phoneNumber`                                                   | `undefined`                                                     |
+| `INVALID_PHONE_FORMAT`        | SMS: `setupData.phoneNumber` is not E.164                                                              | `undefined`                                                     |
+| `PHONE_EXISTS`                | SMS: `setupData.phoneNumber` on another account and `signup.allowDuplicatePhones` is falsy             | `undefined`                                                     |
+| `RATE_LIMIT_RESEND`           | SMS/email: resend delay not met                                                                        | `{ retryAfter: number, resendDelay: number }`                   |
+| `RATE_LIMIT_SMS`              | SMS: too many codes in the rate-limit window                                                           | `{ retryAfter: number, currentCount: number }`                  |
 
 Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
+
+For SMS, `setupData.phoneNumber` (E.164) is saved to the user before the code is sent. A number different from the phone on file replaces it and resets `isPhoneVerified`; the same number sent again resends the code. Calling the method again with no `phoneNumber` resends to the phone on file. The `MFA_SETUP_REQUIRED` challenge carries `requiresPhoneCollection: 'true'` when SMS is allowed and the account has no phone. See [SMS MFA > Forced Setup](/docs/guides/mfa/sms#forced-setup-required-enforcement).
 
 **VALIDATION_FAILED details**
 
@@ -992,20 +998,22 @@ Response structure varies by method:
 **SMS Response:**
 
 ```typescript
-// If phone already verified (auto-completed):
+// No setupData.phoneNumber and phone on file already verified (auto-completed):
 {
   setupData: {
     deviceId: number;
     autoCompleted: true;
   }
 }
-// If phone not verified (code sent):
+// setupData.phoneNumber supplied, or phone on file not verified (code sent):
 {
   setupData: {
     maskedPhone: string; // Masked phone number (e.g., '***-***-7890')
   }
 }
 ```
+
+SMS accepts `setupData: { phoneNumber?: string, deviceName?: string }`. `phoneNumber` (E.164) is required when the account has no phone. A number different from the phone on file replaces it, resets `isPhoneVerified`, removes existing SMS MFA devices, and sends the code to the new number. Errors: `PHONE_REQUIRED`, `INVALID_PHONE_FORMAT`, `PHONE_EXISTS`, `RATE_LIMIT_SMS`, `RATE_LIMIT_RESEND`.
 
 **Email Response:**
 
@@ -1051,17 +1059,21 @@ Response structure varies by method:
 **Setup Data by Method:**
 
 - **TOTP**: No `setupData` required (or empty object `{}`)
-- **SMS**: `{ phoneNumber: string, deviceName?: string }` - Phone number in E.164 format (e.g., `'+1234567890'`)
+- **SMS**: `{ phoneNumber?: string, deviceName?: string }` - Phone number in E.164 format (e.g., `'+14155552671'`). Required when the account has no phone; a different number replaces the phone on file.
 - **Email**: `{ email: string, deviceName?: string }` - Email address
 - **Passkey**: No `setupData` required (or empty object `{}`)
 
 **Errors**
 
-| Code                | When                                                                                                      | Details                                                         |
-| ------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `VALIDATION_FAILED` | DTO validation fails, provider not registered, method not enabled, service unavailable, or email required | `{ validationErrors: Record<string, string[]> }` or `undefined` |
-| `NOT_FOUND`         | User not found                                                                                            | `undefined`                                                     |
-| `PHONE_REQUIRED`    | SMS method requires phone number                                                                          | `undefined`                                                     |
+| Code                   | When                                                                                                      | Details                                                         |
+| ---------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `VALIDATION_FAILED`    | DTO validation fails, provider not registered, method not enabled, service unavailable, or email required | `{ validationErrors: Record<string, string[]> }` or `undefined` |
+| `NOT_FOUND`            | User not found                                                                                            | `undefined`                                                     |
+| `PHONE_REQUIRED`       | SMS: no phone on file and no `setupData.phoneNumber`                                                      | `undefined`                                                     |
+| `INVALID_PHONE_FORMAT` | SMS: `setupData.phoneNumber` is not E.164                                                                 | `undefined`                                                     |
+| `PHONE_EXISTS`         | SMS: `setupData.phoneNumber` on another account and `signup.allowDuplicatePhones` is falsy                | `undefined`                                                     |
+| `RATE_LIMIT_RESEND`    | SMS/email: resend delay not met                                                                           | `{ retryAfter: number, resendDelay: number }`                   |
+| `RATE_LIMIT_SMS`       | SMS: too many codes in the rate-limit window                                                              | `{ retryAfter: number, currentCount: number }`                  |
 
 Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above.
 

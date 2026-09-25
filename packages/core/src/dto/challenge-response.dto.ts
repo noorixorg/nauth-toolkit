@@ -167,7 +167,7 @@ export interface ForceChangePasswordResponse extends BaseChallengeResponse {
  *   session: 'challenge-session-token',
  *   type: 'MFA_SETUP_REQUIRED',
  *   method: 'sms',
- *   setupData: { phone: '+1234567890', code: '123456' }
+ *   setupData: { code: '123456' } // phone was supplied via challenge/setup-data setupData.phoneNumber
  * };
  *
  * // TOTP setup
@@ -193,7 +193,7 @@ export interface MFASetupResponse extends BaseChallengeResponse {
   method: 'sms' | 'email' | 'totp' | 'passkey';
   /**
    * Method-specific setup data
-   * - SMS: { phone: string, code: string }
+   * - SMS: { code: string } or { deviceId: number } when setup auto-completed
    * - TOTP: { code: string }
    * - Passkey: { credential: Record<string, unknown> }
    */

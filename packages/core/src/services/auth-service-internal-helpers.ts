@@ -28,7 +28,7 @@ import {
 import { AuthResponseDTO } from '../dto/auth-response.dto';
 import { UserUpdateDTO } from '../dto/user-update.dto';
 import { VerifyEmailWithCodeDTO } from '../dto/verify-email.dto';
-import { SendVerificationSMSDTO } from '../dto/verify-phone.dto';
+import { SetPhoneAndSendVerificationDTO } from '../dto/verify-phone.dto';
 import { VerifyPhoneWithCodeBySubDTO } from '../dto/verify-phone-by-sub.dto';
 import { MFAMethod } from '../enums/mfa-method.enum';
 import { NAuthConfig } from '../interfaces/config.interface';
@@ -206,69 +206,44 @@ export class AuthServiceInternalHelpers {
 
       this.logger?.log?.(`Collecting phone number for user: ${user.sub}`);
 
-      // Validate phone format (E.164 format: +[country][number])
-      const phoneRegex = /^\+[1-9]\d{1,14}$/;
-      if (!phoneRegex.test(phone)) {
-        throw new NAuthException(
-          AuthErrorCode.INVALID_PHONE_FORMAT,
-          'Invalid phone number format. Use E.164 format (e.g., +1234567890)',
-        );
-      }
-
-      // Update user phone number
-      await this.userRepository.update({ sub: user.sub }, { phone });
-
-      this.logger?.log?.(`Phone number added for user ${user.sub}: ${phone}`);
-
-      // ============================================================================
-      // Hook: Execute user profile updated hooks (phone number changed)
-      // ============================================================================
-      try {
-        const clientInfo = this.clientInfoService.get();
-        const updatedUser = { ...user, phone } as unknown as IUser;
-        await this.hookRegistry.executeUserProfileUpdated({
-          user: updatedUser,
-          changedFields: [
-            {
-              fieldName: 'phone',
-              oldValue: user.phone || null,
-              newValue: phone,
-            },
-          ],
-          updateSource: 'user_request',
-          clientInfo: {
-            ipAddress: clientInfo.ipAddress,
-            userAgent: clientInfo.userAgent,
-            ipCountry: clientInfo.ipCountry,
-            ipCity: clientInfo.ipCity,
-          },
-        });
-      } catch (hookError) {
-        const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
-        this.logger?.error?.(`Failed to execute userProfileUpdated hooks: ${errorMessage}`, {
-          error: hookError,
-          userSub: user.sub,
-        });
-      }
-
-      // Send verification SMS to the newly added phone
+      // Persist the number and send the code through the shared path (same one SMS MFA
+      // setup uses): E.164 check, uniqueness, update + verification reset, hooks, SMS.
       let smsError: string | undefined;
       if (this.phoneVerificationService) {
-        this.logger?.log?.(`Sending verification SMS to newly added phone: ${phone}`);
         try {
-          const smsDto = Object.assign(new SendVerificationSMSDTO(), {
+          const setPhoneDto = Object.assign(new SetPhoneAndSendVerificationDTO(), {
             sub: user.sub,
-            skipAlreadyVerifiedCheck: false, // Explicitly set to false for phone verification (not MFA)
+            phone,
             challengeSessionId: challengeSession.id, // Link SMS code to this challenge session
           });
-          await this.phoneVerificationService.sendVerificationSMS(smsDto);
-          this.logger?.log?.(`Verification SMS sent successfully to: ${phone}`);
+          await this.phoneVerificationService.setPhoneAndSendVerification(setPhoneDto);
+          this.logger?.log?.(`Phone number saved and verification SMS sent for user ${user.sub}`);
         } catch (error: unknown) {
+          // Errors raised before the number is persisted must reach the caller unchanged.
+          if (
+            error instanceof NAuthException &&
+            (error.code === AuthErrorCode.INVALID_PHONE_FORMAT ||
+              error.code === AuthErrorCode.PHONE_EXISTS ||
+              error.code === AuthErrorCode.NOT_FOUND)
+          ) {
+            throw error;
+          }
+          // Delivery / rate-limit errors: number is saved, surface the error on the challenge.
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          this.logger?.error?.(`Failed to send verification SMS to ${phone}: ${errorMessage}`);
+          this.logger?.error?.(`Failed to send verification SMS for user ${user.sub}: ${errorMessage}`);
           smsError = errorMessage;
         }
       } else {
+        // No SMS provider configured: keep the legacy behaviour of storing the number so
+        // the operator can see it, but no code can be sent.
+        const phoneRegex = /^\+[1-9]\d{1,14}$/;
+        if (!phoneRegex.test(phone)) {
+          throw new NAuthException(
+            AuthErrorCode.INVALID_PHONE_FORMAT,
+            'Invalid phone number format. Use E.164 format (e.g., +1234567890)',
+          );
+        }
+        await this.userRepository.update({ sub: user.sub }, { phone });
         this.logger?.warn?.(
           `Phone verification SMS not sent - PhoneVerificationService not available. ` +
             'Phone verification requires an SMS provider to be configured.',
@@ -749,8 +724,15 @@ export class AuthServiceInternalHelpers {
     let deviceId: number;
 
     try {
+      // Pass the challenge session id alongside the client's setupData so providers that
+      // issued a code linked to this session (SMS) can scope the lookup to it. Mirrors what
+      // MFAService.getSetupData() does for provider.setup().
+      const setupDataWithSession: Record<string, unknown> = {
+        ...((setupData ?? {}) as Record<string, unknown>),
+        challengeSessionId: challengeSession.id,
+      };
       deviceId = await this.withUserContext(user as unknown as IUser, async () => {
-        return await provider.verifySetup(setupData);
+        return await provider.verifySetup(setupDataWithSession);
       });
       this.logger?.log?.(`MFA device setup completed: method=${method}, deviceId=${deviceId}`);
     } catch (error) {

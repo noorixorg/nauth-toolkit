@@ -67,6 +67,10 @@ export class GetSetupDataDTO {
    * - Must be an object if provided
    * - Structure validated by MFA provider services
    *
+   * SMS: `{ phoneNumber?: string, deviceName?: string }`. `phoneNumber` (E.164) is required when the
+   * account has no phone (challenge carries `requiresPhoneCollection: 'true'`); a different number
+   * replaces the phone on file and resets its verification. Omit it to resend to the phone on file.
+   *
    * @example { phoneNumber: '+1234567890' } for SMS
    */
   @IsOptional()

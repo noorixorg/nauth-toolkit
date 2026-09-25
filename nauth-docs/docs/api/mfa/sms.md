@@ -107,10 +107,12 @@ const nauth = await NAuth.create({
 
 ## Setup Flow
 
-1. User must have verified phone number
-2. Call `mfaService.setup({ methodName: 'sms', setupData: { phoneNumber: '+1234567890' } })`
-3. Code sent to phone
-4. User submits code to verify
+1. Call `mfaService.setup({ methodName: 'sms', setupData: { phoneNumber: '+14155552671' } })`. `phoneNumber` is optional when the account already has a phone; a different number replaces it and resets its verification.
+2. If the phone on file is already verified and no `phoneNumber` was sent, setup auto-completes (`{ deviceId, autoCompleted: true }`). Otherwise a code is sent (`{ maskedPhone }`).
+3. User submits the code with `verifySetup({ code })`. The phone is marked verified and the SMS device is bound to the phone on file.
+4. Calling `setup()` again without `phoneNumber` resends the code; with a new `phoneNumber` it changes the number.
+
+During the `MFA_SETUP_REQUIRED` challenge the same provider runs behind [`MFAService.getSetupData()`](/docs/api/core/services/mfa-service#getsetupdata). See [SMS MFA guide](/docs/guides/mfa/sms).
 
 ## Related
 

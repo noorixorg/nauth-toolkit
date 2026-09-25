@@ -124,6 +124,19 @@
           </div>
         }
 
+        <!-- Use a different number (MFA_SETUP_REQUIRED, SMS only) -->
+        @if (currentChallengeType() === AuthChallenge.MFA_SETUP_REQUIRED && mfaMethod() === 'sms') {
+          <div class="text-center mt-2">
+            <button
+              type="button"
+              (click)="useAnotherNumber()"
+              class="text-primary-600 hover:text-primary-700 text-sm cursor-pointer bg-transparent border-none p-0"
+            >
+              Use a different number
+            </button>
+          </div>
+        }
+
         <!-- Success Message (for resend) -->
         @if (success(); as successMessage) {
           <div>

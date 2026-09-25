@@ -222,8 +222,7 @@ export class AuthChallengeHelperService {
 
       case AuthChallenge.MFA_SETUP_REQUIRED: {
         const allowedMethods = config.mfa?.allowedMethods || [...MFADeviceMethods];
-        challengeParameters.allowedMethods = allowedMethods;
-        challengeParameters.instructions = 'Multi-factor authentication setup is required before you can login';
+        Object.assign(challengeParameters, this.buildMFASetupChallengeParameters(user, allowedMethods));
         break;
       }
 
@@ -306,12 +305,31 @@ export class AuthChallengeHelperService {
     return {
       challengeName: AuthChallenge.MFA_SETUP_REQUIRED,
       session: challengeSession.sessionToken,
-      challengeParameters: {
-        allowedMethods,
-        instructions: 'Multi-factor authentication setup is required before you can login',
-      },
+      challengeParameters: this.buildMFASetupChallengeParameters(user, allowedMethods),
       sub: user.sub,
     } as AuthResponseDTO;
+  }
+
+  /**
+   * Build the `challengeParameters` for an `MFA_SETUP_REQUIRED` challenge.
+   *
+   * Adds `requiresPhoneCollection: 'true'` (same key and string value as `VERIFY_PHONE`)
+   * when SMS is an allowed method and the account has no phone, so the client can show a
+   * phone input before calling `challenge/setup-data` with `setupData.phoneNumber`.
+   *
+   * @param user - User requiring MFA setup
+   * @param allowedMethods - MFA methods the deployment allows
+   * @returns Challenge parameters
+   */
+  private buildMFASetupChallengeParameters(user: IUser, allowedMethods: readonly string[]): Record<string, unknown> {
+    const params: Record<string, unknown> = {
+      allowedMethods,
+      instructions: 'Multi-factor authentication setup is required before you can login',
+    };
+    if (allowedMethods.includes(MFAMethod.SMS) && !user.phone) {
+      params.requiresPhoneCollection = 'true';
+    }
+    return params;
   }
 
   /**

@@ -613,20 +613,35 @@ export class NAuthClient {
   }
 
   /**
-   * Get setup data for MFA.
+   * Get setup data for MFA during an `MFA_SETUP_REQUIRED` challenge.
    *
    * Returns method-specific setup information:
    * - TOTP: { secret, qrCode, manualEntryKey }
-   * - SMS: { maskedPhone }
-   * - Email: { maskedEmail }
+   * - SMS: { maskedPhone } (code sent) or { deviceId, autoCompleted: true }
+   * - Email: { maskedEmail } or { deviceId, autoCompleted: true }
    * - Passkey: WebAuthn registration options
+   *
+   * For SMS, pass `{ phoneNumber }` (E.164) when the challenge has `requiresPhoneCollection: 'true'`
+   * (see `requiresPhoneCollection()`): the number is saved to the account and verified by the code.
+   * Call again with a different `phoneNumber` to change it, or without `setupData` to resend.
    *
    * @param session - Challenge session token
    * @param method - MFA method to set up
+   * @param setupData - Optional method-specific input (SMS: `{ phoneNumber?, deviceName? }`)
    * @returns Setup data wrapped in GetSetupDataResponse
+   *
+   * @example
+   * ```typescript
+   * const { setupData } = await client.getSetupData(session, 'sms', { phoneNumber: '+14155552671' });
+   * // setupData: { maskedPhone: '+1***2671' }
+   * ```
    */
-  async getSetupData(session: string, method: GetSetupDataRequest['method']): Promise<GetSetupDataResponse> {
-    const payload: GetSetupDataRequest = { session, method };
+  async getSetupData(
+    session: string,
+    method: GetSetupDataRequest['method'],
+    setupData?: Record<string, unknown>,
+  ): Promise<GetSetupDataResponse> {
+    const payload: GetSetupDataRequest = setupData ? { session, method, setupData } : { session, method };
     return this.post<GetSetupDataResponse>(this.config.endpoints.getSetupData, payload);
   }
 

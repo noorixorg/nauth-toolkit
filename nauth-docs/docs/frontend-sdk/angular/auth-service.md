@@ -316,12 +316,24 @@ console.log('Code sent to:', result.destination);
 Get MFA setup data during MFA_SETUP_REQUIRED challenge.
 
 ```typescript
-async getSetupData(session: string, method: string): Promise<GetSetupDataResponse>
+async getSetupData(session: string, method: string, setupData?: Record<string, unknown>): Promise<GetSetupDataResponse>
 ```
 
 **Returns**
 
 - `Promise<[GetSetupDataResponse](../api/types/get-setup-data-response)>` - Method-specific setup data
+
+`setupData` is optional method-specific input. For SMS pass `{ phoneNumber }` (E.164) when the challenge has `requiresPhoneCollection: 'true'`; call again with a different number to change it, or without `setupData` to resend. See [NAuthClient.getSetupData()](../api/nauth-client#getsetupdata).
+
+**Example - SMS with phone collection**
+
+```typescript
+async initSmsSetup(phoneNumber?: string) {
+  // phoneNumber is collected from the user when requiresPhoneCollection(challenge) is true
+  const { setupData } = await this.auth.getSetupData(session, 'sms', phoneNumber ? { phoneNumber } : undefined);
+  // setupData: { maskedPhone } (code sent) or { autoCompleted: true, deviceId }
+}
+```
 
 **Example - TOTP Setup**
 

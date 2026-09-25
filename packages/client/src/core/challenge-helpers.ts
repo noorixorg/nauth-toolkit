@@ -11,6 +11,11 @@ import { MFAMethod } from '../types/mfa.types';
 /**
  * Check if a challenge requires phone collection (user has no phone number).
  *
+ * True for `VERIFY_PHONE` when the account has no phone (submit `phone` via
+ * `respondToChallenge()` first), and for `MFA_SETUP_REQUIRED` when SMS is an allowed
+ * method and the account has no phone (pass `{ phoneNumber }` as the third argument of
+ * `getSetupData(session, 'sms', ...)` when the user picks SMS).
+ *
  * @param challenge - Auth response with challenge
  * @returns True if phone collection is required
  *
@@ -23,7 +28,10 @@ import { MFAMethod } from '../types/mfa.types';
  * ```
  */
 export function requiresPhoneCollection(challenge: AuthResponse): boolean {
-  if (challenge.challengeName !== AuthChallenge.VERIFY_PHONE) {
+  if (
+    challenge.challengeName !== AuthChallenge.VERIFY_PHONE &&
+    challenge.challengeName !== AuthChallenge.MFA_SETUP_REQUIRED
+  ) {
     return false;
   }
 

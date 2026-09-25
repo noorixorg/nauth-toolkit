@@ -1193,12 +1193,17 @@ export class MFAService {
    *
    * Returns provider-specific setup data:
    * - TOTP: { secret, qrCode, manualEntryKey }
-   * - SMS: { maskedPhone } or error if phone required
+   * - SMS: { maskedPhone } (code sent) or { deviceId, autoCompleted: true }
    * - Passkey: WebAuthn registration options
+   *
+   * SMS accepts `setupData: { phoneNumber?, deviceName? }`. `phoneNumber` (E.164) is required when
+   * the account has no phone (the challenge then carries `requiresPhoneCollection: 'true'`); it is
+   * saved to the account, marked unverified, and verified by the code. A number different from the
+   * phone on file replaces it. Calling again without `phoneNumber` resends to the phone on file.
    *
    * @param dto - Request DTO with session token, method, and optional setup data
    * @returns Response DTO with provider-specific setup data
-   * @throws {NAuthException} INVALID_CHALLENGE_SESSION | VALIDATION_FAILED | PHONE_REQUIRED
+   * @throws {NAuthException} INVALID_CHALLENGE_SESSION | VALIDATION_FAILED | PHONE_REQUIRED | INVALID_PHONE_FORMAT | PHONE_EXISTS | RATE_LIMIT_SMS | RATE_LIMIT_RESEND
    *
    * @example
    * ```typescript

@@ -358,7 +358,7 @@ This same endpoint handles every challenge type. Here are the request shapes for
 }
 ```
 
-After submitting the phone number, the backend sends an SMS and returns the same challenge for code verification.
+After submitting the phone number, the backend sends an SMS and returns the same challenge for code verification. Sending `phone` again with a different number replaces it and resends the code. The `MFA_SETUP_REQUIRED` challenge offers the same collection for SMS MFA through `setupData.phoneNumber`, see [SMS MFA > Forced Setup](/docs/guides/mfa/sms#forced-setup-required-enforcement).
 
 **MFA verification** (covered in the [MFA guide](/docs/guides/mfa/how-mfa-works)):
 

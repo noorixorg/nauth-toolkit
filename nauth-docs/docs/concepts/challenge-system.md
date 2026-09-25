@@ -221,7 +221,7 @@ Issued when:
 - User logs in via Social Auth but your app requires phone verification
 - Both email and phone verification are required (after email is verified)
 
-**User Action**: Enter the SMS code sent to their phone.
+**User Action**: Enter the SMS code sent to their phone. If the account has no phone yet, `challengeParameters.requiresPhoneCollection` is `"true"` and the user first submits a `phone`; the same challenge is returned with the code sent. Submitting `phone` again with a different number replaces it and resends.
 
 **Example Response**:
 
@@ -264,6 +264,22 @@ Issued during login when **MFA enforcement is enabled** and the user is required
 - `mfa.enforcement = 'REQUIRED'` or `'ADAPTIVE'` (and the grace period has expired or is disabled)
 
 **User Action**: Take the user through MFA setup (e.g., TOTP QR code, SMS enrollment, passkey registration).
+
+**Example Response**:
+
+```json
+{
+  "challengeName": "MFA_SETUP_REQUIRED",
+  "session": "challenge-session-uuid",
+  "challengeParameters": {
+    "allowedMethods": ["sms", "totp"],
+    "requiresPhoneCollection": "true",
+    "instructions": "Multi-factor authentication setup is required before you can login"
+  }
+}
+```
+
+`requiresPhoneCollection` appears only when SMS is an allowed method and the account has no phone number. The frontend then collects a number and passes it as `setupData.phoneNumber` to `challenge/setup-data`; the first SMS code verifies it. See [SMS MFA > Forced Setup](/docs/guides/mfa/sms#forced-setup-required-enforcement).
 
 **Next Step**: Complete MFA setup, then call the challenge completion endpoint to finish the login.
 

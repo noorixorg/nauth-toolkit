@@ -10,7 +10,12 @@ import { InternalAuthAuditService as AuthAuditService } from './auth-audit.servi
 import { BaseVerificationToken, BaseUser } from '../entities';
 import { IUser, IVerificationToken } from '../interfaces/entities.interface';
 import { AuthErrorCode } from '../enums/error-codes.enum';
-import { SendVerificationSMSDTO, VerifyPhoneWithCodeDTO, ResendVerificationSMSDTO } from '../dto/verify-phone.dto';
+import {
+  SendVerificationSMSDTO,
+  SetPhoneAndSendVerificationDTO,
+  VerifyPhoneWithCodeDTO,
+  ResendVerificationSMSDTO,
+} from '../dto/verify-phone.dto';
 import { VerifyPhoneWithCodeBySubDTO } from '../dto/verify-phone-by-sub.dto';
 
 // ============================================================================
@@ -66,6 +71,7 @@ describe('PhoneVerificationService', () => {
   let mockHookRegistry: {
     executeUserProfileUpdated: jest.Mock;
     executeOnboardingCompleted: jest.Mock;
+    executePhoneChanged: jest.Mock;
   };
   let mockConfig: NAuthConfig;
 
@@ -177,6 +183,7 @@ describe('PhoneVerificationService', () => {
     mockHookRegistry = {
       executeUserProfileUpdated: jest.fn().mockResolvedValue(undefined),
       executeOnboardingCompleted: jest.fn().mockResolvedValue(undefined),
+      executePhoneChanged: jest.fn().mockResolvedValue(undefined),
     };
 
     mockConfig = {
@@ -484,6 +491,164 @@ describe('PhoneVerificationService', () => {
       } catch (error: any) {
         expect(error.code).toBe(AuthErrorCode.RATE_LIMIT_RESEND);
       }
+    });
+  });
+
+  // ============================================================================
+  // setPhoneAndSendVerification
+  // ============================================================================
+
+  describe('setPhoneAndSendVerification', () => {
+    function createSetPhoneDto(data: Partial<SetPhoneAndSendVerificationDTO>): SetPhoneAndSendVerificationDTO {
+      const sub =
+        data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
+      return Object.assign(new SetPhoneAndSendVerificationDTO(), { ...data, sub });
+    }
+
+    beforeEach(() => {
+      jest.spyOn(service, 'sendVerificationSMS').mockResolvedValue({ tokenId: 999 });
+    });
+
+    it('should throw INVALID_PHONE_FORMAT for a malformed phone number', async () => {
+      try {
+        await service.setPhoneAndSendVerification(createSetPhoneDto({ sub: 'user-sub-123', phone: 'not-a-phone' }));
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.INVALID_PHONE_FORMAT);
+      }
+      expect(mockUserRepository.findOne).not.toHaveBeenCalled();
+    });
+
+    it('should throw NOT_FOUND when the user does not exist', async () => {
+      mockUserRepository.findOne.mockResolvedValue(null);
+
+      try {
+        await service.setPhoneAndSendVerification(
+          createSetPhoneDto({ sub: 'invalid-sub', phone: '+19998887777' }),
+        );
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.NOT_FOUND);
+      }
+    });
+
+    it('should throw PHONE_EXISTS when the new number belongs to another user and duplicates are not allowed', async () => {
+      mockConfig.signup!.allowDuplicatePhones = false;
+      mockUserRepository.findOne
+        .mockResolvedValueOnce(mockUser as any) // sub lookup
+        .mockResolvedValueOnce({ ...mockUser, id: 999, sub: TEST_OTHER_SUB } as any); // phone lookup (different user)
+
+      try {
+        await service.setPhoneAndSendVerification(
+          createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
+        );
+        fail('Should have thrown NAuthException');
+      } catch (error: any) {
+        expect(error).toBeInstanceOf(NAuthException);
+        expect(error.code).toBe(AuthErrorCode.PHONE_EXISTS);
+      }
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('should allow a duplicate number when signup.allowDuplicatePhones is true', async () => {
+      mockConfig.signup!.allowDuplicatePhones = true;
+      mockUserRepository.findOne.mockResolvedValueOnce(mockUser as any);
+
+      const result = await service.setPhoneAndSendVerification(
+        createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
+      );
+
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { sub: TEST_USER_SUB },
+        { phone: '+19998887777', isPhoneVerified: false },
+      );
+      expect(result.phoneChanged).toBe(true);
+    });
+
+    it('should not update the user or report a change when the number is unchanged', async () => {
+      mockUserRepository.findOne.mockResolvedValueOnce(mockUser as any); // phone already +1234567890
+
+      const result = await service.setPhoneAndSendVerification(
+        createSetPhoneDto({ sub: 'user-sub-123', phone: '+1234567890' }),
+      );
+
+      expect(mockUserRepository.update).not.toHaveBeenCalled();
+      expect(mockHookRegistry.executeUserProfileUpdated).not.toHaveBeenCalled();
+      expect(service.sendVerificationSMS).toHaveBeenCalled();
+      expect(result).toEqual({ tokenId: 999, phoneChanged: false });
+    });
+
+    it('should update the phone, reset verification, and fire hooks when the number changes', async () => {
+      const verifiedUser = { ...mockUser, isPhoneVerified: true, phone: '+1234567890' };
+      mockUserRepository.findOne.mockResolvedValueOnce(verifiedUser as any);
+
+      const result = await service.setPhoneAndSendVerification(
+        createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
+      );
+
+      expect(mockUserRepository.update).toHaveBeenCalledWith(
+        { sub: TEST_USER_SUB },
+        { phone: '+19998887777', isPhoneVerified: false },
+      );
+      expect(mockHookRegistry.executeUserProfileUpdated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changedFields: [
+            { fieldName: 'phone', oldValue: '+1234567890', newValue: '+19998887777' },
+            { fieldName: 'isPhoneVerified', oldValue: true, newValue: false },
+          ],
+        }),
+      );
+      expect(mockHookRegistry.executePhoneChanged).toHaveBeenCalledWith(
+        expect.objectContaining({ oldPhone: '+1234567890', newPhone: '+19998887777' }),
+      );
+      expect(result.phoneChanged).toBe(true);
+    });
+
+    it('should only report the phone field when the old phone was not verified', async () => {
+      mockUserRepository.findOne.mockResolvedValueOnce({ ...mockUser, isPhoneVerified: false } as any);
+
+      await service.setPhoneAndSendVerification(createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }));
+
+      expect(mockHookRegistry.executeUserProfileUpdated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          changedFields: [{ fieldName: 'phone', oldValue: '+1234567890', newValue: '+19998887777' }],
+        }),
+      );
+    });
+
+    it('should not fire executePhoneChanged when the account had no previous phone', async () => {
+      mockUserRepository.findOne.mockResolvedValueOnce({ ...mockUser, phone: null } as any);
+
+      await service.setPhoneAndSendVerification(createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }));
+
+      expect(mockHookRegistry.executeUserProfileUpdated).toHaveBeenCalled();
+      expect(mockHookRegistry.executePhoneChanged).not.toHaveBeenCalled();
+    });
+
+    it('should forward challengeSessionId into the verification send', async () => {
+      mockUserRepository.findOne.mockResolvedValueOnce(mockUser as any);
+
+      await service.setPhoneAndSendVerification(
+        createSetPhoneDto({ sub: 'user-sub-123', phone: '+1234567890', challengeSessionId: 42 }),
+      );
+
+      expect(service.sendVerificationSMS).toHaveBeenCalledWith(
+        expect.objectContaining({ sub: TEST_USER_SUB, skipAlreadyVerifiedCheck: false, challengeSessionId: 42 }),
+      );
+    });
+
+    it('should not block the request when hooks fail', async () => {
+      mockUserRepository.findOne.mockResolvedValueOnce(mockUser as any);
+      mockHookRegistry.executeUserProfileUpdated.mockRejectedValueOnce(new Error('hook boom'));
+
+      const result = await service.setPhoneAndSendVerification(
+        createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
+      );
+
+      expect(result.phoneChanged).toBe(true);
+      expect(service.sendVerificationSMS).toHaveBeenCalled();
     });
   });
 

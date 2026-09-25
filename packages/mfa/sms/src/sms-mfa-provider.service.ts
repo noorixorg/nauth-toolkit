@@ -7,9 +7,11 @@ import {
   NAuthLogger,
   NAuthException,
   AuthErrorCode,
+  AuthAuditEventType,
   PhoneVerificationService,
   MFAMethod,
   SendVerificationSMSDTO,
+  SetPhoneAndSendVerificationDTO,
   VerifyPhoneWithCodeBySubDTO,
   ClientInfoService,
 } from '@nauth-toolkit/core';
@@ -68,22 +70,26 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
   /**
    * Setup SMS MFA for user
    *
-   * Sends verification code to phone number, or auto-completes setup if phone is already verified.
-   * User must verify code to complete setup (unless phone is already verified).
+   * Resolves the phone number to enrol and either auto-completes (phone on file already
+   * verified and no different number supplied) or sends a verification code.
    *
-   * @param user - User setting up SMS MFA
-   * @param setupData - Setup data (must be SetupSMSMFADTO)
+   * When `setupData.phoneNumber` is supplied it is saved to the account through
+   * `PhoneVerificationService.setPhoneAndSendVerification()` (E.164 check, uniqueness,
+   * verification reset, hooks) and the code goes to that number. A number different from
+   * the phone on file replaces it and retires existing SMS MFA devices, the same outcome as
+   * changing the phone through the profile endpoint. Calling again without `phoneNumber`
+   * resends to the phone on file. This makes SMS enrolment possible for accounts that have
+   * no phone (email-only or social signup).
+   *
+   * @param setupData - Setup data (SetupSMSMFADTO, plus `challengeSessionId` when called from a challenge)
    * @returns Setup result with deviceId if auto-completed, or maskedPhone if code was sent
-   * @throws {NAuthException} If SMS is not enabled or phone verification service unavailable
+   * @throws {NAuthException} VALIDATION_FAILED | PHONE_REQUIRED | INVALID_PHONE_FORMAT | PHONE_EXISTS | RATE_LIMIT_SMS | RATE_LIMIT_RESEND
    *
    * @example
    * ```typescript
-   * const result = await provider.setup(user, {
-   *   phoneNumber: '+1234567890',
-   *   deviceName: 'My Phone'
-   * });
-   * // If phone verified: { deviceId: 123, autoCompleted: true }
-   * // If phone not verified: { maskedPhone: '***-***-7890' } (SMS code sent)
+   * const result = await provider.setup({ phoneNumber: '+14155552671', deviceName: 'My Phone' });
+   * // Phone on file verified, no number supplied: { deviceId: 123, autoCompleted: true }
+   * // Otherwise: { maskedPhone: '+1***2671' } (SMS code sent)
    * ```
    */
   async setup(setupData?: unknown): Promise<{ deviceId: number; autoCompleted: true } | { maskedPhone: string }> {
@@ -95,14 +101,17 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
       throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'SMS MFA is not enabled', { feature: 'sms-mfa' });
     }
 
-    const dto = setupData as SetupSMSMFADTO | undefined;
+    const dto = setupData as (SetupSMSMFADTO & { challengeSessionId?: number }) | undefined;
     const userEntity = user as unknown as Record<string, unknown>;
     const isPhoneVerified = (userEntity.isPhoneVerified as boolean) || false;
+    const currentPhone = (userEntity.phone as string | null | undefined) || undefined;
+    const suppliedPhone =
+      typeof dto?.phoneNumber === 'string' && dto.phoneNumber.trim() !== ''
+        ? dto.phoneNumber.replace(/\s/g, '')
+        : undefined;
+    const targetPhone = suppliedPhone || currentPhone;
 
-    // Get phone number from setupData or user object
-    const phoneNumber = dto?.phoneNumber || (userEntity.phone as string | undefined);
-
-    if (!phoneNumber) {
+    if (!targetPhone) {
       throw new NAuthException(
         AuthErrorCode.PHONE_REQUIRED,
         'Phone number is required for SMS MFA setup. Please provide a phone number.',
@@ -110,23 +119,15 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
     }
 
     // ============================================================================
-    // Special case: If phone is already verified, auto-complete MFA setup
-    // No SMS code needed - create device directly
+    // Auto-complete: phone on file is verified and the caller did not ask for a
+    // different number. No SMS code needed - create device directly.
     // ============================================================================
-    if (isPhoneVerified) {
+    if (isPhoneVerified && targetPhone === currentPhone) {
       this.logger?.log?.(`Phone already verified for user ${user.sub}, auto-completing SMS MFA setup`);
-      // Auto-create MFA device without code verification
-      const deviceId = await this.verifySetup(
-        {
-          phoneNumber,
-          code: '', // Code not needed when phone is verified
-        },
-        dto?.deviceName,
-      );
+      const deviceId = await this.verifySetup({ code: '' }, dto?.deviceName);
       return { deviceId, autoCompleted: true };
     }
 
-    // Phone not verified - send SMS verification code
     // Check if phone verification service is available
     if (!this.phoneVerificationService) {
       throw new NAuthException(
@@ -135,28 +136,116 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
       );
     }
 
-    // Send SMS verification code (phone not verified, so code is required)
-    // Link verification token to challenge session if provided in setupData
-    const sendDto = new SendVerificationSMSDTO();
-    sendDto.sub = user.sub;
-    const setupDataWithSession = setupData as (SetupSMSMFADTO & { challengeSessionId?: number }) | undefined;
-    if (setupDataWithSession?.challengeSessionId) {
-      sendDto.challengeSessionId = setupDataWithSession.challengeSessionId;
+    if (dto?.challengeSessionId) {
       this.logger?.debug?.(
-        `Linking SMS verification token to challenge session: challengeSessionId=${setupDataWithSession.challengeSessionId}`,
-      );
-    } else {
-      this.logger?.warn?.(
-        `No challengeSessionId provided in setupData for SMS MFA setup. Token will not be linked to challenge session.`,
+        `Linking SMS verification token to challenge session: challengeSessionId=${dto.challengeSessionId}`,
       );
     }
+
+    // ============================================================================
+    // Number supplied: persist it (new or unchanged-but-unverified) and send the code
+    // through the shared core path. A changed number also retires SMS devices tied to
+    // the old one so login codes cannot go to an unverified number.
+    // ============================================================================
+    if (suppliedPhone) {
+      const setPhoneDto = Object.assign(new SetPhoneAndSendVerificationDTO(), {
+        sub: user.sub,
+        phone: suppliedPhone,
+        challengeSessionId: dto?.challengeSessionId,
+      });
+      const result = await this.phoneVerificationService.setPhoneAndSendVerification(setPhoneDto);
+
+      if (result.phoneChanged && currentPhone) {
+        await this.retireSmsDevicesForPhoneChange(userEntity.id as number, user.sub, currentPhone, suppliedPhone);
+      }
+
+      const maskedPhone = this.maskPhone(suppliedPhone);
+      this.logger?.log?.(`SMS MFA code sent to: ${maskedPhone}`);
+      return { maskedPhone };
+    }
+
+    // ============================================================================
+    // No number supplied, phone on file not verified: send (or resend) to it
+    // ============================================================================
+    const sendDto = new SendVerificationSMSDTO();
+    sendDto.sub = user.sub;
+    sendDto.challengeSessionId = dto?.challengeSessionId;
     await this.phoneVerificationService.sendVerificationSMS(sendDto);
 
-    const maskedPhone = this.maskPhone(phoneNumber);
+    const maskedPhone = this.maskPhone(targetPhone);
     this.logger?.log?.(`SMS MFA code sent to: ${maskedPhone}`);
 
     // Return masked phone for frontend display
     return { maskedPhone };
+  }
+
+  /**
+   * Retire SMS MFA devices after the account phone changed during setup.
+   *
+   * Mirrors `UserService.updateUserAttributes()`: the devices were bound to the old number,
+   * so they are deleted, the removal is audited, and MFA is switched off when no active
+   * device of any type remains (the user is mid-enrolment and will re-enable it on verify).
+   *
+   * @param userId - Internal user ID
+   * @param sub - User external identifier (for logs)
+   * @param oldPhone - Phone the devices were tied to
+   * @param newPhone - Phone now on file (unverified)
+   */
+  private async retireSmsDevicesForPhoneChange(
+    userId: number,
+    sub: string,
+    oldPhone: string,
+    newPhone: string,
+  ): Promise<void> {
+    const smsDevices = (await this.mfaDeviceRepository.find({
+      where: { userId, type: MFAMethod.SMS, isActive: true },
+    } as Record<string, unknown>)) as unknown as Array<{ id: number }>;
+
+    if (smsDevices.length === 0) {
+      return;
+    }
+
+    this.logger?.log?.(
+      `Deleting ${smsDevices.length} SMS MFA device(s) for user ${sub} due to phone number change during SMS MFA setup`,
+    );
+    for (const device of smsDevices) {
+      await this.mfaDeviceRepository.delete(device.id);
+    }
+
+    try {
+      await this.auditService?.recordEvent({
+        userId,
+        eventType: AuthAuditEventType.MFA_DEVICE_REMOVED,
+        eventStatus: 'INFO',
+        reason: 'phone_changed',
+        description: 'SMS MFA device(s) removed due to phone number change during SMS MFA setup',
+        metadata: {
+          method: MFAMethod.SMS,
+          deletedCount: smsDevices.length,
+          oldPhone: this.maskPhone(oldPhone),
+          newPhone: this.maskPhone(newPhone),
+          reason: 'phone_number_changed_requires_reverification',
+        },
+      });
+    } catch (auditError) {
+      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to record MFA_DEVICE_REMOVED audit event for phone change: ${errorMessage}`, {
+        error: auditError,
+        userId,
+      });
+    }
+
+    const remaining = (await this.mfaDeviceRepository.find({
+      where: { userId, isActive: true },
+    } as Record<string, unknown>)) as unknown as Array<{ id: number }>;
+    if (remaining.length === 0) {
+      await this.userRepository.update({ id: userId }, {
+        mfaEnabled: false,
+        mfaMethods: [],
+        preferredMfaMethod: null,
+      } as unknown as Record<string, unknown>);
+      this.logger?.log?.(`MFA disabled for user ${sub} - no active MFA devices remaining after phone change`);
+    }
   }
 
   /**
@@ -170,25 +259,25 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
    *
    * Note: SMS MFA is treated as a singleton method in NAuth (one active SMS device per user).
    *
-   * @param user - User completing SMS MFA setup
-   * @param verificationData - Verification data (must be VerifySMSMFASetupDTO)
+   * The device is always bound to the phone on the account (`user.phone`), which the code
+   * just verified. `verificationData.phoneNumber` is optional and only a consistency check:
+   * when supplied it must equal the account phone. Change the number with `setup()` instead.
+   *
+   * @param verificationData - Verification data (VerifySMSMFASetupDTO, plus `challengeSessionId` when called from a challenge)
    * @param deviceName - Optional device name override
    * @returns MFA device ID (created or existing)
-   * @throws {NAuthException} If code is invalid
+   * @throws {NAuthException} VALIDATION_FAILED | PHONE_REQUIRED | VERIFICATION_CODE_INVALID | VERIFICATION_CODE_EXPIRED | VERIFICATION_TOO_MANY_ATTEMPTS
    *
    * @example
    * ```typescript
-   * const deviceId = await provider.verifySetup(user, {
-   *   phoneNumber: '+1234567890',
-   *   code: '123456'
-   * });
+   * const deviceId = await provider.verifySetup({ code: '123456' });
    * ```
    */
   async verifySetup(verificationData: unknown, deviceName?: string): Promise<number> {
     const user = this.getCurrentUserOrThrow();
     this.logger?.log?.(`Verifying SMS MFA setup for user: ${user.sub}`);
 
-    const dto = verificationData as VerifySMSMFASetupDTO;
+    const dto = verificationData as (VerifySMSMFASetupDTO & { challengeSessionId?: number }) | undefined;
     const userEntity = user as unknown as Record<string, unknown>;
     const userId = userEntity.id as number;
     const userMfaEnabled = (userEntity.mfaEnabled as boolean) || false;
@@ -207,32 +296,60 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
         );
       }
 
-      if (!dto.code || dto.code.trim() === '') {
+      if (!dto?.code || dto.code.trim() === '') {
         throw new NAuthException(AuthErrorCode.VALIDATION_FAILED, 'Verification code is required');
       }
 
       try {
-        // Verify phone with code - this will mark phone as verified in the database
+        // Verify phone with code - this will mark phone as verified in the database.
+        // Scope the lookup to the challenge session when the code was issued for one.
         const verifyDto = new VerifyPhoneWithCodeBySubDTO();
         verifyDto.sub = user.sub;
         verifyDto.code = dto.code;
+        verifyDto.challengeSessionId = dto.challengeSessionId;
         await this.phoneVerificationService.verifyPhoneWithCodeBySub(verifyDto);
         this.logger?.log?.(
           `Phone verified during SMS MFA setup for user ${user.sub} - phone is now marked as verified in database`,
         );
       } catch (error) {
-        // Re-throw with more specific error message
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         this.logger?.error?.(
           `Failed to verify phone during SMS MFA setup for user ${user.sub}: ${errorMessage}`,
           error,
         );
+        // Preserve specific codes (expired, too many attempts, phone required); wrap only unknown errors
+        if (error instanceof NAuthException) {
+          throw error;
+        }
         throw new NAuthException(AuthErrorCode.VERIFICATION_CODE_INVALID, 'Invalid SMS code');
       }
     } else {
       // Phone already verified - skip code verification
       this.logger?.log?.(
         `Phone already verified for user ${user.sub}, skipping SMS code verification during MFA setup`,
+      );
+    }
+
+    // ============================================================================
+    // Bind the device to the (now verified) phone on the account, never to a
+    // caller-supplied number.
+    // ============================================================================
+    const freshUser = (await this.userRepository.findOne({ where: { id: userId } })) as unknown as Record<
+      string,
+      unknown
+    > | null;
+    const accountPhone = (freshUser?.phone as string | null | undefined) || undefined;
+    if (!accountPhone) {
+      throw new NAuthException(AuthErrorCode.PHONE_REQUIRED, 'No phone number associated with this account');
+    }
+    const suppliedPhone =
+      typeof dto?.phoneNumber === 'string' && dto.phoneNumber.trim() !== ''
+        ? dto.phoneNumber.replace(/\s/g, '')
+        : undefined;
+    if (suppliedPhone && suppliedPhone !== accountPhone) {
+      throw new NAuthException(
+        AuthErrorCode.VALIDATION_FAILED,
+        'Phone number does not match the number on this account. Call setup again with the new number.',
       );
     }
 
@@ -244,12 +361,20 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
       userId,
       {
         name: deviceName || 'SMS Phone',
-        phoneNumber: dto.phoneNumber,
+        phoneNumber: accountPhone,
         isActive: true,
         isPrimary: !userMfaEnabled, // First device becomes primary
       },
       { dedupeWhere: {} },
     );
+
+    // A reused (deduped) device may carry a stale number or be inactive; align it with the account
+    if (device.phoneNumber !== accountPhone || !device.isActive) {
+      await this.mfaDeviceRepository.update(device.id, { phoneNumber: accountPhone, isActive: true } as Record<
+        string,
+        unknown
+      >);
+    }
 
     // Enable MFA if not already enabled
     await this.enableMFAForUser(user);

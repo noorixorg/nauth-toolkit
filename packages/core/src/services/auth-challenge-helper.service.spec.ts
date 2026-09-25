@@ -406,6 +406,215 @@ describe('AuthChallengeHelperService', () => {
   });
 
   // ============================================================================
+  // buildMFASetupChallengeParameters() (private helper) - via createChallengeResponse()
+  // and createMFASetupChallengeResponse()
+  // ============================================================================
+
+  describe('requiresPhoneCollection (MFA_SETUP_REQUIRED)', () => {
+    beforeEach(() => {
+      mockClientInfoService.get.mockReturnValue({
+        ipAddress: '1.2.3.4',
+        userAgent: 'test-agent',
+        deviceToken: undefined,
+      } as any);
+    });
+
+    describe('via createChallengeResponse', () => {
+      it.each([null, undefined, ''])(
+        "should set requiresPhoneCollection to 'true' when sms is allowed and phone is %p",
+        async (phone) => {
+          const mockChallengeSession = createMockChallengeSession(
+            'session-token-setup',
+            AuthChallenge.MFA_SETUP_REQUIRED,
+          );
+          mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
+          const userWithoutPhone: Partial<IUser> = { ...mockUser, phone: phone as string | null };
+          const config: NAuthConfig = {
+            ...mockConfig,
+            mfa: {
+              enabled: true,
+              allowedMethods: [MFAMethod.TOTP, MFAMethod.SMS] as MFADeviceMethod[],
+            },
+          };
+
+          const result = await service.createChallengeResponse(
+            userWithoutPhone as IUser,
+            AuthChallenge.MFA_SETUP_REQUIRED,
+            config,
+          );
+
+          expect(result.challengeParameters?.requiresPhoneCollection).toBe('true');
+          expect(result.challengeParameters?.allowedMethods).toEqual([MFAMethod.TOTP, MFAMethod.SMS]);
+        },
+      );
+
+      it('should not set requiresPhoneCollection when sms is allowed and user has a phone', async () => {
+        const mockChallengeSession = createMockChallengeSession(
+          'session-token-setup',
+          AuthChallenge.MFA_SETUP_REQUIRED,
+        );
+        mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
+        const userWithPhone: Partial<IUser> = { ...mockUser, phone: '+1234567890' };
+        const config: NAuthConfig = {
+          ...mockConfig,
+          mfa: {
+            enabled: true,
+            allowedMethods: [MFAMethod.TOTP, MFAMethod.SMS] as MFADeviceMethod[],
+          },
+        };
+
+        const result = await service.createChallengeResponse(
+          userWithPhone as IUser,
+          AuthChallenge.MFA_SETUP_REQUIRED,
+          config,
+        );
+
+        expect(result.challengeParameters?.requiresPhoneCollection).toBeUndefined();
+        expect(result.challengeParameters?.allowedMethods).toEqual([MFAMethod.TOTP, MFAMethod.SMS]);
+      });
+
+      it('should not set requiresPhoneCollection when sms is not an allowed method, even without a phone', async () => {
+        const mockChallengeSession = createMockChallengeSession(
+          'session-token-setup',
+          AuthChallenge.MFA_SETUP_REQUIRED,
+        );
+        mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
+        const userWithoutPhone: Partial<IUser> = { ...mockUser, phone: null };
+        const config: NAuthConfig = {
+          ...mockConfig,
+          mfa: {
+            enabled: true,
+            allowedMethods: [MFAMethod.TOTP] as MFADeviceMethod[],
+          },
+        };
+
+        const result = await service.createChallengeResponse(
+          userWithoutPhone as IUser,
+          AuthChallenge.MFA_SETUP_REQUIRED,
+          config,
+        );
+
+        expect(result.challengeParameters?.requiresPhoneCollection).toBeUndefined();
+        expect(result.challengeParameters?.allowedMethods).toEqual([MFAMethod.TOTP]);
+      });
+
+      it("should set requiresPhoneCollection to 'true' with default allowedMethods (no phone, sms in MFADeviceMethods)", async () => {
+        const mockChallengeSession = createMockChallengeSession(
+          'session-token-setup',
+          AuthChallenge.MFA_SETUP_REQUIRED,
+        );
+        mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
+        const userWithoutPhone: Partial<IUser> = { ...mockUser, phone: null };
+        const config = {
+          ...mockConfig,
+          mfa: {
+            enabled: true,
+          },
+        };
+
+        const result = await service.createChallengeResponse(
+          userWithoutPhone as IUser,
+          AuthChallenge.MFA_SETUP_REQUIRED,
+          config,
+        );
+
+        expect(MFADeviceMethods).toContain(MFAMethod.SMS);
+        expect(result.challengeParameters?.requiresPhoneCollection).toBe('true');
+        expect(result.challengeParameters?.allowedMethods).toEqual([...MFADeviceMethods]);
+      });
+    });
+
+    describe('via createMFASetupChallengeResponse', () => {
+      it.each([null, undefined, ''])(
+        "should set requiresPhoneCollection to 'true' when sms is allowed and phone is %p",
+        async (phone) => {
+          const mockChallengeSession = createMockChallengeSession(
+            'session-token-setup',
+            AuthChallenge.MFA_SETUP_REQUIRED,
+          );
+          mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
+          const userWithoutPhone: Partial<IUser> = { ...mockUser, phone: phone as string | null };
+          const config: NAuthConfig = {
+            ...mockConfig,
+            mfa: {
+              enabled: true,
+              allowedMethods: [MFAMethod.TOTP, MFAMethod.SMS] as MFADeviceMethod[],
+            },
+          };
+
+          const result = await service.createMFASetupChallengeResponse(userWithoutPhone as IUser, config);
+
+          expect(result.challengeParameters?.requiresPhoneCollection).toBe('true');
+          expect(result.challengeParameters?.allowedMethods).toEqual([MFAMethod.TOTP, MFAMethod.SMS]);
+        },
+      );
+
+      it('should not set requiresPhoneCollection when sms is allowed and user has a phone', async () => {
+        const mockChallengeSession = createMockChallengeSession(
+          'session-token-setup',
+          AuthChallenge.MFA_SETUP_REQUIRED,
+        );
+        mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
+        const userWithPhone: Partial<IUser> = { ...mockUser, phone: '+1234567890' };
+        const config: NAuthConfig = {
+          ...mockConfig,
+          mfa: {
+            enabled: true,
+            allowedMethods: [MFAMethod.TOTP, MFAMethod.SMS] as MFADeviceMethod[],
+          },
+        };
+
+        const result = await service.createMFASetupChallengeResponse(userWithPhone as IUser, config);
+
+        expect(result.challengeParameters?.requiresPhoneCollection).toBeUndefined();
+        expect(result.challengeParameters?.allowedMethods).toEqual([MFAMethod.TOTP, MFAMethod.SMS]);
+      });
+
+      it('should not set requiresPhoneCollection when sms is not an allowed method, even without a phone', async () => {
+        const mockChallengeSession = createMockChallengeSession(
+          'session-token-setup',
+          AuthChallenge.MFA_SETUP_REQUIRED,
+        );
+        mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
+        const userWithoutPhone: Partial<IUser> = { ...mockUser, phone: null };
+        const config: NAuthConfig = {
+          ...mockConfig,
+          mfa: {
+            enabled: true,
+            allowedMethods: [MFAMethod.TOTP] as MFADeviceMethod[],
+          },
+        };
+
+        const result = await service.createMFASetupChallengeResponse(userWithoutPhone as IUser, config);
+
+        expect(result.challengeParameters?.requiresPhoneCollection).toBeUndefined();
+        expect(result.challengeParameters?.allowedMethods).toEqual([MFAMethod.TOTP]);
+      });
+
+      it("should set requiresPhoneCollection to 'true' with default allowedMethods (no phone, sms in MFADeviceMethods)", async () => {
+        const mockChallengeSession = createMockChallengeSession(
+          'session-token-setup',
+          AuthChallenge.MFA_SETUP_REQUIRED,
+        );
+        mockChallengeService.createChallengeSession.mockResolvedValue(mockChallengeSession);
+        const userWithoutPhone: Partial<IUser> = { ...mockUser, phone: null };
+        const config = {
+          ...mockConfig,
+          mfa: {
+            enabled: true,
+          },
+        };
+
+        const result = await service.createMFASetupChallengeResponse(userWithoutPhone as IUser, config);
+
+        expect(MFADeviceMethods).toContain(MFAMethod.SMS);
+        expect(result.challengeParameters?.requiresPhoneCollection).toBe('true');
+        expect(result.challengeParameters?.allowedMethods).toEqual([...MFADeviceMethods]);
+      });
+    });
+  });
+
+  // ============================================================================
   // checkMFARequirement() Method - DELETED
   // ============================================================================
   // This method has been replaced by the state machine in determineAuthResponse()

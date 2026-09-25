@@ -228,7 +228,11 @@ export interface AuthContextValue {
   logout: () => Promise<void>;
   respondToChallenge: (response: ChallengeResponse) => Promise<AuthResponse>;
   resendCode: (session: string) => Promise<{ destination: string }>;
-  getSetupData: (session: string, method: string) => Promise<GetSetupDataResponse>;
+  getSetupData: (
+    session: string,
+    method: string,
+    setupData?: Record<string, unknown>,
+  ) => Promise<GetSetupDataResponse>;
 
   // Social
   loginWithGoogle: () => Promise<void>;
@@ -353,8 +357,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resendCode = (session: string) => client.resendCode(session);
 
-  const getSetupData = (session: string, method: string) =>
-    client.getSetupData(session, method as Parameters<typeof client.getSetupData>[1]);
+  const getSetupData = (session: string, method: string, setupData?: Record<string, unknown>) =>
+    client.getSetupData(session, method as Parameters<typeof client.getSetupData>[1], setupData);
 
   const loginWithGoogle = () =>
     client.loginWithSocial('google', {

@@ -32,6 +32,26 @@ describe('Challenge Helpers', () => {
 
       expect(requiresPhoneCollection(challenge)).toBe(false);
     });
+
+    it('should return true for MFA_SETUP_REQUIRED challenge with requiresPhoneCollection', () => {
+      const challenge: AuthResponse = {
+        challengeName: AuthChallenge.MFA_SETUP_REQUIRED,
+        challengeParameters: {
+          requiresPhoneCollection: 'true',
+        },
+      } as AuthResponse;
+
+      expect(requiresPhoneCollection(challenge)).toBe(true);
+    });
+
+    it('should return false for MFA_SETUP_REQUIRED challenge without requiresPhoneCollection', () => {
+      const challenge: AuthResponse = {
+        challengeName: AuthChallenge.MFA_SETUP_REQUIRED,
+        challengeParameters: {},
+      } as AuthResponse;
+
+      expect(requiresPhoneCollection(challenge)).toBe(false);
+    });
   });
 
   describe('getMaskedDestination', () => {

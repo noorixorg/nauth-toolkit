@@ -175,9 +175,9 @@ sequenceDiagram
 
 ### Forced setup (REQUIRED enforcement)
 
-1. Login returns `MFA_SETUP_REQUIRED` with `allowedMethods`
-2. Frontend calls `/auth/challenge/setup-data` with the chosen method
-3. For email/SMS: if already verified, setup auto-completes; otherwise a code is sent
+1. Login returns `MFA_SETUP_REQUIRED` with `allowedMethods`, plus `requiresPhoneCollection: "true"` when SMS is allowed and the account has no phone
+2. Frontend calls `/auth/challenge/setup-data` with the chosen method (and `setupData.phoneNumber` for SMS when the account has no phone)
+3. For email/SMS: if already verified, setup auto-completes; otherwise a code is sent. For SMS the number is saved to the account and verified by the code, see [SMS MFA > Forced Setup](/docs/guides/mfa/sms#forced-setup-required-enforcement)
 4. For TOTP: a QR code and manual entry key are returned
 5. For Passkey: WebAuthn registration options are returned
 6. User completes setup via `/auth/respond-challenge`
@@ -530,10 +530,12 @@ async onSubmit(code: string): Promise<void> {
 **`mfa-setup.component.ts`** — handles `MFA_SETUP_REQUIRED` with method selection and auto-completion detection:
 
 ```typescript title="Angular — mfa-setup.component.ts (simplified)"
-async selectMethod(method: 'email' | 'sms'): Promise<void> {
-  const { setupData } = await this.auth.getSetupData(this.challenge().session, method);
+// setupData is { phoneNumber } when the SMS phone form was shown first
+// (requiresPhoneCollection(challenge) is true: SMS allowed, no phone on file)
+private async startCodeSetup(method: 'email' | 'sms', setupData?: Record<string, unknown>): Promise<void> {
+  const { setupData: result } = await this.auth.getSetupData(this.challenge().session, method, setupData);
 
-  if (setupData.autoCompleted) {
+  if (result['autoCompleted']) {
     // Email/phone already verified — complete immediately
     await this.auth.respondToChallenge({
       type: AuthChallenge.MFA_SETUP_REQUIRED,

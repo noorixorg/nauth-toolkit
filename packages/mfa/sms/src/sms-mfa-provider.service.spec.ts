@@ -15,6 +15,7 @@ import {
   PhoneVerificationService,
   NAuthException,
   AuthErrorCode,
+  AuthAuditEventType,
   IUser,
   ContextStorage,
 } from '@nauth-toolkit/core';
@@ -56,20 +57,24 @@ describe('SMSMFAProviderService', () => {
       save: jest.fn(),
       findOne: jest.fn(),
       update: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
+      delete: jest.fn(),
     } as any;
 
     mockUserRepository = {
       findOne: jest.fn(),
       save: jest.fn(),
+      update: jest.fn(),
     } as any;
 
     mockPhoneVerificationService = {
       sendVerificationSMS: jest.fn().mockResolvedValue(undefined),
       verifyPhoneWithCodeBySub: jest.fn().mockResolvedValue(undefined),
+      setPhoneAndSendVerification: jest.fn().mockResolvedValue({ tokenId: 'token-id', phoneChanged: false }),
     } as any;
 
     mockChallengeService = {} as any;
-    mockAuditService = {} as any;
+    mockAuditService = { recordEvent: jest.fn().mockResolvedValue(undefined) } as any;
     mockClientInfoService = {} as any;
 
     mockUser = {
@@ -120,15 +125,17 @@ describe('SMSMFAProviderService', () => {
       });
     });
 
-    it('should throw when phone number is not provided', async () => {
+    it('should throw PHONE_REQUIRED and make no service calls when no phone is supplied and none is on file', async () => {
       const userWithoutPhone = { ...mockUser, phone: undefined };
       await ContextStorage.run(async () => {
         ContextStorage.set('CURRENT_USER', userWithoutPhone);
-        await expect(service.setup()).rejects.toThrow(NAuthException);
+        await expect(service.setup()).rejects.toMatchObject({ code: AuthErrorCode.PHONE_REQUIRED });
       });
+      expect(mockPhoneVerificationService.sendVerificationSMS).not.toHaveBeenCalled();
+      expect(mockPhoneVerificationService.setPhoneAndSendVerification).not.toHaveBeenCalled();
     });
 
-    it('should auto-complete setup when phone is already verified', async () => {
+    it('should auto-complete setup when supplied phone equals the current verified phone', async () => {
       const verifiedUser = { ...mockUser, isPhoneVerified: true };
       (service as any).verifySetup = jest.fn().mockResolvedValue(123);
       (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(verifiedUser);
@@ -138,16 +145,72 @@ describe('SMSMFAProviderService', () => {
         const result = await service.setup({ phoneNumber: '+1234567890' });
         expect(result).toEqual({ deviceId: 123, autoCompleted: true });
       });
+
+      expect((service as any).verifySetup).toHaveBeenCalledWith({ code: '' }, undefined);
+      expect(mockPhoneVerificationService.setPhoneAndSendVerification).not.toHaveBeenCalled();
+      expect(mockPhoneVerificationService.sendVerificationSMS).not.toHaveBeenCalled();
     });
 
-    it('should send SMS verification code when phone is not verified', async () => {
+    it('should auto-complete setup when no phone is supplied and the phone on file is verified', async () => {
+      const verifiedUser = { ...mockUser, isPhoneVerified: true };
+      (service as any).verifySetup = jest.fn().mockResolvedValue(456);
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(verifiedUser);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', verifiedUser);
+        const result = await service.setup();
+        expect(result).toEqual({ deviceId: 456, autoCompleted: true });
+      });
+    });
+
+    it('should NOT auto-complete when the supplied phone differs from the current verified phone', async () => {
+      const verifiedUser = { ...mockUser, phone: '+1111111111', isPhoneVerified: true, id: 1 };
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(verifiedUser);
+      (service as any).maskPhone = jest.fn((phone: string) => `masked:${phone}`);
+      mockPhoneVerificationService.setPhoneAndSendVerification = jest
+        .fn()
+        .mockResolvedValue({ tokenId: 'token-id', phoneChanged: true });
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', verifiedUser);
+        const result = await service.setup({ phoneNumber: '+222 222 2222', challengeSessionId: 99 });
+        expect(result).toEqual({ maskedPhone: 'masked:+2222222222' });
+      });
+
+      expect(mockPhoneVerificationService.setPhoneAndSendVerification).toHaveBeenCalledWith(
+        expect.objectContaining({ sub: verifiedUser.sub, phone: '+2222222222', challengeSessionId: 99 }),
+      );
+    });
+
+    it('should send through setPhoneAndSendVerification when the supplied phone equals the current unverified phone', async () => {
       (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
       (service as any).maskPhone = jest.fn().mockReturnValue('***-***-7890');
 
       await ContextStorage.run(async () => {
         ContextStorage.set('CURRENT_USER', mockUser);
         const result = await service.setup({ phoneNumber: '+1234567890' });
-        expect(mockPhoneVerificationService.sendVerificationSMS).toHaveBeenCalled();
+        expect(mockPhoneVerificationService.setPhoneAndSendVerification).toHaveBeenCalledWith(
+          expect.objectContaining({ sub: mockUser.sub, phone: '+1234567890' }),
+        );
+        expect(mockPhoneVerificationService.sendVerificationSMS).not.toHaveBeenCalled();
+        expect(result).toEqual({ maskedPhone: '***-***-7890' });
+      });
+
+      // Number is unchanged, so phoneChanged is false and no device retirement should occur
+      expect(mockMfaDeviceRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('should resend via sendVerificationSMS when no number is supplied and the phone on file is unverified', async () => {
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
+      (service as any).maskPhone = jest.fn().mockReturnValue('***-***-7890');
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        const result = await service.setup();
+        expect(mockPhoneVerificationService.sendVerificationSMS).toHaveBeenCalledWith(
+          expect.objectContaining({ sub: mockUser.sub }),
+        );
+        expect(mockPhoneVerificationService.setPhoneAndSendVerification).not.toHaveBeenCalled();
         expect(result).toEqual({ maskedPhone: '***-***-7890' });
       });
     });
@@ -173,15 +236,86 @@ describe('SMSMFAProviderService', () => {
         );
       });
     });
+
+    describe('retiring SMS devices on phone change', () => {
+      it('deletes active SMS devices, records an audit event, and disables MFA when none remain', async () => {
+        const currentUser = { ...mockUser, phone: '+1111111111', isPhoneVerified: false, id: 1 };
+        (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(currentUser);
+        (service as any).maskPhone = jest.fn((phone: string) => `masked:${phone}`);
+        mockPhoneVerificationService.setPhoneAndSendVerification = jest
+          .fn()
+          .mockResolvedValue({ tokenId: 'token-id', phoneChanged: true });
+        mockMfaDeviceRepository.find = jest
+          .fn()
+          .mockResolvedValueOnce([{ id: 55 }])
+          .mockResolvedValueOnce([]) as any;
+
+        await ContextStorage.run(async () => {
+          ContextStorage.set('CURRENT_USER', currentUser);
+          const result = await service.setup({ phoneNumber: '+2222222222' });
+          expect(result).toEqual({ maskedPhone: 'masked:+2222222222' });
+        });
+
+        expect(mockMfaDeviceRepository.delete).toHaveBeenCalledWith(55);
+        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+          expect.objectContaining({ userId: 1, eventType: AuthAuditEventType.MFA_DEVICE_REMOVED }),
+        );
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          { id: 1 },
+          { mfaEnabled: false, mfaMethods: [], preferredMfaMethod: null },
+        );
+      });
+
+      it('does not disable MFA when other active devices remain after retiring SMS devices', async () => {
+        const currentUser = { ...mockUser, phone: '+1111111111', isPhoneVerified: false, id: 1 };
+        (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(currentUser);
+        (service as any).maskPhone = jest.fn((phone: string) => `masked:${phone}`);
+        mockPhoneVerificationService.setPhoneAndSendVerification = jest
+          .fn()
+          .mockResolvedValue({ tokenId: 'token-id', phoneChanged: true });
+        mockMfaDeviceRepository.find = jest
+          .fn()
+          .mockResolvedValueOnce([{ id: 55 }])
+          .mockResolvedValueOnce([{ id: 99 }]) as any;
+
+        await ContextStorage.run(async () => {
+          ContextStorage.set('CURRENT_USER', currentUser);
+          await service.setup({ phoneNumber: '+2222222222' });
+        });
+
+        expect(mockMfaDeviceRepository.delete).toHaveBeenCalledWith(55);
+        expect(mockUserRepository.update).not.toHaveBeenCalled();
+      });
+
+      it('does nothing when no active SMS devices exist', async () => {
+        const currentUser = { ...mockUser, phone: '+1111111111', isPhoneVerified: false, id: 1 };
+        (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(currentUser);
+        (service as any).maskPhone = jest.fn((phone: string) => `masked:${phone}`);
+        mockPhoneVerificationService.setPhoneAndSendVerification = jest
+          .fn()
+          .mockResolvedValue({ tokenId: 'token-id', phoneChanged: true });
+        mockMfaDeviceRepository.find = jest.fn().mockResolvedValue([]) as any;
+
+        await ContextStorage.run(async () => {
+          ContextStorage.set('CURRENT_USER', currentUser);
+          await service.setup({ phoneNumber: '+2222222222' });
+        });
+
+        expect(mockMfaDeviceRepository.delete).not.toHaveBeenCalled();
+        expect(mockAuditService.recordEvent).not.toHaveBeenCalled();
+        expect(mockUserRepository.update).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('verifySetup', () => {
     it('should skip code verification when phone is already verified', async () => {
       const verifiedUser = { ...mockUser, isPhoneVerified: true, id: 1 };
-      const mockDevice = { id: 123 } as BaseMFADevice;
+      const mockDevice = { id: 123, phoneNumber: '+1234567890', isActive: true } as BaseMFADevice;
       (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(verifiedUser);
       (service as any).createDevice = jest.fn().mockResolvedValue(mockDevice);
       (service as any).enableMFAForUser = jest.fn().mockResolvedValue(undefined);
+      mockUserRepository.findOne.mockResolvedValue({ id: 1, phone: '+1234567890' } as any);
 
       await ContextStorage.run(async () => {
         ContextStorage.set('CURRENT_USER', verifiedUser);
@@ -193,15 +327,32 @@ describe('SMSMFAProviderService', () => {
 
     it('should verify phone code when phone is not verified', async () => {
       (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
-      const mockDevice = { id: 123 } as BaseMFADevice;
+      const mockDevice = { id: 123, phoneNumber: '+1234567890', isActive: true } as BaseMFADevice;
       (service as any).createDevice = jest.fn().mockResolvedValue(mockDevice);
       (service as any).enableMFAForUser = jest.fn().mockResolvedValue(undefined);
+      mockUserRepository.findOne.mockResolvedValue({ id: 1, phone: '+1234567890' } as any);
 
       await ContextStorage.run(async () => {
         ContextStorage.set('CURRENT_USER', mockUser);
         const result = await service.verifySetup({ phoneNumber: '+1234567890', code: '123456' });
         expect(mockPhoneVerificationService.verifyPhoneWithCodeBySub).toHaveBeenCalled();
         expect(result).toBe(123);
+      });
+    });
+
+    it('should forward challengeSessionId into VerifyPhoneWithCodeBySubDTO', async () => {
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
+      const mockDevice = { id: 123, phoneNumber: '+1234567890', isActive: true } as BaseMFADevice;
+      (service as any).createDevice = jest.fn().mockResolvedValue(mockDevice);
+      (service as any).enableMFAForUser = jest.fn().mockResolvedValue(undefined);
+      mockUserRepository.findOne.mockResolvedValue({ id: 1, phone: '+1234567890' } as any);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await service.verifySetup({ code: '123456', challengeSessionId: 789 });
+        expect(mockPhoneVerificationService.verifyPhoneWithCodeBySub).toHaveBeenCalledWith(
+          expect.objectContaining({ sub: mockUser.sub, code: '123456', challengeSessionId: 789 }),
+        );
       });
     });
 
@@ -373,27 +524,40 @@ describe('SMSMFAProviderService', () => {
   });
 
   describe('setup - challengeSessionId handling', () => {
-    it('should link SMS verification to challenge session when provided', async () => {
+    it('should forward challengeSessionId into setPhoneAndSendVerification when a phone number is supplied', async () => {
       (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
       (service as any).maskPhone = jest.fn().mockReturnValue('***-***-7890');
 
       await ContextStorage.run(async () => {
         ContextStorage.set('CURRENT_USER', mockUser);
         await service.setup({ phoneNumber: '+1234567890', challengeSessionId: 123 });
-        expect(mockPhoneVerificationService.sendVerificationSMS).toHaveBeenCalledWith(
+        expect(mockPhoneVerificationService.setPhoneAndSendVerification).toHaveBeenCalledWith(
           expect.objectContaining({ challengeSessionId: 123 }),
         );
       });
     });
 
-    it('should log warning when challengeSessionId is not provided', async () => {
+    it('should forward challengeSessionId into sendVerificationSMS when no phone number is supplied', async () => {
       (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
       (service as any).maskPhone = jest.fn().mockReturnValue('***-***-7890');
 
       await ContextStorage.run(async () => {
         ContextStorage.set('CURRENT_USER', mockUser);
-        await service.setup({ phoneNumber: '+1234567890' });
-        expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('No challengeSessionId provided'));
+        await service.setup({ challengeSessionId: 456 });
+        expect(mockPhoneVerificationService.sendVerificationSMS).toHaveBeenCalledWith(
+          expect.objectContaining({ challengeSessionId: 456 }),
+        );
+      });
+    });
+
+    it('should debug-log when challengeSessionId is provided', async () => {
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
+      (service as any).maskPhone = jest.fn().mockReturnValue('***-***-7890');
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await service.setup({ phoneNumber: '+1234567890', challengeSessionId: 123 });
+        expect(mockLogger.debug).toHaveBeenCalledWith(expect.stringContaining('challengeSessionId=123'));
       });
     });
   });
@@ -476,17 +640,130 @@ describe('SMSMFAProviderService', () => {
       });
     });
 
-    it('should handle verification error and throw with specific message', async () => {
+    it('wraps a non-NAuthException error from verifyPhoneWithCodeBySub as VERIFICATION_CODE_INVALID', async () => {
       (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
       mockPhoneVerificationService.verifyPhoneWithCodeBySub.mockRejectedValue(new Error('Invalid code'));
 
       await ContextStorage.run(async () => {
         ContextStorage.set('CURRENT_USER', mockUser);
-        await expect(service.verifySetup({ phoneNumber: '+1234567890', code: '123456' })).rejects.toThrow(
-          NAuthException,
-        );
+        await expect(service.verifySetup({ phoneNumber: '+1234567890', code: '123456' })).rejects.toMatchObject({
+          code: AuthErrorCode.VERIFICATION_CODE_INVALID,
+        });
         expect(mockLogger.error).toHaveBeenCalled();
       });
+    });
+
+    it('propagates an NAuthException from verifyPhoneWithCodeBySub unchanged (e.g. VERIFICATION_CODE_EXPIRED)', async () => {
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
+      const expiredError = new NAuthException(AuthErrorCode.VERIFICATION_CODE_EXPIRED, 'Code expired');
+      mockPhoneVerificationService.verifyPhoneWithCodeBySub.mockRejectedValue(expiredError);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await expect(service.verifySetup({ phoneNumber: '+1234567890', code: '123456' })).rejects.toMatchObject({
+          code: AuthErrorCode.VERIFICATION_CODE_EXPIRED,
+        });
+      });
+    });
+
+    it('propagates an NAuthException from verifyPhoneWithCodeBySub unchanged (e.g. VERIFICATION_TOO_MANY_ATTEMPTS)', async () => {
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(mockUser);
+      const tooManyAttemptsError = new NAuthException(
+        AuthErrorCode.VERIFICATION_TOO_MANY_ATTEMPTS,
+        'Too many attempts',
+      );
+      mockPhoneVerificationService.verifyPhoneWithCodeBySub.mockRejectedValue(tooManyAttemptsError);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', mockUser);
+        await expect(service.verifySetup({ phoneNumber: '+1234567890', code: '123456' })).rejects.toMatchObject({
+          code: AuthErrorCode.VERIFICATION_TOO_MANY_ATTEMPTS,
+        });
+      });
+    });
+
+    it('binds the device to the reloaded account phone, not the stale phone on the context user', async () => {
+      const staleContextUser = { ...mockUser, phone: '+1111111111', isPhoneVerified: true, id: 1 };
+      const mockDevice = { id: 321, phoneNumber: '+2222222222', isActive: true } as BaseMFADevice;
+      const createDeviceSpy = jest.fn().mockResolvedValue(mockDevice);
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(staleContextUser);
+      (service as any).createDevice = createDeviceSpy;
+      (service as any).enableMFAForUser = jest.fn().mockResolvedValue(undefined);
+      mockUserRepository.findOne.mockResolvedValue({ id: 1, phone: '+2222222222' } as any);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', staleContextUser);
+        await service.verifySetup({ code: '' });
+      });
+
+      expect(mockUserRepository.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
+      expect(createDeviceSpy).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ phoneNumber: '+2222222222' }),
+        expect.anything(),
+      );
+    });
+
+    it('throws PHONE_REQUIRED when the reloaded user has no phone', async () => {
+      const verifiedUser = { ...mockUser, isPhoneVerified: true, id: 1 };
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(verifiedUser);
+      mockUserRepository.findOne.mockResolvedValue({ id: 1, phone: null } as any);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', verifiedUser);
+        await expect(service.verifySetup({ code: '' })).rejects.toMatchObject({
+          code: AuthErrorCode.PHONE_REQUIRED,
+        });
+      });
+    });
+
+    it('throws VALIDATION_FAILED when the supplied phoneNumber differs from the reloaded account phone', async () => {
+      const verifiedUser = { ...mockUser, isPhoneVerified: true, id: 1 };
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(verifiedUser);
+      mockUserRepository.findOne.mockResolvedValue({ id: 1, phone: '+1234567890' } as any);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', verifiedUser);
+        await expect(service.verifySetup({ phoneNumber: '+9999999999', code: '' })).rejects.toMatchObject({
+          code: AuthErrorCode.VALIDATION_FAILED,
+        });
+      });
+    });
+
+    it('realigns a deduped device that has a stale phone number or is inactive', async () => {
+      const verifiedUser = { ...mockUser, isPhoneVerified: true, id: 1 };
+      const dedupedDevice = { id: 55, phoneNumber: '+0000000000', isActive: false } as BaseMFADevice;
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(verifiedUser);
+      (service as any).createDevice = jest.fn().mockResolvedValue(dedupedDevice);
+      (service as any).enableMFAForUser = jest.fn().mockResolvedValue(undefined);
+      mockUserRepository.findOne.mockResolvedValue({ id: 1, phone: '+1234567890' } as any);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', verifiedUser);
+        const result = await service.verifySetup({ code: '' });
+        expect(result).toBe(55);
+      });
+
+      expect(mockMfaDeviceRepository.update).toHaveBeenCalledWith(55, {
+        phoneNumber: '+1234567890',
+        isActive: true,
+      });
+    });
+
+    it('does not update the device when it already matches the account phone and is active', async () => {
+      const verifiedUser = { ...mockUser, isPhoneVerified: true, id: 1 };
+      const matchingDevice = { id: 77, phoneNumber: '+1234567890', isActive: true } as BaseMFADevice;
+      (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(verifiedUser);
+      (service as any).createDevice = jest.fn().mockResolvedValue(matchingDevice);
+      (service as any).enableMFAForUser = jest.fn().mockResolvedValue(undefined);
+      mockUserRepository.findOne.mockResolvedValue({ id: 1, phone: '+1234567890' } as any);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', verifiedUser);
+        await service.verifySetup({ code: '' });
+      });
+
+      expect(mockMfaDeviceRepository.update).not.toHaveBeenCalled();
     });
   });
 });

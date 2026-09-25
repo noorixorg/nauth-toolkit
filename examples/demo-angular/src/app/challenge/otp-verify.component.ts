@@ -11,14 +11,7 @@ import {
   ElementRef,
 } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
-import {
-  FormBuilder,
-  FormGroup,
-  Validators,
-  ReactiveFormsModule,
-  AbstractControl,
-  ValidationErrors,
-} from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import {
   AuthService,
   AuthResponse,
@@ -49,6 +42,7 @@ import { map } from 'rxjs/operators';
 import { ChallengeOrchestratorService } from '../services/challenge-orchestrator.service';
 import { SimulatedVerificationCodeService } from '../services/simulated-verification-code.service';
 import { handleAuthError } from '../utils/error-handler.util';
+import { phoneFormatValidator } from '../utils/phone-validator.util';
 
 /**
  * OTP Verification Component
@@ -547,40 +541,10 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
     private readonly orchestrator: ChallengeOrchestratorService,
   ) {
     this.otpForm = this.fb.group({
-      phone: ['', [this.phoneValidator, Validators.maxLength(20)]],
+      phone: ['', [phoneFormatValidator, Validators.maxLength(20)]],
       code: ['', [Validators.required, Validators.minLength(4), Validators.maxLength(10)]],
     });
   }
-
-  /**
-   * Phone number validator for E.164 format
-   *
-   * @param control - Form control to validate
-   * @returns Validation errors or null if valid
-   */
-  private phoneValidator = (control: AbstractControl): ValidationErrors | null => {
-    const phone = control.value;
-
-    if (!phone) {
-      return null; // Let required validator handle empty values
-    }
-
-    // Remove whitespace and mask placeholder characters (underscores, spaces)
-    const cleaned = phone.replace(/[\s_]/g, '');
-
-    // E.164 format: + followed by 1-15 digits
-    const e164Pattern = /^\+[1-9]\d{1,14}$/;
-
-    if (!e164Pattern.test(cleaned)) {
-      return {
-        phoneFormat: {
-          message: 'Phone must be in E.164 format with + prefix (e.g., +14155552671)',
-        },
-      };
-    }
-
-    return null;
-  };
 
   /**
    * Initialize component
@@ -1511,6 +1475,18 @@ export class OtpVerifyComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   navigateToLogin(): void {
     this.router.navigate(['/login']);
+  }
+
+  /**
+   * Navigate back to the SMS phone-collection step to use a different number.
+   *
+   * Only relevant for MFA_SETUP_REQUIRED with method 'sms'. The mfa-setup
+   * component opens the phone form directly when `collectPhone=1` is present.
+   */
+  useAnotherNumber(): void {
+    this.router.navigate(['/auth/challenge/mfa-setup-required'], {
+      queryParams: { collectPhone: 1 },
+    });
   }
 
   /**

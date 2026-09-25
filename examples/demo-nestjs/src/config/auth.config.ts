@@ -65,7 +65,11 @@ export const authConfig: NAuthModuleConfig = {
 
   signup: {
     enabled: true,
-    verificationMethod: 'both',
+    // Overridable per-run (SIGNUP_VERIFICATION_METHOD) so the E2E suite can exercise
+    // email-only signup flows - e.g. to reach an account with no phone on file, needed
+    // to test MFA_SETUP_REQUIRED's SMS phone-collection step - without editing this file.
+    verificationMethod:
+      (process.env.SIGNUP_VERIFICATION_METHOD as 'none' | 'email' | 'phone' | 'both') || 'both',
     allowDuplicatePhones: true,
     emailVerification: {
       expiresIn: 3600,

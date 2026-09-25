@@ -35,7 +35,7 @@ Each challenge type includes specific parameters in [`AuthResponse.challengePara
 | `VERIFY_EMAIL`          | `codeDeliveryDestination` (masked email), `instructions`                            |
 | `VERIFY_PHONE`          | `codeDeliveryDestination` (masked phone), `requiresPhoneCollection`, `instructions` |
 | `MFA_REQUIRED`          | `preferredMethod`, `availableMethods`, `maskedPhone`, `maskedEmail`, `instructions` |
-| `MFA_SETUP_REQUIRED`    | `allowedMethods`, `instructions`                                                    |
+| `MFA_SETUP_REQUIRED`    | `allowedMethods`, `requiresPhoneCollection` (only when SMS allowed and no phone), `instructions` |
 | `FORCE_CHANGE_PASSWORD` | `instructions`                                                                      |
 
 See [Challenge Handling Guide](../../guides/challenge-handling) for detailed parameter usage.

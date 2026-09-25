@@ -577,16 +577,26 @@ export class AuthService {
    *
    * @param session - Challenge session token
    * @param method - MFA method to set up
+   * @param setupData - Optional method-specific input. SMS: `{ phoneNumber }` (E.164) when the
+   *   challenge has `requiresPhoneCollection: 'true'`; a different number replaces the phone on file,
+   *   omit it to resend.
    * @returns Promise of setup data response
    *
    * @example
    * ```typescript
    * const setupData = await this.auth.getSetupData(session, 'totp');
    * console.log('QR Code:', setupData.setupData.qrCode);
+   *
+   * const sms = await this.auth.getSetupData(session, 'sms', { phoneNumber: '+14155552671' });
+   * console.log('Code sent to:', sms.setupData.maskedPhone);
    * ```
    */
-  async getSetupData(session: string, method: string): Promise<GetSetupDataResponse> {
-    return this.client.getSetupData(session, method as Parameters<NAuthClient['getSetupData']>[1]);
+  async getSetupData(
+    session: string,
+    method: string,
+    setupData?: Record<string, unknown>,
+  ): Promise<GetSetupDataResponse> {
+    return this.client.getSetupData(session, method as Parameters<NAuthClient['getSetupData']>[1], setupData);
   }
 
   /**
@@ -813,14 +823,21 @@ export class AuthService {
    * @param method - MFA method to set up
    * @returns Promise of setup data response
    *
+   * @param method - MFA method to set up
+   * @param setupData - Optional method-specific input. SMS: `{ phoneNumber, deviceName? }` — required
+   *   when the account has no phone; a different number replaces the phone on file.
+   *
    * @example
    * ```typescript
    * const result = await this.auth.setupMfaDevice('totp');
    * console.log('QR Code:', result.setupData.qrCode);
+   *
+   * const sms = await this.auth.setupMfaDevice('sms', { phoneNumber: '+14155552671' });
+   * console.log('Code sent to:', sms.setupData.maskedPhone);
    * ```
    */
-  async setupMfaDevice(method: string): Promise<GetSetupDataResponse> {
-    return this.client.setupMfaDevice(method);
+  async setupMfaDevice(method: string, setupData?: Record<string, unknown>): Promise<GetSetupDataResponse> {
+    return this.client.setupMfaDevice(method, setupData);
   }
 
   /**

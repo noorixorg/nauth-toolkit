@@ -49,6 +49,34 @@ function createMockHttpAdapter(): HttpAdapter & { getLoginBody: () => unknown; g
   });
 }
 
+/**
+ * Creates a mock HttpAdapter that records the body of the last POST request, regardless of its
+ * shape, and returns the given response data. Used for endpoints whose request body doesn't fit
+ * the identifier/email heuristics in {@link createMockHttpAdapter}.
+ */
+function createGenericMockHttpAdapter(responseData: unknown = { setupData: {} }): HttpAdapter & {
+  getLastBody: () => unknown;
+} {
+  let lastBody: unknown;
+
+  const adapter: HttpAdapter = {
+    request: jest.fn().mockImplementation(async (config: { method?: string; body?: unknown }) => {
+      if (config.method === 'POST' && config.body) {
+        lastBody = config.body;
+      }
+      return {
+        status: 200,
+        data: responseData,
+        headers: {},
+      };
+    }),
+  };
+
+  return Object.assign(adapter, {
+    getLastBody: () => lastBody,
+  });
+}
+
 function createConfig(overrides: Partial<NAuthClientConfig> = {}): NAuthClientConfig {
   const mockAdapter = createMockHttpAdapter();
   return {
@@ -197,6 +225,63 @@ describe('AuthService', () => {
 
       const body = adapter.getSignupBody() as { recaptchaToken?: string };
       expect(body?.recaptchaToken).toBe('v2-manual-token');
+    });
+  });
+
+  describe('getSetupData', () => {
+    it('includes setupData in the request body when provided', async () => {
+      const adapter = createGenericMockHttpAdapter();
+      const config = createConfig({ httpAdapter: adapter });
+      const auth = new AuthService(config, adapter as never, undefined, undefined);
+
+      await auth.getSetupData('session-123', 'sms', { phoneNumber: '+14155552671' });
+
+      const body = adapter.getLastBody() as Record<string, unknown>;
+      expect(body).toEqual({
+        session: 'session-123',
+        method: 'sms',
+        setupData: { phoneNumber: '+14155552671' },
+      });
+    });
+
+    it('omits the setupData key entirely when not provided', async () => {
+      const adapter = createGenericMockHttpAdapter();
+      const config = createConfig({ httpAdapter: adapter });
+      const auth = new AuthService(config, adapter as never, undefined, undefined);
+
+      await auth.getSetupData('session-123', 'totp');
+
+      const body = adapter.getLastBody() as Record<string, unknown>;
+      expect(body).not.toHaveProperty('setupData');
+      expect(body).toEqual({ session: 'session-123', method: 'totp' });
+    });
+  });
+
+  describe('setupMfaDevice', () => {
+    it('includes setupData in the request body when provided', async () => {
+      const adapter = createGenericMockHttpAdapter();
+      const config = createConfig({ httpAdapter: adapter });
+      const auth = new AuthService(config, adapter as never, undefined, undefined);
+
+      await auth.setupMfaDevice('sms', { phoneNumber: '+14155552671' });
+
+      const body = adapter.getLastBody() as Record<string, unknown>;
+      expect(body).toEqual({
+        methodName: 'sms',
+        setupData: { phoneNumber: '+14155552671' },
+      });
+    });
+
+    it('omits the setupData key entirely when not provided', async () => {
+      const adapter = createGenericMockHttpAdapter();
+      const config = createConfig({ httpAdapter: adapter });
+      const auth = new AuthService(config, adapter as never, undefined, undefined);
+
+      await auth.setupMfaDevice('totp');
+
+      const body = adapter.getLastBody() as Record<string, unknown>;
+      expect(body).not.toHaveProperty('setupData');
+      expect(body).toEqual({ methodName: 'totp' });
     });
   });
 });

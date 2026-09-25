@@ -149,6 +149,8 @@ All DTOs are automatically validated by framework adapters. No manual validation
 | [ResendVerificationSMSResponseDTO](./resend-verification-sms-response-dto) | Resend SMS response     | Token ID              |
 | [SendVerificationSMSDTO](./send-verification-sms-dto)                      | Send verification SMS   | User sub              |
 | [SendVerificationSMSResponseDTO](./send-verification-sms-response-dto)     | Send SMS response       | Token ID              |
+| [SetPhoneAndSendVerificationDTO](./set-phone-and-send-verification-dto)    | Save phone and send verification SMS | User sub, phone, optional challenge session |
+| [SetPhoneAndSendVerificationResponseDTO](./set-phone-and-send-verification-response-dto) | Set phone response | Token ID, phoneChanged |
 | [VerifyPhoneResponseDTO](./verify-phone-response-dto)                      | Verify phone response   | Success message       |
 | [VerifyPhoneWithCodeBySubDTO](./verify-phone-by-sub-dto)                   | Verify phone by sub     | User sub and code     |
 | [VerifyPhoneWithCodeDTO](./verify-phone-dto)                               | Verify phone with code  | Phone number and code |

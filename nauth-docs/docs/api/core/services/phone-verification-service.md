@@ -1,6 +1,6 @@
 ---
 title: PhoneVerificationService
-description: Phone verification service for sending SMS codes, verifying with code, and resending with rate limiting. Supports both phone number and user sub-based verification.
+description: "PhoneVerificationService: sendVerificationSMS, setPhoneAndSendVerification (collect or change phone), verifyPhoneWithCode, verifyPhoneWithCodeBySub, resendVerificationSMS with rate limiting"
 keywords: [phone, verification, service, sms, code, api]
 image: /img/api-social-card.png
 ---
@@ -255,6 +255,96 @@ fastify.post(
     };
     const result = await nauth.phoneVerificationService.sendVerificationSMS(dto);
     return { tokenId: result.tokenId };
+  }),
+);
+```
+
+</TabItem>
+</Tabs>
+
+---
+
+### setPhoneAndSendVerification()
+
+Save a phone number on the user, reset its verification if it changed, and send the verification SMS. This is the shared path behind `VERIFY_PHONE` phone collection and SMS MFA setup with `setupData.phoneNumber`.
+
+```typescript
+async setPhoneAndSendVerification(dto: SetPhoneAndSendVerificationDTO): Promise<SetPhoneAndSendVerificationResponseDTO>
+```
+
+**Parameters**
+
+- `dto` - [`SetPhoneAndSendVerificationDTO`](../dto/set-phone-and-send-verification-dto)
+  - `sub` - `string` - User identifier (UUID v4)
+  - `phone` - `string` - Phone number in E.164 format
+  - `challengeSessionId` - `number` (optional) - Challenge session ID to link the verification token to
+
+**Returns**
+
+- [`SetPhoneAndSendVerificationResponseDTO`](../dto/set-phone-and-send-verification-response-dto)
+  - `tokenId` - `number` - Verification token ID (internal)
+  - `phoneChanged` - `boolean` - `true` when the phone on file was replaced
+
+When `phone` differs from the phone on file, the user is updated with `phone` and `isPhoneVerified = false`, then the [userProfileUpdated](../hooks/user-profile-updated-hook) hook fires, and the [phoneChanged](../hooks/phone-changed-hook) hook fires if there was a previous number. When `phone` equals the phone on file, nothing is written and only the SMS is sent.
+
+**Errors**
+
+| Code                   | When                                                            | Details                                        |
+| ---------------------- | --------------------------------------------------------------- | ---------------------------------------------- |
+| `ALREADY_VERIFIED`     | Same phone on file and already verified                         | `{}`                                           |
+| `INVALID_PHONE_FORMAT` | `phone` is not E.164                                            | `undefined`                                    |
+| `NOT_FOUND`            | User not found                                                  | `undefined`                                    |
+| `PHONE_EXISTS`         | `phone` on another account and `signup.allowDuplicatePhones` is falsy | `undefined`                              |
+| `RATE_LIMIT_RESEND`    | Resend delay not met                                            | `{ retryAfter: number, resendDelay: number }`  |
+| `RATE_LIMIT_SMS`       | Too many requests                                               | `{ retryAfter: number, currentCount: number }` |
+
+Throws [`NAuthException`](../exceptions/nauth-exception) with the codes listed above. Format and uniqueness are checked before anything is written; a rate-limit error after a changed number leaves the new number saved but unverified.
+
+**Example**
+
+<Tabs groupId="platform">
+<TabItem value="nestjs" label="NestJS">
+
+```typescript
+import { SetPhoneAndSendVerificationDTO } from '@nauth-toolkit/nestjs';
+
+@Injectable()
+export class MyService {
+  constructor(private phoneVerificationService: PhoneVerificationService) {}
+
+  async collectPhone(sub: string, phone: string) {
+    const dto: SetPhoneAndSendVerificationDTO = { sub, phone };
+    const result = await this.phoneVerificationService.setPhoneAndSendVerification(dto);
+    return { phoneChanged: result.phoneChanged };
+  }
+}
+```
+
+</TabItem>
+<TabItem value="express" label="Express">
+
+```typescript
+import { SetPhoneAndSendVerificationDTO } from '@nauth-toolkit/core';
+
+app.post('/collect-phone', async (req, res) => {
+  const dto: SetPhoneAndSendVerificationDTO = { sub: req.body.sub, phone: req.body.phone };
+  const result = await nauth.phoneVerificationService.setPhoneAndSendVerification(dto);
+  res.json({ phoneChanged: result.phoneChanged });
+});
+```
+
+</TabItem>
+<TabItem value="fastify" label="Fastify">
+
+```typescript
+import { SetPhoneAndSendVerificationDTO } from '@nauth-toolkit/core';
+
+fastify.post(
+  '/collect-phone',
+  nauth.adapter.wrapRouteHandler(async (req, reply) => {
+    const dto: SetPhoneAndSendVerificationDTO = { sub: req.body.sub, phone: req.body.phone };
+    const result = await nauth.phoneVerificationService.setPhoneAndSendVerification(dto);
+    return { phoneChanged: result.phoneChanged };
   }),
 );
 ```

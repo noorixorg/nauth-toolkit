@@ -286,10 +286,17 @@ if (response.challengeName) {
 ### Setting Up SMS MFA
 
 ```typescript
-// 1. Get SMS setup data
-const setupData = await client.getSetupData(session, 'sms');
+import { requiresPhoneCollection } from '@nauth-toolkit/client';
 
-// May auto-complete if phone already verified
+// 1. Collect a phone number first when the account has none.
+//    requiresPhoneCollection() is true on MFA_SETUP_REQUIRED when SMS is allowed and no phone is on file.
+const phoneNumber = requiresPhoneCollection(challenge) ? await askUserForPhone() : undefined;
+
+// 2. Get SMS setup data. Passing phoneNumber saves it to the account (unverified) and sends the code to it.
+//    Call again with a different phoneNumber to change the number, or with none to resend.
+const { setupData } = await client.getSetupData(session, 'sms', phoneNumber ? { phoneNumber } : undefined);
+
+// May auto-complete if the phone on file is already verified and no phoneNumber was passed
 if (setupData.autoCompleted) {
   // Already set up, complete challenge
   await client.respondToChallenge({
@@ -302,7 +309,7 @@ if (setupData.autoCompleted) {
   // Need to verify code
   // setupData: { maskedPhone: '+1***5678' }
 
-  // User receives SMS and enters code
+  // User receives SMS and enters code. Verifying also marks the phone verified on the account.
   await client.respondToChallenge({
     session,
     type: 'MFA_SETUP_REQUIRED',
@@ -311,6 +318,8 @@ if (setupData.autoCompleted) {
   });
 }
 ```
+
+Errors from `getSetupData()` for SMS: `PHONE_REQUIRED` (no phone on file and none passed), `INVALID_PHONE_FORMAT` (not E.164), `PHONE_EXISTS` (number belongs to another account), `RATE_LIMIT_RESEND` (resend too soon). See [SMS MFA > Forced Setup](/docs/guides/mfa/sms#forced-setup-required-enforcement).
 
 ### Setting Up Passkey (WebAuthn)
 
@@ -445,7 +454,9 @@ const result = await client.verifyMfaSetup(
 
 `setupMfaDevice()` takes an optional second argument carrying method-specific enrolment
 input. A password-only or social account adding SMS has no phone on record, so the number
-must be supplied — without it the server answers `PHONE_REQUIRED`:
+must be supplied — without it the server answers `PHONE_REQUIRED`. A number different from
+the phone on file replaces it, resets its verification, and removes any existing SMS device
+(the same outcome as changing the phone through the profile endpoint):
 
 ```typescript
 const result = await client.setupMfaDevice('sms', {

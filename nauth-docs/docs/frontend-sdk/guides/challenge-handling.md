@@ -743,6 +743,27 @@ await client.respondToChallenge({
 });
 ```
 
+**SMS when the account has no phone:**
+
+```typescript
+import { NAuthClient, AuthChallenge, requiresPhoneCollection } from '@nauth-toolkit/client';
+
+// requiresPhoneCollection() is true on MFA_SETUP_REQUIRED when SMS is allowed and no phone is on file
+if (requiresPhoneCollection(challenge)) {
+  // 1. Send the number with the setup request. It is saved (unverified) and the code goes to it.
+  //    Call again with a different phoneNumber to change it, or with no setupData to resend.
+  await client.getSetupData(challenge.session!, 'sms', { phoneNumber: '+14155551234' });
+
+  // 2. The code verifies the phone and enrols the SMS device
+  await client.respondToChallenge({
+    session: challenge.session!,
+    type: AuthChallenge.MFA_SETUP_REQUIRED,
+    method: 'sms',
+    setupData: { code: '123456' },
+  });
+}
+```
+
 ### Force Password Change
 
 ```typescript
@@ -876,7 +897,7 @@ if (method === 'passkey') {
 
 ### requiresPhoneCollection()
 
-Check if user needs to provide phone number:
+Check if user needs to provide phone number. True for `VERIFY_PHONE` when the account has no phone, and for `MFA_SETUP_REQUIRED` when SMS is an allowed method and the account has no phone:
 
 ```typescript
 if (requiresPhoneCollection(challenge)) {
@@ -893,6 +914,11 @@ if (requiresPhoneCollection(challenge)) {
     type: 'VERIFY_PHONE',
     code: '123456',
   });
+}
+
+// MFA_SETUP_REQUIRED: pass the number with the setup request instead
+if (requiresPhoneCollection(challenge)) {
+  await client.getSetupData(challenge.session!, 'sms', { phoneNumber: '+14155551234' });
 }
 ```
 

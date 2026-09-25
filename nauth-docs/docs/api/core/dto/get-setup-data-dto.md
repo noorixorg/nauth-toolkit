@@ -44,14 +44,15 @@ import { GetSetupDataDTO } from '@nauth-toolkit/core';
 | ---------- | ------------------------- | -------- | ---------------------------------------------------------------- |
 | `session`  | `string`                  | Yes      | Challenge session token. UUID v4 format. Trimmed and lowercased. |
 | `method`   | `MFAMethod`               | Yes      | MFA method. Must be: `sms`, `email`, `totp`, `passkey`.          |
-| `setupData`| `Record<string, unknown>` | No       | Optional provider-specific setup data (e.g., phoneNumber for SMS). |
+| `setupData`| `Record<string, unknown>` | No       | Provider-specific setup input. SMS: `{ phoneNumber?: string, deviceName?: string }`. `phoneNumber` (E.164) is required when the account has no phone; a different number replaces the phone on file and resets its verification. |
 
 ## Example
 
 ```json
 {
   "session": "a21b654c-2746-4168-acee-c175083a65cd",
-  "method": "totp"
+  "method": "sms",
+  "setupData": { "phoneNumber": "+14155552671" }
 }
 ```
 

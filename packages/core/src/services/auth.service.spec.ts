@@ -346,6 +346,7 @@ describe('AuthService', () => {
     mockPhoneVerificationService = {
       sendVerificationSMS: jest.fn(),
       sendVerificationCode: jest.fn(),
+      setPhoneAndSendVerification: jest.fn(),
       verifyPhoneWithCode: jest.fn(),
       verifyPhoneWithCodeBySub: jest.fn(),
       resendVerificationSMS: jest.fn(),
@@ -5081,15 +5082,17 @@ describe('AuthService', () => {
         expect(result).toBeDefined();
       });
 
-      it('should handle phone collection before verification', async () => {
+      it('should handle phone collection before verification via setPhoneAndSendVerification', async () => {
         const phoneCollectSession = {
           ...mockChallengeSession,
           challengeName: AuthChallenge.VERIFY_PHONE,
           user: mockUser,
         };
         mockChallengeService.validateSession.mockResolvedValue(phoneCollectSession as any);
-        mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
-        mockPhoneVerificationService.sendVerificationSMS.mockResolvedValue(undefined as any);
+        mockPhoneVerificationService.setPhoneAndSendVerification.mockResolvedValue({
+          tokenId: 1,
+          phoneChanged: true,
+        } as any);
         mockChallengeHelper.createChallengeResponse.mockResolvedValue({
           challengeName: AuthChallenge.VERIFY_PHONE,
           session: mockChallengeSessionId,
@@ -5104,31 +5107,42 @@ describe('AuthService', () => {
         const result = await service.respondToChallenge(createRespondChallengeDto(response));
 
         expect(mockChallengeService.validateSession).toHaveBeenCalledWith(mockChallengeSessionId);
-        expect(mockUserRepository.update).toHaveBeenCalledWith({ sub: mockUser.sub }, { phone: '+1234567890' });
-        // sendVerificationSMS is called with a DTO object
-        expect(mockPhoneVerificationService.sendVerificationSMS).toHaveBeenCalledWith(
+        // The write, verification reset, hooks and SMS send now happen inside
+        // PhoneVerificationService.setPhoneAndSendVerification - the caller no longer
+        // touches userRepository directly.
+        expect(mockPhoneVerificationService.setPhoneAndSendVerification).toHaveBeenCalledWith(
           expect.objectContaining({
             sub: mockUser.sub,
-            skipAlreadyVerifiedCheck: false,
+            phone: '+1234567890',
             challengeSessionId: phoneCollectSession.id,
           }),
         );
+        expect(mockUserRepository.update).not.toHaveBeenCalled();
         expect(result.challengeName).toBeDefined();
         expect(result.challengeName).toBe(AuthChallenge.VERIFY_PHONE);
       });
 
-      it('should throw NAuthException for invalid phone format', async () => {
+      it('should propagate INVALID_PHONE_FORMAT from setPhoneAndSendVerification unchanged', async () => {
+        // Note: the phone value itself must be well-formed E.164 here because
+        // RespondChallengeDTO.phone is validated by ensureValidatedDto() (a @Matches
+        // decorator) before respondToChallenge() ever dispatches to handleVerifyPhone -
+        // a malformed value never reaches this code path. This test instead verifies
+        // that when setPhoneAndSendVerification itself raises INVALID_PHONE_FORMAT
+        // (its own E.164 check, kept as defense-in-depth), the error is rethrown as-is.
         const phoneCollectSession = {
           ...mockChallengeSession,
           challengeName: AuthChallenge.VERIFY_PHONE,
           user: mockUser,
         };
         mockChallengeService.validateSession.mockResolvedValue(phoneCollectSession as any);
+        mockPhoneVerificationService.setPhoneAndSendVerification.mockRejectedValue(
+          new NAuthException(AuthErrorCode.INVALID_PHONE_FORMAT, 'Invalid phone number format'),
+        );
 
         const response: CollectPhoneResponse = {
           session: mockChallengeSessionId,
           type: 'VERIFY_PHONE',
-          phone: 'invalid-phone',
+          phone: '+19998887777',
         };
 
         try {
@@ -5136,11 +5150,114 @@ describe('AuthService', () => {
           fail('Should have thrown NAuthException');
         } catch (error: any) {
           expect(error).toBeInstanceOf(NAuthException);
-          // Phone format validation happens in handleVerifyPhone, which throws INVALID_PHONE_FORMAT
-          // But validation might happen earlier in validateChallengeParams
-          expect([AuthErrorCode.INVALID_PHONE_FORMAT, AuthErrorCode.VALIDATION_FAILED]).toContain(error.code);
+          expect(error.code).toBe(AuthErrorCode.INVALID_PHONE_FORMAT);
         }
+        expect(mockChallengeHelper.createChallengeResponse).not.toHaveBeenCalled();
       });
+
+      it('should propagate PHONE_EXISTS from setPhoneAndSendVerification unchanged', async () => {
+        const phoneCollectSession = {
+          ...mockChallengeSession,
+          challengeName: AuthChallenge.VERIFY_PHONE,
+          user: mockUser,
+        };
+        mockChallengeService.validateSession.mockResolvedValue(phoneCollectSession as any);
+        mockPhoneVerificationService.setPhoneAndSendVerification.mockRejectedValue(
+          new NAuthException(AuthErrorCode.PHONE_EXISTS, 'Phone number is already registered'),
+        );
+
+        const response: CollectPhoneResponse = {
+          session: mockChallengeSessionId,
+          type: 'VERIFY_PHONE',
+          phone: '+19998887777',
+        };
+
+        try {
+          await service.respondToChallenge(createRespondChallengeDto(response));
+          fail('Should have thrown NAuthException');
+        } catch (error: any) {
+          expect(error).toBeInstanceOf(NAuthException);
+          expect(error.code).toBe(AuthErrorCode.PHONE_EXISTS);
+        }
+        expect(mockChallengeHelper.createChallengeResponse).not.toHaveBeenCalled();
+      });
+
+      it('should surface a delivery/rate-limit error as challengeParameters.smsError instead of failing', async () => {
+        const phoneCollectSession = {
+          ...mockChallengeSession,
+          challengeName: AuthChallenge.VERIFY_PHONE,
+          user: mockUser,
+        };
+        mockChallengeService.validateSession.mockResolvedValue(phoneCollectSession as any);
+        mockPhoneVerificationService.setPhoneAndSendVerification.mockRejectedValue(
+          new NAuthException(AuthErrorCode.RATE_LIMIT_SMS, 'Too many verification SMS sent'),
+        );
+        mockChallengeHelper.createChallengeResponse.mockResolvedValue({
+          challengeName: AuthChallenge.VERIFY_PHONE,
+          session: mockChallengeSessionId,
+          challengeParameters: {},
+        } as any);
+
+        const response: CollectPhoneResponse = {
+          session: mockChallengeSessionId,
+          type: 'VERIFY_PHONE',
+          phone: '+1234567890',
+        };
+        const result = await service.respondToChallenge(createRespondChallengeDto(response));
+
+        expect(result.challengeName).toBe(AuthChallenge.VERIFY_PHONE);
+        expect(result.challengeParameters?.smsError).toBe('Too many verification SMS sent');
+      });
+
+      it('should fall back to userRepository.update when PhoneVerificationService is unavailable', async () => {
+        const serviceWithoutPhoneVerification = new AuthService(
+          mockUserRepository,
+          mockLoginAttemptRepository,
+          mockPasswordService,
+          mockJwtService,
+          mockSessionService,
+          mockChallengeService,
+          mockChallengeHelper,
+          mockEmailVerificationService,
+          mockClientInfoService,
+          mockAccountLockoutStorage,
+          mockConfig,
+          mockLogger,
+          mockHookRegistry,
+          mockAuditService,
+          undefined, // phoneVerificationService not available (no SMS provider configured)
+          mockMfaService,
+          mockMfaDeviceRepository,
+          mockTrustedDeviceService,
+          undefined,
+          mockSocialAuthService,
+        );
+
+        const phoneCollectSession = {
+          ...mockChallengeSession,
+          challengeName: AuthChallenge.VERIFY_PHONE,
+          user: mockUser,
+        };
+        mockChallengeService.validateSession.mockResolvedValue(phoneCollectSession as any);
+        mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
+        mockChallengeHelper.createChallengeResponse.mockResolvedValue({
+          challengeName: AuthChallenge.VERIFY_PHONE,
+          session: mockChallengeSessionId,
+          challengeParameters: {},
+        } as any);
+
+        const response: CollectPhoneResponse = {
+          session: mockChallengeSessionId,
+          type: 'VERIFY_PHONE',
+          phone: '+1234567890',
+        };
+        const result = await serviceWithoutPhoneVerification.respondToChallenge(createRespondChallengeDto(response));
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith({ sub: mockUser.sub }, { phone: '+1234567890' });
+        expect(mockPhoneVerificationService.setPhoneAndSendVerification).not.toHaveBeenCalled();
+        expect(result.challengeName).toBe(AuthChallenge.VERIFY_PHONE);
+      });
+
     });
 
     describe('FORCE_CHANGE_PASSWORD challenge', () => {
@@ -5277,6 +5394,33 @@ describe('AuthService', () => {
           skipMFAVerification: true,
         });
         expect(result).toBeDefined();
+      });
+
+      it('should merge challengeSessionId into setupData when calling provider.verifySetup', async () => {
+        const mfaSetupSession = {
+          ...mockChallengeSession,
+          challengeName: AuthChallenge.MFA_SETUP_REQUIRED,
+        };
+        mockChallengeService.validateSession.mockResolvedValue(mfaSetupSession as any);
+        const updatedUser = { ...mockUser, mfaEnabled: true };
+        mockUserRepository.findOne.mockResolvedValue(updatedUser as any);
+        const verifySetupMock = jest.fn().mockResolvedValue(1);
+        mockMfaService.getProvider.mockReturnValue({ verifySetup: verifySetupMock } as any);
+
+        const response: MFASetupResponse = {
+          session: mockChallengeSessionId,
+          type: 'MFA_SETUP_REQUIRED',
+          method: 'sms',
+          setupData: { phoneNumber: '+14155552671' },
+        };
+        await service.respondToChallenge(createRespondChallengeDto(response));
+
+        expect(verifySetupMock).toHaveBeenCalledWith(
+          expect.objectContaining({
+            phoneNumber: '+14155552671',
+            challengeSessionId: mfaSetupSession.id,
+          }),
+        );
       });
 
       it('should throw NAuthException if user not found after MFA setup', async () => {

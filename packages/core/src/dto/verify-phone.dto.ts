@@ -168,6 +168,84 @@ export class SendVerificationSMSResponseDTO {
 }
 
 /**
+ * DTO for saving a phone number on a user and sending the verification SMS in one step.
+ *
+ * Shared by `VERIFY_PHONE` phone collection and SMS MFA setup (`setupData.phoneNumber`),
+ * so both paths persist, reset verification, notify and send identically.
+ *
+ * Security:
+ * - User sub validated as UUID v4
+ * - Phone format (E.164) and uniqueness are enforced by the service so it can raise
+ *   `INVALID_PHONE_FORMAT` / `PHONE_EXISTS` rather than a generic validation error
+ */
+export class SetPhoneAndSendVerificationDTO {
+  /**
+   * User identifier (UUID v4)
+   *
+   * Sanitization:
+   * - Trimmed and lowercased
+   */
+  @IsUUID('4', { message: 'User ID must be a valid UUID v4 format' })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.trim().toLowerCase();
+    }
+    return value;
+  })
+  sub!: string;
+
+  /**
+   * Phone number in E.164 format. Replaces the phone on file when different.
+   *
+   * Validation:
+   * - Max 20 characters (matches DB constraint: varchar(20))
+   * - E.164 format is checked by the service (`INVALID_PHONE_FORMAT`)
+   *
+   * Sanitization:
+   * - Whitespace removed
+   *
+   * @example "+14155552671"
+   */
+  @IsString({ message: 'Phone must be a string' })
+  @IsNotEmpty({ message: 'Phone is required' })
+  @MaxLength(20, { message: 'Phone number must not exceed 20 characters' })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      return value.replace(/\s/g, '');
+    }
+    return value;
+  })
+  phone!: string;
+
+  /**
+   * Challenge session ID to link the verification token to
+   *
+   * Validation:
+   * - Must be a positive integer
+   * - Optional (non-challenge flows)
+   */
+  @IsOptional()
+  @IsInt({ message: 'challengeSessionId must be an integer' })
+  @Min(1, { message: 'challengeSessionId must be a positive integer' })
+  challengeSessionId?: number;
+}
+
+/**
+ * Response DTO for setPhoneAndSendVerification
+ */
+export class SetPhoneAndSendVerificationResponseDTO {
+  /**
+   * Verification token ID (internal integer)
+   */
+  tokenId!: number;
+
+  /**
+   * True when the phone on file was replaced and its verification was reset
+   */
+  phoneChanged!: boolean;
+}
+
+/**
  * Response DTO for verifyPhoneWithCode and verifyPhoneWithCodeBySub
  */
 export class VerifyPhoneResponseDTO {

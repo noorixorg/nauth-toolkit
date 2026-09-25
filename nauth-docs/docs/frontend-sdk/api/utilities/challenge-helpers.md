@@ -108,11 +108,14 @@ function requiresPhoneCollection(challenge: AuthResponse): boolean
 
 **Description:**
 
-Returns `true` if the `VERIFY_PHONE` challenge requires the user to provide a phone number first. This happens when the user doesn't have a phone number in their profile (e.g., after social login).
+Returns `true` when the challenge requires the user to provide a phone number first, because the account has none (e.g., email-only signup or social login):
+
+- `VERIFY_PHONE`: submit `phone` via `respondToChallenge()` before the code.
+- `MFA_SETUP_REQUIRED`: SMS is an allowed method and the account has no phone. Pass `{ phoneNumber }` as the third argument of [`getSetupData()`](../nauth-client#getsetupdata) when the user picks SMS.
 
 **Important Note:**
 
-The `requiresPhoneCollection` flag is a **UI hint** indicating the user has no phone number. However, the backend **always accepts phone updates** during the `VERIFY_PHONE` challenge, even if the user already has a phone number. This allows users to correct wrong numbers entered during signup.
+The `requiresPhoneCollection` flag is a **UI hint** indicating the user has no phone number. However, the backend **always accepts phone updates** during the `VERIFY_PHONE` challenge (`phone`) and during SMS setup (`setupData.phoneNumber`), even if the user already has a phone number. This allows users to correct wrong numbers entered during signup.
 
 **Example:**
 

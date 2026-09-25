@@ -144,6 +144,66 @@
             />
           </div>
         </div>
+      } @else if (selectedMethod() === 'sms' && collectingPhone()) {
+        <form [formGroup]="phoneForm" (ngSubmit)="submitPhone()" class="space-y-6">
+          <p class="text-secondary-600 m-0 pb-2">
+            Please provide your phone number to continue. We will send a verification code to
+            confirm it.
+          </p>
+
+          <div class="space-y-2">
+            <label for="mfa-setup-phone" class="block text-sm font-medium text-secondary-700">
+              Phone Number <span class="text-error-500">*</span>
+            </label>
+            <p-inputmask
+              id="mfa-setup-phone"
+              formControlName="phone"
+              mask="+99999999999999"
+              slotChar=""
+              placeholder="+14155552671"
+              [unmask]="false"
+              [autoClear]="false"
+              [class.p-invalid]="phoneForm.get('phone')?.invalid && phoneForm.get('phone')?.touched"
+              styleClass="w-full"
+              inputStyleClass="w-full"
+            />
+            @if (phoneForm.get('phone')?.invalid && phoneForm.get('phone')?.touched) {
+              <small class="p-error">
+                @if (phoneForm.get('phone')?.errors?.['required']) {
+                  Phone number is required
+                } @else if (phoneForm.get('phone')?.errors?.['phoneFormat']) {
+                  {{ phoneForm.get('phone')?.errors?.['phoneFormat']?.['message'] }}
+                } @else if (phoneForm.get('phone')?.errors?.['maxlength']) {
+                  Phone must not exceed 20 characters
+                }
+              </small>
+            }
+            <small class="text-secondary-500 text-xs mt-1"
+              >Format: +[country code][number] (e.g., +14155552671)</small
+            >
+          </div>
+
+          <div class="mt-4">
+            <p-button
+              type="submit"
+              label="{{ loading() ? 'Sending Code...' : 'Send Verification Code' }}"
+              [disabled]="phoneForm.get('phone')?.invalid || loading()"
+              [loading]="loading()"
+              styleClass="w-full"
+              icon="pi pi-send"
+            />
+          </div>
+        </form>
+
+        <div class="flex justify-center mt-6">
+          <p-button
+            label="Back to method selection"
+            icon="pi pi-arrow-left"
+            styleClass="p-button-text p-button-sm"
+            [disabled]="loading()"
+            (onClick)="backToSelection()"
+          />
+        </div>
       } @else if (selectedMethod() === 'totp') {
         <app-totp-setup
           [session]="challenge()?.session"

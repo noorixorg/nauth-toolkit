@@ -1,8 +1,10 @@
 import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { MessageModule } from 'primeng/message';
+import { InputMaskModule } from 'primeng/inputmask';
 import { Subject, takeUntil } from 'rxjs';
 
 import { AuthService, AuthResponse } from '@nauth-toolkit/client-angular/standalone';
@@ -12,11 +14,13 @@ import {
   MFASetupResponse,
   NAuthClientError,
   NAuthErrorCode,
+  requiresPhoneCollection,
 } from '@nauth-toolkit/client';
 import { TotpSetupComponent } from './totp-setup.component';
 import { PasskeySetupComponent } from './passkey-setup.component';
 import { getMfaMethodName } from '../utils/mfa-method.util';
 import { handleAuthError } from '../utils/error-handler.util';
+import { phoneFormatValidator } from '../utils/phone-validator.util';
 
 /**
  * MFA Setup Component - Method Selector ONLY
@@ -29,13 +33,23 @@ import { handleAuthError } from '../utils/error-handler.util';
  */
 @Component({
   selector: 'app-mfa-setup',
-  imports: [CommonModule, ButtonModule, MessageModule, TotpSetupComponent, PasskeySetupComponent],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    ButtonModule,
+    MessageModule,
+    InputMaskModule,
+    TotpSetupComponent,
+    PasskeySetupComponent,
+  ],
   templateUrl: './mfa-setup.component.html',
   styleUrl: './mfa-setup.component.css',
 })
 export class MfaSetupComponent implements OnInit, OnDestroy {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly fb = inject(FormBuilder);
   private readonly destroy$ = new Subject<void>();
 
   protected readonly challenge = signal<AuthResponse | null>(null);
@@ -53,6 +67,23 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
     configuredMethods?: string[];
     availableMethods: string[];
   } | null>(null);
+
+  /**
+   * Whether the SMS phone-collection form is currently shown.
+   *
+   * True when the account has no phone number and SMS was selected as the
+   * MFA method - either detected up front via `requiresPhoneCollection()`
+   * (challenge flow) or after the backend responds with `PHONE_REQUIRED`
+   * (authenticated flow).
+   */
+  protected readonly collectingPhone = signal(false);
+
+  /**
+   * Phone collection form (SMS setup) - single `phone` control in E.164 format.
+   */
+  protected readonly phoneForm: FormGroup = this.fb.group({
+    phone: ['', [Validators.required, phoneFormatValidator, Validators.maxLength(20)]],
+  });
 
   protected readonly isAuthenticatedFlow = computed(() => {
     return !this.challenge() && this.auth.isAuthenticated();
@@ -119,6 +150,14 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
         this.router.navigate(['/login']);
       }
     }
+
+    // Support deep-linking directly into the SMS phone-collection form, e.g. from
+    // otp-verify's "Use a different number" link (?collectPhone=1). Applied after
+    // the challenge/status load above, since loadChallenge() resets selectedMethod.
+    if (this.route.snapshot.queryParams['collectPhone'] === '1') {
+      this.selectedMethod.set('sms');
+      this.collectingPhone.set(true);
+    }
   }
 
   ngOnDestroy(): void {
@@ -172,8 +211,87 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.loading.set(true);
+    // Challenge flow: the challenge already tells us whether the account has no
+    // phone number, so we can show the phone form up front without a round trip.
+    if (method === 'sms' && !this.isAuthenticatedFlow()) {
+      const challenge = this.challenge();
+      if (challenge && requiresPhoneCollection(challenge)) {
+        this.selectedMethod.set('sms');
+        this.collectingPhone.set(true);
+        this.error.set(null);
+        return;
+      }
+    }
+
     this.error.set(null);
+
+    try {
+      await this.startCodeSetup(method);
+    } catch (err) {
+      // Authenticated flow: no challenge parameters to inspect ahead of time, so
+      // the backend tells us via PHONE_REQUIRED that the phone form is needed.
+      if (
+        method === 'sms' &&
+        err instanceof NAuthClientError &&
+        err.code === NAuthErrorCode.SIGNUP_PHONE_REQUIRED
+      ) {
+        this.selectedMethod.set('sms');
+        this.collectingPhone.set(true);
+        this.error.set(null);
+        return;
+      }
+      this.handleError(err);
+    }
+  }
+
+  /**
+   * Submit the collected phone number for SMS setup.
+   *
+   * Saves the number on the account (unverified), sends the verification code,
+   * and either navigates to the OTP screen or shows the "already verified"
+   * success screen (auto-completed).
+   */
+  async submitPhone(): Promise<void> {
+    if (this.phoneForm.invalid) {
+      this.phoneForm.get('phone')?.markAsTouched();
+      return;
+    }
+
+    const rawPhone = this.phoneForm.get('phone')?.value as string;
+    const phoneNumber = rawPhone.replace(/[\s_]/g, '');
+
+    this.error.set(null);
+
+    try {
+      await this.startCodeSetup('sms', { phoneNumber });
+    } catch (err) {
+      // Phone form stays open so the user can correct the number and retry
+      // (e.g. INVALID_PHONE_FORMAT, PHONE_EXISTS, RATE_LIMIT_RESEND).
+      this.handleError(err);
+    }
+  }
+
+  /**
+   * Request MFA setup data (send/resend the verification code) for SMS or email.
+   *
+   * Shared by the direct method-selection flow and the phone-collection form:
+   * - Authenticated flow: `client.setupMfaDevice(method, setupData)`
+   * - Challenge flow: `auth.getSetupData(session, method, setupData)`
+   *
+   * On success, either shows the auto-completed screen (already-verified
+   * destination) or navigates to the OTP verification screen. Throws (after
+   * clearing `loading`) so callers can inspect the error - e.g. to detect
+   * `PHONE_REQUIRED` and switch to the phone form - falling back to the
+   * generic max-attempts handling here.
+   *
+   * @param method - MFA method to set up ('sms' or 'email')
+   * @param setupData - Optional method-specific input (SMS: `{ phoneNumber }`)
+   */
+  private async startCodeSetup(
+    method: 'sms' | 'email',
+    setupData?: Record<string, unknown>,
+  ): Promise<void> {
+    this.loading.set(true);
 
     try {
       let result: { setupData: Record<string, unknown> };
@@ -181,7 +299,7 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
       if (this.isAuthenticatedFlow()) {
         // Authenticated flow: use setupMfaDevice (no challenge session needed)
         // Backend returns { setupData: { autoCompleted: true, deviceId: ... } } or { setupData: { maskedPhone: ... } }
-        const setupResult = await this.auth.getClient().setupMfaDevice(method);
+        const setupResult = await this.auth.getClient().setupMfaDevice(method, setupData);
         result = setupResult as { setupData: Record<string, unknown> };
       } else {
         // Challenge flow: use getSetupData (requires challenge session)
@@ -190,7 +308,7 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
           throw new Error('Invalid challenge session');
         }
 
-        const setupResult = await this.auth.getSetupData(challenge.session, method);
+        const setupResult = await this.auth.getSetupData(challenge.session, method, setupData);
         if (!setupResult) {
           throw new Error('Failed to get setup data');
         }
@@ -207,6 +325,7 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
           deviceId: result.setupData['deviceId'] as number,
         });
         this.selectedMethod.set(method);
+        this.collectingPhone.set(false);
         this.loading.set(false);
       } else {
         // Code was sent - navigate to OTP verification component
@@ -214,6 +333,7 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
           (result.setupData['maskedPhone'] as string) ||
           (result.setupData['maskedEmail'] as string);
         this.loading.set(false);
+        this.collectingPhone.set(false);
 
         // Navigate to dedicated MFA setup OTP verification route
         // The challenge session is already in AuthService, so OTP component will detect it
@@ -236,7 +356,7 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
         );
         return;
       }
-      this.handleError(err);
+      throw err;
     }
   }
 
@@ -260,6 +380,8 @@ export class MfaSetupComponent implements OnInit, OnDestroy {
     this.setupData.set(null);
     this.error.set(null);
     this.loading.set(false);
+    this.collectingPhone.set(false);
+    this.phoneForm.reset();
 
     // For unauthenticated flows, validate challenge exists but don't clear it
     // The challenge session should remain valid for method selection

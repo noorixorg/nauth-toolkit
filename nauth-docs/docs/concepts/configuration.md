@@ -648,7 +648,7 @@ signup: {
 | Method    | Description                                                                     | Use Case                                                  |
 | --------- | ------------------------------------------------------------------------------- | --------------------------------------------------------- |
 | `'none'`  | No verification required. Users can login immediately after signup.             | Internal tools, trusted environments, development         |
-| `'email'` | Email verification required before login. User receives verification code/link. | Standard web apps, most common choice                     |
+| `'email'` | Email verification required before login. User receives verification code/link. No phone is collected; SMS MFA can still be offered, the number is collected during MFA setup (see [SMS MFA](/docs/guides/mfa/sms#forced-setup-required-enforcement)). | Standard web apps, most common choice |
 | `'phone'` | Phone verification required before login. User receives SMS code.               | Mobile-first apps, regions where phone is primary contact |
 | `'both'`  | Both email AND phone verification required. Higher security but more friction.  | High-security apps, financial services                    |
 
@@ -1097,7 +1097,7 @@ mfa: {
 
   allowedMethods: [
     MFAMethod.TOTP,     // Authenticator apps
-    MFAMethod.SMS,      // SMS codes
+    MFAMethod.SMS,      // SMS codes (phone collected during setup if the account has none)
     MFAMethod.EMAIL,    // Email codes
     MFAMethod.PASSKEY,  // WebAuthn/biometric
   ],

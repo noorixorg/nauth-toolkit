@@ -243,7 +243,7 @@ export class RespondChallengeDTO {
    * Required for MFA_SETUP_REQUIRED challenge
    *
    * Expected structure by method:
-   * - SMS: { phone: string, code: string }
+   * - SMS: { code: string } (the phone number is supplied earlier via challenge/setup-data `setupData.phoneNumber`)
    * - Email: { code: string }
    * - TOTP: { code: string }
    * - Passkey: { credential: Record<string, unknown> }
