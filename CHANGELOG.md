@@ -5,6 +5,18 @@ All notable changes to nauth-toolkit will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.3] - 2026-11-16
+
+### Fixed
+
+- **NestJS ignored `migrations.autoRun: false`.** `AuthModule` always ran migrations on boot; it now skips them like `NAuth.create()` does. See [Configuration](https://nauth.dev/docs/concepts/configuration).
+- **`mfaFirstEnabled` and `mfaMethodAdded` never fired** (on any framework), so their hooks and built-in emails were silent. If you have those notifications enabled, users will start receiving them.
+- **Changing the phone during SMS MFA setup now reports the SMS devices it removes:** `mfaDeviceRemoved` fires and `phoneChanged` carries `deactivatedMFADevices` and `mfaDisabled`, as a profile update already did. The same applies to `VERIFY_PHONE` phone collection. See [SMS MFA](https://nauth.dev/docs/guides/mfa/sms).
+
+No action needed on upgrade.
+
+See the [v0.8.3 changelog](https://nauth.dev/changelog/v0.8.3) for detail.
+
 ## [0.8.2] - 2026-09-26
 
 ### Added

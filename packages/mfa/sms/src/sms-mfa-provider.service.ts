@@ -7,13 +7,13 @@ import {
   NAuthLogger,
   NAuthException,
   AuthErrorCode,
-  AuthAuditEventType,
   PhoneVerificationService,
   MFAMethod,
   SendVerificationSMSDTO,
   SetPhoneAndSendVerificationDTO,
   VerifyPhoneWithCodeBySubDTO,
   ClientInfoService,
+  HookRegistryService,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import { BaseMFAProviderService, ChallengeService, AuthAuditService } from '@nauth-toolkit/core/internal';
@@ -54,6 +54,7 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
     challengeService?: ChallengeService,
     auditService?: AuthAuditService,
     clientInfoService?: ClientInfoService,
+    hookRegistry?: HookRegistryService,
   ) {
     super(
       mfaDeviceRepository,
@@ -64,6 +65,7 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
       challengeService,
       auditService,
       clientInfoService,
+      hookRegistry,
     );
   }
 
@@ -145,7 +147,8 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
     // ============================================================================
     // Number supplied: persist it (new or unchanged-but-unverified) and send the code
     // through the shared core path. A changed number also retires SMS devices tied to
-    // the old one so login codes cannot go to an unverified number.
+    // the old one (inside setPhoneAndSendVerification, before the phoneChanged hook) so
+    // login codes cannot go to an unverified number.
     // ============================================================================
     if (suppliedPhone) {
       const setPhoneDto = Object.assign(new SetPhoneAndSendVerificationDTO(), {
@@ -153,11 +156,7 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
         phone: suppliedPhone,
         challengeSessionId: dto?.challengeSessionId,
       });
-      const result = await this.phoneVerificationService.setPhoneAndSendVerification(setPhoneDto);
-
-      if (result.phoneChanged && currentPhone) {
-        await this.retireSmsDevicesForPhoneChange(userEntity.id as number, user.sub, currentPhone, suppliedPhone);
-      }
+      await this.phoneVerificationService.setPhoneAndSendVerification(setPhoneDto);
 
       const maskedPhone = this.maskPhone(suppliedPhone);
       this.logger?.log?.(`SMS MFA code sent to: ${maskedPhone}`);
@@ -177,75 +176,6 @@ export class SMSMFAProviderService extends BaseMFAProviderService {
 
     // Return masked phone for frontend display
     return { maskedPhone };
-  }
-
-  /**
-   * Retire SMS MFA devices after the account phone changed during setup.
-   *
-   * Mirrors `UserService.updateUserAttributes()`: the devices were bound to the old number,
-   * so they are deleted, the removal is audited, and MFA is switched off when no active
-   * device of any type remains (the user is mid-enrolment and will re-enable it on verify).
-   *
-   * @param userId - Internal user ID
-   * @param sub - User external identifier (for logs)
-   * @param oldPhone - Phone the devices were tied to
-   * @param newPhone - Phone now on file (unverified)
-   */
-  private async retireSmsDevicesForPhoneChange(
-    userId: number,
-    sub: string,
-    oldPhone: string,
-    newPhone: string,
-  ): Promise<void> {
-    const smsDevices = (await this.mfaDeviceRepository.find({
-      where: { userId, type: MFAMethod.SMS, isActive: true },
-    } as Record<string, unknown>)) as unknown as Array<{ id: number }>;
-
-    if (smsDevices.length === 0) {
-      return;
-    }
-
-    this.logger?.log?.(
-      `Deleting ${smsDevices.length} SMS MFA device(s) for user ${sub} due to phone number change during SMS MFA setup`,
-    );
-    for (const device of smsDevices) {
-      await this.mfaDeviceRepository.delete(device.id);
-    }
-
-    try {
-      await this.auditService?.recordEvent({
-        userId,
-        eventType: AuthAuditEventType.MFA_DEVICE_REMOVED,
-        eventStatus: 'INFO',
-        reason: 'phone_changed',
-        description: 'SMS MFA device(s) removed due to phone number change during SMS MFA setup',
-        metadata: {
-          method: MFAMethod.SMS,
-          deletedCount: smsDevices.length,
-          oldPhone: this.maskPhone(oldPhone),
-          newPhone: this.maskPhone(newPhone),
-          reason: 'phone_number_changed_requires_reverification',
-        },
-      });
-    } catch (auditError) {
-      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
-      this.logger?.error?.(`Failed to record MFA_DEVICE_REMOVED audit event for phone change: ${errorMessage}`, {
-        error: auditError,
-        userId,
-      });
-    }
-
-    const remaining = (await this.mfaDeviceRepository.find({
-      where: { userId, isActive: true },
-    } as Record<string, unknown>)) as unknown as Array<{ id: number }>;
-    if (remaining.length === 0) {
-      await this.userRepository.update({ id: userId }, {
-        mfaEnabled: false,
-        mfaMethods: [],
-        preferredMfaMethod: null,
-      } as unknown as Record<string, unknown>);
-      this.logger?.log?.(`MFA disabled for user ${sub} - no active MFA devices remaining after phone change`);
-    }
   }
 
   /**

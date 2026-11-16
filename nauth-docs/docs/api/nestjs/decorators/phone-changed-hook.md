@@ -1,6 +1,6 @@
 ---
 title: '@PhoneChangedHook()'
-description: "NestJS decorator registering a provider as a phone changed hook, firing after updateUserAttributes changes a phone number and removes SMS MFA devices"
+description: "NestJS decorator registering a provider as a phone changed hook, firing after a phone number change (profile update, SMS MFA setup, VERIFY_PHONE collection) removes SMS MFA devices"
 keywords: [decorator, hooks, lifecycle, phone, mfa, sms, security]
 image: /img/api-social-card.png
 ---

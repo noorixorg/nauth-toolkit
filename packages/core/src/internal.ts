@@ -128,6 +128,16 @@ export { TrustedDeviceService } from './services/trusted-device.service';
 export { GeoLocationService } from './services/geo-location.service';
 
 // ============================================================================
+// Migrations (Internal)
+// ============================================================================
+
+/**
+ * Runs adapter-owned migrations on startup, honouring `migrations.autoRun`
+ * @internal
+ */
+export { runNAuthMigrationsOnStartup } from './utils/setup/run-nauth-migrations';
+
+// ============================================================================
 // Lifecycle Hooks (Internal)
 // ============================================================================
 

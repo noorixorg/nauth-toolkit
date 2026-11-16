@@ -343,7 +343,7 @@ POST /auth/mfa/setup-data
 Show an input field for the user to enter the code they received. To change the number, call the endpoint again with a different `phoneNumber`; to resend, call it again without one (`signup.phoneVerification.resendDelay` applies).
 
 :::note[Supplying a different number]
-A `phoneNumber` that differs from the phone on file replaces it, marks it unverified, and sends the code to the new number. Any existing SMS MFA device is removed, exactly as when the phone is changed through `PUT /auth/profile`. The [phoneChanged hook](/docs/api/core/hooks/phone-changed-hook) fires so you can notify the account email.
+A `phoneNumber` that differs from the phone on file replaces it, marks it unverified, and sends the code to the new number. Any existing SMS MFA device is removed, exactly as when the phone is changed through `PUT /auth/profile`. The [mfaDeviceRemoved hook](/docs/api/core/hooks/mfa-device-removed-hook) fires for the removal, and the [phoneChanged hook](/docs/api/core/hooks/phone-changed-hook) fires with `deactivatedMFADevices` and `mfaDisabled` so you can notify the account email.
 :::
 
 ### Verify setup

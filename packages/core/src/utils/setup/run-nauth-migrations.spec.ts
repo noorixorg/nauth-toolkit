@@ -13,6 +13,11 @@ import { runNAuthMigrationsOnStartup } from './run-nauth-migrations';
 import { NAuthConfig } from '../../interfaces/config.interface';
 import { NAuthLogger } from '../../utils/nauth-logger';
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const postgresAdapter = require('@nauth-toolkit/database-typeorm-postgres') as { runNAuthMigrations: jest.Mock };
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const mysqlAdapter = require('@nauth-toolkit/database-typeorm-mysql') as { runNAuthMigrations: jest.Mock };
+
 // Mock dynamic imports
 jest.mock(
   '@nauth-toolkit/database-typeorm-postgres',
@@ -35,6 +40,8 @@ describe('runNAuthMigrationsOnStartup', () => {
   let mockConfig: NAuthConfig;
 
   beforeEach(() => {
+    postgresAdapter.runNAuthMigrations.mockClear();
+    mysqlAdapter.runNAuthMigrations.mockClear();
     mockLogger = {
       warn: jest.fn(),
       debug: jest.fn(),
@@ -56,12 +63,14 @@ describe('runNAuthMigrationsOnStartup', () => {
       options: { type: 'postgres' },
     } as any;
 
-    await runNAuthMigrationsOnStartup(
+    const result = await runNAuthMigrationsOnStartup(
       { ...mockConfig, migrations: { autoRun: false } },
       mockDataSource as DataSource,
       mockLogger,
     );
 
+    expect(result).toBe(false);
+    expect(postgresAdapter.runNAuthMigrations).not.toHaveBeenCalled();
     expect(mockLogger.log).toHaveBeenCalledWith(
       '[nauth-toolkit] Automatic migrations disabled (migrations.autoRun: false); skipping.',
     );
@@ -73,12 +82,14 @@ describe('runNAuthMigrationsOnStartup', () => {
       options: { type: 'postgres' },
     } as any;
 
-    await runNAuthMigrationsOnStartup(
+    const result = await runNAuthMigrationsOnStartup(
       { ...mockConfig, migrations: { autoRun: true } },
       mockDataSource as DataSource,
       mockLogger,
     );
 
+    expect(result).toBe(true);
+    expect(postgresAdapter.runNAuthMigrations).toHaveBeenCalledTimes(1);
     expect(mockLogger.log).not.toHaveBeenCalledWith(
       '[nauth-toolkit] Automatic migrations disabled (migrations.autoRun: false); skipping.',
     );
@@ -90,8 +101,17 @@ describe('runNAuthMigrationsOnStartup', () => {
       options: { type: 'postgres' },
     } as any;
 
-    await runNAuthMigrationsOnStartup(mockConfig, mockDataSource as DataSource, mockLogger);
+    const result = await runNAuthMigrationsOnStartup(mockConfig, mockDataSource as DataSource, mockLogger);
 
+    expect(result).toBe(false);
+    expect(postgresAdapter.runNAuthMigrations).not.toHaveBeenCalled();
+    expect(mockLogger.warn).toHaveBeenCalledWith('[nauth-toolkit] DataSource not initialized; skipping migrations');
+  });
+
+  it('should return false when DataSource is undefined', async () => {
+    const result = await runNAuthMigrationsOnStartup(mockConfig, undefined as unknown as DataSource, mockLogger);
+
+    expect(result).toBe(false);
     expect(mockLogger.warn).toHaveBeenCalledWith('[nauth-toolkit] DataSource not initialized; skipping migrations');
   });
 
@@ -101,8 +121,9 @@ describe('runNAuthMigrationsOnStartup', () => {
       options: { type: 'sqlite' },
     } as any;
 
-    await runNAuthMigrationsOnStartup(mockConfig, mockDataSource as DataSource, mockLogger);
+    const result = await runNAuthMigrationsOnStartup(mockConfig, mockDataSource as DataSource, mockLogger);
 
+    expect(result).toBe(false);
     expect(mockLogger.debug).toHaveBeenCalledWith(
       expect.stringContaining('[nauth-toolkit] Skipping migrations: unsupported TypeORM DataSource type'),
     );
@@ -114,9 +135,10 @@ describe('runNAuthMigrationsOnStartup', () => {
       options: { type: 'postgres' },
     } as any;
 
-    await runNAuthMigrationsOnStartup(mockConfig, mockDataSource as DataSource, mockLogger);
+    const result = await runNAuthMigrationsOnStartup(mockConfig, mockDataSource as DataSource, mockLogger);
 
-    // Should not throw and should call logger methods
+    expect(result).toBe(true);
+    expect(postgresAdapter.runNAuthMigrations).toHaveBeenCalledWith(mockDataSource, mockLogger, mockConfig);
     expect(mockLogger.warn).not.toHaveBeenCalledWith(expect.stringContaining('DataSource not initialized'));
   });
 
@@ -126,8 +148,10 @@ describe('runNAuthMigrationsOnStartup', () => {
       options: { type: 'mysql' },
     } as any;
 
-    await runNAuthMigrationsOnStartup(mockConfig, mockDataSource as DataSource, mockLogger);
+    const result = await runNAuthMigrationsOnStartup(mockConfig, mockDataSource as DataSource, mockLogger);
 
+    expect(result).toBe(true);
+    expect(mysqlAdapter.runNAuthMigrations).toHaveBeenCalledTimes(1);
     expect(mockLogger.warn).not.toHaveBeenCalledWith(expect.stringContaining('DataSource not initialized'));
   });
 
@@ -137,8 +161,10 @@ describe('runNAuthMigrationsOnStartup', () => {
       options: { type: 'mariadb' },
     } as any;
 
-    await runNAuthMigrationsOnStartup(mockConfig, mockDataSource as DataSource, mockLogger);
+    const result = await runNAuthMigrationsOnStartup(mockConfig, mockDataSource as DataSource, mockLogger);
 
+    expect(result).toBe(true);
+    expect(mysqlAdapter.runNAuthMigrations).toHaveBeenCalledTimes(1);
     expect(mockLogger.warn).not.toHaveBeenCalledWith(expect.stringContaining('DataSource not initialized'));
   });
 
@@ -148,8 +174,9 @@ describe('runNAuthMigrationsOnStartup', () => {
       options: undefined,
     } as any;
 
-    await runNAuthMigrationsOnStartup(mockConfig, mockDataSource as DataSource, mockLogger);
+    const result = await runNAuthMigrationsOnStartup(mockConfig, mockDataSource as DataSource, mockLogger);
 
+    expect(result).toBe(false);
     expect(mockLogger.debug).toHaveBeenCalled();
   });
 });

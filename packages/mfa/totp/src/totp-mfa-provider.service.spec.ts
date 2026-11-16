@@ -491,4 +491,121 @@ describe('TOTPMFAProviderService', () => {
       });
     });
   });
+
+  describe('lifecycle hooks (hook registry wiring)', () => {
+    let mockHookRegistry: { executeMFAFirstEnabled: jest.Mock; executeMFAMethodAdded: jest.Mock };
+    let hookedClientInfoService: { get: jest.Mock };
+    let hookedService: TOTPMFAProviderService;
+
+    /** Build a provider that receives the hook registry as its last constructor arg. */
+    function buildProvider(withRegistry: boolean): TOTPMFAProviderService {
+      return new TOTPMFAProviderService(
+        (service as any).mfaDeviceRepository,
+        (service as any).userRepository,
+        (service as any).config,
+        (service as any).logger,
+        {},
+        mockTotpService,
+        undefined,
+        undefined,
+        hookedClientInfoService as any,
+        withRegistry ? (mockHookRegistry as any) : undefined,
+      );
+    }
+
+    beforeEach(() => {
+      mockHookRegistry = {
+        executeMFAFirstEnabled: jest.fn().mockResolvedValue(undefined),
+        executeMFAMethodAdded: jest.fn().mockResolvedValue(undefined),
+      };
+      hookedClientInfoService = {
+        get: jest.fn().mockReturnValue({ ipAddress: '10.0.0.1', userAgent: 'jest', ipCountry: 'US', ipCity: 'NYC' }),
+      };
+      hookedService = buildProvider(true);
+    });
+
+    /** Stub repositories so enableMFAForUser sees `previousMethods` and the given active devices. */
+    function stubUserState(
+      mfaEnabled: boolean,
+      previousMethods: string[] | null,
+      devices: Array<Record<string, unknown>>,
+    ): void {
+      const userRepository = (service as any).userRepository;
+      const deviceRepository = (service as any).mfaDeviceRepository;
+      userRepository.findOne = jest
+        .fn()
+        .mockResolvedValue({ id: 1, sub: 'user-123', mfaEnabled, mfaMethods: previousMethods });
+      userRepository.save = jest.fn().mockResolvedValue(undefined);
+      deviceRepository.find = jest.fn().mockResolvedValue(devices);
+    }
+
+    it('fires executeMFAFirstEnabled when the first device enables MFA', async () => {
+      stubUserState(false, null, [{ type: 'totp', isActive: true, isPrimary: true }]);
+
+      await (hookedService as any).enableMFAForUser({ id: 1, sub: 'user-123' });
+
+      expect(mockHookRegistry.executeMFAFirstEnabled).toHaveBeenCalledTimes(1);
+      expect(mockHookRegistry.executeMFAFirstEnabled).toHaveBeenCalledWith(
+        expect.objectContaining({
+          firstMethod: 'totp',
+          clientInfo: expect.objectContaining({ ipAddress: '10.0.0.1', userAgent: 'jest' }),
+        }),
+      );
+      expect(mockHookRegistry.executeMFAMethodAdded).not.toHaveBeenCalled();
+    });
+
+    it('fires executeMFAFirstEnabled end-to-end when verifySetup completes a first device setup', async () => {
+      const { ContextStorage } = require('@nauth-toolkit/core');
+      const setupUser = { id: 1, sub: 'user-123', email: 'user@example.com', mfaEnabled: false };
+      mockTotpService.isValidSecret = jest.fn().mockReturnValue(true);
+      mockTotpService.verifyCodeWithDetails = jest.fn().mockResolvedValue({ valid: true });
+      (hookedService as any).createDevice = jest.fn().mockResolvedValue({ id: 123 });
+      stubUserState(false, null, [{ type: 'totp', isActive: true, isPrimary: true }]);
+
+      await ContextStorage.run(async () => {
+        ContextStorage.set('CURRENT_USER', setupUser);
+        const deviceId = await hookedService.verifySetup({ secret: 'JBSWY3DPEHPK3PXP', code: '123456' });
+        expect(deviceId).toBe(123);
+      });
+
+      expect(mockHookRegistry.executeMFAFirstEnabled).toHaveBeenCalledTimes(1);
+      expect(mockHookRegistry.executeMFAFirstEnabled).toHaveBeenCalledWith(
+        expect.objectContaining({ firstMethod: 'totp' }),
+      );
+    });
+
+    it('fires executeMFAMethodAdded when a new method is added to an account that already has MFA', async () => {
+      stubUserState(
+        true,
+        ['email'],
+        [
+          { type: 'email', isActive: true, isPrimary: true },
+          { type: 'totp', isActive: true, isPrimary: false },
+        ],
+      );
+
+      await (hookedService as any).enableMFAForUser({ id: 1, sub: 'user-123' });
+
+      expect(mockHookRegistry.executeMFAMethodAdded).toHaveBeenCalledWith(
+        expect.objectContaining({ method: 'totp', isFirstMethod: false }),
+      );
+      expect(mockHookRegistry.executeMFAFirstEnabled).not.toHaveBeenCalled();
+    });
+
+    it('does not throw or fire hooks when no hook registry was supplied', async () => {
+      const unhooked = buildProvider(false);
+      stubUserState(false, null, [{ type: 'totp', isActive: true, isPrimary: true }]);
+
+      await expect((unhooked as any).enableMFAForUser({ id: 1, sub: 'user-123' })).resolves.toBeUndefined();
+
+      expect(mockHookRegistry.executeMFAFirstEnabled).not.toHaveBeenCalled();
+    });
+
+    it('does not fail setup when the mfaFirstEnabled hook throws', async () => {
+      mockHookRegistry.executeMFAFirstEnabled.mockRejectedValueOnce(new Error('listener boom'));
+      stubUserState(false, null, [{ type: 'totp', isActive: true, isPrimary: true }]);
+
+      await expect((hookedService as any).enableMFAForUser({ id: 1, sub: 'user-123' })).resolves.toBeUndefined();
+    });
+  });
 });

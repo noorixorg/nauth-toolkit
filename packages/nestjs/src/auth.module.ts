@@ -1771,6 +1771,7 @@ export class AuthModule {
                   logger: NAuthLogger,
                   hookRegistry: HookRegistryService,
                   auditService?: InternalAuthAuditService, // Optional - only available when auditLogs.enabled is true
+                  mfaDeviceRepository?: Repository<BaseMFADevice>, // Retires SMS MFA devices on phone change
                 ) => {
                   return new PhoneVerificationService(
                     verificationTokenRepo,
@@ -1782,6 +1783,7 @@ export class AuthModule {
                     logger,
                     hookRegistry,
                     auditService,
+                    mfaDeviceRepository,
                   );
                 },
                 inject: [
@@ -1794,6 +1796,7 @@ export class AuthModule {
                   'NAUTH_LOGGER',
                   HookRegistryService,
                   { token: InternalAuthAuditService, optional: true }, // Optional - only available when auditLogs.enabled is true
+                  { token: 'MFADeviceRepository', optional: true },
                 ],
               },
             ]

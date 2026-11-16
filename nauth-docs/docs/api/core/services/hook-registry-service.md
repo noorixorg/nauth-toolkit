@@ -86,7 +86,7 @@ async executeEmailChanged(metadata: EmailChangedMetadata): Promise<void>
 
 ### executeMFADeviceRemoved()
 
-**Internal method.** Executes all registered MFA device removed hooks. Called automatically by UserService and MFAService. Errors are logged but don't block the operation.
+**Internal method.** Executes all registered MFA device removed hooks. Called automatically by UserService, MFAService, and PhoneVerificationService. Errors are logged but don't block the operation.
 
 ```typescript
 async executeMFADeviceRemoved(metadata: MFADeviceRemovedMetadata): Promise<void>
@@ -141,7 +141,7 @@ async executePasswordChanged(metadata: PasswordChangedMetadata): Promise<void>
 
 ### executePhoneChanged()
 
-**Internal method.** Executes all registered phone changed hooks. Called automatically by UserService. Errors are logged but don't block the operation.
+**Internal method.** Executes all registered phone changed hooks. Called automatically by UserService and PhoneVerificationService. Errors are logged but don't block the operation.
 
 ```typescript
 async executePhoneChanged(metadata: PhoneChangedMetadata): Promise<void>

@@ -17,6 +17,7 @@ import {
   AuthAuditService,
   ClientInfoService,
   IMFAProviderService,
+  HookRegistryService,
 } from '../../index';
 // Internal API imports (for framework adapter use only)
 import { PasswordService, ChallengeService } from '../../internal';
@@ -52,6 +53,7 @@ async function importOptional<TModule>(moduleName: string): Promise<TModule | nu
  * @param challengeService - Challenge service (optional)
  * @param auditService - Audit service (optional)
  * @param clientInfoService - Client info service (optional)
+ * @param hookRegistry - Hook registry (optional; providers fire `mfaFirstEnabled` / `mfaMethodAdded` through it)
  */
 export async function registerMFAProviders(
   config: NAuthConfig,
@@ -65,6 +67,7 @@ export async function registerMFAProviders(
   challengeService?: ChallengeService,
   auditService?: AuthAuditService,
   clientInfoService?: ClientInfoService,
+  hookRegistry?: HookRegistryService,
 ): Promise<void> {
   if (!config.mfa?.enabled) {
     return;
@@ -95,6 +98,7 @@ export async function registerMFAProviders(
         challengeService,
         auditService,
         clientInfoService,
+        hookRegistry,
       );
 
       mfaService.registerProvider(totpProvider);
@@ -127,6 +131,7 @@ export async function registerMFAProviders(
           challengeService,
           auditService,
           clientInfoService,
+          hookRegistry,
         );
 
         mfaService.registerProvider(smsProvider);
@@ -161,6 +166,7 @@ export async function registerMFAProviders(
         challengeService,
         auditService,
         clientInfoService,
+        hookRegistry,
       );
 
       mfaService.registerProvider(emailProvider);
@@ -195,6 +201,7 @@ export async function registerMFAProviders(
         challengeService,
         auditService,
         clientInfoService,
+        hookRegistry,
       );
 
       mfaService.registerProvider(passkeyProvider);

@@ -2,7 +2,14 @@ import { Module } from '@nestjs/common';
 import { PasskeyMFAProviderService } from '../src/passkey-mfa-provider.service';
 import { PasskeyService } from '../src/passkey.service';
 // Public API imports
-import { NAuthConfig, NAuthLogger, ClientInfoService, BaseMFADevice, BaseUser } from '@nauth-toolkit/core';
+import {
+  NAuthConfig,
+  NAuthLogger,
+  ClientInfoService,
+  BaseMFADevice,
+  BaseUser,
+  HookRegistryService,
+} from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import {
   NAUTH_MFA_PROVIDER_TOKEN,
@@ -54,6 +61,7 @@ import { Repository } from 'typeorm';
         challengeService: ChallengeService | undefined,
         auditService: InternalAuthAuditService | undefined,
         clientInfoService: ClientInfoService | undefined,
+        hookRegistry: HookRegistryService | undefined,
       ) => {
         return new PasskeyMFAProviderService(
           mfaDeviceRepository,
@@ -65,6 +73,7 @@ import { Repository } from 'typeorm';
           challengeService,
           auditService,
           clientInfoService,
+          hookRegistry,
         );
       },
       inject: [
@@ -77,6 +86,8 @@ import { Repository } from 'typeorm';
         { token: 'ChallengeService', optional: true },
         { token: InternalAuthAuditService, optional: true },
         { token: ClientInfoService, optional: true },
+        // Lifecycle hooks (mfaFirstEnabled, mfaMethodAdded); provided globally by AuthModule
+        { token: HookRegistryService, optional: true },
       ],
     },
 

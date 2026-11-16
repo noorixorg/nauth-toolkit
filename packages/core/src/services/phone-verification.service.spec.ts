@@ -7,7 +7,8 @@ import { StorageAdapter } from '../interfaces/storage-adapter.interface';
 import { NAuthConfig } from '../interfaces/config.interface';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { InternalAuthAuditService as AuthAuditService } from './auth-audit.service';
-import { BaseVerificationToken, BaseUser } from '../entities';
+import { BaseVerificationToken, BaseUser, BaseMFADevice } from '../entities';
+import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { IUser, IVerificationToken } from '../interfaces/entities.interface';
 import { AuthErrorCode } from '../enums/error-codes.enum';
 import {
@@ -72,6 +73,7 @@ describe('PhoneVerificationService', () => {
     executeUserProfileUpdated: jest.Mock;
     executeOnboardingCompleted: jest.Mock;
     executePhoneChanged: jest.Mock;
+    executeMFADeviceRemoved: jest.Mock;
   };
   let mockConfig: NAuthConfig;
 
@@ -184,6 +186,7 @@ describe('PhoneVerificationService', () => {
       executeUserProfileUpdated: jest.fn().mockResolvedValue(undefined),
       executeOnboardingCompleted: jest.fn().mockResolvedValue(undefined),
       executePhoneChanged: jest.fn().mockResolvedValue(undefined),
+      executeMFADeviceRemoved: jest.fn().mockResolvedValue(undefined),
     };
 
     mockConfig = {
@@ -500,8 +503,7 @@ describe('PhoneVerificationService', () => {
 
   describe('setPhoneAndSendVerification', () => {
     function createSetPhoneDto(data: Partial<SetPhoneAndSendVerificationDTO>): SetPhoneAndSendVerificationDTO {
-      const sub =
-        data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
+      const sub = data.sub === 'user-sub-123' ? TEST_USER_SUB : data.sub === 'invalid-sub' ? TEST_OTHER_SUB : data.sub;
       return Object.assign(new SetPhoneAndSendVerificationDTO(), { ...data, sub });
     }
 
@@ -524,9 +526,7 @@ describe('PhoneVerificationService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       try {
-        await service.setPhoneAndSendVerification(
-          createSetPhoneDto({ sub: 'invalid-sub', phone: '+19998887777' }),
-        );
+        await service.setPhoneAndSendVerification(createSetPhoneDto({ sub: 'invalid-sub', phone: '+19998887777' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -541,9 +541,7 @@ describe('PhoneVerificationService', () => {
         .mockResolvedValueOnce({ ...mockUser, id: 999, sub: TEST_OTHER_SUB } as any); // phone lookup (different user)
 
       try {
-        await service.setPhoneAndSendVerification(
-          createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
-        );
+        await service.setPhoneAndSendVerification(createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }));
         fail('Should have thrown NAuthException');
       } catch (error: any) {
         expect(error).toBeInstanceOf(NAuthException);
@@ -649,6 +647,290 @@ describe('PhoneVerificationService', () => {
 
       expect(result.phoneChanged).toBe(true);
       expect(service.sendVerificationSMS).toHaveBeenCalled();
+    });
+
+    // ------------------------------------------------------------------------
+    // SMS MFA device retirement on phone change
+    // ------------------------------------------------------------------------
+    describe('SMS MFA device retirement', () => {
+      let mockMfaDeviceRepository: { find: jest.Mock; delete: jest.Mock };
+      let retiringService: PhoneVerificationService;
+      let callOrder: string[];
+
+      const smsDevices = [{ id: 11 }, { id: 12 }];
+
+      beforeEach(() => {
+        callOrder = [];
+        mockMfaDeviceRepository = {
+          find: jest.fn(),
+          delete: jest.fn().mockImplementation(async (id: number) => {
+            callOrder.push(`delete:${id}`);
+            return { affected: 1 };
+          }),
+        };
+        mockHookRegistry.executePhoneChanged.mockImplementation(async () => {
+          callOrder.push('executePhoneChanged');
+        });
+
+        retiringService = new PhoneVerificationService(
+          mockVerificationTokenRepository,
+          mockUserRepository,
+          mockSmsProvider,
+          mockStorageAdapter,
+          mockConfig,
+          mockClientInfoService,
+          mockLogger,
+          mockHookRegistry as any,
+          mockAuditService,
+          mockMfaDeviceRepository as unknown as Repository<BaseMFADevice>,
+        );
+        jest.spyOn(retiringService, 'sendVerificationSMS').mockResolvedValue({ tokenId: 999 });
+      });
+
+      /** Queue the SMS-device lookup and the "remaining active devices" lookup. */
+      function queueDeviceLookups(sms: Array<{ id: number }>, remaining: Array<{ id: number }>): void {
+        mockMfaDeviceRepository.find.mockResolvedValueOnce(sms).mockResolvedValueOnce(remaining);
+      }
+
+      it('should delete active SMS devices, audit the removal, and report counts to the hooks', async () => {
+        const mfaUser = { ...mockUser, mfaEnabled: true, mfaMethods: ['sms', 'totp'], preferredMfaMethod: 'sms' };
+        mockUserRepository.findOne.mockResolvedValueOnce(mfaUser as any);
+        queueDeviceLookups(smsDevices, [{ id: 30 }]); // a TOTP device remains
+
+        await retiringService.setPhoneAndSendVerification(
+          createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
+        );
+
+        expect(mockMfaDeviceRepository.find).toHaveBeenNthCalledWith(1, {
+          where: { userId: 123, type: 'sms', isActive: true },
+        });
+        expect(mockMfaDeviceRepository.delete).toHaveBeenCalledTimes(2);
+        expect(mockMfaDeviceRepository.delete).toHaveBeenCalledWith(11);
+        expect(mockMfaDeviceRepository.delete).toHaveBeenCalledWith(12);
+        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userId: 123,
+            eventType: AuthAuditEventType.MFA_DEVICE_REMOVED,
+            reason: 'phone_changed',
+            metadata: expect.objectContaining({
+              method: 'sms',
+              deletedCount: 2,
+              oldPhone: expect.stringContaining('*'),
+              newPhone: expect.stringContaining('*'),
+            }),
+          }),
+        );
+        const auditMeta = mockAuditService.recordEvent.mock.calls[0][0].metadata as Record<string, string>;
+        expect(auditMeta.oldPhone).not.toContain('+1234567890');
+        expect(auditMeta.newPhone).not.toContain('+19998887777');
+
+        expect(mockHookRegistry.executeMFADeviceRemoved).toHaveBeenCalledWith(
+          expect.objectContaining({
+            deviceType: 'sms',
+            removedBy: 'system',
+            reason: 'phone_changed',
+            remainingDeviceCount: 1,
+          }),
+        );
+        expect(mockHookRegistry.executePhoneChanged).toHaveBeenCalledWith(
+          expect.objectContaining({ deactivatedMFADevices: 2, mfaDisabled: false }),
+        );
+      });
+
+      it('should not fire mfaDeviceRemoved when the user had no SMS devices', async () => {
+        mockUserRepository.findOne.mockResolvedValueOnce({ ...mockUser, mfaEnabled: true } as any);
+        mockMfaDeviceRepository.find.mockResolvedValueOnce([]);
+
+        await retiringService.setPhoneAndSendVerification(
+          createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
+        );
+
+        expect(mockMfaDeviceRepository.delete).not.toHaveBeenCalled();
+        expect(mockAuditService.recordEvent).not.toHaveBeenCalled();
+        expect(mockHookRegistry.executeMFADeviceRemoved).not.toHaveBeenCalled();
+        expect(mockUserRepository.update).toHaveBeenCalledTimes(1); // phone update only, MFA untouched
+        expect(mockHookRegistry.executePhoneChanged).toHaveBeenCalledWith(
+          expect.objectContaining({ deactivatedMFADevices: 0, mfaDisabled: false }),
+        );
+      });
+
+      it('should disable MFA and report mfaDisabled when no active device remains', async () => {
+        mockUserRepository.findOne.mockResolvedValueOnce({
+          ...mockUser,
+          mfaEnabled: true,
+          mfaMethods: ['sms'],
+          preferredMfaMethod: 'sms',
+        } as any);
+        queueDeviceLookups(smsDevices, []);
+
+        await retiringService.setPhoneAndSendVerification(
+          createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
+        );
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          { id: 123 },
+          { mfaEnabled: false, mfaMethods: [], preferredMfaMethod: null },
+        );
+        expect(mockHookRegistry.executeMFADeviceRemoved).toHaveBeenCalledWith(
+          expect.objectContaining({
+            remainingDeviceCount: 0,
+            user: expect.objectContaining({ mfaEnabled: false, mfaMethods: [], preferredMfaMethod: null }),
+          }),
+        );
+        expect(mockHookRegistry.executeUserProfileUpdated).toHaveBeenCalledWith(
+          expect.objectContaining({
+            changedFields: expect.arrayContaining([{ fieldName: 'mfaEnabled', oldValue: true, newValue: false }]),
+          }),
+        );
+        expect(mockHookRegistry.executePhoneChanged).toHaveBeenCalledWith(
+          expect.objectContaining({ deactivatedMFADevices: 2, mfaDisabled: true }),
+        );
+      });
+
+      it('should report mfaDisabled false when MFA is cleared for a user that never had it enabled', async () => {
+        mockUserRepository.findOne.mockResolvedValueOnce({ ...mockUser, mfaEnabled: false } as any);
+        queueDeviceLookups([{ id: 11 }], []);
+
+        await retiringService.setPhoneAndSendVerification(
+          createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
+        );
+
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          { id: 123 },
+          { mfaEnabled: false, mfaMethods: [], preferredMfaMethod: null },
+        );
+        expect(mockHookRegistry.executePhoneChanged).toHaveBeenCalledWith(
+          expect.objectContaining({ deactivatedMFADevices: 1, mfaDisabled: false }),
+        );
+        const changedFields = mockHookRegistry.executeUserProfileUpdated.mock.calls[0][0].changedFields as Array<{
+          fieldName: string;
+        }>;
+        expect(changedFields.map((f) => f.fieldName)).not.toContain('mfaEnabled');
+      });
+
+      it('should keep MFA enabled when another active device remains', async () => {
+        mockUserRepository.findOne.mockResolvedValueOnce({ ...mockUser, mfaEnabled: true } as any);
+        queueDeviceLookups([{ id: 11 }], [{ id: 40 }, { id: 41 }]);
+
+        await retiringService.setPhoneAndSendVerification(
+          createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
+        );
+
+        expect(mockUserRepository.update).toHaveBeenCalledTimes(1); // phone update only
+        expect(mockHookRegistry.executeMFADeviceRemoved).toHaveBeenCalledWith(
+          expect.objectContaining({ remainingDeviceCount: 2 }),
+        );
+        expect(mockHookRegistry.executePhoneChanged).toHaveBeenCalledWith(
+          expect.objectContaining({ deactivatedMFADevices: 1, mfaDisabled: false }),
+        );
+        const changedFields = mockHookRegistry.executeUserProfileUpdated.mock.calls[0][0].changedFields as Array<{
+          fieldName: string;
+        }>;
+        expect(changedFields.map((f) => f.fieldName)).not.toContain('mfaEnabled');
+      });
+
+      it('should not retire devices when the account had no previous phone', async () => {
+        mockUserRepository.findOne.mockResolvedValueOnce({ ...mockUser, phone: null, mfaEnabled: true } as any);
+
+        await retiringService.setPhoneAndSendVerification(
+          createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
+        );
+
+        expect(mockMfaDeviceRepository.find).not.toHaveBeenCalled();
+        expect(mockMfaDeviceRepository.delete).not.toHaveBeenCalled();
+        expect(mockHookRegistry.executeMFADeviceRemoved).not.toHaveBeenCalled();
+      });
+
+      it('should not retire devices when the phone is unchanged', async () => {
+        mockUserRepository.findOne.mockResolvedValueOnce({ ...mockUser, mfaEnabled: true } as any);
+
+        await retiringService.setPhoneAndSendVerification(
+          createSetPhoneDto({ sub: 'user-sub-123', phone: '+1234567890' }),
+        );
+
+        expect(mockMfaDeviceRepository.find).not.toHaveBeenCalled();
+        expect(mockMfaDeviceRepository.delete).not.toHaveBeenCalled();
+        expect(mockHookRegistry.executeMFADeviceRemoved).not.toHaveBeenCalled();
+      });
+
+      it('should delete devices before executePhoneChanged fires', async () => {
+        mockUserRepository.findOne.mockResolvedValueOnce({ ...mockUser, mfaEnabled: true } as any);
+        queueDeviceLookups(smsDevices, [{ id: 30 }]);
+
+        await retiringService.setPhoneAndSendVerification(
+          createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
+        );
+
+        expect(callOrder).toEqual(['delete:11', 'delete:12', 'executePhoneChanged']);
+      });
+
+      it('should still fire executePhoneChanged when the mfaDeviceRemoved hook throws', async () => {
+        mockUserRepository.findOne.mockResolvedValueOnce({ ...mockUser, mfaEnabled: true } as any);
+        queueDeviceLookups([{ id: 11 }], [{ id: 30 }]);
+        mockHookRegistry.executeMFADeviceRemoved.mockRejectedValueOnce(new Error('listener boom'));
+
+        const result = await retiringService.setPhoneAndSendVerification(
+          createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
+        );
+
+        expect(result.phoneChanged).toBe(true);
+        expect(mockHookRegistry.executeUserProfileUpdated).toHaveBeenCalled();
+        expect(mockHookRegistry.executePhoneChanged).toHaveBeenCalledWith(
+          expect.objectContaining({ deactivatedMFADevices: 1 }),
+        );
+        expect(mockLogger.error).toHaveBeenCalledWith(
+          expect.stringContaining('Failed to execute mfaDeviceRemoved hooks'),
+          expect.anything(),
+        );
+      });
+
+      it('should still retire devices when audit recording fails', async () => {
+        mockUserRepository.findOne.mockResolvedValueOnce({ ...mockUser, mfaEnabled: true } as any);
+        queueDeviceLookups([{ id: 11 }], []);
+        mockAuditService.recordEvent.mockRejectedValueOnce(new Error('audit down'));
+
+        const result = await retiringService.setPhoneAndSendVerification(
+          createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
+        );
+
+        expect(result.phoneChanged).toBe(true);
+        expect(mockUserRepository.update).toHaveBeenCalledWith(
+          { id: 123 },
+          { mfaEnabled: false, mfaMethods: [], preferredMfaMethod: null },
+        );
+        expect(mockHookRegistry.executePhoneChanged).toHaveBeenCalled();
+      });
+
+      it('should fail closed when deleting a device throws', async () => {
+        mockUserRepository.findOne.mockResolvedValueOnce({ ...mockUser, mfaEnabled: true } as any);
+        mockMfaDeviceRepository.find.mockResolvedValueOnce([{ id: 11 }]);
+        mockMfaDeviceRepository.delete.mockRejectedValueOnce(new Error('db down'));
+
+        await expect(
+          retiringService.setPhoneAndSendVerification(
+            createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
+          ),
+        ).rejects.toThrow('db down');
+
+        expect(mockHookRegistry.executePhoneChanged).not.toHaveBeenCalled();
+        expect(retiringService.sendVerificationSMS).not.toHaveBeenCalled();
+      });
+
+      it('should be a no-op without a device repository', async () => {
+        mockUserRepository.findOne.mockResolvedValueOnce({ ...mockUser, mfaEnabled: true } as any);
+
+        // `service` is constructed without the optional mfaDeviceRepository argument
+        const result = await service.setPhoneAndSendVerification(
+          createSetPhoneDto({ sub: 'user-sub-123', phone: '+19998887777' }),
+        );
+
+        expect(result.phoneChanged).toBe(true);
+        expect(mockUserRepository.update).toHaveBeenCalledTimes(1);
+        expect(mockHookRegistry.executeMFADeviceRemoved).not.toHaveBeenCalled();
+        expect(mockHookRegistry.executePhoneChanged).toHaveBeenCalledWith(
+          expect.objectContaining({ deactivatedMFADevices: 0, mfaDisabled: false }),
+        );
+      });
     });
   });
 

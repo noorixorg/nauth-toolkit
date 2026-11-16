@@ -9,6 +9,7 @@ import {
   AuthErrorCode,
   MFAMethod,
   ClientInfoService,
+  HookRegistryService,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import { BaseMFAProviderService, ChallengeService, AuthAuditService } from '@nauth-toolkit/core/internal';
@@ -48,6 +49,7 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
     challengeService?: ChallengeService,
     auditService?: AuthAuditService,
     clientInfoService?: ClientInfoService,
+    hookRegistry?: HookRegistryService,
   ) {
     super(
       mfaDeviceRepository,
@@ -58,6 +60,7 @@ export class TOTPMFAProviderService extends BaseMFAProviderService {
       challengeService,
       auditService,
       clientInfoService,
+      hookRegistry,
     );
   }
 

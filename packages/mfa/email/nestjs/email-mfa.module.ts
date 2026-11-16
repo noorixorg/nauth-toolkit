@@ -9,6 +9,7 @@ import {
   ClientInfoService,
   BaseMFADevice,
   BaseUser,
+  HookRegistryService,
 } from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import {
@@ -53,6 +54,7 @@ import {
         challengeService: ChallengeService | undefined,
         auditService: InternalAuthAuditService | undefined,
         clientInfoService: ClientInfoService | undefined,
+        hookRegistry: HookRegistryService | undefined,
       ) => {
         return new EmailMFAProviderService(
           mfaDeviceRepository,
@@ -64,6 +66,7 @@ import {
           challengeService,
           auditService,
           clientInfoService,
+          hookRegistry,
         );
       },
       inject: [
@@ -76,6 +79,8 @@ import {
         { token: 'ChallengeService', optional: true },
         { token: InternalAuthAuditService, optional: true },
         { token: ClientInfoService, optional: true },
+        // Lifecycle hooks (mfaFirstEnabled, mfaMethodAdded); provided globally by AuthModule
+        { token: HookRegistryService, optional: true },
       ],
     },
 

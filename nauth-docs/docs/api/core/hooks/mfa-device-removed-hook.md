@@ -52,6 +52,7 @@ interface MFADeviceRemovedMetadata {
 
 - User removes MFA device via `removeDevices()`
 - System removes device due to email/phone change via `updateUserAttributes()`
+- System removes SMS devices when [`setPhoneAndSendVerification()`](/docs/api/core/services/phone-verification-service#setphoneandsendverification) replaces the phone (SMS MFA setup with a new `phoneNumber`, `VERIFY_PHONE` phone collection)
 
 ## Example
 

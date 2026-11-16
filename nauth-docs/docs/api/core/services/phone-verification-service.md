@@ -285,7 +285,7 @@ async setPhoneAndSendVerification(dto: SetPhoneAndSendVerificationDTO): Promise<
   - `tokenId` - `number` - Verification token ID (internal)
   - `phoneChanged` - `boolean` - `true` when the phone on file was replaced
 
-When `phone` differs from the phone on file, the user is updated with `phone` and `isPhoneVerified = false`, then the [userProfileUpdated](../hooks/user-profile-updated-hook) hook fires, and the [phoneChanged](../hooks/phone-changed-hook) hook fires if there was a previous number. When `phone` equals the phone on file, nothing is written and only the SMS is sent.
+When `phone` differs from the phone on file, the user is updated with `phone` and `isPhoneVerified = false`. If there was a previous number, its SMS MFA devices are then deleted (codes would otherwise go to the new, unverified number), and MFA is switched off when no active device of any type remains, the same as a phone change through [`updateUserAttributes()`](./auth-service#updateuserattributes). Then the [userProfileUpdated](../hooks/user-profile-updated-hook) hook fires, [mfaDeviceRemoved](../hooks/mfa-device-removed-hook) fires if SMS devices were deleted, and [phoneChanged](../hooks/phone-changed-hook) fires with `deactivatedMFADevices` and `mfaDisabled` if there was a previous number. When `phone` equals the phone on file, nothing is written and only the SMS is sent.
 
 **Errors**
 

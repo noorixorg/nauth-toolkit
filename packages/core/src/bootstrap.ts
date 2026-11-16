@@ -274,6 +274,7 @@ export class NAuth {
         services.challengeService,
         services.auditService,
         services.clientInfoService,
+        services.hookRegistry,
       );
     }
 

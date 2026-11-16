@@ -3,7 +3,14 @@ import { TOTPMFAProviderService } from '../src/totp-mfa-provider.service';
 import { TOTPService } from '../src/totp.service';
 import { Repository } from 'typeorm';
 // Public API imports
-import { NAuthConfig, NAuthLogger, ClientInfoService, BaseMFADevice, BaseUser } from '@nauth-toolkit/core';
+import {
+  NAuthConfig,
+  NAuthLogger,
+  ClientInfoService,
+  BaseMFADevice,
+  BaseUser,
+  HookRegistryService,
+} from '@nauth-toolkit/core';
 // Internal API imports (for provider implementations)
 import {
   NAUTH_MFA_PROVIDER_TOKEN,
@@ -52,6 +59,7 @@ import {
         challengeService: ChallengeService | undefined,
         auditService: InternalAuthAuditService | undefined,
         clientInfoService: ClientInfoService | undefined,
+        hookRegistry: HookRegistryService | undefined,
       ) => {
         return new TOTPMFAProviderService(
           mfaDeviceRepository,
@@ -63,6 +71,7 @@ import {
           challengeService,
           auditService,
           clientInfoService,
+          hookRegistry,
         );
       },
       inject: [
@@ -75,6 +84,8 @@ import {
         { token: 'ChallengeService', optional: true },
         { token: InternalAuthAuditService, optional: true },
         { token: ClientInfoService, optional: true },
+        // Lifecycle hooks (mfaFirstEnabled, mfaMethodAdded); provided globally by AuthModule
+        { token: HookRegistryService, optional: true },
       ],
     },
 

@@ -27,20 +27,30 @@ type MigrationRunnerModule = {
  *
  * Set `config.migrations.autoRun = false` to skip this entirely and apply migrations
  * out-of-band (for example from a one-off release task).
+ *
+ * This is the only implementation: `NAuth.create()` and the NestJS `AuthModule` both call it,
+ * so `migrations.autoRun` behaves the same on every framework.
+ *
+ * @param config - nauth configuration (reads `migrations.autoRun`)
+ * @param dataSource - Initialized TypeORM DataSource to migrate
+ * @param logger - nauth logger
+ * @returns `true` when the adapter ran its migrations, `false` when they were skipped
+ *   (`autoRun: false`, DataSource not initialized, or an unsupported database type)
+ * @throws {Error} When the adapter package cannot be loaded or the migration run fails
  */
 export async function runNAuthMigrationsOnStartup(
   config: NAuthConfig,
   dataSource: DataSource,
   logger: NAuthLogger,
-): Promise<void> {
+): Promise<boolean> {
   if (config.migrations?.autoRun === false) {
     logger.log('[nauth-toolkit] Automatic migrations disabled (migrations.autoRun: false); skipping.');
-    return;
+    return false;
   }
 
-  if (!dataSource.isInitialized) {
+  if (!dataSource?.isInitialized) {
     logger.warn('[nauth-toolkit] DataSource not initialized; skipping migrations');
-    return;
+    return false;
   }
 
   const dbType = getDbType(dataSource);
@@ -50,7 +60,7 @@ export async function runNAuthMigrationsOnStartup(
         (dataSource.options as { type?: unknown } | undefined)?.type,
       )}`,
     );
-    return;
+    return false;
   }
 
   const adapterPackageName =
@@ -70,4 +80,5 @@ export async function runNAuthMigrationsOnStartup(
   }
 
   await imported.runNAuthMigrations(dataSource, logger, config);
+  return true;
 }

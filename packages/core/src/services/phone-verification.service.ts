@@ -1,6 +1,6 @@
 import { Repository, IsNull } from 'typeorm';
 import { IUser, IVerificationToken } from '../interfaces/entities.interface';
-import { BaseVerificationToken, BaseUser } from '../entities';
+import { BaseVerificationToken, BaseUser, BaseMFADevice } from '../entities';
 import { SMSProvider } from '../interfaces/provider.interface';
 import { StorageAdapter } from '../interfaces/storage-adapter.interface';
 import { NAuthConfig } from '../interfaces/config.interface';
@@ -9,6 +9,7 @@ import { InternalAuthAuditService as AuthAuditService } from './auth-audit.servi
 import { AuthAuditEventType } from '../enums/auth-audit-event-type.enum';
 import { NAuthException } from '../exceptions/nauth.exception';
 import { AuthErrorCode } from '../enums/error-codes.enum';
+import { MFAMethod } from '../enums/mfa-method.enum';
 import { NAuthLogger } from '../utils/nauth-logger';
 import { HookRegistryService } from './hook-registry.service';
 import {
@@ -57,6 +58,7 @@ export class PhoneVerificationService {
     private readonly logger: NAuthLogger,
     private readonly hookRegistry: HookRegistryService,
     private readonly auditService?: AuthAuditService, // Optional - audit trail service (enabled via config.auditLogs.enabled)
+    private readonly mfaDeviceRepository?: Repository<BaseMFADevice>, // Optional - retires SMS MFA devices on phone change
   ) {}
 
   /**
@@ -275,9 +277,11 @@ export class PhoneVerificationService {
    * written; a delivery or rate-limit error after the write leaves the new number saved
    * but unverified, exactly like a phone change through the profile endpoint.
    *
-   * Note: SMS MFA devices tied to the old number are not touched here (this service has no
-   * device repository). Callers that own devices (the SMS MFA provider, `UserService`)
-   * retire them themselves.
+   * When a previous number is replaced, active SMS MFA devices are deleted (codes would
+   * otherwise go to the new, unverified number), the removal is audited, `mfaDeviceRemoved`
+   * fires, and MFA is switched off when no active device of any type remains. The removal
+   * count and `mfaDisabled` are passed to `phoneChanged`. This matches a phone change
+   * through `UserService.updateUserAttributes()`.
    *
    * @param dto - Request DTO containing sub, phone and optional challengeSessionId
    * @returns Response DTO with verification token ID and whether the phone changed
@@ -322,6 +326,12 @@ export class PhoneVerificationService {
         `Phone number ${oldPhone ? 'changed' : 'added'} for user ${sub}: ${this.maskPhone(phone)} (verification reset)`,
       );
 
+      // SMS MFA devices were bound to the old number. Retire them before the hooks run so
+      // phoneChanged can report what was removed.
+      const retirement = oldPhone
+        ? await this.retireSmsDevicesForPhoneChange(user, oldPhone, phone)
+        : { removedCount: 0, remainingDeviceCount: 0, mfaDisabled: false };
+
       // ============================================================================
       // Hooks (non-blocking): userProfileUpdated always; phoneChanged only when a
       // previous number existed (its notification goes to the account email so the
@@ -335,13 +345,46 @@ export class PhoneVerificationService {
           ipCountry: clientInfo.ipCountry,
           ipCity: clientInfo.ipCity,
         };
-        const updatedUser = { ...user, phone, isPhoneVerified: false } as IUser;
+        const updatedUser = {
+          ...user,
+          phone,
+          isPhoneVerified: false,
+          ...(retirement.mfaDisabled ? { mfaEnabled: false, mfaMethods: [], preferredMfaMethod: null } : {}),
+        } as IUser;
         const changedFields: Array<{ fieldName: string; oldValue: unknown; newValue: unknown }> = [
           { fieldName: 'phone', oldValue: oldPhone, newValue: phone },
         ];
         if (wasVerified) {
           changedFields.push({ fieldName: 'isPhoneVerified', oldValue: true, newValue: false });
         }
+        if (retirement.mfaDisabled) {
+          changedFields.push({ fieldName: 'mfaEnabled', oldValue: true, newValue: false });
+        }
+
+        // ============================================================================
+        // Lifecycle Hook: MFA Device Removed
+        // ============================================================================
+        // Fired separately so a failing listener cannot suppress the phoneChanged notice.
+        if (retirement.removedCount > 0) {
+          try {
+            await this.hookRegistry.executeMFADeviceRemoved({
+              user: updatedUser,
+              deviceType: MFAMethod.SMS,
+              removedBy: 'system',
+              reason: 'phone_changed',
+              remainingDeviceCount: retirement.remainingDeviceCount,
+              clientInfo: hookClientInfo,
+            });
+          } catch (hookError) {
+            const errorMessage = hookError instanceof Error ? hookError.message : 'Unknown error';
+            this.logger?.error?.(`Failed to execute mfaDeviceRemoved hooks: ${errorMessage}`, {
+              error: hookError,
+              userId: user.id,
+              reason: 'phone_changed',
+            });
+          }
+        }
+
         await this.hookRegistry.executeUserProfileUpdated({
           user: updatedUser,
           changedFields,
@@ -354,6 +397,8 @@ export class PhoneVerificationService {
             oldPhone,
             newPhone: phone,
             updateSource: 'user_request',
+            deactivatedMFADevices: retirement.removedCount,
+            mfaDisabled: retirement.mfaDisabled,
             clientInfo: hookClientInfo,
           });
         }
@@ -374,6 +419,88 @@ export class PhoneVerificationService {
     const { tokenId } = await this.sendVerificationSMS(sendDto);
 
     return { tokenId, phoneChanged };
+  }
+
+  /**
+   * Delete active SMS MFA devices after the account phone was replaced.
+   *
+   * @remarks
+   * SMS MFA codes go to `user.phone`, so devices enrolled against the old number must not
+   * survive the change. Mirrors `UserService.updateUserAttributes()`: devices are deleted,
+   * `MFA_DEVICE_REMOVED` is audited, and MFA is switched off when no active device of any
+   * type remains. Errors are not swallowed: leaving the devices in place would send login
+   * codes to a number nobody has verified.
+   *
+   * No-op (zero removed) when no MFA device repository was supplied.
+   *
+   * @param user - User whose phone changed (state before the change)
+   * @param oldPhone - Phone the devices were tied to
+   * @param newPhone - Phone now on file (unverified)
+   * @returns Number of devices removed, active devices remaining, and whether MFA was disabled
+   */
+  private async retireSmsDevicesForPhoneChange(
+    user: IUser,
+    oldPhone: string,
+    newPhone: string,
+  ): Promise<{ removedCount: number; remainingDeviceCount: number; mfaDisabled: boolean }> {
+    if (!this.mfaDeviceRepository) {
+      return { removedCount: 0, remainingDeviceCount: 0, mfaDisabled: false };
+    }
+
+    const smsDevices = (await this.mfaDeviceRepository.find({
+      where: { userId: user.id, type: MFAMethod.SMS, isActive: true },
+    } as Record<string, unknown>)) as unknown as Array<{ id: number }>;
+
+    if (smsDevices.length === 0) {
+      return { removedCount: 0, remainingDeviceCount: 0, mfaDisabled: false };
+    }
+
+    this.logger?.log?.(
+      `Deleting ${smsDevices.length} SMS MFA device(s) for user ${user.sub} due to phone number change`,
+    );
+    for (const device of smsDevices) {
+      await this.mfaDeviceRepository.delete(device.id);
+    }
+
+    try {
+      await this.auditService?.recordEvent({
+        userId: user.id,
+        eventType: AuthAuditEventType.MFA_DEVICE_REMOVED,
+        eventStatus: 'INFO',
+        reason: 'phone_changed',
+        description: 'SMS MFA device(s) removed due to phone number change',
+        metadata: {
+          method: MFAMethod.SMS,
+          deletedCount: smsDevices.length,
+          oldPhone: this.maskPhone(oldPhone),
+          newPhone: this.maskPhone(newPhone),
+          reason: 'phone_number_changed_requires_reverification',
+        },
+      });
+    } catch (auditError) {
+      const errorMessage = auditError instanceof Error ? auditError.message : 'Unknown error';
+      this.logger?.error?.(`Failed to record MFA_DEVICE_REMOVED audit event for phone change: ${errorMessage}`, {
+        error: auditError,
+        userId: user.id,
+      });
+    }
+
+    const remaining = (await this.mfaDeviceRepository.find({
+      where: { userId: user.id, isActive: true },
+    } as Record<string, unknown>)) as unknown as Array<{ id: number }>;
+
+    let mfaDisabled = false;
+    if (remaining.length === 0) {
+      await this.userRepo.update({ id: user.id }, {
+        mfaEnabled: false,
+        mfaMethods: [],
+        preferredMfaMethod: null,
+      } as unknown as Record<string, unknown>);
+      mfaDisabled = Boolean(user.mfaEnabled);
+      this.logger?.log?.(`MFA disabled for user ${user.sub} - no active MFA devices remaining after phone change`);
+    }
+
+    return { removedCount: smsDevices.length, remainingDeviceCount: remaining.length, mfaDisabled };
   }
 
   /**

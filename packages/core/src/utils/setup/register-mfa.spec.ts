@@ -19,6 +19,7 @@ import {
   PhoneVerificationService,
   BaseMFADevice,
   BaseUser,
+  HookRegistryService,
 } from '../../index';
 import { PasswordService, ChallengeService } from '../../internal';
 import { AuthAuditService } from '../../services/auth-audit.service';
@@ -59,6 +60,13 @@ jest.mock(
   { virtual: true },
 );
 
+/* eslint-disable @typescript-eslint/no-var-requires */
+const totpModule = require('@nauth-toolkit/mfa-totp') as { TOTPMFAProviderService: jest.Mock };
+const smsModule = require('@nauth-toolkit/mfa-sms') as { SMSMFAProviderService: jest.Mock };
+const emailModule = require('@nauth-toolkit/mfa-email') as { EmailMFAProviderService: jest.Mock };
+const passkeyModule = require('@nauth-toolkit/mfa-passkey') as { PasskeyMFAProviderService: jest.Mock };
+/* eslint-enable @typescript-eslint/no-var-requires */
+
 describe('registerMFAProviders', () => {
   let mockConfig: NAuthConfig;
   let mockMfaService: jest.Mocked<MFAService>;
@@ -73,6 +81,11 @@ describe('registerMFAProviders', () => {
   let mockClientInfoService: jest.Mocked<ClientInfoService>;
 
   beforeEach(() => {
+    totpModule.TOTPMFAProviderService.mockClear();
+    smsModule.SMSMFAProviderService.mockClear();
+    emailModule.EmailMFAProviderService.mockClear();
+    passkeyModule.PasskeyMFAProviderService.mockClear();
+
     mockConfig = {
       jwt: {
         accessToken: { secret: 'test', expiresIn: 3600 },
@@ -141,5 +154,62 @@ describe('registerMFAProviders', () => {
     );
 
     expect(mockLogger.debug).toHaveBeenCalledWith(expect.stringContaining('Phone verification service not configured'));
+  });
+
+  describe('hook registry wiring', () => {
+    it('should pass the hook registry as the last constructor arg to every provider', async () => {
+      const mockHookRegistry = { executeMFAFirstEnabled: jest.fn() } as unknown as HookRegistryService;
+
+      await registerMFAProviders(
+        mockConfig,
+        mockMfaService,
+        mockMfaDeviceRepository,
+        mockUserRepository,
+        mockLogger,
+        mockPasswordService,
+        mockEmailVerificationService,
+        mockPhoneVerificationService,
+        mockChallengeService,
+        mockAuditService,
+        mockClientInfoService,
+        mockHookRegistry,
+      );
+
+      const mocks = [
+        totpModule.TOTPMFAProviderService,
+        smsModule.SMSMFAProviderService,
+        emailModule.EmailMFAProviderService,
+        passkeyModule.PasskeyMFAProviderService,
+      ];
+      for (const ctor of mocks) {
+        expect(ctor).toHaveBeenCalledTimes(1);
+        const args = ctor.mock.calls[0];
+        expect(args).toHaveLength(10);
+        expect(args[8]).toBe(mockClientInfoService);
+        expect(args[9]).toBe(mockHookRegistry);
+      }
+      expect(mockMfaService.registerProvider).toHaveBeenCalledTimes(4);
+    });
+
+    it('should pass undefined as the last constructor arg when no hook registry is supplied', async () => {
+      await registerMFAProviders(
+        mockConfig,
+        mockMfaService,
+        mockMfaDeviceRepository,
+        mockUserRepository,
+        mockLogger,
+        mockPasswordService,
+        mockEmailVerificationService,
+        mockPhoneVerificationService,
+        mockChallengeService,
+        mockAuditService,
+        mockClientInfoService,
+      );
+
+      expect(totpModule.TOTPMFAProviderService.mock.calls[0][9]).toBeUndefined();
+      expect(smsModule.SMSMFAProviderService.mock.calls[0][9]).toBeUndefined();
+      expect(emailModule.EmailMFAProviderService.mock.calls[0][9]).toBeUndefined();
+      expect(passkeyModule.PasskeyMFAProviderService.mock.calls[0][9]).toBeUndefined();
+    });
   });
 });

@@ -15,7 +15,6 @@ import {
   PhoneVerificationService,
   NAuthException,
   AuthErrorCode,
-  AuthAuditEventType,
   IUser,
   ContextStorage,
 } from '@nauth-toolkit/core';
@@ -196,7 +195,6 @@ describe('SMSMFAProviderService', () => {
         expect(result).toEqual({ maskedPhone: '***-***-7890' });
       });
 
-      // Number is unchanged, so phoneChanged is false and no device retirement should occur
       expect(mockMfaDeviceRepository.delete).not.toHaveBeenCalled();
     });
 
@@ -237,18 +235,14 @@ describe('SMSMFAProviderService', () => {
       });
     });
 
-    describe('retiring SMS devices on phone change', () => {
-      it('deletes active SMS devices, records an audit event, and disables MFA when none remain', async () => {
+    describe('phone change delegation', () => {
+      it('delegates a phone change to setPhoneAndSendVerification and does not touch devices itself', async () => {
         const currentUser = { ...mockUser, phone: '+1111111111', isPhoneVerified: false, id: 1 };
         (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(currentUser);
         (service as any).maskPhone = jest.fn((phone: string) => `masked:${phone}`);
         mockPhoneVerificationService.setPhoneAndSendVerification = jest
           .fn()
           .mockResolvedValue({ tokenId: 'token-id', phoneChanged: true });
-        mockMfaDeviceRepository.find = jest
-          .fn()
-          .mockResolvedValueOnce([{ id: 55 }])
-          .mockResolvedValueOnce([]) as any;
 
         await ContextStorage.run(async () => {
           ContextStorage.set('CURRENT_USER', currentUser);
@@ -256,51 +250,13 @@ describe('SMSMFAProviderService', () => {
           expect(result).toEqual({ maskedPhone: 'masked:+2222222222' });
         });
 
-        expect(mockMfaDeviceRepository.delete).toHaveBeenCalledWith(55);
-        expect(mockAuditService.recordEvent).toHaveBeenCalledWith(
-          expect.objectContaining({ userId: 1, eventType: AuthAuditEventType.MFA_DEVICE_REMOVED }),
+        // Device retirement (delete, audit, MFA disable, hooks) now lives in core's
+        // PhoneVerificationService.setPhoneAndSendVerification, not in the provider.
+        expect(mockPhoneVerificationService.setPhoneAndSendVerification).toHaveBeenCalledTimes(1);
+        expect(mockPhoneVerificationService.setPhoneAndSendVerification).toHaveBeenCalledWith(
+          expect.objectContaining({ sub: currentUser.sub, phone: '+2222222222' }),
         );
-        expect(mockUserRepository.update).toHaveBeenCalledWith(
-          { id: 1 },
-          { mfaEnabled: false, mfaMethods: [], preferredMfaMethod: null },
-        );
-      });
-
-      it('does not disable MFA when other active devices remain after retiring SMS devices', async () => {
-        const currentUser = { ...mockUser, phone: '+1111111111', isPhoneVerified: false, id: 1 };
-        (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(currentUser);
-        (service as any).maskPhone = jest.fn((phone: string) => `masked:${phone}`);
-        mockPhoneVerificationService.setPhoneAndSendVerification = jest
-          .fn()
-          .mockResolvedValue({ tokenId: 'token-id', phoneChanged: true });
-        mockMfaDeviceRepository.find = jest
-          .fn()
-          .mockResolvedValueOnce([{ id: 55 }])
-          .mockResolvedValueOnce([{ id: 99 }]) as any;
-
-        await ContextStorage.run(async () => {
-          ContextStorage.set('CURRENT_USER', currentUser);
-          await service.setup({ phoneNumber: '+2222222222' });
-        });
-
-        expect(mockMfaDeviceRepository.delete).toHaveBeenCalledWith(55);
-        expect(mockUserRepository.update).not.toHaveBeenCalled();
-      });
-
-      it('does nothing when no active SMS devices exist', async () => {
-        const currentUser = { ...mockUser, phone: '+1111111111', isPhoneVerified: false, id: 1 };
-        (service as any).getCurrentUserOrThrow = jest.fn().mockReturnValue(currentUser);
-        (service as any).maskPhone = jest.fn((phone: string) => `masked:${phone}`);
-        mockPhoneVerificationService.setPhoneAndSendVerification = jest
-          .fn()
-          .mockResolvedValue({ tokenId: 'token-id', phoneChanged: true });
-        mockMfaDeviceRepository.find = jest.fn().mockResolvedValue([]) as any;
-
-        await ContextStorage.run(async () => {
-          ContextStorage.set('CURRENT_USER', currentUser);
-          await service.setup({ phoneNumber: '+2222222222' });
-        });
-
+        expect(mockMfaDeviceRepository.find).not.toHaveBeenCalled();
         expect(mockMfaDeviceRepository.delete).not.toHaveBeenCalled();
         expect(mockAuditService.recordEvent).not.toHaveBeenCalled();
         expect(mockUserRepository.update).not.toHaveBeenCalled();
@@ -764,6 +720,103 @@ describe('SMSMFAProviderService', () => {
       });
 
       expect(mockMfaDeviceRepository.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('lifecycle hooks (hook registry wiring)', () => {
+    let mockHookRegistry: { executeMFAFirstEnabled: jest.Mock; executeMFAMethodAdded: jest.Mock };
+    let hookedClientInfoService: { get: jest.Mock };
+    let hookedService: SMSMFAProviderService;
+
+    /** Build a provider that receives the hook registry as its last constructor arg. */
+    function buildProvider(withRegistry: boolean): SMSMFAProviderService {
+      return new SMSMFAProviderService(
+        (service as any).mfaDeviceRepository,
+        (service as any).userRepository,
+        (service as any).config,
+        (service as any).logger,
+        {},
+        mockPhoneVerificationService,
+        undefined,
+        undefined,
+        hookedClientInfoService as any,
+        withRegistry ? (mockHookRegistry as any) : undefined,
+      );
+    }
+
+    beforeEach(() => {
+      mockHookRegistry = {
+        executeMFAFirstEnabled: jest.fn().mockResolvedValue(undefined),
+        executeMFAMethodAdded: jest.fn().mockResolvedValue(undefined),
+      };
+      hookedClientInfoService = {
+        get: jest.fn().mockReturnValue({ ipAddress: '10.0.0.1', userAgent: 'jest', ipCountry: 'US', ipCity: 'NYC' }),
+      };
+      hookedService = buildProvider(true);
+    });
+
+    /** Stub repositories so enableMFAForUser sees `previousMethods` and the given active devices. */
+    function stubUserState(
+      mfaEnabled: boolean,
+      previousMethods: string[] | null,
+      devices: Array<Record<string, unknown>>,
+    ): void {
+      const userRepository = (service as any).userRepository;
+      const deviceRepository = (service as any).mfaDeviceRepository;
+      userRepository.findOne = jest
+        .fn()
+        .mockResolvedValue({ id: 1, sub: 'user-123', mfaEnabled, mfaMethods: previousMethods });
+      userRepository.save = jest.fn().mockResolvedValue(undefined);
+      deviceRepository.find = jest.fn().mockResolvedValue(devices);
+    }
+
+    it('fires executeMFAFirstEnabled when the first device enables MFA', async () => {
+      stubUserState(false, null, [{ type: 'sms', isActive: true, isPrimary: true }]);
+
+      await (hookedService as any).enableMFAForUser({ id: 1, sub: 'user-123' });
+
+      expect(mockHookRegistry.executeMFAFirstEnabled).toHaveBeenCalledTimes(1);
+      expect(mockHookRegistry.executeMFAFirstEnabled).toHaveBeenCalledWith(
+        expect.objectContaining({
+          firstMethod: 'sms',
+          clientInfo: expect.objectContaining({ ipAddress: '10.0.0.1', userAgent: 'jest' }),
+        }),
+      );
+      expect(mockHookRegistry.executeMFAMethodAdded).not.toHaveBeenCalled();
+    });
+
+    it('fires executeMFAMethodAdded when a new method is added to an account that already has MFA', async () => {
+      stubUserState(
+        true,
+        ['totp'],
+        [
+          { type: 'totp', isActive: true, isPrimary: true },
+          { type: 'sms', isActive: true, isPrimary: false },
+        ],
+      );
+
+      await (hookedService as any).enableMFAForUser({ id: 1, sub: 'user-123' });
+
+      expect(mockHookRegistry.executeMFAMethodAdded).toHaveBeenCalledWith(
+        expect.objectContaining({ method: 'sms', isFirstMethod: false }),
+      );
+      expect(mockHookRegistry.executeMFAFirstEnabled).not.toHaveBeenCalled();
+    });
+
+    it('does not throw or fire hooks when no hook registry was supplied', async () => {
+      const unhooked = buildProvider(false);
+      stubUserState(false, null, [{ type: 'sms', isActive: true, isPrimary: true }]);
+
+      await expect((unhooked as any).enableMFAForUser({ id: 1, sub: 'user-123' })).resolves.toBeUndefined();
+
+      expect(mockHookRegistry.executeMFAFirstEnabled).not.toHaveBeenCalled();
+    });
+
+    it('does not fail setup when the mfaFirstEnabled hook throws', async () => {
+      mockHookRegistry.executeMFAFirstEnabled.mockRejectedValueOnce(new Error('listener boom'));
+      stubUserState(false, null, [{ type: 'sms', isActive: true, isPrimary: true }]);
+
+      await expect((hookedService as any).enableMFAForUser({ id: 1, sub: 'user-123' })).resolves.toBeUndefined();
     });
   });
 });

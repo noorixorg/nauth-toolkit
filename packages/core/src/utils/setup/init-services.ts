@@ -313,6 +313,7 @@ export function initServices(
       logger,
       hookRegistry,
       auditService,
+      repositories.mfaDeviceRepository,
     );
   }
 
