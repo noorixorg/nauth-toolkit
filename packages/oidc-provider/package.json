@@ -28,7 +28,7 @@
   "scripts": {
     "build": "tsc -b",
     "clean": "rm -rf dist *.tsbuildinfo",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest --passWithNoTests",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --selectProjects oidc-provider --passWithNoTests && jest --selectProjects nestjs --passWithNoTests",
     "lint": "eslint src nestjs --ext .ts",
     "lint:fix": "eslint src nestjs --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\" \"nestjs/**/*.ts\"",
